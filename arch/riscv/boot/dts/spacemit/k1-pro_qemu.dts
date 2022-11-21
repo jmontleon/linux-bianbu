@@ -1,0 +1,128 @@
+/dts-v1/;
+
+/ {
+	#address-cells = <0x2>;
+	#size-cells = <0x2>;
+	compatible = "riscv-virtio";
+	model = "riscv-virtio,qemu";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		bootargs = "rootwait root=dev/ram rdinit=/init.tmp earlycon=sbi console=ttyS0";
+		stdout-path = "serial0";
+	};
+
+	memory@20000000 {
+		device_type = "memory";
+		reg = <0x0 0x20000000 0x0 0x8000000>;
+	};
+
+	cpus {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+		timebase-frequency = <0x989680>;
+
+		cpu_0: cpu@0 {
+			device_type = "cpu";
+			reg = <0>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv48";
+
+			cpu0_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+		cpu_1: cpu@1 {
+			device_type = "cpu";
+			reg = <1>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv48";
+
+			cpu1_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+		cpu_2: cpu@2 {
+			device_type = "cpu";
+			reg = <2>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv48";
+
+			cpu2_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+		cpu_3: cpu@3 {
+			device_type = "cpu";
+			reg = <3>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu";
+			mmu-type = "riscv,sv48";
+
+			cpu3_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+	};
+
+	soc {
+		#address-cells = <0x2>;
+		#size-cells = <0x2>;
+		compatible = "simple-bus";
+		ranges;
+
+		intc:plic@b0000000 {
+			riscv,ndev = <0x35>;
+			reg = <0x0 0xb0000000 0x0 0x04000000>;
+			interrupts-extended = <
+			    &cpu0_intc 0xb &cpu0_intc 0x9
+			    &cpu1_intc 0xb &cpu1_intc 0x9
+			    &cpu2_intc 0xb &cpu2_intc 0x9
+			    &cpu3_intc 0xb &cpu3_intc 0x9
+			>;
+			interrupt-controller;
+			compatible = "sifive,plic-1.0.0", "riscv,plic0";
+			#interrupt-cells = <0x1>;
+			#address-cells = <0x0>;
+		};
+
+		clint0: clint@b4000000 {
+			compatible = "riscv,clint0";
+			interrupts-extended = <
+				&cpu0_intc  3 &cpu0_intc  7
+				&cpu1_intc  3 &cpu1_intc  7
+				&cpu2_intc  3 &cpu2_intc  7
+				&cpu3_intc  3 &cpu3_intc  7
+			>;
+			reg = <0x0 0xb4000000 0x0 0x00010000>;
+			clint,has-no-64bit-mmio;
+		};
+
+		uart0:uart@10010000 {
+			interrupts = <0xa>;
+			interrupt-parent = <&intc>;
+			clock-frequency = <0x384000>;
+			reg = <0x0 0x10010000 0x0 0x100>;
+			compatible = "ns16550a";
+		};
+	};
+};
+
