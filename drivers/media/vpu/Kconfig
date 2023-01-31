@@ -1,0 +1,16 @@
+config VIDEO_LINLON
+	tristate "Linlon VPU support."
+	select VIDEOBUF2_MEMOPS
+	select VIDEOBUF2_DMA_SG
+	depends on VIDEO_DEV
+	default y
+
+config VIDEO_LINLON_FTRACE
+	depends on VIDEO_LINLON
+	bool "Send kernel space logs to ftrace."
+	default n
+
+config VIDEO_LINLON_PRINT_FILE
+	depends on VIDEO_LINLON
+	bool "Append file and line number to kernel space log messages."
+	default y
