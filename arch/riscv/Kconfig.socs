@@ -94,6 +94,27 @@ config SOC_SPACEMIT
 if SOC_SPACEMIT
 
 choice
+	prompt "Spacemit SOCs platform"
+	help
+	  choice Spacemit soc platform
+
+	config SOC_SPACEMIT_K1
+		bool "k1"
+		help
+		  select Spacemit k1 Platform SOCs.
+
+	config SOC_SPACEMIT_K2
+		bool "k2"
+		help
+		  select Spacemit k2 Platform SOCs.
+
+endchoice
+
+endif
+
+if SOC_SPACEMIT && SOC_SPACEMIT_K1
+
+choice
 	prompt "Spacemit K1 serial SOCs"
 	help
 	  choice Spacemit K1 soc platform
