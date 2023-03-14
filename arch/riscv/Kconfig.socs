@@ -110,9 +110,7 @@ choice
 
 endchoice
 
-endif
-
-if SOC_SPACEMIT && SOC_SPACEMIT_K1
+if SOC_SPACEMIT_K1
 
 choice
 	prompt "Spacemit K1 serial SOCs"
@@ -135,6 +133,13 @@ choice
 		  This enables support for Spacemit k1-max Platform Hardware.
 endchoice
 
+config SOC_SPACEMIT_K1_FPGA
+	bool "Spacemit K1 serial SoC FPGA platform"
+	default n
+	help
+	  This enable FPGA platform for K1 SoCs.
+
+endif
 endif
 
 endmenu # "SoC selection"
