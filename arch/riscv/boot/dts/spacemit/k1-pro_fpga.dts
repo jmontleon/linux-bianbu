@@ -7,9 +7,16 @@
 / {
 	model = "spacemit k1-pro fpga board";
 
+	cpus: cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <25000000>;
+
+    };
+
 	memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x20000000 0x0 0x10000000>;
+		reg = <0x0 0x40000000 0x0 0x40000000>;
 	};
 
 	chosen {
@@ -19,5 +26,6 @@
 };
 
 &uart0 {
+    clock-frequency = <50000000>;
 	status = "okay";
 };
