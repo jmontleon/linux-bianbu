@@ -4,6 +4,8 @@
 /dts-v1/;
 
 /dts-v1/;
+
+//#include <dt-bindings/clock/k1-pro-ccu-clock.h>
 / {
 	compatible = "spacemit,k1-pro", "riscv";
 	#address-cells = <2>;
@@ -103,11 +105,75 @@
 		};
 	};
 
+clocks {
+		#address-cells = <0x2>;
+		#size-cells = <0x2>;
+		ranges;
+
+		osc_clk_24m: clock-osc_clk_24m {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <24000000>;
+			clock-output-names = "osc_clk_24m";
+		};
+
+		pll_clk_sys: clock-pll_clk_sys {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <2400000000>;
+			clock-output-names = "pll_clk_sys";
+			};
+
+		pll_clk_gmac: clock-pll_clk_gmac {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <2000000000>;
+			clock-output-names = "pll_clk_gmac";
+		};
+		pll_clk_i2s: clock-pll_clk_i2s {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <98304000>;
+			clock-output-names = "pll_clk_i2s";
+		};
+
+		pll_ddr: clock-pll_ddr {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <300000000>;
+			clock-output-names = "pll_ddr";
+		};
+
+		in_clk_32k: clock-in_clk_32k {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32000>;
+			clock-output-names = "in_clk_32k";
+		};
+
+		pll_clk_400m: clock-pll_clk_400m {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <400000000>;
+			clock-output-names = "pll_clk_400m";
+		};
+
+	};
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+		ccu:clock-controller@2f020000 {
+		    #address-cells = <0x1>;
+		    #size-cells = <0x1>;
+			compatible = "spacemit,k1pro-ccu";
+			reg = <0x0 0x2f020000 0x0 0x4000 0x0 0x2f024000 0x0 0x4000>;
+			clocks = <&osc_clk_24m>, <&pll_clk_sys>, <&pll_clk_gmac>, <&pll_clk_i2s>, <&pll_ddr>, <&in_clk_32k>, <&pll_clk_400m>;
+			clock-names = "osc_clk_24m", "pll_clk_sys", "pll_clk_gmac", "pll_clk_i2s", "pll_ddr", "in_clk_32k", "pll_clk_400m";
+			#clock-cells = <1>;
+			status = "okay";
+		};
 
 		clint0: clint@b4000000 {
 			compatible = "riscv,clint0";

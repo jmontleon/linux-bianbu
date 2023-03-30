@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0
+# common clock support for SPACEMIT SoC family.
+
+config COMMON_CLK_SPACEMIT
+	bool "Spacemit clock controller common support"
+	default y
+	help
+	  Say y here to enable common clock controller for Spacemit platforms.
+
+if COMMON_CLK_SPACEMIT
+config CLK_K1_CCU
+	tristate "Spacemit K1 clock controller support"
+	default y
+	help
+	  Build the driver for K1 Clock Driver.
+
+endif
