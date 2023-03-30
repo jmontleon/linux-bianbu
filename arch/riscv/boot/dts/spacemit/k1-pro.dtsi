@@ -168,10 +168,19 @@ clocks {
 		    #address-cells = <0x1>;
 		    #size-cells = <0x1>;
 			compatible = "spacemit,k1pro-ccu";
-			reg = <0x0 0x2f020000 0x0 0x4000 0x0 0x2f024000 0x0 0x4000>;
+			reg = <0x0 0x2f020000 0x0 0x4000>, <0x0 0x2f800000 0x0 0xc000>;
 			clocks = <&osc_clk_24m>, <&pll_clk_sys>, <&pll_clk_gmac>, <&pll_clk_i2s>, <&pll_ddr>, <&in_clk_32k>, <&pll_clk_400m>;
 			clock-names = "osc_clk_24m", "pll_clk_sys", "pll_clk_gmac", "pll_clk_i2s", "pll_ddr", "in_clk_32k", "pll_clk_400m";
 			#clock-cells = <1>;
+			status = "okay";
+		};
+
+		reset: reset-controller@18030000 {
+		    #address-cells = <0x1>;
+		    #size-cells = <0x1>;
+			compatible = "spacemit,k1pro-reset";
+			reg = <0x0 0x2f024000 0x0 0x4000>, <0x0 0x2f800000 0x0 0xc000>;
+			#reset-cells = <1>;
 			status = "okay";
 		};
 
