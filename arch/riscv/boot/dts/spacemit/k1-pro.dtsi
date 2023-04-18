@@ -188,7 +188,7 @@ clocks {
 			status = "okay";
 		};
 
-		clint0: clint@b4000000 {
+		clint0: clint@14000000 {
 			compatible = "riscv,clint0";
 			interrupts-extended = <
 				&cpu0_intc  3 &cpu0_intc  7
@@ -196,11 +196,11 @@ clocks {
 				&cpu2_intc  3 &cpu2_intc  7
 				&cpu3_intc  3 &cpu3_intc  7
 			>;
-			reg = <0x0 0xb4000000 0x0 0x00010000>;
+			reg = <0x0 0x14000000 0x0 0x00010000>;
 			clint,has-no-64bit-mmio;
 		};
 
-		intc: interrupt-controller@b0000000 {
+		intc: interrupt-controller@10000000 {
 			#interrupt-cells = <1>;
 			compatible = "riscv,plic0";
 			interrupt-controller;
@@ -210,18 +210,19 @@ clocks {
 				&cpu2_intc 0xffffffff &cpu2_intc 9
 				&cpu3_intc 0xffffffff &cpu3_intc 9
 			>;
-			reg = <0x0 0xb0000000 0x0 0x04000000>;
+			reg = <0x0 0x10000000 0x0 0x04000000>;
 			reg-names = "control";
 			riscv,max-priority = <7>;
 			riscv,ndev = <159>;
 		};
 
-		uart0: serial@10010000 { /* Normal serial, for C910 log */
+		/* Normal serial, log */
+		uart0: serial@2cea0000 {
 			compatible = "snps,dw-apb-uart";
-			reg = <0x0 0x10010000 0x0 0x1000>;
+			reg = <0x0 0x2cea0000 0x0 0x1000>;
 			interrupt-parent = <&intc>;
-			interrupts = <16>;
-			clock-frequency = <100000000>;
+			interrupts = <56>;
+			clock-frequency = <50000000>;
 			reg-shift = <2>;
 			reg-io-width = <4>;
 			hw-flow-control = "unsupport";
