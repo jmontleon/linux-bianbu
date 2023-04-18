@@ -131,6 +131,13 @@ config SOC_SPACEMIT_K1_FPGA
 	  This enable FPGA platform for K1 SoCs.
 
 endif
+
+config BIND_THREAD_TO_AICORES
+	bool "enable bind ai cores when use AI instruction"
+	default y
+	help
+	  This enable bind ai cores when use AI instruction.
+
 endif
 
 endmenu # "SoC selection"

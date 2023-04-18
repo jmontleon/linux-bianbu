@@ -39,6 +39,33 @@ static DECLARE_BITMAP(riscv_isa, RISCV_ISA_EXT_MAX) __read_mostly;
 /* Per-cpu ISA extensions. */
 struct riscv_isainfo hart_isa[NR_CPUS];
 
+struct cpumask ai_core_mask_get(void)
+{
+	struct device_node *node;
+	const char *cpu_ai;
+	struct cpumask	cpu_mask;
+	unsigned long hartid;
+	int rc;
+
+	cpumask_clear(&cpu_mask);
+
+	for_each_of_cpu_node(node) {
+		rc = riscv_of_processor_hartid(node, &hartid);
+		if (rc < 0)
+			continue;
+
+		if (of_property_read_string(node, "cpu-ai", &cpu_ai)) {
+			continue;
+		}
+
+		if(!strcmp(cpu_ai, "true")) {
+			cpumask_set_cpu(hartid, &cpu_mask);
+		}
+	}
+
+	return cpu_mask;
+}
+
 /**
  * riscv_isa_extension_base() - Get base extension word
  *
