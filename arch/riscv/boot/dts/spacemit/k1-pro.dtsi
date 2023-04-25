@@ -231,6 +231,17 @@
 			status = "disabled";
 		};
 
+		pwm: pwm@2cfc0000 {
+			compatible = "snp,pwm-dwc";
+			reg = <0x0 0x2cfc0000 0x0 0x10000>;
+			clocks = <&ccu CLK_PWM>;
+			clock-names = "pwm-clk";
+			resets = <&reset RESET_PWM>;
+			#pwm-cells=<3>;
+			npwm = <8>;
+			status = "disabled";
+		};
+
 		tcm: tcm@0xbe000000 {
 			compatible = "spacemit,k1-pro-tcm";
 			reg = <0x0 0xbe000000 0x0 0x80000>;
