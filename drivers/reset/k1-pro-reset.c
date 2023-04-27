@@ -12,6 +12,7 @@
 #include <linux/reset-controller.h>
 #include <linux/io.h>
 #include <dt-bindings/reset/k1-pro-reset.h>
+#include <linux/clk-provider.h>
 
 #define LOG_INFO(fmt, arg...)    pr_info("[K1-RESET][%s][%d]:" fmt "\n", __func__, __LINE__, ##arg)
 
@@ -37,7 +38,7 @@
 #define USB_GMAC_SW_RESET600  0x600
 #define DDR_MBUS_SW_RESET700  0x700
 //mcu regs
-#define MCU_SW_RESET100  0x100
+#define MCU_SW_RESET008  0x008
 
 
 struct k1pro_reset_signal {
@@ -57,6 +58,8 @@ struct k1pro_reset {
     void __iomem *mcu_reg_base;
     const struct k1pro_reset_signal *signals;
 };
+
+struct k1pro_reset k1pro_reset_controller;
 
 static const struct k1pro_reset_signal
     k1pro_reset_signals[RESET_NUMBER] = {
@@ -160,10 +163,10 @@ static const struct k1pro_reset_signal
     [RESET_DDR_PHY0]      = { DDR_MBUS_SW_RESET700, BIT(3) },
     [RESET_DDR_PHY1]      = { DDR_MBUS_SW_RESET700, BIT(4) },
     //mcu
-    [RESET_MCU_GSR]       = { MCU_SW_RESET100, BIT(0) },
-    [RESET_MCU_CORE]      = { MCU_SW_RESET100, BIT(1) },
-    [RESET_MCU_BUS]       = { MCU_SW_RESET100, BIT(2) },
-    [RESET_MCU2MBUS]      = { MCU_SW_RESET100, BIT(12) },
+    [RESET_MCU_GSR]       = { MCU_SW_RESET008, BIT(0) },
+    [RESET_MCU_CORE]      = { MCU_SW_RESET008, BIT(1) },
+    [RESET_MCU_BUS]       = { MCU_SW_RESET008, BIT(2) },
+    [RESET_MCU2MBUS]      = { MCU_SW_RESET008, BIT(12) },
 };
 
 static struct k1pro_reset *to_k1pro_reset(
@@ -220,55 +223,24 @@ static const struct k1pro_reset_variant k1pro_reset_data = {
     },
 };
 
-static int k1pro_reset_probe(struct platform_device *pdev)
+static void k1pro_reset_init(struct device_node *np)
 {
-    struct k1pro_reset *reset;
-    struct device *dev = &pdev->dev;
-    const struct k1pro_reset_variant *variant;
-    LOG_INFO("probe start");
-    variant = of_device_get_match_data(dev);
-    reset = devm_kzalloc(dev, sizeof(*reset), GFP_KERNEL);
-    if (!reset)
-        return -ENOMEM;
-
-    if (!dev->of_node) {
-        pr_err("%s(%d): of node is not exist!\n", __func__, __LINE__);
-        return -ENOMEM;
-    }
-
-    reset->reg_base = of_iomap(dev->of_node, 0);
-    reset->mcu_reg_base = of_iomap(dev->of_node, 1);
+    struct k1pro_reset *reset = &k1pro_reset_controller;
+    LOG_INFO("init reset");
+    reset->reg_base = of_iomap(np, 0);
+    reset->mcu_reg_base = of_iomap(np, 1);
     if (!(reset->reg_base &&  reset->mcu_reg_base)) {
         pr_err("%s: could not map reset region\n", __func__);
-        return -ENOMEM;
+        return;
     }
-
-    reset->signals = variant->signals;
+    reset->signals = k1pro_reset_data.signals;
     reset->rcdev.owner     = THIS_MODULE;
-    reset->rcdev.nr_resets = variant->signals_num;
-    reset->rcdev.ops       = &variant->ops;
-    reset->rcdev.of_node   = dev->of_node;
+    reset->rcdev.nr_resets = k1pro_reset_data.signals_num;
+    reset->rcdev.ops       = &k1pro_reset_data.ops;
+    reset->rcdev.of_node   = np;
     LOG_INFO("register");
-    return devm_reset_controller_register(dev, &reset->rcdev);
+    reset_controller_register(&reset->rcdev);
 }
 
-static const struct of_device_id k1pro_reset_dt_ids[] = {
-    { .compatible = "spacemit,k1pro-reset", .data = &k1pro_reset_data },
-    { },
-};
-
-static struct platform_driver k1pro_reset_driver = {
-    .probe  = k1pro_reset_probe,
-    .driver = {
-        .name           = "k1pro-reset",
-        .of_match_table = k1pro_reset_dt_ids,
-    },
-};
-
-static int __init k1pro_reset_init(void)
-{
-    return platform_driver_register(&k1pro_reset_driver);
-}
-postcore_initcall(k1pro_reset_init);
-
+CLK_OF_DECLARE(k1_reset, "spacemit,k1pro-reset", k1pro_reset_init);
 
