@@ -24,8 +24,6 @@ static struct clk_hw **hws;
 static struct clk_hw_onecell_data *clk_hw_data;
 
 //parents for mux
-static const char *clk_mem_sd_src[] = { "osc_clk_400k", "clk_sdio_div", };
-static const char *clk_mem_emmc_src[] = { "osc_clk_400k", "clk_emmc_div", };
 static const char *clk_mcu_src[] = { "osc_clk_24m", "pll_clk_400m", "in_clk_32k", };
 
 //clocks, gate/divider/mux/fixed-factor
@@ -48,7 +46,7 @@ static struct ccu_clk_data ccu_clocks[] =  {
     {CLK_USB_SYS_DIV, CLK_TYPE_DIVIDER, "clk_usb_sys_div", "pll_clk_sys", NULL, 1, USB_GMAC_SUB_CTRL_REG700, 8, 4, 0, 0, 0},
     {CLK_USB_SYS, CLK_TYPE_GATE, "clk_usb_sys", "clk_usb_sys_div", NULL, 1, USB_GMAC_SUB_EN_REG704, 0, 0, 0, 0, 0},
     {CLK_MBUS_SYS_DIV, CLK_TYPE_DIVIDER, "clk_mbus_sys_div", "pll_clk_sys", NULL, 1, MBUS_DDR_SUB_CTRL_REG800, 8, 4, 0, 0, 0},
-    {CLK_MBUS_SYS, CLK_TYPE_GATE, "clk_mbus_sys", "clk_mbus_sys_div", NULL, 1, MBUS_DDR_SUB_EN_REG804, 0, 0, 0, 0, 0},
+    {CLK_MBUS_SYS, CLK_TYPE_GATE, "clk_mbus_sys", "clk_mbus_sys_div", NULL, 1, MBUS_DDR_SUB_EN_REG804, 1, 0, 0, 0, 0},
     {PLL_CLK_250_50M_DIV, CLK_TYPE_DIVIDER, "pll_clk_250_50m_div", "pll_clk_gmac", NULL, 1, USB_GMAC_SUB_CTRL_REG700, 12, 6, 0, 0, 0},
     {PLL_CLK_250_50M, CLK_TYPE_GATE, "pll_clk_250_50m", "pll_clk_250_50m_div", NULL, 1, USB_GMAC_SUB_EN_REG704, 6, 0, 0, 0, 0},
     //sys
@@ -91,21 +89,10 @@ static struct ccu_clk_data ccu_clocks[] =  {
     {CLK_I2S0_MCLK_OUT, CLK_TYPE_GATE, "clk_i2s0_mclk_out", "clk_i2s0_mclk", NULL, 1, SYS_SUB_I2S_EN_REG234, 16, 0, 0, 0, 0},
     {CLK_I2S1_MCLK_OUT, CLK_TYPE_GATE, "clk_i2s1_mclk_out", "clk_i2s1_mclk", NULL, 1, SYS_SUB_I2S_EN_REG234, 17, 0, 0, 0, 0},
     //mem
-    {CLK_SDIO_DIV, CLK_TYPE_DIVIDER, "clk_sdio_div", "pll_clk_400m_2mem", NULL, 1, MEM_SUB_CTRL_REG300, 12, 4, 0, 0, 0},
-    {CLK_EMMC_DIV, CLK_TYPE_DIVIDER, "clk_emmc_div", "pll_clk_400m_2mem", NULL, 1, MEM_SUB_CTRL_REG300, 16, 4, 0, 0, 0},
-    {CLK_TMCLK_10M, CLK_TYPE_FIXED_FACTOR, "clk_tmclk_10m", "pll_clk_400m_2mem", NULL, 0, 0, 0, 0, 0, 1, 40},
-    {CLK_SDIO_SEL, CLK_TYPE_MUX, "clk_sdio_sel", NULL, clk_mem_sd_src, 2, MEM_SUB_CTRL_REG300, 2, 1, 0, 0, 0},
-    {CLK_EMMC_SEL, CLK_TYPE_MUX, "clk_emmc_sel", NULL, clk_mem_emmc_src, 2, MEM_SUB_CTRL_REG300, 3, 1, 0, 0, 0},
     {CLK_MEM_HCLK, CLK_TYPE_FIXED_FACTOR, "clk_mem_hclk", "clk_sys_ahb", NULL, 0, 0, 0, 0, 0, 1, 2},
     {CLK_SDIO_HCLK, CLK_TYPE_GATE, "clk_sdio_hclk", "clk_mem_hclk", NULL, 1, MEM_SUB_EN_REG304, 3, 0, 0, 0, 0},
-    {CLK_SDIO_ACLK, CLK_TYPE_GATE, "clk_sdio_aclk", "clk_mem_sys", NULL, 1, MEM_SUB_EN_REG304, 4, 0, 0, 0, 0},
-    {CLK_SDIO_TMCLK, CLK_TYPE_GATE, "clk_sdio_tmclk", "clk_tmclk_10m", NULL, 1, MEM_SUB_EN_REG304, 4, 0, 0, 0, 0},
-    {CLK_SDIO_CCLK, CLK_TYPE_GATE, "clk_sdio_cclk", "clk_sdio_sel", NULL, 1, MEM_SUB_EN_REG304, 5, 0, 0, 0, 0},
-    {CLK_EMMC_HCLK, CLK_TYPE_GATE, "clk_emmc_hclk", "clk_mem_hclk", NULL, 1, MEM_SUB_EN_REG304, 6, 0, 0, 0, 0},
-    {CLK_EMMC_ACLK, CLK_TYPE_GATE, "clk_emmc_aclk", "clk_mem_sys", NULL, 1, MEM_SUB_EN_REG304, 7, 0, 0, 0, 0},
-    {CLK_EMMC_TMCLK, CLK_TYPE_GATE, "clk_emmc_tmclk", "clk_tmclk_10m", NULL, 1, MEM_SUB_EN_REG304, 7, 0, 0, 0, 0},
-    {CLK_EMMC_CCLK, CLK_TYPE_GATE, "clk_emmc_cclk", "clk_emmc_sel", NULL, 1, MEM_SUB_EN_REG304, 8, 0, 0, 0, 0},
-    {CLK_MEM_AHB, CLK_TYPE_GATE, "clk_mem_ahb", "clk_sys_ahb", NULL, 1, MEM_SUB_EN_REG304, 9, 0, 0, 0, 0},
+    {CLK_EMMC_HCLK, CLK_TYPE_GATE, "clk_emmc_hclk", "clk_mem_hclk", NULL, 1, MEM_SUB_EN_REG304, 4, 0, 0, 0, 0},
+    {CLK_MEM_AHB, CLK_TYPE_GATE, "clk_mem_ahb", "clk_sys_ahb", NULL, 1, MEM_SUB_EN_REG304, 5, 0, 0, 0, 0},
     //serdes
     {CLK_SERDES_AXI, CLK_TYPE_FIXED_FACTOR, "clk_serdes_axi", "clk_serdes_sys", NULL, 0, 0, 0, 0, 0, 1, 2},
     {CLK_SERDES_APB, CLK_TYPE_FIXED_FACTOR, "clk_serdes_apb", "clk_serdes_sys", NULL, 0, 0, 0, 0, 0, 1, 4},
@@ -159,9 +146,8 @@ static struct ccu_clk_data ccu_clocks[] =  {
     {CLK_MCU2MBUS, CLK_TYPE_GATE, "clk_mcu2mbus", NULL, NULL, 0, MCU_SUB_EN_REG004, 16, 0, 0, 0, 0},
 };
 
-static int ccu_clocks_init(struct platform_device *pdev)
+static void ccu_clocks_init(struct device_node *np)
 {
-    struct device_node *np = pdev->dev.of_node;
     struct clk_hw *hw;
     void __iomem *reg_base;
     void __iomem *mcu_reg_base;
@@ -171,7 +157,7 @@ static int ccu_clocks_init(struct platform_device *pdev)
 
     clk_hw_data = kzalloc(struct_size(clk_hw_data, hws, CLK_MAX_NO), GFP_KERNEL);
     if (WARN_ON(!clk_hw_data)) {
-        return 0;
+        return;
     }
 
     clk_hw_data->num = CLK_MAX_NO;
@@ -180,9 +166,9 @@ static int ccu_clocks_init(struct platform_device *pdev)
     reg_base = of_iomap(np, 0);
     mcu_reg_base = of_iomap(np, 1);
 
-    if (!reg_base) {
+    if (!(reg_base && mcu_reg_base)) {
         pr_err("%s: could not map ccu region\n", __func__);
-        return 0;
+        return;
     }
     LOG_INFO("init clock-tree");
 
@@ -224,45 +210,15 @@ static int ccu_clocks_init(struct platform_device *pdev)
                 break;
         }
         if (IS_ERR(hw))
-            return PTR_ERR(hw);
+            return;
         hws[ccd->clk_index] = hw;
     }
     LOG_INFO("finish clock-tree");
 
     //add clock provider
     of_clk_add_hw_provider(np, of_clk_hw_onecell_get, clk_hw_data);
-    return 0;
+    return;
 }
 
-static const struct of_device_id k1_ccu_ids[] = {
-    { .compatible = "spacemit,k1pro-ccu" },
-    { }
-};
-
-static struct platform_driver k1_ccu_driver = {
-    .probe      = ccu_clocks_init,
-    .driver     = {
-        .name   = "k1-ccu",
-        .of_match_table	= k1_ccu_ids,
-    },
-};
-
-static int __init k1_ccu_init(void)
-{
-    int ret;
-
-    ret = platform_driver_register(&k1_ccu_driver);
-    if (ret)
-        pr_err("register ccu k1 failed\n");
-
-    return ret;
-}
-core_initcall(k1_ccu_init);
-
-static void __exit k1_ccu_exit(void)
-{
-    return platform_driver_unregister(&k1_ccu_driver);
-}
-module_exit(k1_ccu_exit);
-
+CLK_OF_DECLARE(k1_ccu, "spacemit,k1pro-ccu", ccu_clocks_init);
 
