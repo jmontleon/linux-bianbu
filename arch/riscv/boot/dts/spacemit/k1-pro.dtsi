@@ -274,6 +274,28 @@
 			};
 		};
 
+		usbdrd3: usb3@0 {
+			compatible = "spacemit,k1-pro-dwc3";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			resets = <&reset RESET_USB_GMAC_GSR>,
+					 <&reset RESET_USB_GMAC2VBUS>,
+					 <&reset RESET_USB31>;
+			reset-names = "soft_rst", "bus_rst", "ctl_rst";
+			ranges;
+			status = "disabled";
+
+			dwc3@2cb00000 {
+				compatible = "snps,dwc3";
+				reg = <0x0 0x2cb00000 0x0 0x10000>;
+				interrupt-parent = <&intc>;
+				interrupts = <90>;
+				maximum-speed = "high-speed";
+				snps,hsphy_interface = "ulpi";
+				dr_mode = "otg";
+			};
+		};
+
 		qspi0: spi@2ce00000 {
                        compatible = "snps,dwc-ssi-1.02a";
                        reg = <0x0 0x2ce00000 0x0 0x4000>;
@@ -285,6 +307,8 @@
                        #size-cells = <0>;
                        status = "disabled";
                };
+
+
 
 	};
 };
