@@ -200,4 +200,11 @@ config USB_DWC3_GENERIC_PLAT
 	  the dwc3 child node in the device tree.
 	  Say 'Y' or 'M' here if your platform integrates DWC3 in a similar way.
 
+config USB_DWC3_SPACEMIT
+	tristate "Spacemit Platforms"
+	default USB_DWC3
+	help
+	  Support SPACEMIT platforms with DesignWare Core USB3 IP.
+	  Say 'Y' or 'M' here if you have one such device
+
 endif
