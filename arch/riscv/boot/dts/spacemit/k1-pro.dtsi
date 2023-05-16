@@ -293,6 +293,8 @@
 				maximum-speed = "high-speed";
 				snps,hsphy_interface = "ulpi";
 				dr_mode = "otg";
+				snps,dis_u2_susphy_quirk;
+				snps,dis_u3_susphy_quirk;
 			};
 		};
 
