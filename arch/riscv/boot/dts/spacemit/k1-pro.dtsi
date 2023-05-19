@@ -184,7 +184,7 @@
 			clocks = <&osc_clk_24m>, <&pll_clk_sys>, <&pll_clk_gmac>, <&pll_clk_i2s>,
 				 <&pll_ddr>, <&in_clk_32k>, <&pll_clk_400m>;
 			clock-names = "osc_clk_24m", "pll_clk_sys", "pll_clk_gmac", "pll_clk_i2s",
-				      "pll_ddr", "in_clk_32k", "pll_clk_400m";
+						  "pll_ddr", "in_clk_32k", "pll_clk_400m";
 			#clock-cells = <1>;
 			status = "okay";
 		};
@@ -368,6 +368,82 @@
 			status = "disabled";
 		};
 
+		i2c0: i2c@2cee0000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&intc>;
+			interrupts = <64>;
+			device_type = "i2c0";
+			reg = <0x0 0x2cee0000 0x0 0x4000>;
+			clocks = <&ccu CLK_DUMMY>;
+			resets = <&reset RESET_I2C0>;
+			clock-frequency = <400000>;
+			status = "okay";
+
+			mcp5725@61 {
+				compatible = "microchip,mcp4725";
+				reg = <0x61>;
+				status = "okay";
+			};
+		};
+
+		i2c1: i2c@2cee4000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&intc>;
+			interrupts = <65>;
+			device_type = "i2c1";
+			reg = <0x0 0x2cee4000 0x0 0x4000>;
+			clocks = <&ccu CLK_DUMMY>;
+			resets = <&reset RESET_I2C1>;
+			clock-frequency = <400000>;
+			status = "disabled";
+		};
+
+		i2c2: i2c@2cee8000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&intc>;
+			interrupts = <66>;
+			device_type = "i2c2";
+			reg = <0x0 0x2cee8000 0x0 0x4000>;
+			clocks = <&ccu CLK_DUMMY>;
+			resets = <&reset RESET_I2C2>;
+			clock-frequency = <400000>;
+			status = "disabled";
+		};
+
+		i2c3: i2c@2ceec000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&intc>;
+			interrupts = <67>;
+			device_type = "i2c3";
+			reg = <0x0 0x2ceec000 0x0 0x4000>;
+			clocks = <&ccu CLK_DUMMY>;
+			resets = <&reset RESET_I2C3>;
+			clock-frequency = <400000>;
+			status = "disabled";
+		};
+
+		i2c4: i2c@2cef0000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&intc>;
+			interrupts = <68>;
+			device_type = "i2c4";
+			reg = <0x0 0x2cef0000 0x0 0x4000>;
+			clocks = <&ccu CLK_DUMMY>;
+			resets = <&reset RESET_I2C4>;
+			clock-frequency = <400000>;
+			status = "disabled";
+		};
+
 		qspi0: spi@2ce00000 {
 			compatible = "snps,dwc-ssi-1.02a";
 			reg = <0x0 0x2ce00000 0x0 0x4000>;
@@ -402,31 +478,31 @@
 			};
 		};
 
-                pcie5: pcie@41400000 {
-                        compatible = "spacemit,k1-pro-pcie";
-                        reg = <0x0 0x41400000 0x0 0x400000>,
-                              <0x0 0x44500000 0x0 0x100000>,
-                              <0x0 0x70000000 0x0 0x100000>;
-                        reg-names = "dbi", "app", "config";
-                        num-lanes = <4>;
-                        device_type = "pci";
+		pcie5: pcie@41400000 {
+			compatible = "spacemit,k1-pro-pcie";
+			reg = <0x0 0x41400000 0x0 0x400000>,
+				  <0x0 0x44500000 0x0 0x100000>,
+				  <0x0 0x70000000 0x0 0x100000>;
+			reg-names = "dbi", "app", "config";
+			num-lanes = <4>;
+			device_type = "pci";
 
-                        #address-cells = <3>;
-                        #size-cells = <2>;
-                        ranges = <0x81000000 0 0x70100000 0 0x70100000 0 0x00100000>,   /* downstream I/O */
-                                 <0x82000000 0 0x70200000 0 0x70200000 0 0x05e00000>,   /* non-prefetchable memory */
-                                 <0xc3000000 0 0x76000000 0 0x76000000 0 0x02000000>;   /* mem prefetchable */
-                        bus-range = <0x00 0xff>;
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges = <0x81000000 0 0x70100000 0 0x70100000 0 0x00100000>,	/* downstream I/O */
+					 <0x82000000 0 0x70200000 0 0x70200000 0 0x05e00000>,	/* non-prefetchable memory */
+					 <0xc3000000 0 0x76000000 0 0x76000000 0 0x02000000>;	/* mem prefetchable */
+			bus-range = <0x00 0xff>;
 
-                        interrupt-parent = <&intc>;
-                        interrupts = <157>;
-                        interrupt-names = "msi";
+			interrupt-parent = <&intc>;
+			interrupts = <157>;
+			interrupt-names = "msi";
 
-                        resets = <&reset RESET_PCIE5_POWERUP>,
-                                 <&reset RESET_PCIE5_PERST>;
-                        reset-names = "powerup", "perst";
-                        status = "disabled";
-               };
+			resets = <&reset RESET_PCIE5_POWERUP>,
+					 <&reset RESET_PCIE5_PERST>;
+			reset-names = "powerup", "perst";
+			status = "disabled";
+		};
 	};
 
 	pmu {
