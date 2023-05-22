@@ -310,7 +310,26 @@
                        status = "disabled";
                };
 
+               gmac0: ethernet@2cc00000 {
+                       compatible = "spacemit,k1-pro-mac";
+                       reg = <0x00 0x2cc00000 0x0 0x10000
+                              0x00 0x2f028004 0x0 0x4>;
+                       reg-names = "gmac", "sys_gmac_cfg";
+                       interrupt-parent = <&intc>;
+                       interrupts = <132>;
+                       interrupt-names = "macirq";
+		       resets = <&reset RESET_USB_GMAC_GSR>, <&reset RESET_GMAC_CSR>, <&reset RESET_GMAC_DMA>, <&reset RESET_USB_GMAC2VBUS>;
+                       reset-names = "usb_gmac_gsr", "gmac_csr", "gmac_dma", "usb_gmac2vbus";
+                       snps,pbl = <32>;
+                       snps,fixed-burst;
+                       snps,axi-config = <&stmmac_axi_setup>;
 
+                       stmmac_axi_setup: stmmac-axi-config {
+                               snps,wr_osr_lmt = <3>;
+                               snps,rd_osr_lmt = <3>;
+                               snps,blen = <16 8 4 0 0 0 0>;
+                       };
+               };
 
 	};
 };
