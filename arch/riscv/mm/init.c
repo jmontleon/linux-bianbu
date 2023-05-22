@@ -314,7 +314,12 @@ static void __init setup_bootmem(void)
 	if (!IS_ENABLED(CONFIG_BUILTIN_DTB))
 		memblock_reserve(dtb_early_pa, fdt_totalsize(dtb_early_va));
 
-	dma_contiguous_reserve(dma32_phys_limit);
+#ifdef CONFIG_ZONE_DMA32
+ 	dma_contiguous_reserve(dma32_phys_limit);
+#else
+	dma_contiguous_reserve(PFN_PHYS(max_low_pfn));
+#endif
+
 	if (IS_ENABLED(CONFIG_64BIT))
 		hugetlb_cma_reserve(PUD_SHIFT - PAGE_SHIFT);
 }
