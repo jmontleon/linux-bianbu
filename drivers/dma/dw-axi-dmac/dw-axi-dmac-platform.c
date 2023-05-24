@@ -48,7 +48,7 @@
 	DMA_SLAVE_BUSWIDTH_64_BYTES)
 
 #define AXI_DMA_FLAG_HAS_APB_REGS	BIT(0)
-#define AXI_DMA_FLAG_HAS_RESETS		BIT(1)
+#define AXI_DMA_FLAG_HAS_RESETS 	BIT(1)
 #define AXI_DMA_FLAG_USE_CFG2		BIT(2)
 
 static inline void
@@ -102,8 +102,7 @@ static inline void axi_chan_config_write(struct axi_dma_chan *chan,
 
 	cfg_lo = (config->dst_multblk_type << CH_CFG_L_DST_MULTBLK_TYPE_POS |
 		  config->src_multblk_type << CH_CFG_L_SRC_MULTBLK_TYPE_POS);
-	if (chan->chip->dw->hdata->reg_map_8_channels &&
-	    !chan->chip->dw->hdata->use_cfg2) {
+	if (!chan->chip->dw->hdata->use_cfg2) {
 		cfg_hi = config->tt_fc << CH_CFG_H_TT_FC_POS |
 			 config->hs_sel_src << CH_CFG_H_HS_SEL_SRC_POS |
 			 config->hs_sel_dst << CH_CFG_H_HS_SEL_DST_POS |
@@ -721,8 +720,14 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 
 	hw_desc->lli->block_ts_lo = cpu_to_le32(block_ts - 1);
 
-	ctllo |= DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_DST_MSIZE_POS |
-		 DWAXIDMAC_BURST_TRANS_LEN_4 << CH_CTL_L_SRC_MSIZE_POS;
+	if (chan->fixed_burst_trans_len == true)
+                burst_trans_len = chan->burst_trans_len;
+        else
+                burst_trans_len = DWAXIDMAC_BURST_TRANS_LEN_4;
+
+        ctllo |= burst_trans_len << CH_CTL_L_DST_MSIZE_POS |
+                 burst_trans_len << CH_CTL_L_SRC_MSIZE_POS;
+
 	hw_desc->lli->ctl_lo = cpu_to_le32(ctllo);
 
 	set_desc_src_master(hw_desc);
@@ -1370,6 +1375,13 @@ static struct dma_chan *dw_axi_dma_of_xlate(struct of_phandle_args *dma_spec,
 
 	chan = dchan_to_axi_dma_chan(dchan);
 	chan->hw_handshake_num = dma_spec->args[0];
+
+	/*some per may need fixed-burst_trans_len*/
+	if (dma_spec->args_count == 2  && dma_spec->args[1] > 0) {
+		chan->fixed_burst_trans_len = true;
+		chan->burst_trans_len = dma_spec->args[1];
+	}
+
 	return dchan;
 }
 
@@ -1440,6 +1452,14 @@ static int parse_device_properties(struct axi_dma_chip *chip)
 		chip->dw->hdata->axi_rw_burst_len = tmp;
 	}
 
+	/* get number of handshak interface and configure multi reg */
+	ret = device_property_read_u32(dev, "snps,num-hs-if", &tmp);
+        if (!ret)
+                chip->dw->hdata->nr_hs_if = tmp;
+        if (chip->dw->hdata->nr_channels > DMA_REG_MAP_CH_REF ||
+			chip->dw->hdata->nr_hs_if > DMA_REG_MAP_HS_IF_REF)
+                chip->dw->hdata->use_cfg2 = true;
+
 	return 0;
 }
 
@@ -1507,8 +1527,6 @@ static int dw_probe(struct platform_device *pdev)
 		if (ret)
 			return ret;
 	}
-
-	chip->dw->hdata->use_cfg2 = !!(flags & AXI_DMA_FLAG_USE_CFG2);
 
 	chip->core_clk = devm_clk_get(chip->dev, "core-clk");
 	if (IS_ERR(chip->core_clk))
@@ -1669,6 +1687,9 @@ static const struct of_device_id dw_dma_of_id_table[] = {
 	}, {
 		.compatible = "starfive,jh8100-axi-dma",
 		.data = (void *)AXI_DMA_FLAG_HAS_RESETS,
+	}, {
+		.compatible = "spacemit,k1pro-axi-dma",
+		.data = (void *)AXI_DMA_FLAG_HAS_RE
 	},
 	{}
 };
