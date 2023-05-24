@@ -237,6 +237,26 @@
 			status = "disabled";
 		};
 
+		dma: dma-controller@2ce40000 {
+                        compatible = "spacemit,k1pro-axi-dma";
+                        reg = <0x0 0x2ce40000 0x0 0x10000>;
+                        interrupt-parent = <&intc>;
+                        interrupts = <40>;
+                        clocks = <&ccu CLK_DMAC>,
+                                 <&ccu CLK_DUMMY>;
+                        clock-names = "core-clk", "cfgr-clk";
+                        resets = <&reset RESET_DMAC>;
+                        #dma-cells = <2>;
+                        dma-channels = <8>;
+                        snps,dma-masters = <1>;
+                        snps,data-width = <2>;
+                        snps,num-hs-if = <63>;
+                        snps,block-size = <65536 65536 65536 65536 65536 65536 65536 65536>;
+                        snps,priority = <0 1 2 3 4 5 6 7>;
+                        snps,axi-max-burst-len = <16>;
+                        status = "okay";
+		};
+
 		pwm: pwm@2cfc0000 {
 			compatible = "snp,pwm-dwc";
 			reg = <0x0 0x2cfc0000 0x0 0x10000>;
