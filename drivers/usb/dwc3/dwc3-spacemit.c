@@ -27,6 +27,7 @@ struct dwc3_spacemit_driverdata {
 
 struct dwc3_spacemit {
 	struct device		*dev;
+	struct reset_control	*resets;
 
 	const char		**clk_names;
 	struct clk		*clks[DWC3_SPACEMIT_MAX_CLOCKS];
@@ -37,71 +38,28 @@ struct dwc3_spacemit {
 static int dwc3_spacemit_init(struct dwc3_spacemit *data)
 {
 	struct device *dev = data->dev;
-	struct reset_control *softrst, *busrst, *ctlrst;
 	int	ret = 0;
 
-	softrst = devm_reset_control_get_exclusive(dev, "soft_rst");//bit 0
-	if (IS_ERR(softrst)) {
-		ret = PTR_ERR(softrst);
-		dev_err_probe(dev, ret,
-				"failed to get soft reset signal\n");
-		goto err;
+	data->resets = devm_reset_control_array_get_optional_exclusive(dev);
+	if (IS_ERR(data->resets)) {
+		ret = PTR_ERR(data->resets);
+		dev_err(dev, "failed to get resets, err=%d\n", ret);
+		return ret;
 	}
 
-	busrst = devm_reset_control_get_exclusive(dev, "bus_rst");//bit 9
-	if (IS_ERR(busrst)) {
-		ret = PTR_ERR(busrst);
-		dev_err_probe(dev, ret,
-				"failed to get bus reset signal\n");
-		goto err;
+	ret = reset_control_assert(data->resets);
+	if (ret) {
+		dev_err(dev, "failed to assert resets, err=%d\n", ret);
+		return ret;
 	}
 
-	ctlrst = devm_reset_control_get_exclusive(dev, "ctl_rst");//bit 3
-	if (IS_ERR(ctlrst)) {
-		ret = PTR_ERR(ctlrst);
-		dev_err_probe(dev, ret,
-				"failed to get ctrl reset signal\n");
-		goto err;
+	ret = reset_control_deassert(data->resets);
+	if (ret) {
+		dev_err(dev, "failed to deassert resets, err=%d\n", ret);
+		return ret;
 	}
 
-	ret = reset_control_assert(ctlrst);
-	if (ret < 0) {
-		dev_err(dev, "Failed to assert ctrl reset\n");
-		goto err;
-	}
-
-	ret = reset_control_assert(busrst);
-	if (ret < 0) {
-		dev_err(dev, "Failed to assert bus reset\n");
-		goto err;
-	}
-
-	ret = reset_control_assert(softrst);
-	if (ret < 0) {
-		dev_err(dev, "Failed to assert soft reset\n");
-		goto err;
-	}
-
-	ret = reset_control_deassert(softrst);
-	if (ret < 0) {
-		dev_err(dev, "Failed to release soft reset\n");
-		goto err;
-	}
-
-	ret = reset_control_deassert(busrst);
-	if (ret < 0) {
-		dev_err(dev, "Failed to release bus reset\n");
-		goto err;
-	}
-
-	ret = reset_control_deassert(ctlrst);
-	if (ret < 0) {
-		dev_err(dev, "Failed to release ctrl reset\n");
-		goto err;
-	}
-
-err:
-	return ret;
+	return 0;
 }
 
 static int dwc3_spacemit_probe(struct platform_device *pdev)
