@@ -2197,6 +2197,11 @@ static int dwc3_probe(struct platform_device *pdev)
 		ret = dma_set_mask_and_coherent(dwc->sysdev, DMA_BIT_MASK(64));
 		if (ret)
 			goto err_disable_clks;
+	} else if(!dwc->sysdev_is_parent &&
+		IS_ENABLED(CONFIG_SOC_SPACEMIT_K1PRO)) {
+		ret = dma_set_mask_and_coherent(dwc->sysdev, DMA_BIT_MASK(40));
+		if (ret)
+			goto disable_clks;
 	}
 
 	/*
