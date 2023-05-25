@@ -657,6 +657,7 @@ static int dw_axi_dma_set_hw_desc(struct axi_dma_chan *chan,
 	size_t block_ts;
 	u32 ctllo, ctlhi;
 	u32 burst_len;
+	u32 burst_trans_len;
 
 	axi_block_ts = chan->chip->dw->hdata->block_size[chan->id];
 
