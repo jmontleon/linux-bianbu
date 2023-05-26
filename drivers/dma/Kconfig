@@ -752,6 +752,12 @@ config XILINX_ZYNQMP_DPDMA
 	  driver provides the dmaengine required by the DisplayPort subsystem
 	  display driver.
 
+config USERSPACE_DMA
+	bool "userspace dma driver support"
+	depends on DMA_ENGINE
+	help
+	  Support dma operation in userspace
+
 # driver files
 source "drivers/dma/amd/Kconfig"
 
