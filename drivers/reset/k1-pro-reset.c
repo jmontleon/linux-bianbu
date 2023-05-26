@@ -14,6 +14,7 @@
 #include <dt-bindings/reset/k1-pro-reset.h>
 #include <linux/clk-provider.h>
 #include <linux/atomic.h>
+#include <linux/spinlock.h>
 
 #define LOG_INFO(fmt, arg...)    pr_info("[K1-RESET][%s][%d]:" fmt "\n", __func__, __LINE__, ##arg)
 
@@ -75,6 +76,7 @@ struct k1pro_reset_variant {
 };
 
 struct k1pro_reset {
+    spinlock_t    lock;
     struct reset_controller_dev rcdev;
     void __iomem *reg_base;
     void __iomem *mcu_reg_base;
@@ -300,23 +302,37 @@ static int k1pro_reset_subsys(struct reset_controller_dev *rcdev,
     k1pro_reset_set(rcdev, gsr_id, assert, true);
     return 0;
 }
+static int k1pro_reset_update(struct reset_controller_dev *rcdev,
+    unsigned long id, bool assert)
+{
+    unsigned long flags;
+    struct k1pro_reset *reset = to_k1pro_reset(rcdev);
+
+    if(id < 0 || id >= RESET_DUMMY)
+        return 0;
+
+    spin_lock_irqsave(&reset->lock, flags);
+    if(assert == true){
+        k1pro_reset_set(rcdev, id, assert, false);
+        k1pro_reset_subsys(rcdev, id, true);
+    }
+    else{
+        k1pro_reset_subsys(rcdev, id, false);
+        k1pro_reset_set(rcdev, id, assert, false);
+    }
+    spin_unlock_irqrestore(&reset->lock, flags);
+    return 0;
+}
+
 static int k1pro_reset_assert(struct reset_controller_dev *rcdev,
     unsigned long id)
 {
-    if(id < 0 || id >= RESET_DUMMY)
-        return 0;
-    k1pro_reset_set(rcdev, id, true, false);
-    k1pro_reset_subsys(rcdev, id, true);
-    return 0;
+    return k1pro_reset_update(rcdev, id, true);
 }
 
 static int k1pro_reset_deassert(struct reset_controller_dev *rcdev, unsigned long id)
 {
-    if(id < 0 || id >= RESET_DUMMY)
-        return 0;
-    k1pro_reset_subsys(rcdev, id, false);
-    k1pro_reset_set(rcdev, id, false, false);
-    return 0;
+    return k1pro_reset_update(rcdev, id, false);
 }
 
 static const struct k1pro_reset_variant k1pro_reset_data = {
@@ -339,6 +355,7 @@ static void k1pro_reset_init(struct device_node *np)
         pr_err("%s: could not map reset region\n", __func__);
         return;
     }
+    spin_lock_init(&reset->lock);
     reset->signals = k1pro_reset_data.signals;
     reset->gsr_signals = k1pro_reset_data.gsr_signals;
     reset->rcdev.owner     = THIS_MODULE;
