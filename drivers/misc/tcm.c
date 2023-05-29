@@ -9,6 +9,8 @@
 #include <linux/uaccess.h>
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <linux/mutex.h>
+#include <linux/list_sort.h>
 
 #define TCM_NAME		"tcm"
 
@@ -17,6 +19,7 @@
 #define TCM_BLOCK_NUM_GET	_IOR(IOC_MAGIC, 1, int)
 #define TCM_MEM_SHOW		_IOR(IOC_MAGIC, 2, int)
 #define TCM_SELECT_ID		_IOR(IOC_MAGIC, 3, int)
+#define TCM_VA_TO_PA		_IOR(IOC_MAGIC, 4, int)
 
 #define MM_MIN_SHIFT		(PAGE_SHIFT)  /* 16 bytes */
 #define MM_MIN_CHUNK		(1 << MM_MIN_SHIFT)
@@ -35,7 +38,7 @@ typedef struct {
 	int			block_num;
 	block_t			*block;
 	struct device		*dev;
-	struct mutex 		lock;
+	struct mutex 		mutex;
 } tcm_t;
 
 typedef struct {
@@ -67,11 +70,15 @@ typedef struct {
 	size_t			size;
 } mm_alloc_node_t;
 
+typedef struct {
+	void 			*vaddr;
+	void 			*paddr;
+} va_to_pa_msg_t;
+
 static tcm_t			tcm;
 static mm_heap_t		*g_mmheap;
 static int			g_mm_id;
 static int			g_block_num;
-static int 			g_alloc_tactics;
 
 static void add_node(mm_heap_t *heap, list_manager_t *list, mm_node_t *node, char *tip)
 {
@@ -130,7 +137,6 @@ static void mm_addregion(mm_heap_t *heap, void *heapstart, size_t heapsize)
 	heapsize 		 = heapend - heapbase;
 
 	heap->mm_heapsize	+= heapsize;
-	heap->free_size		 = heapsize;
 	heap->start		 = heapbase;
 	heap->end		 = heapend;
 
@@ -138,8 +144,8 @@ static void mm_addregion(mm_heap_t *heap, void *heapstart, size_t heapsize)
 	node->paddr		 = heapbase;
 	node->size		 = heapsize;
 
-	dev_info(tcm.dev, "mm init(start:0x%lx)(len:0x%lx)\n", heapbase, heapsize);
 	add_free_node(heap, node);
+	dev_info(tcm.dev, "mm init(start:0x%lx)(len:0x%lx)\n", heapbase, heapsize);
 }
 
 static mm_node_t *get_free_max_node(mm_heap_t *heap, size_t size)
@@ -158,19 +164,6 @@ static mm_node_t *get_free_max_node(mm_heap_t *heap, size_t size)
 	}
 
 	return max_node;
-}
-
-static mm_node_t *get_free_node(mm_heap_t *heap, size_t size)
-{
-	mm_node_t *node;
-
-	list_for_each_entry(node, &heap->free.head, list) {
-		if (node->size >= size) {
-			break;
-		}
-	}
-
-	return node->size >= size ? node : NULL;
 }
 
 static int node_fission(mm_heap_t *heap, mm_node_t *node, size_t size)
@@ -197,24 +190,6 @@ static int node_fission(mm_heap_t *heap, mm_node_t *node, size_t size)
 	return 0;
 }
 
-static void *mm_malloc(mm_heap_t *heap, size_t size)
-{
-	mm_node_t *node;
-
-	size = MM_ALIGN_UP(size);
-
-	node = get_free_node(heap, size);
-	if (!node) {
-		dev_err(tcm.dev, "allocation failed, size %ld\n", (unsigned long)size);
-		return NULL;
-	}
-	dev_info(tcm.dev, "\n%s node:(%lx)(%lx)(%lx)\n", __func__, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
-
-	node_fission(heap, node, size);
-
-	return (void *)node->paddr;
-}
-
 static void *mm_max_mallc(mm_heap_t *heap, size_t size, size_t *valid_size)
 {
 	mm_node_t *node;
@@ -225,8 +200,13 @@ static void *mm_max_mallc(mm_heap_t *heap, size_t size, size_t *valid_size)
 
 	dev_info(tcm.dev, "\n%s node:(%lx)(%lx)(%lx)\n", __func__, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 
-	node_fission(heap, node, size);
-	*valid_size = node->size;
+	if (size <= node->size) {
+		node_fission(heap, node, size);
+		*valid_size = size;
+	} else {
+		node_fission(heap, node, node->size);
+		*valid_size = node->size;
+	}
 
 	return (void *)node->paddr;
 }
@@ -311,30 +291,11 @@ static void mm_show(mm_heap_t *heap)
 	printk("%s end\n", __func__);
 }
 
-static struct list_head *tcm_malloc(size_t size)
-{
-	struct list_head *head = kmalloc(sizeof(struct list_head), GFP_KERNEL);
-	mm_alloc_node_t *alloc = kmalloc(sizeof(mm_alloc_node_t), GFP_KERNEL);
-
-	if (!head || !alloc) {
-		if (head) kfree(head);
-		if (alloc) kfree(alloc);
-		return NULL;
-	}
-
- 	INIT_LIST_HEAD(head);
-	alloc->paddr = (phys_addr_t)mm_malloc(&g_mmheap[g_mm_id], size);
-	alloc->size = size;
-	list_add(&alloc->list, head);
-
-	return head;
-}
-
 static int get_id(uintptr_t ptr)
 {
 	int i;
 	for (i = 0; i < 4; i++) {
-		if (ptr >= g_mmheap[i].start && ptr <= g_mmheap[i].end){
+		if (ptr >= g_mmheap[i].start && ptr < g_mmheap[i].end){
 			return i;
 		}
 	}
@@ -383,6 +344,9 @@ static struct list_head *tcm_discontinuous_malloc(size_t size)
 			alloc->paddr = (phys_addr_t)mm_max_mallc(&g_mmheap[i], remain, &alloc->size);
 			list_add(&alloc->list, head);
 			remain -= alloc->size;
+			if (remain <= 0) {
+				break;
+			}
 		}
 		if (remain <= 0) {
 			break;
@@ -404,6 +368,23 @@ static int mm_init(mm_heap_t *heap, size_t start, size_t end)
 	return 0;
 }
 
+static void *tcm_match_pa(unsigned long vaddr)
+{
+	// TODO
+	struct vm_area_struct *vma;
+	mm_alloc_node_t *node;
+	struct list_head *head;
+
+	vma = find_vma(current->mm, vaddr);
+	head = (struct list_head *)vma->vm_private_data;
+
+	list_for_each_entry(node, head, list) {
+		return (void *)node->paddr;
+	}
+
+	return NULL;
+}
+
 static void tcm_vma_close(struct vm_area_struct *vma)
 {
 	mm_alloc_node_t *cur, *next;
@@ -421,6 +402,14 @@ static const struct vm_operations_struct tcm_vm_ops = {
 	.close = tcm_vma_close,
 };
 
+static int mmap_compare(void* priv, const struct list_head* a, const struct list_head* b)
+{
+	mm_alloc_node_t* da = list_entry(a, mm_alloc_node_t, list);
+	mm_alloc_node_t* db = list_entry(b, mm_alloc_node_t, list);
+
+	return ((size_t)da->paddr > (size_t)db->paddr) ? 1 : (((size_t)da->paddr < (size_t)db->paddr) ? -1 : 0);
+}
+
 static int tcm_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	size_t size = vma->vm_end - vma->vm_start;
@@ -436,11 +425,16 @@ static int tcm_mmap(struct file *file, struct vm_area_struct *vma)
 		return -EINVAL;
 
 	vma->vm_ops = &tcm_vm_ops;
-	if (g_alloc_tactics == 0) {
-		head = tcm_malloc(size);
-	} else {
-		head = tcm_discontinuous_malloc(size);
+
+	mutex_lock(&tcm.mutex);
+	head = tcm_discontinuous_malloc(size);
+	mutex_unlock(&tcm.mutex);
+
+	if (!head) {
+		return -EINVAL;
 	}
+
+	list_sort(NULL, head, mmap_compare);
 
 	vma->vm_private_data = head;
 	addr = vma->vm_start;
@@ -479,6 +473,18 @@ static long tcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	} else if (cmd == TCM_SELECT_ID) {
 		ret = copy_from_user(&g_mm_id, (int *)arg, sizeof(int));
 		if (ret) {
+			return -EFAULT;
+		}
+	} else if (cmd  == TCM_VA_TO_PA) {
+		va_to_pa_msg_t msg;
+
+		if(copy_from_user(&msg, (void *)arg, sizeof(va_to_pa_msg_t))) {
+			return -EFAULT;
+		}
+
+		msg.paddr = tcm_match_pa((unsigned long)msg.vaddr);
+
+		if(copy_to_user((void *)arg, &msg, sizeof(va_to_pa_msg_t))) {
 			return -EFAULT;
 		}
 	}
@@ -554,7 +560,7 @@ static int tcm_probe(struct platform_device *pdev)
 		dev_err(tcm.dev, "failed to register misc device\n");
 		return ret;
 	}
-
+	mutex_init(&tcm.mutex);
 	dev_info(tcm.dev, "tcm register succfully\n");
 	return 0;
 }
