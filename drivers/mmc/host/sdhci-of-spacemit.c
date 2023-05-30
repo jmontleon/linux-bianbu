@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2023 Spacemit 
  *
- * Author: Wilson Wan <long.wan@spacemit.org>
+ * Author: Wilson Wan <long.wan@spacemit.com>
  */
 
 #include <linux/acpi.h>
@@ -162,28 +162,12 @@ static void dwcmshc_hs400_enhanced_strobe(struct mmc_host *mmc,
 	sdhci_writel(host, vendor, reg);
 }
 
-
-static void spacemit_sdhci_reset(struct sdhci_host *host, u8 mask)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
-	struct spacemit_priv *priv = dwc_priv->priv;
-
-	if (mask & SDHCI_RESET_ALL && priv->reset) {
-		reset_control_assert(priv->reset);
-		udelay(1);
-		reset_control_deassert(priv->reset);
-	}
-
-	sdhci_reset(host, mask);
-}
-
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
 	.set_clock		= sdhci_set_clock,
 	.set_bus_width		= sdhci_set_bus_width,
 	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
 	.get_max_clock		= dwcmshc_get_max_clock,
-	.reset			= spacemit_sdhci_reset,
+	.reset			= sdhci_reset,
 	.adma_write_desc	= dwcmshc_adma_write_desc,
 };
 
@@ -204,6 +188,9 @@ static int dwcmshc_spacemit_init(struct sdhci_host *host, struct dwcmshc_priv *d
 		dev_err(mmc_dev(host->mmc), "failed to get reset control %d\n", err);
 		return err;
 	}
+	reset_control_assert(priv->reset);
+	udelay(1);
+	reset_control_deassert(priv->reset);
 
 	priv->clks[0].id = "axi";
 	priv->clks[1].id = "400k";
@@ -414,5 +401,5 @@ static struct platform_driver sdhci_dwcmshc_driver = {
 module_platform_driver(sdhci_dwcmshc_driver);
 
 MODULE_DESCRIPTION("SDHCI platform driver for Spacemit");
-MODULE_AUTHOR("Wilson Wan <long.wan@spacemit.org>");
+MODULE_AUTHOR("Wilson Wan <long.wan@spacemit.com>");
 MODULE_LICENSE("GPL v2");
