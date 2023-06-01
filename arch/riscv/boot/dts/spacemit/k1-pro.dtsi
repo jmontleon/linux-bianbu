@@ -164,12 +164,12 @@
 			clock-output-names = "pll_clk_400m";
 		};
 
-               pll_clk_qspi: clock-pll_spi {
-		       #clock-cells = <0>;
-                       compatible = "fixed-clock";
-                       clock-frequency = <6250000>;
-                       clock-output-names = "pll_qspi";
-               };
+		pll_clk_qspi: clock-pll_spi {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <6250000>;
+			clock-output-names = "pll_qspi";
+		};
 	};
 	soc {
 		compatible = "simple-bus";
@@ -177,19 +177,21 @@
 		#size-cells = <2>;
 		ranges;
 		ccu:clock-controller@2f020000 {
-		    #address-cells = <0x1>;
-		    #size-cells = <0x1>;
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
 			compatible = "spacemit,k1pro-ccu";
 			reg = <0x0 0x2f020000 0x0 0x4000>, <0x0 0x2f804000 0x0 0xc000>;
-			clocks = <&osc_clk_24m>, <&pll_clk_sys>, <&pll_clk_gmac>, <&pll_clk_i2s>, <&pll_ddr>, <&in_clk_32k>, <&pll_clk_400m>;
-			clock-names = "osc_clk_24m", "pll_clk_sys", "pll_clk_gmac", "pll_clk_i2s", "pll_ddr", "in_clk_32k", "pll_clk_400m";
+			clocks = <&osc_clk_24m>, <&pll_clk_sys>, <&pll_clk_gmac>, <&pll_clk_i2s>,
+				 <&pll_ddr>, <&in_clk_32k>, <&pll_clk_400m>;
+			clock-names = "osc_clk_24m", "pll_clk_sys", "pll_clk_gmac", "pll_clk_i2s",
+				      "pll_ddr", "in_clk_32k", "pll_clk_400m";
 			#clock-cells = <1>;
 			status = "okay";
 		};
 
 		reset: reset-controller@2f024000 {
-		    #address-cells = <0x1>;
-		    #size-cells = <0x1>;
+			#address-cells = <0x1>;
+			#size-cells = <0x1>;
 			compatible = "spacemit,k1pro-reset";
 			reg = <0x0 0x2f024000 0x0 0x4000>, <0x0 0x2f804000 0x0 0xc000>;
 			#reset-cells = <1>;
@@ -212,7 +214,7 @@
 			#interrupt-cells = <1>;
 			compatible = "riscv,plic0";
 			interrupt-controller;
-			interrupts-extended = < 
+			interrupts-extended = <
 				&cpu0_intc 0xffffffff &cpu0_intc 9
 				&cpu1_intc 0xffffffff &cpu1_intc 9
 				&cpu2_intc 0xffffffff &cpu2_intc 9
@@ -238,23 +240,23 @@
 		};
 
 		dma: dma-controller@2ce40000 {
-                        compatible = "spacemit,k1pro-axi-dma";
-                        reg = <0x0 0x2ce40000 0x0 0x10000>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <40>;
-                        clocks = <&ccu CLK_DMAC>,
-                                 <&ccu CLK_DUMMY>;
-                        clock-names = "core-clk", "cfgr-clk";
-                        resets = <&reset RESET_DMAC>;
-                        #dma-cells = <2>;
-                        dma-channels = <8>;
-                        snps,dma-masters = <1>;
-                        snps,data-width = <2>;
-                        snps,num-hs-if = <63>;
-                        snps,block-size = <65536 65536 65536 65536 65536 65536 65536 65536>;
-                        snps,priority = <0 1 2 3 4 5 6 7>;
-                        snps,axi-max-burst-len = <16>;
-                        status = "okay";
+			compatible = "spacemit,k1pro-axi-dma";
+			reg = <0x0 0x2ce40000 0x0 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <40>;
+			clocks = <&ccu CLK_DMAC>,
+					 <&ccu CLK_DUMMY>;
+			clock-names = "core-clk", "cfgr-clk";
+			resets = <&reset RESET_DMAC>;
+			#dma-cells = <2>;
+			dma-channels = <8>;
+			snps,dma-masters = <1>;
+			snps,data-width = <2>;
+			snps,num-hs-if = <63>;
+			snps,block-size = <65536 65536 65536 65536 65536 65536 65536 65536>;
+			snps,priority = <0 1 2 3 4 5 6 7>;
+			snps,axi-max-burst-len = <16>;
+			status = "okay";
 		};
 
 		pwm: pwm@2cfc0000 {
@@ -367,38 +369,38 @@
 		};
 
 		qspi0: spi@2ce00000 {
-                       compatible = "snps,dwc-ssi-1.02a";
-                       reg = <0x0 0x2ce00000 0x0 0x4000>;
-                       interrupt-parent = <&intc>;
-                       interrupts = <96>;
-                       clocks = <&pll_clk_qspi>;
-                       resets = <&reset RESET_QSPI0>;
-                       #address-cells = <1>;
-                       #size-cells = <0>;
-                       status = "disabled";
-               };
+			compatible = "snps,dwc-ssi-1.02a";
+			reg = <0x0 0x2ce00000 0x0 0x4000>;
+			interrupt-parent = <&intc>;
+			interrupts = <96>;
+			clocks = <&pll_clk_qspi>;
+			resets = <&reset RESET_QSPI0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
 
-               gmac0: ethernet@2cc00000 {
-                       compatible = "spacemit,k1-pro-mac";
-                       reg = <0x00 0x2cc00000 0x0 0x10000
-                              0x00 0x2f028004 0x0 0x4>;
-                       reg-names = "gmac", "sys_gmac_cfg";
-                       interrupt-parent = <&intc>;
-                       interrupts = <132>;
-                       interrupt-names = "macirq";
-		       resets = <&reset RESET_USB_GMAC_GSR>, <&reset RESET_GMAC_CSR>, <&reset RESET_GMAC_DMA>, <&reset RESET_USB_GMAC2VBUS>;
-                       reset-names = "usb_gmac_gsr", "gmac_csr", "gmac_dma", "usb_gmac2vbus";
-                       snps,pbl = <32>;
-                       snps,fixed-burst;
-                       snps,axi-config = <&stmmac_axi_setup>;
+		gmac0: ethernet@2cc00000 {
+			compatible = "spacemit,k1-pro-mac";
+			reg = <0x00 0x2cc00000 0x0 0x10000
+				   0x00 0x2f028004 0x0 0x4>;
+			reg-names = "gmac", "sys_gmac_cfg";
+			interrupt-parent = <&intc>;
+			interrupts = <132>;
+			interrupt-names = "macirq";
+			resets = <&reset RESET_USB_GMAC_GSR>, <&reset RESET_GMAC_CSR>,
+					 <&reset RESET_GMAC_DMA>, <&reset RESET_USB_GMAC2VBUS>;
+			reset-names = "usb_gmac_gsr", "gmac_csr", "gmac_dma", "usb_gmac2vbus";
+			snps,pbl = <32>;
+			snps,fixed-burst;
+			snps,axi-config = <&stmmac_axi_setup>;
 
-                       stmmac_axi_setup: stmmac-axi-config {
-                               snps,wr_osr_lmt = <3>;
-                               snps,rd_osr_lmt = <3>;
-                               snps,blen = <16 8 4 0 0 0 0>;
-                       };
-               };
-
+			stmmac_axi_setup: stmmac-axi-config {
+				snps,wr_osr_lmt = <3>;
+				snps,rd_osr_lmt = <3>;
+				snps,blen = <16 8 4 0 0 0 0>;
+			};
+		};
 	};
 };
 
