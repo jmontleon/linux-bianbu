@@ -53,6 +53,12 @@ typedef struct {
 	struct list_head	list;		// List node pointers for dma alloc list
 } dma_map_info_t;
 
+typedef struct {
+	dma_addr_t 		addr;
+	size_t 			size;
+	int 			dirty;
+} va2pa_t;
+
 #ifdef DMA_CONFIG_DEBUG
 #include <linux/time.h>
 
@@ -188,7 +194,7 @@ static const struct vm_operations_struct dma_vm_ops = {
 
 static int dma_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	int			 ret;
+	int		ret;
 	dma_map_info_t *dma_info;
 
 	dma_info = kmalloc(sizeof(*dma_info), GFP_KERNEL);
@@ -218,92 +224,152 @@ static int dma_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-static void *dma_match_pa(unsigned long user_addr)
+static int va2pa(void *va, size_t size, va2pa_t **va2pa)
 {
-	struct list_head	*iter;
-	dma_map_info_t		*dma_info;
+	pmd_t *pmd;
+	pte_t *pte;
 
-	list_for_each(iter, &dmabuf_list) {
-		dma_info = container_of(iter, dma_map_info_t, list);
+	unsigned long pg_offset;
+	unsigned long pg_address;
+	unsigned long old_pfn;
+	unsigned long paddr;
+	size_t total;
+	int flag = 0;
 
-		if (user_addr == dma_info->user_addr) {
-			return (void *)dma_info->dma_addr;
+	va2pa_t *p;
+	int num = size/sizeof(PAGE_SIZE);
+	unsigned long vaddr = (unsigned long)va;
+	int i, j;
+
+	p = kmalloc(num*sizeof(va2pa_t), GFP_KERNEL);
+	*va2pa = p;
+
+	j = 0;
+	old_pfn = 0;
+	total = 0;
+
+	for (i = 0; i < num; i++) {
+		memset(p +i, 0x00, sizeof(va2pa_t));
+		pmd = pmd_off(current->mm, vaddr);
+		if(pmd_none(*pmd)) {
+			dev_err(dma_dev->dev, "not in the pmd!");
+			flag = -1;
+			break;
 		}
+
+		pte = pte_offset_map(pmd, vaddr);
+		if(pte_none(*pte)) {
+			dev_err(dma_dev->dev, "not in the pte!");
+			flag = -1;
+			break;
+		}
+
+		pg_offset = offset_in_page(vaddr);
+		pg_address = pte_pfn(__pte(pte_val(*pte))) << PAGE_SHIFT;
+		paddr = pg_address | pg_offset;
+
+		if ((old_pfn + PAGE_SIZE) == pg_address) {
+			p[j].size += (PAGE_SIZE - (vaddr - (vaddr & PAGE_MASK)));
+			total += (PAGE_SIZE - (vaddr - (vaddr & PAGE_MASK)));
+			p[j].dirty = 1;
+		} else {
+			if (p[j].dirty == 1) {
+				j++;
+			}
+			p[j].addr = paddr;
+			p[j].size = (PAGE_SIZE - (vaddr - (vaddr & PAGE_MASK)));
+			total += p[j].size;
+			p[j].dirty = 1;
+		}
+		if (total >= size) {
+			j ++;
+			break;
+		}
+		old_pfn = pg_address;
+		vaddr = (vaddr & PAGE_MASK) + PAGE_SIZE;
 	}
-	return NULL;
+
+	if (flag == -1) {
+		kfree(p);
+		*va2pa = NULL;
+		j = 0;
+	}
+
+	return j;
+}
+
+static int dma_memcpy(dma_addr_t dst, dma_addr_t src, size_t size)
+{
+#ifndef USE_DMA_MALLOC
+	dma_sync_single_for_cpu(dma_dev->dev, (dma_addr_t)src, size, DMA_FROM_DEVICE);
+#endif
+	mutex_lock(&dma_mutex);
+	dma_tx = dma_dev->device_prep_dma_memcpy(dma_chan,
+						dst,
+						src,
+						size,
+						DMA_CTRL_ACK | DMA_PREP_INTERRUPT);
+	if (!dma_tx){
+		dev_err(dma_dev->dev, "Failed to prepare DMA memcpy");
+		return -1;
+	}
+
+	dev_info(dma_dev->dev, "dma src:%lx  dst:%lx\n", (size_t)src, (size_t)dst);
+	dma_tx->callback		= dma_callback_func;//set call back function
+	dma_tx->callback_param		= NULL;
+	if (dma_submit_error(dma_tx->tx_submit(dma_tx))){
+		dev_err(dma_dev->dev, "Failed to do DMA tx_submit");
+		return -1;
+	}
+
+	init_completion(&dma_m2m_ok);
+	dma_async_issue_pending(dma_chan);//begin dma transfer
+	wait_for_completion(&dma_m2m_ok);
+	reinit_completion(&dma_m2m_ok);
+
+#ifndef USE_DMA_MALLOC
+	dma_sync_single_for_device(dma_dev->dev, (dma_addr_t)msg.dst, msg.size, DMA_FROM_DEVICE);
+#endif
+	mutex_unlock(&dma_mutex);
+
+	return 0;
 }
 
 static long dma_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	if (cmd == DMA_MEMCPY_CMD) {
 		memcpy_msg_t msg;
-#ifdef DMA_CONFIG_DEBUG
-		memcpy_msg_t *user = (memcpy_msg_t *)arg;
-		g_time_cnt = 0;
-#endif
-		DMA_TIME_STAMP();
+		va2pa_t *s_pa_l, *d_pa_l;
+		int i, loop, ret;
+		size_t off;
 
 		if(copy_from_user(&msg, (void *)arg, sizeof(memcpy_msg_t))) {
 			return -EFAULT;
 		}
 
-#ifndef USE_DMA_MALLOC
-		dma_sync_single_for_cpu(dma_dev->dev, (dma_addr_t)msg.src, msg.size, DMA_FROM_DEVICE);
-#endif
-		DMA_TIME_STAMP();
-
-		mutex_lock(&dma_mutex);
-		dma_tx = dma_dev->device_prep_dma_memcpy(dma_chan,
-							(dma_addr_t)msg.dst,
-							(dma_addr_t)msg.src,
-							msg.size,
-							DMA_CTRL_ACK | DMA_PREP_INTERRUPT);
-		if (!dma_tx){
-			dev_err(dma_dev->dev, "Failed to prepare DMA memcpy");
+		ret = va2pa(msg.src, msg.size, &s_pa_l);
+		if (ret != 1) {
+			if (s_pa_l) {
+				kfree(s_pa_l);
+			}
+			return -1;
 		}
-		DMA_TIME_STAMP();
-
-		dma_tx->callback		= dma_callback_func;//set call back function
-		dma_tx->callback_param		= NULL;
-		if (dma_submit_error(dma_tx->tx_submit(dma_tx))){
-			dev_err(dma_dev->dev, "Failed to do DMA tx_submit");
+		ret = va2pa(msg.dst, msg.size, &d_pa_l);
+		if (ret == 0) {
+			kfree(s_pa_l);
+			return -1;
 		}
 
-		init_completion(&dma_m2m_ok);
-		DMA_TIME_STAMP();
+		loop = ret;
+		off = 0;
 
-		dma_async_issue_pending(dma_chan);//begin dma transfer
-		DMA_TIME_STAMP();
-
-		wait_for_completion(&dma_m2m_ok);
-		DMA_TIME_STAMP();
-		reinit_completion(&dma_m2m_ok);
-
-#ifndef USE_DMA_MALLOC
-		dma_sync_single_for_device(dma_dev->dev, (dma_addr_t)msg.dst, msg.size, DMA_FROM_DEVICE);
-#endif
-		DMA_TIME_STAMP();
-
-#ifdef DMA_CONFIG_DEBUG
-		if (copy_to_user((void *)user->time, (void *)g_time, g_time_cnt * sizeof(long long)) ||
-			copy_to_user((void *)&user->time_cnt, (void *)&g_time_cnt, sizeof(g_time_cnt))   ||
-			copy_to_user((void *)&user->dma_irq_subscript, (void *)&g_dma_irq_subscript, sizeof(g_dma_irq_subscript))) {
-			return -EFAULT;
-		}
-#endif
-		mutex_unlock(&dma_mutex);
-	} else if (cmd == DMA_VA_TO_PA){
-		va_to_pa_msg_t msg;
-
-		if(copy_from_user(&msg, (void *)arg, sizeof(va_to_pa_msg_t))) {
-			return -EFAULT;
+		for (i = 0; i < loop; i++) {	
+			dma_memcpy(d_pa_l[i].addr, s_pa_l[0].addr + off, d_pa_l[i].size);
+			off += d_pa_l[i].size;
 		}
 
-		msg.dma_addr = dma_match_pa((unsigned long)msg.user_addr);
-
-		if(copy_to_user((void *)arg, &msg, sizeof(va_to_pa_msg_t))) {
-			return -EFAULT;
-		}
+		kfree(s_pa_l);
+		kfree(d_pa_l);
 	}
 	return 0;
 }
@@ -321,6 +387,8 @@ static const struct file_operations dma_fops = {
 static int dma_init(void)
 {
 	dma_cap_mask_t mask;
+	struct device *dev_ret;
+
 	dma_major = register_chrdev(0, DEVICE_NAME, &dma_fops);
 	if (dma_major < 0)
 		return dma_major;
@@ -329,11 +397,17 @@ static int dma_init(void)
 	if (IS_ERR(dma_class))
 		return -1;
 
-	device_create(dma_class, NULL, MKDEV(dma_major, 0), NULL, DEVICE_NAME);
+	dev_ret = device_create(dma_class, NULL, MKDEV(dma_major, 0), NULL, DEVICE_NAME);
+	if (IS_ERR(dev_ret))
+		return PTR_ERR(dev_ret);
 
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_MEMCPY, mask);//direction:memory to memory
 	dma_chan = dma_request_channel(mask,NULL,NULL); //request a dma channel
+	if (!dma_chan) {
+		dev_err(dma_dev->dev, "dma request failed\n");
+		return -1;
+	}
 
 	dma_dev = dma_chan->device;
 	dma_set_mask(dma_dev->dev, DMA_BIT_MASK(32));
