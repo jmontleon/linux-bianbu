@@ -401,6 +401,32 @@
 				snps,blen = <16 8 4 0 0 0 0>;
 			};
 		};
+
+                pcie5: pcie@41400000 {
+                        compatible = "spacemit,k1-pro-pcie";
+                        reg = <0x0 0x41400000 0x0 0x400000>,
+                              <0x0 0x44500000 0x0 0x100000>,
+                              <0x0 0x70000000 0x0 0x100000>;
+                        reg-names = "dbi", "app", "config";
+                        num-lanes = <4>;
+                        device_type = "pci";
+
+                        #address-cells = <3>;
+                        #size-cells = <2>;
+                        ranges = <0x81000000 0 0x70100000 0 0x70100000 0 0x00100000>,   /* downstream I/O */
+                                 <0x82000000 0 0x70200000 0 0x70200000 0 0x05e00000>,   /* non-prefetchable memory */
+                                 <0xc3000000 0 0x76000000 0 0x76000000 0 0x02000000>;   /* mem prefetchable */
+                        bus-range = <0x00 0xff>;
+
+                        interrupt-parent = <&intc>;
+                        interrupts = <157>;
+                        interrupt-names = "msi";
+
+                        resets = <&reset RESET_PCIE5_POWERUP>,
+                                 <&reset RESET_PCIE5_PERST>;
+                        reset-names = "powerup", "perst";
+                        status = "disabled";
+               };
 	};
 
 	pmu {
