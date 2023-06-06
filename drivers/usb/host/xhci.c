@@ -5350,6 +5350,10 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 			!dma_set_mask(dev, DMA_BIT_MASK(64))) {
 		xhci_dbg(xhci, "Enabling 64-bit DMA addresses.\n");
 		dma_set_coherent_mask(dev, DMA_BIT_MASK(64));
+	} else if (IS_ENABLED(CONFIG_SOC_SPACEMIT_K1PRO) &&
+			!dma_set_mask(dev, DMA_BIT_MASK(40))) {
+		xhci_dbg(xhci, "Force Enabling 40-bit DMA addresses.\n");
+		dma_set_coherent_mask(dev, DMA_BIT_MASK(40));
 	} else {
 		/*
 		 * This is to avoid error in cases where a 32-bit USB
