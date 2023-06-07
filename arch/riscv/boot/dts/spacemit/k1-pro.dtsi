@@ -296,6 +296,21 @@
 			};
 		};
 
+		can0: can@2cfd0000 {
+			compatible = "ipms,can";
+			reg = <0x0 0x2cfd0000 0x0 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <81>;
+			clocks = <&ccu CLK_CAN_EN>,
+					 <&ccu CLK_CAN>;
+			clock-names = "apb_clk", "core_clk";
+			resets = <&reset RESET_CAN>;
+			reset-names = "rst_core";
+			frequency = <50000000>;
+			syscon,can_or_canfd = <1>;
+			status = "disabled";
+		};
+
 		usbdrd3: usb3@0 {
 			compatible = "spacemit,k1-pro-dwc3";
 			#address-cells = <2>;
