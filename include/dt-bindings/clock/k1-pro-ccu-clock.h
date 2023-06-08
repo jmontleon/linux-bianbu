@@ -140,6 +140,8 @@
 #define CLK_MCU_SRC    124
 #define CLK_MCU_SYS    125
 #define CLK_MCU2MBUS   126
+#define CLK_MCU_AHB    127
+#define CLK_MCU_APB    128
 
-#define CLK_MAX_NO     127
+#define CLK_MAX_NO     129
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1PRO_H_ */
