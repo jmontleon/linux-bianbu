@@ -143,7 +143,9 @@ static struct ccu_clk_data ccu_clocks[] =  {
     //mcu
     {CLK_MCU_SRC, CLK_TYPE_MUX, "clk_mcu_src", NULL, clk_mcu_src, 3, MCU_SUB_CTRL_REG000, 0, 2, 0, 0, 0},
     {CLK_MCU_SYS, CLK_TYPE_GATE, "clk_mcu_sys", "clk_mcu_src", NULL, 1, MCU_SUB_EN_REG004, 0, 0, 0, 0, 0},
-    {CLK_MCU2MBUS, CLK_TYPE_GATE, "clk_mcu2mbus", NULL, NULL, 0, MCU_SUB_EN_REG004, 16, 0, 0, 0, 0},
+    {CLK_MCU_AHB, CLK_TYPE_DIVIDER, "clk_mcu_ahb", "clk_mcu_sys", NULL, 1, MCU_SUB_CTRL_REG000, 8, 2, 0, 0, 0},
+    {CLK_MCU_APB, CLK_TYPE_DIVIDER, "clk_mcu_apb", "clk_mcu_sys", NULL, 1, MCU_SUB_CTRL_REG000, 10, 2, 0, 0, 0},
+    {CLK_MCU2MBUS, CLK_TYPE_GATE, "clk_mcu2mbus", "clk_mcu_ahb", NULL, 0, MCU_SUB_EN_REG004, 16, 0, 0, 0, 0},
 };
 
 static void ccu_clocks_init(struct device_node *np)
