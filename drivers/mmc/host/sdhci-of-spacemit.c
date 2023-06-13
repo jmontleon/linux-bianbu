@@ -35,7 +35,7 @@
 #define DWCMSHC_ENHANCED_STROBE		BIT(8)
 #define DWCMSHC_EMMC_ATCTRL		0x40
 
-#define MAX_CLKS 2
+#define MAX_CLKS 1
 
 #define BOUNDARY_OK(addr, len) \
 	((addr | (SZ_128M - 1)) == ((addr + len - 1) | (SZ_128M - 1)))
@@ -193,7 +193,6 @@ static int dwcmshc_spacemit_init(struct sdhci_host *host, struct dwcmshc_priv *d
 	reset_control_deassert(priv->reset);
 
 	priv->clks[0].id = "axi";
-	priv->clks[1].id = "400k";
 	err = devm_clk_bulk_get_optional(mmc_dev(host->mmc), MAX_CLKS,
 					 priv->clks);
 	if (err) {
