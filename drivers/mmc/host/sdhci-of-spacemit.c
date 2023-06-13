@@ -292,6 +292,8 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		goto free_pltfm;
 	host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
 
+	sdhci_enable_v4_mode(host);
+
 	err = sdhci_setup_host(host);
 	if (err)
 		goto err_clk;
