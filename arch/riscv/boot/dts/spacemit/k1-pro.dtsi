@@ -171,6 +171,13 @@
 			clock-output-names = "pll_qspi";
 		};
 	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -516,6 +523,21 @@
 					 <&reset RESET_PCIE5_PERST>;
 			reset-names = "powerup", "perst";
 			status = "disabled";
+		};
+
+		esos_rproc: esos_rproc@0 {
+			compatible = "spacemit,k1-pro";
+			reg = <0x0 0x2f804100 0x0 0x1000>;
+			clocks = <&ccu CLK_MCU_SRC>, <&ccu PLL_CLK_400M>, <&ccu CLK_MCU_SYS>, <&ccu CLK_MCU2MBUS>,
+					<&ccu CLK_MCU_AHB>, <&ccu CLK_MCU_APB>;
+			clock-names = "mux", "src", "core", "mbus", "ahb", "apb";
+			resets = <&reset RESET_MCU_CORE>;
+			reset-names = "core_reset";
+			core-ahb-clock-frequency = <400000000>;
+			aph-bus-clock-frequency = <100000000>;
+			esos-entry-point = <0xBF000000>;
+			firmware-name = "esos.elf";
+			status = "okay";
 		};
 	};
 
