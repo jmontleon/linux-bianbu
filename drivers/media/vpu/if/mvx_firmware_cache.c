@@ -423,7 +423,7 @@ static struct attribute *fw_bin_attrs[] = {
 static struct kobj_type fw_bin_ktype = {
 	.release       = fw_bin_destroy,
 	.sysfs_ops     = &kobj_sysfs_ops,
-	.default_attrs = fw_bin_attrs
+	//.default_attrs = fw_bin_attrs
 };
 
 /**
@@ -602,7 +602,7 @@ static void cache_release(struct kobject *kobj)
 static struct kobj_type cache_ktype = {
 	.release       = cache_release,
 	.sysfs_ops     = &kobj_sysfs_ops,
-	.default_attrs = cache_attrs
+	//.default_attrs = cache_attrs
 };
 
 static void cache_update(struct mvx_fw_cache *cache)
