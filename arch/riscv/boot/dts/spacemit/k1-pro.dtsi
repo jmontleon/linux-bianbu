@@ -539,6 +539,14 @@
 			firmware-name = "esos.elf";
 			status = "okay";
 		};
+
+		vpu: linlon-v5@0x2C100000 {
+			compatible = "arm china,linlon-v5";
+			reg = <0x0 0x2C100000 0x0 0x10000>;
+			interrupts = <120>;
+			interrupt-parent = <&intc>;
+			resets = <&reset RESET_VPU>;
+		};
 	};
 
 	pmu {
