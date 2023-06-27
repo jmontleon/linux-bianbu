@@ -207,7 +207,7 @@ static struct mvx_secure_firmware_priv *secure_firmware_create(
 	static struct kobj_type secure_ktype = {
 		.sysfs_ops     = &kobj_sysfs_ops,
 		.release       = secure_firmware_release,
-		.default_attrs = attrs
+		//.default_attrs = attrs
 	};
 	struct mvx_secure_firmware_priv *securefw;
 	char numcores_env[32];
@@ -345,7 +345,7 @@ struct dma_buf *mvx_secure_mem_alloc(struct mvx_secure *secure,
 	static struct kobj_type secure_mem_ktype = {
 		.release       = secure_mem_release,
 		.sysfs_ops     = &kobj_sysfs_ops,
-		.default_attrs = attrs
+		//.default_attrs = attrs
 	};
 	struct mvx_secure_mem *smem;
 	char size_env[32];
