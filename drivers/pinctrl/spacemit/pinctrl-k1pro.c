@@ -1,0 +1,142 @@
+// SPDX-License-Identifier: GPL-2.0+
+//
+// Spacemit k1-pro pinctrl driver
+//
+// Copyright (c) 2023, spacemit Corporation.
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include "pinctrl-spacemit.h"
+#include <dt-bindings/pinctrl/k1-pro-pinctrl.h>
+
+static const struct pinctrl_pin_desc k1pro_pins[] = {
+	SPACEMIT_PINCTRL_PIN(GPIOA0),
+	SPACEMIT_PINCTRL_PIN(GPIOA1),
+	SPACEMIT_PINCTRL_PIN(GPIOA2),
+	SPACEMIT_PINCTRL_PIN(GPIOA3),
+	SPACEMIT_PINCTRL_PIN(GPIOA4),
+	SPACEMIT_PINCTRL_PIN(GPIOA5),
+	SPACEMIT_PINCTRL_PIN(GPIOA6),
+	SPACEMIT_PINCTRL_PIN(GPIOA7),
+	SPACEMIT_PINCTRL_PIN(GPIOA8),
+	SPACEMIT_PINCTRL_PIN(GPIOA9),
+	SPACEMIT_PINCTRL_PIN(GPIOA10),
+	SPACEMIT_PINCTRL_PIN(GPIOA11),
+	SPACEMIT_PINCTRL_PIN(GPIOA12),
+	SPACEMIT_PINCTRL_PIN(GPIOA13),
+	SPACEMIT_PINCTRL_PIN(GPIOA14),
+	SPACEMIT_PINCTRL_PIN(GPIOA15),
+	SPACEMIT_PINCTRL_PIN(GPIOA16),
+	SPACEMIT_PINCTRL_PIN(GPIOA17),
+	SPACEMIT_PINCTRL_PIN(GPIOA18),
+	SPACEMIT_PINCTRL_PIN(GPIOA19),
+	SPACEMIT_PINCTRL_PIN(GPIOA20),
+	SPACEMIT_PINCTRL_PIN(GPIOA21),
+	SPACEMIT_PINCTRL_PIN(GPIOA22),
+	SPACEMIT_PINCTRL_PIN(GPIOA23),
+	SPACEMIT_PINCTRL_PIN(GPIOA24),
+	SPACEMIT_PINCTRL_PIN(GPIOA25),
+	SPACEMIT_PINCTRL_PIN(GPIOA26),
+	SPACEMIT_PINCTRL_PIN(GPIOA27),
+	SPACEMIT_PINCTRL_PIN(GPIOA28),
+	SPACEMIT_PINCTRL_PIN(GPIOA29),
+
+	SPACEMIT_PINCTRL_PIN(GPIOB0),
+	SPACEMIT_PINCTRL_PIN(GPIOB1),
+	SPACEMIT_PINCTRL_PIN(GPIOB2),
+	SPACEMIT_PINCTRL_PIN(GPIOB3),
+	SPACEMIT_PINCTRL_PIN(GPIOB4),
+	SPACEMIT_PINCTRL_PIN(GPIOB5),
+	SPACEMIT_PINCTRL_PIN(GPIOB6),
+	SPACEMIT_PINCTRL_PIN(GPIOB7),
+	SPACEMIT_PINCTRL_PIN(GPIOB8),
+	SPACEMIT_PINCTRL_PIN(GPIOB9),
+	SPACEMIT_PINCTRL_PIN(GPIOB10),
+	SPACEMIT_PINCTRL_PIN(GPIOB11),
+	SPACEMIT_PINCTRL_PIN(GPIOB12),
+	SPACEMIT_PINCTRL_PIN(GPIOB13),
+	SPACEMIT_PINCTRL_PIN(GPIOB14),
+	SPACEMIT_PINCTRL_PIN(GPIOB15),
+	SPACEMIT_PINCTRL_PIN(GPIOB16),
+	SPACEMIT_PINCTRL_PIN(GPIOB17),
+	SPACEMIT_PINCTRL_PIN(GPIOB18),
+	SPACEMIT_PINCTRL_PIN(GPIOB19),
+	SPACEMIT_PINCTRL_PIN(GPIOB20),
+	SPACEMIT_PINCTRL_PIN(GPIOB21),
+	SPACEMIT_PINCTRL_PIN(GPIOB22),
+	SPACEMIT_PINCTRL_PIN(GPIOB23),
+	SPACEMIT_PINCTRL_PIN(GPIOB24),
+
+	SPACEMIT_PINCTRL_PIN(GPIOC0),
+	SPACEMIT_PINCTRL_PIN(GPIOC1),
+	SPACEMIT_PINCTRL_PIN(GPIOC2),
+	SPACEMIT_PINCTRL_PIN(GPIOC3),
+	SPACEMIT_PINCTRL_PIN(GPIOC4),
+	SPACEMIT_PINCTRL_PIN(GPIOC5),
+	SPACEMIT_PINCTRL_PIN(GPIOC6),
+	SPACEMIT_PINCTRL_PIN(GPIOC7),
+	SPACEMIT_PINCTRL_PIN(GPIOC8),
+	SPACEMIT_PINCTRL_PIN(GPIOC9),
+	SPACEMIT_PINCTRL_PIN(GPIOC10),
+	SPACEMIT_PINCTRL_PIN(GPIOC11),
+	SPACEMIT_PINCTRL_PIN(GPIOC12),
+	SPACEMIT_PINCTRL_PIN(GPIOC13),
+	SPACEMIT_PINCTRL_PIN(GPIOC14),
+	SPACEMIT_PINCTRL_PIN(GPIOC15),
+	SPACEMIT_PINCTRL_PIN(GPIOC16),
+	SPACEMIT_PINCTRL_PIN(GPIOC17),
+	SPACEMIT_PINCTRL_PIN(GPIOC18),
+	SPACEMIT_PINCTRL_PIN(GPIOC19),
+	SPACEMIT_PINCTRL_PIN(GPIOC20),
+	SPACEMIT_PINCTRL_PIN(GPIOC21),
+	SPACEMIT_PINCTRL_PIN(GPIOC22),
+	SPACEMIT_PINCTRL_PIN(GPIOC23),
+	SPACEMIT_PINCTRL_PIN(GPIOC24),
+};
+
+static const struct spacemit_regs k1pro_regs = {
+	.cfg = 0x000,
+	.reg_len = 0x80,
+};
+
+static const struct spacemit_pin_conf k1pro_pin_conf = {
+	.od_shift = 4,
+	.pe_shift = 8,
+	.pull_shift = 9,
+	.ds_shift = 12,
+	.st_shift = 16,
+	.rte_shift = 20,
+};
+
+static struct spacemit_pinctrl_soc_data k1pro_pinctrl_data = {
+	.regs = &k1pro_regs,
+	.pinconf = &k1pro_pin_conf,
+	.pins = k1pro_pins,
+	.npins = ARRAY_SIZE(k1pro_pins),
+};
+
+static int k1pro_pinctrl_probe(struct platform_device *pdev)
+{
+	return spacemit_pinctrl_probe(pdev, &k1pro_pinctrl_data);
+}
+
+static const struct of_device_id k1pro_pinctrl_of_match[] = {
+	{ .compatible = "spacemit,k1pro-pinctrl", },
+	{ /* sentinel */ }
+};
+
+static struct platform_driver k1pro_pinctrl_driver = {
+	.driver = {
+		.name = "k1pro-pinctrl",
+		.suppress_bind_attrs = true,
+		.of_match_table = k1pro_pinctrl_of_match,
+	},
+	.probe = k1pro_pinctrl_probe,
+};
+
+static int __init k1pro_pinctrl_init(void)
+{
+	return platform_driver_register(&k1pro_pinctrl_driver);
+}
+postcore_initcall(k1pro_pinctrl_init);
