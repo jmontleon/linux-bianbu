@@ -193,6 +193,8 @@ static const struct k1pro_reset_signal
     //mcu
     [RESET_MCU_CORE]      = { MCU_SW_RESET008, BIT(1), RESET_MCU_SUB_GSR },
     [RESET_MCU_BUS]       = { MCU_SW_RESET008, BIT(2), RESET_MCU_SUB_GSR },
+    [RESET_MCU_MAILBOX]   = { MCU_SW_RESET008, BIT(13), RESET_MCU_SUB_GSR },
+    [RESET_MCU_SPINLOCK]  = { MCU_SW_RESET008, BIT(14), RESET_MCU_SUB_GSR },
     [RESET_DUMMY]         = {},
 };
 
