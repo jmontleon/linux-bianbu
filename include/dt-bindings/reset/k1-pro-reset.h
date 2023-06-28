@@ -118,10 +118,12 @@
 //mcu
 #define RESET_MCU_CORE  88
 #define RESET_MCU_BUS   89
+#define RESET_MCU_MAILBOX   90
+#define RESET_MCU_SPINLOCK  91
 
-#define RESET_DUMMY     90
+#define RESET_DUMMY     92
 
-#define RESET_NUMBER    91
+#define RESET_NUMBER    93
 
 
 #define RESET_CPU_GSR        RESET_DUMMY
