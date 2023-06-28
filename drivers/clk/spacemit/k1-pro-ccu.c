@@ -52,8 +52,6 @@ static struct ccu_clk_data ccu_clocks[] =  {
     //sys
     {CLK_SYS_AHB, CLK_TYPE_DIVIDER, "clk_sys_ahb", "pll_clk_400m", NULL, 1, SYS_SUB_CTRL_REG200, 12, 2, 0, 0, 0},
     {CLK_SYS_APB, CLK_TYPE_DIVIDER, "clk_sys_apb", "pll_clk_400m", NULL, 1, SYS_SUB_CTRL_REG200, 14, 2, 0, 0, 0},
-    {CLK_MBOX, CLK_TYPE_GATE, "clk_mbox", "clk_sys_apb", NULL, 1, SYS_SUB_EN_REG204, 0, 0, 0, 0, 0},
-    {CLK_SPINLOCK, CLK_TYPE_GATE, "clk_spinlock", "clk_sys_apb", NULL, 1, SYS_SUB_EN_REG204, 1, 0, 0, 0, 0},
     {CLK_DMAC, CLK_TYPE_GATE, "clk_dmac", "clk_sys_ahb", NULL, 1, SYS_SUB_EN_REG204, 2, 0, 0, 0, 0},
     {CLK_GPIO, CLK_TYPE_GATE, "clk_gpio", "clk_sys_apb", NULL, 1, SYS_SUB_EN_REG204, 3, 0, 0, 0, 0},
     {CLK_WDT, CLK_TYPE_GATE, "clk_wdt", "clk_sys_apb", NULL, 1, SYS_SUB_EN_REG204, 4, 0, 0, 0, 0},
@@ -145,6 +143,8 @@ static struct ccu_clk_data ccu_clocks[] =  {
     {CLK_MCU_SYS, CLK_TYPE_GATE, "clk_mcu_sys", "clk_mcu_src", NULL, 1, MCU_SUB_EN_REG004, 0, 0, 0, 0, 0},
     {CLK_MCU_AHB, CLK_TYPE_DIVIDER, "clk_mcu_ahb", "clk_mcu_sys", NULL, 1, MCU_SUB_CTRL_REG000, 8, 2, 0, 0, 0},
     {CLK_MCU_APB, CLK_TYPE_DIVIDER, "clk_mcu_apb", "clk_mcu_sys", NULL, 1, MCU_SUB_CTRL_REG000, 10, 2, 0, 0, 0},
+    {CLK_MBOX, CLK_TYPE_GATE, "clk_mbox", "clk_mcu_apb", NULL, 1, MCU_SUB_EN_REG004, 11, 0, 0, 0, 0},
+    {CLK_SPINLOCK, CLK_TYPE_GATE, "clk_spinlock", "clk_mcu_apb", NULL, 1, MCU_SUB_EN_REG004, 12, 0, 0, 0, 0},
     {CLK_MCU2MBUS, CLK_TYPE_GATE, "clk_mcu2mbus", "clk_mcu_ahb", NULL, 0, MCU_SUB_EN_REG004, 16, 0, 0, 0, 0},
 };
 
