@@ -309,7 +309,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <81>;
 			clocks = <&ccu CLK_CAN_EN>,
-					 <&ccu CLK_CAN>;
+				 <&ccu CLK_CAN>;
 			clock-names = "apb_clk", "core_clk";
 			resets = <&reset RESET_CAN>;
 			reset-names = "rst_core";
