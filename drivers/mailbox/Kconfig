@@ -330,4 +330,12 @@ config THEAD_TH1520_MBOX
 	  kernel is running, and E902 core used for power management among other
 	  things.
 
+config SPACEMIT_MAILBOX
+	tristate "Spacemit Message Box"
+	depends on SOC_SPACEMIT
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+
 endif
