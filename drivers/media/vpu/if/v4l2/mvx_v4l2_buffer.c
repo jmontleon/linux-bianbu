@@ -326,6 +326,7 @@ static int update_v4l2_bytesused(struct mvx_v4l2_buffer *vbuf)
 		b->planes[i].bytesused =
 			buf->planes[i].filled + buf->planes[i].offset;
 		b->planes[i].data_offset = buf->planes[i].offset;
+		//printk("--David-- bytesused = %d filled = %d\n",buf->planes[i].filled, b->planes[i].bytesused);
 	}
 
 	return 0;
