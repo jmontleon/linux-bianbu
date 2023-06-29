@@ -246,6 +246,19 @@
 			status = "disabled";
 		};
 
+		mailbox: mailbox@2f824000 {
+			compatible = "spacemit,k1-pro-mailbox";
+			reg = <0x0 0x2f824000 0x0 0x4000>;
+			interrupt-parent = <&intc>;
+			interrupts = <48>;
+			#mbox-cells = <1>;
+			clocks = <&ccu CLK_MBOX>;
+			clock-names = "core";
+			resets = <&reset RESET_MCU_MAILBOX>;
+			reset-names = "core_reset";
+			status = "okay";
+		};
+
 		dma: dma-controller@2ce40000 {
 			compatible = "spacemit,k1pro-axi-dma";
 			reg = <0x0 0x2ce40000 0x0 0x10000>;
