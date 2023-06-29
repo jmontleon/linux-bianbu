@@ -1,0 +1,46 @@
+/ {
+	sram {
+		compatible = "mmio-sram";
+		/* 256k */
+		reg = <0x0 0x2f900000 0x0 0x40000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x2f900000 0x40000>;
+
+		/* channel 0*/
+		cpu_scp_lpri0: scp-sram@2f900000 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x0 0x80>;
+		};
+
+		/* channel 1*/
+		cpu_scp_lpri1: scp-sram@2f900080 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x80 0x80>;
+		};
+
+		/* channel 2*/
+		cpu_scp_lpri2: scp-sram@2f900100 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x100 0x80>;
+		};
+
+		/* channel 3*/
+		cpu_scp_lpri3: scp-sram@2f900180 {
+			compatible = "arm,scmi-shmem";
+			reg = <0x180 0x80>;
+		};
+	};
+
+	firmware {
+		scmi {
+			compatible = "arm,scmi";
+			mbox-names = "tx", "rx";
+			mboxes = <&mailbox 0 &mailbox 2>;
+			shmem = <&cpu_scp_lpri0 &cpu_scp_lpri0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+};
+
