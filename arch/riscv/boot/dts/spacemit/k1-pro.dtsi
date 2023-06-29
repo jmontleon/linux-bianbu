@@ -539,7 +539,7 @@
 		};
 
 		esos_rproc: esos_rproc@0 {
-			compatible = "spacemit,k1-pro";
+			compatible = "spacemit,k1-pro-rproc";
 			reg = <0x0 0x2f804100 0x0 0x1000>;
 			clocks = <&ccu CLK_MCU_SRC>, <&ccu PLL_CLK_400M>, <&ccu CLK_MCU_SYS>, <&ccu CLK_MCU2MBUS>,
 					<&ccu CLK_MCU_AHB>, <&ccu CLK_MCU_APB>;
