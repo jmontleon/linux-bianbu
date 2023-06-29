@@ -339,7 +339,7 @@ static int spacemit_rproc_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id spacemit_rproc_of_match[] = {
-	{ .compatible = "spacemit,k1-pro" },
+	{ .compatible = "spacemit,k1-pro-rproc" },
 	{},
 };
 
