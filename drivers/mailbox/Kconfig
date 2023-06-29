@@ -369,4 +369,12 @@ config BCM74110_MAILBOX
 	  processor and coprocessor that handles various power management task
 	  and more.
 
+config SPACEMIT_MAILBOX
+	tristate "Spacemit Message Box"
+	depends on SOC_SPACEMIT
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+
 endif
