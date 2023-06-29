@@ -113,7 +113,6 @@ int mvx_ext_if_construct(struct mvx_ext_if *ext,
 {
 	int ret;
 	const char name[] = "mvx";
-
 	ext->dev = dev;
 	ext->cache = cache;
 	ext->client_ops = client_ops;
@@ -141,6 +140,7 @@ int mvx_ext_if_construct(struct mvx_ext_if *ext,
 	strncpy(ext->vdev.name, name, sizeof(ext->vdev.name));
 
 	video_set_drvdata(&ext->vdev, ext);
+	ext->vdev.device_caps = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT_MPLANE | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 
 	ret = video_register_device(&ext->vdev, VFL_TYPE_VIDEO, -1);
 	if (ret != 0) {
