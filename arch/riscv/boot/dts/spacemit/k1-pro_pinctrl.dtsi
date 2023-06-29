@@ -1,0 +1,258 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/* Copyright (c) 2022 Spacemit, Inc */
+
+#include <dt-bindings/pinctrl/k1-pro-pinctrl.h>
+
+/* Pin Configuration Node: */
+/* Format: <pin_id muxsel config> */
+/* config format: name   index       (width)  */
+/* od(open drain enbable):    0       (1)     */
+/* pe(pull enable):           1       (1)     */
+/* ps(pull selector):         2       (1)    1: up, 0: down */
+/* ds(driving seletor):       4       (4)     */
+/* st(schmit trigger enable)  8       (1)     */
+/* rte(retention signal bus)  9       (1)     */
+&pinctrl {
+        pinctrl_qspi0: qspi0grp {
+                spacemit,pins = <
+                        GPIOA1    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sclk */
+                        GPIOA2    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* csn0 */
+                        GPIOA3    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* csn1 */
+                        GPIOA4    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d0_mosi */
+                        GPIOA5    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d1_miso */
+                        GPIOA6    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d2_wp */
+                        GPIOA7    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d3_hold */
+                >;
+        };
+
+        pinctrl_pwm0: pwm0grp {
+                spacemit,pins = <
+                        GPIOA3    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm0 */
+                >;
+        };
+
+        pinctrl_pwm1: pwm1grp {
+                spacemit,pins = <
+                        GPIOA8    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm1 */
+                >;
+        };
+
+        pinctrl_pwm2: pwm2grp {
+                spacemit,pins = <
+                        GPIOA9    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm2 */
+                >;
+        };
+
+        pinctrl_uart4_0:uart4grp {
+                spacemit,pins = <
+                        GPIOA10    0x3    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* txd */
+                        GPIOA11    0x3    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rxd */
+                        GPIOA12    0x3    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* ctsn */
+                        GPIOA13    0x3    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rtsn */
+                >;
+        };
+
+        pinctrl_can: cangrp {
+                spacemit,pins = <
+                        GPIOA12    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* txd */
+                        GPIOA13    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxd */
+                >;
+        };
+
+        pinctrl_i2c4: i2c4grp {
+                spacemit,pins = <
+                        GPIOA12    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* scl */
+                        GPIOA13    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* sda */
+                >;
+        };
+
+        pinctrl_sdio: sdiogrp {
+                spacemit,pins = <
+                        GPIOA14    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* wprtn */
+                        GPIOA15    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* detn */
+                >;
+        };
+
+        pinctrl_gmac: gmacgrp {
+                spacemit,pins = <
+                        GPIOA16    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* tx clk */
+                        GPIOA17    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rx clk */
+                        GPIOA18    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* tx en */
+                        GPIOA19    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* txd[0] */
+                        GPIOA20    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* txd[1] */
+                        GPIOA21    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* txd[2] */
+                        GPIOA22    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* txd[3] */
+                        GPIOA23    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxdv */
+                        GPIOA24    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxd[0] */
+                        GPIOA25    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxd[1] */
+                        GPIOA26    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxd[2] */
+                        GPIOA27    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxd[3] */
+                        GPIOA28    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* mdc */
+                        GPIOA29    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* mdio */
+                >;
+        };
+
+        pinctrl_uart0: uart0grp {
+                spacemit,pins = <
+                        GPIOB5    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* txd */
+                        GPIOB6    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* rxd */
+                >;
+        };
+
+        pinctrl_i2c0: i2c0grp {
+                spacemit,pins = <
+                        GPIOB7    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* scl */
+                        GPIOB8    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* sda */
+                >;
+        };
+
+        pinctrl_i2c1: i2cgrp {
+                spacemit,pins = <
+                        GPIOB9     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* scl */
+                        GPIOB10    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* sda */
+                >;
+        };
+
+        pinctrl_i2c2: i2c2grp {
+                spacemit,pins = <
+                        GPIOB11    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* scl */
+                        GPIOB12    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* sda */
+                >;
+        };
+
+        pinctrl_uart1:uart1grp {
+                spacemit,pins = <
+                        GPIOB13    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* txd */
+                        GPIOA14    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rxd */
+                        GPIOA15    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* ctsn */
+                        GPIOA16    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rtsn */
+                >;
+        };
+
+        pinctrl_i2c3: i2c3grp {
+                spacemit,pins = <
+                        GPIOB15    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* scl */
+                        GPIOB16    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* sda */
+                >;
+        };
+
+        pinctrl_uart2:uart2grp {
+                spacemit,pins = <
+                        GPIOB17    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* txd */
+                        GPIOA18    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rxd */
+                        GPIOA19    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* ctsn */
+                        GPIOA20    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rtsn */
+                >;
+        };
+
+        pinctrl_i2s1: i2s1grp {
+                spacemit,pins = <
+                        GPIOB17    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* mclk */
+                        GPIOB18    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* bclk */
+                        GPIOB19    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* lrclk */
+                        GPIOB20    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_io0 */
+                        GPIOB21    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_io1 */
+                        GPIOB22    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_io2 */
+                        GPIOB23    0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_io3 */
+                >;
+        };
+
+        pinctrl_uart3_0:uart3grp {
+                spacemit,pins = <
+                        GPIOB21    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* txd */
+                        GPIOB22    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rxd */
+                        GPIOB23    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* ctsn */
+                        GPIOB24    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rtsn */
+                >;
+        };
+
+        pinctrl_pwm3: pwm3grp {
+                spacemit,pins = <
+                        GPIOB24    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm3 */
+                >;
+        };
+
+        pinctrl_qspi2: qspi2grp {
+                spacemit,pins = <
+                        GPIOC0    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sclk */
+                        GPIOC1    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* csn */
+                        GPIOC2    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d1_mosi */
+                        GPIOC3    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d2_miso */
+                        GPIOC4    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d3_wp */
+                        GPIOC5    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d4_hold */
+                >;
+        };
+
+        pinctrl_uart4_1:uart4grp {
+                spacemit,pins = <
+                        GPIOC2     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* txd */
+                        GPIOC3     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rxd */
+                        GPIOC4     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* ctsn */
+                        GPIOC5     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rtsn */
+                >;
+        };
+
+        pinctrl_qspi1: qspi1grp {
+                spacemit,pins = <
+                        GPIOC6     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sclk */
+                        GPIOC7     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* csn */
+                        GPIOC8     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d1_mosi */
+                        GPIOC9     0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d2_miso */
+                        GPIOC10    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d3_wp */
+                        GPIOC11    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* d4_hold */
+                >;
+        };
+
+        pinctrl_pwm4: pwm4grp {
+                spacemit,pins = <
+                        GPIOC10    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm4 */
+                >;
+        };
+
+        pinctrl_pwm5: pwm5grp {
+                spacemit,pins = <
+                        GPIOC11    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm5 */
+                >;
+        };
+
+        pinctrl_i2s0_0: i2s0grp {
+                spacemit,pins = <
+                        GPIOC16    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* mclk */
+                        GPIOC17    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* bclk_m */
+                        GPIOC18    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* lrclk_m */
+                        GPIOC19    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_m_in0 */
+                        GPIOC20    0x0    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_m_out0 */
+                >;
+        };
+
+        pinctrl_i2s0_1: i2s0grp {
+                spacemit,pins = <
+                        GPIOC16    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* mclk */
+                        GPIOC17    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* bclk_s */
+                        GPIOC18    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* lrclk_s */
+                        GPIOC19    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_s_in0 */
+                        GPIOC20    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* sdata_s_out0 */
+                >;
+        };
+
+        pinctrl_pwm6: pwm6grp {
+                spacemit,pins = <
+                        GPIOC21    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm6 */
+                >;
+        };
+
+        pinctrl_pwm7: pwm7grp {
+                spacemit,pins = <
+                        GPIOC22    0x1    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)  /* pwm7 */
+                >;
+        };
+
+        pinctrl_uart3_1:uart3grp {
+                spacemit,pins = <
+                        GPIOC21     0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* txd */
+                        GPIOC22     0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rxd */
+                        GPIOC23     0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* ctsn */
+                        GPIOC24     0x2    (RTE|(0xf<<DS_SHIFT)|PULL_UP|PULL_EN)   /* rtsn */
+                >;
+        };
+};
