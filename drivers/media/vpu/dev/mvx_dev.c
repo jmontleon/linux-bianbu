@@ -45,6 +45,7 @@
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/printk.h>
+#include <linux/reset.h>
 #include <linux/workqueue.h>
 #include "mvx_bitops.h"
 #include "mvx_dev.h"
@@ -85,6 +86,7 @@ struct mvx_dev_ctx {
 	struct work_struct work;
 	unsigned long irqve;
 	struct dentry *dentry;
+	struct reset_control *rst;
 };
 
 /**
@@ -357,6 +359,13 @@ static int mvx_dev_probe(struct device *dev,
 	if (ret < 0)
 		goto free_ctx;
 
+
+	ctx->rst = devm_reset_control_get_optional_exclusive(dev, NULL);
+	if (IS_ERR(ctx->rst))
+		goto exit_reset;
+
+	reset_control_deassert(ctx->rst);
+
 	/* Setup client ops callbacks. */
 	ctx->client_ops.get_hw_ver = get_hw_ver;
 	ctx->client_ops.get_formats = get_formats;
@@ -454,6 +463,9 @@ destroy_if:
 runtime_put:
 	pm_runtime_put_sync(ctx->dev);
 
+exit_reset:
+	reset_control_assert(ctx->rst);
+
 free_ctx:
 	devm_kfree(dev, ctx);
 
@@ -473,6 +485,8 @@ static int mvx_dev_remove(struct mvx_dev_ctx *ctx)
 
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
 		debugfs_remove_recursive(ctx->dentry);
+
+	reset_control_assert(ctx->rst);
 
 	devm_kfree(ctx->dev, ctx);
 
