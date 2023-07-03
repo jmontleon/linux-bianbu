@@ -40,6 +40,21 @@
 			shmem = <&cpu_scp_lpri0 &cpu_scp_lpri0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			scmi_vold: protocol@23 {
+				reg = <0x17>;
+				regulators {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					regulator_devdummy: regulator@0 {
+						reg = <0x0>;
+						regulator-min-microvolt = <500000>;
+						regulator-max-microvolt = <800000>;
+					};
+				};
+
+			};
 		};
 	};
 };
