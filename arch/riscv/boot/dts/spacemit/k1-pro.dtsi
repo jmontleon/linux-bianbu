@@ -588,6 +588,7 @@
 			interrupts = <120>;
 			interrupt-parent = <&intc>;
 			resets = <&reset RESET_VPU>;
+                        status = "disabled";
 		};
 	};
 
