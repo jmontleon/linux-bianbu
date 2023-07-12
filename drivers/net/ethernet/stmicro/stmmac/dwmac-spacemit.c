@@ -23,8 +23,6 @@ struct spacemit_dwmac_priv_data {
 	phy_interface_t interface;
 	struct clk *gmac_pll_clk;
 	unsigned long gmac_pll_clk_freq;
-	struct reset_control *usb_gmac_gsr_rstc;
-    struct reset_control *usb_gmac2vbus_rstc;
 	struct reset_control *gmac_csr_rstc;
 	struct reset_control *gmac_dma_rstc;
 
@@ -120,25 +118,17 @@ static int spacemit_dwmac_init(struct platform_device *pdev, void *bsp_priv)
 				clk_get_rate(spacemit_plat_dat->gmac_pll_clk);
 	}
 
-    spacemit_plat_dat->usb_gmac_gsr_rstc = devm_reset_control_get_optional_shared(&pdev->dev, "usb_gmac_gsr");
-	spacemit_plat_dat->usb_gmac2vbus_rstc = devm_reset_control_get_optional_shared(&pdev->dev, "usb_gmac2vbus");
-    spacemit_plat_dat->gmac_csr_rstc = devm_reset_control_get_exclusive(&pdev->dev, "gmac_csr");
-    spacemit_plat_dat->gmac_dma_rstc = devm_reset_control_get_exclusive(&pdev->dev, "gmac_dma");
-	if (IS_ERR(spacemit_plat_dat->usb_gmac_gsr_rstc) \
-	    || IS_ERR(spacemit_plat_dat->usb_gmac2vbus_rstc) \
-		|| IS_ERR(spacemit_plat_dat->gmac_csr_rstc) \
-		|| IS_ERR(spacemit_plat_dat->gmac_dma_rstc)) {
-		ret = PTR_ERR(spacemit_plat_dat->usb_gmac_gsr_rstc);
+	spacemit_plat_dat->gmac_csr_rstc = devm_reset_control_get_exclusive(&pdev->dev, "gmac_csr");
+	spacemit_plat_dat->gmac_dma_rstc = devm_reset_control_get_exclusive(&pdev->dev, "gmac_dma");
+	if (IS_ERR(spacemit_plat_dat->gmac_csr_rstc) || IS_ERR(spacemit_plat_dat->gmac_dma_rstc)) {
 		dev_err(&pdev->dev, "failed to get reset.\n");
 		return -1;
 	}
-	reset_control_deassert(spacemit_plat_dat->usb_gmac_gsr_rstc);
-	reset_control_deassert(spacemit_plat_dat->usb_gmac2vbus_rstc);
 	reset_control_deassert(spacemit_plat_dat->gmac_csr_rstc);
 	reset_control_deassert(spacemit_plat_dat->gmac_dma_rstc);
 
-    /* default speed is 1Gbps */
-    spacemit_dwmac_set_speed(spacemit_plat_dat->sys_gmac_cfg,
+	/* default speed is 1Gbps */
+	spacemit_dwmac_set_speed(spacemit_plat_dat->sys_gmac_cfg,
 				spacemit_plat_dat->interface, SPEED_1000);
 
 	return 0;
@@ -307,12 +297,10 @@ static int spacemit_dwmac_remove(struct platform_device *pdev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	struct spacemit_dwmac_priv_data *spacemit_plat_dat = priv->plat->bsp_priv;
-    
+
 	stmmac_pltfr_remove(pdev);
 	reset_control_assert(spacemit_plat_dat->gmac_dma_rstc);
 	reset_control_assert(spacemit_plat_dat->gmac_csr_rstc);
-	reset_control_assert(spacemit_plat_dat->usb_gmac2vbus_rstc);
-	reset_control_assert(spacemit_plat_dat->usb_gmac_gsr_rstc);
 
 	return 0;
 }
