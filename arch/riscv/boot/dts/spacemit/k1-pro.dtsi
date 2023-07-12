@@ -519,17 +519,18 @@
 			status = "disabled";
 		};
 
-		gmac0: ethernet@2cc00000 {
-			compatible = "spacemit,k1-pro-mac";
+                eth0: ethernet@2cc00000 {
+			compatible = "spacemit,k1-pro-ethqos";
 			reg = <0x00 0x2cc00000 0x0 0x10000
 				   0x00 0x2f028004 0x0 0x4>;
-			reg-names = "gmac", "sys_gmac_cfg";
+			reg-names = "stmmaceth", "sys_gmac_cfg";
 			interrupt-parent = <&intc>;
 			interrupts = <132>;
 			interrupt-names = "macirq";
-			resets = <&reset RESET_USB_GMAC_GSR>, <&reset RESET_GMAC_CSR>,
-					 <&reset RESET_GMAC_DMA>, <&reset RESET_USB_GMAC2VBUS>;
-			reset-names = "usb_gmac_gsr", "gmac_csr", "gmac_dma", "usb_gmac2vbus";
+			clocks = <&ccu CLK_GMAC_CSR>, <&ccu CLK_GMAC_PHYCLK_OUT>;
+			clock-names = "apb_pclk", "phy_ref_clk";
+			resets = <&reset RESET_GMAC_CSR>, <&reset RESET_GMAC_DMA>;
+			reset-names = "gmac_csr", "gmac_dma";
 			snps,pbl = <32>;
 			snps,fixed-burst;
 			snps,axi-config = <&stmmac_axi_setup>;
