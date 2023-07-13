@@ -53,8 +53,12 @@
 						regulator-max-microvolt = <800000>;
 					};
 				};
-
 			};
+
+			scmi_devpd: protocol@11 {
+				reg = <0x11>;
+				#power-domain-cells = <1>;
+                        };
 		};
 	};
 };
