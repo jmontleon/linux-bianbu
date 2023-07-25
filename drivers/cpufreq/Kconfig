@@ -231,7 +231,7 @@ if X86
 source "drivers/cpufreq/Kconfig.x86"
 endif
 
-if ARM || ARM64
+if ARM || ARM64 || RISCV
 source "drivers/cpufreq/Kconfig.arm"
 endif
 
