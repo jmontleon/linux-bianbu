@@ -47,10 +47,16 @@
 					#address-cells = <1>;
 					#size-cells = <0>;
 
-					regulator_devdummy: regulator@0 {
+					regulator_devlittle: regulator@0 {
 						reg = <0x0>;
-						regulator-min-microvolt = <500000>;
-						regulator-max-microvolt = <800000>;
+						regulator-min-microvolt = <820000>;
+						regulator-max-microvolt = <1000000>;
+					};
+
+					regulator_devgpu: regulator@1 {
+						reg = <0x1>;
+						regulator-min-microvolt = <820000>;
+						regulator-max-microvolt = <900000>;
 					};
 				};
 			};
