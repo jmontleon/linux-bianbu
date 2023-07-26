@@ -21,7 +21,7 @@
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		timebase-frequency = <500000000>;
+		timebase-frequency = <50000000>;
 		cpu_0: cpu@0 {
 			device_type = "cpu";
 			reg = <0>;
@@ -170,6 +170,12 @@
 			compatible = "fixed-clock";
 			clock-frequency = <50000000>;
 			clock-output-names = "pll_qspi";
+		};
+		pll_clk_ptp: clock-pll_ptp {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_ptp";
 		};
 	};
 
@@ -548,8 +554,8 @@
 			interrupt-parent = <&intc>;
 			interrupts = <132>;
 			interrupt-names = "macirq";
-			clocks = <&ccu CLK_GMAC_CSR>, <&ccu CLK_GMAC_PHYCLK_OUT>;
-			clock-names = "apb_pclk", "phy_ref_clk";
+			clocks = <&ccu CLK_GMAC_CSR>, <&ccu CLK_GMAC_PHYCLK_OUT>, <&pll_clk_ptp>;
+			clock-names = "apb_pclk", "phy_ref_clk", "ptp_ref";
 			resets = <&reset RESET_GMAC_CSR>, <&reset RESET_GMAC_DMA>;
 			reset-names = "gmac_csr", "gmac_dma";
 			snps,pbl = <32>;
