@@ -88,15 +88,7 @@
 #define GPIOC23  PINID(2, 23)
 #define GPIOC24  PINID(2, 24)
 
-#define OD_EN		1
-#define OD_DIS		0
-#define PULL_EN		2
-#define PULL_DIS	0
-#define PULL_UP		4
+#define PULL_UP 	1
 #define PULL_DOWN	0
-#define DS_SHIFT	4
-#define ST_EN		(1<<8)
-#define ST_DIS		0
-#define RTE		(1<<9)
 
 #endif /* __DT_BINDINGS_K1PRO_PINCTRL_H */
