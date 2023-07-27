@@ -101,6 +101,8 @@ static const struct spacemit_regs k1pro_regs = {
 };
 
 static const struct spacemit_pin_conf k1pro_pin_conf = {
+	.fs_shift = 0,
+	.fs_width = 2,
 	.od_shift = 4,
 	.pe_shift = 8,
 	.pull_shift = 9,
