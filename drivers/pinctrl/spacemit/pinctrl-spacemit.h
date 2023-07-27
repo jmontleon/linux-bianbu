@@ -16,26 +16,31 @@
 
 /*
  * pin config bit field definitions
+ * config format
+ * 0-3  driver_strength
+ * 4    pull
  *
- * od:			0	(1)
- * pe:			1	(1)
- * pull:		2	(1)
- * driving-seletor:	7..4	(4)
+ * od:	open drain
+ * pe:  pull enable
+ * st:	schmit trigger
+ * rte:	retention signal bus
  *
  * MSB of each field is presence bit for the config.
  */
-#define OD_SHIFT		0
-#define PULL_EN_SHIFT		1
-#define PULL_SHIFT		2
-#define DS_SHIFT		4
-#define ST_SHIFT		8
-#define RTE_SHIFT		9
-#define CONFIG_TO_OD(c)		((c) >> OD_SHIFT & 0x1)
-#define CONFIG_TO_PULL_EN(c)	((c) >> PULL_EN_SHIFT & 0x1)
-#define CONFIG_TO_PULL(c)	((c) >> PULL_SHIFT & 0x1)
+#define OD_EN		1
+#define OD_DIS		0
+#define PE_EN		1
+#define PE_DIS		0
+#define ST_EN		1
+#define ST_DIS		0
+#define RTE_EN		1
+#define RTE_DIS		0
+
+#define DS_SHIFT	0
+#define PULL_SHIFT  4
+
 #define CONFIG_TO_DS(c)		((c) >> DS_SHIFT & 0xf)
-#define CONFIG_TO_ST(c)		((c) >> ST_SHIFT & 0x1)
-#define CONFIG_TO_RTE(c)	((c) >> RTE_SHIFT & 0x1)
+#define CONFIG_TO_PULL(c)	((c) >> PULL_SHIFT & 0x1)
 
 struct spacemit_function {
 	const char *name;
@@ -47,13 +52,15 @@ struct spacemit_function {
  * Each pin represented in spacemit,pins consists:
  * - u32 PIN_FUNC_ID
  * - u32 pin muxsel
- * - u32 pin config
+ * - u32 pin pull_up/down
+ * - u32 pin driving strength
  */
-#define SPACEMIT_PIN_SIZE 12
+#define SPACEMIT_PIN_SIZE 16
 
 struct spacemit_pin {
 	unsigned int pin_id;
 	u8 muxsel;
+	u8 pull;
 	unsigned long config;
 };
 
@@ -70,6 +77,8 @@ struct spacemit_regs {
 };
 
 struct spacemit_pin_conf {
+	u8  fs_shift;
+	u8  fs_width;
 	u8  od_shift;
 	u8  pe_shift;
 	u8  pull_shift;

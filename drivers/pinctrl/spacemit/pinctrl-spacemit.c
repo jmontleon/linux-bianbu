@@ -37,7 +37,7 @@ static const char *spacemit_get_group_name(struct pinctrl_dev *pctldev,
 	struct spacemit_pinctrl_data *d = pinctrl_dev_get_drvdata(pctldev);
 
 	if (group >= d->soc->ngroups)
-		return -EINVAL;
+		return NULL;
 
 	return d->soc->groups[group].name;
 }
@@ -197,7 +197,7 @@ static int spacemit_pinctrl_set_mux(struct pinctrl_dev *pctldev, unsigned select
 	struct spacemit_pinctrl_data *d = pinctrl_dev_get_drvdata(pctldev);
 	struct spacemit_group *g = &d->soc->groups[group];
 	void __iomem *reg;
-	u8 bank, shift;
+	u8 bank, shift, width;
 	u16 offset;
 	u32 i;
 
@@ -206,12 +206,13 @@ static int spacemit_pinctrl_set_mux(struct pinctrl_dev *pctldev, unsigned select
 		offset = PINID_TO_PIN(g->pin_ids[i]);
 		reg = d->base + d->soc->regs->cfg;
 		reg += bank * d->soc->regs->reg_len + offset * 4;
-		shift = 0;
+		shift = d->soc->pinconf->fs_shift;
+		width = d->soc->pinconf->fs_width;
 
 		dev_dbg(d->dev, "set mux: bank %d 0ffset %d val 0x%lx\n",
 			bank, offset, g->pins[i].muxsel);
 
-		spacemit_pinctrl_rmwl(g->pins[i].muxsel, 0x3, shift, reg);
+		spacemit_pinctrl_rmwl(g->pins[i].muxsel, GENMASK((width-1),0), shift, reg);
 	}
 
 	return 0;
@@ -234,10 +235,10 @@ static int spacemit_pinconf_get(struct pinctrl_dev *pctldev,
 
 	bank = PINID_TO_BANK(pin);
 	offset = PINID_TO_PIN(pin);
-	reg = d->base + d->soc->regs->cfg;
+	reg = (u64)(d->base + d->soc->regs->cfg);
 	reg += bank * d->soc->regs->reg_len + offset * 4;
 
-	*config = readl(reg);
+	*config = readl((void *)reg);
 	return 0;
 }
 
@@ -247,8 +248,8 @@ static int spacemit_pinconf_set(struct pinctrl_dev *pctldev,
 {
 	struct spacemit_pinctrl_data *d = pinctrl_dev_get_drvdata(pctldev);
 	struct spacemit_pinctrl_soc_data *soc = d->soc;
-	struct spacemit_regs *regs = soc->regs;
-	struct spacemit_pin_conf *pin_conf = soc->pinconf;
+	const struct spacemit_regs *regs = soc->regs;
+	const struct spacemit_pin_conf *pin_conf = soc->pinconf;
 	int i;
 	u8 bank;
 	u32 od, pull_en, pull, ds, st, rte;
@@ -260,23 +261,23 @@ static int spacemit_pinconf_set(struct pinctrl_dev *pctldev,
 
 	bank = PINID_TO_BANK(pin);
 	offset = PINID_TO_PIN(pin);
-	reg = d->base + regs->cfg;
+	reg = (u64)(d->base + regs->cfg);
 	reg += bank * regs->reg_len + offset * 4;
 
 	for (i = 0; i < num_configs; i++) {
 		volatile long config;
 
-		config = readl(reg);
+		config = readl((void *)reg);
 
-		od = (CONFIG_TO_OD(configs[i]) << pin_conf->od_shift);
-		pull_en = (CONFIG_TO_PULL_EN(configs[i]) << pin_conf->pe_shift);
-		pull = (CONFIG_TO_PULL(configs[i]) << pin_conf->pull_shift);
-		ds = (CONFIG_TO_DS(configs[i]) << pin_conf->ds_shift);
-		st = (CONFIG_TO_ST(configs[i]) << pin_conf->st_shift);
-		rte = (CONFIG_TO_RTE(configs[i]) << pin_conf->rte_shift);
+		od = OD_DIS << pin_conf->od_shift;
+		pull_en = PE_EN << pin_conf->pe_shift;
+		pull = CONFIG_TO_PULL(configs[i]) << pin_conf->pull_shift;
+		ds = CONFIG_TO_DS(configs[i]) << pin_conf->ds_shift;
+		st = ST_DIS << pin_conf->st_shift;
+		rte = RTE_EN << pin_conf->rte_shift;
 
 		config |= (od | pull_en | pull | ds | st | rte);
-		writel(config, reg);
+		writel(config, (void *)reg);
 		dev_dbg(d->dev, "write: bank %d 0ffset %d val 0x%lx\n",
 			bank, offset, config);
 	} /* for each config */
@@ -294,10 +295,10 @@ static void spacemit_pinconf_dbg_show(struct pinctrl_dev *pctldev,
 
 	bank = PINID_TO_BANK(pin);
 	offset = PINID_TO_PIN(pin);
-	reg = d->base + d->soc->regs->cfg;
+	reg = (u64)(d->base + d->soc->regs->cfg);
 	reg += bank * d->soc->regs->reg_len + offset * 4;
 
-	seq_printf(s, "0x%lx", readl(reg));
+	seq_printf(s, "0x%lx", readl((void *)reg));
 }
 
 static void spacemit_pinconf_group_dbg_show(struct pinctrl_dev *pctldev,
@@ -392,10 +393,13 @@ static int spacemit_pinctrl_parse_groups(struct device_node *np,
 
 	for (i = 0; i < grp->npins; i++) {
 		struct spacemit_pin *pin = &grp->pins[i];
+		u8 pull_val, driver_strength;
 
 		pin->pin_id = be32_to_cpu(*list++);
 		pin->muxsel = be32_to_cpu(*list++) & 0xF;
-		pin->config = be32_to_cpu(*list++) & 0xFFF;
+		pull_val = be32_to_cpu(*list++) & 0x1;
+		driver_strength =  be32_to_cpu(*list++) & 0xF;
+		pin->config = (pull_val << PULL_SHIFT) | (driver_strength << DS_SHIFT);
 		grp->pin_ids[i] = grp->pins[i].pin_id;
 
 		dev_dbg(d->dev, "%s: 0x%04x 0x%04lx",
@@ -411,7 +415,6 @@ static int spacemit_pinctrl_parse_functions(struct device_node *np,
 	struct spacemit_pinctrl_soc_data *soc = d->soc;
 	struct device_node *child;
 	struct spacemit_function *f;
-	struct spacemit_group *grp;
 	u32 i = 0, idxf = 0, idxg = 0;
 	const char *fn, *fnull = "";
 	int ret;
@@ -528,7 +531,6 @@ static int spacemit_pinctrl_probe_dt(struct platform_device *pdev,
 int spacemit_pinctrl_probe(struct platform_device *pdev,
 			struct spacemit_pinctrl_soc_data *soc)
 {
-	struct device_node *np = pdev->dev.of_node;
 	struct spacemit_pinctrl_data *d;
 	struct resource *res;
 	int ret;
