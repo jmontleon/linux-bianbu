@@ -366,6 +366,21 @@
 			status = "disabled";
 		};
 
+		usbotg: usb2@2cb40000 {
+			compatible = "spacemit,k1-pro-usb", "snps,dwc2";
+			reg = <0x0 0x2cb40000 0x0 0x40000>;
+			interrupt-parent = <&intc>;
+			interrupts = <91>;
+			resets = <&reset RESET_USB2_AHB>,
+					 <&reset RESET_USB2_PHY>;
+			reset-names = "dwc2", "dwc2-ecc";
+			dr_mode = "otg";
+			g-np-tx-fifo-size = <256>;
+			g-rx-fifo-size = <280>;
+			g-tx-fifo-size = <128 128 64 64>;
+			status = "disabled";
+		};
+
 		usbdrd3: usb3@0 {
 			compatible = "spacemit,k1-pro-dwc3";
 			#address-cells = <2>;
