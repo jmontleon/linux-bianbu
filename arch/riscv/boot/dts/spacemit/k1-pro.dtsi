@@ -561,6 +561,19 @@
 			status = "disabled";
 		};
 
+		qspi1: spi@2ce04000 {
+			compatible = "snps,dwc-ssi-1.02a";
+			reg = <0x0 0x2ce04000 0x0 0x4000>;
+			interrupt-parent = <&intc>;
+			interrupts = <97>;
+			clocks = <&pll_clk_qspi>;
+			resets = <&reset RESET_QSPI1>;
+			reg-io-width = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
                 eth0: ethernet@2cc00000 {
 			compatible = "spacemit,k1-pro-ethqos";
 			reg = <0x00 0x2cc00000 0x0 0x10000
