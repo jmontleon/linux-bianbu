@@ -504,15 +504,16 @@ static bool dw_spi_supports_mem_op(struct spi_mem *mem,
 	 * Only support the numbler of io lines used to transfer the cmd 
 	 * is 1 in enhanced SPI for now.
 	 */
-	if (op->cmd.buswidth > 1)
+	if (op->addr.buswidth > 1 || op->dummy.buswidth > 1 ||
+		op->cmd.buswidth > 1)
 		return false;
 
 	/* In enhanced SPI 1, 2, 4, 8 all are valid modes. */
 	if (op->data.buswidth > 1 && (!(dws->caps & DW_SPI_CAP_EXT_SPI)))
 		return false;
 
-	/* Only support upto 60 bit address in enhanced SPI for now. */
-	if (op->data.buswidth > 1 && op->addr.nbytes > 8)
+	/* Only support upto 32 bit address in enhanced SPI for now. */
+	if (op->data.buswidth > 1 && op->addr.nbytes > 4)
  		return false;
 
 	return spi_mem_default_supports_op(mem, op);
@@ -819,6 +820,7 @@ static int enhanced_transfer(struct dw_spi *dws, struct spi_device *spi,
 static void update_spi_ctrl0(struct dw_spi *dws, const struct spi_mem_op *op, bool enable)
 {
 	u32 spi_ctrlr0;
+	u32 addr_l = 0;
 
 	spi_ctrlr0 = dw_readl(dws, DW_SPI_SPI_CTRLR0);
 	if (enable) {
@@ -828,8 +830,9 @@ static void update_spi_ctrl0(struct dw_spi *dws, const struct spi_mem_op *op, bo
 		spi_ctrlr0 |= FIELD_PREP(DW_HSSI_SPI_CTRLR0_INST_L_MASK,
 					 DW_HSSI_SPI_CTRLR0_INST_L8);
 		/* 32 bit address length */
+		addr_l = clamp(op->addr.nbytes * 2, 0, 0xf);
 		spi_ctrlr0 |= FIELD_PREP(DW_HSSI_SPI_CTRLR0_ADDR_L_MASK,
-					 DW_HSSI_SPI_CTRLR0_ADDR_L32);
+					 addr_l);
 		/* Enable clock stretching */
 		spi_ctrlr0 |= DW_HSSI_SPI_CTRLR0_CLK_STRETCH_EN;
 	} else {
@@ -905,6 +908,22 @@ static int dw_spi_exec_mem_op(struct spi_mem *mem, const struct spi_mem_op *op)
 	}
 
 	dw_spi_enable_chip(dws, 0);
+
+	if (enhanced_spi) {
+		u16 level;
+
+		level = min_t(unsigned int, dws->fifo_len / 2, dws->tx_len);
+		dw_writel(dws, DW_SPI_TXFTLR, level);
+		/*
+		 * In enhanced mode if we are reading then tx_len is 0 as we
+		 * have nothing to transmit. Calculate DW_SPI_RXFTLR with
+		 * rx_len.
+		 */
+		if (dws->rx_len != 0) {
+			level = min_t(u16, dws->fifo_len / 2, dws->rx_len);
+		}
+		dw_writel(dws, DW_SPI_RXFTLR, level - 1);
+    }
 
     if (dws->caps & DW_SPI_CAP_EXT_SPI)
 		update_spi_ctrl0(dws, op, enhanced_spi);
