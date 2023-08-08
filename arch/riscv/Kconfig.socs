@@ -117,15 +117,10 @@ choice
 		help
 		  This enables support for Spacemit k1-pro Platform Hardware.
 
-	config SOC_SPACEMIT_K1MINI
-		bool "k1-mini"
+	config SOC_SPACEMIT_K1X
+		bool "k1-x"
 		help
-		  This enables support for Spacemit k1-mini Platform Hardware.
-
-	config SOC_SPACEMIT_K1MAX
-		bool "k1-max"
-		help
-		  This enables support for Spacemit k1-max Platform Hardware.
+		  This enables support for Spacemit k1-x Platform Hardware.
 endchoice
 
 config SOC_SPACEMIT_K1_FPGA
