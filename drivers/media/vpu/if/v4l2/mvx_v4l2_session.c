@@ -146,7 +146,7 @@ static int session_debugfs_init(struct mvx_v4l2_session *session,
 	char name[20];
 	int i;
 
-	scnprintf(name, sizeof(name), "%p", &session->session);
+	scnprintf(name, sizeof(name), "%lx", (unsigned long)(&session->session));
 	session->dentry = debugfs_create_dir(name, parent);
 	if (IS_ERR_OR_NULL(session->dentry))
 		return -ENOMEM;

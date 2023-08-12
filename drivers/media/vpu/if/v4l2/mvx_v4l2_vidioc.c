@@ -1103,6 +1103,62 @@ int mvx_v4l2_vidioc_g_crop(struct file *file,
 
 	return 0;
 }
+int mvx_v4l2_vidioc_g_selection(struct file *file, void *fh,
+				  struct v4l2_selection *s)
+{
+    struct v4l2_crop crop = { .type = s->type };
+    int ret;
+    ret = mvx_v4l2_vidioc_g_crop(file, fh, &crop);
+    if (ret == 0)
+    {
+        s->r = crop.c;
+    }
+    return ret;
+}
+int mvx_v4l2_vidioc_s_selection(struct file *file, void *fh,
+				  struct v4l2_selection *s)
+{
+    struct mvx_v4l2_session *vsession = file_to_session(file);
+    int ret = 0;
+    ret = mutex_lock_interruptible(&vsession->mutex);
+    if (ret != 0)
+        return ret;
+    ret = mvx_session_set_crop_left(&vsession->session, s->r.left);
+    ret = mvx_session_set_crop_top(&vsession->session, s->r.top);
+    mutex_unlock(&vsession->mutex);
+    return ret;
+}
+
+int mvx_v4l2_vidioc_s_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a)
+{
+    struct mvx_v4l2_session *vsession = file_to_session(file);
+    int ret = 0;
+    ret = mutex_lock_interruptible(&vsession->mutex);
+    if (ret != 0)
+        return ret;
+    if (V4L2_TYPE_IS_OUTPUT(a->type)) {
+        int64_t framerate = ((int64_t)a->parm.output.timeperframe.denominator << 16)/a->parm.output.timeperframe.numerator;
+        ret = mvx_session_set_frame_rate(&vsession->session, framerate);
+    }
+    mutex_unlock(&vsession->mutex);
+    return ret;
+}
+int mvx_v4l2_vidioc_g_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a)
+{
+    struct mvx_v4l2_session *vsession = file_to_session(file);
+    int ret = 0;
+    ret = mutex_lock_interruptible(&vsession->mutex);
+    if (ret != 0)
+       return ret;
+    if (V4L2_TYPE_IS_OUTPUT(a->type)) {
+        a->parm.output.timeperframe.numerator = 1 << 16;
+        a->parm.output.timeperframe.denominator = (int32_t)vsession->session.frame_rate;
+    }
+    mutex_unlock(&vsession->mutex);
+    return ret;
+}
 
 int mvx_v4l2_vidioc_streamon(struct file *file,
 			     void *priv,

@@ -1,16 +1,25 @@
 config VIDEO_LINLON
 	tristate "Linlon VPU support."
+	depends on VIDEO_DEV
+	select VIDEOBUF2_VMALLOC
+	select VIDEOBUF2_CORE
+	select DMA_SHARED_BUFFER
 	select VIDEOBUF2_MEMOPS
 	select VIDEOBUF2_DMA_SG
-	depends on VIDEO_DEV
-	default y
+	default n
+	help
+		This enables support for the Linlon VPU family.
 
 config VIDEO_LINLON_FTRACE
 	depends on VIDEO_LINLON
 	bool "Send kernel space logs to ftrace."
 	default n
+	help
+		Send kernel space logs to ftrace.
 
 config VIDEO_LINLON_PRINT_FILE
 	depends on VIDEO_LINLON
 	bool "Append file and line number to kernel space log messages."
 	default y
+	help
+		Append file and line number to kernel space log messages.

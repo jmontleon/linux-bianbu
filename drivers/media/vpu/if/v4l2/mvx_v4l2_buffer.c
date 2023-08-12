@@ -29,9 +29,9 @@
  * 
  */
 
-#include <linux/version.h>
 #include <linux/debugfs.h>
 #include <linux/time.h>
+#include <linux/version.h>
 #include "mvx_ext_if.h"
 #include "mvx_log_group.h"
 #include "mvx_seq.h"
