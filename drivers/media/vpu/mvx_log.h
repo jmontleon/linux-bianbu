@@ -71,7 +71,7 @@
 #define MVX_LOG_PRINT_SESSION(_lg, _severity, _session, _fmt, ...)	      \
 	do {								      \
 		if ((_severity) <= (_lg)->severity) {			      \
-			__MVX_LOG_PRINT(_lg, _severity, "%p " _fmt, _session, \
+			__MVX_LOG_PRINT(_lg, _severity, "%px " _fmt, _session, \
 					## __VA_ARGS__);		      \
 		}							      \
 	} while (0)
