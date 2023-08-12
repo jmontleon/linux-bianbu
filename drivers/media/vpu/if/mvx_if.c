@@ -33,9 +33,9 @@
  * Includes
  ****************************************************************************/
 
-#include <linux/version.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
+#include <linux/version.h>
 #include <linux/dma-mapping.h>
 #include <linux/export.h>
 #include <linux/platform_device.h>
