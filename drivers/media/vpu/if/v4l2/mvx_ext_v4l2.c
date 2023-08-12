@@ -69,8 +69,8 @@ static const struct v4l2_ioctl_ops mvx_v4l2_ioctl_ops = {
 	.vidioc_querycap                = mvx_v4l2_vidioc_querycap,
 	.vidioc_enum_fmt_vid_cap        = mvx_v4l2_vidioc_enum_fmt_vid_cap,
 	.vidioc_enum_fmt_vid_out        = mvx_v4l2_vidioc_enum_fmt_vid_out,
-	.vidioc_enum_fmt_vid_cap_mplane = mvx_v4l2_vidioc_enum_fmt_vid_cap,
-	.vidioc_enum_fmt_vid_out_mplane = mvx_v4l2_vidioc_enum_fmt_vid_out,
+	//.vidioc_enum_fmt_vid_cap_mplane = mvx_v4l2_vidioc_enum_fmt_vid_cap,
+	//.vidioc_enum_fmt_vid_out_mplane = mvx_v4l2_vidioc_enum_fmt_vid_out,
 	.vidioc_enum_framesizes         = mvx_v4l2_vidioc_enum_framesizes,
 	.vidioc_g_fmt_vid_cap           = mvx_v4l2_vidioc_g_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap_mplane    = mvx_v4l2_vidioc_g_fmt_vid_cap,
@@ -84,7 +84,8 @@ static const struct v4l2_ioctl_ops mvx_v4l2_ioctl_ops = {
 	.vidioc_try_fmt_vid_cap_mplane  = mvx_v4l2_vidioc_try_fmt_vid_cap,
 	.vidioc_try_fmt_vid_out         = mvx_v4l2_vidioc_try_fmt_vid_out,
 	.vidioc_try_fmt_vid_out_mplane  = mvx_v4l2_vidioc_try_fmt_vid_out,
-	.vidioc_g_crop                  = mvx_v4l2_vidioc_g_crop,
+	.vidioc_g_selection                  = mvx_v4l2_vidioc_g_selection,
+	.vidioc_s_selection             = mvx_v4l2_vidioc_s_selection,
 	.vidioc_streamon                = mvx_v4l2_vidioc_streamon,
 	.vidioc_streamoff               = mvx_v4l2_vidioc_streamoff,
 	.vidioc_encoder_cmd             = mvx_v4l2_vidioc_encoder_cmd,
@@ -98,7 +99,9 @@ static const struct v4l2_ioctl_ops mvx_v4l2_ioctl_ops = {
 	.vidioc_dqbuf                   = mvx_v4l2_vidioc_dqbuf,
 	.vidioc_subscribe_event         = mvx_v4l2_vidioc_subscribe_event,
 	.vidioc_unsubscribe_event       = v4l2_event_unsubscribe,
-	.vidioc_default                 = mvx_v4l2_vidioc_default
+	.vidioc_default                 = mvx_v4l2_vidioc_default,
+	.vidioc_g_parm = mvx_v4l2_vidioc_g_parm,
+	.vidioc_s_parm = mvx_v4l2_vidioc_s_parm,
 };
 
 /****************************************************************************
@@ -137,10 +140,12 @@ int mvx_ext_if_construct(struct mvx_ext_if *ext,
 	ext->vdev.release = video_device_release_empty;
 	ext->vdev.vfl_dir = VFL_DIR_M2M;
 	ext->vdev.v4l2_dev = &ext->v4l2_dev;
+	ext->vdev.device_caps = V4L2_CAP_VIDEO_M2M |
+			V4L2_CAP_VIDEO_M2M_MPLANE |
+			V4L2_CAP_EXT_PIX_FORMAT |
+			V4L2_CAP_STREAMING;
 	strncpy(ext->vdev.name, name, sizeof(ext->vdev.name));
-
 	video_set_drvdata(&ext->vdev, ext);
-	ext->vdev.device_caps = V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT_MPLANE | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 
 	ret = video_register_device(&ext->vdev, VFL_TYPE_VIDEO, -1);
 	if (ret != 0) {
