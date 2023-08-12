@@ -84,7 +84,8 @@ int mvx_v4l2_vidioc_try_fmt_vid_out(struct file *file,
 int mvx_v4l2_vidioc_g_crop(struct file *file,
 			   void *fh,
 			   struct v4l2_crop *a);
-
+int mvx_v4l2_vidioc_g_selection(struct file *file, void *fh,
+				  struct v4l2_selection *s);
 int mvx_v4l2_vidioc_streamon(struct file *file,
 			     void *priv,
 			     enum v4l2_buf_type type);
@@ -137,5 +138,10 @@ long mvx_v4l2_vidioc_default(struct file *file,
 			     bool valid_prio,
 			     unsigned int cmd,
 			     void *arg);
-
+int mvx_v4l2_vidioc_s_selection(struct file *file, void *fh,
+				  struct v4l2_selection *s);
+int mvx_v4l2_vidioc_g_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a);
+int mvx_v4l2_vidioc_s_parm(struct file *file, void *fh,
+			     struct v4l2_streamparm *a);
 #endif /* _MVX_V4L2_VIDIOC_H_ */

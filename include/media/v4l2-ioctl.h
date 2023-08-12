@@ -305,13 +305,9 @@ struct v4l2_ioctl_ops {
 	/* VIDIOC_ENUM_FMT handlers */
 	int (*vidioc_enum_fmt_vid_cap)(struct file *file, void *fh,
 				       struct v4l2_fmtdesc *f);
-	int (*vidioc_enum_fmt_vid_cap_mplane)(struct file *file, void *fh,
-				       struct v4l2_fmtdesc *f);
 	int (*vidioc_enum_fmt_vid_overlay)(struct file *file, void *fh,
 					   struct v4l2_fmtdesc *f);
 	int (*vidioc_enum_fmt_vid_out)(struct file *file, void *fh,
-				       struct v4l2_fmtdesc *f);
-	int (*vidioc_enum_fmt_vid_out_mplane)(struct file *file, void *fh,
 				       struct v4l2_fmtdesc *f);
 	int (*vidioc_enum_fmt_sdr_cap)(struct file *file, void *fh,
 				       struct v4l2_fmtdesc *f);
@@ -334,8 +330,6 @@ struct v4l2_ioctl_ops {
 	int (*vidioc_g_fmt_vbi_cap)(struct file *file, void *fh,
 				    struct v4l2_format *f);
 	int (*vidioc_g_fmt_vbi_out)(struct file *file, void *fh,
-				    struct v4l2_format *f);
-	int (*vidioc_g_fmt_vbi_out_mplane)(struct file *file, void *fh,
 				    struct v4l2_format *f);
 	int (*vidioc_g_fmt_sliced_vbi_cap)(struct file *file, void *fh,
 					   struct v4l2_format *f);
@@ -592,8 +586,6 @@ struct v4l2_ioctl_ops {
 	int (*vidioc_unsubscribe_event)(struct v4l2_fh *fh,
 					const struct v4l2_event_subscription *sub);
 
-	int (*vidioc_g_crop)(struct file *file, void *fh,
-					struct v4l2_crop *a);
 	/* For other private ioctls */
 	long (*vidioc_default)(struct file *file, void *fh,
 			       bool valid_prio, unsigned int cmd, void *arg);
