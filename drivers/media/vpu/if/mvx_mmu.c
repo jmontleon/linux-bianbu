@@ -421,7 +421,7 @@ static int append_sg_table(struct mvx_mmu_pages *pages,
 			   struct sg_table *sgt)
 {
 	size_t count;
-	struct sg_page_iter piter;
+	struct sg_dma_page_iter piter;
 
 	count = get_sg_table_npages(sgt) * MVX_PAGES_PER_PAGE;
 
@@ -432,7 +432,7 @@ static int append_sg_table(struct mvx_mmu_pages *pages,
 		return -ENOMEM;
 	}
 
-	for_each_sg_page(sgt->sgl, &piter, sgt->nents, 0) {
+	for_each_sg_dma_page(sgt->sgl, &piter, sgt->nents, 0) {
 		int j;
 		phys_addr_t base;
 
