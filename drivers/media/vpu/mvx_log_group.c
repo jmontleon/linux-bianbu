@@ -78,7 +78,7 @@ int mvx_log_group_init(const char *entry_name)
 	if (ret != 0)
 		goto delete_log_entry;
 
-	mvx_log_drain_ram_construct(&drain_ram0_if, 64 * 1024);
+	mvx_log_drain_ram_construct(&drain_ram0_if, 256 * 1024);
 	ret = mvx_log_drain_ram_add(&log, "ram0", &drain_ram0_if);
 	if (ret != 0)
 		goto delete_dmesg_drain;
