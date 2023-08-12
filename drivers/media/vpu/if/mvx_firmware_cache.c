@@ -409,21 +409,31 @@ static ssize_t dirty_show(struct kobject *kobj,
 
 static struct kobj_attribute path_attr = __ATTR_RO(path);
 static struct kobj_attribute count_attr = __ATTR_RO(count);
-static struct kobj_attribute hw_ver = __ATTR_RO(hw_ver);
+static struct kobj_attribute hw_ver_attr = __ATTR_RO(hw_ver);
 static struct kobj_attribute dirty_attr = __ATTR_RO(dirty);
 
 static struct attribute *fw_bin_attrs[] = {
 	&path_attr.attr,
 	&count_attr.attr,
-	&hw_ver.attr,
+	&hw_ver_attr.attr,
 	&dirty_attr.attr,
+	NULL
+};
+
+static const struct attribute_group fw_bin_group = {
+	.name = "",
+	.attrs = fw_bin_attrs
+};
+
+static const struct attribute_group *fw_bin_groups[] = {
+	&fw_bin_group,
 	NULL
 };
 
 static struct kobj_type fw_bin_ktype = {
 	.release       = fw_bin_destroy,
 	.sysfs_ops     = &kobj_sysfs_ops,
-	//.default_attrs = fw_bin_attrs
+	.default_groups = fw_bin_groups
 };
 
 /**
@@ -458,7 +468,7 @@ static struct mvx_fw_bin *fw_bin_create(struct mvx_fw_cache *cache,
 		fw_bin->secure.secure = cache->secure;
 
 	ret = kobject_init_and_add(&fw_bin->kobj, &fw_bin_ktype, &cache->kobj,
-				   "%p", fw_bin);
+				   "%lx", (unsigned long)fw_bin);
 	if (ret != 0)
 		goto free_fw_bin;
 
@@ -586,8 +596,19 @@ static ssize_t cache_flush_store(struct kobject *kobj,
 static struct kobj_attribute cache_flush =
 	__ATTR(flush, 0600, cache_flush_show, cache_flush_store);
 
+
 static struct attribute *cache_attrs[] = {
 	&cache_flush.attr,
+	NULL
+};
+
+static const struct attribute_group cache_group = {
+	.name = "",
+	.attrs = cache_attrs
+};
+
+static const struct attribute_group *cache_groups[] = {
+	&cache_group,
 	NULL
 };
 
@@ -602,7 +623,7 @@ static void cache_release(struct kobject *kobj)
 static struct kobj_type cache_ktype = {
 	.release       = cache_release,
 	.sysfs_ops     = &kobj_sysfs_ops,
-	//.default_attrs = cache_attrs
+	.default_groups = cache_groups
 };
 
 static void cache_update(struct mvx_fw_cache *cache)

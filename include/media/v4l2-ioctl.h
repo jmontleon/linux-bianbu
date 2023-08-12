@@ -582,6 +582,7 @@ struct v4l2_ioctl_ops {
 
 	int (*vidioc_g_crop)(struct file *file, void *priv,
 					struct v4l2_crop *a);
+
 	/* For other private ioctls */
 	long (*vidioc_default)(struct file *file, void *priv,
 			       bool valid_prio, unsigned int cmd, void *arg);

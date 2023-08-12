@@ -900,24 +900,15 @@ int mvx_log_group_add(struct mvx_log *log,
 	group->dentry->d_inode->i_private = group;
 
 	/* Create <group>/severity. */
-	/*debugfs_create_u32("severity", 0600, group->dentry,
-				    &group->severity);
-	if (IS_ERR_OR_NULL(dentry)) {
-		pr_err("MVX: Failed to create '%s/severity' value.\n",
-		       name);
-		ret = -ENOMEM;
-		goto error;
-	}*/
+	debugfs_create_u32("severity", 0600, group->dentry, &group->severity);
 
 	/* Create <group>/drain. */
-	/*debugfs_create_file("drain", 0600, group->dentry, NULL,
-				     &group_drain_fops);
+	dentry = debugfs_create_file("drain", 0600, group->dentry, NULL, &group_drain_fops);
 	if (IS_ERR_OR_NULL(dentry)) {
-		pr_err("MVX: Failed to create '%s/severity' value.\n",
-		       name);
+		pr_err("MVX: Failed to create '%s/severity' value.\n", name);
 		ret = -ENOMEM;
 		goto error;
-	}*/
+	}
 
 	return 0;
 
