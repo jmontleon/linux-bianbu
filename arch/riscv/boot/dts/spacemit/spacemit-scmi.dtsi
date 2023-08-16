@@ -2,10 +2,10 @@
 	sram {
 		compatible = "mmio-sram";
 		/* 256k */
-		reg = <0x0 0x2f900000 0x0 0x40000>;
+		reg = <0x0 0x2f902000 0x0 0x3e000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x0 0x0 0x2f900000 0x40000>;
+		ranges = <0x0 0x0 0x2f902000 0x3e000>;
 
 		/* channel 0*/
 		cpu_scp_lpri0: scp-sram@2f900000 {
