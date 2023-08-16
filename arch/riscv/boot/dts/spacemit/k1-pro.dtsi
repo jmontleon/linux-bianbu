@@ -110,6 +110,24 @@
 				interrupt-controller;
 			};
 		};
+                cpu-map {
+                        cluster0 {
+                                core0 {
+                                        cpu = <&cpu_0>;
+                                };
+
+                                core1 {
+                                        cpu = <&cpu_1>;
+                                };
+                                core2 {
+                                        cpu = <&cpu_2>;
+                                };
+
+                                core3 {
+                                        cpu = <&cpu_3>;
+                                };
+                        };
+                };
 	};
 
 	clocks {
