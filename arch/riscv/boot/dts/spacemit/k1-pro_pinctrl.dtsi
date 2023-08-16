@@ -7,7 +7,7 @@
 /* Format: <pin_id  muxsel  pull_up/pull_down  driving_strength> */
 /* driving_strength  0~0xf     */
 &pinctrl {
-        pinctrl_qspi0: qspi0grp {
+        pinctrl_qspi0: qspi0_grp {
                 spacemit,pins = <
                         GPIOA1    0x0    PULL_UP    0xf         /* sclk */
                         GPIOA2    0x0    PULL_UP    0xf         /* csn0 */
@@ -19,25 +19,25 @@
                 >;
         };
 
-        pinctrl_pwm0: pwm0grp {
+        pinctrl_pwm0: pwm0_grp {
                 spacemit,pins = <
                         GPIOA3    0x1    PULL_UP    0xf         /* pwm0 */
                 >;
         };
 
-        pinctrl_pwm1: pwm1grp {
+        pinctrl_pwm1: pwm1_grp {
                 spacemit,pins = <
                         GPIOA8    0x1    PULL_UP    0xf         /* pwm1 */
                 >;
         };
 
-        pinctrl_pwm2: pwm2grp {
+        pinctrl_pwm2: pwm2_grp {
                 spacemit,pins = <
                         GPIOA9    0x1    PULL_UP    0xf         /* pwm2 */
                 >;
         };
 
-        pinctrl_uart4_0:uart4grp {
+        pinctrl_uart4_0:uart4_0_grp {
                 spacemit,pins = <
                         GPIOA10    0x3    PULL_UP    0xf        /* txd */
                         GPIOA11    0x3    PULL_UP    0xf        /* rxd */
@@ -46,28 +46,28 @@
                 >;
         };
 
-        pinctrl_can: cangrp {
+        pinctrl_can: can_grp {
                 spacemit,pins = <
                         GPIOA12    0x0    PULL_UP    0xf        /* txd */
                         GPIOA13    0x0    PULL_UP    0xf        /* rxd */
                 >;
         };
 
-        pinctrl_i2c4: i2c4grp {
+        pinctrl_i2c4: i2c4_grp {
                 spacemit,pins = <
                         GPIOA12    0x1    PULL_UP    0xf        /* scl */
                         GPIOA13    0x1    PULL_UP    0xf        /* sda */
                 >;
         };
 
-        pinctrl_sdio: sdiogrp {
+        pinctrl_sdio: sdio_grp {
                 spacemit,pins = <
                         GPIOA14    0x0    PULL_UP    0xf        /* wprtn */
                         GPIOA15    0x0    PULL_UP    0xf        /* detn */
                 >;
         };
 
-        pinctrl_gmac: gmacgrp {
+        pinctrl_gmac: gmac_grp {
                 spacemit,pins = <
                         GPIOA16    0x0    PULL_UP    0xf        /* tx clk */
                         GPIOA17    0x0    PULL_UP    0xf        /* rx clk */
@@ -86,35 +86,35 @@
                 >;
         };
 
-        pinctrl_uart0: uart0grp {
+        pinctrl_uart0: uart0_grp {
                 spacemit,pins = <
                         GPIOB5    0x0    PULL_UP    0xf         /* txd */
                         GPIOB6    0x0    PULL_UP    0xf         /* rxd */
                 >;
         };
 
-        pinctrl_i2c0: i2c0grp {
+        pinctrl_i2c0: i2c0_grp {
                 spacemit,pins = <
                         GPIOB7    0x0    PULL_UP    0xf         /* scl */
                         GPIOB8    0x0    PULL_UP    0xf         /* sda */
                 >;
         };
 
-        pinctrl_i2c1: i2cgrp {
+        pinctrl_i2c1: i2c1_grp {
                 spacemit,pins = <
                         GPIOB9     0x0    PULL_UP    0xf        /* scl */
                         GPIOB10    0x0    PULL_UP    0xf        /* sda */
                 >;
         };
 
-        pinctrl_i2c2: i2c2grp {
+        pinctrl_i2c2: i2c2_grp {
                 spacemit,pins = <
                         GPIOB11    0x0    PULL_UP    0xf        /* scl */
                         GPIOB12    0x0    PULL_UP    0xf        /* sda */
                 >;
         };
 
-        pinctrl_uart1:uart1grp {
+        pinctrl_uart1:uart1_grp {
                 spacemit,pins = <
                         GPIOB13    0x0    PULL_UP    0xf        /* txd */
                         GPIOA14    0x0    PULL_UP    0xf        /* rxd */
@@ -123,14 +123,14 @@
                 >;
         };
 
-        pinctrl_i2c3: i2c3grp {
+        pinctrl_i2c3: i2c3_grp {
                 spacemit,pins = <
                         GPIOB15    0x1    PULL_UP    0xf        /* scl */
                         GPIOB16    0x1    PULL_UP    0xf        /* sda */
                 >;
         };
 
-        pinctrl_uart2:uart2grp {
+        pinctrl_uart2:uart2_grp {
                 spacemit,pins = <
                         GPIOB17    0x0    PULL_UP    0xf        /* txd */
                         GPIOA18    0x0    PULL_UP    0xf        /* rxd */
@@ -139,7 +139,7 @@
                 >;
         };
 
-        pinctrl_i2s1: i2s1grp {
+        pinctrl_i2s1: i2s1_grp {
                 spacemit,pins = <
                         GPIOB17    0x2    PULL_UP    0xf        /* mclk */
                         GPIOB18    0x2    PULL_UP    0xf        /* bclk */
@@ -151,7 +151,7 @@
                 >;
         };
 
-        pinctrl_uart3_0:uart3grp {
+        pinctrl_uart3_0:uart3_0_grp {
                 spacemit,pins = <
                         GPIOB21    0x0    PULL_UP    0xf        /* txd */
                         GPIOB22    0x0    PULL_UP    0xf        /* rxd */
@@ -160,13 +160,13 @@
                 >;
         };
 
-        pinctrl_pwm3: pwm3grp {
+        pinctrl_pwm3: pwm3_grp {
                 spacemit,pins = <
                         GPIOB24    0x1    PULL_UP    0xf        /* pwm3 */
                 >;
         };
 
-        pinctrl_qspi2: qspi2grp {
+        pinctrl_qspi2: qspi2_grp {
                 spacemit,pins = <
                         GPIOC0    0x1    PULL_UP    0xf         /* sclk */
                         GPIOC1    0x1    PULL_UP    0xf         /* csn */
@@ -177,7 +177,7 @@
                 >;
         };
 
-        pinctrl_uart4_1:uart4grp {
+        pinctrl_uart4_1:uart4_1_grp {
                 spacemit,pins = <
                         GPIOC2     0x0    PULL_UP    0xf        /* txd */
                         GPIOC3     0x0    PULL_UP    0xf        /* rxd */
@@ -186,7 +186,7 @@
                 >;
         };
 
-        pinctrl_qspi1: qspi1grp {
+        pinctrl_qspi1: qspi1_grp {
                 spacemit,pins = <
                         GPIOC6     0x0    PULL_UP    0xf        /* sclk */
                         GPIOC7     0x0    PULL_UP    0xf        /* csn */
@@ -197,19 +197,19 @@
                 >;
         };
 
-        pinctrl_pwm4: pwm4grp {
+        pinctrl_pwm4: pwm4_grp {
                 spacemit,pins = <
                         GPIOC10    0x1    PULL_UP    0xf        /* pwm4 */
                 >;
         };
 
-        pinctrl_pwm5: pwm5grp {
+        pinctrl_pwm5: pwm5_grp {
                 spacemit,pins = <
                         GPIOC11    0x1    PULL_UP    0xf        /* pwm5 */
                 >;
         };
 
-        pinctrl_i2s0_0: i2s0grp {
+        pinctrl_i2s0_0: i2s0_0_grp {
                 spacemit,pins = <
                         GPIOC16    0x0    PULL_UP    0xf        /* mclk */
                         GPIOC17    0x0    PULL_UP    0xf        /* bclk_m */
@@ -219,7 +219,7 @@
                 >;
         };
 
-        pinctrl_i2s0_1: i2s0grp {
+        pinctrl_i2s0_1: i2s0_1_grp {
                 spacemit,pins = <
                         GPIOC16    0x1    PULL_UP    0xf        /* mclk */
                         GPIOC17    0x1    PULL_UP    0xf        /* bclk_s */
@@ -229,19 +229,19 @@
                 >;
         };
 
-        pinctrl_pwm6: pwm6grp {
+        pinctrl_pwm6: pwm6_grp {
                 spacemit,pins = <
                         GPIOC21    0x1    PULL_UP    0xf        /* pwm6 */
                 >;
         };
 
-        pinctrl_pwm7: pwm7grp {
+        pinctrl_pwm7: pwm7_grp {
                 spacemit,pins = <
                         GPIOC22    0x1    PULL_UP    0xf        /* pwm7 */
                 >;
         };
 
-        pinctrl_uart3_1:uart3grp {
+        pinctrl_uart3_1:uart3_1_grp {
                 spacemit,pins = <
                         GPIOC21     0x2    PULL_UP    0xf       /* txd */
                         GPIOC22     0x2    PULL_UP    0xf       /* rxd */
