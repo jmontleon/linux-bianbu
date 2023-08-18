@@ -11,6 +11,9 @@
 
 	aliases {
 		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
 	};
 
 	cpus: cpus {
@@ -105,6 +108,25 @@
 				interrupt-controller;
 			};
 		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_0>;
+				};
+
+				core1 {
+					cpu = <&cpu_1>;
+				};
+				core2 {
+					cpu = <&cpu_2>;
+				};
+
+				core3 {
+					cpu = <&cpu_3>;
+				};
+			};
+		};
 	};
 
 	clocks {
@@ -153,16 +175,77 @@
 			riscv,ndev = <159>;
 		};
 
-		/* Normal serial, log */
-		uart0: serial@2cea0000 {
-			compatible = "snps,dw-apb-uart";
-			reg = <0x0 0x2cea0000 0x0 0x1000>;
+		uart0: serial@d4017000 {
+			compatible = "ns16550";
+			reg = <0x0 0xd4017000 0x0 0x100>;
 			interrupt-parent = <&intc>;
-			interrupts = <56>;
-			clock-frequency = <50000000>;
-			reg-shift = <2>;
-			reg-io-width = <4>;
-			hw-flow-control = "unsupport";
+			interrupts = <42>;
+			/*
+			dmas = <&pdma0 AP_UART1_RX 1
+				&pdma0 AP_UART1_TX 1>;
+			dma-names = "rx", "tx";
+			clocks = <&soc_clocks CLK_UART1>;
+			*/
+			clk-fpga = <14750000>;
+			/*
+			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			edge-wakeup-pin = <54>;
+			*/
+			status = "ok";
+		};
+
+		uart1: uart@d4018000 {
+			compatible = "mrvl,pxa-uart";
+			reg = <0x0 0xd4018000 0x0 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <43>;
+			/*
+			dmas = <&pdma0 AP_UART2_RX 1
+				&pdma0 AP_UART2_TX 1>;
+			dma-names = "rx", "tx";
+			clocks = <&soc_clocks CLK_UART2>;
+			*/
+
+			clk-fpga = <14750000>;
+			/*
+			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			*/
+			status = "disabled";
+		};
+
+		uart2: uart@d4017800 {
+			compatible = "mrvl,pxa-uart";
+			reg = <0x0 0xd4017800 0x0 0x1000>;
+			interrupt-parent = <&intc>;
+			interrupts = <44>;
+			/*
+			dmas = <&pdma0 AP_UART3_RX 1
+				&pdma0 AP_UART3_TX 1>;
+			dma-names = "rx", "tx";
+			clocks = <&soc_clocks CLK_UART3>;
+			*/
+			clk-fpga = <14750000>;
+			/*
+			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			*/
+			status = "disabled";
+		};
+
+		uart3: uart@d4024000 {
+			compatible = "mrvl,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4024000 0x0 0x1000>;
+			interrupts = <61>;
+			/*
+			dmas = <&pdma0 AP_UART4_RX 1
+				&pdma0 AP_UART4_TX 1>;
+			dma-names = "rx", "tx";
+			clocks = <&soc_clocks CLK_UART4>;
+			*/
+			clk-fpga = <14750000>;
+			/*
+			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			*/
 			status = "disabled";
 		};
 	};
