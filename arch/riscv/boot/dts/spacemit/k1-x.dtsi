@@ -155,7 +155,7 @@
 				&cpu2_intc  3 &cpu2_intc  7
 				&cpu3_intc  3 &cpu3_intc  7
 			>;
-			reg = <0x0 0x14000000 0x0 0x00010000>;
+			reg = <0x0 0xE4000000 0x0 0x00010000>;
 			clint,has-no-64bit-mmio;
 		};
 
@@ -169,7 +169,7 @@
 				&cpu2_intc 0xffffffff &cpu2_intc 9
 				&cpu3_intc 0xffffffff &cpu3_intc 9
 			>;
-			reg = <0x0 0x10000000 0x0 0x04000000>;
+			reg = <0x0 0xE0000000 0x0 0x04000000>;
 			reg-names = "control";
 			riscv,max-priority = <7>;
 			riscv,ndev = <159>;
