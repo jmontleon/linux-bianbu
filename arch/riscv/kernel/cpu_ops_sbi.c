@@ -100,7 +100,6 @@ static int sbi_cpu_is_stopped(unsigned int cpuid)
 	if (rc == SBI_HSM_STATE_STOPPED)
 		return 0;
 #else
-        int err;
         unsigned long start, end;
 
         /*
@@ -112,8 +111,8 @@ static int sbi_cpu_is_stopped(unsigned int cpuid)
         end = start + msecs_to_jiffies(100);
         do {
                 rc = sbi_hsm_hart_get_status(hartid);
-                if (err == SBI_HSM_STATE_STOPPED) {
-                        pr_info("CPU%d killed (polled %d ms)\n", cpu,
+                if (rc == SBI_HSM_STATE_STOPPED) {
+                        pr_info("CPU%d killed (polled %d ms)\n", cpuid,
                                 jiffies_to_msecs(jiffies - start));
                         return 0;
                 }
@@ -122,7 +121,7 @@ static int sbi_cpu_is_stopped(unsigned int cpuid)
         } while (time_before(jiffies, end));
 
         pr_warn("CPU%d may not have shut down cleanly (AFFINITY_INFO reports %d)\n",
-                        cpu, err);
+                        cpuid, rc);
         rc = -ETIMEDOUT;
 
 #endif
