@@ -411,7 +411,7 @@ config SERIAL_21285_CONSOLE
 
 config SERIAL_PXA
 	bool "PXA serial port support (DEPRECATED)"
-	depends on ARCH_PXA || ARCH_MMP
+	depends on ARCH_PXA || ARCH_MMP || SOC_SPACEMIT_K1X
 	select SERIAL_CORE
 	select SERIAL_8250_PXA if SERIAL_8250=y
 	help
