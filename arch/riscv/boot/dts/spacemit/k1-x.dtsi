@@ -114,6 +114,13 @@
 		#address-cells = <0x2>;
 		#size-cells = <0x2>;
 		ranges;
+
+		pll_clk_uart: clock-pll_clk_uart {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <14000000>;
+			clock-output-names = "pll_clk_uart";
+		};
 	};
 
 	reserved-memory {
@@ -157,7 +164,7 @@
 		};
 
 		uart0: serial@d4017000 {
-			compatible = "ns16550";
+			compatible = "spacemit,pxa-uart";
 			reg = <0x0 0xd4017000 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <42>;
@@ -167,7 +174,8 @@
 			dma-names = "rx", "tx";
 			clocks = <&soc_clocks CLK_UART1>;
 			*/
-			clk-fpga = <14750000>;
+			clocks = <&pll_clk_uart>;
+			clk-fpga = <14000000>;
 			/*
 			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
 			edge-wakeup-pin = <54>;
