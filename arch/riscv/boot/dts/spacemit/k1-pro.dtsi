@@ -582,7 +582,7 @@
 			interrupts = <64>;
 			device_type = "i2c0";
 			reg = <0x0 0x2cee0000 0x0 0x4000>;
-			clocks = <&ccu CLK_DUMMY>;
+			clocks = <&ccu CLK_I2C0>;
 			resets = <&reset RESET_I2C0>;
 			clock-frequency = <400000>;
 			status = "okay";
