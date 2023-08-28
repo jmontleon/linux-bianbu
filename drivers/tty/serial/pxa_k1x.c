@@ -56,7 +56,7 @@
 
 #define UARTCLK_FPGA		(14750000)
 
-#define NUM_UART_PORTS		(9)
+#define NUM_UART_PORTS		(4)
 #define BT_UART_PORT		(2)
 
 #define UART_FCR_PXA_BUS32	(0x20)	/* 32-Bit Peripheral Bus */
@@ -140,7 +140,7 @@ static void pxa_uart_transmit_dma_cb(void *data);
 static void pxa_uart_receive_dma_cb(void *data);
 static void pxa_uart_transmit_dma_start(struct uart_pxa_port *up, int count);
 static void pxa_uart_receive_dma_start(struct uart_pxa_port *up);
-static void wait_for_xmitr(struct uart_pxa_port *up);
+static inline void wait_for_xmitr(struct uart_pxa_port *up);
 static unsigned int serial_pxa_tx_empty(struct uart_port *port);
 #ifdef CONFIG_PM
 static void _pxa_timer_handler(struct uart_pxa_port *up);
@@ -2047,7 +2047,7 @@ static void __maybe_unused uart_edge_wakeup_handler(int gpio, void *data)
 
 static void uart_tx_lpm_handler(struct work_struct *work)
 {
-	struct uart_pxa_port *up = container_of(work,	
+	struct uart_pxa_port *up = container_of(work,
 		struct uart_pxa_port, uart_tx_lpm_work);
 
 	/* Polling until TX FIFO is empty */
@@ -2079,7 +2079,6 @@ static int serial_pxa_probe_dt(struct platform_device *pdev, struct uart_pxa_por
 	if (uart_dma) {
 		sport->dma_enable = 1;
 	}
-
 	ret = of_alias_get_id(np, "serial");
 	if (ret < 0) {
 		dev_err(&pdev->dev, "failed to get alias id, errno %d\n", ret);
@@ -2087,15 +2086,18 @@ static int serial_pxa_probe_dt(struct platform_device *pdev, struct uart_pxa_por
 	}
 	sport->port.line = ret;
 
+#ifdef CONFIG_PM
+#if SUPPORT_POWER_QOS
 	if (of_property_read_u32(np, "lpm-qos", &sport->lpm_qos)) {
 		dev_err(&pdev->dev, "cannot find lpm-qos in device tree\n");
 		return -EINVAL;
 	}
+#endif
 
 	if (of_property_read_u32(np, "edge-wakeup-pin", &sport->edge_wakeup_gpio)) {
 		dev_info(&pdev->dev, "no edge-wakeup-pin defined\n");
 	}
-
+#endif
 	sport->device_ctrl_rts = of_property_read_bool(np, "device-control-rts");
 
 	return 0;
@@ -2115,7 +2117,6 @@ static int serial_pxa_probe(struct platform_device *dev)
 	struct freq_constraints *idle_qos;
 #endif
 #endif
-
 	mmres = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (!mmres) {
 		return -ENODEV;
@@ -2138,7 +2139,6 @@ static int serial_pxa_probe(struct platform_device *dev)
 		return -ENOMEM;
 	}
 #endif
-
 	sport->clk = clk_get(&dev->dev, NULL);
 	if (IS_ERR(sport->clk)) {
 		ret = PTR_ERR(sport->clk);
@@ -2160,16 +2160,16 @@ static int serial_pxa_probe(struct platform_device *dev)
 	sport->port.dev = &dev->dev;
 	sport->port.flags = UPF_IOREMAP | UPF_BOOT_AUTOCONF;
 
-	#ifdef CONFIG_SOC_SPACEMIT_K1_FPGA
+#ifdef CONFIG_SOC_SPACEMIT_K1_FPGA
 	of_property_read_u32(np, "clk-fpga", &sport->clk_fpga);
 	if (sport->clk_fpga) {
 		sport->port.uartclk = sport->clk_fpga;
 	} else {
 		sport->port.uartclk = UARTCLK_FPGA;
 	}
-	#else
+#else
 	sport->port.uartclk = clk_get_rate(sport->clk);
-	#endif
+#endif
 	sport->port.has_sysrq = IS_ENABLED(CONFIG_SERIAL_PXA_CONSOLE);
 
 	sport->edge_wakeup_gpio = -1;
@@ -2265,7 +2265,7 @@ static int serial_pxa_probe(struct platform_device *dev)
 	return 0;
 
 #ifdef CONFIG_PM
- err_edge:
+err_edge:
 	uart_remove_one_port(&serial_pxa_reg, &sport->port);
 	iounmap(sport->port.membase);
 #endif
@@ -2273,7 +2273,6 @@ static int serial_pxa_probe(struct platform_device *dev)
 #ifdef CONFIG_PM
 	freq_qos_remove_request(&sport->qos_idle[PXA_UART_RX]);
 	freq_qos_remove_request(&sport->qos_idle[PXA_UART_TX]);
- err_irq:
 #endif
 	free_irq(sport->port.irq, sport);
  err_clk:
