@@ -121,6 +121,20 @@
 			clock-frequency = <14000000>;
 			clock-output-names = "pll_clk_uart";
 		};
+
+		pll_clk_emac: clock-pll_clk_emac {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_emac";
+		};
+
+		pll_clk_emac_ptp: clock-pll_clk_emac_ptp {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_emac_ptp";
+		};
 	};
 
 	reserved-memory {
@@ -249,6 +263,21 @@
 			reserved-channels = <17>;
 			//lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
 			status = "ok";
+		};
+
+		eth0: ethernet@cac80000 {
+			compatible = "spacemit,k1x-emac";
+			reg = <0x00000000 0xCAC80000 0x00000000 0x00000420>,
+				<0x00000000 0xD4282800 0x00000000 0x000003ec>;
+			ctrl-reg = <0x3e4>;
+			dline-reg = <0x3e8>;
+			clocks = <&pll_clk_emac
+				&pll_clk_emac_ptp>;
+			clock-names = "emac-clk", "ptp-clk";
+			interrupts = <131>;
+			interrupt-parent = <&intc>;
+			lpm-qos = <7>;
+			status = "disabled";
 		};
 	};
 
