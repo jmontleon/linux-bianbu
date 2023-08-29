@@ -55,6 +55,7 @@ obj-$(CONFIG_LPC32XX_DMAMUX) += lpc32xx-dmamux.o
 obj-$(CONFIG_MILBEAUT_HDMAC) += milbeaut-hdmac.o
 obj-$(CONFIG_MILBEAUT_XDMAC) += milbeaut-xdmac.o
 obj-$(CONFIG_MMP_PDMA) += mmp_pdma.o
+obj-$(CONFIG_MMP_PDMA_SPACEMIT_K1X) += mmp_pdma_k1x.o
 obj-$(CONFIG_MMP_TDMA) += mmp_tdma.o
 obj-$(CONFIG_MOXART_DMA) += moxart-dma.o
 obj-$(CONFIG_MPC512X_DMA) += mpc512x_dma.o
