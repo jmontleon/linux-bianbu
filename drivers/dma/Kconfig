@@ -441,12 +441,31 @@ config MILBEAUT_XDMAC
 	  Say yes here to support the Socionext Milbeaut
 	  XDMAC device.
 
+choice
+	prompt "MMP_PDMA driver"
+	help
+	  choice mmp_pdma driver
+
 config MMP_PDMA
 	tristate "MMP PDMA support"
 	depends on ARCH_MMP || ARCH_PXA || COMPILE_TEST
 	select DMA_ENGINE
 	help
 	  Support the MMP PDMA engine for PXA and MMP platform.
+
+config MMP_PDMA_SPACEMIT_K1X
+	bool "Spacemit mmp_pdma support"
+	depends on ARCH_MMP || ARCH_PXA || COMPILE_TEST || SOC_SPACEMIT_K1X
+	select DMA_ENGINE
+	help
+	  Support the MMP PDMA engine for PXA and Spacemit-k1x platform.
+endchoice
+
+config SPACEMIT_PDMA_SUPPORT_64BIT
+	bool "MMP PDMA support the 64-bit address"
+	default y
+	help
+	  Support 64-bit address in the MMP PDMA
 
 config MMP_TDMA
 	tristate "MMP Two-Channel DMA support"
@@ -464,7 +483,7 @@ config MOXART_DMA
 	select DMA_VIRTUAL_CHANNELS
 	help
 	  Enable support for the MOXA ART SoC DMA controller.
- 
+
 	  Say Y here if you enabled MMP ADMA, otherwise say N.
 
 config MPC512X_DMA
