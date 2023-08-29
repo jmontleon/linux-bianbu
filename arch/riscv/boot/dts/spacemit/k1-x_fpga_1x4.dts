@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/* Copyright (c) 2023 Spacemit, Inc */
+
+/dts-v1/;
+
+#include "k1-x.dtsi"
+/ {
+	model = "spacemit k1-x fpga board";
+
+	cpus: cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <50000000>;
+
+		cpu_2: cpu@2 {
+			reg = <2>;	
+		};
+
+		cpu_3: cpu@3 {
+			reg = <3>;	
+		};
+
+                cpu-map {
+                        cluster0 {
+                                core0 {
+                                        cpu = <&cpu_0>;
+                                };
+
+                                core1 {
+                                        cpu = <&cpu_1>;
+                                };
+
+                                core2 {
+                                        cpu = <&cpu_2>;
+                                };
+
+                                core3 {
+                                        cpu = <&cpu_3>;
+                                };
+                        };
+                };
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x0 0x7fffffff>;
+	};
+
+	chosen {
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8,initcall_debug=1 rdinit=/init.tmp";
+		stdout-path = "serial0:115200n8";
+	};
+
+};
+
