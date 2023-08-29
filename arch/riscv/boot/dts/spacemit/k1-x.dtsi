@@ -248,6 +248,19 @@
 			*/
 			status = "disabled";
 		};
+
+		pdma0: pdma@d4000000 {
+			compatible = "spacemit,pdma-1.0";
+			reg = <0x0 0xd4000000 0x0 0x4000>;
+			interrupts = <72>;
+			interrupt-parent = <&intc>;
+			#dma-cells= <2>;
+			#dma-channels = <16>;
+			max-burst-size = <64>;
+			reserved-channels = <17>;
+			//lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			status = "ok";
+		};
 	};
 
 	pmu {
