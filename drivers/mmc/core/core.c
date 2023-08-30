@@ -1202,6 +1202,11 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
 
 	/* Keep clock gated for at least 10 ms, though spec only says 5 ms */
 	mmc_delay(10);
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	/* disable auto clock gate */
+	if (host->ops->auto_clk_gate)
+		host->ops->auto_clk_gate(host, 0);
+#endif
 	host->ios.clock = clock;
 	mmc_set_ios(host);
 
@@ -1263,6 +1268,11 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 	if (host->ops->card_busy && host->ops->card_busy(host))
 		err = -EAGAIN;
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	/* enable auto clock gate */
+	if (host->ops->auto_clk_gate)
+		host->ops->auto_clk_gate(host, 1);
+#endif
 power_cycle:
 	if (err) {
 		pr_debug("%s: Signal voltage switch failed, "
@@ -1427,6 +1437,12 @@ void _mmc_detect_change(struct mmc_host *host, unsigned long delay, bool cd_irq)
 		__pm_wakeup_event(host->ws, 5000);
 
 	host->detect_change = 1;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (!(host->caps2 & MMC_CAP2_NO_MMC)) {
+		mmc_rescan(&host->detect.work);
+		return;
+	}
+#endif
 	mmc_schedule_delayed_work(&host->detect, delay);
 }
 
@@ -2105,6 +2121,11 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 			return 0;
 	}
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (host->ops->encrypt_config)
+		host->ops->encrypt_config(host, 0);
+#endif
+
 	/* Order's important: probe SDIO, then SD, then MMC */
 	if (!(host->caps2 & MMC_CAP2_NO_SDIO))
 		if (!mmc_attach_sdio(host))
@@ -2117,6 +2138,11 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	if (!(host->caps2 & MMC_CAP2_NO_MMC))
 		if (!mmc_attach_mmc(host))
 			return 0;
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (host->ops->encrypt_config)
+		host->ops->encrypt_config(host, 1);
+#endif
 
 out:
 	mmc_power_off(host);
@@ -2327,6 +2353,10 @@ void mmc_start_host(struct mmc_host *host)
 	}
 
 	mmc_gpiod_request_cd_irq(host);
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (host->caps2 & MMC_CAP2_DISABLE_PROBE_SCAN)
+		return;
+#endif
 	_mmc_detect_change(host, 0, false);
 }
 
