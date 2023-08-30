@@ -377,6 +377,10 @@ int mmc_add_card(struct mmc_card *card)
 
 	device_enable_async_suspend(&card->dev);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (card->host->ops->encrypt_config)
+		card->host->ops->encrypt_config(card->host, 1);
+#endif
 	ret = device_add(&card->dev);
 	if (ret)
 		return ret;
