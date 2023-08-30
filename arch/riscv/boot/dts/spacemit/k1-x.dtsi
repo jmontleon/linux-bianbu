@@ -3,6 +3,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/mmc/k1x_sdhci.h>
 
 / {
 	compatible = "spacemit,k1-x", "riscv";
@@ -134,6 +135,34 @@
 			compatible = "fixed-clock";
 			clock-frequency = <50000000>;
 			clock-output-names = "pll_clk_emac_ptp";
+		};
+
+		pll_clk_sdh0: clock-pll_clk_sdh0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_sdh0";
+		};
+
+		pll_clk_sdh1: clock-pll_clk_sdh1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_sdh1";
+		};
+
+		pll_clk_sdh2: clock-pll_clk_sdh2 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_sdh2";
+		};
+
+		pll_clk_axi: clock-pll_clk_axi {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_axi";
 		};
 	};
 
@@ -279,6 +308,48 @@
 			lpm-qos = <7>;
 			status = "disabled";
 		};
+
+		/* AXI */
+		axi@d4200000 {
+			compatible = "spacemit,axi-bus", "simple-bus";
+			reg = <0 0xd4200000 0 0x00200000>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			sdhci2: sdh@d4281000 {
+				compatible = "spacemit,k1-x-sdhci";
+				reg = <0x0 0xd4281000 0x0 0x200>;
+				interrupts = <101>;
+				interrupt-parent = <&intc>;
+				clocks = <&pll_clk_sdh2
+					  &pll_clk_axi>;
+				clock-names = "sdh-io", "sdh-core";
+				status = "disabled";
+			};
+
+			sdhci0: sdh@d4280000 {
+				compatible = "spacemit,k1-x-sdhci";
+				reg = <0x0 0xd4280000 0x0 0x200>;
+				interrupts = <99>;
+				interrupt-parent = <&intc>;
+				clocks = <&pll_clk_sdh0
+					  &pll_clk_axi>;
+				clock-names = "sdh-io", "sdh-core";
+				status = "disabled";
+			};
+
+			sdhci1: sdh@d4280800 {
+				compatible = "spacemit,k1-x-sdhci";
+				reg = <0x0 0xd4280800 0x0 0x200>;
+				interrupts = <100>;
+				interrupt-parent = <&intc>;
+				clocks = <&pll_clk_sdh1
+					  &pll_clk_axi>;
+				clock-names = "sdh-io", "sdh-core";
+				status = "disabled";
+			};
+		}; /* AXI */
 	};
 
 	pmu {

@@ -272,6 +272,15 @@ struct mmc_host_ops {
 	 * negative errno in case of a failure or zero for success.
 	 */
 	int	(*uhs2_control)(struct mmc_host *host, enum sd_uhs2_operation op);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	void	(*auto_clk_gate)(struct mmc_host *host, int auto_gate);
+	void    (*pre_select_hs400)(struct mmc_host *host);
+	void    (*post_select_hs400)(struct mmc_host *host);
+	void    (*pre_hs400_to_hs200)(struct mmc_host *host);
+	void    (*dump_host_register)(struct mmc_host *host);
+	void	(*encrypt_config)(struct mmc_host *host, unsigned int enc_flag);
+#endif
 };
 
 struct mmc_cqe_ops {
@@ -459,7 +468,10 @@ struct mmc_host {
 #define MMC_CAP2_CRYPTO		0
 #endif
 #define MMC_CAP2_ALT_GPT_TEGRA	(1 << 28)	/* Host with eMMC that has GPT entry at a non-standard location */
-
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#define MMC_CAP2_DISABLE_PROBE_SCAN	(1 << 29)
+#define MMC_CAP2_CRC_SW_RETRY	(1 << 30)
+#endif
 	bool			uhs2_sd_tran;	/* UHS-II flag for SD_TRAN state */
 	bool			uhs2_app_cmd;	/* UHS-II flag for APP command */
 	struct sd_uhs2_caps	uhs2_caps;	/* Host UHS-II capabilities */
