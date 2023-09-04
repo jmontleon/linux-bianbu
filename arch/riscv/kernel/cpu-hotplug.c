@@ -75,8 +75,14 @@ void __noreturn arch_cpu_idle_dead(void)
 {
 	idle_task_exit();
 
+#if defined(CONFIG_SOC_SPACEMIT_K1PRO) || defined(CONFIG_SOC_SPACEMIT_K1X)
+	sbi_flush_local_dcache_all();
+#endif
 	cpuhp_ap_report_dead();
 
+#if defined(CONFIG_SOC_SPACEMIT_K1PRO) || defined(CONFIG_SOC_SPACEMIT_K1X)
+	sbi_flush_local_dcache_all();
+#endif
 	cpu_ops[smp_processor_id()]->cpu_stop();
 	/* It should never reach here */
 	BUG();
