@@ -2091,9 +2091,9 @@ static int emac_mii_reset(struct mii_bus *bus)
 		}
 
 		rst_gpio = of_get_named_gpio(np, "emac,reset-gpio", 0);
-		//if (rst_gpio < 0) 
+		//if (rst_gpio < 0)
 		//	return 0;
-			
+
 		active_state = of_property_read_bool(np,
 						     "emac,reset-active-low");
 		of_property_read_u32_array(np,
@@ -2243,8 +2243,7 @@ static int emac_phy_connect(struct net_device *dev)
 
 	of_get_phy_mode(np, &priv->phy_interface);
 	pr_info("priv phy_interface = %d\n", priv->phy_interface);
-	priv->phy_interface = PHY_INTERFACE_MODE_RMII;
-	
+
 	emac_phy_interface_config(priv);
 
 	phydev = of_phy_connect(dev, np,
