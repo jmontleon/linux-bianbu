@@ -53,6 +53,9 @@ enum sbi_ext_base_fid {
 	SBI_EXT_BASE_GET_MVENDORID,
 	SBI_EXT_BASE_GET_MARCHID,
 	SBI_EXT_BASE_GET_MIMPID,
+#if defined(CONFIG_SOC_SPACEMIT_K1PRO) || defined(CONFIG_SOC_SPACEMIT_K1X)
+	SBI_EXT_BASE_FLUSH_CACHE_ALL,
+#endif
 };
 
 enum sbi_ext_time_fid {
