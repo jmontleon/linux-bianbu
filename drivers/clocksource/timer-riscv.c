@@ -173,6 +173,13 @@ static int __init riscv_timer_init_common(void)
 		return -ENODEV;
 	}
 
+#ifdef CONFIG_SOC_SPACEMIT
+	if (riscv_isa_extension_available(NULL, SSTC)) {
+		pr_info("Timer interrupt in S-mode is available via sstc extension\n");
+		static_branch_enable(&riscv_sstc_available);
+	}
+#endif
+
 	error = clocksource_register_hz(&riscv_clocksource, riscv_timebase);
 	if (error) {
 		pr_err("RISCV timer registration failed [%d]\n", error);
@@ -189,10 +196,12 @@ static int __init riscv_timer_init_common(void)
 		return error;
 	}
 
+#ifndef CONFIG_SOC_SPACEMIT
 	if (riscv_isa_extension_available(NULL, SSTC)) {
 		pr_info("Timer interrupt in S-mode is available via sstc extension\n");
 		static_branch_enable(&riscv_sstc_available);
 	}
+#endif
 
 	error = cpuhp_setup_state(CPUHP_AP_RISCV_TIMER_STARTING,
 			 "clockevents/riscv/timer:starting",
