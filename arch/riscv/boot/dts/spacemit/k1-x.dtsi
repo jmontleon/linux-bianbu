@@ -178,7 +178,7 @@
 		#size-cells = <2>;
 		ranges;
 
-		clint0: clint@14000000 {
+		clint0: clint@e4000000 {
 			compatible = "riscv,clint0";
 			interrupts-extended = <
 				&cpu0_intc  3 &cpu0_intc  7
@@ -190,7 +190,7 @@
 			clint,has-no-64bit-mmio;
 		};
 
-		intc: interrupt-controller@10000000 {
+		intc: interrupt-controller@e0000000 {
 			#interrupt-cells = <1>;
 			compatible = "riscv,plic0";
 			interrupt-controller;
@@ -309,47 +309,38 @@
 			status = "disabled";
 		};
 
-		/* AXI */
-		axi@d4200000 {
-			compatible = "spacemit,axi-bus", "simple-bus";
-			reg = <0 0xd4200000 0 0x00200000>;
-			#address-cells = <2>;
-			#size-cells = <2>;
-			ranges;
+		sdhci0: sdh@d4280000 {
+			compatible = "spacemit,k1-x-sdhci";
+			reg = <0x0 0xd4280000 0x0 0x200>;
+			interrupts = <99>;
+			interrupt-parent = <&intc>;
+			clocks = <&pll_clk_sdh0
+				  &pll_clk_axi>;
+			clock-names = "sdh-io", "sdh-core";
+			status = "disabled";
+		};
 
-			sdhci2: sdh@d4281000 {
-				compatible = "spacemit,k1-x-sdhci";
-				reg = <0x0 0xd4281000 0x0 0x200>;
-				interrupts = <101>;
-				interrupt-parent = <&intc>;
-				clocks = <&pll_clk_sdh2
-					  &pll_clk_axi>;
-				clock-names = "sdh-io", "sdh-core";
-				status = "disabled";
-			};
+		sdhci1: sdh@d4280800 {
+			compatible = "spacemit,k1-x-sdhci";
+			reg = <0x0 0xd4280800 0x0 0x200>;
+			interrupts = <100>;
+			interrupt-parent = <&intc>;
+			clocks = <&pll_clk_sdh1
+				  &pll_clk_axi>;
+			clock-names = "sdh-io", "sdh-core";
+			status = "disabled";
+		};
 
-			sdhci0: sdh@d4280000 {
-				compatible = "spacemit,k1-x-sdhci";
-				reg = <0x0 0xd4280000 0x0 0x200>;
-				interrupts = <99>;
-				interrupt-parent = <&intc>;
-				clocks = <&pll_clk_sdh0
-					  &pll_clk_axi>;
-				clock-names = "sdh-io", "sdh-core";
-				status = "disabled";
-			};
-
-			sdhci1: sdh@d4280800 {
-				compatible = "spacemit,k1-x-sdhci";
-				reg = <0x0 0xd4280800 0x0 0x200>;
-				interrupts = <100>;
-				interrupt-parent = <&intc>;
-				clocks = <&pll_clk_sdh1
-					  &pll_clk_axi>;
-				clock-names = "sdh-io", "sdh-core";
-				status = "disabled";
-			};
-		}; /* AXI */
+		sdhci2: sdh@d4281000 {
+			compatible = "spacemit,k1-x-sdhci";
+			reg = <0x0 0xd4281000 0x0 0x200>;
+			interrupts = <101>;
+			interrupt-parent = <&intc>;
+			clocks = <&pll_clk_sdh2
+				  &pll_clk_axi>;
+			clock-names = "sdh-io", "sdh-core";
+			status = "disabled";
+		};
 	};
 
 	pmu {
