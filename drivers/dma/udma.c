@@ -314,7 +314,6 @@ static int dma_memcpy(dma_addr_t dst, dma_addr_t src, size_t size)
 		return -1;
 	}
 
-	dev_info(dma_dev->dev, "dma src:%lx  dst:%lx\n", (size_t)src, (size_t)dst);
 	dma_tx->callback		= dma_callback_func;//set call back function
 	dma_tx->callback_param		= NULL;
 	if (dma_submit_error(dma_tx->tx_submit(dma_tx))){
@@ -405,7 +404,7 @@ static int dma_init(void)
 	dma_cap_set(DMA_MEMCPY, mask);//direction:memory to memory
 	dma_chan = dma_request_channel(mask,NULL,NULL); //request a dma channel
 	if (!dma_chan) {
-		dev_err(dma_dev->dev, "dma request failed\n");
+		printk(KERN_ERR"dma request failed\n");
 		return -1;
 	}
 
