@@ -562,6 +562,14 @@ config TPS6594_PFSM
 	  This driver can also be built as a module.  If so, the module
 	  will be called tps6594-pfsm.
 
+config SPACEMIT_TCM
+	bool "Generic tcm alloc management driver"
+	depends on SOC_SPACEMIT
+	default y
+	help
+	  This driver allows you to alloc tcm for userspace.
+
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
