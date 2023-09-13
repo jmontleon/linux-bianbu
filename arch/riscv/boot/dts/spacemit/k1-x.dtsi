@@ -20,7 +20,7 @@
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		timebase-frequency = <50000000>;
+		timebase-frequency = <10000000>;
 		cpu_0: cpu@0 {
 			device_type = "cpu";
 			reg = <0>;
@@ -36,7 +36,6 @@
 			cpu-tlb = "1024 4-ways";
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
-
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
@@ -343,11 +342,11 @@
 		};
 
 		tcm: tcm@0xd8000000 {
-			compatible = "spacemit,k1-pro-tcm";
+			compatible = "spacemit,k1-x-tcm";
 			reg = <0x0 0xd8000000 0x0 0x80000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0x0 0x0 0xbe000000 0x80000>;
+			ranges = <0x0 0x0 0xd8000000 0x80000>;
 			no-memory-wc;
 
 			core0_tcm@0 {
