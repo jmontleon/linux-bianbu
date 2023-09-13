@@ -337,6 +337,25 @@
 			status = "disabled";
 		};
 
+		usbdrd3: usb3@0 {
+			compatible = "spacemit,k1-x-dwc3";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			//resets = <&reset RESET_USB31>;
+			//reset-names = "ctl_rst";
+			interrupt-parent = <&intc>;
+			interrupts = <149>;
+			ranges;
+			status = "disabled";
+
+			dwc3@c0a00000 {
+				compatible = "snps,dwc3";
+				reg = <0x0 0xc0a00000 0x0 0x10000>;
+				interrupt-parent = <&intc>;
+				interrupts = <125>;
+			};
+		};
+
 		sdhci0: sdh@d4280000 {
 			compatible = "spacemit,k1-x-sdhci";
 			reg = <0x0 0xd4280000 0x0 0x200>;
