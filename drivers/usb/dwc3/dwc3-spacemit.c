@@ -149,7 +149,13 @@ static int dwc3_spacemit_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct dwc3_spacemit_driverdata spacemit_drvdata = {
+static const struct dwc3_spacemit_driverdata spacemit_k1pro_drvdata = {
+	.clk_names = { "usbdrd30" },
+	.num_clks = 0,
+	.suspend_clk_idx = -1,
+};
+
+static const struct dwc3_spacemit_driverdata spacemit_k1x_drvdata = {
 	.clk_names = { "usbdrd30" },
 	.num_clks = 0,
 	.suspend_clk_idx = -1,
@@ -158,8 +164,13 @@ static const struct dwc3_spacemit_driverdata spacemit_drvdata = {
 static const struct of_device_id spacemit_dwc3_match[] = {
 	{
 		.compatible = "spacemit,k1-pro-dwc3",
-		.data = &spacemit_drvdata,
-	}
+		.data = &spacemit_k1pro_drvdata,
+	},
+	{
+		.compatible = "spacemit,k1-x-dwc3",
+		.data = &spacemit_k1x_drvdata,
+	},
+	{ /* Sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, spacemit_dwc3_match);
 
