@@ -138,6 +138,15 @@ config USB_MV_OTG
 
 	  To compile this driver as a module, choose M here.
 
+
+config K1XCI_USB2_PHY
+	tristate "K1x ci USB 2.0 PHY Driver"
+	depends on USB || USB_GADGET
+	select USB_PHY
+	help
+	  Enable this to support USB 2.0 PHY driver. This driver will do the PHY
+	  initialization and shutdown. The PHY driver will be used by K1x udc/ehci/otg driver.
+
 config USB_MXS_PHY
 	tristate "Freescale MXS USB PHY support"
 	depends on ARCH_MXC || ARCH_MXS

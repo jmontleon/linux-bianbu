@@ -4,6 +4,7 @@
 /dts-v1/;
 
 #include <dt-bindings/mmc/k1x_sdhci.h>
+#include <dt-bindings/usb/k1x_ci_usb.h>
 
 / {
 	compatible = "spacemit,k1-x", "riscv";
@@ -163,6 +164,13 @@
 			clock-frequency = <50000000>;
 			clock-output-names = "pll_clk_axi";
 		};
+
+		pll_clk_usb: clock-pll_clk_usb {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_usb";
+		};
 	};
 
 	reserved-memory {
@@ -305,6 +313,27 @@
 			interrupts = <131>;
 			interrupt-parent = <&intc>;
 			lpm-qos = <7>;
+			status = "disabled";
+		};
+
+		usbphy: usbphy@c0940000 {
+			compatible = "spacemit,usb2-phy";
+			reg = <0x0 0xc0940000 0x0 0x200>;
+			spacemit,phy-name = "mv-usb-phy";
+			spacemit,pll-lock-bypass;
+			clocks = <&pll_clk_usb>;
+			status = "disabled";
+		};
+
+		udc: udc@c0900100 {
+			compatible = "spacemit,mv-udc";
+			reg = <0x0 0xc0900100 0x0 0x4000>;
+			interrupts = <105>;
+			interrupt-parent = <&intc>;
+			spacemit,udc-name = "mv-udc";
+			spacemit,otg-force-a-bus-req;
+			clocks = <&pll_clk_usb>;
+			usb-phy = <&usbphy>;
 			status = "disabled";
 		};
 
