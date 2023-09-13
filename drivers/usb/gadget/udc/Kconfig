@@ -236,6 +236,13 @@ config USB_SNP_CORE
 
 	  This IP is different to the High Speed OTG IP that can be enabled
 	  by selecting USB_DWC2 or USB_DWC3 options.
+config USB_K1X_UDC
+	tristate "Spacemit K1X USB2.0 Device Controller"
+	depends on HAS_DMA
+	help
+	  Include a high speed USB2.0 OTG controller, which can be configured 
+	  as high speed or full speed USB peripheral.
+
 
 config USB_SNP_UDC_PLAT
 	tristate "Synopsys USB 2.0 Device controller"
