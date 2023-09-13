@@ -506,6 +506,7 @@ static struct miscdevice tcm_misc_device = {
 
 static const struct of_device_id tcm_dt_ids[] = {
 	{ .compatible = "spacemit,k1-pro-tcm", .data = NULL },
+	{ .compatible = "spacemit,k1-x-tcm", .data = NULL },
 	{}
 };
 
