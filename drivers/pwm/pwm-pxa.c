@@ -53,6 +53,9 @@ struct pxa_pwm_chip {
 
 	struct clk	*clk;
 	void __iomem	*mmio_base;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	int dcr_fd; /* Controller PWM_DCR FD feature */
+#endif
 };
 
 static inline struct pxa_pwm_chip *to_pxa_pwm_chip(struct pwm_chip *chip)
@@ -88,9 +91,31 @@ static int pxa_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		return -EINVAL;
 
 	if (duty_ns == period_ns)
+#ifdef 	CONFIG_SOC_SPACEMIT_K1X
+	{
+		if(pc->dcr_fd)
+			dc = PWMDCR_FD;
+		else{
+			dc = (pv + 1) * duty_ns / period_ns;
+			if (dc >= PWMDCR_FD) {
+				dc = PWMDCR_FD - 1;
+				pv = dc - 1;
+			}
+		}
+	}
+#else
 		dc = PWMDCR_FD;
+#endif
 	else
 		dc = mul_u64_u64_div_u64(pv + 1, duty_ns, period_ns);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	/*
+	 * FIXME: Graceful shutdown mode would cause the function clock
+	 * could not be enabled normally, so chose abrupt shutdown mode.
+	 */
+	prescale |= PWMCR_SD;
+#endif
 
 	writel(prescale | PWMCR_SD, pc->mmio_base + offset + PWMCR);
 	writel(dc, pc->mmio_base + offset + PWMDCR);
@@ -148,6 +173,9 @@ static const struct of_device_id pwm_of_match[] = {
 	{ .compatible = "marvell,pxa270-pwm", .data = &pwm_id_table[0]},
 	{ .compatible = "marvell,pxa168-pwm", .data = &pwm_id_table[0]},
 	{ .compatible = "marvell,pxa910-pwm", .data = &pwm_id_table[0]},
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	{ .compatible = "spacemit,k1x-pwm", .data = &pwm_id_table[0]},
+#endif
 	{ }
 };
 MODULE_DEVICE_TABLE(of, pwm_of_match);
@@ -174,6 +202,17 @@ static int pwm_probe(struct platform_device *pdev)
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
 	pc = to_pxa_pwm_chip(chip);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (pdev->dev.of_node) {
+		if(of_get_property(pdev->dev.of_node, "k1x,pwm-disable-fd", NULL))
+			pc->dcr_fd = 0;
+		else
+			pc->dcr_fd = 1;
+	}
+	else
+		pc->dcr_fd = 0;
+#endif
 
 	pc->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(pc->clk))
