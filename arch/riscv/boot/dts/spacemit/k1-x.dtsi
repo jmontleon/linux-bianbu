@@ -578,6 +578,13 @@
 			};
 		};
 
+		linlon-v5@c0500000 {
+			compatible = "arm china,linlon-v5";
+			reg = <0x0 0xC0500000 0x0 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <74>;
+			status = "disabled";
+		};
 	};
 
 	pmu {
