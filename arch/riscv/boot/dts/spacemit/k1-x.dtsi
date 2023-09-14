@@ -171,6 +171,13 @@
 			clock-frequency = <50000000>;
 			clock-output-names = "pll_clk_usb";
 		};
+
+		pll_clk_pwm: clock-pll_clk_pwm {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <10000000>;
+			clock-output-names = "pll_clk_pwm";
+		};
 	};
 
 	reserved-memory {
@@ -298,6 +305,42 @@
 			max-burst-size = <64>;
 			reserved-channels = <17>;
 			//lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			status = "ok";
+		};
+
+		pwm0: pwm@d401a000 {
+			compatible = "spacemit,k1x-pwm";
+			reg = <0x0 0xd401a000 0x0 0x10>;
+			#pwm-cells = <1>;
+			clocks = <&pll_clk_pwm>;
+			k1x,pwm-disable-fd;
+			status = "ok";
+		};
+
+		pwm1: pwm@d401a400 {
+			compatible = "spacemit,k1x-pwm";
+			reg = <0x0 0xd401a400 0x0 0x10>;
+			#pwm-cells = <1>;
+			clocks = <&pll_clk_pwm>;
+			//k1x,pwm-disable-fd;
+			status = "ok";
+		};
+
+		pwm2: pwm@d401a800 {
+			compatible = "spacemit,k1x-pwm";
+			reg = <0x0 0xd401a800 0x0 0x10>;
+			#pwm-cells = <1>;
+			clocks = <&pll_clk_pwm>;
+			k1x,pwm-disable-fd;
+			status = "ok";
+		};
+
+		pwm3: pwm@d401ac00 {
+			compatible = "spacemit,k1x-pwm";
+			reg = <0x0 0xd401ac00 0x0 0x10>;
+			#pwm-cells = <1>;
+			clocks = <&pll_clk_pwm>;
+			k1x,pwm-disable-fd;
 			status = "ok";
 		};
 
