@@ -370,6 +370,126 @@
 			status = "disabled";
 		};
 
+		pcie0_rc: pcie@ca000000 {
+			compatible = "k1x,dwc-pcie";
+			reg = <0x0 0xca000000 0x0 0x00001000>, /* dbi */
+			      <0x0 0xca300000 0x0 0x0001ff24>, /* atu registers */
+			      <0x0 0x80000000 0x0 0x00002000>, /* config space */
+			      <0x0 0xd4282bcc 0x0 0x00000008>, /* k1x soc config addr */
+			      <0x0 0xc0b20000 0x0 0x00001000>; /* phy ahb */
+			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
+
+			//clocks = <&clock CLK_PCIE0>;
+			clock-names = "pcie-clk";
+
+			bus-range = <0x00 0xff>;
+			max-link-speed = <2>;
+			num-lanes = <1>;
+			num-viewport = <8>;
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges = <0x01000000 0x0 0x80002000 0 0x80002000 0x0 0x100000>,
+				<0x02000000 0x0 0x80102000 0 0x80102000 0x0 0x0f000000>;
+
+			interrupts = <141>, <145>;
+			interrupt-parent = <&intc>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0x7>;
+			interrupt-map = <0000 0 0 1 &pcie0_intc 1>, /* int_a */
+					<0000 0 0 2 &pcie0_intc 2>, /* int_b */
+					<0000 0 0 3 &pcie0_intc 3>, /* int_c */
+					<0000 0 0 4 &pcie0_intc 4>; /* int_d */
+			linux,pci-domain = <0>;
+			status = "disabled";
+			pcie0_intc: interrupt-controller@0 {
+				interrupt-controller;
+				reg = <0 0 0 0 0>;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+
+		pcie1_rc: pcie@ca400000 {
+			compatible = "k1x,dwc-pcie";
+			reg = <0x0 0xca400000 0x0 0x00001000>, /* dbi */
+			      <0x0 0xca700000 0x0 0x0001ff24>, /* atu registers */
+			      <0x0 0x90000000 0x0 0x00002000>, /* config space */
+			      <0x0 0xd4282bd4 0x0 0x00000008>, /* k1x soc config addr */
+			      <0x0 0xc0c20000 0x0 0x00001000>; /* phy ahb */
+			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
+
+			//clocks = <&clock CLK_PCIE1>;
+			clock-names = "pcie-clk";
+
+			bus-range = <0x00 0xff>;
+			max-link-speed = <2>;
+			num-lanes = <1>;
+			num-viewport = <8>;
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges = <0x01000000 0x0 0x90002000 0 0x90002000 0x0 0x100000>,
+				<0x02000000 0x0 0x90102000 0 0x90102000 0x0 0x10000000>;
+
+			interrupts = <142>, <146>;
+			interrupt-parent = <&intc>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0x7>;
+			interrupt-map = <0000 0 0 1 &pcie1_intc 1>, /* int_a */
+					<0000 0 0 2 &pcie1_intc 2>, /* int_b */
+					<0000 0 0 3 &pcie1_intc 3>, /* int_c */
+					<0000 0 0 4 &pcie1_intc 4>; /* int_d */
+			linux,pci-domain = <0>;
+			status = "disabled";
+			pcie1_intc: interrupt-controller@0 {
+				interrupt-controller;
+				reg = <0 0 0 0 0>;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+
+		pcie2_rc: pcie@ca800000 {
+			compatible = "k1x,dwc-pcie";
+			reg = <0x0 0xca800000 0x0 0x00001000>, /* dbi */
+			      <0x0 0xcab00000 0x0 0x0001ff24>, /* atu registers */
+			      <0x0 0xa0000000 0x0 0x00002000>, /* config space */
+			      <0x0 0xd4282bdc 0x0 0x00000008>, /* k1x soc config addr */
+			      <0x0 0xc0d20000 0x0 0x00001000>; /* phy ahb */
+			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
+
+			//clocks = <&clock CLK_PCIE2>;
+			clock-names = "pcie-clk";
+
+			bus-range = <0x00 0xff>;
+			max-link-speed = <2>;
+			num-lanes = <2>;
+			num-viewport = <8>;
+			device_type = "pci";
+			#address-cells = <3>;
+			#size-cells = <2>;
+			ranges = <0x01000000 0x0 0xa0002000 0 0xa0002000 0x0 0x100000>,
+				<0x02000000 0x0 0xa0102000 0 0xa0102000 0x0 0x10000000>;
+
+			interrupts = <143>, <147>;
+			interrupt-parent = <&intc>;
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 0x7>;
+			interrupt-map = <0000 0 0 1 &pcie2_intc 1>, /* int_a */
+					<0000 0 0 2 &pcie2_intc 2>, /* int_b */
+					<0000 0 0 3 &pcie2_intc 3>, /* int_c */
+					<0000 0 0 4 &pcie2_intc 4>; /* int_d */
+			linux,pci-domain = <2>;
+			status = "disabled";
+			pcie2_intc: interrupt-controller@0 {
+				interrupt-controller;
+				reg = <0 0 0 0 0>;
+				#address-cells = <0>;
+				#interrupt-cells = <1>;
+			};
+		};
+
 		tcm: tcm@0xd8000000 {
 			compatible = "spacemit,k1-x-tcm";
 			reg = <0x0 0xd8000000 0x0 0x80000>;
