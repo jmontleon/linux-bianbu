@@ -123,6 +123,13 @@
 			clock-output-names = "pll_clk_uart";
 		};
 
+		pll_clk_i2c: clock-pll_clk_i2c {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+			clock-output-names = "pll_clk_i2c";
+		};
+
 		pll_clk_emac: clock-pll_clk_emac {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -313,6 +320,91 @@
 			reserved-channels = <17>;
 			//lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
 			status = "ok";
+		};
+
+		i2c4: i2c@d4012800 {
+			/* for i2c3 used id 4 */
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <4>;
+			reg = <0x0 0xd4012800 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <40>;
+			clocks = <&pll_clk_i2c>;
+			/*
+			dmas = <&pdma0 AP2_I2C4_RX 1
+				&pdma0 AP2_I2C4_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			spacemit,i2c-fast-mode;
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			spacemit,clk-always-on;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			status = "okay";
+		};
+
+		i2c6: i2c@d4018800 {
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <6>;
+			reg = <0x0 0xd4018800 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <70>;
+			clocks = <&pll_clk_i2c>;
+			/*
+			dmas = <&pdma0 AP_I2C6_RX 1
+				&pdma0 AP_I2C6_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			spacemit,clk-always-on;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			status = "okay";
+		};
+
+		i2c7: i2c@d401d000 {
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <7>;
+			reg = <0x0 0xd401d000 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <18>;
+			clocks = <&pll_clk_i2c>;
+			/*
+			dmas = <&pdma0 AP_I2C7_RX 1
+				&pdma0 AP_I2C7_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			spacemit,clk-always-on;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			status = "okay";
 		};
 
 		pwm0: pwm@d401a000 {
