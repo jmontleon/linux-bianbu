@@ -221,13 +221,13 @@ config PWM_DWC
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-dwc.
 
-config PWM_DWC_K1X
-        tristate "DesignWare PWM Controller K1X"
+config PWM_DWC_K1PRO
+        tristate "DesignWare PWM Controller KPRO"
         help
           PWM driver for Synopsys DWC PWM Controller load by platform.
 
           To compile this driver as a module, choose M here: the module
-          will be called pwm-dwc-k1x.
+          will be called pwm-dwc-k1pro.
 
 config PWM_EP93XX
 	tristate "Cirrus Logic EP93xx PWM support"
