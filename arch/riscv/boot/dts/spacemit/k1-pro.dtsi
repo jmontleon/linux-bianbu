@@ -473,8 +473,8 @@
 			reg = <0x0 0x2cb40000 0x0 0x40000>;
 			interrupt-parent = <&intc>;
 			interrupts = <91>;
-			resets = <&reset RESET_USB2_AHB>,
-					 <&reset RESET_USB2_PHY>;
+			resets = <&reset RESET_USB20_HOST_HRESETN>,
+					 <&reset RESET_USB20_HOST_PRSTN>;
 			reset-names = "dwc2", "dwc2-ecc";
 			dr_mode = "otg";
 			g-np-tx-fifo-size = <256>;
@@ -487,7 +487,7 @@
 			compatible = "spacemit,k1-pro-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			resets = <&reset RESET_USB31>;
+			resets = <&reset RESET_USB31CTL_RSTN>;
 			reset-names = "ctl_rst";
 			ranges;
 			status = "disabled";
