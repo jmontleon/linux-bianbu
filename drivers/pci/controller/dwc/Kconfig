@@ -461,7 +461,7 @@ config PCIE_VISCONTI_HOST
 
 config PCIE_SPACEMIT
 	bool "Spacemit PCIe controller"
-	depends on CONFIG_SOC_SPACEMIT || COMPILE_TEST
+	depends on SOC_SPACEMIT || COMPILE_TEST
 	depends on PCI_MSI_IRQ_DOMAIN
 	select PCIE_DW_HOST
 	help
