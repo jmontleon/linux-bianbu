@@ -118,6 +118,7 @@ choice
 
 	config SOC_SPACEMIT_K1PRO
 		bool "k1-pro"
+		select DW_APB_TIMER_OF
 		help
 		  This enables support for Spacemit k1-pro Platform Hardware.
 
