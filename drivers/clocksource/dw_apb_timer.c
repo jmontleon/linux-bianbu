@@ -75,6 +75,7 @@ static void apbt_eoi(struct dw_apb_timer *timer)
 
 static irqreturn_t dw_apb_clockevent_irq(int irq, void *data)
 {
+	u32 ctrl;
 	struct clock_event_device *evt = data;
 	struct dw_apb_clock_event_device *dw_ced = ced_to_dw_apb_ced(evt);
 
@@ -85,6 +86,15 @@ static irqreturn_t dw_apb_clockevent_irq(int irq, void *data)
 
 	if (dw_ced->eoi)
 		dw_ced->eoi(&dw_ced->timer);
+
+	/* disable the timer & interrupt in one-shot mode */
+	ctrl = apbt_readl(&dw_ced->timer, APBTMR_N_CONTROL);
+	if (!(ctrl & APBTMR_CONTROL_MODE_PERIODIC)) {
+		ctrl = apbt_readl_relaxed(&dw_ced->timer, APBTMR_N_CONTROL);
+		ctrl &= ~APBTMR_CONTROL_ENABLE;
+		ctrl |= APBTMR_CONTROL_INT;
+		apbt_writel_relaxed(&dw_ced->timer, ctrl, APBTMR_N_CONTROL);
+	}
 
 	evt->event_handler(evt);
 	return IRQ_HANDLED;
@@ -192,9 +202,14 @@ static int apbt_next_event(unsigned long delta,
 	ctrl = apbt_readl_relaxed(&dw_ced->timer, APBTMR_N_CONTROL);
 	ctrl &= ~APBTMR_CONTROL_ENABLE;
 	apbt_writel_relaxed(&dw_ced->timer, ctrl, APBTMR_N_CONTROL);
+
+	/* clear the pending */
+	apbt_readl_relaxed(&dw_ced->timer, APBTMR_N_EOI);
+
 	/* write new count */
 	apbt_writel_relaxed(&dw_ced->timer, delta, APBTMR_N_LOAD_COUNT);
 	ctrl |= APBTMR_CONTROL_ENABLE;
+	ctrl &= ~APBTMR_CONTROL_INT;
 	apbt_writel_relaxed(&dw_ced->timer, ctrl, APBTMR_N_CONTROL);
 
 	return 0;
