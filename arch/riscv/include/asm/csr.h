@@ -394,6 +394,11 @@
 #define CSR_VTYPE		0xc21
 #define CSR_VLENB		0xc22
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+/* TCM enable register */
+#define CSR_TCMCFG		0x5db
+#endif
+
 #ifdef CONFIG_RISCV_M_MODE
 # define CSR_STATUS	CSR_MSTATUS
 # define CSR_IE		CSR_MIE
@@ -515,6 +520,11 @@
 			      : : "rK" (__v)			\
 			      : "memory");			\
 })
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#define tcm_config_save()		csr_read(CSR_TCMCFG)
+#define tcm_config_restore(flags)	csr_set(CSR_TCMCFG, flags)
+#endif
 
 #endif /* __ASSEMBLY__ */
 
