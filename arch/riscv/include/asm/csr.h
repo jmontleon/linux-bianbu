@@ -444,6 +444,11 @@
 #define CSR_VTYPE		0xc21
 #define CSR_VLENB		0xc22
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+/* TCM enable register */
+#define CSR_TCMCFG		0x5db
+#endif
+
 /* Scalar Crypto Extension - Entropy */
 #define CSR_SEED		0x015
 #define SEED_OPST_MASK		_AC(0xC0000000, UL)
@@ -574,6 +579,11 @@
 			      : : "rK" (__v)			\
 			      : "memory");			\
 })
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#define tcm_config_save()		csr_read(CSR_TCMCFG)
+#define tcm_config_restore(flags)	csr_set(CSR_TCMCFG, flags)
+#endif
 
 #endif /* __ASSEMBLY__ */
 
