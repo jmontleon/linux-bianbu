@@ -886,6 +886,15 @@ config GPIO_IDT3243X
 	  To compile this driver as a module, choose M here: the module will
 	  be called gpio-idt3243x.
 
+config GPIO_K1X
+	bool "SPACEMIT-K1X GPIO support"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  Say yes here to support the K1X GPIO device.
+	  The K1X GPIO device may have several banks, and each
+	  bank control at most 32 GPIO pins. The number of banks
+	  is passed by device tree or platform data.
+
 endmenu
 
 menu "Port-mapped I/O GPIO drivers"
