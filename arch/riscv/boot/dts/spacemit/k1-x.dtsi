@@ -463,6 +463,32 @@
 			};
 		};
 
+		gpio: gpio@d4019000 {
+			compatible = "spacemit,k1x-gpio";
+			reg = <0x0 0xd4019000 0x0 0x800>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupts = <58>;
+			interrupt-names = "gpio_mux";
+			interrupt-parent = <&intc>;
+
+			gcb0: gpio0 {
+				reg-offset = <0x0>;
+			};
+
+			gcb1: gpio1 {
+				reg-offset = <0x4>;
+			};
+
+			gcb2: gpio2 {
+				reg-offset = <0x8>;
+			};
+
+			gcb3: gpio3 {
+				reg-offset = <0x100>;
+			};
+		};
+
 		eth0: ethernet@cac80000 {
 			compatible = "spacemit,k1x-emac";
 			reg = <0x00000000 0xCAC80000 0x00000000 0x00000420>,
