@@ -470,13 +470,13 @@
 			reg = <0x0 0x2cb40000 0x0 0x40000>;
 			interrupt-parent = <&intc>;
 			interrupts = <91>;
-			resets = <&reset RESET_USB20_HOST_HRESETN>,
-					 <&reset RESET_USB20_HOST_PRSTN>;
+			resets = <&reset RESET_USB20_OTG_HRESETN>,
+					 <&reset RESET_USB20_OTG_PRSTN>;
 			reset-names = "dwc2", "dwc2-ecc";
 			dr_mode = "otg";
-			g-np-tx-fifo-size = <256>;
-			g-rx-fifo-size = <280>;
-			g-tx-fifo-size = <128 128 64 64>;
+			g-np-tx-fifo-size = <32>;
+			g-rx-fifo-size = <544>;
+			g-tx-fifo-size = <768 256 256 64 64>;
 			status = "disabled";
 		};
 
