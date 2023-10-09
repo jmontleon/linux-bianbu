@@ -310,9 +310,9 @@ static void dwc2_set_spacemit_params(struct dwc2_hsotg *hsotg)
 	p->otg_caps.hnp_support = false;
 	p->otg_caps.srp_support = false;
 	p->speed = DWC2_SPEED_PARAM_HIGH;
-	p->host_rx_fifo_size = 280;
-	p->host_nperio_tx_fifo_size = 256;
-	p->host_perio_tx_fifo_size = 256;
+	p->host_rx_fifo_size = 790;
+	p->host_nperio_tx_fifo_size = 384;
+	p->host_perio_tx_fifo_size = 768;
 	p->phy_type = DWC2_PHY_TYPE_PARAM_ULPI;
 	//p->phy_type = DWC2_PHY_TYPE_PARAM_UTMI;
 	//p->phy_utmi_width = 16;
