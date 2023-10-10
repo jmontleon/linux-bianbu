@@ -2490,6 +2490,7 @@ static const struct net_device_ops emac_netdev_ops = {
 	.ndo_start_xmit         = emac_start_xmit,
 	.ndo_set_mac_address    = emac_set_mac_address,
 	.ndo_do_ioctl           = emac_ioctl,
+	.ndo_eth_ioctl          = emac_ioctl,
 	.ndo_change_mtu         = emac_change_mtu,
 	.ndo_tx_timeout         = emac_tx_timeout,
 	.ndo_set_rx_mode        = emac_rx_mode_set,
