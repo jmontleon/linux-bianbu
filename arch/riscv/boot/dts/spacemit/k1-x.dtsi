@@ -500,6 +500,8 @@
 			clock-names = "emac-clk", "ptp-clk";
 			interrupts = <131>;
 			interrupt-parent = <&intc>;
+			ptp-support;
+			ptp-clk-rate = <10000000>;
 			lpm-qos = <7>;
 			status = "disabled";
 		};
