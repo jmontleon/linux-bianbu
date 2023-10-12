@@ -317,7 +317,7 @@
 			#dma-cells= <2>;
 			#dma-channels = <16>;
 			max-burst-size = <64>;
-			reserved-channels = <17>;
+			reserved-channels = <15 45>;
 			//lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
 			status = "ok";
 		};
@@ -697,6 +697,31 @@
 				#address-cells = <0>;
 				#interrupt-cells = <1>;
 			};
+		};
+
+		qspi: qspi@d420c000 {
+			compatible = "spacemit,k1x-qspi";
+			reg = <0x0 0xd420c000 0x0 0x1000>,
+			      <0x0 0xb8000000 0x0 0xc00000>;
+			reg-names = "qspi-base", "qspi-mmap";
+			k1x,qspi-sfa1ad = <0x4000000>;
+			k1x,qspi-sfa2ad = <0x100000>;
+			k1x,qspi-sfb1ad = <0x100000>;
+			k1x,qspi-sfb2ad = <0x100000>;
+			//clocks = <&clock CLK_QSPI &clock CLK_QSPI_BUS>;
+			clock-names = "qspi_clk", "qspi_bus_clk";
+			k1x,qspi-pmuap-reg = <0xd4282860>;
+			k1x,qspi-mpmu-acgr-reg = <0xd4051024>;
+			k1x,qspi-freq = <26500000>;
+			k1x,qspi-id = <0>;
+			//k1x,qspi-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			interrupts = <117>;
+			interrupt-parent = <&intc>;
+			k1x,qspi-tx-dma = <1>;
+			k1x,qspi-rx-dma = <1>;
+			dmas = <&pdma0 45 1>;
+			dma-names = "tx-dma";
+			status = "disabled";
 		};
 
 		tcm: tcm@0xd8000000 {
