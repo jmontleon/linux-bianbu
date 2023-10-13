@@ -147,28 +147,28 @@
 		pll_clk_sdh0: clock-pll_clk_sdh0 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
+			clock-frequency = <10000000>;
 			clock-output-names = "pll_clk_sdh0";
 		};
 
 		pll_clk_sdh1: clock-pll_clk_sdh1 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
+			clock-frequency = <10000000>;
 			clock-output-names = "pll_clk_sdh1";
 		};
 
 		pll_clk_sdh2: clock-pll_clk_sdh2 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
+			clock-frequency = <10000000>;
 			clock-output-names = "pll_clk_sdh2";
 		};
 
 		pll_clk_axi: clock-pll_clk_axi {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
+			clock-frequency = <10000000>;
 			clock-output-names = "pll_clk_axi";
 		};
 
