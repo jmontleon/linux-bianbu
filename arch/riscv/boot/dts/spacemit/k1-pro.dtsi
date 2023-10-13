@@ -365,6 +365,16 @@
 			status = "okay";
 		};
 
+		ircrx: irc-rx@2f814000 {
+			compatible = "spacemit,irc";
+			reg = <0x0 0x2f814000 0x0 0x100>;
+			interrupts = <55>;
+			interrupt-parent = <&intc>;
+			/*clock-frequency = <10000000>;
+			clocks = <&ccu CLK_IR>;*/
+			status = "disabled";
+                };
+
 		dma: dma-controller@2ce40000 {
 			compatible = "spacemit,k1pro-axi-dma";
 			reg = <0x0 0x2ce40000 0x0 0x10000>;
