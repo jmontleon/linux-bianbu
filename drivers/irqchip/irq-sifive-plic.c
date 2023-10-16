@@ -40,27 +40,38 @@
  * We always hardwire it to one in Linux.
  */
 #define PRIORITY_BASE			0
-#define     PRIORITY_PER_ID		4
+#define PRIORITY_PER_ID			4
 
 /*
  * Each hart context has a vector of interrupt enable bits associated with it.
  * There's one bit for each interrupt source.
  */
+#ifdef CONFIG_SOC_SPACEMIT
+#define CONTEXT_ENABLE_BASE		0x2080
+#define CONTEXT_ENABLE_SIZE		0x100
+#else
 #define CONTEXT_ENABLE_BASE		0x2000
-#define     CONTEXT_ENABLE_SIZE		0x80
+#define CONTEXT_ENABLE_SIZE		0x80
+#endif
 
 /*
  * Each hart context has a set of control registers associated with it.  Right
  * now there's only two: a source priority threshold over which the hart will
  * take an interrupt, and a register to claim interrupts.
  */
+#ifdef CONFIG_SOC_SPACEMIT
+#define CONTEXT_BASE			0x201000
+#define CONTEXT_SIZE			0x2000
+#else
 #define CONTEXT_BASE			0x200000
-#define     CONTEXT_SIZE		0x1000
-#define     CONTEXT_THRESHOLD		0x00
-#define     CONTEXT_CLAIM		0x04
+#define CONTEXT_SIZE			0x1000
+#endif
 
-#define	PLIC_DISABLE_THRESHOLD		0x7
-#define	PLIC_ENABLE_THRESHOLD		0
+#define CONTEXT_THRESHOLD		0x00
+#define CONTEXT_CLAIM			0x04
+
+#define PLIC_DISABLE_THRESHOLD		0x7
+#define PLIC_ENABLE_THRESHOLD		0
 
 #define PLIC_QUIRK_EDGE_INTERRUPT	0
 
@@ -110,7 +121,19 @@ static void plic_toggle(struct plic_handler *handler, int hwirq, int enable)
 	unsigned long flags;
 
 	raw_spin_lock_irqsave(&handler->enable_lock, flags);
+
+#ifdef CONFIG_SOC_SPACEMIT
+	if (!enable)
+		writel(hwirq, handler->hart_base + CONTEXT_CLAIM);
+#endif
+
 	__plic_toggle(handler->enable_base, hwirq, enable);
+
+#ifdef CONFIG_SOC_SPACEMIT
+	if (enable)
+		writel(hwirq, handler->hart_base + CONTEXT_CLAIM);
+#endif
+
 	raw_spin_unlock_irqrestore(&handler->enable_lock, flags);
 }
 
