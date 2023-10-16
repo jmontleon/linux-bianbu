@@ -120,15 +120,16 @@
 		};
 
 		idle-states {
-			CPU_RET: cpu-ret {
-				compatible = "riscv,idle-state", "domain-idle-state";
-				idle-state-name = "riscv,cpu-ret";
-				riscv,sbi-suspend-param = <0x10000000>;
-				entry-latency-us = <100>;
-				exit-latency-us = <120>;
-				min-residency-us = <160>;
-			};
-
+/**
+ *			CPU_RET: cpu-ret {
+ *				compatible = "riscv,idle-state", "domain-idle-state";
+ *				idle-state-name = "riscv,cpu-ret";
+ *				riscv,sbi-suspend-param = <0x10000000>;
+ *				entry-latency-us = <100>;
+ *				exit-latency-us = <120>;
+ *				min-residency-us = <160>;
+ *			};
+ */
 			CPU_NONRET: cpu-nonret {
 				compatible = "riscv,idle-state", "domain-idle-state";
 				idle-state-name = "riscv,cpu-nonret";
@@ -149,7 +150,7 @@
  *				exit-latency-us = <100>;
  *				min-residency-us = <250>;
  *				wakeup-latency-us = <130>;
- *			};
+ * 			};
  */
 			CLUSTER_NONRET: cluster-nonret {
 				compatible = "domain-idle-state";
@@ -168,30 +169,30 @@
 			CPU_PD0: cpu0 {
 				#power-domain-cells = <0>;
 				power-domains = <&CLUSTER_PD0>;
-				domain-idle-states = <&CPU_RET>,  <&CPU_NONRET>;
+				domain-idle-states = /* <&CPU_RET> ,*/  <&CPU_NONRET>;
 			};
 
 			CPU_PD1: cpu1 {
 				#power-domain-cells = <0>;
 				power-domains = <&CLUSTER_PD0>;
-				domain-idle-states = <&CPU_RET>, <&CPU_NONRET>;
+				domain-idle-states = /* <&CPU_RET> ,*/ <&CPU_NONRET>;
 			};
 
 			CPU_PD2: cpu2 {
 				#power-domain-cells = <0>;
 				power-domains = <&CLUSTER_PD1>;
-				domain-idle-states = <&CPU_RET>, <&CPU_NONRET>;
+				domain-idle-states = /* <&CPU_RET>,*/ <&CPU_NONRET>;
 			};
 
 			CPU_PD3: cpu3 {
 				#power-domain-cells = <0>;
 				power-domains = <&CLUSTER_PD1>;
-				domain-idle-states = <&CPU_RET>, <&CPU_NONRET>;
+				domain-idle-states = /* <&CPU_RET>, */ <&CPU_NONRET>;
 			};
 
 			CLUSTER_PD0: cpu-cluster0 {
 				#power-domain-cells = <0>;
-				domain-idle-states = /* <&CLUSTER_RET>, */  <&CLUSTER_NONRET>;
+				domain-idle-states = /* <&CLUSTER_RET>  ,*/  <&CLUSTER_NONRET>;
 			};
 
 			CLUSTER_PD1: cpu-cluster1 {
