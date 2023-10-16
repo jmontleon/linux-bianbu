@@ -34,6 +34,8 @@
 #define APBTMR_CONTROL_MODE_PERIODIC	(1 << 1)
 #define APBTMR_CONTROL_INT		(1 << 2)
 
+static raw_spinlock_t dw_apb_timer_lock;
+
 static inline struct dw_apb_clock_event_device *
 ced_to_dw_apb_ced(struct clock_event_device *evt)
 {
@@ -83,17 +85,10 @@ static irqreturn_t dw_apb_clockevent_irq(int irq, void *data)
 		return IRQ_NONE;
 	}
 
+	raw_spin_lock(&dw_ced->timer_lock);
 	if (dw_ced->eoi)
 		dw_ced->eoi(&dw_ced->timer);
-
-	/* disable the timer & interrupt in one-shot mode */
-	ctrl = apbt_readl(&dw_ced->timer, APBTMR_N_CONTROL);
-	if (!(ctrl & APBTMR_CONTROL_MODE_PERIODIC)) {
-		ctrl = apbt_readl_relaxed(&dw_ced->timer, APBTMR_N_CONTROL);
-		ctrl &= ~APBTMR_CONTROL_ENABLE;
-		ctrl |= APBTMR_CONTROL_INT;
-		apbt_writel_relaxed(&dw_ced->timer, ctrl, APBTMR_N_CONTROL);
-	}
+	raw_spin_unlock(&dw_ced->timer_lock);
 
 	evt->event_handler(evt);
 	return IRQ_HANDLED;
@@ -197,19 +192,19 @@ static int apbt_next_event(unsigned long delta,
 	u32 ctrl;
 	struct dw_apb_clock_event_device *dw_ced = ced_to_dw_apb_ced(evt);
 
+	raw_spin_lock(&dw_ced->timer_lock);
+
 	/* Disable timer */
 	ctrl = apbt_readl_relaxed(&dw_ced->timer, APBTMR_N_CONTROL);
 	ctrl &= ~APBTMR_CONTROL_ENABLE;
 	apbt_writel_relaxed(&dw_ced->timer, ctrl, APBTMR_N_CONTROL);
 
-	/* clear the pending */
-	apbt_readl_relaxed(&dw_ced->timer, APBTMR_N_EOI);
-
 	/* write new count */
 	apbt_writel_relaxed(&dw_ced->timer, delta, APBTMR_N_LOAD_COUNT);
 	ctrl |= APBTMR_CONTROL_ENABLE;
-	ctrl &= ~APBTMR_CONTROL_INT;
 	apbt_writel_relaxed(&dw_ced->timer, ctrl, APBTMR_N_CONTROL);
+
+	raw_spin_unlock(&dw_ced->timer_lock);
 
 	return 0;
 }
@@ -243,6 +238,8 @@ dw_apb_clockevent_init(int cpu, const char *name, unsigned rating,
 	if (!dw_ced)
 		return NULL;
 
+	raw_spin_lock_init(&dw_ced->timer_lock);
+
 	dw_ced->timer.base = base;
 	dw_ced->timer.irq = irq;
 	dw_ced->timer.freq = freq;
@@ -267,8 +264,7 @@ dw_apb_clockevent_init(int cpu, const char *name, unsigned rating,
 	dw_ced->ced.name = name;
 
 	dw_ced->eoi = apbt_eoi;
-	err = request_irq(irq, dw_apb_clockevent_irq,
-			  IRQF_TIMER | IRQF_IRQPOLL | IRQF_NOBALANCING,
+	err = request_irq(irq, dw_apb_clockevent_irq, IRQF_ONESHOT,
 			  dw_ced->ced.name, &dw_ced->ced);
 	if (err) {
 		pr_err("failed to request timer irq\n");
