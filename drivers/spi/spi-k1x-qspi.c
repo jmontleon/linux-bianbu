@@ -342,7 +342,7 @@ enum qpsi_mode {
 static ssize_t qspi_info_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	struct k1x_qspi *t_qspi = dev_get_drvdata(dev);
-	return sprintf(buf, "%s: rx_dma_en=%d, rx_buf_size=0x%x, tx_dma_en=%d, tx_buf_size=0x%x,“
+	return sprintf(buf, "%s: rx_dma_en=%d, rx_buf_size=0x%x, tx_dma_en=%d, tx_buf_size=0x%x,"
 				"ahb_read_enable=%d, ahb_buf_size=0x%x\n",
 				dev_name(dev),
 				t_qspi->rx_dma_enable, t_qspi->rx_buf_size,
