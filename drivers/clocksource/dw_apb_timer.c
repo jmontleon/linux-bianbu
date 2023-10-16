@@ -75,7 +75,6 @@ static void apbt_eoi(struct dw_apb_timer *timer)
 
 static irqreturn_t dw_apb_clockevent_irq(int irq, void *data)
 {
-	u32 ctrl;
 	struct clock_event_device *evt = data;
 	struct dw_apb_clock_event_device *dw_ced = ced_to_dw_apb_ced(evt);
 
