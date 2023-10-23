@@ -356,6 +356,12 @@ config RESET_K1_PRO_SPACEMIT
 	help
 	  Support for reset controllers on Spacemit SoCs.
 
+config RESET_K1X_SPACEMIT
+        tristate "Reset controller driver for Spacemit K1X SoCs"
+        depends on SOC_SPACEMIT_K1X
+        help
+          Support for reset controllers on Spacemit K1X SoCs.
+
 source "drivers/reset/amlogic/Kconfig"
 source "drivers/reset/starfive/Kconfig"
 source "drivers/reset/sti/Kconfig"
