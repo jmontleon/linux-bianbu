@@ -672,6 +672,39 @@ free_page:
     return 0;
 }
 
+phys_addr_t mvx_mmu_dma_alloc_coherent(struct device *dev, void** data)
+{
+	phys_addr_t pa;
+	dma_addr_t dma_handle;
+	int retry = 20;
+	void *virt_addr;
+
+	do {
+		virt_addr = dma_alloc_coherent(dev, PAGE_SIZE, &dma_handle, GFP_KERNEL | __GFP_ZERO | __GFP_RETRY_MAYFAIL);
+	} while(retry-- && virt_addr == NULL);
+
+	if (virt_addr == NULL) {
+		MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+				"dma alloc coherent buffer faild. retry=%d", retry);
+		return 0;
+	}
+
+	pa = (phys_addr_t)dma_handle;
+
+	*data = virt_addr;
+
+	return pa;
+}
+
+void mvx_mmu_dma_free_coherent(struct device *dev,
+		phys_addr_t pa, void* data)
+{
+	if (pa == 0)
+		return;
+
+	dma_free_coherent(dev, PAGE_SIZE, data, (dma_addr_t)pa);
+}
+
 void mvx_mmu_free_contiguous_pages(struct device *dev, phys_addr_t pa, size_t npages)
 {
 	struct page *page;
@@ -996,17 +1029,24 @@ size_t mvx_mmu_size_pages(struct mvx_mmu_pages *pages)
 }
 
 int mvx_mmu_synch_pages(struct mvx_mmu_pages *pages,
-			enum dma_data_direction dir)
+			enum dma_data_direction dir, int page_off, int page_count)
 {
 	size_t i;
-
+	if (page_off + page_count > pages->count)
+	{
+		MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
+			"Illegal mmu sync offset/size (%d/%d).",
+			page_off, page_count);
+		page_off = 0;
+		page_count = pages->count;
+	}
 	if (dir == DMA_FROM_DEVICE) {
-		for (i = 0; i < pages->count; i += MVX_PAGES_PER_PAGE)
-			dma_sync_single_for_cpu(pages->dev, pages->pages[i],
+		for (i = 0; i < page_count; i += MVX_PAGES_PER_PAGE)
+			dma_sync_single_for_cpu(pages->dev, pages->pages[page_off+i],
 						PAGE_SIZE, DMA_FROM_DEVICE);
 	} else if (dir == DMA_TO_DEVICE) {
-		for (i = 0; i < pages->count; i += MVX_PAGES_PER_PAGE)
-			dma_sync_single_for_device(pages->dev, pages->pages[i],
+		for (i = 0; i < page_count; i += MVX_PAGES_PER_PAGE)
+			dma_sync_single_for_device(pages->dev, pages->pages[page_off+i],
 						   PAGE_SIZE, DMA_TO_DEVICE);
 	} else {
 		MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
