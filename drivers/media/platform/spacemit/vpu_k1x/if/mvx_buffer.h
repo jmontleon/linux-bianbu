@@ -230,7 +230,9 @@ struct mvx_corrupt_buffer {
 #define MVX_BUFFER_FRAME_FLAG_PFRAME        0x40000000
 #define MVX_BUFFER_FRAME_FLAG_BFRAME        0x80000000
 
+#define MVX_BUFFER_AFBC_BLOCK_SPLIT         0x10000000
 
+#define MVX_BUFFER_FLAG_DISABLE_CACHE_MAINTENANCE 0x01000000 /*disable cache maintenance for buffer */
 /****************************************************************************
  * External functions
  ****************************************************************************/
