@@ -301,12 +301,28 @@ int mvx_buffer_synch(struct mvx_buffer *buf,
 {
 	int i;
 	int ret;
-
+	int page_count = 0;
 	for (i = 0; i < buf->nplanes; i++) {
-		struct mvx_buffer_plane *plane = &buf->planes[i];
-
-		if (plane->pages != NULL) {
-			ret = mvx_mmu_synch_pages(plane->pages, dir);
+        struct mvx_buffer_plane *plane = &buf->planes[i];
+        /*calculate page offset of plane, follow as 'mvx_buffer_va' */
+        int page_off = (plane->offset + plane->pages->offset) >> PAGE_SHIFT;
+        /*calculate page end of plane if filled is valid */
+        int page_off_end = plane->pages->count;
+        if (plane->filled) {
+            page_off_end = (plane->offset + plane->pages->offset + plane->filled + PAGE_SIZE -1 ) >> PAGE_SHIFT;
+        }
+        page_count = page_off_end - page_off;
+        if (page_count + page_off > plane->pages->count) {
+            page_count = plane->pages->count - page_off;
+        }
+        MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
+            "plane [%d] sync pages: %p, dir: %d, page offset: %d, pages %d",
+            i,
+            plane->pages->pages[0],
+            buf->dir,
+            page_off, page_count);
+        if (plane->pages != NULL) {
+			ret = mvx_mmu_synch_pages(plane->pages, dir, page_off, page_count);
 			if (ret != 0)
 				return ret;
 		}
