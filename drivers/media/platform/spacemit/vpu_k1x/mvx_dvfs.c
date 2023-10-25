@@ -136,6 +136,8 @@ struct mvx_dvfs_ctx_t
     unsigned long cur_state;
     struct thermal_cooling_device *cdev;
 #endif
+
+    bool sched_suspend;
 };
 
 /* A list containing all registered sessions */
@@ -423,6 +425,11 @@ static void update_sessions(void)
     sem_failed = down_interruptible(&dvfs_sem);
     if (sem_failed)
     {
+        return;
+    }
+
+    if (mvx_dvfs_ctx.sched_suspend == true) {
+        up(&dvfs_sem);
         return;
     }
 
@@ -990,6 +997,7 @@ void mvx_dvfs_init(struct device *dev)
         mvx_dvfs_ctx.down_step_freq = ratio(mvx_dvfs_ctx.max_freq, DOWN_STEP_PERCENT);
         mvx_dvfs_ctx.min_freq = vpufclk_freqtable[0].freq;
         min_vmin_level = vpufclk_freqtable[0].vmin_level;
+        mvx_dvfs_ctx.sched_suspend = false;
 
         /*Use the max clk freq with min vmin as bottom freq of dvfs */
         for (i=1; i<FREQ_TABLE_SIZE; i++)
@@ -1294,3 +1302,40 @@ void mvx_dvfs_session_update_ddr_qos(const mvx_session_id session_id, uint32_t r
 #endif
 }
 
+void mvx_dvfs_suspend_session(void)
+{
+    int sem_failed;
+
+    sem_failed = down_interruptible(&dvfs_sem);
+    if (sem_failed)
+    {
+        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+                "DVFS semaphore was not obtained, sem_failed=%d", sem_failed);
+    }
+
+    mvx_dvfs_ctx.sched_suspend = true;
+
+    if (!sem_failed)
+    {
+        up(&dvfs_sem);
+    }
+}
+
+void mvx_dvfs_resume_session(void)
+{
+    int sem_failed;
+
+    sem_failed = down_interruptible(&dvfs_sem);
+    if (sem_failed)
+    {
+        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+                "DVFS semaphore was not obtained, sem_failed=%d", sem_failed);
+    }
+
+    mvx_dvfs_ctx.sched_suspend = false;
+
+    if (!sem_failed)
+    {
+        up(&dvfs_sem);
+    }
+}

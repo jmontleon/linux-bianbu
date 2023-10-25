@@ -144,6 +144,7 @@ static void send_event_error(struct mvx_session *session,
 {
 	session->error = error;
 	wake_up(&session->waitq);
+	MVX_SESSION_WARN(session, "send event error. error=%ld", error);
 	session->event(session, MVX_SESSION_EVENT_ERROR,
 		       (void *)session->error);
 }
@@ -1404,14 +1405,23 @@ static int queue_buffer(struct mvx_session *session,
 			return ret;
 	}
 
-	if (mapped && (dir == MVX_DIR_OUTPUT))
-        {
-            /*no need to do cache invalidate each time for output buffer,
-	      only invalidate cache when buffer is mapped  */
-        }
-        else
-            ret = mvx_buffer_synch(buf, dma_dir);
-
+	if (mapped &&
+		((dir == MVX_DIR_OUTPUT) ||
+		 (dir == MVX_DIR_INPUT &&
+		  mvx_is_frame(port->format) &&
+		  (buf->flags & MVX_BUFFER_FLAG_DISABLE_CACHE_MAINTENANCE))))
+	{
+		/*
+		1. no need to do cache invalidate each time for output buffer,
+				only invalidate cache when buffer is mapped
+		2. no need to do cache clean for input buffer, if there is
+			on cpu write/read usage.
+		*/
+	}
+	else
+	{
+		ret = mvx_buffer_synch(buf, dma_dir);
+	}
 	if (ret != 0)
 		return ret;
 
@@ -1590,10 +1600,9 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
 	if (ret != 0)
 		goto unregister_csession;
 
-	if (lock_failed == 0)
+	ret = mvx_session_put(session);
+	if (ret == 0 && lock_failed == 0)
 		mutex_unlock(session->isession.mutex);
-
-	mvx_session_put(session);
 
 	return;
 
@@ -1606,10 +1615,9 @@ put_fw_bin:
 	mvx_fw_cache_put(session->cache, bin);
 	session->fw_bin = NULL;
 
-	if (lock_failed == 0)
+	ret = mvx_session_put(session);
+	if (ret == 0 && lock_failed == 0)
 		mutex_unlock(session->isession.mutex);
-
-	mvx_session_put(session);
 }
 
 static int calc_afbc_size(struct mvx_session *session,
@@ -1723,10 +1731,10 @@ static int try_format(struct mvx_session *session,
 		if (dir == MVX_DIR_INPUT) {
 			/* it is basically a worst-case calcualtion based on a size rounded up to tile size*/
 			int s1 = calc_afbc_size(session, format, *width,
-					       *height, true, true, false, //*height, false, false, false,
+					       *height, false, false, false, //*height, false, false, false,
 					       *interlaced);
 			int s2 = calc_afbc_size(session, format, *width,
-					       *height, true, true, true, //*height, false, false, false,
+					       *height, false, false, true, //*height, false, false, false,
 					       *interlaced);
 			int s = max_t(unsigned int, s1, s2);
 			if (s < 0)
