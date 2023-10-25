@@ -32,7 +32,6 @@
 /****************************************************************************
  * Includes
  ****************************************************************************/
-
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/string.h>
@@ -282,15 +281,19 @@ static int read_message(struct mvx_fw *fw,
 			unsigned int *code,
 			void *data,
 			size_t *size,
-			enum mvx_log_fwif_channel channel)
+			enum mvx_log_fwif_channel channel,
+			enum mvx_fw_buffer_attr mve_buf_attr,
+			enum mvx_fw_buffer_attr host_buf_attr)
 {
 	struct mve_msg_header header;
 	unsigned int rpos;
 	ssize_t capacity;
 
-	dma_sync_single_for_cpu(fw->dev,
-				virt_to_phys(mve),
-				MVE_PAGE_SIZE, DMA_FROM_DEVICE);
+	if (mve_buf_attr == MVX_FW_BUF_CACHEABLE) {
+		dma_sync_single_for_cpu(fw->dev,
+			virt_to_phys(mve),
+			MVE_PAGE_SIZE, DMA_FROM_DEVICE);
+	}
 
 	rpos = host->out_rpos;
 
@@ -316,6 +319,11 @@ static int read_message(struct mvx_fw *fw,
 	/* Read the header. */
 	rpos = read32n(mve->out_data, rpos, (uint32_t *)&header,
 		       sizeof(header));
+
+	if (!((header.code >= 1001 && header.code <= 1013) || (header.code >= 2001 && header.code <= 2019) || (header.code >= 3001 && header.code <= 3004))) {
+		MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING, "read_message header. header.size=%d, rpos=%d, code=%d, capacity=%zu", header.size, host->out_rpos, header.code, capacity);
+		return 0;
+	}
 
 	/* Make sure there is enough space for both header and message. */
 	capacity -= DIV_ROUND_UP(sizeof(header) + header.size,
@@ -343,10 +351,12 @@ static int read_message(struct mvx_fw *fw,
 	 * Make sure the read pointer has been written before the cache is
 	 * flushed.
 	 */
-	wmb();
-	dma_sync_single_for_device(fw->dev,
+	if (host_buf_attr == MVX_FW_BUF_CACHEABLE) {
+		wmb();
+		dma_sync_single_for_device(fw->dev,
 				   virt_to_phys(&host->out_rpos),
 				   sizeof(host->out_rpos), DMA_TO_DEVICE);
+	}
 
 	*code = header.code;
 	*size = header.size;
@@ -405,15 +415,19 @@ static int write_message(struct mvx_fw *fw,
 			 unsigned int code,
 			 void *data,
 			 size_t size,
-			 enum mvx_log_fwif_channel channel)
+			 enum mvx_log_fwif_channel channel,
+			 enum mvx_fw_buffer_attr mve_buf_attr,
+			 enum mvx_fw_buffer_attr host_buf_attr)
 {
 	struct mve_msg_header header = { .code = code, .size = size };
 	ssize_t capacity;
 	unsigned int wpos;
 
-	dma_sync_single_for_cpu(fw->dev,
+	if (mve_buf_attr == MVX_FW_BUF_CACHEABLE) {
+		dma_sync_single_for_cpu(fw->dev,
 				virt_to_phys(&mve->in_rpos),
 				sizeof(mve->in_rpos), DMA_FROM_DEVICE);
+	}
 
 	wpos = host->in_wpos;
 
@@ -438,10 +452,12 @@ static int write_message(struct mvx_fw *fw,
 	 * Make sure all message data has been written before the cache is
 	 * flushed.
 	 */
-	wmb();
-	dma_sync_single_for_device(fw->dev,
+	if (host_buf_attr == MVX_FW_BUF_CACHEABLE) {
+		wmb();
+		dma_sync_single_for_device(fw->dev,
 				   virt_to_phys(host),
 				   MVE_PAGE_SIZE, DMA_TO_DEVICE);
+	}
 
 	host->in_wpos = wpos;
 
@@ -449,10 +465,12 @@ static int write_message(struct mvx_fw *fw,
 	 * Make sure the write pointer has been written before the cache is
 	 * flushed.
 	 */
-	wmb();
-	dma_sync_single_for_device(fw->dev,
+	if (host_buf_attr == MVX_FW_BUF_CACHEABLE) {
+		wmb();
+		dma_sync_single_for_device(fw->dev,
 				   virt_to_phys(&host->in_wpos),
 				   sizeof(host->in_wpos), DMA_TO_DEVICE);
+	}
 
 	/* Log firmware message. */
 	MVX_LOG_EXECUTE(&mvx_log_fwif_if, MVX_LOG_INFO,
@@ -859,7 +877,9 @@ static int get_buffer(struct mvx_fw *fw,
 		      struct mve_comm_area_mve *mve,
 		      enum mvx_direction dir,
 		      struct mvx_fw_msg *msg,
-		      enum mvx_log_fwif_channel channel)
+		      enum mvx_log_fwif_channel channel,
+		      enum mvx_fw_buffer_attr mve_buf_attr,
+		      enum mvx_fw_buffer_attr host_buf_attr)
 {
 	unsigned int code;
 	union {
@@ -874,7 +894,7 @@ static int get_buffer(struct mvx_fw *fw,
 	struct mvx_v4l2_session *vsession =
 		           container_of(session, struct mvx_v4l2_session, session);
 
-	ret = read_message(fw, host, mve, &code, &fw_msg, &size, channel);
+	ret = read_message(fw, host, mve, &code, &fw_msg, &size, channel, mve_buf_attr, host_buf_attr);
 	if (ret <= 0)
 		return ret;
 
@@ -924,7 +944,7 @@ static int get_message_v2(struct mvx_fw *fw,
 	struct mvx_session *session = fw->session;
 
 	ret = read_message(fw, fw->msg_host, fw->msg_mve, &code, &fw_msg,
-			   &size, MVX_LOG_FWIF_CHANNEL_MESSAGE);
+			   &size, MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 	if (ret <= 0)
 		return ret;
 
@@ -956,12 +976,12 @@ static int get_message_v2(struct mvx_fw *fw,
 	case MVE_RESPONSE_CODE_INPUT:
 		ret = get_buffer(fw, fw->buf_in_host, fw->buf_in_mve,
 				 MVX_DIR_INPUT, msg,
-				 MVX_LOG_FWIF_CHANNEL_INPUT_BUFFER);
+				 MVX_LOG_FWIF_CHANNEL_INPUT_BUFFER, fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE], fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST]);
 		break;
 	case MVE_RESPONSE_CODE_OUTPUT:
 		ret = get_buffer(fw, fw->buf_out_host, fw->buf_out_mve,
 				 MVX_DIR_OUTPUT, msg,
-				 MVX_LOG_FWIF_CHANNEL_OUTPUT_BUFFER);
+				 MVX_LOG_FWIF_CHANNEL_OUTPUT_BUFFER, fw->buf_attr[MVX_FW_REGION_BUF_OUT_MVE], fw->buf_attr[MVX_FW_REGION_BUF_OUT_HOST]);
 		break;
 	case MVE_BUFFER_CODE_PARAM:
 		ret = convert_buffer_param(fw, msg, &fw_msg.buffer_param);
@@ -1122,7 +1142,9 @@ static int put_buffer_general(struct mvx_fw *fw,
 			    struct mve_comm_area_host *host,
 			    struct mve_comm_area_mve *mve,
 			    struct mvx_fw_msg *msg,
-			    enum mvx_log_fwif_channel channel)
+			    enum mvx_log_fwif_channel channel,
+			    enum mvx_fw_buffer_attr mve_buf_attr,
+			    enum mvx_fw_buffer_attr host_buf_attr)
 {
     int ret;
     struct mve_buffer_general g = { 0 };
@@ -1136,7 +1158,7 @@ static int put_buffer_general(struct mvx_fw *fw,
 
     memcpy(&g.config, &buf->general.config, sizeof(buf->general.config));
     ret = write_message(fw, host, mve, MVE_BUFFER_CODE_GENERAL, &g,
-			    sizeof(g), channel);
+			    sizeof(g), channel, mve_buf_attr, host_buf_attr);
 
 	return ret;
 }
@@ -1145,7 +1167,9 @@ static int put_buffer_frame(struct mvx_fw *fw,
 			    struct mve_comm_area_host *host,
 			    struct mve_comm_area_mve *mve,
 			    struct mvx_fw_msg *msg,
-			    enum mvx_log_fwif_channel channel)
+			    enum mvx_log_fwif_channel channel,
+			    enum mvx_fw_buffer_attr mve_buf_attr,
+			    enum mvx_fw_buffer_attr host_buf_attr)
 {
 	struct mve_buffer_frame f = { 0 };
 	struct mvx_buffer *buf = msg->buf;
@@ -1346,10 +1370,13 @@ static int put_buffer_frame(struct mvx_fw *fw,
 		if (buf->flags & MVX_BUFFER_AFBC_32X8_SUPERBLOCK)
 			afbc->afbc_params |=
 				MVE_BUFFER_FRAME_AFBC_32X8_SUPERBLOCK;
+		if (buf->flags & MVX_BUFFER_AFBC_BLOCK_SPLIT)
+			afbc->afbc_params |=
+				MVE_BUFFER_FRAME_AFBC_BLOCK_SPLIT;
 	}
 
 	ret = write_message(fw, host, mve, MVE_BUFFER_CODE_FRAME,
-			    &f, sizeof(f), channel);
+			    &f, sizeof(f), channel, mve_buf_attr, host_buf_attr);
 
 	return ret;
 }
@@ -1358,7 +1385,9 @@ static int put_buffer_bitstream(struct mvx_fw *fw,
 				struct mve_comm_area_host *host,
 				struct mve_comm_area_mve *mve,
 				struct mvx_fw_msg *msg,
-				enum mvx_log_fwif_channel channel)
+				enum mvx_log_fwif_channel channel,
+				enum mvx_fw_buffer_attr mve_buf_attr,
+				enum mvx_fw_buffer_attr host_buf_attr)
 {
 	struct mve_buffer_bitstream b = { 0 };
 	struct mvx_buffer *buf = msg->buf;
@@ -1387,7 +1416,7 @@ static int put_buffer_bitstream(struct mvx_fw *fw,
 	}
 
 	ret = write_message(fw, host, mve, MVE_BUFFER_CODE_BITSTREAM, &b,
-			    sizeof(b), channel);
+			    sizeof(b), channel, mve_buf_attr, host_buf_attr);
 
 	return ret;
 }
@@ -1705,7 +1734,7 @@ static int put_fw_opt(struct mvx_fw *fw,
 	ret = write_message(fw, fw->msg_host, fw->msg_mve,
 			    MVE_REQUEST_CODE_SET_OPTION,
 			    opt, offsetof(typeof(*opt), data) + size,
-			    MVX_LOG_FWIF_CHANNEL_MESSAGE);
+			    MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 
 	if (ret == 0)
 		fw->msg_pending++;
@@ -1720,7 +1749,7 @@ static int put_fw_buf_param(struct mvx_fw *fw,
 	return write_message(fw, fw->buf_in_host, fw->buf_in_mve,
 			     MVE_BUFFER_CODE_PARAM,
 			     param, offsetof(typeof(*param), data) + size,
-			     MVX_LOG_FWIF_CHANNEL_MESSAGE);
+			     MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE], fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST]);
 }
 
 static int put_message_v2(struct mvx_fw *fw,
@@ -1736,7 +1765,7 @@ static int put_message_v2(struct mvx_fw *fw,
 
 		ret = write_message(fw, fw->msg_host, fw->msg_mve,
 				    code, NULL, 0,
-				    MVX_LOG_FWIF_CHANNEL_MESSAGE);
+				    MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 		if (ret == 0)
 			fw->msg_pending++;
 
@@ -1751,19 +1780,19 @@ static int put_message_v2(struct mvx_fw *fw,
 
 		ret = write_message(fw, fw->msg_host, fw->msg_mve,
 				    MVE_REQUEST_CODE_JOB, &job, sizeof(job),
-				    MVX_LOG_FWIF_CHANNEL_MESSAGE);
+				    MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 		break;
 	}
 	case MVX_FW_CODE_SWITCH_OUT: {
 		ret = write_message(fw, fw->msg_host, fw->msg_mve,
 				    MVE_REQUEST_CODE_SWITCH, NULL, 0,
-				    MVX_LOG_FWIF_CHANNEL_MESSAGE);
+				    MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 		break;
 	}
 	case MVX_FW_CODE_PING: {
 		ret = write_message(fw, fw->msg_host, fw->msg_mve,
 				    MVE_REQUEST_CODE_PING, NULL, 0,
-				    MVX_LOG_FWIF_CHANNEL_MESSAGE);
+				    MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 		break;
 	}
 	case MVX_FW_CODE_SET_OPTION: {
@@ -2436,12 +2465,12 @@ static int put_message_v2(struct mvx_fw *fw,
 		case MVX_DIR_INPUT:
 			ret = write_message(fw, fw->msg_host, fw->msg_mve,
 					    MVE_REQUEST_CODE_INPUT_FLUSH, NULL,
-					    0, MVX_LOG_FWIF_CHANNEL_MESSAGE);
+					    0, MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 			break;
 		case MVX_DIR_OUTPUT:
 			ret = write_message(fw, fw->msg_host, fw->msg_mve,
 					    MVE_REQUEST_CODE_OUTPUT_FLUSH, NULL,
-					    0, MVX_LOG_FWIF_CHANNEL_MESSAGE);
+					    0, MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 			break;
 		default:
 			MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
@@ -2459,25 +2488,31 @@ static int put_message_v2(struct mvx_fw *fw,
 		struct mve_comm_area_host *host;
 		struct mve_comm_area_mve *mve;
 		enum mvx_log_fwif_channel channel;
+		enum mvx_fw_buffer_attr mve_buf_attr;
+		enum mvx_fw_buffer_attr host_buf_attr;
 
 		if (msg->buf->dir == MVX_DIR_INPUT) {
 			host = fw->buf_in_host;
 			mve = fw->buf_in_mve;
+			mve_buf_attr = fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE];
+			host_buf_attr = fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST];
 			channel = MVX_LOG_FWIF_CHANNEL_INPUT_BUFFER;
 		} else {
 			host = fw->buf_out_host;
 			mve = fw->buf_out_mve;
+			mve_buf_attr = fw->buf_attr[MVX_FW_REGION_BUF_OUT_MVE];
+			host_buf_attr = fw->buf_attr[MVX_FW_REGION_BUF_OUT_HOST];
 			channel = MVX_LOG_FWIF_CHANNEL_OUTPUT_BUFFER;
 		}
 
 		if (mvx_is_frame(msg->buf->format))
             if ((msg->buf->flags & MVX_BUFFER_FRAME_FLAG_GENERAL) == MVX_BUFFER_FRAME_FLAG_GENERAL) {
-                ret = put_buffer_general(fw, host, mve, msg, channel);
+                ret = put_buffer_general(fw, host, mve, msg, channel, mve_buf_attr, host_buf_attr);
             } else {
-                ret = put_buffer_frame(fw, host, mve, msg, channel);
+                ret = put_buffer_frame(fw, host, mve, msg, channel, mve_buf_attr, host_buf_attr);
             }
 		else
-			ret = put_buffer_bitstream(fw, host, mve, msg, channel);
+			ret = put_buffer_bitstream(fw, host, mve, msg, channel, mve_buf_attr, host_buf_attr);
 
 		break;
 	}
@@ -2506,7 +2541,7 @@ static int put_message_v2(struct mvx_fw *fw,
 
 			ret = write_message(fw, host, mve,
 					    MVE_BUFFER_CODE_FRAME,
-					    &f, sizeof(f), channel);
+					    &f, sizeof(f), channel, fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE], fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST]);
 		} else {
 			struct mve_buffer_bitstream b = {
 				.host_handle        = MVX_FW_CODE_EOS,
@@ -2518,7 +2553,7 @@ static int put_message_v2(struct mvx_fw *fw,
 
 			ret = write_message(fw, host, mve,
 					    MVE_BUFFER_CODE_BITSTREAM, &b,
-					    sizeof(b), channel);
+					    sizeof(b), channel, fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE], fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST]);
 		}
 
 		break;
@@ -2526,14 +2561,14 @@ static int put_message_v2(struct mvx_fw *fw,
 	case MVX_FW_CODE_DUMP: {
 		ret = write_message(fw, fw->msg_host, fw->msg_mve,
 				    MVE_REQUEST_CODE_DUMP, NULL,
-				    0, MVX_LOG_FWIF_CHANNEL_MESSAGE);
+				    0, MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 		fw->msg_pending++;
 		break;
 	}
 	case MVX_FW_CODE_DEBUG: {
 		ret = write_message(fw, fw->msg_host, fw->msg_mve,
 				    MVE_REQUEST_CODE_DEBUG, &msg->arg,
-				    sizeof(msg->arg), MVX_LOG_FWIF_CHANNEL_MESSAGE);
+				    sizeof(msg->arg), MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 		fw->msg_pending++;
 		break;
 	}
@@ -2848,9 +2883,11 @@ static int handle_rpc_v2(struct mvx_fw *fw)
 	struct mve_rpc_communication_area *rpc_area = fw->rpc;
 	int ret = 0;
 
-	dma_sync_single_for_cpu(fw->dev,
+	if (fw->buf_attr[MVX_FW_REGION_RPC] == MVX_FW_BUF_CACHEABLE) {
+		dma_sync_single_for_cpu(fw->dev,
 				virt_to_phys(rpc_area), sizeof(*rpc_area),
 				DMA_FROM_DEVICE);
+	}
 
 	if (rpc_area->state == MVE_RPC_STATE_PARAM) {
 		ret = 1;
@@ -2898,11 +2935,13 @@ static int handle_rpc_v2(struct mvx_fw *fw)
 		rpc_area->state = MVE_RPC_STATE_RETURN;
 
 		/* Make sure state is written before memory is flushed. */
-		wmb();
-		dma_sync_single_for_device(
-			fw->dev,
-			virt_to_phys(rpc_area), sizeof(*rpc_area),
-			DMA_TO_DEVICE);
+		if (fw->buf_attr[MVX_FW_REGION_RPC] == MVX_FW_BUF_CACHEABLE) {
+			wmb();
+			dma_sync_single_for_device(
+				fw->dev,
+				virt_to_phys(rpc_area), sizeof(*rpc_area),
+				DMA_TO_DEVICE);
+		}
 
 		/* Log RPC response. */
 		MVX_LOG_EXECUTE(&mvx_log_fwif_if, MVX_LOG_INFO,
@@ -3016,6 +3055,63 @@ static int map_msq(struct mvx_fw *fw,
 	return 0;
 }
 
+static int map_msq_uncache(struct mvx_fw *fw,
+		void **data,
+		enum mvx_fw_region region)
+{
+	phys_addr_t page;
+	mvx_mmu_va begin;
+	mvx_mmu_va end;
+	void* vir_addr = NULL;
+	int ret;
+
+	/* Get virtual address where the message queue is to be mapped. */
+	ret = fw->ops.get_region(region, &begin, &end);
+	if (ret != 0)
+		return ret;
+
+	/* Allocate page and store Linux logical address in 'data'. */
+	page = mvx_mmu_dma_alloc_coherent(fw->dev, &vir_addr);
+	if (page == 0) {
+		return -ENOMEM;
+	}
+
+	/* Memory map region. */
+	ret = mvx_mmu_map_pa(fw->mmu, begin, page, MVE_PAGE_SIZE,
+			MVX_ATTR_SHARED_RW, MVX_ACCESS_READ_WRITE);
+	if (ret != 0) {
+		mvx_mmu_dma_free_coherent(fw->dev, page, vir_addr);
+		return ret;
+	}
+
+	*data = vir_addr;
+	fw->buf_pa_addr[region] = page;
+
+	return 0;
+}
+
+static void unmap_msq_uncache(struct mvx_fw *fw,
+		void **data,
+		enum mvx_fw_region region)
+{
+	int ret;
+	mvx_mmu_va begin;
+	mvx_mmu_va end;
+
+	if (*data == NULL)
+		return;
+
+	ret = fw->ops.get_region(region, &begin, &end);
+	if (ret == 0) {
+		mvx_mmu_unmap_va(fw->mmu, begin, MVE_PAGE_SIZE);
+	}
+
+	mvx_mmu_dma_free_coherent(fw->dev, fw->buf_pa_addr[region], *data);
+
+	*data = NULL;
+	fw->buf_pa_addr[region] = 0;
+}
+
 #ifdef MVX_FW_DEBUG_ENABLE
 static void unmap_fw_print_ram(struct mvx_fw *fw,
 		      void **data,
@@ -3076,13 +3172,14 @@ static void unmap_protocol_v2(struct mvx_fw *fw)
 	struct hlist_node *tmp;
 	int bkt;
 
-	unmap_msq(fw, &fw->msg_host, MVX_FW_REGION_MSG_HOST);
-	unmap_msq(fw, &fw->msg_mve, MVX_FW_REGION_MSG_MVE);
-	unmap_msq(fw, &fw->buf_in_host, MVX_FW_REGION_BUF_IN_HOST);
-	unmap_msq(fw, &fw->buf_in_mve, MVX_FW_REGION_BUF_IN_MVE);
-	unmap_msq(fw, &fw->buf_out_host, MVX_FW_REGION_BUF_OUT_HOST);
-	unmap_msq(fw, &fw->buf_out_mve, MVX_FW_REGION_BUF_OUT_MVE);
-	unmap_msq(fw, &fw->rpc, MVX_FW_REGION_RPC);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_MSG_HOST]](fw, &fw->msg_host, MVX_FW_REGION_MSG_HOST);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_MSG_MVE]](fw, &fw->msg_mve, MVX_FW_REGION_MSG_MVE);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST]](fw, &fw->buf_in_host, MVX_FW_REGION_BUF_IN_HOST);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE]](fw, &fw->buf_in_mve, MVX_FW_REGION_BUF_IN_MVE);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_BUF_OUT_HOST]](fw, &fw->buf_out_host, MVX_FW_REGION_BUF_OUT_HOST);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_BUF_OUT_MVE]](fw, &fw->buf_out_mve, MVX_FW_REGION_BUF_OUT_MVE);
+	fw->unmap_op[fw->buf_attr[MVX_FW_REGION_RPC]](fw, &fw->rpc, MVX_FW_REGION_RPC);
+
 #ifdef MVX_FW_DEBUG_ENABLE
 	unmap_fw_print_ram(fw, &fw->fw_print_ram, MVX_FW_REGION_PRINT_RAM);
 #endif
@@ -3099,31 +3196,31 @@ static int map_protocol_v2(struct mvx_fw *fw)
 {
 	int ret;
 
-	ret = map_msq(fw, &fw->msg_host, MVX_FW_REGION_MSG_HOST);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_MSG_HOST]](fw, &fw->msg_host, MVX_FW_REGION_MSG_HOST);
 	if (ret != 0)
 		goto unmap_fw;
 
-	ret = map_msq(fw, &fw->msg_mve, MVX_FW_REGION_MSG_MVE);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_MSG_MVE]](fw, &fw->msg_mve, MVX_FW_REGION_MSG_MVE);
 	if (ret != 0)
 		goto unmap_fw;
 
-	ret = map_msq(fw, &fw->buf_in_host, MVX_FW_REGION_BUF_IN_HOST);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST]](fw, &fw->buf_in_host, MVX_FW_REGION_BUF_IN_HOST);
 	if (ret != 0)
 		goto unmap_fw;
 
-	ret = map_msq(fw, &fw->buf_in_mve, MVX_FW_REGION_BUF_IN_MVE);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE]](fw, &fw->buf_in_mve, MVX_FW_REGION_BUF_IN_MVE);
 	if (ret != 0)
 		goto unmap_fw;
 
-	ret = map_msq(fw, &fw->buf_out_host, MVX_FW_REGION_BUF_OUT_HOST);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_BUF_OUT_HOST]](fw, &fw->buf_out_host, MVX_FW_REGION_BUF_OUT_HOST);
 	if (ret != 0)
 		goto unmap_fw;
 
-	ret = map_msq(fw, &fw->buf_out_mve, MVX_FW_REGION_BUF_OUT_MVE);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_BUF_OUT_MVE]](fw, &fw->buf_out_mve, MVX_FW_REGION_BUF_OUT_MVE);
 	if (ret != 0)
 		goto unmap_fw;
 
-	ret = map_msq(fw, &fw->rpc, MVX_FW_REGION_RPC);
+	ret = fw->map_op[fw->buf_attr[MVX_FW_REGION_RPC]](fw, &fw->rpc, MVX_FW_REGION_RPC);
 	if (ret != 0)
 		goto unmap_fw;
 
@@ -3147,10 +3244,13 @@ static void print_pair(char *name_in,
 		       struct mve_comm_area_host *host,
 		       struct mve_comm_area_mve *mve,
 		       int ind,
-		       struct seq_file *s)
+		       struct seq_file *s,
+		       enum mvx_fw_buffer_attr mve_buf_attr)
 {
-	dma_sync_single_for_cpu(device, virt_to_phys(mve),
+	if (mve_buf_attr == MVX_FW_BUF_CACHEABLE) {
+		dma_sync_single_for_cpu(device, virt_to_phys(mve),
 				MVE_PAGE_SIZE, DMA_FROM_DEVICE);
+	}
 	mvx_seq_printf(s, name_in, ind, "wr=%10d, rd=%10d, avail=%10d\n",
 		       host->in_wpos, mve->in_rpos,
 		       (uint16_t)(host->in_wpos - mve->in_rpos));
@@ -3165,13 +3265,13 @@ static int print_stat_v2(struct mvx_fw *fw,
 {
 	print_pair("Msg host->mve", "Msg host<-mve",
 		   fw->dev, fw->msg_host, fw->msg_mve,
-		   ind, s);
+		   ind, s, fw->buf_attr[MVX_FW_REGION_MSG_MVE]);
 	print_pair("Inbuf host->mve", "Inbuf host<-mve",
 		   fw->dev, fw->buf_in_host, fw->buf_in_mve,
-		   ind, s);
+		   ind, s, fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE]);
 	print_pair("Outbuf host->mve", "Outbuf host<-mve",
 		   fw->dev, fw->buf_out_host, fw->buf_out_mve,
-		   ind, s);
+		   ind, s, fw->buf_attr[MVX_FW_REGION_BUF_OUT_MVE]);
 
 	return 0;
 }
@@ -3198,8 +3298,10 @@ static void print_debug_v2(struct mvx_fw *fw)
 	struct mve_rpc_communication_area *rpc_area = fw->rpc;
 	union mve_rpc_params *p = &rpc_area->params;
 
-	dma_sync_single_for_cpu(fw->dev, virt_to_phys(msg_mve),
+	if (fw->buf_attr[MVX_FW_REGION_MSG_MVE] == MVX_FW_BUF_CACHEABLE) {
+		dma_sync_single_for_cpu(fw->dev, virt_to_phys(msg_mve),
 				MVE_PAGE_SIZE, DMA_FROM_DEVICE);
+	}
 
 	MVX_LOG_PRINT_SESSION(&mvx_log_session_if, MVX_LOG_WARNING, fw->session,
 			      "Dump message queue. msg={host={out_rpos=%u, in_wpos=%u}, mve={out_wpos=%u, in_rpos=%u}}",
@@ -3247,7 +3349,7 @@ int mvx_fw_send_idle_ack_v2(struct mvx_fw *fw)
 	ret = write_message(fw, fw->msg_host, fw->msg_mve,
 			    MVE_REQUEST_CODE_IDLE_ACK,
 			    NULL, 0,
-			    MVX_LOG_FWIF_CHANNEL_MESSAGE);
+			    MVX_LOG_FWIF_CHANNEL_MESSAGE, fw->buf_attr[MVX_FW_REGION_MSG_MVE], fw->buf_attr[MVX_FW_REGION_MSG_HOST]);
 
 	return ret;
 }
@@ -3287,6 +3389,19 @@ int mvx_fw_construct_v2(struct mvx_fw *fw,
 	fw->ops_priv.send_idle_ack = NULL;
 	fw->ops_priv.to_mve_profile = mvx_fw_to_mve_profile_v2;
 	fw->ops_priv.to_mve_level = mvx_fw_to_mve_level_v2;
+
+	fw->buf_attr[MVX_FW_REGION_MSG_HOST] = MVX_FW_BUF_CACHEABLE;
+	fw->buf_attr[MVX_FW_REGION_MSG_MVE] = MVX_FW_BUF_UNCACHEABLE;
+	fw->buf_attr[MVX_FW_REGION_BUF_IN_HOST] = MVX_FW_BUF_CACHEABLE;
+	fw->buf_attr[MVX_FW_REGION_BUF_IN_MVE] = MVX_FW_BUF_CACHEABLE;
+	fw->buf_attr[MVX_FW_REGION_BUF_OUT_HOST] = MVX_FW_BUF_CACHEABLE;
+	fw->buf_attr[MVX_FW_REGION_BUF_OUT_MVE] = MVX_FW_BUF_CACHEABLE;
+	fw->buf_attr[MVX_FW_REGION_RPC] = MVX_FW_BUF_CACHEABLE;
+
+	fw->map_op[MVX_FW_BUF_CACHEABLE] = map_msq;
+	fw->map_op[MVX_FW_BUF_UNCACHEABLE] = map_msq_uncache;
+	fw->unmap_op[MVX_FW_BUF_CACHEABLE] = unmap_msq;
+	fw->unmap_op[MVX_FW_BUF_UNCACHEABLE] = unmap_msq_uncache;
 
 	if (major == 2 && minor >= 4)
 		fw->ops_priv.send_idle_ack = mvx_fw_send_idle_ack_v2;
