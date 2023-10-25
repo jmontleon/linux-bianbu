@@ -215,6 +215,24 @@ void mvx_mmu_free_page(struct device *dev,
 		       phys_addr_t pa);
 
 /**
+ * mvx_mmu_dma_alloc_coherent() - Allocate one page for non-cacheable attribute.
+ *
+ * dev:	   Pointer to device.
+ * data:   Virtual address for cpu access.
+ * Return: Physical page address or 0.
+ */
+phys_addr_t mvx_mmu_dma_alloc_coherent(struct device *dev, void** data);
+
+/**
+ * mvx_mmu_dma_free_coherent() - Free one page for non-cacheable attribute.
+ *
+ * dev:	   Pointer to device.
+ * pa:     Physical page address or 0.
+ * data:   Virtual address for cpu access.
+ */
+void mvx_mmu_dma_free_coherent(struct device *dev, phys_addr_t pa, void* data);
+
+/**
  * mvx_mmu_alloc_pages() - Allocate array of pages.
  * @dev:	Pointer to device.
  * @npages	Number of pages to allocate.
@@ -312,7 +330,7 @@ size_t mvx_mmu_size_pages(struct mvx_mmu_pages *pages);
  * Return: 0 on success, else error code.
  */
 int mvx_mmu_synch_pages(struct mvx_mmu_pages *pages,
-			enum dma_data_direction dir);
+			enum dma_data_direction dir, int page_off, int page_count);
 
 /**
  * mvx_mmu_map_pages() - Map an array of pages to a virtual address.

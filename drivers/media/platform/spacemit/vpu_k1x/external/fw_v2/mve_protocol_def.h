@@ -1140,7 +1140,8 @@ struct mve_buffer_frame_afbc
                                                                         set the afbc_width_in_superblocks. If the
                                                                         value is zero, or if this bit is set, then
                                                                         the MVE sets an appropriate value. */
-
+        #define MVE_BUFFER_FRAME_AFBC_BLOCK_SPLIT       (0x00000040) /* For Superblock layout, block_split mode
+                                                                        should be enabled*/
 };
 
 /*
