@@ -87,4 +87,15 @@ void mvx_dvfs_unregister_session(const mvx_session_id session_id);
 void mvx_dvfs_estimate_ddr_bandwidth(struct estimate_ddr_input* input, struct estimate_ddr_output* output);
 
 void mvx_dvfs_session_update_ddr_qos(const mvx_session_id session_id, uint32_t read_value, uint32_t write_value);
+
+/**
+ * Suspend dvfs thread to adjust vpu clk when device enters suspend state.
+ */
+void mvx_dvfs_suspend_session(void);
+
+/**
+ * Resume dvfs thread to adjust vpu clk when device resumes from suspend state.
+ */
+void mvx_dvfs_resume_session(void);
+
 #endif /* MVX_DVFS_H */

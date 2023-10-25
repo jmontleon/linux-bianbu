@@ -188,6 +188,10 @@ static int update_mvx_flags(struct mvx_buffer *buf,
     if (flags & V4L2_BUF_FLAG_LAST)
         buf->flags |= MVX_BUFFER_EOS;
 
+    if ((flags & V4L2_BUF_FLAG_MVX_DISABLE_CACHE_MAINTENANCE) == V4L2_BUF_FLAG_MVX_DISABLE_CACHE_MAINTENANCE)
+    {
+        buf->flags |= MVX_BUFFER_FLAG_DISABLE_CACHE_MAINTENANCE;
+    }
     if (mvx_is_afbc(buf->format)) {
         if ((flags & V4L2_BUF_FLAG_MVX_AFBC_TILED_HEADERS) == V4L2_BUF_FLAG_MVX_AFBC_TILED_HEADERS)
             buf->flags |= MVX_BUFFER_AFBC_TILED_HEADERS;
@@ -197,6 +201,9 @@ static int update_mvx_flags(struct mvx_buffer *buf,
 
         if ((flags & V4L2_BUF_FLAG_MVX_AFBC_32X8_SUPERBLOCK) == V4L2_BUF_FLAG_MVX_AFBC_32X8_SUPERBLOCK)
             buf->flags |= MVX_BUFFER_AFBC_32X8_SUPERBLOCK;
+
+        if ((flags & V4L2_BUF_FLAG_MVX_AFBC_BLOCK_SPLIT) == V4L2_BUF_FLAG_MVX_AFBC_BLOCK_SPLIT)
+            buf->flags |= MVX_BUFFER_AFBC_BLOCK_SPLIT;
     } else if (mvx_is_bitstream(buf->format)) {
         if (buf->dir == MVX_DIR_INPUT) {
             //decode bitstream port

@@ -130,8 +130,9 @@
 #define V4L2_BUF_FLAG_MVX_AFBC_TILED_HEADERS    0x01000000
 #define V4L2_BUF_FLAG_MVX_AFBC_TILED_BODY       0x02000000
 #define V4L2_BUF_FLAG_MVX_AFBC_32X8_SUPERBLOCK  0x04000000
+#define V4L2_BUF_FLAG_MVX_AFBC_BLOCK_SPLIT      0x08000000
 
-
+#define V4L2_BUF_FLAG_MVX_DISABLE_CACHE_MAINTENANCE 0x50000000 /*disable cache maintenance for buffer.*/
 
 /****************************************************************************
  * HDR color description.

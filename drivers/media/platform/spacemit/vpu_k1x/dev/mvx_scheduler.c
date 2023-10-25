@@ -46,6 +46,7 @@
 #include "mvx_seq.h"
 #include "mvx_pm_runtime.h"
 #include "mvx_log_group.h"
+#include "mvx_dvfs.h"
 
 /****************************************************************************
  * Static functions
@@ -751,7 +752,14 @@ void mvx_sched_handle_irq(struct mvx_sched *sched,
 			mutex_unlock(isession->mutex);
 	}
 
-	queue_work(sched->sched_queue, &sched->sched_task);
+	ret = mutex_lock_interruptible(&sched->mutex);
+	if (ret != 0)
+		return;
+
+	if (!list_empty(&sched->pending)) {
+		queue_work(sched->sched_queue, &sched->sched_task);
+	}
+	mutex_unlock(&sched->mutex);
 }
 
 void mvx_sched_terminate(struct mvx_sched *sched,
@@ -816,12 +824,13 @@ static int resume_session(struct mvx_sched *sched,
     return 0;
 }
 
-static void switch_out_session(struct mvx_sched *sched, struct mvx_sched_session *sched_session)
+static void switch_out_session(struct mvx_sched *sched, unsigned int lsid_id)
 {
     int i;
     int ret;
     struct mvx_session *session = NULL;
     struct mvx_if_session *isession = NULL;
+    struct mvx_sched_session *sched_session = sched->lsid[lsid_id].session;
     int wait_count = 20;
 
     if (sched_session != NULL) {
@@ -846,7 +855,7 @@ static void switch_out_session(struct mvx_sched *sched, struct mvx_sched_session
 
     mutex_lock(&sched->mutex);
     for (i = 0; i < wait_count; i++) {
-        if (session != NULL && session->switched_in == false) {
+        if (sched->lsid[lsid_id].session != NULL && session != NULL && session->switched_in == false) {
             MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
                     "%p finish switch_out session LSID. lsid=%u.", session, sched_session->lsid->lsid);
             break;
@@ -856,8 +865,10 @@ static void switch_out_session(struct mvx_sched *sched, struct mvx_sched_session
 
         mutex_lock(&sched->mutex);
 
-        MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
-                "%p wait switch_out session LSID. lsid=%u. loop=%d", session, sched_session->lsid->lsid, i);
+        if (sched->lsid[lsid_id].session != NULL && session != NULL) {
+            MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+                    "%p wait switch_out session LSID. lsid=%u. loop=%d, switch_in=%d", session, sched_session->lsid->lsid, i, session->switched_in);
+        }
     }
 }
 
@@ -900,12 +911,15 @@ void mvx_sched_suspend(struct mvx_sched *sched)
 
     mutex_lock(&sched->mutex);
     sched->is_suspend = true;
+    mvx_dvfs_suspend_session();
 
     for (i = 0; i < sched->nlsid; i++) {
         if (sched->lsid[i].session != NULL) {
-            switch_out_session(sched, sched->lsid[i].session);
-            mvx_lsid_terminate(sched->lsid[i].session->lsid);
-            suspend_session(sched, sched->lsid[i].session);
+            switch_out_session(sched, i);
+            if (sched->lsid[i].session != NULL) {
+                mvx_lsid_terminate(sched->lsid[i].session->lsid);
+                suspend_session(sched, sched->lsid[i].session);
+            }
         }
     }
 
@@ -925,5 +939,6 @@ void mvx_sched_resume(struct mvx_sched *sched)
         }
     }
     sched->is_suspend = false;
+    mvx_dvfs_resume_session();
     mutex_unlock(&sched->mutex);
 }

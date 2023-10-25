@@ -56,6 +56,15 @@
  ****************************************************************************/
 
 /**
+ * enum mvx_fw_buffer_attr
+ */
+enum mvx_fw_buffer_attr {
+	MVX_FW_BUF_CACHEABLE,
+	MVX_FW_BUF_UNCACHEABLE,
+	MVX_FW_BUF_ATTR_NUM,
+};
+
+/**
  * enum mvx_fw_state - Firmware state.
  */
 enum mvx_fw_state {
@@ -753,6 +762,11 @@ struct mvx_fw {
 	unsigned int msg_pending;
 	uint32_t latest_used_region_protected_pages;
 	uint32_t latest_used_region_outbuf_pages;
+	phys_addr_t buf_pa_addr[MVX_FW_REGION_PRINT_RAM+1];
+	enum mvx_fw_buffer_attr buf_attr[MVX_FW_REGION_PRINT_RAM+1];
+
+	int (*map_op[MVX_FW_BUF_ATTR_NUM])(struct mvx_fw *fw, void **data, enum mvx_fw_region region);
+	void (*unmap_op[MVX_FW_BUF_ATTR_NUM])(struct mvx_fw *fw, void **data, enum mvx_fw_region region);
 
 	struct {
 		/**
