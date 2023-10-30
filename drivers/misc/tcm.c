@@ -11,15 +11,17 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/list_sort.h>
+#include <linux/poll.h>
+#include <linux/compat.h>
+#include <linux/random.h>
 
 #define TCM_NAME		"tcm"
 
 #define IOC_MAGIC		'c'
-#define TCM_BLOCK_BUF_GET	_IOR(IOC_MAGIC, 0, int)
-#define TCM_BLOCK_NUM_GET	_IOR(IOC_MAGIC, 1, int)
 #define TCM_MEM_SHOW		_IOR(IOC_MAGIC, 2, int)
-#define TCM_SELECT_ID		_IOR(IOC_MAGIC, 3, int)
 #define TCM_VA_TO_PA		_IOR(IOC_MAGIC, 4, int)
+#define TCM_REQUEST_MEM		_IOR(IOC_MAGIC, 5, int)
+#define TCM_RELEASE_MEM		_IOR(IOC_MAGIC, 6, int)
 
 #define MM_MIN_SHIFT		(PAGE_SHIFT)  /* 16 bytes */
 #define MM_MIN_CHUNK		(1 << MM_MIN_SHIFT)
@@ -39,6 +41,8 @@ typedef struct {
 	block_t			*block;
 	struct device		*dev;
 	struct mutex 		mutex;
+	wait_queue_head_t 	wait;
+	struct list_head	req_head;
 } tcm_t;
 
 typedef struct {
@@ -71,13 +75,20 @@ typedef struct {
 } mm_alloc_node_t;
 
 typedef struct {
+	struct list_head 	list;
+	int			pid;
+	uint32_t		rand_id;
+	size_t			req_size;
+	int			timeout;
+} request_mem_t;
+
+typedef struct {
 	void 			*vaddr;
 	void 			*paddr;
 } va_to_pa_msg_t;
 
 static tcm_t			tcm;
 static mm_heap_t		*g_mmheap;
-static int			g_mm_id;
 static int			g_block_num;
 
 static void add_node(mm_heap_t *heap, list_manager_t *list, mm_node_t *node, char *tip)
@@ -246,7 +257,6 @@ static void mm_free(mm_heap_t *heap, void *mem)
 				if (cur->next_paddr == (size_t)next->paddr) {
 					cur->size	+= next->size;
 					gc_flag		|= 2;
-
 					dev_info(tcm.dev, "gc 2 next succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
 					list_del(&next->list);
 					kfree(next);
@@ -278,13 +288,13 @@ static void mm_show(mm_heap_t *heap)
 
 	printk("%s start\n", __func__);
 	list_for_each_entry(node, &heap->free.head, list) {
-		printk("mem free node[%d]: %lx paddr: %lx size:0x%lx\n", 
+		printk("mem free node[%d]: %lx paddr: %lx size:0x%lx\n",
 			i ++, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 	}
 
 	i = 0;
 	list_for_each_entry(node, &heap->alloc.head, list) {
-		printk("mem alloc node[%d]: %lx paddr: %lx size:0x%lx\n", 
+		printk("mem alloc node[%d]: %lx paddr: %lx size:0x%lx\n",
 			i ++, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 	}
 
@@ -294,7 +304,7 @@ static void mm_show(mm_heap_t *heap)
 static int get_id(uintptr_t ptr)
 {
 	int i;
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < g_block_num; i++) {
 		if (ptr >= g_mmheap[i].start && ptr < g_mmheap[i].end){
 			return i;
 		}
@@ -376,13 +386,47 @@ static void *tcm_match_pa(unsigned long vaddr)
 	struct list_head *head;
 
 	vma = find_vma(current->mm, vaddr);
-	head = (struct list_head *)vma->vm_private_data;
+	if (!vma) {
+		return NULL;
+	}
 
+	head = (struct list_head *)vma->vm_private_data;
 	list_for_each_entry(node, head, list) {
 		return (void *)node->paddr;
 	}
 
 	return NULL;
+}
+
+static request_mem_t *get_req_mem_node(int pid)
+{
+	request_mem_t *cur;
+
+	list_for_each_entry(cur, &tcm.req_head, list) {
+		if (pid == cur->pid) {
+			return cur;
+		}
+	}
+
+	return NULL;
+}
+
+static int del_req_mem_node(request_mem_t *node)
+{
+	mutex_lock(&tcm.mutex);
+	list_add_tail(&node->list, &tcm.req_head);
+	mutex_unlock(&tcm.mutex);
+
+	return 0;
+}
+
+static int add_req_mem_node(request_mem_t *node)
+{
+	mutex_lock(&tcm.mutex);
+	list_add_tail(&node->list, &tcm.req_head);
+	mutex_unlock(&tcm.mutex);
+
+	return 0;
 }
 
 static void tcm_vma_close(struct vm_area_struct *vma)
@@ -396,6 +440,8 @@ static void tcm_vma_close(struct vm_area_struct *vma)
 		kfree(cur);
 	}
 	kfree(head);
+	dev_info(tcm.dev, "wake up block thread");
+	wake_up_all(&tcm.wait);
 }
 
 static const struct vm_operations_struct tcm_vm_ops = {
@@ -445,8 +491,6 @@ static int tcm_mmap(struct file *file, struct vm_area_struct *vma)
 		if (!page) {
 			return -ENXIO;
 		}
-		/* Remap-pfn-range will mark the range VM_IO */
-		dev_info(tcm.dev, "map addr(%llx) size(%lx) ", node->paddr, node->size);
 		if (remap_pfn_range(vma,
 				addr,
 				pfn,
@@ -455,7 +499,6 @@ static int tcm_mmap(struct file *file, struct vm_area_struct *vma)
 			return -EAGAIN;
 		}
 		addr += node->size;
-		dev_info(tcm.dev, "succfull\n");
 	}
 
 	return 0;
@@ -463,19 +506,13 @@ static int tcm_mmap(struct file *file, struct vm_area_struct *vma)
 
 static long tcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	unsigned long   ret;
-
 	if (cmd == TCM_MEM_SHOW) {
 		int i = 0;
 		for (; i < g_block_num; i++) {
+			printk("mem block id(%d):\n", i);
 			mm_show(&g_mmheap[i]);
 		}
-	} else if (cmd == TCM_SELECT_ID) {
-		ret = copy_from_user(&g_mm_id, (int *)arg, sizeof(int));
-		if (ret) {
-			return -EFAULT;
-		}
-	} else if (cmd  == TCM_VA_TO_PA) {
+	}else if (cmd  == TCM_VA_TO_PA) {
 		va_to_pa_msg_t msg;
 
 		if(copy_from_user(&msg, (void *)arg, sizeof(va_to_pa_msg_t))) {
@@ -487,15 +524,57 @@ static long tcm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if(copy_to_user((void *)arg, &msg, sizeof(va_to_pa_msg_t))) {
 			return -EFAULT;
 		}
+	} else if (cmd == TCM_REQUEST_MEM) {
+		size_t size;
+		request_mem_t *node;
+
+		if(copy_from_user(&size, (void *)arg, sizeof(size_t))) {
+			return -EFAULT;
+		}
+
+		node = kmalloc(sizeof(request_mem_t), GFP_KERNEL);
+		if (!node) return -ENOMEM;
+
+		node->pid = task_pid_nr(current);
+		node->req_size = size;
+		add_req_mem_node(node);
+	} else if (cmd == TCM_RELEASE_MEM) {
+		size_t size;
+		request_mem_t *node;
+		if(copy_from_user(&size, (void *)arg, sizeof(size_t))) {
+			return -EFAULT;
+		}
+		node = get_req_mem_node(task_pid_nr(current));
+		if (node) del_req_mem_node(node);
 	}
 
 	return 0;
+}
+
+static unsigned int tcm_poll(struct file *file, poll_table *wait)
+{
+	__poll_t mask = 0;
+
+	request_mem_t *node = get_req_mem_node(task_pid_nr(current));
+	dev_info(tcm.dev, "poll get node(%lx)\n", (size_t)node);
+
+	if (node == NULL) {
+		mask = EPOLLERR;
+	} else {
+		poll_wait(file, &tcm.wait, wait);
+		if (total_free_size() >= node->req_size) {
+			mask = EPOLLIN;
+		}
+	}
+
+	return mask;
 }
 
 static const struct file_operations tcm_fops = {
 	.owner		= THIS_MODULE,
 	.mmap		= tcm_mmap,
 	.unlocked_ioctl	= tcm_ioctl,
+	.poll		= tcm_poll,
 };
 
 static struct miscdevice tcm_misc_device = {
@@ -562,6 +641,8 @@ static int tcm_probe(struct platform_device *pdev)
 		return ret;
 	}
 	mutex_init(&tcm.mutex);
+	init_waitqueue_head(&tcm.wait);
+	INIT_LIST_HEAD(&tcm.req_head);
 	dev_info(tcm.dev, "tcm register succfully\n");
 	return 0;
 }
