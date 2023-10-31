@@ -38,6 +38,8 @@
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster0>;
+			operating-points-v2 = <&clst0_core_opp_table>;
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -62,6 +64,8 @@
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster0>;
+			operating-points-v2 = <&clst0_core_opp_table>;
 
 			cpu1_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -86,6 +90,8 @@
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster1>;
+			operating-points-v2 = <&clst1_core_opp_table>;
 
 			cpu2_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -110,6 +116,8 @@
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster1>;
+			operating-points-v2 = <&clst1_core_opp_table>;
 
 			cpu3_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -149,6 +157,76 @@
 				exit-latency-us = <1200>;
 				min-residency-us = <2800>;
 				wakeup-latency-us = <1600>;
+			};
+		};
+
+		clst0_core_opp_table: opp_table0 {
+			compatible = "operating-points-v2";
+			opp-shared;
+
+			opp819000000 {
+				opp-hz = /bits/ 64 <819000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1000000000 {
+				opp-hz = /bits/ 64 <1000000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1066000000 {
+				opp-hz = /bits/ 64 <1066000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1228000000 {
+				opp-hz = /bits/ 64 <1228000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1600000000 {
+				opp-hz = /bits/ 64 <1600000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+		};
+
+		clst1_core_opp_table: opp_table1 {
+			compatible = "operating-points-v2";
+			opp-shared;
+
+			opp819000000 {
+				opp-hz = /bits/ 64 <819000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1000000000 {
+				opp-hz = /bits/ 64 <1000000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1066000000 {
+				opp-hz = /bits/ 64 <1066000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1228000000 {
+				opp-hz = /bits/ 64 <1228000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp1600000000 {
+				opp-hz = /bits/ 64 <1600000000>;
+				opp-microvolt = <900000>;
+				clock-latency-ns = <200000>;
 			};
 		};
 	};
@@ -234,6 +312,20 @@
 			clock-frequency = <52000000>;
 			clock-output-names = "pll_clk_timer";
 		};
+
+		pll_clk_cluster0: clock-pll_clk_cluster0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <10000000>;
+			clock-output-names = "pll_clk_cluster0";
+		};
+
+		pll_clk_cluster1: clock-pll_clk_cluster1 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <10000000>;
+			clock-output-names = "pll_clk_cluster1";
+		};		
 	};
 
 	reserved-memory {
