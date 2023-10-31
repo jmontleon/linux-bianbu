@@ -37,12 +37,15 @@
 			cpu-tlb = "1024 4-ways";
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
 		};
+
 		cpu_1: cpu@1 {
 			device_type = "cpu";
 			reg = <1>;
@@ -58,6 +61,7 @@
 			cpu-tlb = "1024 4-ways";
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 
 			cpu1_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -65,6 +69,7 @@
 				interrupt-controller;
 			};
 		};
+
 		cpu_2: cpu@2 {
 			device_type = "cpu";
 			reg = <2>;
@@ -80,6 +85,7 @@
 			cpu-tlb = "1024 4-ways";
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 
 			cpu2_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -87,6 +93,7 @@
 				interrupt-controller;
 			};
 		};
+
 		cpu_3: cpu@3 {
 			device_type = "cpu";
 			reg = <3>;
@@ -102,11 +109,46 @@
 			cpu-tlb = "1024 4-ways";
 			cpu-cacheline = "64Bytes";
 			cpu-vector = "0.7.1";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 
 			cpu3_intc: interrupt-controller {
 				#interrupt-cells = <1>;
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
+			};
+		};
+
+		idle-states {
+			CPU_NONRET: cpu-nonret {
+				compatible = "riscv,idle-state";
+				idle-state-name = "riscv,cpu-nonret";
+				riscv,sbi-suspend-param = <0x90000000>;
+				local-timer-stop;
+				entry-latency-us = <200>;
+				exit-latency-us = <500>;
+				min-residency-us = <950>;
+			};
+
+			CLUSTER_NONRET: cluster-nonret {
+				compatible = "riscv,idle-state";
+				idle-state-name = "riscv,cluster-nonret";
+				riscv,sbi-suspend-param = <0x91000000>;
+				local-timer-stop;
+				entry-latency-us = <600>;
+				exit-latency-us = <1100>;
+				min-residency-us = <2700>;
+				wakeup-latency-us = <1500>;
+			};
+
+			TOP_NONRET: top-nonret {
+				compatible = "riscv,idle-state";
+				idle-state-name = "riscv,top-nonret";
+				riscv,sbi-suspend-param = <0x92000000>;
+				local-timer-stop;
+				entry-latency-us = <700>;
+				exit-latency-us = <1200>;
+				min-residency-us = <2800>;
+				wakeup-latency-us = <1600>;
 			};
 		};
 	};
@@ -448,7 +490,7 @@
 			reg = <0x0 0xd4014000 0x0 0xc8>;
 			spacemit,timer-id = <0>;
 			spacemit,timer-fastclk-frequency = <3250000>;
-			spacemit,timer-apb-frequency = <52000000>;
+			spacemit,timer-apb-frequency = <10000000>;
 			spacemit,timer-frequency = <32768>;
 			clocks = <&pll_clk_timer>;
 			status = "ok";
