@@ -15,3 +15,10 @@ config CLK_K1_CCU
 	  Build the driver for K1 Clock Driver.
 
 endif
+
+config SPACEMIT_K1X_CCU
+        tristate "Clock support for Spacemit k1x SoCs"
+        depends on SOC_SPACEMIT_K1X
+        help
+          Build the driver for Spacemit K1x Clock Driver.
+
