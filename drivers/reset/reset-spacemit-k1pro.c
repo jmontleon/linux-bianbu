@@ -11,7 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/reset-controller.h>
 #include <linux/io.h>
-#include <dt-bindings/reset/k1-pro-reset.h>
+#include <dt-bindings/reset/spacemit-k1pro-reset.h>
 #include <linux/clk-provider.h>
 #include <linux/atomic.h>
 #include <linux/spinlock.h>
