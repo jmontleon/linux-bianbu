@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2023 Spacemit Inc.
  */
-#include <dt-bindings/clock/k1-pro-ccu-clock.h>
+#include <dt-bindings/clock/spacemit-k1pro-clock.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
@@ -16,7 +16,7 @@
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include "k1-pro-ccu.h"
+#include "ccu-spacemit-k1pro.h"
 
 #define LOG_INFO(fmt, arg...)    pr_info("[K1-CCU][%s][%d]:" fmt "\n", __func__, __LINE__, ##arg)
 
