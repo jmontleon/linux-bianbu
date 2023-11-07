@@ -343,11 +343,12 @@ config RESET_ZYNQMP
 	help
 	  This enables the reset controller driver for Xilinx ZynqMP SoCs.
 
-config RESET_K1_PRO_SPACEMIT
-	tristate "Reset controller driver for Spacemit SoCs"
+config RESET_K1PRO_SPACEMIT
+	tristate "Reset controller driver for Spacemit K1PRO SoCs"
+	depends on SOC_SPACEMIT_K1PRO
 	default y
 	help
-	  Support for reset controllers on Spacemit SoCs.
+	  Support for reset controllers on Spacemit K1PRO SoCs.
 
 config RESET_K1X_SPACEMIT
         tristate "Reset controller driver for Spacemit K1X SoCs"
