@@ -5,7 +5,7 @@
 
 /dts-v1/;
 
-#include <dt-bindings/clock/k1-pro-ccu-clock.h>
+#include <dt-bindings/clock/spacemit-k1pro-clock.h>
 #include <dt-bindings/reset/spacemit-k1pro-reset.h>
 #include <dt-bindings/pinctrl/k1-pro-pinctrl.h>
 
