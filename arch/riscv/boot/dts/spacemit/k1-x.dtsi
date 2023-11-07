@@ -385,7 +385,6 @@
 		};
 
 		ccu: clock-controller@d4050000 {
-			ranges;
 			compatible = "spacemit,k1x-clock";
 			reg = <0x0 0xd4050000 0x0 0x209c>,
 				<0x0 0xd4282800 0x0 0x400>,
@@ -399,12 +398,11 @@
 				<&clk_32k>;
 			clock-names = "vctcxo_24", "vctcxo_3", "vctcxo_1", "pll1_2457p6_vco",
 				"clk_32k";
-			#reset-cells = <1>;
+			#clock-cells = <1>;
 			status = "okay";
 		};
 
 		reset: reset-controller@d4050000 {
-			ranges;
 			compatible = "spacemit,k1x-reset";
 			reg = <0x0 0xd4050000 0x0 0x209c>,
 				<0x0 0xd4282800 0x0 0x400>,
