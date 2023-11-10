@@ -972,6 +972,18 @@
 			interrupts = <74>;
 			status = "disabled";
 		};
+
+		v2d@c0100000 {
+			compatible = "spacemit,v2d";
+			reg =  <0x0 0xc0100000 0x0 0x1000>;
+			reg-names = "v2dreg";
+			clocks = <&ccu CLK_DPU_MCLK>,
+				 <&ccu CLK_V2D>;
+			clock-names = "v2d-io", "v2d-core";
+			interrupt-parent = <&intc>;
+			interrupts = <86>;
+			status = "ok";
+		};
 	};
 
 	pmu {
