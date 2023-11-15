@@ -808,7 +808,7 @@ static int v2d_probe(struct platform_device *pdev)
 	}
 	info->v2dreg_iomem_base = base;
 	info->irq = platform_get_irq(pdev, 0);
-	V2DLOGI("v2d irq num = %d\n", info->irq);
+	//V2DLOGI("v2d irq num = %d\n", info->irq);
 	if (info->irq < 0) {
 		return -ENOENT;
 	}
@@ -865,7 +865,7 @@ static int v2d_probe(struct platform_device *pdev)
 	info->nb.notifier_call = v2d_clkoffdet_notifier_handler;
 	clk_notifier_register(info->clkcore, &info->nb);
 #endif
-	V2DLOGI("probe v2d driver done!\n");
+	//V2DLOGI("probe v2d driver done!\n");
 	v2dInfo = info;
 
 	return 0;
@@ -891,7 +891,7 @@ static int v2d_remove(struct platform_device *pdev)
 	struct device *dev = &info->pdev->dev;
 	int i;
 
-	V2DLOGI("remove v2d driver!\n");
+	//V2DLOGI("remove v2d driver!\n");
 	v2d_iommu_deinit(pdev);
 	devm_free_irq(dev, info->irq, info);
 	kthread_flush_worker(&info->post_worker);
