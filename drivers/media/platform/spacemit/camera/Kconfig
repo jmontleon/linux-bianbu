@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# SPACEMIT K1X camera configuration
+#
+
+comment "SPACEMIT K1X Camera And Video V2"
+
+menuconfig SPACEMIT_K1X_CAMERA_V2
+    tristate "SPACEMIT K1X camera and video capture V2 support"
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+    help
+	  Say Y here to enable selecting the video adapters for
+	  SPACEMIT K1X camera and video v2
+
+config SPACEMIT_K1X_CCIC_V2
+    tristate "SPACEMIT K1X CCIC V2 support"
+    depends on SPACEMIT_K1X_CAMERA_V2
+    help
+      Enable support for ccic v2
+
+config SPACEMIT_K1X_VI_V2
+    tristate "SPACEMIT K1X VI V2 support"
+    select VIDEOBUF2_CORE
+    select VIDEOBUF2_V4L2
+    select VIDEOBUF2_DMA_CONTIG
+    select VIDEOBUF2_DMA_SG
+    select SPACEMIT_K1X_CCIC_V2
+    depends on SPACEMIT_K1X_CAMERA_V2
+    help
+      Enable support for vi
+
+config SPACEMIT_K1X_VI_IOMMU
+	bool "SPACEMIT K1X VI IOMMU support"
+	depends on SPACEMIT_K1X_VI_V2
+    help
+      Enable support for vi iommu
+
+
+config SPACEMIT_K1X_ISP_V2
+    tristate "SPACEMIT K1X ISP V2 support"
+    depends on SPACEMIT_K1X_CAMERA_V2
+    help
+      Enable support for isp v2
+
+config SPACEMIT_K1X_CPP_V2
+    tristate "SPACEMIT K1X CPP V2 support"
+    depends on SPACEMIT_K1X_CAMERA_V2
+    help
+      Enable support for cpp v2
+
+config SPACEMIT_K1X_SENSOR_V2
+    tristate "SPACEMIT K1X SENSOR V2 support"
+    depends on SPACEMIT_K1X_CAMERA_V2
+    help
+      Enable support for sensor v2
