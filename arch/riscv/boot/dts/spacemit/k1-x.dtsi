@@ -7,6 +7,7 @@
 #include <dt-bindings/usb/k1x_ci_usb.h>
 #include <dt-bindings/reset/spacemit-k1x-reset.h>
 #include <dt-bindings/clock/spacemit-k1x-clock.h>
+#include <dt-bindings/display/spacemit-dpu.h>
 
 / {
 	compatible = "spacemit,k1-x", "riscv";
@@ -967,6 +968,102 @@
 			interrupts = <86>;
 			status = "ok";
 		};
+
+		display-subsystem {
+			compatible = "spacemit,saturn-le";
+			reg = <0 0xC0340000 0 0x2A000>;
+			ports = <&dpu_online2>;
+		};
+
+		dpu_online2: dpu_online2@c0340000 {
+			compatible = "spacemit,dpu-online2";
+			interrupt-parent = <&intc>;
+			interrupts = <90>, <89>;
+			interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
+			/* Remove clocks and power domains in fpga */
+			//clocks = <&ccu CLK_DPU_PXCLK>,
+			//	<&ccu CLK_DPU_MCLK>,
+			//	<&ccu CLK_DPU_HCLK>,
+			//	<&ccu CLK_DPU_ESC>,
+			//	<&ccu CLK_DPU_BIT>;
+			//clock-names = "pxclk", "mclk", "hclk", "escclk", "bitclk";
+			pipeline-id = <ONLINE2>;
+			ip = "spacemit-saturn";
+			spacemit-dpu-min-mclk = <40960000>;
+			status = "ok";
+
+			dpu_online2_out: endpoint@0 {
+				remote-endpoint = <&dsi2_in>;
+			};
+
+			dpu_offline0_out: endpoint@1 {
+				remote-endpoint = <&wb0_in>;
+			};
+		};
+
+		dsi2: dsi2@d421a800 {
+			compatible = "spacemit,dsi2-host";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0 0xD421A800 0 0x200>;
+			interrupts = <95>;
+			ip = "synopsys-dhost";
+			dev-id = <2>;
+			status = "ok";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+					dsi2_out: endpoint {
+						remote-endpoint = <&dphy2_in>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+					dsi2_in: endpoint {
+						remote-endpoint = <&dpu_online2_out>;
+					};
+				};
+			};
+		};
+
+		wb0 {
+			compatible = "spacemit,wb0";
+			dev-id = <2>;
+			status = "ok";
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					wb0_in: endpoint {
+						remote-endpoint = <&dpu_offline0_out>;
+					};
+				};
+			};
+		};
+
+		dphy2: dphy2@d421a800 {
+			compatible = "spacemit,dsi2-phy";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0 0xD421A800 0 0x200>;
+			ip = "spacemit-dphy";
+			dev-id = <2>;
+			status = "ok";
+
+			port@1 {
+				reg = <1>;
+				dphy2_in: endpoint {
+					remote-endpoint = <&dsi2_out>;
+				};
+			};
+		};
+
 	};
 
 	pmu {
@@ -1023,4 +1120,3 @@
 			<0x0 0x0 0xffffffff 0xffffff00 0x0007fff8>;
 	};
 };
-
