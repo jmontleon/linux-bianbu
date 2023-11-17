@@ -27,6 +27,7 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
+#include <linux/reset.h>
 
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
@@ -123,6 +124,7 @@ static struct sdhci_host* sdio_host;
 struct sdhci_spacemit {
 	struct clk *clk_core;
 	struct clk *clk_io;
+	struct reset_control *reset;
 	unsigned char power_mode;
 	struct pinctrl_state *pin;
 	struct pinctrl *pinctrl;
@@ -1289,6 +1291,17 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	if (!IS_ERR(spacemit->clk_core))
 		clk_prepare_enable(spacemit->clk_core);
 
+	spacemit->reset = devm_reset_control_array_get_optional_shared(dev);
+	if (IS_ERR(spacemit->reset)) {
+		dev_err(dev, "failed to get reset control\n");
+		ret = PTR_ERR(spacemit->reset);
+		goto err_rst_get;
+	}
+
+	ret = reset_control_deassert(spacemit->reset);
+	if (ret)
+		goto err_rst_get;
+
 	match = of_match_device(of_match_ptr(sdhci_spacemit_of_match), &pdev->dev);
 	if (match) {
 		ret = mmc_of_parse(host->mmc);
@@ -1379,6 +1392,8 @@ err_add_host:
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 err_of_parse:
+	reset_control_assert(spacemit->reset);
+err_rst_get:
 	clk_disable_unprepare(spacemit->clk_io);
 	clk_disable_unprepare(spacemit->clk_core);
 err_clk_get:
@@ -1398,6 +1413,7 @@ static int spacemit_sdhci_remove(struct platform_device *pdev)
 	pm_runtime_put_noidle(&pdev->dev);
 	sdhci_remove_host(host, 1);
 
+	reset_control_assert(spacemit->reset);
 	clk_disable_unprepare(spacemit->clk_io);
 	clk_disable_unprepare(spacemit->clk_core);
 
