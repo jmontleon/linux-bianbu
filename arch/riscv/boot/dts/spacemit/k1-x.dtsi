@@ -296,13 +296,6 @@
 			clock-output-names = "pll_clk_emac_ptp";
 		};
 
-		pll_clk_usb: clock-pll_clk_usb {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
-			clock-output-names = "pll_clk_usb";
-		};
-
 		pll_clk_pwm: clock-pll_clk_pwm {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -698,7 +691,7 @@
 			reg = <0x0 0xc0940000 0x0 0x200>;
 			spacemit,phy-name = "mv-usb-phy";
 			spacemit,pll-lock-bypass;
-			clocks = <&pll_clk_usb>;
+			clocks = <&ccu CLK_USB_P1>;
 			status = "disabled";
 		};
 
@@ -709,7 +702,8 @@
 			interrupt-parent = <&intc>;
 			spacemit,udc-name = "mv-udc";
 			spacemit,otg-force-a-bus-req;
-			clocks = <&pll_clk_usb>;
+			resets = <&reset RESET_USBP1_AXI>;
+			clocks = <&ccu CLK_USB_P1>;
 			usb-phy = <&usbphy>;
 			status = "disabled";
 		};
@@ -718,8 +712,10 @@
 			compatible = "spacemit,k1-x-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
-			//resets = <&reset RESET_USB31>;
-			//reset-names = "ctl_rst";
+			resets = <&reset RESET_USB3_0>;
+			reset-names = "ctl_rst";
+			clocks = <&ccu CLK_USB30>;
+			clock-names = "usbdrd30";
 			interrupt-parent = <&intc>;
 			interrupts = <149>;
 			ranges;
