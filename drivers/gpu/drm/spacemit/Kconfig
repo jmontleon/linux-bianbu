@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config DRM_SPACEMIT
+	tristate "DRM Support for Spacemit"
+	select DRM
+	select DRM_KMS_HELPER
+	select DRM_GEM_CMA_HELPER
+	select DRM_KMS_CMA_HELPER
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+	select VIDEOMODE_HELPERS
+	select BACKLIGHT_CLASS_DEVICE
+	select GKI_FIX_WORKAROUND if DRM_SPACEMIT=m
+	default n
+	help
+	  Choose this option if you have a Spacemit soc chipsets.
+	  This driver provides Spacemit kernel mode
+	  setting and buffer management. If M is selected the module will be called spacemit-drm.
+
+config SPACEMIT_MIPI_PANEL
+	tristate "MIPI Panel Support For Spacemit"
+	depends on DRM_SPACEMIT
