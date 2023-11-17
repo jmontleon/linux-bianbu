@@ -157,7 +157,7 @@ static const struct dwc3_spacemit_driverdata spacemit_k1pro_drvdata = {
 
 static const struct dwc3_spacemit_driverdata spacemit_k1x_drvdata = {
 	.clk_names = { "usbdrd30" },
-	.num_clks = 0,
+	.num_clks = 1,
 	.suspend_clk_idx = -1,
 };
 
