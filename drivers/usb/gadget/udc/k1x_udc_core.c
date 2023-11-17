@@ -35,6 +35,7 @@
 #include <asm/unaligned.h>
 #include <dt-bindings/usb/k1x_ci_usb.h>
 #include <linux/power_supply.h>
+#include <linux/reset.h>
 #include <linux/extcon.h>
 #include <linux/extcon-provider.h>
 
@@ -2296,7 +2297,7 @@ static int mv_udc_remove(struct platform_device *pdev)
 			udc->ep_dqh, udc->ep_dqh_dma);
 
 	mv_udc_disable(udc);
-
+	reset_control_assert(udc->reset);
 	clk_unprepare(udc->clk);
 
 	/* free dev, wait for the release() finished */
@@ -2402,6 +2403,17 @@ static int mv_udc_probe(struct platform_device *pdev)
 	if (retval) {
 		return retval;
 	}
+
+	udc->reset = devm_reset_control_array_get_optional_shared(&pdev->dev);
+	if (IS_ERR(udc->reset)) {
+		dev_err(&pdev->dev, "failed to get reset control\n");
+		retval = PTR_ERR(udc->reset);
+		goto err_rst_get;
+	}
+
+	retval = reset_control_deassert(udc->reset);
+	if (retval)
+		goto err_rst_get;
 
 	udc->op_regs =
 		(struct mv_op_regs __iomem *)((unsigned long)udc->cap_regs
@@ -2580,6 +2592,8 @@ err_free_dma:
 	dma_free_coherent(&pdev->dev, udc->ep_dqh_size,
 			udc->ep_dqh, udc->ep_dqh_dma);
 err_disable_clock:
+	reset_control_assert(udc->reset);
+err_rst_get:
 	mv_udc_disable_internal(udc);
 	the_controller = NULL;
 	return retval;

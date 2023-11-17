@@ -234,6 +234,9 @@ struct mv_udc {
 	/* some SOC has mutiple clock sources for USB*/
 	struct clk      *clk;
 
+	/* reset control for USB */
+	struct reset_control *reset;
+
 	/* power supply used to detect charger type */
 	struct power_supply udc_psy;
 
