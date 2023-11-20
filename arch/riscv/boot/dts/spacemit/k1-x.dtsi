@@ -780,8 +780,10 @@
 			      <0x0 0xc0b20000 0x0 0x00001000>; /* phy ahb */
 			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
 
-			//clocks = <&clock CLK_PCIE0>;
+			clocks = <&ccu CLK_PCIE0>;
 			clock-names = "pcie-clk";
+			resets = <&reset RESET_PCIE0>;
+			reset-names = "pcie-reset";
 
 			bus-range = <0x00 0xff>;
 			max-link-speed = <2>;
@@ -820,8 +822,10 @@
 			      <0x0 0xc0c20000 0x0 0x00001000>; /* phy ahb */
 			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
 
-			//clocks = <&clock CLK_PCIE1>;
+			clocks = <&ccu CLK_PCIE1>;
 			clock-names = "pcie-clk";
+			resets = <&reset RESET_PCIE1>;
+			reset-names = "pcie-reset";
 
 			bus-range = <0x00 0xff>;
 			max-link-speed = <2>;
@@ -860,8 +864,10 @@
 			      <0x0 0xc0d20000 0x0 0x00001000>; /* phy ahb */
 			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
 
-			//clocks = <&clock CLK_PCIE2>;
+			clocks = <&ccu CLK_PCIE2>;
 			clock-names = "pcie-clk";
+			resets = <&reset RESET_PCIE2>;
+			reset-names = "pcie-reset";
 
 			bus-range = <0x00 0xff>;
 			max-link-speed = <2>;
