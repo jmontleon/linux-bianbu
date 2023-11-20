@@ -25,6 +25,7 @@
 #include <linux/types.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/reset.h>
 
 #include "../../pci.h"
 #include "pcie-designware.h"
@@ -142,6 +143,7 @@ struct k1x_pcie {
 	struct	clk *clk_master;
 	struct	clk *clk_slave;
 	struct	clk *clk_slave_lite;
+	struct reset_control *reset;
 
 	struct	gpio_desc *perst_gpio; /* for PERST# in RC mode*/
 };
@@ -1026,23 +1028,6 @@ static const struct of_device_id of_k1x_pcie_match[] = {
 	{},
 };
 
-static void k1x_pcie_clk_enable(struct k1x_pcie *pcie, int enable)
-{
-	u32 mask = 0x13f;
-	u32 val = 0, enable_val = 0x3f, disable_val = 0x100;
-
-	val = readl(pcie->base);
-	if (enable) {
-		val |= (mask & enable_val);
-		val &= ~(mask & disable_val);
-	} else {
-		val |= (mask & disable_val);
-		val &= ~(mask & enable_val);
-	}
-
-	writel(val, pcie->base);
-}
-
 static int __init k1x_pcie_probe(struct platform_device *pdev)
 {
 	u32 reg;
@@ -1092,23 +1077,26 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 	if (!k1x->phy_ahb)
 		return -ENOMEM;
 
-#if 0
 	/* parse clk source*/
 	k1x->clk_pcie = devm_clk_get(dev, "pcie-clk");
 	if (IS_ERR(k1x->clk_pcie))
 		return PTR_ERR(k1x->clk_pcie);
-#endif
+
+	k1x->reset = devm_reset_control_get_optional(dev, NULL);
+	if (IS_ERR(k1x->reset)) {
+		dev_err(dev, "Failed to get pcie's resets\n");
+		return PTR_ERR(k1x->reset);
+	}
 
 	k1x->base = base;
 	k1x->pci = pci;
 	platform_set_drvdata(pdev, k1x);
 
-#if 0
 	ret = clk_prepare_enable(k1x->clk_pcie);
 	if(ret < 0)
 		return ret;
-#endif
-	k1x_pcie_clk_enable(k1x, 1);
+
+	reset_control_deassert(k1x->reset);
 
 	k1x->pcie_init_before_kernel = is_pcie_init;
 	if (is_pcie_init == 0) {
