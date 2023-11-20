@@ -1990,7 +1990,21 @@ static struct platform_driver pcs_driver = {
 	},
 };
 
+#ifdef CONFIG_SOC_SPACEMIT
+static int __init pcs_driver_init(void)
+{
+	return platform_driver_register(&pcs_driver);
+}
+postcore_initcall(pcs_driver_init);
+
+static void __exit pcs_driver_exit(void)
+{
+	platform_driver_unregister(&pcs_driver);
+}
+module_exit(pcs_driver_exit);
+#else
 module_platform_driver(pcs_driver);
+#endif
 
 MODULE_AUTHOR("Tony Lindgren <tony@atomide.com>");
 MODULE_DESCRIPTION("One-register-per-pin type device tree based pinctrl driver");
