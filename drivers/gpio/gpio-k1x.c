@@ -346,7 +346,6 @@ static int k1x_gpio_probe(struct platform_device *pdev)
 	k1x_chip->reg_base = base;
 
 	ret = k1x_gpio_probe_dt(pdev, k1x_chip);
-
 	if (ret) {
 		dev_err(dev, "Fail to initialize gpio unit, error %d.\n", ret);
 		return ret;
@@ -376,6 +375,8 @@ static int k1x_gpio_probe(struct platform_device *pdev)
 
 	/* Initialize the gpio chip */
 	k1x_chip->chip.label = "k1x-gpio";
+	k1x_chip->chip.request = gpiochip_generic_request;
+	k1x_chip->chip.free = gpiochip_generic_free;
 	k1x_chip->chip.direction_input  = k1x_gpio_direction_input;
 	k1x_chip->chip.direction_output = k1x_gpio_direction_output;
 	k1x_chip->chip.get = k1x_gpio_get;
@@ -424,4 +425,4 @@ static int __init k1x_gpio_init(void)
 {
 	return platform_driver_register(&k1x_gpio_driver);
 }
-postcore_initcall(k1x_gpio_init);
+subsys_initcall(k1x_gpio_init);
