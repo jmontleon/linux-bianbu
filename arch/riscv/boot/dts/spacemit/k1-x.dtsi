@@ -1064,6 +1064,18 @@
 			};
 		};
 
+		imggpu: imggpu@cac00000 {
+			compatible = "img,rgx";
+			interrupt-names = "rgxirq";
+			interrupt-parent = <&intc>;
+			interrupts = <75>;
+			reg = <0x0 0xcac00000 0x0 0x100000>;
+			reg-names = "rgxregs";
+			clocks = <&ccu CLK_GPU>;
+			clock-names = "gpu_clk";
+			resets = <&reset RESET_GPU>;
+			status = "ok";
+		};
 	};
 
 	pmu {
