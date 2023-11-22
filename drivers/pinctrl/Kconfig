@@ -483,6 +483,17 @@ config PINCTRL_RK805
 	help
 	  This selects the pinctrl driver for RK805.
 
+config PINCTRL_SPACEMIT_PMIC
+	tristate "Pinctrl and GPIO driver for Spacemit PMIC"
+	depends on MFD_SPACEMIT_PMIC
+	select GPIOLIB
+	select PINMUX
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GENERIC_PINCONF
+	help
+	  This selects the pinctrl driver for spacemit pmic.
+
 config PINCTRL_ROCKCHIP
 	tristate "Rockchip gpio and pinctrl driver"
 	depends on ARCH_ROCKCHIP || COMPILE_TEST

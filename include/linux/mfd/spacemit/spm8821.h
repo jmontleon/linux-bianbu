@@ -1,4 +1,5 @@
 #ifndef __SMP8821_H__
+#define __SMP8821_H__
 
 enum SPM8821_reg {
 	SPM8821_ID_DCDC1,
@@ -78,9 +79,14 @@ enum SPM8821_reg {
 
 /* mfd configuration */
 #define SPM8821_MFD_CELL	\
-	static const struct mfd_cell spm8821[] = {	\
-		{ .name = "spacemit-regulator", },	\
-		{ .name = "spacemit-pinctrl", },	\
+	static const struct mfd_cell spm8821[] = {				\
+		{								\
+			.name = "spacemit-regulator",				\
+		},								\
+		{ 								\
+			.of_compatible = "spacemit,pmic,spm8821-pinctrl",	\
+			.name = "spacemit-pmic-pinctrl",			\
+		},								\
 	};
 
 #define SPM8821_REGMAP_CONFIG	\
@@ -175,6 +181,112 @@ static const struct regulator_desc spm8821_reg[] = {	\
 	\
 	/* PWR SWITCH */	\
 	SPM8821_DESC_SWITCH(SPM8821_ID_SWITCH1, "SWITCH_REG1", "dcdc4", SPM8821_SWITCH_CTRL_REG, SPM8821_SWTICH_EN_MASK),		\
+};
+
+/* gpio set */
+#define SPM8821_PINMUX_DESC		\
+const char* spm8821_pinmux_functions[] = {	\
+	"gpioin", "gpioout", "exten", "pwrctrl",	\
+	"sleep", "nreset", "adcin"			\
+};
+
+#define SPM8821_PINFUNC_DESC	\
+static const struct pin_func_desc spm8821_pinfunc_desc[] = {	\
+	/* PIN0 gpioin */				\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "gpioin", 0x8, 0x3, 0, 0, 0, 0, 0),				\
+	/* PIN0 gpioout*/					\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "gpioout", 0x8, 0x3, 1, 0, 0, 0, 0),			\
+	/* PIN0 exten */					\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "exten", 0x8, 0x3, 0x10, 1, 0xa, 0x7, 0x0),			\
+	/* PIN0 pwrctrl */					\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "pwrctrl", 0x8, 0x3, 0x10, 1, 0xa, 0x7, 0x1),		\
+	/* PIN0 sleep */					\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "sleep", 0x8, 0x3, 0x10, 1, 0xa, 0x7, 0x2),			\
+	/* PIN0 nreset */					\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "nreset", 0x8, 0x3, 0x10, 1, 0xa, 0x7, 0x3),		\
+	/* PIN0 adcin */					\
+	SPM8XX_DESC_PIN_FUNC_COM(0, "adcin", 0x8, 0x3, 0x10, 1, 0xa, 0x7, 0x4),			\
+	/* PIN1 gpioin */				\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "gpioin", 0x8, 0xc, 0, 0, 0, 0, 0),				\
+	/* PIN1 gpioout*/					\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "gpioout", 0x8, 0xc, 1, 0, 0, 0, 0),			\
+	/* PIN1 exten */					\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "exten", 0x8, 0xc, 0x10, 1, 0xa, 0x38, 0x0),		\
+	/* PIN1 pwrctrl */					\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "pwrctrl", 0x8, 0xc, 0x10, 1, 0xa, 0x38, 0x1),		\
+	/* PIN1 sleep */					\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "sleep", 0x8, 0xc, 0x10, 1, 0xa, 0x38, 0x2),		\
+	/* PIN1 nreset */					\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "nreset", 0x8, 0xc, 0x10, 1, 0xa, 0x38, 0x3),		\
+	/* PIN1 adcin */					\
+	SPM8XX_DESC_PIN_FUNC_COM(1, "adcin", 0x8, 0xc, 0x10, 1, 0xa, 0x38, 0x4),		\
+	/* PIN2 gpioin */				\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "gpioin", 0x8, 0x30, 0, 0, 0, 0, 0),			\
+	/* PIN2 gpioout*/					\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "gpioout", 0x8, 0x30, 1, 0, 0, 0, 0),			\
+	/* PIN2 exten */					\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "exten", 0x8, 0x30, 0x10, 1, 0xb, 0x7, 0x0),		\
+	/* PIN2 pwrctrl */					\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "pwrctrl", 0x8, 0x30, 0x10, 1, 0xb, 0x7, 0x1),		\
+	/* PIN2 sleep */					\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "sleep", 0x8, 0x30, 0x10, 1, 0xb, 0x7, 0x2),		\
+	/* PIN2 nreset */					\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "nreset", 0x8, 0x30, 0x10, 1, 0xb, 0x7, 0x3),		\
+	/* PIN2 adcin */					\
+	SPM8XX_DESC_PIN_FUNC_COM(2, "adcin", 0x8, 0x30, 0x10, 1, 0xb, 0x7, 0x4),		\
+	/* PIN3 gpioin */				\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "gpioin", 0x9, 0x3, 0, 0, 0, 0, 0),			\
+	/* PIN3 gpioout*/					\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "gpioout", 0x9, 0x3, 1, 0, 0, 0, 0),			\
+	/* PIN3 exten */					\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "exten", 0x9, 0x3, 0x10, 1, 0xb, 0x38, 0x0),		\
+	/* PIN3 pwrctrl */					\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "pwrctrl", 0x9, 0x3, 0x10, 1, 0xb, 0x38, 0x1),		\
+	/* PIN3 sleep */					\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "sleep", 0x9, 0x3, 0x10, 1, 0xb, 0x38, 0x2),		\
+	/* PIN3 nreset */					\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "nreset", 0x9, 0x3, 0x10, 1, 0xb, 0x38, 0x3),		\
+	/* PIN3 adcin */					\
+	SPM8XX_DESC_PIN_FUNC_COM(3, "adcin", 0x9, 0x3, 0x10, 1, 0xb, 0x38, 0x4),		\
+	/* PIN4 gpioin */				\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "gpioin", 0x9, 0xc, 0, 0, 0, 0, 0),			\
+	/* PIN4 gpioout*/					\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "gpioout", 0x9, 0xc, 1, 0, 0, 0, 0),			\
+	/* PIN4 exten */					\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "exten", 0x9, 0xc, 0x10, 1, 0xc, 0x7, 0x0),		\
+	/* PIN4 pwrctrl */					\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "pwrctrl", 0x9, 0xc, 0x10, 1, 0xc, 0x7, 0x1),		\
+	/* PIN4 sleep */					\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "sleep", 0x9, 0xc, 0x10, 1, 0xc, 0x7, 0x2),		\
+	/* PIN4 nreset */					\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "nreset", 0x9, 0xc, 0x10, 1, 0xc, 0x7, 0x3),		\
+	/* PIN4 adcin */					\
+	SPM8XX_DESC_PIN_FUNC_COM(4, "adcin", 0x9, 0xc, 0x10, 1, 0xc, 0x7, 0x4),		\
+	/* PIN5 gpioin */				\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "gpioin", 0x9, 0x30, 0, 0, 0, 0, 0),			\
+	/* PIN5 gpioout*/					\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "gpioout", 0x9, 0x30, 1, 0, 0, 0, 0),			\
+	/* PIN5 exten */					\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "exten", 0x9, 0x30, 0x10, 1, 0xc, 0x38, 0x0),		\
+	/* PIN5 pwrctrl */					\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "pwrctrl", 0x9, 0x30, 0x10, 1, 0xc, 0x38, 0x1),		\
+	/* PIN5 sleep */					\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "sleep", 0x9, 0x30, 0x10, 1, 0xc, 0x38, 0x2),		\
+	/* PIN5 nreset */					\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "nreset", 0x9, 0x30, 0x10, 1, 0xc, 0x38, 0x3),		\
+	/* PIN5 adcin */					\
+	SPM8XX_DESC_PIN_FUNC_COM(5, "adcin", 0x9, 0x30, 0x10, 1, 0xc, 0x38, 0x4),		\
+};
+
+#define SPM8821_PIN_CINFIG_DESC				\
+static const struct pin_config_desc spm8821_pinconfig_desc[] = \
+{												\
+	SPM8XX_DESC_PIN_CONFIG_COM(0, 0x0, 0x1, 0x1, 0x1, 0x2, 0x3, 0x4, 0xc0, 0x1, 0x5, 0x1, 0x6, 0x3),		\
+	SPM8XX_DESC_PIN_CONFIG_COM(1, 0x0, 0x2, 0x1, 0x2, 0x2, 0xC, 0x4, 0xc0, 0x2, 0x5, 0x2, 0x6, 0xC),		\
+	SPM8XX_DESC_PIN_CONFIG_COM(2, 0x0, 0x4, 0x1, 0x4, 0x2, 0x30, 0x4, 0xc0, 0x4, 0x5, 0x4, 0x6, 0x30),		\
+	SPM8XX_DESC_PIN_CONFIG_COM(3, 0x0, 0x8, 0x1, 0x8, 0x3, 0x3, 0x4, 0xc0, 0x8, 0x5, 0x8, 0x7, 0x3),		\
+	SPM8XX_DESC_PIN_CONFIG_COM(4, 0x0, 0x10, 0x1, 0x10, 0x3, 0xc, 0x4, 0xc0, 0x10, 0x5, 0x10, 0x7, 0xc),		\
+	SPM8XX_DESC_PIN_CONFIG_COM(5, 0x0, 0x20, 0x1, 0x20, 0x3, 0x30, 0x4, 0xc0, 0x20, 0x5, 0x20, 0x7, 0x30),		\
 };
 
 #endif /* __SPM8821_H__ */
