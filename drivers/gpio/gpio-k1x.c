@@ -317,9 +317,8 @@ static int k1x_gpio_probe(struct platform_device *pdev)
 	struct k1x_gpio_bank *bank;
 	struct resource *res;
 	struct irq_domain *domain;
-#if 0
 	struct clk *clk;
-#endif
+
 	int irq, i, ret;
 	void __iomem *base;
 
@@ -351,8 +350,6 @@ static int k1x_gpio_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* currently no clock control on FPGA */
-#if 0
 	clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(clk)) {
 		dev_err(dev, "Fail to get gpio clock, error %ld.\n",
@@ -364,7 +361,6 @@ static int k1x_gpio_probe(struct platform_device *pdev)
 		dev_err(dev, "Fail to enable gpio clock, error %d.\n", ret);
 		return ret;
 	}
-#endif
 
 	domain = irq_domain_add_linear(np, k1x_chip->ngpio,
 					&k1x_gpio_irq_domain_ops, k1x_chip);
