@@ -1,4 +1,10 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Regulator driver for Spacemit PMIC
+ *
+ * Copyright (c) 2023, SPACEMIT Co., Ltd
+ *
+ */
 
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -67,7 +73,7 @@ static int spacemit_regulator_probe(struct platform_device *pdev)
 static struct platform_driver spacemit_regulator_driver = {
 	.probe = spacemit_regulator_probe,
 	.driver = {
-		.name = "spacemit-regulator"
+		.name = "spacemit-regulator",
 	},
 };
 
