@@ -650,6 +650,7 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			interrupts = <58>;
+			clocks = <&ccu CLK_GPIO>;
 			interrupt-names = "gpio_mux";
 			interrupt-parent = <&intc>;
 
