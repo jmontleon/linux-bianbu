@@ -13,8 +13,62 @@ struct spacemit_pmic {
 	const struct regmap_irq_chip	*regmap_irq_chip;
 };
 
+struct pin_func_desc {
+	const char *name;
+	unsigned char pin_id;
+	unsigned char func_reg;
+	unsigned char func_mask;
+	unsigned char en_val;
+	unsigned char ha_sub;
+	unsigned char sub_reg;
+	unsigned char sub_mask;
+	unsigned char sube_val;
+};
+
+struct pin_config_desc {
+	unsigned int pin_id;
+	/* input config desc */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} input;
+
+	/* output config desc */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} output;
+
+	/* pull-down desc */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} pup;
+
+	/* deb */
+	struct {
+		unsigned char reg;
+		unsigned char timemsk;
+
+		struct {
+			unsigned char msk;
+		} en;
+	} deb;
+
+	/* OD */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} od;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} itype;
+};
+
 /* pmic ID configuration */
-#define SPM8821_ID			0x22
+#define SPM8821_ID			0x1
 
 /* common regulator defination */
 #define SPM8XX_DESC_COM(_id, _match, _supply, _min, _max, _step, _vreg,	\
@@ -55,6 +109,54 @@ struct spacemit_pmic {
 		.disable_val     = (_disval),				\
 		.owner		= THIS_MODULE,				\
 		.ops		= _ops					\
+	}
+
+#define SPM8XX_DESC_PIN_FUNC_COM(_pin_id, _match, _ereg, _emask, 	\
+	_enval,	_hsub, _subreg, _submask, _subenval			\
+	)								\
+	{								\
+		.name		= (_match),				\
+		.pin_id		= (_pin_id),				\
+		.func_reg	= (_ereg),				\
+		.func_mask	= (_emask),				\
+		.en_val		= (_enval),				\
+		.ha_sub		= (_hsub),				\
+		.sub_reg	= (_subreg),				\
+		.sub_mask	= (_submask),				\
+		.sube_val	= (_subenval),				\
+	}
+
+#define SPM8XX_DESC_PIN_CONFIG_COM(_pin_id, _ireg, _imsk, _oreg, _omsk,		\
+	_pureg, _pumsk, _debreg, _debtmsk, _debemsk, _odreg, _odmsk,		\
+	_itypereg, _itypemsk							\
+	)							\
+	{							\
+		.pin_id = (_pin_id),				\
+		.input = {					\
+			.reg = (_ireg),				\
+			.msk = (_imsk),				\
+		},						\
+		.output = {					\
+			.reg = (_oreg),				\
+			.msk = (_omsk),				\
+		},						\
+		.pup = {					\
+			.reg = (_pureg),			\
+			.msk = (_pumsk),			\
+		},						\
+		.deb = {					\
+			.reg = (_debreg),			\
+			.timemsk = (_debtmsk),			\
+			.en.msk = (_debemsk)			\
+		},						\
+		.od = {						\
+			.reg = (_odreg),			\
+			.msk = (_odmsk),			\
+		},						\
+		.itype = {					\
+			.reg = (_itypereg),			\
+			.msk = (_itypemsk),			\
+		},						\
 	}
 
 #include "spm8821.h"
