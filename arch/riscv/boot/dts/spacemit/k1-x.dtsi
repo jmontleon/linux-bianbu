@@ -237,7 +237,7 @@
 	clocks {
 		#address-cells = <0x2>;
 		#size-cells = <0x2>;
-		ranges;
+
 		vctcxo_24: clock-vctcxo_24 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -336,7 +336,6 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
-		ranges;
 
 		clint0: clint@e4000000 {
 			compatible = "riscv,clint0";
@@ -405,7 +404,6 @@
 			#size-cells = <1>;
 			#pinctrl-cells = <2>;
 			#gpio-range-cells = <3>;
-			ranges;
 
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0xff77>;
@@ -720,7 +718,6 @@
 			clock-names = "usbdrd30";
 			interrupt-parent = <&intc>;
 			interrupts = <149>;
-			ranges;
 			status = "disabled";
 
 			dwc3@c0a00000 {
@@ -899,8 +896,10 @@
 			};
 		};
 
-		qspi: qspi@d420c000 {
+		qspi: spi@d420c000 {
 			compatible = "spacemit,k1x-qspi";
+			#address-cells = <1>;
+			#size-cells = <0>;
 			reg = <0x0 0xd420c000 0x0 0x1000>,
 			      <0x0 0xb8000000 0x0 0xc00000>;
 			reg-names = "qspi-base", "qspi-mmap";
@@ -976,7 +975,7 @@
 			ports = <&dpu_online2>;
 		};
 
-		dpu_online2: dpu_online2@c0340000 {
+		dpu_online2: port@c0340000 {
 			compatible = "spacemit,dpu-online2";
 			interrupt-parent = <&intc>;
 			interrupts = <90>, <89>;
@@ -1007,6 +1006,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0 0xD421A800 0 0x200>;
+			interrupt-parent = <&intc>;
 			interrupts = <95>;
 			ip = "synopsys-dhost";
 			dev-id = <2>;
