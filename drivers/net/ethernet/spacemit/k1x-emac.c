@@ -35,6 +35,7 @@
 #include <linux/types.h>
 #include <linux/udp.h>
 #include <linux/workqueue.h>
+#include <linux/reset.h>
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
@@ -44,6 +45,9 @@
 #include "k1x-emac.h"
 
 #define DRIVER_NAME				"k1x_emac"
+
+/* k1x PMUap base */
+#define PMUA_BASE_REG		0xd4282800
 
 #define TUNING_CMD_LEN				50
 #define CLK_PHASE_CNT				256
@@ -2091,16 +2095,16 @@ static int emac_mii_reset(struct mii_bus *bus)
 		}
 
 		rst_gpio = of_get_named_gpio(np, "emac,reset-gpio", 0);
-		//if (rst_gpio < 0)
-		//	return 0;
+		if (rst_gpio < 0)
+			return 0;
 
 		active_state = of_property_read_bool(np,
 						     "emac,reset-active-low");
 		of_property_read_u32_array(np,
 					   "emac,reset-delays-us", delays, 3);
 
-		//if (gpio_request(rst_gpio, "mdio-reset"))
-		//	return 0;
+		if (gpio_request(rst_gpio, "mdio-reset"))
+			return 0;
 
 		gpio_direction_output(rst_gpio,
 		                      active_state ? 1 : 0);
@@ -2516,11 +2520,8 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 		return -ENOMEM;
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	priv->apmu_base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(priv->apmu_base)) {
-		dev_err(&pdev->dev, "failed to io remap res reg 1\n");
-		return -ENOMEM;
+	if (of_property_read_u32(np, "k1x,apmu-base-reg", &priv->apmu_base)) {
+		priv->apmu_base = PMUA_BASE_REG;
 	}
 
 	priv->irq = irq_of_parse_and_map(np, 0);
@@ -2542,8 +2543,7 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 		return -EINVAL;
 	}
 
-	//priv->ctrl_reg = regs_addr_get_va(REGS_ADDR_APMU) + ctrl_reg;
-	priv->ctrl_reg = priv->apmu_base + ctrl_reg;
+	priv->ctrl_reg = ioremap(priv->apmu_base + ctrl_reg, 4);
 
 	if (of_property_read_u32(np, "tx-threshold",
 				 &priv->tx_threshold)) {
@@ -2630,8 +2630,7 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 				dev_err(&pdev->dev, "cannot find delayline register in device tree\n");
 				return -EINVAL;
 			}
-			//priv->dline_reg = regs_addr_get_va(REGS_ADDR_APMU) + ctrl_reg;
-			priv->ctrl_reg = priv->apmu_base + ctrl_reg;
+			priv->dline_reg = ioremap(priv->apmu_base + ctrl_reg, 4);
 		} else
 			priv->clk_tuning_way = CLK_TUNING_BY_REG;
 
@@ -2748,12 +2747,20 @@ static int emac_probe(struct platform_device *pdev)
 		}
 	}
 
+	priv->reset = devm_reset_control_get_optional(&pdev->dev, NULL);
+	if (IS_ERR(priv->reset)) {
+		dev_err(&pdev->dev, "Failed to get emac's resets\n");
+		goto ptp_clk_disable;
+	}
+
+	reset_control_deassert(priv->reset);
+
 	emac_sw_init(priv);
 
 	ret = emac_mdio_init(priv);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to init mdio.\n");
-		goto ptp_clk_disable;
+		goto reset_assert;
 	}
 
 	SET_NETDEV_DEV(ndev, &pdev->dev);
@@ -2774,6 +2781,8 @@ static int emac_probe(struct platform_device *pdev)
 	return 0;
 err_mdio_deinit:
 	emac_mdio_deinit(priv);
+reset_assert:
+	reset_control_assert(priv->reset);
 ptp_clk_disable:
 	if (priv->ptp_support)
 		clk_disable_unprepare(priv->ptp_clk);
@@ -2800,6 +2809,7 @@ static int emac_remove(struct platform_device *pdev)
 	emac_reset_hw(priv);
 	free_netdev(priv->ndev);
 	emac_mdio_deinit(priv);
+	reset_control_assert(priv->reset);
 	clk_disable_unprepare(priv->mac_clk);
 	if (priv->ref_clk_frm_soc)
 		clk_disable_unprepare(priv->phy_clk);
