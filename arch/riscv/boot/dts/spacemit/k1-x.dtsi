@@ -283,20 +283,6 @@
 			clock-output-names = "pll_clk_i2c";
 		};
 
-		pll_clk_emac: clock-pll_clk_emac {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
-			clock-output-names = "pll_clk_emac";
-		};
-
-		pll_clk_emac_ptp: clock-pll_clk_emac_ptp {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
-			clock-output-names = "pll_clk_emac_ptp";
-		};
-
 		pll_clk_pwm: clock-pll_clk_pwm {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -671,13 +657,34 @@
 
 		eth0: ethernet@cac80000 {
 			compatible = "spacemit,k1x-emac";
-			reg = <0x00000000 0xCAC80000 0x00000000 0x00000420>,
-				<0x00000000 0xD4282800 0x00000000 0x000003ec>;
+			reg = <0x00000000 0xCAC80000 0x00000000 0x00000420>;
+			k1x,apmu-base-reg = <0xD4282800>;
 			ctrl-reg = <0x3e4>;
 			dline-reg = <0x3e8>;
-			clocks = <&pll_clk_emac
-				&pll_clk_emac_ptp>;
+			clocks = <&ccu CLK_EMAC0_BUS>,
+				<&ccu CLK_EMAC0_PTP>;
 			clock-names = "emac-clk", "ptp-clk";
+			resets = <&reset RESET_EMAC0>;
+			reset-names = "emac-reset";
+			interrupts = <131>;
+			interrupt-parent = <&intc>;
+			ptp-support;
+			ptp-clk-rate = <10000000>;
+			lpm-qos = <7>;
+			status = "disabled";
+		};
+
+		eth1: ethernet@cac81000 {
+			compatible = "spacemit,k1x-emac";
+			reg = <0x00000000 0xCAC81000 0x00000000 0x00000420>;
+			k1x,apmu-base-reg = <0xD4282800>;
+			ctrl-reg = <0x3ec>;
+			dline-reg = <0x3f0>;
+			clocks = <&ccu CLK_EMAC1_BUS>,
+				<&ccu CLK_EMAC1_PTP>;
+			clock-names = "emac-clk", "ptp-clk";
+			resets = <&reset RESET_EMAC1>;
+			reset-names = "emac-reset";
 			interrupts = <131>;
 			interrupt-parent = <&intc>;
 			ptp-support;
