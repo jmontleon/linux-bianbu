@@ -654,8 +654,9 @@ struct emac_priv {
 	struct clk *mac_clk;
 	struct clk *phy_clk;
 	struct clk *ptp_clk;
+	struct reset_control *reset;
 	void __iomem *iobase;
-	void __iomem *apmu_base;
+	u32 apmu_base;
 	int irq;
 	int link;
 	int duplex;
