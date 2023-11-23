@@ -1,0 +1,202 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/* Copyright (c) 2023 Spacemit, Inc */
+
+/dts-v1/;
+
+#include "k1-x.dtsi"
+/ {
+	model = "spacemit k1-x fpga board";
+
+	cpus: cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <10000000>;
+
+		cpu_0: cpu@0 {
+			cpu-ai = "true";
+		};
+
+		cpu_1: cpu@1 {
+			cpu-ai = "true";
+		};
+
+		cpu_2: cpu@2 {
+			reg = <2>;
+			cpu-ai = "true";
+		};
+
+		cpu_3: cpu@3 {
+			reg = <3>;
+			cpu-ai = "true";
+		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_0>;
+				};
+
+				core1 {
+					cpu = <&cpu_1>;
+				};
+
+				core2 {
+					cpu = <&cpu_2>;
+				};
+
+				core3 {
+					cpu = <&cpu_3>;
+				};
+			};
+		};
+	};
+
+	memory@0 {
+		device_type = "memory";
+		reg = <0x0 0x00000000 0x0 0x80000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma@70000000 {
+			compatible = "shared-dma-pool";
+			/* alloc memory from 0x60000000~0x80000000 */
+			alloc-ranges = <0 0x60000000 0 0x20000000>;
+			/* size of cma buffer is 256MByte */
+			size = <0 0x10000000>;
+			/* start address is 1Mbyte aligned */
+			alignment = <0x0 0x100000>;
+			linux,cma-default;
+			/* besides hardware, dma for ex. buffer can be used by memory management */
+			reusable;
+		};
+	};
+
+	chosen {
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8,initcall_debug=1 rdinit=/init.tmp";
+		stdout-path = "serial0:115200n8";
+	};
+
+};
+
+&sdhci0 {
+	bus-width = <4>;
+	broken-cd;
+	cap-sd-highspeed;
+	no-mmc;
+	no-sdio;
+	spacemit,sdh-host-caps-disable = <(
+			MMC_CAP_UHS_SDR12 |
+			MMC_CAP_UHS_SDR25 |
+			MMC_CAP_UHS_SDR50 |
+			MMC_CAP_UHS_SDR104 |
+			MMC_CAP_UHS_DDR50
+			)>;
+	spacemit,sdh-quirks = <(
+			SDHCI_QUIRK_INVERTED_WRITE_PROTECT |
+			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
+			)>;
+	spacemit,sdh-quirks2 = <(
+			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			SDHCI_QUIRK2_BROKEN_PHY_MODULE
+			)>;
+	spacemit,sdh-freq = <204800000>;
+	status = "okay";
+};
+
+/* eMMC */
+&sdhci2 {
+	bus-width = <8>;
+	non-removable;
+	cap-mmc-highspeed;
+	no-sd;
+	no-sdio;
+	spacemit,sdh-quirks = <(
+			SDHCI_QUIRK_BROKEN_CARD_DETECTION |
+			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
+			)>;
+	spacemit,sdh-quirks2 = <(
+			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			SDHCI_QUIRK2_BROKEN_HS200 |
+			SDHCI_QUIRK2_SUPPORT_PHY_BYPASS
+			)>;
+	spacemit,sdh-freq = <375000000>;
+	status = "disabled";
+};
+
+&eth0 {
+	//emac,reset-gpio = <&gpio 40 0>;
+	emac,reset-active-low;
+	emac,reset-delays-us = <0 10000 100000>;
+
+	/* store forward mode */
+	tx-threshold = <1518>;
+	rx-threshold = <12>;
+	tx-ring-num = <128>;
+	rx-ring-num = <128>;
+	dma-burst-len = <5>;
+
+	ref-clock-from-phy;
+
+	clk-tuning-enable;
+	clk-tuning-by-reg;
+	tx-phase = <1>;
+	rx-phase = <5>;
+
+	phy-handle = <&rgmii0>;
+
+	status = "okay";
+
+	mdio-bus {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		rgmii0: phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			device_type = "ethernet-phy";
+			reg = <0x0>;
+			phy-mode = "rgmii";
+		};
+	};
+};
+
+&usbphy {
+	status = "okay";
+};
+
+&udc {
+	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
+	spacemit,udc-mode = <MV_USB_MODE_UDC>;
+	status = "okay";
+};
+
+&usbdrd3 {
+	status = "disabled";
+	dwc3@c0a00000 {
+		maximum-speed = "high-speed";
+		dr_mode = "peripheral";
+		phy_type = "utmi_wide";
+		snps,dis_enblslpm_quirk;
+	};
+};
+
+&pcie0_rc {
+	status = "disabled";
+};
+
+&qspi {
+	status = "disabled";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <26500000>;
+		m25p,fast-read;
+		broken-flash-reset;
+		status = "okay";
+	};
+};
