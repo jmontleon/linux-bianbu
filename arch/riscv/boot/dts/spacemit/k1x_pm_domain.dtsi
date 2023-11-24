@@ -21,7 +21,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			domains = <0x9>;
+			domains = <0x6>;
 
 			power-domain@SPT_PD_BUS {
 				reg = <0x0>;
@@ -33,26 +33,21 @@
 				reg = <0x1>;
 				pm_qos = <12>;
 				reg_pwr_ctrl = <0xa8>;
-				bit_hw_mode = <4>;
 				bit_sleep2 = <3>;
 				bit_sleep1 = <2>;
 				bit_isolation = <1>;
-				bit_auto_pwr_on = <0>;
-				bit_hw_pwr_stat = <9>;
 				bit_pwr_stat = <1>;
+				bit_hw_pwr_stat = <9>;
 				#power-domain-cells = <0>;
 			};
 
 			power-domain@SPT_PD_GPU {
 				reg = <0x2>;
 				pm_qos = <12>;
-				reg_pwr_ctrl = <0xa8>;
-				bit_hw_mode = <4>;
+				reg_pwr_ctrl = <0xd0>;
 				bit_sleep2 = <3>;
 				bit_sleep1 = <2>;
 				bit_isolation = <1>;
-				bit_auto_pwr_on = <0>;
-				bit_hw_pwr_stat = <8>;
 				bit_pwr_stat = <0>;
 				#power-domain-cells = <0>;
 			};
@@ -60,71 +55,44 @@
 			power-domain@SPT_PD_LCD	{
 				reg = <0x3>;
 				pm_qos = <12>;
-				reg_pwr_ctrl = <0xa8>;
+				reg_pwr_ctrl = <0x380>;
 				bit_hw_mode = <4>;
 				bit_sleep2 = <3>;
 				bit_sleep1 = <2>;
 				bit_isolation = <1>;
 				bit_auto_pwr_on = <0>;
-				bit_hw_pwr_stat = <12>;
 				bit_pwr_stat = <4>;
+				bit_hw_pwr_stat = <12>;
+				use_hw = <1>;
 				#power-domain-cells = <0>;
 			};
 
 			power-domain@SPT_PD_ISP	{
 				reg = <0x4>;
 				pm_qos = <12>;
-				reg_pwr_ctrl = <0xa8>;
+				reg_pwr_ctrl = <0x37c>;
 				bit_hw_mode = <4>;
 				bit_sleep2 = <3>;
 				bit_sleep1 = <2>;
 				bit_isolation = <1>;
 				bit_auto_pwr_on = <0>;
-				bit_hw_pwr_stat = <10>;
 				bit_pwr_stat = <2>;
+				bit_hw_pwr_stat = <10>;
 				#power-domain-cells = <0>;
 			};
 
 			power-domain@SPT_PD_AUDIO {
 				reg = <0x5>;
 				pm_qos = <15>;
-				reg_pwr_ctrl = <0xa8>;
+				reg_pwr_ctrl = <0x378>;
 				bit_hw_mode = <4>;
 				bit_sleep2 = <3>;
 				bit_sleep1 = <2>;
 				bit_isolation = <1>;
 				bit_auto_pwr_on = <0>;
-				bit_hw_pwr_stat = <11>;
 				bit_pwr_stat = <3>;
+				bit_hw_pwr_stat = <11>;
 				#power-domain-cells = <0>;
-			};
-
-			power-domain@SPT_PD_GNSS {
-				reg = <0x6>;
-				pm_qos = <15>;
-				reg_pwr_ctrl = <0xa8>;
-				bit_hw_mode = <4>;
-				bit_sleep2 = <3>;
-				bit_sleep1 = <2>;
-				bit_isolation = <1>;
-				bit_auto_pwr_on = <0>;
-				bit_hw_pwr_stat = <14>;
-				bit_pwr_stat = <6>;
-				#power-domain-cells = <0>;
-			};
-
-			power-domains@SPT_PD_DUMMY {
-				reg = <0x7>;
-				pm_qos = <15>;
-				#power-domain-cells = <1>;
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				power-domain@SPT_PD_DUMMY_CHILD {
-                                        reg = <0x8>;
-                                        pm_qos = <15>;
-                                        #power-domain-cells = <0>;
-                                };
 			};
 		};
 	};
