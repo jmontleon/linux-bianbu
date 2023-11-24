@@ -19,8 +19,10 @@
 #include <linux/pm_qos.h>
 #include <linux/mfd/syscon.h>
 #include <linux/spinlock_types.h>
+#include <linux/regulator/consumer.h>
 
 #define MAX_REGMAP		5
+#define MAX_REGULATOR_PER_DOMAIN	5
 
 #define MPMU_REGMAP_INDEX	0
 #define APMU_REGMAP_INDEX	1
@@ -43,8 +45,6 @@
 #define PM_QOS_VCTCXOSD_OFFSET	19
 #define PM_QOS_STBYEN_OFFSET	13
 #define PM_QOS_PE_VOTE_AP_SLPEN_OFFSET	3
-#define PM_QOS_BBSD_OFFSET	25
-#define PM_QOS_MSASLPEN_OFFSET	14
 
 struct spacemit_pm_domain_param {
 	int reg_pwr_ctrl;
@@ -56,6 +56,7 @@ struct spacemit_pm_domain_param {
 	int bit_auto_pwr_on;
 	int bit_hw_pwr_stat;
 	int bit_pwr_stat;
+	int use_hw;
 };
 
 struct spacemit_pm_domain {
@@ -65,6 +66,8 @@ struct spacemit_pm_domain {
 	struct notifier_block notifier;
 	struct freq_qos_request qos;
 	struct spacemit_pm_domain_param param;
+	struct regulator *rgr[MAX_REGULATOR_PER_DOMAIN];
+	int rgr_count;
 };
 
 struct spacemit_pmu {
@@ -94,27 +97,43 @@ static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 	if (spd->param.reg_pwr_ctrl == 0)
 		return 0;
 
-	/* this is the sw type */
-	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
-	val &= ~(1 << spd->param.bit_isolation);
-	regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+	if (!spd->param.use_hw) {
+		/* this is the sw type */
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val &= ~(1 << spd->param.bit_isolation);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
 
-	usleep_range(10, 15);
+		usleep_range(10, 15);
 
-	/* mcu power off */
-	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
-	val &= ~((1 << spd->param.bit_sleep1) | (1 << spd->param.bit_sleep2));
-	regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+		/* mcu power off */
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val &= ~((1 << spd->param.bit_sleep1) | (1 << spd->param.bit_sleep2));
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
 
-	usleep_range(10, 15);
+		usleep_range(10, 15);
 
-	for (loop = 10000; loop >= 0; --loop) {
-		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
-		if ((val & (1 << spd->param.bit_pwr_stat)) == 0)
-			break;
-		usleep_range(4, 6);
+		for (loop = 10000; loop >= 0; --loop) {
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
+			if ((val & (1 << spd->param.bit_pwr_stat)) == 0)
+				break;
+			usleep_range(4, 6);
+		}
+	} else {
+		/* LCD */
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val &= ~(1 << spd->param.bit_auto_pwr_on);
+		val &= ~(1 << spd->param.bit_hw_mode);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+
+		usleep_range(10, 30);
+
+		for (loop = 10000; loop >= 0; --loop) {
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
+			if ((val & (1 << spd->param.bit_hw_pwr_stat)) == 0)
+				break;
+			usleep_range(4, 6);
+		}
 	}
-
 	if (loop < 0) {
 		pr_err("power-off domain: %d, error\n", spd->pm_index);
 		return -EBUSY;
@@ -137,31 +156,48 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 	if (val & (1 << spd->param.bit_pwr_stat))
 		return 0;
 
-	/* mcu power on */
-	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
-	val |= (1 << spd->param.bit_sleep1);
-	regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+	if (!spd->param.use_hw) {
+		/* mcu power on */
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val |= (1 << spd->param.bit_sleep1);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
 
-	usleep_range(20, 25);
+		usleep_range(20, 25);
 
-	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
-	val |= (1 << spd->param.bit_sleep2) | (1 << spd->param.bit_sleep1);
-	regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val |= (1 << spd->param.bit_sleep2) | (1 << spd->param.bit_sleep1);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
 
-	usleep_range(20, 25);
+		usleep_range(20, 25);
 
-	/* disable isolation */
-	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
-	val |= (1 << spd->param.bit_isolation);
-	regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+		/* disable isolation */
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val |= (1 << spd->param.bit_isolation);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
 
-	usleep_range(10, 15);
+		usleep_range(10, 15);
 
-	for (loop = 10000; loop >= 0; --loop) {
-		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
-		if (val & (1 << spd->param.bit_pwr_stat))
-			break;
-		usleep_range(4, 6);
+		for (loop = 10000; loop >= 0; --loop) {
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
+			if (val & (1 << spd->param.bit_pwr_stat))
+				break;
+			usleep_range(4, 6);
+		}
+	} else {
+		/* LCD */
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+		val |= (1 << spd->param.bit_auto_pwr_on);
+		val |= (1 << spd->param.bit_hw_mode);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+	
+		usleep_range(290, 310);
+		
+		for (loop = 10000; loop >= 0; --loop) {
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
+			if (val & (1 << spd->param.bit_hw_pwr_stat))
+				break;
+			usleep_range(4, 6);
+		}
 	}
 
 	if (loop < 0) {
@@ -174,8 +210,9 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 
 static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 {
-	int err, i = 0;
+	int err, i = 0, count;
 	struct clk *clk;
+	const char *strings[MAX_REGULATOR_PER_DOMAIN];
 	struct spacemit_pm_domain *spd = container_of(genpd, struct spacemit_pm_domain, genpd);
 
 	err = pm_clk_create(dev);
@@ -194,6 +231,29 @@ static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device
 		 }
 	}
 
+	/* parse the regulator */
+	count = of_property_count_strings(dev->of_node, "vin-supply-names");
+	if (count < 0)
+		pr_info("no vin-suppuly-names found\n");
+	else {
+		err = of_property_read_string_array(dev->of_node, "vin-supply-names",
+			strings, count);
+		if (err < 0) {
+			pr_info("read string array vin-supplu-names error\n");
+			return err;
+		}
+
+		for (i = 0; i < count; ++i) {
+			spd->rgr[i] = devm_regulator_get(dev, strings[i]);
+			if (IS_ERR(spd->rgr[i])) {
+				pr_err("regulator supply %s, get failed\n", strings[i]);
+				return PTR_ERR(spd->rgr[i]);
+			}
+		}
+
+		spd->rgr_count = count;
+	}
+
 	/* add one notifier is ok */
 	if (!spd->gdev->power.qos) {
 		err = dev_pm_qos_add_notifier(spd->gdev, &spd->notifier, DEV_PM_QOS_MAX_FREQUENCY);
@@ -204,24 +264,27 @@ static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device
 	freq_qos_add_request(&spd->gdev->power.qos->freq, &spd->qos, FREQ_QOS_MAX,
 			PM_QOS_BLOCK_DEFAULT_VALUE);
 
-
 	return 0;
 }
 
 static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
 {
+	int i = 0;
 	struct spacemit_pm_domain *spd = container_of(genpd, struct spacemit_pm_domain, genpd);
 
 	pm_clk_destroy(dev);
 
 	dev_pm_qos_remove_notifier(spd->gdev, &spd->notifier, DEV_PM_QOS_MAX_FREQUENCY);
+
+	/* */
+	for (i = 0; i < spd->rgr_count; ++i)
+		devm_regulator_put(spd->rgr[i]);
 }
 
 static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long action, void *data)
 {
 	unsigned int apcr_per;
-	unsigned int apcr_clear = 0, apcr_set = (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET) |
-	       (1 << PM_QOS_BBSD_OFFSET) | (1 << PM_QOS_MSASLPEN_OFFSET);
+	unsigned int apcr_clear = 0, apcr_set = (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
 
 	spin_lock(&spacemit_apcr_qos_lock);
 
@@ -235,7 +298,6 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 			apcr_clear |= (1 << PM_QOS_APBSD_OFFSET);
 			apcr_clear |= (1 << PM_QOS_VCTCXOSD_OFFSET);
 			apcr_clear |= (1 << PM_QOS_STBYEN_OFFSET);
-			apcr_clear |= (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
 			break;
 		case PM_QOS_BLOCK_DDR:
 			apcr_set |= (1 << PM_QOS_AXISDD_OFFSET);
@@ -243,7 +305,6 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 			apcr_clear |= (1 << PM_QOS_APBSD_OFFSET);
 			apcr_clear |= (1 << PM_QOS_VCTCXOSD_OFFSET);
 			apcr_clear |= (1 << PM_QOS_STBYEN_OFFSET);
-			apcr_clear |= (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
 			break;
 		case PM_QOS_BLOCK_UDR:
 			apcr_clear |= (1 << PM_QOS_STBYEN_OFFSET);
@@ -251,7 +312,6 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 			apcr_set |= (1 << PM_QOS_DDRCORSD_OFFSET);
 			apcr_set |= (1 << PM_QOS_APBSD_OFFSET);
 			apcr_set |= (1 << PM_QOS_VCTCXOSD_OFFSET);
-			apcr_set |= (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
 			break;
 		case PM_QOS_BLOCK_DEFAULT_VALUE:
 			apcr_set |= (1 << PM_QOS_AXISDD_OFFSET);
@@ -259,7 +319,6 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 			apcr_set |= (1 << PM_QOS_APBSD_OFFSET);
 			apcr_set |= (1 << PM_QOS_VCTCXOSD_OFFSET);
 			apcr_set |= (1 << PM_QOS_STBYEN_OFFSET);
-			apcr_set |= (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
 			break;
 		default:
 			pr_warn("Invalidate pm qos value\n");
@@ -280,6 +339,7 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 
 static int spacemit_genpd_stop(struct device *dev)
 {
+	int i = 0, ret;
 	/* do the clk & pm_qos related things */
 	struct generic_pm_domain *pd = pd_to_genpd(dev->pm_domain);
 	struct spacemit_pm_domain *spd = container_of(pd, struct spacemit_pm_domain, genpd);
@@ -287,24 +347,43 @@ static int spacemit_genpd_stop(struct device *dev)
 	/* dealing with the pm_qos */
 	freq_qos_update_request(&spd->qos, PM_QOS_BLOCK_DEFAULT_VALUE);
 
-	/* enable the clk */
+	/* disable the clk */
 	pm_clk_suspend(dev);
+
+	/* close the power */
+	for (i = 0; i < spd->rgr_count; ++i) {
+		ret = regulator_disable(spd->rgr[i]);
+		if (ret < 0) {
+			pr_err("%s: regulator disable failed\n", __func__);
+			return ret;
+		}
+	}
 
 	return 0;
 }
 
 static int spacemit_genpd_start(struct device *dev)
 {
+	int i, ret;
 	/* do the clk & pm_qos related things */
 	struct generic_pm_domain *pd = pd_to_genpd(dev->pm_domain);
 	struct spacemit_pm_domain *spd = container_of(pd, struct spacemit_pm_domain, genpd);
+
+	/* enable the power */
+	for (i = 0; i < spd->rgr_count; ++i) {
+		ret = regulator_enable(spd->rgr[i]);
+		if (ret < 0) {
+			pr_err("%s: regulator disable failed\n", __func__);
+			return ret;
+		}
+	}
 
 	/* enable the clk */
 	pm_clk_resume(dev);
 
 	/* dealing with the pm_qos */
 	freq_qos_update_request(&spd->qos, spd->param.pm_qos);
-
+	
 	return 0;
 }
 
@@ -327,6 +406,7 @@ static int spacemit_get_pm_domain_parameters(struct device_node *node, struct sp
 	err |= of_property_read_u32(node, "bit_auto_pwr_on", &pd->param.bit_auto_pwr_on);
 	err |= of_property_read_u32(node, "bit_hw_pwr_stat", &pd->param.bit_hw_pwr_stat);
 	err |= of_property_read_u32(node, "bit_pwr_stat", &pd->param.bit_pwr_stat);
+	err |= of_property_read_u32(node, "use_hw", &pd->param.use_hw);
 
 	if (err)
 		pr_warn("get pm domain parameter failed\n");
@@ -560,4 +640,4 @@ static int __init spacemit_pm_domain_drv_register(void)
 {
 	return platform_driver_register(&spacemit_pm_domain_driver);
 }
-postcore_initcall(spacemit_pm_domain_drv_register);
+core_initcall(spacemit_pm_domain_drv_register);
