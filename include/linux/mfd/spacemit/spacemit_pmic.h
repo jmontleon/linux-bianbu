@@ -4,6 +4,15 @@
 #include <linux/regulator/machine.h>
 #include <linux/regmap.h>
 
+/**
+ * this is only used for pm853
+ */
+struct spacemit_sub_pmic {
+	struct i2c_client *power_page;
+	struct regmap *power_regmap;
+	unsigned short power_page_addr;
+};
+
 struct spacemit_pmic {
 	struct i2c_client		*i2c;
 	struct regmap_irq_chip_data	*irq_data;
@@ -11,6 +20,11 @@ struct spacemit_pmic {
 	unsigned char			variant;
 	const struct regmap_config	*regmap_cfg;
 	const struct regmap_irq_chip	*regmap_irq_chip;
+
+	/**
+	 * this is only used for pm853
+	 */
+	struct spacemit_sub_pmic *sub;
 };
 
 struct pin_func_desc {
@@ -69,29 +83,27 @@ struct pin_config_desc {
 
 /* pmic ID configuration */
 #define SPM8821_ID			0x1
+#define PM853_ID			0x2
 
 /* common regulator defination */
-#define SPM8XX_DESC_COM(_id, _match, _supply, _min, _max, _step, _vreg,	\
-	_vmask, _ereg, _emask, _enval, _disval, _etime, _ops)		\
+#define SPM8XX_DESC_COMMON(_id, _match, _supply, _nv, _vr, _vm, _er, _em, _lr, _ops)       \
 	{								\
 		.name		= (_match),				\
 		.supply_name	= (_supply),				\
 		.of_match	= of_match_ptr(_match),			\
 		.regulators_node = of_match_ptr("regulators"),		\
+		.ops		= _ops,			\
 		.type		= REGULATOR_VOLTAGE,			\
 		.id		= (_id),				\
-		.n_voltages	= (((_max) - (_min)) / (_step) + 1),	\
+		.n_voltages     = (_nv),				\
 		.owner		= THIS_MODULE,				\
-		.min_uV		= (_min) * 1000,			\
-		.uV_step	= (_step) * 1000,			\
-		.vsel_reg	= (_vreg),				\
-		.vsel_mask	= (_vmask),				\
-		.enable_reg	= (_ereg),				\
-		.enable_mask	= (_emask),				\
-		.enable_val     = (_enval),				\
-		.disable_val     = (_disval),				\
-		.enable_time	= (_etime),				\
-		.ops		= _ops,			\
+		.vsel_reg       = (_vr),				\
+		.vsel_mask      = (_vm),				\
+		.enable_reg	= (_er),				\
+		.enable_mask	= (_em),				\
+		.volt_table	= NULL,					\
+		.linear_ranges	= (_lr),				\
+		.n_linear_ranges	= ARRAY_SIZE(_lr),		\
 	}
 
 #define SPM8XX_DESC_SWITCH_COM(_id, _match, _supply, _ereg, _emask,	\
@@ -160,5 +172,6 @@ struct pin_config_desc {
 	}
 
 #include "spm8821.h"
+#include "pm853.h"
 
 #endif /* __SPACEMIT_PMIC_H__ */
