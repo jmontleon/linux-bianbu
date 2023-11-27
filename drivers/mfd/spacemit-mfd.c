@@ -12,8 +12,12 @@
 SPM8821_MFD_CELL;
 SPM8821_REGMAP_CONFIG;
 
+PM853_MFD_CELL;
+PM853_REGMAP_CONFIG;
+
 static const struct of_device_id spacemit_pmic_of_match[] = {
-	{ .compatible = "spacemit,spm8821" },
+	{ .compatible = "spacemit,spm8821" , .data = (void *)SPACEMIT_SPM8821_ID_REG },
+	{ .compatible = "spacemit,pm853" , .data = (void *)SPACEMIT_PM853_ID_REG },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, spacemit_pmic_of_match);
@@ -45,15 +49,38 @@ static int __spacemit_pmic_read_u8(struct i2c_client *c, u8 reg, u8 *val)
 	return 0;
 }
 
+static int spacemit_prepare_sub_pmic(struct spacemit_pmic *pmic)
+{
+	struct i2c_client *client = pmic->i2c;
+	struct spacemit_sub_pmic *sub = pmic->sub;
+
+	sub->power_page_addr = pmic->i2c->addr + 1;
+
+	sub->power_page = i2c_new_dummy_device(client->adapter,
+			sub->power_page_addr);
+	if (sub->power_page == NULL)
+		return -ENODEV;
+
+	sub->power_regmap = devm_regmap_init_i2c(sub->power_page,
+			pmic->regmap_cfg);
+	if (IS_ERR(sub->power_regmap))
+		return PTR_ERR(sub->power_regmap);
+
+	i2c_set_clientdata(sub->power_page, pmic);
+
+	return 0;
+}
+
 static int spacemit_pmic_probe(struct i2c_client *client,
 		       const struct i2c_device_id *id)
 {
 	int ret;
-	unsigned char pmic_id_reg, pmic_id;
+	int nr_cells;
+	unsigned char pmic_id;
+	unsigned long pmic_id_reg;
 	struct spacemit_pmic *pmic;
 	const struct mfd_cell *cells;
-	int nr_cells;
-	struct device_node *np = client->dev.of_node;
+	const struct of_device_id *of_id;
 
 	pmic = devm_kzalloc(&client->dev, sizeof(*pmic), GFP_KERNEL);
 	if (!pmic) {
@@ -61,15 +88,15 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	/* read the chip id */
-	if (of_device_is_compatible(np, "spacemit,spm8821"))
-		pmic_id_reg = SPACEMIT_SPM8821_ID_REG;
-	else {
-		pr_err("%s:%d, not supported\n", __func__, __LINE__);
-		return -EINVAL;
+	of_id = of_match_device(client->dev.driver->of_match_table, &client->dev);
+	if (!of_id) {
+		pr_err("Unable to match OF ID\n");
+		return -ENODEV;
 	}
 
-	ret = __spacemit_pmic_read_u8(client, pmic_id_reg, &pmic_id);
+	pmic_id_reg = (unsigned long)of_id->data;
+
+	ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg, &pmic_id);
 	if (ret) {
 		pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
 		return -EINVAL;
@@ -84,6 +111,14 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 		cells = spm8821;
 		nr_cells = ARRAY_SIZE(spm8821);
 		break;
+	case PM853_ID:
+		pmic->regmap_cfg = &pm853_regmap_config;
+		cells = pm853;
+		nr_cells = ARRAY_SIZE(pm853);
+		pmic->sub = devm_kzalloc(&client->dev, sizeof(struct spacemit_sub_pmic), GFP_KERNEL);
+		if (!pmic->sub)
+			return -ENOMEM;
+		break;
 	default:
 		pr_err("%s:%d, Unsupported SPACEMIT ID :%d\n",
 				__func__, __LINE__, pmic->variant);
@@ -91,6 +126,7 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	}
 
 	pmic->i2c = client;
+
 	i2c_set_clientdata(client, pmic);
 
 	pmic->regmap = devm_regmap_init_i2c(client, pmic->regmap_cfg);
@@ -98,6 +134,15 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 		pr_err("%s:%d, regmap initialization failed\n",
 				__func__, __LINE__);
 		return PTR_ERR(pmic->regmap);
+	}
+
+	/* prepare sub pmic */
+	if (pmic->sub) {
+		ret = spacemit_prepare_sub_pmic(pmic);
+		if (ret < 0) {
+			pr_err("failed to prepare sub pmic %d\n", ret);
+			return ret;
+		}
 	}
 
 	if (!client->irq) {
