@@ -237,6 +237,7 @@
 	clocks {
 		#address-cells = <0x2>;
 		#size-cells = <0x2>;
+		ranges;
 
 		vctcxo_24: clock-vctcxo_24 {
 			#clock-cells = <0>;
@@ -322,6 +323,7 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
+		ranges;
 
 		clint0: clint@e4000000 {
 			compatible = "riscv,clint0";
@@ -725,6 +727,7 @@
 			clock-names = "usbdrd30";
 			interrupt-parent = <&intc>;
 			interrupts = <149>;
+			ranges;
 			status = "disabled";
 
 			dwc3@c0a00000 {
