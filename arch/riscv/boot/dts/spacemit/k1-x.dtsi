@@ -917,8 +917,10 @@
 			k1x,qspi-sfa2ad = <0x100000>;
 			k1x,qspi-sfb1ad = <0x100000>;
 			k1x,qspi-sfb2ad = <0x100000>;
-			//clocks = <&clock CLK_QSPI &clock CLK_QSPI_BUS>;
+			clocks = <&ccu CLK_QSPI>,
+				<&ccu CLK_QSPI_BUS>;
 			clock-names = "qspi_clk", "qspi_bus_clk";
+			reset-names = "qspi_reset", "qspi_bus_reset";
 			k1x,qspi-pmuap-reg = <0xd4282860>;
 			k1x,qspi-mpmu-acgr-reg = <0xd4051024>;
 			k1x,qspi-freq = <26500000>;
