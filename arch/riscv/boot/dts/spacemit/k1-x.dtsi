@@ -401,6 +401,104 @@
 			};
 		};
 
+		pmu: power-management@0 {
+			compatible = "simple-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			mpmu: mpmu@1 {
+				compatible = "spacemit,spacemit-mpmu", "syscon", "simple-mfd";
+				reg = <0x0 0xd4050000 0x0 0x3004>;
+			};
+
+			apmu: apmu@2 {
+				compatible = "spacemit,spacemit-apmu", "syscon", "simple-mfd";
+				reg = <0x0 0xd4282800 0x0 0x374>;
+			};
+
+			power: power-controller {
+				compatible = "spacemit,power-controller";
+				#power-domain-cells = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				domains = <0x6>;
+
+				power-domain@SPT_PD_BUS {
+					reg = <0x0>;
+					pm_qos = <0x7>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_VPU {
+					reg = <0x1>;
+					pm_qos = <12>;
+					reg_pwr_ctrl = <0xa8>;
+					bit_sleep2 = <3>;
+					bit_sleep1 = <2>;
+					bit_isolation = <1>;
+					bit_pwr_stat = <1>;
+					bit_hw_pwr_stat = <9>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_GPU {
+					reg = <0x2>;
+					pm_qos = <12>;
+					reg_pwr_ctrl = <0xd0>;
+					bit_sleep2 = <3>;
+					bit_sleep1 = <2>;
+					bit_isolation = <1>;
+					bit_pwr_stat = <0>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_LCD	{
+					reg = <0x3>;
+					pm_qos = <12>;
+					reg_pwr_ctrl = <0x380>;
+					bit_hw_mode = <4>;
+					bit_sleep2 = <3>;
+					bit_sleep1 = <2>;
+					bit_isolation = <1>;
+					bit_auto_pwr_on = <0>;
+					bit_pwr_stat = <4>;
+					bit_hw_pwr_stat = <12>;
+					use_hw = <1>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_ISP	{
+					reg = <0x4>;
+					pm_qos = <12>;
+					reg_pwr_ctrl = <0x37c>;
+					bit_hw_mode = <4>;
+					bit_sleep2 = <3>;
+					bit_sleep1 = <2>;
+					bit_isolation = <1>;
+					bit_auto_pwr_on = <0>;
+					bit_pwr_stat = <2>;
+					bit_hw_pwr_stat = <10>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_AUDIO {
+					reg = <0x5>;
+					pm_qos = <15>;
+					reg_pwr_ctrl = <0x378>;
+					bit_hw_mode = <4>;
+					bit_sleep2 = <3>;
+					bit_sleep1 = <2>;
+					bit_isolation = <1>;
+					bit_auto_pwr_on = <0>;
+					bit_pwr_stat = <3>;
+					bit_hw_pwr_stat = <11>;
+					#power-domain-cells = <0>;
+				};
+			};
+		};
+
 		uart0: serial@d4017000 {
 			compatible = "spacemit,pxa-uart";
 			reg = <0x0 0xd4017000 0x0 0x100>;
