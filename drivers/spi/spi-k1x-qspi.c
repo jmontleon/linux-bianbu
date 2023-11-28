@@ -29,7 +29,7 @@
 #include <linux/sizes.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
-
+#include <linux/reset.h>
 
 //#define K1X_DUMP_QSPI_REG
 
@@ -313,6 +313,8 @@ struct k1x_qspi {
 	u32 dma_enable;
 
 	struct clk *clk, *bus_clk;
+	struct reset_control *resets;
+
 	struct completion cmd_completion;
 	struct mutex lock;
 	struct dev_pm_qos_request pm_qos_req;
@@ -387,43 +389,8 @@ static u32 qspi_readl(struct k1x_qspi *qspi, void __iomem *addr)
 		return ioread32(addr);
 }
 
-static void qspi_bus_clk_enable(struct k1x_qspi *qspi, int enable)
-{
-	u32 mask = 0x9;
-	u32 val = 0, enable_val = 0x1, disable_val = 0x0;
-
-	val = readl(qspi->pmuap_addr);
-	if (enable) {
-		val |= (mask & enable_val);
-		val &= ~(mask & disable_val);
-	} else {
-		val |= (mask & disable_val);
-		val &= ~(mask & enable_val);
-	}
-
-	writel(val, qspi->pmuap_addr);
-}
-
-static void qspi_clk_enable(struct k1x_qspi *qspi, int enable)
-{
-	u32 mask = 0x12;
-	u32 val = 0, enable_val = 0x2, disable_val = 0x0;
-
-	val = readl(qspi->pmuap_addr);
-	if (enable) {
-		val |= (mask & enable_val);
-		val &= ~(mask & disable_val);
-	} else {
-		val |= (mask & disable_val);
-		val &= ~(mask & enable_val);
-	}
-
-	writel(val, qspi->pmuap_addr);
-}
-
 static int qspi_set_func_clk(struct k1x_qspi *qspi)
 {
-#if 0
 	int ret = 0;
 
 	qspi->clk = devm_clk_get(qspi->dev, "qspi_clk");
@@ -454,16 +421,25 @@ static int qspi_set_func_clk(struct k1x_qspi *qspi)
 		dev_err(qspi->dev, "fail to enable clk, ret:%d\n", ret);
 		return ret;
 	}
-#endif
-
-	qspi_bus_clk_enable(qspi, 1);
-	qspi_clk_enable(qspi, 1);
 
 	dev_notice(qspi->dev, "bus clock %dHz, PMUap reg[0x%08x]:0x%08x\n",
 		qspi->max_hz, qspi->pmuap_reg, qspi_readl(qspi, qspi->pmuap_addr));
 
 	return 0;
 }
+
+static int qspi_controller_reset(struct k1x_qspi *qspi)
+{
+	qspi->resets = devm_reset_control_array_get_optional_exclusive(qspi->dev);
+	if (IS_ERR(qspi->resets)) {
+		dev_err(qspi->dev, "Failed to get qspi's resets\n");
+		return PTR_ERR(qspi->resets);
+	}
+
+	reset_control_deassert(qspi->resets);
+	return 0;
+}
+
 
 static void qspi_config_mfp(struct k1x_qspi *qspi)
 {
@@ -1363,6 +1339,9 @@ static int k1x_qspi_host_init(struct k1x_qspi *qspi)
 	/* set PMUap */
 	qspi_set_func_clk(qspi);
 
+	/* reset qspi controller */
+	qspi_controller_reset(qspi);
+
 	/* rest qspi */
 	qspi_reset(qspi);
 
@@ -1654,6 +1633,7 @@ static int k1x_qspi_remove(struct platform_device *pdev)
 	mutex_destroy(&qspi->lock);
 	iounmap(qspi->pmuap_addr);
 
+	reset_control_assert(qspi->resets);
 	clk_disable_unprepare(qspi->clk);
 	clk_disable_unprepare(qspi->bus_clk);
 
