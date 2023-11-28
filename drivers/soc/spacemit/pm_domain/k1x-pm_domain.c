@@ -20,6 +20,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/spinlock_types.h>
 #include <linux/regulator/consumer.h>
+#include "atomic_qos.h"
 
 #define MAX_REGMAP		5
 #define MAX_REGULATOR_PER_DOMAIN	5
@@ -64,7 +65,7 @@ struct spacemit_pm_domain {
 	int pm_index;
 	struct device *gdev;
 	struct notifier_block notifier;
-	struct freq_qos_request qos;
+	struct atomic_freq_qos_request qos;
 	struct spacemit_pm_domain_param param;
 	struct regulator *rgr[MAX_REGULATOR_PER_DOMAIN];
 	int rgr_count;
@@ -82,6 +83,8 @@ static DEFINE_SPINLOCK(spacemit_apcr_qos_lock);
 
 static struct spacemit_pmu *gpmu;
 
+static struct atomic_freq_constraints afreq_constraints;
+
 static const struct of_device_id spacemit_regmap_dt_match[] = {
 	{ .compatible = "spacemit,spacemit-mpmu", },
 	{ .compatible = "spacemit,spacemit-apmu", },
@@ -90,12 +93,22 @@ static const struct of_device_id spacemit_regmap_dt_match[] = {
 static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 {
 	unsigned int val;
-	int loop;
+	int loop, ret;
 
 	struct spacemit_pm_domain *spd = container_of(domain, struct spacemit_pm_domain, genpd);
 
-	if (spd->param.reg_pwr_ctrl == 0)
+	if (spd->param.reg_pwr_ctrl == 0) {
+		/* close the power */
+		for (loop = 0; loop < spd->rgr_count; ++loop) {
+			ret = regulator_disable(spd->rgr[loop]);
+			if (ret < 0) {
+				pr_err("%s: regulator disable failed\n", __func__);
+				return ret;
+			}
+		}
+
 		return 0;
+	}
 
 	if (!spd->param.use_hw) {
 		/* this is the sw type */
@@ -134,9 +147,19 @@ static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 			usleep_range(4, 6);
 		}
 	}
+
 	if (loop < 0) {
 		pr_err("power-off domain: %d, error\n", spd->pm_index);
 		return -EBUSY;
+	}
+
+	/* close the power */
+	for (loop = 0; loop < spd->rgr_count; ++loop) {
+		ret = regulator_disable(spd->rgr[loop]);
+		if (ret < 0) {
+			pr_err("%s: regulator disable failed\n", __func__);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -144,10 +167,19 @@ static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 
 static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 {
-	int loop;
+	int loop, ret;
 	unsigned int val;
 
 	struct spacemit_pm_domain *spd = container_of(domain, struct spacemit_pm_domain, genpd);
+
+	/* enable the power */
+	for (loop = 0; loop < spd->rgr_count; ++loop) {
+		ret = regulator_enable(spd->rgr[loop]);
+		if (ret < 0) {
+			pr_err("%s: regulator disable failed\n", __func__);
+			return ret;
+		}
+	}
 
 	if (spd->param.reg_pwr_ctrl == 0)
 		return 0;
@@ -212,57 +244,63 @@ static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device
 {
 	int err, i = 0, count;
 	struct clk *clk;
+	static int atomic_freq_constraints_init_flag;
 	const char *strings[MAX_REGULATOR_PER_DOMAIN];
 	struct spacemit_pm_domain *spd = container_of(genpd, struct spacemit_pm_domain, genpd);
 
-	err = pm_clk_create(dev);
-	if (err) {
-		 dev_err(dev, "pm_clk_create failed %d\n", err);
-		 return err;
-	}
+	if (!of_property_read_bool(dev->of_node, "clk,pm-runtime,no-sleep")) {
+		err = pm_clk_create(dev);
+		if (err) {
+			 dev_err(dev, "pm_clk_create failed %d\n", err);
+			 return err;
+		}
 
-	while ((clk = of_clk_get(dev->of_node, i++)) && !IS_ERR(clk)) {
-		 err = pm_clk_add_clk(dev, clk);
-		 if (err) {
-		 	dev_err(dev, "pm_clk_add_clk failed %d\n", err);
-			clk_put(clk);
-			pm_clk_destroy(dev);
-			return err;
-		 }
+		while ((clk = of_clk_get(dev->of_node, i++)) && !IS_ERR(clk)) {
+			err = pm_clk_add_clk(dev, clk);
+			if (err) {
+				 dev_err(dev, "pm_clk_add_clk failed %d\n", err);
+				 clk_put(clk);
+				 pm_clk_destroy(dev);
+				 return err;
+			}
+		}
 	}
 
 	/* parse the regulator */
-	count = of_property_count_strings(dev->of_node, "vin-supply-names");
-	if (count < 0)
-		pr_info("no vin-suppuly-names found\n");
-	else {
-		err = of_property_read_string_array(dev->of_node, "vin-supply-names",
-			strings, count);
-		if (err < 0) {
-			pr_info("read string array vin-supplu-names error\n");
-			return err;
-		}
-
-		for (i = 0; i < count; ++i) {
-			spd->rgr[i] = devm_regulator_get(dev, strings[i]);
-			if (IS_ERR(spd->rgr[i])) {
-				pr_err("regulator supply %s, get failed\n", strings[i]);
-				return PTR_ERR(spd->rgr[i]);
+	if (!of_property_read_bool(dev->of_node, "regulator,pm-runtime,no-sleep")) {
+		count = of_property_count_strings(dev->of_node, "vin-supply-names");
+		if (count < 0)
+			pr_info("no vin-suppuly-names found\n");
+		else {
+			err = of_property_read_string_array(dev->of_node, "vin-supply-names",
+				strings, count);
+			if (err < 0) {
+				pr_info("read string array vin-supplu-names error\n");
+				return err;
 			}
+
+			for (i = 0; i < count; ++i) {
+				spd->rgr[i] = devm_regulator_get(dev, strings[i]);
+				if (IS_ERR(spd->rgr[i])) {
+					pr_err("regulator supply %s, get failed\n", strings[i]);
+					return PTR_ERR(spd->rgr[i]);
+				}
+			}
+
+			spd->rgr_count = count;
 		}
-
-		spd->rgr_count = count;
 	}
-
 	/* add one notifier is ok */
-	if (!spd->gdev->power.qos) {
-		err = dev_pm_qos_add_notifier(spd->gdev, &spd->notifier, DEV_PM_QOS_MAX_FREQUENCY);
+	if (!atomic_freq_constraints_init_flag) {
+		atomic_freq_constraints_init(&afreq_constraints);
+		err = atomic_freq_qos_add_notifier(&afreq_constraints, FREQ_QOS_MAX, &spd->notifier);
 		if (err)
 			return err;
+
+		atomic_freq_constraints_init_flag = 1;
 	}
 
-	freq_qos_add_request(&spd->gdev->power.qos->freq, &spd->qos, FREQ_QOS_MAX,
-			PM_QOS_BLOCK_DEFAULT_VALUE);
+	atomic_freq_qos_add_request(&afreq_constraints, &spd->qos, FREQ_QOS_MAX, PM_QOS_BLOCK_DEFAULT_VALUE);
 
 	return 0;
 }
@@ -272,9 +310,10 @@ static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct devic
 	int i = 0;
 	struct spacemit_pm_domain *spd = container_of(genpd, struct spacemit_pm_domain, genpd);
 
-	pm_clk_destroy(dev);
+	if (!of_property_read_bool(dev->of_node, "clk,pm-runtime,no-sleep"))
+		pm_clk_destroy(dev);
 
-	dev_pm_qos_remove_notifier(spd->gdev, &spd->notifier, DEV_PM_QOS_MAX_FREQUENCY);
+	atomic_freq_qos_remove_notifier(&afreq_constraints, FREQ_QOS_MAX, &spd->notifier);
 
 	/* */
 	for (i = 0; i < spd->rgr_count; ++i)
@@ -339,50 +378,30 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 
 static int spacemit_genpd_stop(struct device *dev)
 {
-	int i = 0, ret;
 	/* do the clk & pm_qos related things */
 	struct generic_pm_domain *pd = pd_to_genpd(dev->pm_domain);
 	struct spacemit_pm_domain *spd = container_of(pd, struct spacemit_pm_domain, genpd);
 
 	/* dealing with the pm_qos */
-	freq_qos_update_request(&spd->qos, PM_QOS_BLOCK_DEFAULT_VALUE);
+	atomic_freq_qos_update_request(&spd->qos, PM_QOS_BLOCK_DEFAULT_VALUE);
 
 	/* disable the clk */
 	pm_clk_suspend(dev);
-
-	/* close the power */
-	for (i = 0; i < spd->rgr_count; ++i) {
-		ret = regulator_disable(spd->rgr[i]);
-		if (ret < 0) {
-			pr_err("%s: regulator disable failed\n", __func__);
-			return ret;
-		}
-	}
 
 	return 0;
 }
 
 static int spacemit_genpd_start(struct device *dev)
 {
-	int i, ret;
 	/* do the clk & pm_qos related things */
 	struct generic_pm_domain *pd = pd_to_genpd(dev->pm_domain);
 	struct spacemit_pm_domain *spd = container_of(pd, struct spacemit_pm_domain, genpd);
-
-	/* enable the power */
-	for (i = 0; i < spd->rgr_count; ++i) {
-		ret = regulator_enable(spd->rgr[i]);
-		if (ret < 0) {
-			pr_err("%s: regulator disable failed\n", __func__);
-			return ret;
-		}
-	}
 
 	/* enable the clk */
 	pm_clk_resume(dev);
 
 	/* dealing with the pm_qos */
-	freq_qos_update_request(&spd->qos, spd->param.pm_qos);
+	atomic_freq_qos_update_request(&spd->qos, spd->param.pm_qos);
 	
 	return 0;
 }
