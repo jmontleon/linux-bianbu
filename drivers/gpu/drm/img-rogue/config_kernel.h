@@ -2,13 +2,12 @@
 #define RGX_FW_FILENAME "rgx.fw"
 #define RGX_SH_FILENAME "rgx.sh"
 #define PVR_BUILD_DIR "spacemit"
-#define PVR_BUILD_TYPE "debug"
+#define PVR_BUILD_TYPE "release"
 #define PVRSRV_MODNAME "pvrsrvkm"
 #define PVRSYNC_MODNAME "pvr_sync"
 #define SUPPORT_RGX 1
 #define PVRSRV_MAX_DEVICES 4
 #define PVRSRV_HWPERF_COUNTERS_PERBLK 12
-#define DEBUG
 #define RGX_BVNC_CORE_KM_HEADER "cores/rgxcore_km_36.29.52.182.h"
 #define RGX_BNC_CONFIG_KM_HEADER "configs/rgxconfig_km_36.V.52.182.h"
 #define PVRSRV_NEED_PVR_DPF
@@ -196,3 +195,8 @@
 #define PVRSRV_RGX_LOG2_CLIENT_CCB_MAX_SIZE_TDM 17
 #define PVRSRV_RGX_LOG2_CLIENT_CCB_MAX_SIZE_RDM 15
 #define SUPPORT_BUFFER_SYNC 1
+#define PVRSRV_ENABLE_SYNC_POISONING 1
+#define SUPPORT_RGXKICKSYNC_BRIDGE
+#define SUPPORT_TQ
+#define TRACK_FW_BOOT
+#define LMA
