@@ -7,6 +7,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_framebuffer.h>
+#include <drm/drm_debugfs.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_of.h>
@@ -72,6 +73,115 @@ static void spacemit_drm_mode_config_init(struct drm_device *drm)
 	drm->mode_config.helper_private = &spacemit_drm_mode_config_helper;
 }
 
+#ifdef CONFIG_DEBUG_FS
+
+#define FRAMEBUFFER_DUMP_PATH "/tmp"
+static int spacemit_framebuffer_dump(struct drm_plane *plane) {
+	unsigned int buffer_size = 0;
+	int i, j;
+	void *mmu_tbl_vaddr = NULL;
+	phys_addr_t dpu_buffer_paddr = 0;
+	void __iomem *dpu_buffer_vaddr = NULL;
+	loff_t pos = 0;
+	struct file *filep = NULL;
+	struct drm_framebuffer *fb;
+	char file_name[128];
+	struct spacemit_plane_state *spacemit_pstate = to_spacemit_plane_state(plane->state);
+
+	fb = plane->state->fb;
+	if (!fb) {
+		return -EINVAL;
+	}
+
+	for (i = 0; i < fb->format->num_planes; i++) {
+		if (fb->obj[i]) {
+			char format[5];
+			format[0] = (fb->format->format & 0xFF);
+			format[1] = ((fb->format->format >> 8) & 0xFF);
+			format[2] = ((fb->format->format >> 16) & 0xFF);
+			format[3] = ((fb->format->format >> 24) & 0xFF);
+			format[4] = '\0';
+
+			if (fb->format->is_yuv) {
+				snprintf(file_name, 100, "%s/plane%d_fb%d_%s_planes%d_%dx%d.%s", FRAMEBUFFER_DUMP_PATH, plane->base.id, fb->base.id,
+				format, i, fb->width, fb->height, "yuv");
+			} else {
+				snprintf(file_name, 100, "%s/plane%d_fb%d_%s_planes%d_%dx%d.%s", FRAMEBUFFER_DUMP_PATH, plane->base.id, fb->base.id,
+				format, i, fb->width, fb->height, "rgb");
+			}
+
+			mmu_tbl_vaddr = spacemit_pstate->mmu_tbl.va;
+			buffer_size = plane->state->fb->obj[i]->size >> PAGE_SHIFT;
+			filep = filp_open(file_name, O_RDWR | O_APPEND | O_CREAT, 0644);
+
+			if (IS_ERR(filep)) {
+				DRM_ERROR("Open file %s failed!\n", file_name);
+				return -EINVAL;
+			}
+			for (j = 0; j < buffer_size; j++) {
+				dpu_buffer_paddr = *(volatile u32 __force *)mmu_tbl_vaddr;
+				dpu_buffer_paddr = dpu_buffer_paddr << PAGE_SHIFT;
+				dpu_buffer_vaddr = phys_to_virt((unsigned long)dpu_buffer_paddr);
+				mmu_tbl_vaddr += 4;
+				kernel_write(filep, (void *)dpu_buffer_vaddr, PAGE_SIZE, &pos);
+			}
+			filp_close(filep, NULL);
+			filep = NULL;
+			DRM_INFO("dump framebuffer: %s\n", file_name);
+		}
+
+	}
+
+	return 0;
+}
+
+static int spacemit_drm_dump_show(struct seq_file *s, void *data)
+{
+	struct drm_info_node *node = s->private;
+	struct drm_minor *minor = node->minor;
+	struct drm_device *drm_dev = minor->dev;
+	struct drm_printer p = drm_seq_file_printer(s);
+	struct spacemit_drm_private *priv = drm_dev->dev_private;
+	struct drm_plane *plane;
+	struct drm_framebuffer *fb;
+	char file_name[128];
+	int i;
+
+	DRM_INFO("%s()\n", __func__);
+
+	mutex_lock(&drm_dev->mode_config.fb_lock);
+	drm_for_each_fb(fb, drm_dev) {
+		DRM_INFO("%s() framebuffer[%u] \n", fb->base.id);
+		drm_for_each_plane(plane, drm_dev) {
+			if (plane->state->fb != fb)
+				continue;
+
+			spacemit_framebuffer_dump(plane);
+		}
+	}
+	mutex_unlock(&drm_dev->mode_config.fb_lock);
+
+	return 0;
+}
+
+static const struct drm_info_list spacemit_debugfs_files[] = {
+	{ "dump", spacemit_drm_dump_show, 0 },
+};
+
+static void spacemit_drm_debugfs_init(struct drm_minor *minor)
+{
+	struct drm_device *dev = minor->dev;
+	struct spacemit_drm_private *priv = dev->dev_private;
+	struct drm_crtc *crtc;
+
+	DRM_INFO("%s()\n", __func__);
+	drm_debugfs_create_files(spacemit_debugfs_files,
+						ARRAY_SIZE(spacemit_debugfs_files),
+						minor->debugfs_root,
+						minor);
+}
+#endif
+
 static const struct file_operations spacemit_drm_fops = {
 	.owner		= THIS_MODULE,
 	.open		= drm_open,
@@ -99,6 +209,9 @@ static struct drm_driver spacemit_drm_drv = {
 	.prime_handle_to_fd = drm_gem_prime_handle_to_fd,
 	.gem_prime_import_sg_table = spacemit_gem_prime_import_sg_table,
 	.gem_prime_mmap = drm_gem_prime_mmap,
+#ifdef CONFIG_DEBUG_FS
+	.debugfs_init		= spacemit_drm_debugfs_init,
+#endif
 
 	.name		= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
@@ -279,8 +392,6 @@ static int spacemit_drm_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct resource *r;
 
-	DRM_ERROR("## spacemit_drm_probe\n");
-
 	ret = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret)
 		DRM_ERROR("dma_set_mask_and_coherent failed (%d)\n", ret);
@@ -321,7 +432,6 @@ static int spacemit_drm_probe(struct platform_device *pdev)
 
 static int spacemit_drm_remove(struct platform_device *pdev)
 {
-	DRM_ERROR("## spacemit_drm_remove\n");
 	component_master_del(&pdev->dev, &drm_component_ops);
 	return 0;
 }
@@ -330,8 +440,6 @@ static void spacemit_drm_shutdown(struct platform_device *pdev)
 {
 	struct spacemit_drm_private *priv = dev_get_drvdata(&pdev->dev);
 	struct drm_device *drm = priv->ddev;
-
-	DRM_ERROR("## spacemit_drm_shutdown\n");
 
 	if (!drm) {
 		DRM_WARN("drm device is not available, no shutdown\n");
