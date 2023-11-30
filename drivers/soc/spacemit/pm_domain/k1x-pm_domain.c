@@ -47,6 +47,11 @@
 #define PM_QOS_STBYEN_OFFSET	13
 #define PM_QOS_PE_VOTE_AP_SLPEN_OFFSET	3
 
+#define DEV_PM_QOS_CLK_GATE		1
+#define DEV_PM_QOS_REGULATOR_GATE	2
+#define DEV_PM_QOS_PM_DOMAIN_GATE	4
+#define DEV_PM_QOS_DEFAULT		7
+
 struct spacemit_pm_domain_param {
 	int reg_pwr_ctrl;
 	int pm_qos;
@@ -60,15 +65,40 @@ struct spacemit_pm_domain_param {
 	int use_hw;
 };
 
+struct per_device_qos {
+	struct notifier_block notifier;
+	struct list_head qos_node;
+	struct dev_pm_qos_request req;
+	int level;
+	struct device *dev;
+	struct regulator *rgr[MAX_REGULATOR_PER_DOMAIN];
+	int rgr_count;
+	/**
+	 * manageing the cpuidle-qos, should be per-device
+	 */
+	struct atomic_freq_qos_request qos;
+
+	bool handle_clk;
+	bool handle_regulator;
+	bool handle_pm_domain;
+	bool handle_cpuidle_qos;
+};
+
 struct spacemit_pm_domain {
 	struct generic_pm_domain genpd;
 	int pm_index;
 	struct device *gdev;
-	struct notifier_block notifier;
-	struct atomic_freq_qos_request qos;
-	struct spacemit_pm_domain_param param;
-	struct regulator *rgr[MAX_REGULATOR_PER_DOMAIN];
 	int rgr_count;
+	struct regulator *rgr[MAX_REGULATOR_PER_DOMAIN];
+	/**
+	 * manageing the cpuidle-qos
+	 */
+	struct spacemit_pm_domain_param param;
+
+	/**
+	 * manageing the device-drivers power qos
+	 */
+	struct list_head qos_head;
 };
 
 struct spacemit_pmu {
@@ -77,6 +107,10 @@ struct spacemit_pmu {
 	struct genpd_onecell_data genpd_data;
 	struct regmap *regmap[MAX_REGMAP];
 	struct spacemit_pm_domain **domains;
+	/**
+	 * manageing the cpuidle-qos
+	 */
+	struct notifier_block notifier;
 };
 
 static DEFINE_SPINLOCK(spacemit_apcr_qos_lock);
@@ -94,20 +128,27 @@ static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 {
 	unsigned int val;
 	int loop, ret;
-
+	struct per_device_qos *pos;
 	struct spacemit_pm_domain *spd = container_of(domain, struct spacemit_pm_domain, genpd);
 
-	if (spd->param.reg_pwr_ctrl == 0) {
-		/* close the power */
-		for (loop = 0; loop < spd->rgr_count; ++loop) {
-			ret = regulator_disable(spd->rgr[loop]);
-			if (ret < 0) {
-				pr_err("%s: regulator disable failed\n", __func__);
-				return ret;
-			}
-		}
-
+	if (spd->param.reg_pwr_ctrl == 0)
 		return 0;
+
+	/**
+	 * if all the devices in this power domain don't want the pm-domain driver taker over
+	 * the power-domian' on/off, return directly.
+	 * */
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if (!pos->handle_pm_domain)
+			return 0;
+	}
+
+	/**
+	 * as long as there is one device don't want to on/off this power-domain, just return
+	 */
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if ((pos->level & DEV_PM_QOS_PM_DOMAIN_GATE) == 0)
+			return 0;
 	}
 
 	if (!spd->param.use_hw) {
@@ -153,7 +194,7 @@ static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 		return -EBUSY;
 	}
 
-	/* close the power */
+	/* enable the supply */
 	for (loop = 0; loop < spd->rgr_count; ++loop) {
 		ret = regulator_disable(spd->rgr[loop]);
 		if (ret < 0) {
@@ -169,10 +210,30 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 {
 	int loop, ret;
 	unsigned int val;
-
+	struct per_device_qos *pos;
 	struct spacemit_pm_domain *spd = container_of(domain, struct spacemit_pm_domain, genpd);
 
-	/* enable the power */
+	if (spd->param.reg_pwr_ctrl == 0)
+		return 0;
+
+	/**
+	 * if all the devices in this power domain don't want the pm-domain driver taker over
+	 * the power-domian' on/off, return directly.
+	 * */
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if (!pos->handle_pm_domain)
+			return 0;
+	}
+
+	/**
+	 * as long as there is one device don't want to on/off this power-domain, just return
+	 */
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if ((pos->level & DEV_PM_QOS_PM_DOMAIN_GATE) == 0)
+			return 0;
+	}
+
+	/* enable the supply */
 	for (loop = 0; loop < spd->rgr_count; ++loop) {
 		ret = regulator_enable(spd->rgr[loop]);
 		if (ret < 0) {
@@ -180,9 +241,6 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 			return ret;
 		}
 	}
-
-	if (spd->param.reg_pwr_ctrl == 0)
-		return 0;
 
 	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
 	if (val & (1 << spd->param.bit_pwr_stat))
@@ -240,13 +298,42 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 	return 0;
 }
 
+static int spacemit_handle_level_notfier_call(struct notifier_block *nb, unsigned long action, void *data)
+{
+	struct per_device_qos *per_qos = container_of(nb, struct per_device_qos, notifier);
+
+	per_qos->level = action;
+
+	return 0;
+}
+
 static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 {
 	int err, i = 0, count;
 	struct clk *clk;
-	static int atomic_freq_constraints_init_flag;
+	struct per_device_qos *per_qos, *pos;
 	const char *strings[MAX_REGULATOR_PER_DOMAIN];
 	struct spacemit_pm_domain *spd = container_of(genpd, struct spacemit_pm_domain, genpd);
+
+	/**
+	 * per-device qos set
+	 * this feature enable the device drivers to dynamically modify the power
+	 * module taken over by PM domain driver
+	 */
+	per_qos = (struct per_device_qos *)devm_kzalloc(dev, sizeof(struct per_device_qos), GFP_KERNEL);
+	if (!per_qos) {
+		pr_err(" allocate per device qos error\n");
+		return -ENOMEM;
+	}
+
+	per_qos->dev = dev;
+	INIT_LIST_HEAD(&per_qos->qos_node);
+	list_add(&per_qos->qos_node, &spd->qos_head);
+	per_qos->notifier.notifier_call = spacemit_handle_level_notfier_call;
+
+	dev_pm_qos_add_notifier(dev, &per_qos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
+
+	dev_pm_qos_add_request(dev, &per_qos->req, DEV_PM_QOS_MAX_FREQUENCY, DEV_PM_QOS_DEFAULT);
 
 	if (!of_property_read_bool(dev->of_node, "clk,pm-runtime,no-sleep")) {
 		err = pm_clk_create(dev);
@@ -264,6 +351,8 @@ static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device
 				 return err;
 			}
 		}
+
+		per_qos->handle_clk = true;
 	}
 
 	/* parse the regulator */
@@ -280,47 +369,60 @@ static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device
 			}
 
 			for (i = 0; i < count; ++i) {
-				spd->rgr[i] = devm_regulator_get(dev, strings[i]);
-				if (IS_ERR(spd->rgr[i])) {
+				per_qos->rgr[i] = devm_regulator_get(dev, strings[i]);
+				if (IS_ERR(per_qos->rgr[i])) {
 					pr_err("regulator supply %s, get failed\n", strings[i]);
-					return PTR_ERR(spd->rgr[i]);
+					return PTR_ERR(per_qos->rgr[i]);
 				}
 			}
 
-			spd->rgr_count = count;
+			per_qos->rgr_count = count;
+		}
+
+		per_qos->handle_regulator = true;
+	}
+
+	/* dealing with the cpuidle-qos */
+	if (of_property_read_bool(dev->of_node, "cpuidle,pm-runtime,sleep")) {
+		atomic_freq_qos_add_request(&afreq_constraints, &per_qos->qos, FREQ_QOS_MAX, PM_QOS_BLOCK_DEFAULT_VALUE);
+		per_qos->handle_cpuidle_qos = true;
+	}
+
+	if (!of_property_read_bool(dev->of_node, "pwr-domain,pm-runtime,no-sleep"))
+		per_qos->handle_pm_domain = true;
+
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if (per_qos->handle_pm_domain != pos->handle_pm_domain) {
+			pr_err("all the devices in this power domain must has the same 'pwr-domain,pm-runtime,no-sleep' perporty\n");
+			return -EINVAL;
 		}
 	}
-	/* add one notifier is ok */
-	if (!atomic_freq_constraints_init_flag) {
-		atomic_freq_constraints_init(&afreq_constraints);
-		err = atomic_freq_qos_add_notifier(&afreq_constraints, FREQ_QOS_MAX, &spd->notifier);
-		if (err)
-			return err;
-
-		atomic_freq_constraints_init_flag = 1;
-	}
-
-	atomic_freq_qos_add_request(&afreq_constraints, &spd->qos, FREQ_QOS_MAX, PM_QOS_BLOCK_DEFAULT_VALUE);
 
 	return 0;
 }
 
 static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct device *dev)
 {
-	int i = 0;
+	struct per_device_qos *pos;
 	struct spacemit_pm_domain *spd = container_of(genpd, struct spacemit_pm_domain, genpd);
 
-	if (!of_property_read_bool(dev->of_node, "clk,pm-runtime,no-sleep"))
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if (pos->dev == dev)
+			break;
+	}
+
+	if (pos->handle_clk)
 		pm_clk_destroy(dev);
 
-	atomic_freq_qos_remove_notifier(&afreq_constraints, FREQ_QOS_MAX, &spd->notifier);
-
-	/* */
-	for (i = 0; i < spd->rgr_count; ++i)
-		devm_regulator_put(spd->rgr[i]);
+	if (pos->handle_regulator) {
+		dev_pm_qos_remove_notifier(dev, &pos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
+		while (--pos->rgr_count >= 0)
+			devm_regulator_put(pos->rgr[pos->rgr_count]);
+		list_del(&pos->qos_node);
+	}
 }
 
-static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long action, void *data)
+static int spacemit_cpuidle_qos_notfier_call(struct notifier_block *nb, unsigned long action, void *data)
 {
 	unsigned int apcr_per;
 	unsigned int apcr_clear = 0, apcr_set = (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
@@ -378,31 +480,66 @@ static int spacemit_pm_notfier_call(struct notifier_block *nb, unsigned long act
 
 static int spacemit_genpd_stop(struct device *dev)
 {
-	/* do the clk & pm_qos related things */
+	int loop, ret;
+	struct per_device_qos *pos;
 	struct generic_pm_domain *pd = pd_to_genpd(dev->pm_domain);
 	struct spacemit_pm_domain *spd = container_of(pd, struct spacemit_pm_domain, genpd);
 
-	/* dealing with the pm_qos */
-	atomic_freq_qos_update_request(&spd->qos, PM_QOS_BLOCK_DEFAULT_VALUE);
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if (pos->dev == dev)
+			break;
+	}
 
 	/* disable the clk */
-	pm_clk_suspend(dev);
+	if ((pos->level & DEV_PM_QOS_CLK_GATE) && pos->handle_clk)
+		pm_clk_suspend(dev);
+
+	/* dealing with the pm_qos */
+	if (pos->handle_cpuidle_qos)
+		atomic_freq_qos_update_request(&pos->qos, PM_QOS_BLOCK_DEFAULT_VALUE);
+
+	if (pos->handle_regulator && (pos->level & DEV_PM_QOS_REGULATOR_GATE)) {
+		for (loop = 0; loop < pos->rgr_count; ++loop) {
+			ret = regulator_disable(pos->rgr[loop]);
+			if (ret < 0) {
+				pr_err("%s: regulator disable failed\n", __func__);
+				return ret;
+			}
+		}
+	}
 
 	return 0;
 }
 
 static int spacemit_genpd_start(struct device *dev)
 {
-	/* do the clk & pm_qos related things */
+	int loop, ret;
+	struct per_device_qos *pos;
 	struct generic_pm_domain *pd = pd_to_genpd(dev->pm_domain);
 	struct spacemit_pm_domain *spd = container_of(pd, struct spacemit_pm_domain, genpd);
 
-	/* enable the clk */
-	pm_clk_resume(dev);
+	list_for_each_entry(pos, &spd->qos_head, qos_node) {
+		if (pos->dev == dev)
+			break;
+	}
+
+	if (pos->handle_regulator && (pos->level & DEV_PM_QOS_REGULATOR_GATE)) {
+		for (loop = 0; loop < pos->rgr_count; ++loop) {
+			ret = regulator_enable(pos->rgr[loop]);
+			if (ret < 0) {
+				pr_err("%s: regulator disable failed\n", __func__);
+				return ret;
+			}
+		}
+	}
 
 	/* dealing with the pm_qos */
-	atomic_freq_qos_update_request(&spd->qos, spd->param.pm_qos);
-	
+	if (pos->handle_cpuidle_qos)
+		atomic_freq_qos_update_request(&pos->qos, spd->param.pm_qos);
+
+	if ((pos->level & DEV_PM_QOS_CLK_GATE) && pos->handle_clk)
+		pm_clk_resume(dev);
+
 	return 0;
 }
 
@@ -436,8 +573,9 @@ static int spacemit_get_pm_domain_parameters(struct device_node *node, struct sp
 static int spacemit_pm_add_one_domain(struct spacemit_pmu *pmu, struct device_node *node)
 {
 	int err;
-	int id;
+	int id, count, i;
 	struct spacemit_pm_domain *pd;
+	const char *strings[MAX_REGULATOR_PER_DOMAIN];
 
 	err = of_property_read_u32(node, "reg", &id);
 	if (err) {
@@ -464,7 +602,30 @@ static int spacemit_pm_add_one_domain(struct spacemit_pmu *pmu, struct device_no
 	if (err)
 		return -EINVAL;
 
-	pd->notifier.notifier_call = spacemit_pm_notfier_call,
+	/* get the power supply of the power-domain */
+	count = of_property_count_strings(node, "vin-supply-names");
+	if (count < 0)
+		pr_info("no vin-suppuly-names found\n");
+	else {
+		err = of_property_read_string_array(node, "vin-supply-names",
+			strings, count);
+		if (err < 0) {
+			pr_info("read string array vin-supplu-names error\n");
+			return err;
+		}
+
+		for (i = 0; i < count; ++i) {
+			pd->rgr[i] = regulator_get(NULL, strings[i]);
+			if (IS_ERR(pd->rgr[i])) {
+				pr_err("regulator supply %s, get failed\n", strings[i]);
+				return PTR_ERR(pd->rgr[i]);
+			}
+		}
+
+		pd->rgr_count = count;
+	}
+
+	INIT_LIST_HEAD(&pd->qos_head);
 
 	pd->genpd.name = kbasename(node->full_name);
 	pd->genpd.power_off = spacemit_pd_power_off;
@@ -632,6 +793,13 @@ static int spacemit_pm_domain_probe(struct platform_device *pdev)
 		pr_err("failed to add provider: %d\n", err);
 		goto err_out;
 	}
+
+	/**
+	 * dealing with the cpuidle qos
+	 */
+	pmu->notifier.notifier_call = spacemit_cpuidle_qos_notfier_call;
+	atomic_freq_constraints_init(&afreq_constraints);
+	atomic_freq_qos_add_notifier(&afreq_constraints, FREQ_QOS_MAX, &pmu->notifier);
 
 	gpmu = pmu;
 
