@@ -9,5 +9,6 @@
 #define K1X_PMU_LCD_PWR_DOMAIN	3
 #define K1X_PMU_ISP_PWR_DOMAIN	4
 #define K1X_PMU_AUD_PWR_DOMAIN	5
+#define K1X_PMU_DUMMY_PWR_DOMAIN	6
 
 #endif
