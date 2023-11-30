@@ -552,7 +552,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				domains = <0x6>;
+				domains = <0x7>;
 
 				power-domain@SPT_PD_BUS {
 					reg = <0x0>;
@@ -623,6 +623,12 @@
 					bit_auto_pwr_on = <0>;
 					bit_pwr_stat = <3>;
 					bit_hw_pwr_stat = <11>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_DUMMY {
+					reg = <0x6>;
+					pm_qos = <15>;
 					#power-domain-cells = <0>;
 				};
 			};
