@@ -15,6 +15,8 @@
 #include <linux/device.h>
 #include <linux/platform_data/mmp_dma.h>
 #include <linux/dmapool.h>
+#include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/of_device.h>
 #include <linux/of_dma.h>
 #include <linux/of.h>
@@ -158,6 +160,8 @@ struct mmp_pdma_device {
 	int				nr_reserved_channels;
 	struct reserved_chan		*reserved_channels;
 	s32				lpm_qos;
+	struct clk			*clk;
+	struct reset_control		*resets;
 	struct freq_qos_request		qos_idle;
 	int				max_burst_size;
 	void __iomem			*base;
@@ -1285,6 +1289,9 @@ static int mmp_pdma_remove(struct platform_device *op)
 
 	dma_async_device_unregister(&pdev->device);
 
+	reset_control_assert(pdev->resets);
+	clk_disable_unprepare(pdev->clk);
+
 	kfree(pdev->reserved_channels);
 	platform_set_drvdata(op, NULL);
 
@@ -1400,6 +1407,23 @@ static int mmp_pdma_probe(struct platform_device *op)
 	pdev->base = devm_ioremap_resource(pdev->dev, iores);
 	if (IS_ERR(pdev->base))
 		return PTR_ERR(pdev->base);
+
+	pdev->clk = devm_clk_get(pdev->dev,NULL);
+	if(IS_ERR(pdev->clk))
+		return PTR_ERR(pdev->clk);
+
+	ret = clk_prepare_enable(pdev->clk);
+	if (ret)
+		return dev_err_probe(pdev->dev, ret, "could not enable dma bus clock\n");
+
+	pdev->resets = devm_reset_control_get_optional(pdev->dev,NULL);
+	if(IS_ERR(pdev->resets)) {
+		ret = PTR_ERR(pdev->resets);
+		goto err_rst;
+	}
+	ret = reset_control_deassert(pdev->resets);
+	if(ret)
+		goto err_rst;
 
 	of_id = of_match_device(mmp_pdma_dt_ids, pdev->dev);
 
@@ -1552,6 +1576,10 @@ static int mmp_pdma_probe(struct platform_device *op)
 	platform_set_drvdata(op, pdev);
 	dev_info(pdev->device.dev, "initialized %d channels\n", dma_channels);
 	return 0;
+
+err_rst:
+	clk_disable_unprepare(pdev->clk);
+	return ret;
 }
 
 #ifdef CONFIG_PM
