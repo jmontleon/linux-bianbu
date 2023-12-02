@@ -579,6 +579,8 @@
 			reg = <0x0 0xd4000000 0x0 0x4000>;
 			interrupts = <72>;
 			interrupt-parent = <&intc>;
+			clocks = <&ccu CLK_DMA>;
+			resets = <&reset RESET_DMA>;
 			#dma-cells= <2>;
 			#dma-channels = <16>;
 			max-burst-size = <64>;
