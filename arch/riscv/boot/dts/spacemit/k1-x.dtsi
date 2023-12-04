@@ -1020,6 +1020,8 @@
 			clocks = <&ccu CLK_QSPI>,
 				<&ccu CLK_QSPI_BUS>;
 			clock-names = "qspi_clk", "qspi_bus_clk";
+			resets = <&reset RESET_QSPI>,
+				<&reset RESET_QSPI_BUS>;
 			reset-names = "qspi_reset", "qspi_bus_reset";
 			k1x,qspi-pmuap-reg = <0xd4282860>;
 			k1x,qspi-mpmu-acgr-reg = <0xd4051024>;
