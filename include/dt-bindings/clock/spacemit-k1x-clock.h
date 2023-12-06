@@ -52,7 +52,7 @@
 #define CLK_PLL1_351  46
 #define CLK_PLL1_409P6 47
 #define CLK_PLL1_204P8 48
-#define CLK_PLL1_491   59
+#define CLK_PLL1_491   49
 #define CLK_PLL1_245P76 50
 #define CLK_PLL1_614    51
 #define CLK_PLL1_47P26  52
@@ -134,7 +134,7 @@
 #define CLK_DPU_HCLK   128
 #define CLK_DPU_SPI    129
 #define CLK_DPU_SPI_HBUS  130
-#define CLK_DPU__SPIBUS   131
+#define CLK_DPU_SPIBUS   131
 #define CLK_SPU_SPI_ACLK  132
 #define CLK_V2D      133
 #define CLK_CCIC_4X  134
