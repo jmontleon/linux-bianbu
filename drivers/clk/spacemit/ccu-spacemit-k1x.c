@@ -551,7 +551,7 @@ static SPACEMIT_CCU_MUX_GATE(ssp3_clk, "ssp3_clk", ssp_parent_names,
 	BASE_TYPE_APBC, APBC_SSP3_CLK_RST,
 	4, 3, 0x3, 0x3, 0x0,
 	0);
-static SPACEMIT_CCU_GATE(rtc_clk, "rtc_clk", "clk_32",
+static SPACEMIT_CCU_GATE(rtc_clk, "rtc_clk", "clk_32k",
 	BASE_TYPE_APBC, APBC_RTC_CLK_RST,
 	0x83, 0x83, 0x0, 0);
 static const char *twsi_parent_names[] = {
@@ -590,7 +590,7 @@ static SPACEMIT_CCU_MUX_GATE(twsi8_clk, "twsi8_clk", twsi_parent_names,
 	4, 3, 0x3, 0x3, 0x0,
 	0);
 static const char *timer_parent_names[] = {
-	"pll1_d192_12p8", "clk_32", "pll1_d384_6p4", "vctcxo_3", "vctcxo_1"
+	"pll1_d192_12p8", "clk_32k", "pll1_d384_6p4", "vctcxo_3", "vctcxo_1"
 };
 static SPACEMIT_CCU_MUX_GATE(timers1_clk, "timers1_clk", timer_parent_names,
 	BASE_TYPE_APBC, APBC_TIMERS1_CLK_RST,
@@ -786,7 +786,7 @@ static SPACEMIT_CCU_GATE_NO_PARENT(dpu_spi_aclk, "dpu_spi_aclk", NULL,
 	BIT(6), BIT(6), 0x0,
 	0);
 static const char * const v2d_parent_names[] = {
-	"pll1_491p5", "pll1_409p6", "pll1_307p2", "pll1_614p4",
+	"pll1_d5_491p52", "pll1_d6_409p6", "pll1_d8_307p2", "pll1_d4_614p4",
 };
 static SPACEMIT_CCU_DIV_FC_MUX_GATE(v2d_clk, "v2d_clk", v2d_parent_names,
 	BASE_TYPE_APMU, APMU_LCD_CLK_RES_CTRL1,
@@ -1139,7 +1139,7 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_DPU_HCLK]		= &dpu_hclk.common.hw,
 		[CLK_DPU_SPI]		= &dpu_spi_clk.common.hw,
 		[CLK_DPU_SPI_HBUS]	= &dpu_spi_hbus_clk.common.hw,
-		[CLK_DPU__SPIBUS]	= &dpu_spi_bus_clk.common.hw,
+		[CLK_DPU_SPIBUS]	= &dpu_spi_bus_clk.common.hw,
 		[CLK_SPU_SPI_ACLK]	= &dpu_spi_aclk.common.hw,
 		[CLK_V2D]		= &v2d_clk.common.hw,
 		[CLK_CCIC_4X]		= &ccic_4x_clk.common.hw,
