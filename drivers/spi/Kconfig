@@ -329,6 +329,12 @@ config SPI_DESIGNWARE_EXT
 	help
 	  general driver for enhanced SPI controller core from  DesignWare
 
+config SPI_K1X
+	tristate "K1X SPI Controller"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  Enable support for the Spacemit K1X SPI controller.
+
 config SPI_K1X_QSPI
 	tristate "K1X QuadSPI Controller"
 	depends on SPI_MEM
