@@ -720,6 +720,60 @@
 			status = "ok";
 		};
 
+		spi0: spi@d4026000 {
+			compatible = "spacemit,k1x-spi";
+			reg = <0x0 0xd4026000 0x0 0x30>;
+			k1x,ssp-id = <0>;
+			k1x,ssp-clock-rate = <26000000>;
+			dmas = <&pdma0 19 1
+				&pdma0 18 1>;
+			dma-names = "rx", "tx";
+			/* k1x,ssp-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>; */
+			interrupt-parent = <&intc>;
+			interrupts = <56>;
+			clocks = <&ccu CLK_SSPA0>;
+			resets = <&reset RESET_SSPA0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spi1: spi@d4026800 {
+			compatible = "spacemit,k1x-spi";
+			reg = <0x0 0xd4026800 0x0 0x30>;
+			k1x,ssp-id = <1>;
+			k1x,ssp-clock-rate = <26000000>;
+			dmas = <&pdma0 21 1
+				&pdma0 20 1>;
+			dma-names = "rx", "tx";
+			/* k1x,ssp-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>; */
+			interrupt-parent = <&intc>;
+			interrupts = <57>;
+			clocks = <&ccu CLK_SSPA1>;
+			resets = <&reset RESET_SSPA1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
+		spi3: spi@d401c000 {
+			compatible = "spacemit,k1x-spi";
+			reg = <0x0 0xd401c000 0x0 0x30>;
+			k1x,ssp-id = <3>;
+			k1x,ssp-clock-rate = <26000000>;
+			dmas = <&pdma0 17 1
+				&pdma0 16 1>;
+			dma-names = "rx", "tx";
+			/* k1x,ssp-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>; */
+			interrupt-parent = <&intc>;
+			interrupts = <55>;
+			clocks = <&ccu CLK_SSP3>;
+			resets = <&reset RESET_SSP3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		i2c4: i2c@d4012800 {
 			/* for i2c3 used id 4 */
 			compatible = "spacemit,k1x-i2c";
