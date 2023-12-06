@@ -34,6 +34,7 @@
 #include <linux/tty_flip.h>
 #include <linux/serial_core.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -118,6 +119,7 @@ struct uart_pxa_port {
 	unsigned char		mcr;
 	unsigned int		lsr_break_flag;
 	struct clk		*clk;
+	struct reset_control    *resets;
 	char			name[PXA_NAME_LEN];
 
 	struct timer_list	pxa_timer;
@@ -2170,6 +2172,13 @@ static int serial_pxa_probe(struct platform_device *dev)
 #else
 	sport->port.uartclk = clk_get_rate(sport->clk);
 #endif
+	sport->resets = devm_reset_control_get_optional(&dev->dev, NULL);
+	if(IS_ERR(sport->resets)) {
+		ret = PTR_ERR(sport->resets);
+		goto err_clk;
+	}
+	reset_control_deassert(sport->resets);
+
 	sport->port.has_sysrq = IS_ENABLED(CONFIG_SERIAL_PXA_CONSOLE);
 
 	sport->edge_wakeup_gpio = -1;
@@ -2188,12 +2197,12 @@ static int serial_pxa_probe(struct platform_device *dev)
 	if (ret > 0) {
 		sport->port.line = dev->id;
 	} else if (ret < 0) {
-		goto err_clk;
+		goto err_rst;
 	}
 	if (sport->port.line >= ARRAY_SIZE(serial_pxa_ports)) {
 		dev_err(&dev->dev, "serial%d out of range\n", sport->port.line);
 		ret = -EINVAL;
-		goto err_clk;
+		goto err_rst;
 	}
 	snprintf(sport->name, PXA_NAME_LEN - 1, "UART%d", sport->port.line + 1);
 
@@ -2217,7 +2226,7 @@ static int serial_pxa_probe(struct platform_device *dev)
 	 */
 	ret = request_irq(sport->port.irq, serial_pxa_irq, 0, sport->name, sport);
 	if (ret) {
-		goto err_clk;
+		goto err_rst;
 	}
 	disable_irq(sport->port.irq);
 
@@ -2269,16 +2278,18 @@ err_edge:
 	uart_remove_one_port(&serial_pxa_reg, &sport->port);
 	iounmap(sport->port.membase);
 #endif
- err_qos:
+err_qos:
 #ifdef CONFIG_PM
 	freq_qos_remove_request(&sport->qos_idle[PXA_UART_RX]);
 	freq_qos_remove_request(&sport->qos_idle[PXA_UART_TX]);
 #endif
 	free_irq(sport->port.irq, sport);
- err_clk:
+err_rst:
+	reset_control_assert(sport->resets);
+err_clk:
 	clk_unprepare(sport->clk);
 	clk_put(sport->clk);
- err_free:
+err_free:
 	kfree(sport);
 	return ret;
 }
@@ -2294,6 +2305,7 @@ static int serial_pxa_remove(struct platform_device *dev)
 
 	uart_remove_one_port(&serial_pxa_reg, &sport->port);
 
+	reset_control_assert(sport->resets);
 	free_irq(sport->port.irq, sport);
 	clk_unprepare(sport->clk);
 	clk_put(sport->clk);
