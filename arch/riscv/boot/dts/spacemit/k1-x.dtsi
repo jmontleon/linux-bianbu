@@ -26,20 +26,20 @@
 		#size-cells = <0>;
 		timebase-frequency = <10000000>;
 		cpu_0: cpu@0 {
+			compatible = "riscv";
 			device_type = "cpu";
 			reg = <0>;
 			status = "okay";
-			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			cpu-freq = "1.848Ghz";
-			cpu-icache = "64KB";
-			cpu-dcache = "64KB";
-			cpu-l2cache = "1MB";
-			cpu-tlb = "1024 4-ways";
-			cpu-cacheline = "64Bytes";
-			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			clocks = <&pll_clk_cluster0>;
 			operating-points-v2 = <&clst0_core_opp_table>;
@@ -58,14 +58,14 @@
 			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			cpu-freq = "1.848Ghz";
-			cpu-icache = "64KB";
-			cpu-dcache = "64KB";
-			cpu-l2cache = "1MB";
-			cpu-tlb = "1024 4-ways";
-			cpu-cacheline = "64Bytes";
-			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			clocks = <&pll_clk_cluster0>;
 			operating-points-v2 = <&clst0_core_opp_table>;
@@ -84,14 +84,14 @@
 			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			cpu-freq = "1.848Ghz";
-			cpu-icache = "64KB";
-			cpu-dcache = "64KB";
-			cpu-l2cache = "1MB";
-			cpu-tlb = "1024 4-ways";
-			cpu-cacheline = "64Bytes";
-			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			clocks = <&pll_clk_cluster1>;
 			operating-points-v2 = <&clst1_core_opp_table>;
@@ -110,14 +110,14 @@
 			compatible = "riscv";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			cpu-freq = "1.848Ghz";
-			cpu-icache = "64KB";
-			cpu-dcache = "64KB";
-			cpu-l2cache = "1MB";
-			cpu-tlb = "1024 4-ways";
-			cpu-cacheline = "64Bytes";
-			cpu-vector = "0.7.1";
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			clocks = <&pll_clk_cluster1>;
 			operating-points-v2 = <&clst1_core_opp_table>;
@@ -127,6 +127,128 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+		};
+
+		cpu_4: cpu@4 {
+			device_type = "cpu";
+			reg = <4>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst1_l2_cache>;
+			mmu-type = "riscv,sv39";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster1>;
+			operating-points-v2 = <&clst1_core_opp_table>;
+
+			cpu4_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+
+		cpu_5: cpu@5 {
+			device_type = "cpu";
+			reg = <5>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst1_l2_cache>;
+			mmu-type = "riscv,sv39";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster1>;
+			operating-points-v2 = <&clst1_core_opp_table>;
+
+			cpu5_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+
+		cpu_6: cpu@6 {
+			device_type = "cpu";
+			reg = <6>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst1_l2_cache>;
+			mmu-type = "riscv,sv39";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster1>;
+			operating-points-v2 = <&clst1_core_opp_table>;
+
+			cpu6_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+
+		cpu_7: cpu@7 {
+			device_type = "cpu";
+			reg = <7>;
+			status = "okay";
+			compatible = "riscv";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,cbom-block-size = <64>;
+			i-cache-block-size = <64>;
+			i-cache-size = <32768>;
+			i-cache-sets = <512>;
+			d-cache-block-size = <64>;
+			d-cache-size = <32768>;
+			d-cache-sets = <512>;
+			next-level-cache = <&clst1_l2_cache>;
+			mmu-type = "riscv,sv39";
+			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			clocks = <&pll_clk_cluster1>;
+			operating-points-v2 = <&clst1_core_opp_table>;
+
+			cpu7_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				compatible = "riscv,cpu-intc";
+				interrupt-controller;
+			};
+		};
+
+		clst0_l2_cache: l2-cache0 {
+			compatible = "cache";
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-size = <524288>;
+			cache-sets = <1024>;
+			cache-unified;
+		};
+
+		clst1_l2_cache: l2-cache1 {
+			compatible = "cache";
+			cache-block-size = <64>;
+			cache-level = <2>;
+			cache-size = <524288>;
+			cache-sets = <1024>;
+			cache-unified;
 		};
 
 		idle-states {
@@ -332,6 +454,11 @@
 				&cpu1_intc  3 &cpu1_intc  7
 				&cpu2_intc  3 &cpu2_intc  7
 				&cpu3_intc  3 &cpu3_intc  7
+				&cpu4_intc  3 &cpu4_intc  7
+				&cpu5_intc  3 &cpu5_intc  7
+				&cpu6_intc  3 &cpu6_intc  7
+				&cpu7_intc  3 &cpu7_intc  7
+
 			>;
 			reg = <0x0 0xE4000000 0x0 0x00010000>;
 			clint,has-no-64bit-mmio;
@@ -378,6 +505,10 @@
 				&cpu1_intc 0xffffffff &cpu1_intc 9
 				&cpu2_intc 0xffffffff &cpu2_intc 9
 				&cpu3_intc 0xffffffff &cpu3_intc 9
+				&cpu4_intc 0xffffffff &cpu4_intc 9
+				&cpu5_intc 0xffffffff &cpu5_intc 9
+				&cpu6_intc 0xffffffff &cpu6_intc 9
+				&cpu7_intc 0xffffffff &cpu7_intc 9
 			>;
 			reg = <0x0 0xE0000000 0x0 0x04000000>;
 			reg-names = "control";
