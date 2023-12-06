@@ -16,9 +16,14 @@
 
 	aliases {
 		serial0 = &uart0;
-		serial1 = &uart1;
-		serial2 = &uart2;
-		serial3 = &uart3;
+		serial1 = &uart2;
+		serial2 = &uart3;
+		serial3 = &uart4;
+		serial4 = &uart5;
+		serial5 = &uart6;
+		serial6 = &uart7;
+		serial7 = &uart8;
+		serial8 = &uart9;
 	};
 
 	cpus: cpus {
@@ -392,13 +397,6 @@
 			clock-output-names = "clk_32k";
 		};
 
-		pll_clk_uart: clock-pll_clk_uart {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <14000000>;
-			clock-output-names = "pll_clk_uart";
-		};
-
 		pll_clk_i2c: clock-pll_clk_i2c {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -635,75 +633,99 @@
 			reg = <0x0 0xd4017000 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <42>;
-			/*
-			dmas = <&pdma0 AP_UART1_RX 1
-				&pdma0 AP_UART1_TX 1>;
-			dma-names = "rx", "tx";
-			clocks = <&soc_clocks CLK_UART1>;
-			*/
-			clocks = <&pll_clk_uart>;
-			clk-fpga = <14000000>;
-			/*
-			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
-			edge-wakeup-pin = <54>;
-			*/
+			clocks = <&ccu CLK_UART1>;
+			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART1>;
 			status = "ok";
 		};
 
-		uart1: uart@d4018000 {
-			compatible = "mrvl,pxa-uart";
-			reg = <0x0 0xd4018000 0x0 0x1000>;
-			interrupt-parent = <&intc>;
-			interrupts = <43>;
-			/*
-			dmas = <&pdma0 AP_UART2_RX 1
-				&pdma0 AP_UART2_TX 1>;
-			dma-names = "rx", "tx";
-			clocks = <&soc_clocks CLK_UART2>;
-			*/
-
-			clk-fpga = <14750000>;
-			/*
-			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
-			*/
-			status = "disabled";
-		};
-
-		uart2: uart@d4017800 {
-			compatible = "mrvl,pxa-uart";
-			reg = <0x0 0xd4017800 0x0 0x1000>;
+		uart2: uart@d4017100 {
+			compatible = "spacemit,pxa-uart";
+			reg = <0x0 0xd4017100 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <44>;
-			/*
-			dmas = <&pdma0 AP_UART3_RX 1
-				&pdma0 AP_UART3_TX 1>;
-			dma-names = "rx", "tx";
-			clocks = <&soc_clocks CLK_UART3>;
-			*/
+			clocks = <&ccu CLK_UART2>;
 			clk-fpga = <14750000>;
-			/*
-			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
-			*/
+			resets = <&reset RESET_UART2>;
 			status = "disabled";
 		};
 
-		uart3: uart@d4024000 {
-			compatible = "mrvl,pxa-uart";
+		uart3: uart@d4017200 {
+			compatible = "spcaemit,pxa-uart";
+			reg = <0x0 0xd4017200 0x0 0x100>;
 			interrupt-parent = <&intc>;
-			reg = <0x0 0xd4024000 0x0 0x1000>;
-			interrupts = <61>;
-			/*
-			dmas = <&pdma0 AP_UART4_RX 1
-				&pdma0 AP_UART4_TX 1>;
-			dma-names = "rx", "tx";
-			clocks = <&soc_clocks CLK_UART4>;
-			*/
+			interrupts = <45>;
+			clocks = <&ccu CLK_UART3>;
+ 			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART3>;
+ 			status = "disabled";
+ 		};
+
+		uart4: uart@d4017300 {
+			compatible = "spacemit,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4017300 0x0 0x100>;
+			interrupts = <46>;
+			clocks = <&ccu CLK_UART4>;
 			clk-fpga = <14750000>;
-			/*
-			lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
-			*/
+			resets = <&reset RESET_UART4>;
 			status = "disabled";
 		};
+
+		uart5: uart@d4017400 {
+			compatible = "spacemit,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4017400 0x0 0x100>;
+			interrupts = <47>;
+			clocks = <&ccu CLK_UART5>;
+			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART5>;
+			status = "disabled";
+		};
+
+		uart6: uart@d4017500 {
+			compatible = "spacemit,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4017500 0x0 0x100>;
+			interrupts = <48>;
+			clocks = <&ccu CLK_UART6>;
+			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART6>;
+			status = "disabled";
+		};
+
+		uart7: uart@d4017600 {
+			compatible = "spacemit,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4017600 0x0 0x100>;
+			interrupts = <49>;
+			clocks = <&ccu CLK_UART7>;
+			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART7>;
+			status = "disabled";
+		};
+
+		uart8: uart@d4017700 {
+			compatible = "spacemit,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4017700 0x0 0x100>;
+			interrupts = <50>;
+			clocks = <&ccu CLK_UART8>;
+			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART8>;
+			status = "disabled";
+		};
+
+		uart9: uart@d4017800 {
+			compatible = "spacemit,pxa-uart";
+			interrupt-parent = <&intc>;
+			reg = <0x0 0xd4017800 0x0 0x100>;
+			interrupts = <51>;
+			clocks = <&ccu CLK_UART9>;
+			clk-fpga = <14750000>;
+			resets = <&reset RESET_UART9>;
+ 			status = "disabled";
+ 		};
 
 		pdma0: pdma@d4000000 {
 			compatible = "spacemit,pdma-1.0";
