@@ -802,6 +802,35 @@
 			status = "disabled";
 		};
 
+		i2c0: i2c@d4010800 {
+			/* for i2c0 used id 0 */
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <0>;
+			reg = <0x0 0xd4010800 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <36>;
+			clocks = <&pll_clk_i2c>;
+			/*
+			dmas = <&pdma0 AP2_I2C4_RX 1
+				&pdma0 AP2_I2C4_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			spacemit,i2c-fast-mode;
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			spacemit,clk-always-on;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			status = "okay";
+		};
+
 		i2c4: i2c@d4012800 {
 			/* for i2c3 used id 4 */
 			compatible = "spacemit,k1x-i2c";
