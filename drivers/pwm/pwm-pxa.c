@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/io.h>
 #include <linux/pwm.h>
 #include <linux/of_device.h>
@@ -53,6 +54,7 @@ struct pxa_pwm_chip {
 	struct device	*dev;
 
 	struct clk	*clk;
+	struct reset_control	*reset;
 	void __iomem	*mmio_base;
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	int dcr_fd; /* Controller PWM_DCR FD feature */
@@ -216,6 +218,11 @@ static int pwm_probe(struct platform_device *pdev)
 	if (IS_ERR(pc->clk))
 		return PTR_ERR(pc->clk);
 
+	pc->reset = devm_reset_control_get_optional(&pdev->dev, NULL);
+	if(IS_ERR(pc->reset))
+		return PTR_ERR(pc->reset);
+	reset_control_deassert(pc->reset);
+
 	pc->chip.dev = &pdev->dev;
 	pc->chip.ops = &pxa_pwm_ops;
 	pc->chip.npwm = (id->driver_data & HAS_SECONDARY_PWM) ? 2 : 1;
@@ -226,16 +233,22 @@ static int pwm_probe(struct platform_device *pdev)
 	}
 
 	pc->mmio_base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(pc->mmio_base))
-		return PTR_ERR(pc->mmio_base);
+	if (IS_ERR(pc->mmio_base)) {
+		ret = PTR_ERR(pc->mmio_base);
+		goto err_rst;
+	}
 
 	ret = devm_pwmchip_add(&pdev->dev, &pc->chip);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "pwmchip_add() failed: %d\n", ret);
-		return ret;
+		goto err_rst;
 	}
 
 	return 0;
+
+err_rst:
+	reset_control_assert(pc->reset);
+	return ret;
 }
 
 static struct platform_driver pwm_driver = {
