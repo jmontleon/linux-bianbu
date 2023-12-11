@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/io.h>
 #include <linux/pwm.h>
 #include <linux/of.h>
@@ -53,6 +54,7 @@ struct pxa_pwm_chip {
 	struct device	*dev;
 
 	struct clk	*clk;
+	struct reset_control	*reset;
 	void __iomem	*mmio_base;
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	int dcr_fd; /* Controller PWM_DCR FD feature */
@@ -230,14 +232,22 @@ static int pwm_probe(struct platform_device *pdev)
 		chip->of_xlate = of_pwm_single_xlate;
 
 	pc->mmio_base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(pc->mmio_base))
-		return PTR_ERR(pc->mmio_base);
+	if (IS_ERR(pc->mmio_base)) {
+		ret = PTR_ERR(pc->mmio_base);
+		goto err_rst;
+	}
 
 	ret = devm_pwmchip_add(dev, chip);
-	if (ret < 0)
+	if (ret < 0) {
 		return dev_err_probe(dev, ret, "pwmchip_add() failed\n");
+		goto err_rst;
+	}
 
 	return 0;
+
+err_rst:
+	reset_control_assert(pc->reset);
+	return ret;
 }
 
 static struct platform_driver pwm_driver = {
