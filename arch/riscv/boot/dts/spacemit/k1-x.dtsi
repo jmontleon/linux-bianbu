@@ -1634,7 +1634,26 @@
 			interrupts = <86>;
 			status = "ok";
 		};
-
+		jpu@c02f8000 {
+			compatible = "chip-media, jpu";
+			reg = <0 0xc02f8000 0 0x700>;
+			interrupt-parent = <&intc>;
+			interrupts = <87>;
+			jpu,chip-id = <0>;
+			clocks = <&ccu CLK_JPG>,
+				<&ccu CLK_DPU_MCLK>,
+				<&ccu CLK_ISP_BUS>;
+			clock-names ="cclk", "aclk", "iclk";
+			resets = <&reset RESET_ISP>,
+					<&reset RESET_ISP_AHB>;
+			reset-names = "freset", "sreset";
+			jpu,cclk-max-frequency = /bits/ 64 <1000000000>;
+			jpu,cclk-min-frequency = <409000000>;
+			jpu,cclk-default-frequency = <614000000>;
+			//power-domains = <&spacemit_pds PD_COMMON_ISP>;
+			status = "okay";
+			page-size = <4>;
+		};
 		display-subsystem {
 			compatible = "spacemit,saturn-le";
 			reg = <0 0xC0340000 0 0x2A000>;
