@@ -14,3 +14,5 @@ config SPACEMIT_PM_DOMAINS
 	  management unit is designed or saving power.
 
 endif
+
+source "drivers/soc/spacemit/jpu/Kconfig"
