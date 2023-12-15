@@ -1444,11 +1444,11 @@ serial_pxa_set_termios(struct uart_port *port, struct ktermios *termios,
 		up->mcr &= ~UART_MCR_AFE;
 	}
 
-	#ifndef CONFIG_SOC_SPACEMIT_K1_FPGA
-	if (uart_console(port)) {
-		quot = 1;
-	}
-	#endif
+//	#ifndef CONFIG_SOC_SPACEMIT_K1_FPGA
+//	if (uart_console(port)) {
+//		quot = 1;
+//	}
+//	#endif
 
 	serial_out(up, UART_LCR, cval | UART_LCR_DLAB);	/* set DLAB */
 
@@ -2113,7 +2113,9 @@ static int serial_pxa_probe(struct platform_device *dev)
 	int irq;
 	struct resource *dmares;
 	struct uart_pxa_dma *pxa_dma;
+#ifdef CONFIG_SOC_SPACEMIT_K1_FPGA
 	struct device_node *np = dev->dev.of_node;
+#endif
 #ifdef CONFIG_PM
 #if SUPPORT_POWER_QOS
 	struct freq_constraints *idle_qos;
