@@ -144,6 +144,13 @@ config REALTEK_OTTO_TIMER
 	  RT8391, RTL8392, RTL8393 and RTL8396 and chips of the RTL930x series
 	  such as RTL9301, RTL9302 or RTL9303.
 
+config SPACEMIT_K1X_TIMER
+	bool "Spacemit k1x timer driver" if COMPILE_TEST
+	select CLKSRC_MMIO
+	select TIMER_OF
+	help
+	  Enables the support for the spacemit k1x timer driver.
+
 config SUN4I_TIMER
 	bool "Sun4i timer driver" if COMPILE_TEST
 	depends on HAS_IOMEM
