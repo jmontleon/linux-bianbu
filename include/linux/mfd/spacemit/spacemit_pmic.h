@@ -83,7 +83,7 @@ struct pin_config_desc {
 
 /* pmic ID configuration */
 #define SPM8821_ID			0x1
-#define PM853_ID			0x2
+#define PM853_ID			0x50
 
 /* common regulator defination */
 #define SPM8XX_DESC_COMMON(_id, _match, _supply, _nv, _vr, _vm, _er, _em, _lr, _ops)       \
