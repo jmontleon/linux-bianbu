@@ -470,79 +470,79 @@ static SPACEMIT_CCU_MUX_GATE(pwm0_clk, "pwm0_clk", pwm_parent_names,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm1_clk, "pwm1_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM1_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm2_clk, "pwm2_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM2_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm3_clk, "pwm3_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM3_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm4_clk, "pwm4_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM4_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm5_clk, "pwm5_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM5_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm6_clk, "pwm6_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM6_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm7_clk, "pwm7_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM7_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm8_clk, "pwm8_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM8_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm9_clk, "pwm9_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM9_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm10_clk, "pwm10_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM10_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm11_clk, "pwm11_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM11_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm12_clk, "pwm12_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM12_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm13_clk, "pwm13_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM13_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm14_clk, "pwm14_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM14_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm15_clk, "pwm15_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM15_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm16_clk, "pwm16_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM16_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm17_clk, "pwm17_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM17_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm18_clk, "pwm18_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM18_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm19_clk, "pwm19_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM19_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static const char *ssp_parent_names[] = { "pll1_d384_6p4", "pll1_d192_12p8", "pll1_d96_25p6",
 	"pll1_d48_51p2", "pll1_d768_3p2", "pll1_d1536_1p6", "pll1_d3072_0p8"
