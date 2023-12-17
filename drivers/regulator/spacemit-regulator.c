@@ -18,8 +18,8 @@
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
 static const struct regulator_ops pmic_dcdc_ldo_ops = {
-	.list_voltage		= regulator_list_voltage_linear,
-	.map_voltage		= regulator_map_voltage_linear,
+	.list_voltage		= regulator_list_voltage_linear_range,
+	.map_voltage		= regulator_map_voltage_linear_range,
 	.get_voltage_sel	= regulator_get_voltage_sel_regmap,
 	.set_voltage_sel	= regulator_set_voltage_sel_regmap,
 	.set_voltage_time_sel	= regulator_set_voltage_time_sel,
@@ -63,7 +63,7 @@ static int spacemit_regulator_probe(struct platform_device *pdev)
 		regulators = pm853_reg;
 		nregulators = ARRAY_SIZE(pm853_reg);
 
-		config.dev = &client->dev;
+		config.dev = &pmic->i2c->dev;
 		config.regmap = pmic->sub->power_regmap;
 		break;
 	default:
