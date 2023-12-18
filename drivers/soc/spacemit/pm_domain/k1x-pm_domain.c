@@ -279,9 +279,9 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 		val |= (1 << spd->param.bit_auto_pwr_on);
 		val |= (1 << spd->param.bit_hw_mode);
 		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
-	
+
 		usleep_range(290, 310);
-		
+
 		for (loop = 10000; loop >= 0; --loop) {
 			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
 			if (val & (1 << spd->param.bit_hw_pwr_stat))
@@ -291,7 +291,7 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 	}
 
 	if (loop < 0) {
-		pr_err("power-off domain: %d, error\n", spd->pm_index);
+		pr_err("power-on domain: %d, error\n", spd->pm_index);
 		return -EBUSY;
 	}
 
