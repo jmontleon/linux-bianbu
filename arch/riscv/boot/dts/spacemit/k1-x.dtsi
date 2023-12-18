@@ -1352,7 +1352,7 @@
 			reg = <0x0 0xc0940000 0x0 0x200>;
 			spacemit,phy-name = "mv-usb-phy";
 			spacemit,pll-lock-bypass;
-			clocks = <&ccu CLK_USB_P1>;
+			clocks = <&ccu CLK_USB_AXI>;
 			status = "disabled";
 		};
 
@@ -1363,8 +1363,8 @@
 			interrupt-parent = <&intc>;
 			spacemit,udc-name = "mv-udc";
 			spacemit,otg-force-a-bus-req;
-			resets = <&reset RESET_USBP1_AXI>;
-			clocks = <&ccu CLK_USB_P1>;
+			resets = <&reset RESET_USB_AXI>;
+			clocks = <&ccu CLK_USB_AXI>;
 			usb-phy = <&usbphy>;
 			status = "disabled";
 		};
