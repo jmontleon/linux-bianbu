@@ -7,6 +7,7 @@
 #define _I2C_SPACEMIT_K1X_H
 #include <linux/bitops.h>
 #include <linux/i2c.h>
+#include <linux/reset.h>
 #include <linux/i2c-dev.h>
 #include <linux/pm_qos.h>
 
@@ -198,6 +199,7 @@ struct spacemit_i2c_dev {
 	/* virtual base address mapped for register */
 	void __iomem		*mapbase;
 
+	struct reset_control    *resets;
 	struct clk		*clk;
 	int			irq;
 	int			clk_freq_in;
