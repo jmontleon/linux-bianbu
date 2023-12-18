@@ -1339,7 +1339,7 @@
 			clock-names = "emac-clk", "ptp-clk";
 			resets = <&reset RESET_EMAC1>;
 			reset-names = "emac-reset";
-			interrupts = <131>;
+			interrupts = <133>;
 			interrupt-parent = <&intc>;
 			ptp-support;
 			ptp-clk-rate = <10000000>;
