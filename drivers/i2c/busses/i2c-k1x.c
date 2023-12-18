@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
@@ -1869,6 +1870,13 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, spacemit_i2c);
 	mutex_init(&spacemit_i2c->mtx);
 
+	spacemit_i2c->resets = devm_reset_control_get_optional(&pdev->dev, NULL);
+        if(IS_ERR(spacemit_i2c->resets)) {
+                dev_err(&pdev->dev, "failed to get resets\n");
+                goto err_out;
+        }
+        reset_control_deassert(spacemit_i2c->resets);
+
 	ret = spacemit_i2c_parse_dt(pdev, spacemit_i2c);
 	if (ret)
 		goto err_out;
@@ -1915,8 +1923,6 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 		ret = PTR_ERR(spacemit_i2c->clk);
 		goto err_dma;
 	}
-	if (spacemit_i2c->high_mode && spacemit_i2c->clk_rate)
-		clk_set_rate(spacemit_i2c->clk, spacemit_i2c->clk_rate);
 	clk_prepare_enable(spacemit_i2c->clk);
 
 	i2c_set_adapdata(&spacemit_i2c->adapt, spacemit_i2c);
@@ -2003,6 +2009,8 @@ static int spacemit_i2c_remove(struct platform_device *pdev)
 	i2c_del_adapter(&spacemit_i2c->adapt);
 
 	mutex_destroy(&spacemit_i2c->mtx);
+
+	reset_control_assert(spacemit_i2c->resets);
 
 	spacemit_i2c_release_dma(spacemit_i2c);
 
