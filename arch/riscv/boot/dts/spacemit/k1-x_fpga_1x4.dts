@@ -10,40 +10,69 @@
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		timebase-frequency = <50000000>;
+		timebase-frequency = <10000000>;
+
+		cpu_0: cpu@0 {
+			cpu-ai = "true";
+		};
+
+		cpu_1: cpu@1 {
+			cpu-ai = "true";
+		};
 
 		cpu_2: cpu@2 {
-			reg = <2>;	
+			reg = <2>;
+			cpu-ai = "true";
 		};
 
 		cpu_3: cpu@3 {
-			reg = <3>;	
+			reg = <3>;
+			cpu-ai = "true";
 		};
 
-                cpu-map {
-                        cluster0 {
-                                core0 {
-                                        cpu = <&cpu_0>;
-                                };
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_0>;
+				};
 
-                                core1 {
-                                        cpu = <&cpu_1>;
-                                };
+				core1 {
+					cpu = <&cpu_1>;
+				};
 
-                                core2 {
-                                        cpu = <&cpu_2>;
-                                };
+				core2 {
+					cpu = <&cpu_2>;
+				};
 
-                                core3 {
-                                        cpu = <&cpu_3>;
-                                };
-                        };
-                };
+				core3 {
+					cpu = <&cpu_3>;
+				};
+			};
+		};
 	};
 
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x00000000 0x0 0x7fffffff>;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma@70000000 {
+			compatible = "shared-dma-pool";
+			/* alloc memory from 0x60000000~0x80000000 */
+			alloc-ranges = <0 0x60000000 0 0x20000000>;
+			/* size of cma buffer is 256MByte */
+			size = <0 0x10000000>;
+			/* start address is 1Mbyte aligned */
+			alignment = <0x0 0x100000>;
+			linux,cma-default;
+			/* besides hardware, dma for ex. buffer can be used by memory management */
+			reusable;
+		};
 	};
 
 	chosen {
@@ -53,3 +82,38 @@
 
 };
 
+&eth0 {
+	//emac,reset-gpio = <&gpio 40 0>;
+	emac,reset-active-low;
+	emac,reset-delays-us = <0 10000 100000>;
+
+	/* store forward mode */
+	tx-threshold = <1518>;
+	rx-threshold = <12>;
+	tx-ring-num = <128>;
+	rx-ring-num = <128>;
+	dma-burst-len = <5>;
+
+	ref-clock-from-phy;
+
+	clk-tuning-enable;
+	clk-tuning-by-reg;
+	tx-phase = <0>;
+	rx-phase = <1>;
+
+	phy-handle = <&rgmii0>;
+
+	status = "okay";
+
+	mdio-bus {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		rgmii0: phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			device_type = "ethernet-phy";
+			reg = <0x0>;
+			phy-mode = "rgmii";
+		};
+	};
+};
