@@ -138,7 +138,7 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 	 */
 	gsRGXTimingInfo.ui32CoreClockSpeed        = RGX_ST_CORE_CLOCK_SPEED;
 	gsRGXTimingInfo.bEnableActivePM           = IMG_FALSE;
-	gsRGXTimingInfo.bEnableRDPowIsland        = IMG_FALSE;
+	gsRGXTimingInfo.bEnableRDPowIsland        = IMG_TRUE;
 	gsRGXTimingInfo.ui32ActivePMLatencyms     = SYS_RGX_ACTIVE_POWER_LATENCY_MS;
 
 	/*
