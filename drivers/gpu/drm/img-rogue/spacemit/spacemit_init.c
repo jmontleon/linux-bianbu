@@ -22,6 +22,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_opp.h>
 #include "rgxdevice.h"
+#include "sysconfig.h"
 
 static struct st_context *g_platform = NULL;
 
@@ -179,8 +180,8 @@ static void RgxEnableClock(struct st_context *platform)
 	}
 
 	if (!platform->gpu_active) {
+		//clk_prepare_enable(platform->gpu_clk);
 		reset_control_deassert(platform->gpu_reset);
-		clk_prepare_enable(platform->gpu_clk);
 		platform->gpu_active = IMG_TRUE;
 		PVR_DPF((PVR_DBG_VERBOSE, "gpu clock on gpu_active:%d", platform->gpu_active));
 	} else {
@@ -198,7 +199,7 @@ static void RgxDisableClock(struct st_context *platform)
 
 	if (platform->gpu_active) {
 		reset_control_assert(platform->gpu_reset);
-		clk_disable_unprepare(platform->gpu_clk);
+		//clk_disable_unprepare(platform->gpu_clk);
 		platform->gpu_active = IMG_FALSE;
 		PVR_DPF((PVR_DBG_VERBOSE, "gpu clock off gpu_active:%d", platform->gpu_active));
 	} else {
@@ -338,12 +339,14 @@ struct st_context *RgxStInit(PVRSRV_DEVICE_CONFIG* psDevConfig)
 		goto fail;
 	}
 
-	clk_set_rate(platform->gpu_clk, 409600000);
+	clk_prepare_enable(platform->gpu_clk);
+	clk_set_rate(platform->gpu_clk, RGX_ST_CORE_CLOCK_SPEED);
 
 	if (psRGXData && psRGXData->psRGXTimingInfo)
 	{
 		psRGXData->psRGXTimingInfo->ui32CoreClockSpeed = clk_get_rate(platform->gpu_clk);
 	}
+
 
 	mutex_init(&platform->set_power_state);
 
