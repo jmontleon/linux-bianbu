@@ -1182,6 +1182,33 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.num = CLK_MAX_NO,
 };
 
+static struct clk_hw_table bootup_enable_clk_table[] = {
+	{"pll1_d8_307p2", 	CLK_PLL1_307P2},
+	{"pll1_d6_409p6", 	CLK_PLL1_409P6},
+	{"pll1_d5_491p52", 	CLK_PLL1_491},
+	{"pll1_d4_614p4", 	CLK_PLL1_614},
+	{"pll1_d3_819p2", 	CLK_PLL1_819},
+	{"pll1_d2_1228p8", 	CLK_PLL1_1228},
+	{"pll1_d10_245p76",	CLK_PLL1_245P76},
+	{"pll1_d48_51p2", 	CLK_PLL1_51P2},
+	{"pll1_d48_51p2_ap",	CLK_PLL1_51P2_AP},
+	{"pll1_d96_25p6", 	CLK_PLL1_25P6},
+};
+
+void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
+{
+	int i;
+	struct clk *clk;
+
+	for (i = 0; i < tbl_size; i++) {
+		clk = clk_hw_get_clk(spacemit_k1x_hw_clks.hws[tbl[i].clk_hw_id], tbl[i].name);
+		if (!IS_ERR_OR_NULL(clk))
+			clk_prepare_enable(clk);
+		else
+			pr_err("%s : can't find clk %s\n", __func__, tbl[i].name);
+	}
+}
+
 int ccu_common_init(struct clk_hw * hw, struct spacemit_k1x_clk *clk_info)
 {
 	struct ccu_common *common = hw_to_ccu_common(hw);
@@ -1253,6 +1280,9 @@ int spacemit_ccu_probe(struct device_node *node, struct spacemit_k1x_clk *clk_in
 				     hw_clks);
 	if (ret)
 		goto err_clk_unreg;
+
+	//enable some clocks
+	spacemit_clocks_enable(bootup_enable_clk_table, ARRAY_SIZE(bootup_enable_clk_table));
 
 	return 0;
 

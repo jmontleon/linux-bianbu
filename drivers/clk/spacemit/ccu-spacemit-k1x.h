@@ -57,6 +57,11 @@ struct spacemit_k1x_clk {
 	void __iomem *audio_ctrl_base;
 };
 
+struct clk_hw_table {
+	char	*name;
+	u32 clk_hw_id;
+};
+
 extern spinlock_t g_cru_lock;
 
 static inline struct ccu_common *hw_to_ccu_common(struct clk_hw *hw)
