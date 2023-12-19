@@ -10,37 +10,45 @@
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		timebase-frequency = <50000000>;
+		timebase-frequency = <10000000>;
+
+		cpu_0: cpu@0 {
+			cpu-ai = "true";
+		};
+
+		cpu_1: cpu@1 {
+			cpu-ai = "true";
+		};
 
 		cpu_2: cpu@2 {
-			reg = <4>;	
+			reg = <4>;
 		};
 
 		cpu_3: cpu@3 {
-			reg = <5>;	
+			reg = <5>;
 		};
 
-                cpu-map {
-                        cluster0 {
-                                core0 {
-                                        cpu = <&cpu_0>;
-                                };
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu_0>;
+				};
 
-                                core1 {
-                                        cpu = <&cpu_1>;
-                                };
-                        };
+				core1 {
+					cpu = <&cpu_1>;
+				};
+			};
 
 			cluster1 {
-                                core0 {
-                                        cpu = <&cpu_2>;
-                                };
+				core0 {
+					cpu = <&cpu_2>;
+				};
 
-                                core1 {
-                                        cpu = <&cpu_3>;
-                                };
+				core1 {
+					cpu = <&cpu_3>;
+				};
 			};
-                };
+		};
 	};
 
 	memory@0 {
@@ -48,10 +56,215 @@
 		reg = <0x0 0x00000000 0x0 0x7fffffff>;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma@70000000 {
+			compatible = "shared-dma-pool";
+			/* alloc memory from 0x60000000~0x80000000 */
+			alloc-ranges = <0 0x60000000 0 0x20000000>;
+			/* size of cma buffer is 256MByte */
+			size = <0 0x10000000>;
+			/* start address is 1Mbyte aligned */
+			alignment = <0x0 0x100000>;
+			linux,cma-default;
+			/* besides hardware, dma for ex. buffer can be used by memory management */
+			reusable;
+		};
+	};
+
 	chosen {
 		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8,initcall_debug=1 rdinit=/init.tmp";
 		stdout-path = "serial0:115200n8";
 	};
 
+	soc {
+		vcc5v0_sys: vcc5v0_sys {
+			compatible = "regulator-fixed";
+			regulator-name = "vcc5v0_sys";
+			regulator-always-on;
+			regulator-boot-on;
+			regulator-min-microvolt = <5000000>;
+			regulator-max-microvolt = <5000000>;
+		};
+	};
+};
+
+/* using i2c4 to communicate with pmic ? */
+&i2c4 {
+	spm8821@50 {
+		compatible = "spacemit,spm8821";
+		reg = <0x50>;
+		status = "disabled";
+
+		vcc_sys-supply = <&vcc5v0_sys>;
+		dcdc5-supply = <&dcdc_5>;
+		dcdc4-supply = <&dcdc_4>;
+
+		regulators {
+			/* buck */
+			dcdc1: DCDC_REG1 {
+				regulator-name = "dcdc1";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <3450000>;
+			};
+
+			dcdc2: DCDC_REG2 {
+				regulator-name = "dcdc2";
+				regulator-min-microvolt = <500000>;
+				regulator-max-microvolt = <3450000>;
+			};
+
+			dcdc3: DCDC_REG3 {
+				regulator-name = "dcdc3";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1350000>;
+			};
+
+			dcdc_4: DCDC_REG4 {
+				regulator-name = "dcdc4";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1350000>;
+			};
+
+			dcdc_5: DCDC_REG5 {
+				regulator-name = "dcdc5";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1350000>;
+			};
+
+			dcdc_6: DCDC_REG6 {
+				regulator-name = "dcdc6";
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <1350000>;
+			};
+
+			/* aldo */
+			aldo_1: ALDO_REG1 {
+				regulator-name = "aldo1";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			aldo_2: ALDO_REG2 {
+				regulator-name = "aldo2";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			aldo_3: ALDO_REG3 {
+				regulator-name = "aldo3";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			aldo_4: ALDO_REG4 {
+				regulator-name = "aldo4";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			/* dldo */
+			dldo_1: DLDO_REG1 {
+				regulator-name = "dldo1";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			dldo_2: DLDO_REG2 {
+				regulator-name = "dldo2";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			dldo_3: DLDO_REG3 {
+				regulator-name = "dldo3";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			dldo_4: DLDO_REG4 {
+				regulator-name = "dldo4";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			dldo_5: DLDO_REG5 {
+				regulator-name = "dldo5";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			dldo_6: DLDO_REG6 {
+				regulator-name = "dldo6";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			dldo_7: DLDO_REG7 {
+				regulator-name = "dldo7";
+				regulator-min-microvolt = <50000>;
+				regulator-max-microvolt = <3400000>;
+			};
+
+			sw_1: SWITCH_REG1 {
+				regulator-name = "switch1";
+			};
+		};
+
+		gpio_pmic: pinctrl {
+			compatible = "spacemit,pmic,spm8821-pinctrl";
+			gpio-controller;
+			#gpio-cells = <2>;
+
+			spacemit,npins = <6>;
+/**
+ *			led_pins: led-pins {
+ *				pins = "PIN3";
+ *				function = "sleep";
+ *				bias-disable = <0>;
+ *				drive-open-drain = <0x1>;
+ *			};
+ */
+		};
+	};
+};
+
+&eth0 {
+	//emac,reset-gpio = <&gpio 40 0>;
+	emac,reset-active-low;
+	emac,reset-delays-us = <0 10000 100000>;
+
+	/* store forward mode */
+	tx-threshold = <1518>;
+	rx-threshold = <12>;
+	tx-ring-num = <128>;
+	rx-ring-num = <128>;
+	dma-burst-len = <5>;
+
+	ref-clock-from-phy;
+
+	clk-tuning-enable;
+	clk-tuning-by-reg;
+	tx-phase = <0>;
+	rx-phase = <1>;
+
+	phy-handle = <&rgmii0>;
+
+	status = "okay";
+
+	mdio-bus {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		rgmii0: phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			device_type = "ethernet-phy";
+			reg = <0x0>;
+			phy-mode = "rgmii";
+		};
+	};
 };
 
