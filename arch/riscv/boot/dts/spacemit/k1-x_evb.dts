@@ -314,27 +314,46 @@
 	};
 };
 
+&pinctrl {
+	gpio80_pmx_func0: gpio80_pmx_func0 {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_80, MUX_MODE0, (EDGE_BOTH | PULL_UP | PAD_3V_DS4))  /* mmc cd */
+		>;
+	};
+};
+
 &sdhci0 {
+	pinctrl-names = "default","fast";
+	pinctrl-0 = <&pinctrl_mmc1 &gpio80_pmx_func0>;
+	pinctrl-1 = <&pinctrl_mmc1_fast &gpio80_pmx_func0>;
 	bus-width = <4>;
-	broken-cd;
-	cap-sd-highspeed;
+	cd-gpios = <&gpio 80 0>;
+	cd-inverted;
+	vmmc-supply = <&ldo_4>;
+	vqmmc-supply = <&ldo_9>;
 	no-mmc;
 	no-sdio;
 	spacemit,sdh-host-caps-disable = <(
 			MMC_CAP_UHS_SDR12 |
-			MMC_CAP_UHS_SDR25 |
-			MMC_CAP_UHS_SDR50 |
-			MMC_CAP_UHS_SDR104 |
-			MMC_CAP_UHS_DDR50
+			MMC_CAP_UHS_SDR25
 			)>;
 	spacemit,sdh-quirks = <(
+			SDHCI_QUIRK_BROKEN_CARD_DETECTION |
 			SDHCI_QUIRK_INVERTED_WRITE_PROTECT |
 			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
 			)>;
 	spacemit,sdh-quirks2 = <(
 			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_BROKEN_PHY_MODULE
+			SDHCI_QUIRK2_BROKEN_PHY_MODULE |
+			SDHCI_QUIRK2_SET_AIB_MMC
 			)>;
+	spacemit,aib_mmc1_io_reg = <0xD401E81C>;
+	spacemit,apbc_asfar_reg = <0xD4015050>;
+	spacemit,apbc_assar_reg = <0xD4015054>;
+	spacemit,rx_dline_reg = <0x0>;
+	spacemit,tx_dline_reg = <0x0>;
+	//spacemit,tx_delaycode = <0xA0>;
+	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <204800000>;
 	status = "okay";
 };
@@ -343,7 +362,8 @@
 &sdhci2 {
 	bus-width = <8>;
 	non-removable;
-	cap-mmc-highspeed;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
 	no-sd;
 	no-sdio;
 	spacemit,sdh-quirks = <(
@@ -351,12 +371,10 @@
 			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
 			)>;
 	spacemit,sdh-quirks2 = <(
-			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_BROKEN_HS200 |
-			SDHCI_QUIRK2_SUPPORT_PHY_BYPASS
+			SDHCI_QUIRK2_PRESET_VALUE_BROKEN
 			)>;
-	spacemit,sdh-freq = <375000000>;
-	status = "disabled";
+	spacemit,sdh-freq = <204800000>;
+	status = "okay";
 };
 
 &eth0 {
