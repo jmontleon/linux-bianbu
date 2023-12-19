@@ -192,10 +192,11 @@ static long ccu_mix_round_rate(struct clk_hw *hw, unsigned long rate,
 {
 	struct ccu_mix *mix = hw_to_ccu_mix(hw);
 	struct ccu_div_config *div = mix->div;
-    if (!div)
-		return 0;
+
+	if (!div)
+		return *prate;
 	return divider_round_rate(hw, rate, prate, div->table,
-				  div->width, 0);
+				  div->width, CLK_DIVIDER_ROUND_CLOSEST);
 }
 
 static int ccu_mix_set_rate(struct clk_hw *hw, unsigned long rate,
