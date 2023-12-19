@@ -271,7 +271,7 @@ struct ccu_mix {
 		},							\
 	}
 
-#define SPACEMIT_CCU_DIV_FC_MUX(_struct, _name, _parent3, _base_type, _reg_ctrl,		\
+#define SPACEMIT_CCU_DIV_FC_MUX(_struct, _name, _parents, _base_type, _reg_ctrl,		\
 					  _mshift, _mwidth, _fc, _muxshift, _muxwidth, _flags)					\
 	struct ccu_mix _struct = {					\
 		.div	= CCU_DIV_INIT(_mshift, _mwidth, NULL, 0),		\
@@ -281,7 +281,7 @@ struct ccu_mix {
 			.fc 			= _fc,         \
 			.base_type		= _base_type,		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
-							  _parent3,		\
+							  _parents,		\
 							  &ccu_mix_ops, \
 							  _flags),		\
 		},							\
