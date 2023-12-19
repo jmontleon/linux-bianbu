@@ -1776,6 +1776,7 @@
 			clocks = <&ccu CLK_GPU>;
 			clock-names = "gpu_clk";
 			resets = <&reset RESET_GPU>;
+			power-domains = <&power K1X_PMU_GPU_PWR_DOMAIN>;
 			status = "ok";
 		};
 	};
