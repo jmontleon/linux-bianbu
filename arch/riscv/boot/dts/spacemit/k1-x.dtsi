@@ -823,9 +823,10 @@
 			spacemit,i2c-clk-rate = <32000000>;
 			spacemit,i2c-lcr = <0x82c469f>;
 			spacemit,i2c-wcr = <0x142a>;
-			spacemit,clk-always-on;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
 			status = "disabled";
 		};
 
@@ -852,9 +853,10 @@
                         spacemit,i2c-clk-rate = <32000000>;
                         spacemit,i2c-lcr = <0x82c469f>;
                         spacemit,i2c-wcr = <0x142a>;
-                        spacemit,clk-always-on;
                         /* apb clock: 26MHz or 52MHz */
                         spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
                         status = "disabled";
                 };
 
@@ -881,9 +883,10 @@
                         spacemit,i2c-clk-rate = <32000000>;
                         spacemit,i2c-lcr = <0x82c469f>;
                         spacemit,i2c-wcr = <0x142a>;
-                        spacemit,clk-always-on;
                         /* apb clock: 26MHz or 52MHz */
                         spacemit,apb_clock = <52000000>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
                         status = "disabled";
                 };
 
@@ -908,9 +911,10 @@
                         spacemit,i2c-clk-rate = <32000000>;
                         spacemit,i2c-lcr = <0x82c469f>;
                         spacemit,i2c-wcr = <0x142a>;
-                        spacemit,clk-always-on;
                         /* apb clock: 26MHz or 52MHz */
                         spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
                         status = "disabled";
                 };
 
@@ -938,9 +942,10 @@
 			spacemit,i2c-clk-rate = <32000000>;
 			spacemit,i2c-lcr = <0x82c469f>;
 			spacemit,i2c-wcr = <0x142a>;
-			spacemit,clk-always-on;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
 			status = "okay";
 		};
 
@@ -967,9 +972,10 @@
                         spacemit,i2c-clk-rate = <32000000>;
                         spacemit,i2c-lcr = <0x82c469f>;
                         spacemit,i2c-wcr = <0x142a>;
-                        spacemit,clk-always-on;
                         /* apb clock: 26MHz or 52MHz */
                         spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
                         status = "disabled";
                 };
 
@@ -996,9 +1002,10 @@
 			spacemit,i2c-clk-rate = <32000000>;
 			spacemit,i2c-lcr = <0x82c469f>;
 			spacemit,i2c-wcr = <0x142a>;
-			spacemit,clk-always-on;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
 			status = "okay";
 		};
 
@@ -1025,9 +1032,10 @@
 			spacemit,i2c-clk-rate = <32000000>;
 			spacemit,i2c-lcr = <0x82c469f>;
 			spacemit,i2c-wcr = <0x142a>;
-			spacemit,clk-always-on;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
 			status = "okay";
 		};
 
@@ -1054,9 +1062,10 @@
                         spacemit,i2c-clk-rate = <32000000>;
                         spacemit,i2c-lcr = <0x82c469f>;
                         spacemit,i2c-wcr = <0x142a>;
-                        spacemit,clk-always-on;
                         /* apb clock: 26MHz or 52MHz */
                         spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
                         status = "okay";
                 };
 
