@@ -1615,36 +1615,6 @@ static const struct file_operations spacemit_i2c_dbgfs_ops = {
 };
 #endif /* CONFIG_DEBUG_FS */
 
-#ifdef CONFIG_PM_0
-static int spacemit_i2c_pm_runtime_suspend(struct device *dev)
-{
-	struct spacemit_i2c_dev *spacemit_i2c = dev_get_drvdata(dev);
-
-	if (spacemit_i2c->clk_always_on)
-		return 0;
-
-	dev_dbg(spacemit_i2c->dev, "runtime suspend\n");
-
-	clk_disable(spacemit_i2c->clk);
-
-	return 0;
-}
-
-static int spacemit_i2c_pm_runtime_resume(struct device *dev)
-{
-	struct spacemit_i2c_dev *spacemit_i2c = dev_get_drvdata(dev);
-
-	if (spacemit_i2c->clk_always_on)
-		return 0;
-
-	dev_dbg(spacemit_i2c->dev, "runtime resume\n");
-
-	clk_enable(spacemit_i2c->clk);
-
-	return 0;
-}
-#endif /* CONFIG_PM */
-
 #ifdef CONFIG_PM_SLEEP
 static int spacemit_i2c_suspend(struct device *dev)
 {
@@ -1686,11 +1656,6 @@ static int spacemit_i2c_resume(struct device *dev)
 static const struct dev_pm_ops spacemit_i2c_pm_ops = {
 	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(spacemit_i2c_suspend,
 			spacemit_i2c_resume)
-#ifdef CONFIG_PM_0
-	SET_RUNTIME_PM_OPS(spacemit_i2c_pm_runtime_suspend,
-			spacemit_i2c_pm_runtime_resume,
-			NULL)
-#endif
 };
 
 static u32 spacemit_i2c_func(struct i2c_adapter *adap)
@@ -1952,6 +1917,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 		pm_runtime_set_autosuspend_delay(spacemit_i2c->dev, MSEC_PER_SEC);
 		pm_runtime_use_autosuspend(spacemit_i2c->dev);
 		pm_runtime_set_active(spacemit_i2c->dev);
+		pm_suspend_ignore_children(&pdev->dev, 1);
 		pm_runtime_enable(spacemit_i2c->dev);
 	} else
 		dev_info(spacemit_i2c->dev, "clock keeps always on\n");
