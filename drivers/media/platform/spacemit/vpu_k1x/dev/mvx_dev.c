@@ -40,10 +40,13 @@
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm.h>
 #include <linux/printk.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
@@ -321,6 +324,13 @@ static int mvx_dev_probe(struct device *dev,
 	if (ret < 0)
 		goto free_ctx;
 
+	/*handle reset for k1x*/
+	ctx->rst = devm_reset_control_get_optional_exclusive(dev, NULL);
+	if (IS_ERR(ctx->rst))
+		goto exit_reset;
+
+	reset_control_deassert(ctx->rst);
+
 	/* Setup client ops callbacks. */
 	ctx->client_ops.get_hw_ver = get_hw_ver;
 	ctx->client_ops.get_formats = get_formats;
@@ -422,6 +432,9 @@ destroy_if:
 runtime_put:
 	pm_runtime_put_sync(ctx->dev);
 
+exit_reset:
+    reset_control_assert(ctx->rst);
+
 free_ctx:
 	devm_kfree(dev, ctx);
 
@@ -442,6 +455,8 @@ static int mvx_dev_remove(struct mvx_dev_ctx *ctx)
 
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
 		debugfs_remove_recursive(ctx->dentry);
+
+	reset_control_assert(ctx->rst);
 
 	devm_kfree(ctx->dev, ctx);
 
@@ -558,7 +573,7 @@ static int mvx_pm_poweron(struct device *dev)
 {
     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
 
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweron");
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweron");
     mvx_pm_enable_clk(dev);
     reset_hw(dev);
     mvx_sched_resume(&ctx->scheduler);
@@ -579,7 +594,7 @@ static int mvx_pm_poweroff(struct device *dev)
 
 static int mvx_pm_suspend(struct device *dev)
 {
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_suspend start. b_backto_active=%d", b_backto_active);
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_suspend start. b_backto_active=%d", b_backto_active);
 
     if (!pm_runtime_status_suspended(dev)) {
         mvx_pm_poweroff(dev);
@@ -588,14 +603,14 @@ static int mvx_pm_suspend(struct device *dev)
         b_backto_active = false;
     }
 
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_suspend exit. b_backto_active=%d", b_backto_active);
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_suspend exit. b_backto_active=%d", b_backto_active);
 
-    return 0;
+	return 0;
 }
 
 static int mvx_pm_resume(struct device *dev)
 {
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_resume start. b_backto_active=%d", b_backto_active);
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_resume start. b_backto_active=%d", b_backto_active);
 
     if (b_backto_active) {
         mvx_pm_poweron(dev);
@@ -606,16 +621,16 @@ static int mvx_pm_resume(struct device *dev)
 
 static int mvx_pm_runtime_suspend(struct device *dev)
 {
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_suspend");
-    mvx_pm_disable_clk(dev);
-    return 0;
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_suspend");
+	//mvx_pm_disable_clk(dev);
+	return 0;
 }
 
 static int mvx_pm_runtime_resume(struct device *dev)
 {
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_resume");
-    mvx_pm_enable_clk(dev);
-    reset_hw(dev);
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_resume");
+	//mvx_pm_enable_clk(dev);
+	//reset_hw(dev);
 
     return 0;
 }
