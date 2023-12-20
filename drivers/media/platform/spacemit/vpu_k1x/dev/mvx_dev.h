@@ -32,6 +32,7 @@
 #ifndef _MVX_DEV_H_
 #define _MVX_DEV_H_
 
+#include <linux/reset.h>
 #include "mvx_hwreg.h"
 #include "mvx_scheduler.h"
 
@@ -56,6 +57,7 @@ struct mvx_dev_ctx {
 	enum mvx_hw_id hw_id;
 	uint32_t hw_revision;
 	uint32_t hw_patch;
+	struct reset_control *rst;
 };
 
 /****************************************************************************
