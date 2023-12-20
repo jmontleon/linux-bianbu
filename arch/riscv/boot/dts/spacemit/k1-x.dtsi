@@ -8,6 +8,7 @@
 #include <dt-bindings/reset/spacemit-k1x-reset.h>
 #include <dt-bindings/clock/spacemit-k1x-clock.h>
 #include <dt-bindings/display/spacemit-dpu.h>
+#include <dt-bindings/pmu/k1x_pmu.h>
 
 / {
 	compatible = "spacemit,k1-x";
@@ -1618,7 +1619,14 @@
 			reg = <0x0 0xC0500000 0x0 0x10000>;
 			interrupt-parent = <&intc>;
 			interrupts = <74>;
-			status = "disabled";
+			clocks = <&ccu CLK_VPU>;
+			clock-names = "vpu_clk";
+			assigned-clocks = <&ccu CLK_VPU>;
+			assigned-clock-parents = <&ccu CLK_PLL1_819>;
+			assigned-clock-rates = <819200000>;
+			power-domains = <&power K1X_PMU_VPU_PWR_DOMAIN>;
+			resets = <&reset RESET_VPU>;
+			status = "okay";
 		};
 
 		v2d@c0100000 {
