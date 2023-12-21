@@ -325,6 +325,15 @@ config QORIQ_CPUFREQ
 	  This adds the CPUFreq driver support for Freescale QorIQ SoCs
 	  which are capable of changing the CPU's frequency dynamically.
 
+config SPACEMIT_K1X_CPUFREQ
+	tristate "CPU frequency scaling driver for Spacemit K1X"
+	depends on OF && COMMON_CLK
+	select CPUFREQ_DT
+	select CPUFREQ_DT_PLATDEV
+	help
+	  This adds the CPUFreq driver support for Freescale QorIQ SoCs
+	  which are capable of changing the CPU's frequency dynamically.
+
 config ACPI_CPPC_CPUFREQ
 	tristate "CPUFreq driver based on the ACPI CPPC spec"
 	depends on ACPI_PROCESSOR
