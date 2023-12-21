@@ -770,7 +770,9 @@
 			#dma-channels = <16>;
 			max-burst-size = <64>;
 			reserved-channels = <15 45>;
-			//lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "ok";
 		};
 
