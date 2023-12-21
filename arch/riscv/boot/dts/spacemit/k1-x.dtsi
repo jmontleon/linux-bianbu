@@ -46,8 +46,10 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C0_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster0>;
 			operating-points-v2 = <&clst0_core_opp_table>;
 
 			cpu0_intc: interrupt-controller {
@@ -72,8 +74,10 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C0_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster0>;
 			operating-points-v2 = <&clst0_core_opp_table>;
 
 			cpu1_intc: interrupt-controller {
@@ -98,9 +102,11 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C0_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster1>;
-			operating-points-v2 = <&clst1_core_opp_table>;
+			operating-points-v2 = <&clst0_core_opp_table>;
 
 			cpu2_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -124,9 +130,11 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C0_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C0_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster1>;
-			operating-points-v2 = <&clst1_core_opp_table>;
+			operating-points-v2 = <&clst0_core_opp_table>;
 
 			cpu3_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -150,8 +158,10 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C1_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster1>;
 			operating-points-v2 = <&clst1_core_opp_table>;
 
 			cpu4_intc: interrupt-controller {
@@ -176,8 +186,10 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C1_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster1>;
 			operating-points-v2 = <&clst1_core_opp_table>;
 
 			cpu5_intc: interrupt-controller {
@@ -202,8 +214,10 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C1_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster1>;
 			operating-points-v2 = <&clst1_core_opp_table>;
 
 			cpu6_intc: interrupt-controller {
@@ -228,8 +242,10 @@
 			d-cache-sets = <512>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
+			clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clocks = <&ccu CLK_CPU_C1_CORE>;
+			assigned-clock-parents = <&ccu CLK_CPU_C1_HI>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
-			clocks = <&pll_clk_cluster1>;
 			operating-points-v2 = <&clst1_core_opp_table>;
 
 			cpu7_intc: interrupt-controller {
@@ -294,71 +310,74 @@
 		clst0_core_opp_table: opp_table0 {
 			compatible = "operating-points-v2";
 			opp-shared;
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <200000>;
-			};
-
+/**
+ *			opp819000000 {
+ *				opp-hz = /bits/ 64 <819000000>;
+ *				opp-microvolt = <950000>;
+ *				clock-latency-ns = <200000>;
+ *			};
+ */
 			opp1000000000 {
 				opp-hz = /bits/ 64 <1000000000>;
-				opp-microvolt = <900000>;
+				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1066000000 {
 				opp-hz = /bits/ 64 <1066000000>;
-				opp-microvolt = <900000>;
+				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
-			opp1228000000 {
-				opp-hz = /bits/ 64 <1228000000>;
-				opp-microvolt = <900000>;
+			opp1228800000 {
+				opp-hz = /bits/ 64 <1228800000>;
+				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
-
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <200000>;
-			};
+/**
+ *			opp1600000000 {
+ *				opp-hz = /bits/ 64 <1600000000>;
+ *				opp-microvolt = <950000>;
+ *				clock-latency-ns = <200000>;
+ *			};
+ */
 		};
 
 		clst1_core_opp_table: opp_table1 {
 			compatible = "operating-points-v2";
 			opp-shared;
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <200000>;
-			};
+/**
+ *			opp819000000 {
+ *				opp-hz = /bits/ 64 <819000000>;
+ *				opp-microvolt = <950000>;
+ *				clock-latency-ns = <200000>;
+ *			};
+ */
 
 			opp1000000000 {
 				opp-hz = /bits/ 64 <1000000000>;
-				opp-microvolt = <900000>;
+				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1066000000 {
 				opp-hz = /bits/ 64 <1066000000>;
-				opp-microvolt = <900000>;
+				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
-			opp1228000000 {
-				opp-hz = /bits/ 64 <1228000000>;
-				opp-microvolt = <900000>;
+			opp1228800000 {
+				opp-hz = /bits/ 64 <1228800000>;
+				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				opp-microvolt = <900000>;
-				clock-latency-ns = <200000>;
-			};
+/**			opp1600000000 {
+ *				opp-hz = /bits/ 64 <1600000000>;
+ *				opp-microvolt = <950000>;
+ *				clock-latency-ns = <200000>;
+ *			};
+ */
 		};
 	};
 
