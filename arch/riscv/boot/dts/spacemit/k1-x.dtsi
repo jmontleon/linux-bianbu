@@ -770,6 +770,9 @@
 			#dma-channels = <16>;
 			max-burst-size = <64>;
 			reserved-channels = <15 45>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "ok";
 		};
 
