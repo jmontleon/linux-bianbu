@@ -162,7 +162,6 @@ struct mmp_pdma_device {
 	s32				lpm_qos;
 	struct clk			*clk;
 	struct reset_control		*resets;
-	struct freq_qos_request		qos_idle;
 	int				max_burst_size;
 	void __iomem			*base;
 	struct device			*dev;
@@ -1268,9 +1267,6 @@ static int mmp_pdma_remove(struct platform_device *op)
 	if (op->dev.of_node)
 		of_dma_controller_free(op->dev.of_node);
 
-#ifdef CONFIG_PM
-	freq_qos_remove_request(&pdev->qos_idle);
-#endif
 	for (i = 0; i < pdev->dma_channels; i++) {
 		if (platform_get_irq(op, i) > 0)
 			irq_num++;
@@ -1391,9 +1387,6 @@ static int mmp_pdma_probe(struct platform_device *op)
 	int nr_reserved_channels;
 	const int *list;
 	unsigned int max_burst_size = DEFAULT_MAX_BURST_SIZE;
-#ifdef CONFIG_PM
-	struct freq_constraints *idle_qos;
-#endif
 
 	pdev = devm_kzalloc(&op->dev, sizeof(*pdev), GFP_KERNEL);
 	if (!pdev)
@@ -1483,17 +1476,6 @@ static int mmp_pdma_probe(struct platform_device *op)
 	dev_info(pdev->dev, "set max burst size to %d\n", max_burst_size);
 
 #ifdef CONFIG_PM
-	if (!of_id || of_property_read_u32(pdev->dev->of_node,
-					   "lpm-qos", &pdev->lpm_qos)) {
-		dev_err(pdev->dev, "cannot find lpm-qos in device tree\n");
-		return -EINVAL;
-	}
-	pdev->qos_idle.name = op->name;
-
-	idle_qos = cpuidle_get_constraints();
-
-	freq_qos_add_request(idle_qos, &pdev->qos_idle, FREQ_QOS_MAX,
-			     PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
 	pm_runtime_enable(&op->dev);
 	/*
 	 * We can't ensure the pm operations are always in non-atomic context.
@@ -1582,8 +1564,6 @@ err_rst:
 	return ret;
 }
 
-#ifdef CONFIG_PM
-
 /*
  * Per-channel qos get/put function. This function ensures that pm_
  * runtime_get/put are not called multi times for one channel.
@@ -1625,44 +1605,6 @@ static void mmp_pdma_qos_put(struct mmp_pdma_chan *chan)
 	spin_unlock_irqrestore(&chan->desc_lock, flags);
 }
 
-static int mmp_pdma_runtime_suspend(struct device *dev)
-{
-	struct mmp_pdma_device *pdev = dev_get_drvdata(dev);
-
-	freq_qos_update_request(&pdev->qos_idle,
-				PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
-
-	return 0;
-}
-
-static int mmp_pdma_runtime_resume(struct device *dev)
-{
-	struct mmp_pdma_device *pdev = dev_get_drvdata(dev);
-
-	freq_qos_update_request(&pdev->qos_idle, pdev->lpm_qos);
-
-	return 0;
-}
-
-static const struct dev_pm_ops mmp_pdma_pmops = {
-	SET_RUNTIME_PM_OPS(mmp_pdma_runtime_suspend,
-			   mmp_pdma_runtime_resume, NULL)
-};
-#define MMP_PDMA_PMOPS (&mmp_pdma_pmops)
-#else
-static inline void mmp_pdma_qos_get(struct mmp_pdma_chan *chan)
-{
-}
-
-static inline void mmp_pdma_qos_put(struct mmp_pdma_chan *chan)
-{
-}
-
-#define mmp_pdma_runtime_suspend	NULL
-#define mmp_pdma_runtime_resume		NULL
-#define MMP_PDMA_PMOPS NULL
-#endif
-
 static const struct platform_device_id mmp_pdma_id_table[] = {
 	{ "mmp-pdma", },
 	{ },
@@ -1672,9 +1614,6 @@ static struct platform_driver mmp_pdma_driver = {
 	.driver		= {
 		.name	= "mmp-pdma",
 		.of_match_table = mmp_pdma_dt_ids,
-#ifdef CONFIG_PM
-		.pm = MMP_PDMA_PMOPS,
-#endif
 	},
 	.id_table	= mmp_pdma_id_table,
 	.probe		= mmp_pdma_probe,
