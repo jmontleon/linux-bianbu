@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/of.h>
+#include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -44,7 +45,6 @@
 #include <linux/pm_qos.h>
 #include <linux/pm_wakeup.h>
 #include <linux/timer.h>
-
 
 #define	DMA_BLOCK		UART_XMIT_SIZE
 #define	DMA_BURST_SIZE		(8)
@@ -66,7 +66,7 @@
 
 #define PXA_NAME_LEN		(8)
 
-#define SUPPORT_POWER_QOS	(0)
+#define SUPPORT_POWER_QOS	(1)
 
 #define TX_DMA_RUNNING		(1 << 0)
 #define RX_DMA_RUNNING		(1 << 1)
@@ -123,8 +123,6 @@ struct uart_pxa_port {
 	char			name[PXA_NAME_LEN];
 
 	struct timer_list	pxa_timer;
-	struct freq_qos_request	qos_idle[2];
-	s32			lpm_qos;
 	int			edge_wakeup_gpio;
 	struct work_struct	uart_tx_lpm_work;
 	int			dma_enable;
@@ -554,8 +552,7 @@ static inline irqreturn_t serial_pxa_irq(int irq, void *dev_id)
 #if SUPPORT_POWER_QOS
 	/* timer is not active */
 	if (!mod_timer(&up->pxa_timer, jiffies + PXA_TIMER_TIMEOUT))
-		freq_qos_update_request(&up->qos_idle[PXA_UART_RX],
-					up->lpm_qos);
+		pm_runtime_get_sync(up->port.dev);
 #endif
 #endif
 
@@ -720,7 +717,7 @@ static void pxa_uart_transmit_dma_start(struct uart_pxa_port *up, int count)
 	pxa_dma->tx_cookie = dmaengine_submit(pxa_dma->tx_desc);
 #ifdef CONFIG_PM
 #if SUPPORT_POWER_QOS
-	freq_qos_update_request(&up->qos_idle[PXA_UART_TX], up->lpm_qos);
+	pm_runtime_get_sync(up->port.dev);
 #endif
 #endif
 
@@ -791,7 +788,7 @@ static void pxa_uart_receive_dma_cb(void *data)
 #ifdef CONFIG_PM
 #if SUPPORT_POWER_QOS
 	if (!mod_timer(&up->pxa_timer, jiffies + PXA_TIMER_TIMEOUT))
-		freq_qos_update_request(&up->qos_idle[PXA_UART_RX], up->lpm_qos);
+		pm_runtime_get_sync(up->port.dev);
 #endif
 #endif
 
@@ -1554,8 +1551,7 @@ void serial_pxa_get_qos(int port)
 	up = serial_pxa_ports[port];
 	if (!mod_timer(&up->pxa_timer, jiffies + PXA_TIMER_TIMEOUT)) {
 		pr_info("bluesleep: %s: get qos\n", __func__);
-		freq_qos_update_request(&up->qos_idle[PXA_UART_RX],
-					up->lpm_qos);
+		pm_runtime_get_sync(up->port.dev);
 	}
 
 	return;
@@ -2018,8 +2014,7 @@ static const struct dev_pm_ops serial_pxa_pm_ops = {
 static void _pxa_timer_handler(struct uart_pxa_port *up)
 {
 #if SUPPORT_POWER_QOS
-	freq_qos_update_request(&up->qos_idle[PXA_UART_RX],
-				PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
+	pm_runtime_get_sync(up->port.dev);
 #endif
 	if (up->port.line == BT_UART_PORT) {
 		pr_info("bluesleep: %s: release qos\n", __func__);
@@ -2039,7 +2034,7 @@ static void __maybe_unused uart_edge_wakeup_handler(int gpio, void *data)
 
 	if (!mod_timer(&up->pxa_timer, jiffies + PXA_TIMER_TIMEOUT)) {
 #if SUPPORT_POWER_QOS
-		freq_qos_update_request(&up->qos_idle[PXA_UART_RX], up->lpm_qos);
+		pm_runtime_get_sync(up->port.dev);
 #endif
 	}
 
@@ -2057,8 +2052,7 @@ static void uart_tx_lpm_handler(struct work_struct *work)
 		usleep_range(1000, 2000);
 	}
 #if SUPPORT_POWER_QOS
-	freq_qos_update_request(&up->qos_idle[PXA_UART_TX],
-		PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
+	pm_runtime_get_sync(up->port.dev);
 #endif
 }
 #endif
@@ -2089,13 +2083,6 @@ static int serial_pxa_probe_dt(struct platform_device *pdev, struct uart_pxa_por
 	sport->port.line = ret;
 
 #ifdef CONFIG_PM
-#if SUPPORT_POWER_QOS
-	if (of_property_read_u32(np, "lpm-qos", &sport->lpm_qos)) {
-		dev_err(&pdev->dev, "cannot find lpm-qos in device tree\n");
-		return -EINVAL;
-	}
-#endif
-
 	if (of_property_read_u32(np, "edge-wakeup-pin", &sport->edge_wakeup_gpio)) {
 		dev_info(&pdev->dev, "no edge-wakeup-pin defined\n");
 	}
@@ -2115,11 +2102,6 @@ static int serial_pxa_probe(struct platform_device *dev)
 	struct uart_pxa_dma *pxa_dma;
 #ifdef CONFIG_SOC_SPACEMIT_K1_FPGA
 	struct device_node *np = dev->dev.of_node;
-#endif
-#ifdef CONFIG_PM
-#if SUPPORT_POWER_QOS
-	struct freq_constraints *idle_qos;
-#endif
 #endif
 	mmres = platform_get_resource(dev, IORESOURCE_MEM, 0);
 	if (!mmres) {
@@ -2234,12 +2216,9 @@ static int serial_pxa_probe(struct platform_device *dev)
 
 #ifdef CONFIG_PM
 #if SUPPORT_POWER_QOS
-	idle_qos = cpuidle_get_constraints();
-
-	freq_qos_add_request(idle_qos, &sport->qos_idle[PXA_UART_TX],
-			FREQ_QOS_MAX, PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
-	freq_qos_add_request(idle_qos, &sport->qos_idle[PXA_UART_RX],
-			FREQ_QOS_MAX, PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
+	pm_runtime_set_active(&dev->dev);
+	pm_runtime_enable(&dev->dev);
+	pm_runtime_irq_safe(&dev->dev);
 #endif
 #endif
 
@@ -2261,7 +2240,7 @@ static int serial_pxa_probe(struct platform_device *dev)
 	platform_set_drvdata(dev, sport);
 
 #ifdef CONFIG_PM
-	if (sport->edge_wakeup_gpio >= 0) {
+/*	if (sport->edge_wakeup_gpio >= 0) {
 		device_init_wakeup(&dev->dev, 1);
 		ret = request_mfp_edge_wakeup(sport->edge_wakeup_gpio,
 				uart_edge_wakeup_handler,
@@ -2270,20 +2249,19 @@ static int serial_pxa_probe(struct platform_device *dev)
 			dev_err(&dev->dev, "failed to request edge wakeup.\n");
 			goto err_edge;
 		}
-	}
+	}*/
 #endif
 
 	return 0;
 
 #ifdef CONFIG_PM
-err_edge:
+//err_edge:
 	uart_remove_one_port(&serial_pxa_reg, &sport->port);
 	iounmap(sport->port.membase);
 #endif
 err_qos:
 #ifdef CONFIG_PM
-	freq_qos_remove_request(&sport->qos_idle[PXA_UART_RX]);
-	freq_qos_remove_request(&sport->qos_idle[PXA_UART_TX]);
+	pm_runtime_disable(&dev->dev);
 #endif
 	free_irq(sport->port.irq, sport);
 err_rst:
@@ -2301,8 +2279,7 @@ static int serial_pxa_remove(struct platform_device *dev)
 	struct uart_pxa_port *sport = platform_get_drvdata(dev);
 
 #ifdef CONFIG_PM
-	freq_qos_remove_request(&sport->qos_idle[PXA_UART_RX]);
-	freq_qos_remove_request(&sport->qos_idle[PXA_UART_TX]);
+	pm_runtime_disable(&dev->dev);
 #endif
 
 	uart_remove_one_port(&serial_pxa_reg, &sport->port);
@@ -2313,10 +2290,10 @@ static int serial_pxa_remove(struct platform_device *dev)
 	clk_put(sport->clk);
 
 #ifdef CONFIG_PM
-	if (sport->edge_wakeup_gpio >= 0) {
+/*	if (sport->edge_wakeup_gpio >= 0) {
 		remove_mfp_edge_wakeup(sport->edge_wakeup_gpio);
 	}
-
+*/
 	kfree(sport->uart_dma.tx_buf_save);
 #endif
 	kfree(sport);
