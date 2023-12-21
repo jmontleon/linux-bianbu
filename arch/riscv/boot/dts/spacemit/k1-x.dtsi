@@ -1663,12 +1663,12 @@
 			resets = <&reset RESET_ISP>,
 					<&reset RESET_ISP_AHB>;
 			reset-names = "freset", "sreset";
+			power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 			jpu,cclk-max-frequency = /bits/ 64 <1000000000>;
 			jpu,cclk-min-frequency = <409000000>;
 			jpu,cclk-default-frequency = <614000000>;
-			//power-domains = <&spacemit_pds PD_COMMON_ISP>;
-			status = "okay";
 			page-size = <4>;
+			status = "okay";
 		};
 		display-subsystem {
 			compatible = "spacemit,saturn-le";
