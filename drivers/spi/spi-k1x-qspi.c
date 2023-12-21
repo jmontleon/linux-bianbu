@@ -317,8 +317,6 @@ struct k1x_qspi {
 
 	struct completion cmd_completion;
 	struct mutex lock;
-	struct dev_pm_qos_request pm_qos_req;
-	u32 lpm_qos;
 	int selected;
 
 	u32 tx_underrun_err;
@@ -1520,11 +1518,6 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 		qspi->cs_selected = QSPI_DEFAULT_CS;
 	}
 
-	if (of_property_read_u32(dev->of_node, "k1x,qspi-lpm-qos", &qspi->lpm_qos)) {
-		//qspi->lpm_qos = PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE;
-		qspi->lpm_qos = 15;
-	}
-
 	if (of_property_read_u32(dev->of_node, "k1x,qspi-tx-dma", &qspi->tx_dma_enable)) {
 		qspi->tx_dma_enable = 0;
 	}
@@ -1560,22 +1553,11 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 		qspi->rx_unit_size = qspi->rx_buf_size;
 	k1x_qspi_host_init(qspi);
 
-#if 0
-	qspi->pm_qos_req.name = pdev->name;
-	ctlr->auto_runtime_pm = true;
-	dev_pm_qos_add_request(dev, &qspi->pm_qos_req, DEV_PM_QOS_CPUIDLE_BLOCK,
-			PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
-#endif
-
-	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, QSPI_AUTOSUSPEND_TIMEOUT);
-	pm_runtime_set_active(&pdev->dev);
 	pm_suspend_ignore_children(&pdev->dev, 0);
 	pm_runtime_enable(&pdev->dev);
 
-	/* get qos */
-	dev_pm_qos_update_request(&qspi->pm_qos_req, qspi->lpm_qos);
 	ctlr->dev.of_node = np;
 	ctlr->use_gpio_descriptors = true;
 	ret = spi_register_controller(ctlr);
@@ -1599,7 +1581,6 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 err_destroy_mutex:
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
-	dev_pm_qos_remove_request(&qspi->pm_qos_req);
 
 	mutex_destroy(&qspi->lock);
 	iounmap(qspi->pmuap_addr);
@@ -1623,7 +1604,6 @@ static int k1x_qspi_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
-	dev_pm_qos_remove_request(&qspi->pm_qos_req);
 
 	if (qspi->tx_dma)
 		dma_release_channel(qspi->tx_dma);
@@ -1701,12 +1681,6 @@ static int k1x_qspi_runtime_suspend(struct device *dev)
 	qspi_enter_mode(qspi, QSPI_DISABLE_MODE);
 	mutex_unlock(&qspi->lock);
 
-	clk_disable_unprepare(qspi->clk);
-	clk_disable_unprepare(qspi->bus_clk);
-
-	/* put qos */
-	dev_pm_qos_update_request(&qspi->pm_qos_req, PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
-
 	return 0;
 }
 
@@ -1714,11 +1688,6 @@ static int k1x_qspi_runtime_resume(struct device *dev)
 {
 	struct k1x_qspi *qspi = dev_get_drvdata(dev);
 
-	/* get qos */
-	dev_pm_qos_update_request(&qspi->pm_qos_req, qspi->lpm_qos);
-
-	clk_prepare_enable(qspi->bus_clk);
-	clk_prepare_enable(qspi->clk);
 	qspi_enter_mode(qspi, QSPI_NORMAL_MODE);
 
 	return 0;
