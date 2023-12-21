@@ -27,6 +27,7 @@
 #define USB2_PHY_REG01_PLL_IS_READY	(0x1 << 0)
 #define USB2_PHY_REG04			0x10
 #define USB2_PHY_REG04_EN_HSTSOF	(0x1 << 0)
+#define USB2_PHY_REG04_AUTO_CLEAR_DIS	(0x1 << 2)
 #define USB2_PHY_REG08			0x20
 #define USB2_PHY_REG08_DISCON_DET	(0x1 << 9)
 #define USB2_PHY_REG0D			0x34
@@ -70,19 +71,16 @@ static int mv_usb2_phy_init(struct usb_phy *phy)
 	writel(0x60ef, base + USB2_PHY_REG01);
 	writel(0x1c, base + USB2_PHY_REG0D);
 
-	//temp for PHY stability
-	temp = readl(base + USB2_PHY_REG22);
-	temp &= ~(USB2_CFG_FORCE_CDRCLK);
-	writel(temp, base + USB2_PHY_REG22);
+	//select HS parallel data path
+	temp = readl(base + USB2_PHY_REG06);
+	// temp |= USB2_CFG_HS_SRC_SEL;
+	temp &= ~(USB2_CFG_HS_SRC_SEL);
+	writel(temp, base + USB2_PHY_REG06);
 
-	//temp for disconnect detect in host mode
+	/* auto clear host disc*/
 	temp = readl(base + USB2_PHY_REG04);
-	temp |= USB2_PHY_REG04_EN_HSTSOF;
+	temp |= USB2_PHY_REG04_AUTO_CLEAR_DIS;
 	writel(temp, base + USB2_PHY_REG04);
-
-	temp = readl(base + USB2_PHY_REG08);
-	temp |= USB2_PHY_REG08_DISCON_DET;
-	writel(temp, base + USB2_PHY_REG08);
 
 	return 0;
 }
@@ -123,6 +121,7 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 	struct resource *r;
 	int ret = 0;
 
+	dev_info(&pdev->dev, "k1x-ci-usb-phy-probe: Enter...\n");
 	mv_phy = devm_kzalloc(&pdev->dev, sizeof(*mv_phy), GFP_KERNEL);
 	if (mv_phy == NULL) {
 		dev_err(&pdev->dev, "failed to allocate memory\n");
