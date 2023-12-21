@@ -441,11 +441,12 @@ config MILBEAUT_XDMAC
 	  Say yes here to support the Socionext Milbeaut
 	  XDMAC device.
 
-choice
-	prompt "MMP_PDMA driver"
+menuconfig MMP_PDMA_DRIVER
+	bool "MMP_PDMA driver"
 	help
 	  choice mmp_pdma driver
 
+if MMP_PDMA_DRIVER
 config MMP_PDMA
 	tristate "MMP PDMA support"
 	depends on ARCH_MMP || ARCH_PXA || COMPILE_TEST
@@ -458,8 +459,8 @@ config MMP_PDMA_SPACEMIT_K1X
 	depends on ARCH_MMP || ARCH_PXA || COMPILE_TEST || SOC_SPACEMIT_K1X
 	select DMA_ENGINE
 	help
-	  Support the MMP PDMA engine for PXA and Spacemit-k1x platform.
-endchoice
+	  Support the MMP PDMA engine for Spacemit-k1x platform.
+endif
 
 config SPACEMIT_PDMA_SUPPORT_64BIT
 	bool "MMP PDMA support the 64-bit address"
