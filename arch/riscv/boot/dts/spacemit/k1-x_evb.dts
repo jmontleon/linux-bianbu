@@ -315,9 +315,26 @@
 };
 
 &pinctrl {
+	usbp1_vbus: usbp1_vbus {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* drive_vbus1_iso */
+		>;
+	};
+
 	gpio80_pmx_func0: gpio80_pmx_func0 {
 		pinctrl-single,pins = <
 			K1X_PADCONF(GPIO_80, MUX_MODE0, (EDGE_BOTH | PULL_UP | PAD_3V_DS4))  /* mmc cd */
+		>;
+	};
+
+	pinctrl_qspi: qspi_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(QSPI_DAT3, MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))        /* qspi_d3 */
+			K1X_PADCONF(QSPI_DAT2, MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))        /* qspi_d2 */
+			K1X_PADCONF(QSPI_DAT1, MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))        /* qspi_d1 */
+			K1X_PADCONF(QSPI_DAT0, MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))        /* qspi_d1 */
+			K1X_PADCONF(QSPI_CLK,  MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))        /* qspi_clk */
+			K1X_PADCONF(QSPI_CSI,  MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))          /* qspi_csi */
 		>;
 	};
 };
@@ -464,6 +481,16 @@
 	status = "okay";
 };
 
+&usbphy1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usbp1_vbus>;
+	status = "okay";
+};
+
+&ehci1 {
+	status = "okay";
+};
+
 &usbdrd3 {
 	status = "disabled";
 	dwc3@c0a00000 {
@@ -483,7 +510,9 @@
 };
 
 &qspi {
-	status = "disabled";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi>;
 
 	flash@0 {
 		compatible = "jedec,spi-nor";
