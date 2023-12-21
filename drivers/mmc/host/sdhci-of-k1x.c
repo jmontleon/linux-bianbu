@@ -1340,6 +1340,8 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	if (!(host->mmc->caps2 & MMC_CAP2_NO_MMC) && !is_recovery_boot)
 		host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 
+	host->mmc->caps |= MMC_CAP_NEED_RSP_BUSY;
+
 	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, RPM_DELAY);
