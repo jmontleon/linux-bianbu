@@ -1587,7 +1587,8 @@
 			k1x,qspi-mpmu-acgr-reg = <0xd4051024>;
 			k1x,qspi-freq = <26500000>;
 			k1x,qspi-id = <4>;
-			//k1x,qspi-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interrupts = <117>;
 			interrupt-parent = <&intc>;
 			k1x,qspi-tx-dma = <1>;
