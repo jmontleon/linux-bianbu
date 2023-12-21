@@ -1425,6 +1425,28 @@
 			status = "disabled";
 		};
 
+		usbphy1: usbphy1@c09c0000 {
+			compatible = "spacemit,usb2-phy";
+			reg = <0x0 0xc09c0000 0x0 0x200>;
+			spacemit,phy-name = "mv-usb-phy";
+			spacemit,pll-lock-bypass;
+			clocks = <&ccu CLK_USB_P1>;
+			status = "disabled";
+		};
+
+		ehci1: ehci1@c0980100 {
+			compatible = "spacemit,mv-ehci";
+			reg = <0x0 0xc0980100 0x0 0x4000>;
+			interrupts = <118>;
+			interrupt-parent = <&intc>;
+			spacemit,ehci-name = "mv-ehci";
+			spacemit,otg-force-a-bus-req;
+			resets = <&reset RESET_USBP1_AXI>;
+			clocks = <&ccu CLK_USB_P1>;
+			usb-phy = <&usbphy1>;
+			status = "disabled";
+		};
+
 		usbdrd3: usb3@0 {
 			compatible = "spacemit,k1-x-dwc3";
 			#address-cells = <2>;
