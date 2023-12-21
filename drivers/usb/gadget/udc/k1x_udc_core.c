@@ -1176,6 +1176,13 @@ static int mv_udc_enable_internal(struct mv_udc *udc)
 	if (retval)
 		return retval;
 
+	retval = reset_control_deassert(udc->reset);
+	if (retval) {
+		dev_err(&udc->dev->dev,
+			"deassert reset error %d\n", retval);
+		return retval;
+	}
+
 	retval = usb_phy_init(udc->phy);
 	if (retval) {
 		dev_err(&udc->dev->dev,
@@ -1203,6 +1210,7 @@ static void mv_udc_disable_internal(struct mv_udc *udc)
 	if (udc->active) {
 		dev_dbg(&udc->dev->dev, "disable udc\n");
 		usb_phy_shutdown(udc->phy);
+		reset_control_assert(udc->reset);
 		udc_clock_disable(udc);
 		udc->active = 0;
 	}
@@ -2378,6 +2386,13 @@ static int mv_udc_probe(struct platform_device *pdev)
 		return PTR_ERR(udc->clk);
 	clk_prepare(udc->clk);
 
+	udc->reset = devm_reset_control_array_get_optional_shared(&pdev->dev);
+	if (IS_ERR(udc->reset)) {
+		dev_err(&pdev->dev, "failed to get reset control\n");
+		retval = PTR_ERR(udc->reset);
+		goto err_disable_internal;
+	}
+
 	r = platform_get_resource(udc->dev, IORESOURCE_MEM, 0);
 	if (r == NULL) {
 		dev_err(&pdev->dev, "no I/O memory resource defined\n");
@@ -2403,17 +2418,6 @@ static int mv_udc_probe(struct platform_device *pdev)
 		return retval;
 	}
 
-	udc->reset = devm_reset_control_array_get_optional_shared(&pdev->dev);
-	if (IS_ERR(udc->reset)) {
-		dev_err(&pdev->dev, "failed to get reset control\n");
-		retval = PTR_ERR(udc->reset);
-		goto err_rst_get;
-	}
-
-	retval = reset_control_deassert(udc->reset);
-	if (retval)
-		goto err_rst_get;
-
 	udc->op_regs =
 		(struct mv_op_regs __iomem *)((unsigned long)udc->cap_regs
 		+ (readl(&udc->cap_regs->caplength_hciversion)
@@ -2437,7 +2441,7 @@ static int mv_udc_probe(struct platform_device *pdev)
 	if (udc->ep_dqh == NULL) {
 		dev_err(&pdev->dev, "allocate dQH memory failed\n");
 		retval = -ENOMEM;
-		goto err_disable_clock;
+		goto err_disable_internal;
 	}
 	udc->ep_dqh_size = size;
 	pr_err("mv_udc: dqh size = 0x%zx  udc->ep_dqh_dma = 0x%llx\n", size, udc->ep_dqh_dma);
@@ -2590,9 +2594,7 @@ err_destroy_dma:
 err_free_dma:
 	dma_free_coherent(&pdev->dev, udc->ep_dqh_size,
 			udc->ep_dqh, udc->ep_dqh_dma);
-err_disable_clock:
-	reset_control_assert(udc->reset);
-err_rst_get:
+err_disable_internal:
 	mv_udc_disable_internal(udc);
 	the_controller = NULL;
 	return retval;
