@@ -703,7 +703,7 @@ static SPACEMIT_CCU_DIV_MUX_GATE(camm1_clk, "camm1_clk", camm_parent_names,
 static SPACEMIT_CCU_DIV_MUX_GATE(camm2_clk, "camm2_clk", camm_parent_names,
 	BASE_TYPE_APMU, APMU_CSI_CCIC2_CLK_RES_CTRL,
 	23, 4, 8, 2,
-	BIT(27), BIT(27), 0x0,
+	BIT(3), BIT(3), 0x0,
 	0);
 static const char * const isp_cpp_parent_names[] = {
 	 "pll1_d8_307p2", "pll1_d6_409p6"
