@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
-/ { lcds {
+/ { lcds: lcds {
 	lcd_icnl9911c_mipi: lcd_icnl9911c_mipi {
 		dsi-work-mode = <1>; /* video burst mode*/
 		dsi-lane-number = <4>;

@@ -71,13 +71,14 @@
 		};
 	};
 
-	lcds: lcds {
-		status = "ok";
-	};
-
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x00000000 0x0 0x80000000>;
+	};
+
+	memory@100000000 {
+		device_type = "memory";
+		reg = <0x1 0x00000000 0x0 0x80000000>;
 	};
 
 	reserved-memory {
@@ -155,6 +156,10 @@
 		id = <2>;
 		force-attached = "lcd_icnl9911c_mipi";
 	};
+};
+
+&lcds {
+	status = "ok";
 };
 
 &i2c8 {
@@ -544,7 +549,7 @@
 };
 
 &imggpu {
-	status = "disabled";
+	status = "okay";
 };
 
 &qspi {
