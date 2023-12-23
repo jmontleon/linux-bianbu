@@ -7,7 +7,10 @@
 #ifndef _DPTC_DRV_H_
 #define _DPTC_DRV_H_
 
+
+#ifdef CONFIG_SPACEMIT_FPGA
 #define DPTC_DPHY_TEST 1
+#endif
 
 typedef enum
 {
