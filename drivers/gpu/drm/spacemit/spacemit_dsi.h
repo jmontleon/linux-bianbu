@@ -43,7 +43,7 @@
 #define AUTO_WC_DIS_DEFAULT 0
 #define VSYNC_RST_EN_DEFAULT 1
 
-#define MAX_TX_CMD_COUNT 100
+#define MAX_TX_CMD_COUNT 256
 #define MAX_RX_DATA_COUNT 64
 
 enum spacemit_mipi_burst_mode{
