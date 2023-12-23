@@ -269,6 +269,27 @@ struct ccu_mix {
 		},							\
 	}
 
+#define SPACEMIT_CCU_DIV_MFC_MUX_GATE(_struct, _name, _parents, _base_type, _reg_ctrl,	\
+							  _mshift, _mwidth, _fc, _muxshift, _muxwidth, _gate_mask, _val_enable, _val_disable,		\
+							  _flags)					\
+		struct ccu_mix _struct = {					\
+			.gate	= CCU_GATE_INIT(_gate_mask, _val_enable, _val_disable, 0),	\
+			.div	= CCU_DIV_INIT(_mshift, _mwidth, NULL, 0),		\
+			.mux	= CCU_MUX_INIT(_muxshift, _muxwidth, NULL, 0), \
+			.common = { 					\
+				.reg_type = CLK_DIV_TYPE_1REG_FC_MUX_V6,	\
+				.reg_ctrl		= _reg_ctrl,			\
+				.fc 			= _fc,		   \
+				.base_type		= _base_type,		\
+				.parent_names	= _parents, 		\
+				.num_parents	= ARRAY_SIZE(_parents), 	\
+				.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
+								  _parents, 	\
+								  &ccu_mix_ops, \
+								  _flags|CLK_GET_RATE_NOCACHE), 	\
+			},							\
+		}
+
 
 #define SPACEMIT_CCU_DIV_FC_WITH_GATE(_struct, _name, _parent, _base_type, _reg_ctrl,		\
 					  _mshift, _mwidth, _fc, _gate_mask, _val_enable, _val_disable,			\
