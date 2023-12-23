@@ -37,22 +37,6 @@ LIST_HEAD(dpu_core_head);
 static int spacemit_dpu_init(struct spacemit_dpu *dpu);
 static int spacemit_dpu_uninit(struct spacemit_dpu *dpu);
 
-static atomic_t mclk_cnt = ATOMIC_INIT(0);;
-bool dpu_mclk_exclusive_get(void)
-{
-	if (0 == atomic_cmpxchg(&mclk_cnt, 0, 1))
-		return true;
-	else
-		return false;
-}
-EXPORT_SYMBOL(dpu_mclk_exclusive_get);
-
-void dpu_mclk_exclusive_put(void)
-{
-	atomic_set(&mclk_cnt, 0);
-}
-EXPORT_SYMBOL(dpu_mclk_exclusive_put);
-
 static int spacemit_crtc_atomic_check_color_matrix(struct drm_crtc *crtc,
 					  struct drm_crtc_state *state)
 {
@@ -886,6 +870,9 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 #endif
 	const char *str;
 	u32 dpu_id;
+	int result;
+
+	DRM_INFO("spacemit_dpu_probe\n");
 
 	if (!dev->of_node) {
 		DRM_DEV_ERROR(dev, "can't find dpu devices\n");
@@ -925,6 +912,23 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	}
 #endif
 
+	dpu->dsi_reset = devm_reset_control_get_exclusive(&pdev->dev, "dsi_reset");
+	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
+		DRM_DEV_ERROR(dev, "not found dsi_reset\n");
+	}
+	dpu->mclk_reset = devm_reset_control_get_exclusive(&pdev->dev, "mclk_reset");
+	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
+		DRM_DEV_ERROR(dev, "not found mclk_reset\n");
+	}
+	dpu->lcd_reset = devm_reset_control_get_exclusive(&pdev->dev, "lcd_reset");
+	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
+		DRM_DEV_ERROR(dev, "not found lcd_reset\n");
+	}
+	dpu->esc_reset = devm_reset_control_get_exclusive(&pdev->dev, "esc_reset");
+	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
+		DRM_DEV_ERROR(dev, "not found esc_reset\n");
+	}
+
 	/*
 	 * To keep bootloader logo on, below operations must be
 	 * done in probe func as power domain framework will turn
@@ -933,6 +937,40 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	if (spacemit_dpu_logo_booton)
 		pm_runtime_get_sync(&pdev->dev);
+
+	result = reset_control_assert(dpu->esc_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to assert esc_reset: %d\n", result);
+	}
+	result = reset_control_assert(dpu->lcd_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to assert lcd_reset: %d\n", result);
+	}
+	result = reset_control_assert(dpu->mclk_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to assert mclk_reset: %d\n", result);
+	}
+	result = reset_control_assert(dpu->dsi_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to assert dsi_reset: %d\n", result);
+	}
+	udelay(2);
+	result = reset_control_deassert(dpu->dsi_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to deassert dsi_reset: %d\n", result);
+	}
+	result = reset_control_deassert(dpu->mclk_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to deassert mclk_reset: %d\n", result);
+	}
+	result = reset_control_deassert(dpu->lcd_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to deassert lcd_reset: %d\n", result);
+	}
+	result = reset_control_deassert(dpu->esc_reset);
+	if (result < 0) {
+		DRM_DEV_ERROR(dev, "Failed to deassert esc_reset: %d\n", result);
+	}
 
 	return component_add(dev, &dpu_component_ops);
 }

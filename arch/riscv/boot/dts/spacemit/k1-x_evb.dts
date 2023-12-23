@@ -5,6 +5,7 @@
 
 #include "k1-x.dtsi"
 #include "k1-x_pinctrl.dtsi"
+#include "lcd/lcd_icnl9911c_mipi.dtsi"
 / {
 	model = "spacemit k1-x evb board";
 
@@ -70,6 +71,10 @@
 		};
 	};
 
+	lcds: lcds {
+		status = "ok";
+	};
+
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x00000000 0x0 0x80000000>;
@@ -91,6 +96,13 @@
 			linux,cma-default;
 			/* besides hardware, dma for ex. buffer can be used by memory management */
 			reusable;
+		};
+
+		/* reserved 384K for dpu, including mmu table(256K) and cmdlist(128K) */
+		dpu_resv: dpu_reserved@27000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x27000000 0x0 0x00060000>;
+			no-map;
 		};
 	};
 
@@ -116,6 +128,32 @@
 		regulator-min-microvolt = <4000000>;
 		regulator-max-microvolt = <4000000>;
 		vin-supply = <&dc_12v>;
+	};
+};
+
+&dpu_online2 {
+	memory-region = <&dpu_resv>;
+	lcd_2v8-supply = <&ldo_13>;
+	lcd_1v8-supply = <&ldo_15>;
+	dsi_1v2-supply = <&ldo_17>;
+	vin-supply-names = "lcd_2v8", "lcd_1v8", "dsi_1v2";
+	status = "okay";
+};
+
+&dsi2 {
+	status = "okay";
+
+	panel2: panel2@0 {
+		status = "ok";
+		compatible = "spacemit,mipi-panel2";
+		reg = <0>;
+
+		gpios-te = <91>;
+		gpios-bl = <23>;
+		gpios-reset = <24>;
+		gpios-dc = <21 22>;
+		id = <2>;
+		force-attached = "lcd_icnl9911c_mipi";
 	};
 };
 
