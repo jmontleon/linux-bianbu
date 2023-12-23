@@ -164,6 +164,22 @@ const u32 saturn_le_rdma_fixed_fbcmem_sizes[] = {
 	32 * 1024,
 };
 
+static atomic_t mclk_cnt = ATOMIC_INIT(0);;
+bool dpu_mclk_exclusive_get(void)
+{
+	if (0 == atomic_cmpxchg(&mclk_cnt, 0, 1))
+		return true;
+	else
+		return false;
+}
+EXPORT_SYMBOL(dpu_mclk_exclusive_get);
+
+void dpu_mclk_exclusive_put(void)
+{
+	atomic_set(&mclk_cnt, 0);
+}
+EXPORT_SYMBOL(dpu_mclk_exclusive_put);
+
 struct spacemit_hw_device spacemit_dp_devices[DP_MAX_DEVICES] = {
 	[SATURN] = {
 		.base = NULL,		/* Parsed by dts */
@@ -200,7 +216,6 @@ EXPORT_SYMBOL(spacemit_dp_devices);
 
 static int dpu_parse_dt(struct spacemit_dpu *dpu, struct device_node *np)
 {
-#if 0
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 
 	clk_ctx->pxclk = of_clk_get_by_name(np, "pxclk");
@@ -237,11 +252,10 @@ static int dpu_parse_dt(struct spacemit_dpu *dpu, struct device_node *np)
 		dpu->min_mclk = DPU_MCLK_DEFAULT;
 
 	if (of_property_read_bool(np, "spacemit-dpu-auto-fc"))
-		dpu->enable_auto_fc = 1;
+		dpu->enable_auto_fc = 0;
 
 	if (of_property_read_u32(np, "spacemit-dpu-bitclk", &dpu->bitclk))
 		dpu->bitclk = DPU_BITCLK_DEFAULT;
-#endif
 	return 0;
 }
 
@@ -407,7 +421,6 @@ int dpu_calc_plane_mclk_bw(struct drm_plane *plane, \
 
 static int dpu_update_clocks(struct spacemit_dpu *dpu, uint64_t mclk)
 {
-#if 0
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 	uint64_t cur_mclk = 0;
 	int ret = 0;
@@ -435,7 +448,7 @@ static int dpu_update_clocks(struct spacemit_dpu *dpu, uint64_t mclk)
 
 		return 0;
 	}
-#endif
+
 	return 0;
 }
 
@@ -453,7 +466,6 @@ static int dpu_update_bw(struct spacemit_dpu *dpu, uint64_t bw)
 
 static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 {
-#if 0
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 	struct drm_crtc *crtc = &dpu->crtc;
 	struct drm_display_mode *mode = &crtc->mode;
@@ -467,6 +479,10 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 	clk_prepare_enable(clk_ctx->bitclk);
 
 	set_clk_val = mode->clock * 1000;
+	DRM_INFO("pxclk set_clk_val %lld\n", set_clk_val);
+	set_clk_val = DPU_PXCLK_DEFAULT;
+	DRM_INFO("pxclk default %lld\n", set_clk_val);
+
 	if (set_clk_val) {
 		set_clk_val = clk_round_rate(clk_ctx->pxclk, set_clk_val);
 		clk_val = clk_get_rate(clk_ctx->pxclk);
@@ -501,15 +517,23 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		DRM_DEBUG("bitclk=%lld\n", clk_val);
 	}
 
-	trace_dpu_enable_clocks(dpu->dev_id);
-#endif
-	return 0;
+	clk_val = clk_get_rate(clk_ctx->pxclk);
+	DRM_INFO("pxclk=%lld\n", clk_val);
+	clk_val = clk_get_rate(clk_ctx->mclk);
+	DRM_INFO("mclk=%lld\n", clk_val);
+	clk_val = clk_get_rate(clk_ctx->hclk);
+	DRM_INFO("hclk=%lld\n", clk_val);
+	clk_val = clk_get_rate(clk_ctx->escclk);
+	DRM_INFO("escclk=%lld\n", clk_val);
+	clk_val = clk_get_rate(clk_ctx->bitclk);
+	DRM_INFO("bitclk=%lld\n", clk_val);
 
+	trace_dpu_enable_clocks(dpu->dev_id);
+	return 0;
 }
 
 static int dpu_disable_clocks(struct spacemit_dpu *dpu)
 {
-#if 0
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 
 	trace_dpu_disable_clocks(dpu->dev_id);
@@ -519,7 +543,6 @@ static int dpu_disable_clocks(struct spacemit_dpu *dpu)
 	clk_disable_unprepare(clk_ctx->hclk);
 	clk_disable_unprepare(clk_ctx->escclk);
 	clk_disable_unprepare(clk_ctx->bitclk);
-#endif
 	return 0;
 }
 
@@ -1011,179 +1034,7 @@ static u32 saturn_conf_dpuctrl_scaling(struct spacemit_dpu *dpu)
 }
 
 void spacemit_update_hdr_matrix(struct drm_plane *plane, struct spacemit_plane_state *spacemit_pstate){
-	struct spacemit_drm_private *priv = plane->dev->dev_private;
-	struct spacemit_hw_device *hwdev = priv->hwdev;
-	struct drm_property_blob * blob = spacemit_pstate->hdr_coefs_blob_prop;
-	u32 module_base = LP0_BASE_ADDR + spacemit_pstate->rdma_id * LP_SIZE;
-	int val;
-	int *coef_data;
-	
-	return;
 
-	if (blob){
-		coef_data = (int *)blob->data;
-
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_0, 0xDF);
-
-		//set the value of hdr_coefs[0] to m_ngain_to_full
-		val = dpu_read_reg(hwdev, PREPIPE_LAYER_PROC_X_REG, module_base, v.layer_proc_reg_77);
-		val |= coef_data[0];
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_77, val);
-		//set the value of to hdr_coefs[1] to m_nfront_tmootf_shift_bits and hdr_coefs[2] to m_nfront_tmootf_rgb_mode
-		val = dpu_read_reg(hwdev, PREPIPE_LAYER_PROC_X_REG, module_base, v.layer_proc_reg_35);
-		val |=coef_data[1]<<16 | coef_data[2]<<21;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_35, val);
-
-		//set the value of hdr_coefs[3] ~ hdr_coefs[66] to m_pfront_tmootf_gain_table0 ~ 63
-		val = coef_data[3] | coef_data[4] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_3, val);
-		val = coef_data[5] | coef_data[6] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_4, val);
-		val = coef_data[7] | coef_data[8] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_5, val);
-		val = coef_data[9] | coef_data[10] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_6, val);
-		val = coef_data[11] | coef_data[12] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_7, val);
-		val = coef_data[13] | coef_data[14] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_8, val);
-		val = coef_data[15] | coef_data[16] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_9, val);
-		val = coef_data[17] | coef_data[18] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_10, val);
-		val = coef_data[19] | coef_data[20] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_11, val);
-		val = coef_data[21] | coef_data[22] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_12, val);
-		val = coef_data[23] | coef_data[24] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_13, val);
-		val = coef_data[25] | coef_data[26] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_14, val);
-		val = coef_data[27] | coef_data[28] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_15, val);
-		val = coef_data[29] | coef_data[30] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_16, val);
-		val = coef_data[31] | coef_data[32] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_17, val);
-		val = coef_data[33] | coef_data[34] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_18, val);
-		val = coef_data[35] | coef_data[36] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_19, val);
-		val = coef_data[37] | coef_data[38] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_20, val);
-		val = coef_data[39] | coef_data[40] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_21, val);
-		val = coef_data[41] | coef_data[42] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_22, val);
-		val = coef_data[43] | coef_data[44] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_23, val);
-		val = coef_data[45] | coef_data[46] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_24, val);
-		val = coef_data[47] | coef_data[48] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_25, val);
-		val = coef_data[49] | coef_data[50] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_26, val);
-		val = coef_data[51] | coef_data[52] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_27, val);
-		val = coef_data[53] | coef_data[54] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_28, val);
-		val = coef_data[55] | coef_data[56] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_29, val);
-		val = coef_data[57] | coef_data[58] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_30, val);
-		val = coef_data[59] | coef_data[60] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_31, val);
-		val = coef_data[61] | coef_data[62] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_32, val);
-		val = coef_data[63] | coef_data[64] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_33, val);
-		val = coef_data[65] | coef_data[66] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_34, val);
-
-		//set the value of hdr_coefs[67] to m_pfront_tmootf_gain_table64
-		val = dpu_read_reg(hwdev, PREPIPE_LAYER_PROC_X_REG, module_base, v.layer_proc_reg_35);
-		val |= coef_data[67];
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_35, val);
-
-		//set the value of to hdr_coefs[68] to m_nend_tmootf_shift_bits and hdr_coefs[70] to m_nend_tmootf_rgb_mode
-		val = dpu_read_reg(hwdev, PREPIPE_LAYER_PROC_X_REG, module_base, v.layer_proc_reg_68);
-		val |=coef_data[68]<<16 | coef_data[69]<<21;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_68, val);
-
-		//set the value of hdr_coefs[70] ~ hdr_coefs[133] to m_pend_tmootf_gain_table0 ~ 63
-		val = coef_data[70] | coef_data[71] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_36, val);
-		val = coef_data[72] | coef_data[73] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_37, val);
-		val = coef_data[74] | coef_data[75] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_38, val);
-		val = coef_data[76] | coef_data[77] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_39, val);
-		val = coef_data[78] | coef_data[79] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_40, val);
-		val = coef_data[80] | coef_data[81] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_41, val);
-		val = coef_data[82] | coef_data[83] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_42, val);
-		val = coef_data[84] | coef_data[85] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_43, val);
-		val = coef_data[86] | coef_data[87] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_44, val);
-		val = coef_data[88] | coef_data[89] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_45, val);
-		val = coef_data[90] | coef_data[91] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_46, val);
-		val = coef_data[92] | coef_data[93] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_47, val);
-		val = coef_data[94] | coef_data[95] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_48, val);
-		val = coef_data[96] | coef_data[97] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_49, val);
-		val = coef_data[98] | coef_data[99] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_50, val);
-		val = coef_data[100] | coef_data[101] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_51, val);
-		val = coef_data[102] | coef_data[103] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_52, val);
-		val = coef_data[104] | coef_data[105] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_53, val);
-		val = coef_data[106] | coef_data[107] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_54, val);
-		val = coef_data[108] | coef_data[109] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_55, val);
-		val = coef_data[110] | coef_data[111] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_56, val);
-		val = coef_data[112] | coef_data[113] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_57, val);
-		val = coef_data[114] | coef_data[115] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_58, val);
-		val = coef_data[116] | coef_data[117] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_59, val);
-		val = coef_data[118] | coef_data[119] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_60, val);
-		val = coef_data[120] | coef_data[121] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_61, val);
-		val = coef_data[122] | coef_data[123] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_62, val);
-		val = coef_data[124] | coef_data[125] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_63, val);
-		val = coef_data[126] | coef_data[127] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_64, val);
-		val = coef_data[128] | coef_data[129] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_65, val);
-		val = coef_data[130] | coef_data[131] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_66, val);
-		val = coef_data[132] | coef_data[133] << 16;
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_67, val);
-
-		//set the value of hdr_coefs[134] to m_pend_tmootf_gain_table64
-		val = dpu_read_reg(hwdev, PREPIPE_LAYER_PROC_X_REG, module_base, v.layer_proc_reg_68);
-		val |= coef_data[134];
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_68, val);
-	}
-	else{
-		write_to_cmdlist(PREPIPE_LAYER_PROC_X_REG, module_base, layer_proc_reg_0, 0x00);
-	}
 }
 
 static u32 saturn_conf_dpuctrl_rdma(struct spacemit_dpu *dpu)
@@ -1460,7 +1311,6 @@ static void saturn_init_regs(struct spacemit_dpu *dpu)
 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, vsp, 1);
 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, h_active, mode->hdisplay);
 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, v_active, mode->vdisplay);
-	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, disp_ready_man_en, 0);
 
 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, user, 2); /* RGB888 */
 
@@ -1559,7 +1409,9 @@ static int dpu_init(struct spacemit_dpu *dpu)
 	unsigned int timeout = 1000;
 	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
+#ifdef CONFIG_SPACEMIT_FPGA
 	void __iomem *addr = (void __iomem *)ioremap(0xD4282800, 100);
+#endif
 
 	trace_dpu_init(dpu->dev_id);
 
@@ -1572,9 +1424,11 @@ static int dpu_init(struct spacemit_dpu *dpu)
 	if (timeout == 0)
 		DRM_ERROR("%s wait cfg ready done timeout\n", __func__);
 
-	//for spacemit FPGA: enable PMU
+#ifdef CONFIG_SPACEMIT_FPGA
+	//for FPGA: enable PMU
 	writel(0xffa1ffff, addr + 0x44);
 	writel(0xFF65FF05, addr + 0x4c);
+#endif
 
 	saturn_init_regs(dpu);
 	saturn_setup_dma_top(dpu);

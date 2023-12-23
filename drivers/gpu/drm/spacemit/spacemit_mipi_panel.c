@@ -120,7 +120,8 @@ static int spacemit_panel_unprepare(struct drm_panel *p)
 		gpio_direction_output(panel->gpio_bl, 0);
 	}
 	msleep(150);
-	gpio_direction_output(panel->gpio_dc, 0);
+	gpio_direction_output(panel->gpio_dc[0], 0);
+	gpio_direction_output(panel->gpio_dc[1], 0);
 
 	if (panel->vdd_1v2) {
 		regulator_disable(panel->vdd_1v2);
@@ -175,9 +176,10 @@ static int spacemit_panel_prepare(struct drm_panel *p)
 
 	DRM_INFO("%s()\n", __func__);
 
-	spacemit_prepare_regulator(panel);
+	// spacemit_prepare_regulator(panel);
 
-	gpio_direction_output(panel->gpio_dc, 1);
+	gpio_direction_output(panel->gpio_dc[0], 1);
+	gpio_direction_output(panel->gpio_dc[1], 1);
 
 	if(panel->gpio_bl != INVALID_GPIO) {
 		gpio_direction_output(panel->gpio_bl, 1);
@@ -308,13 +310,15 @@ static int spacemit_mipi_dsi_set_maximum_return_packet_size(struct mipi_dsi_devi
 					    u16 value)
 {
 	u8 tx[2] = { value & 0xff, value >> 8 };
-	struct mipi_dsi_msg msg = {
-		.channel = dsi->channel,
-		.type = MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE,
-		.tx_len = sizeof(tx),
-		.tx_buf = tx,
-	};
-	int ret = mipi_dsi_device_transfer(dsi, &msg);
+	int ret;
+	struct mipi_dsi_msg msg = {0x0};
+
+	msg.channel = dsi->channel;
+	msg.type = MIPI_DSI_SET_MAXIMUM_RETURN_PACKET_SIZE;
+	msg.tx_len = sizeof(tx);
+	msg.tx_buf = tx;
+
+	ret = mipi_dsi_device_transfer(dsi, &msg);
 
 	return (ret < 0) ? ret : 0;
 }
@@ -593,14 +597,16 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 		}
 	}
 
-	ret = of_property_read_u32(dev->of_node, "gpios-dc", &panel->gpio_dc);
-	if (ret || !gpio_is_valid(panel->gpio_dc)) {
-		dev_dbg(dev, "Missing dt property: gpio_dc\n");
-		panel->gpio_dc = INVALID_GPIO;
+	ret = of_property_read_u32_array(dev->of_node, "gpios-dc", panel->gpio_dc, 2);
+	if (ret || !gpio_is_valid(panel->gpio_dc[0]) || !gpio_is_valid(panel->gpio_dc[1])) {
+		dev_err(dev, "Missing dt property: gpios-dc\n");
+		return -EINVAL;
 	} else {
-		ret = gpio_request(panel->gpio_dc, NULL);
+		ret = gpio_request(panel->gpio_dc[0], NULL);
+		ret |= gpio_request(panel->gpio_dc[1], NULL);
 		if (ret) {
 			pr_err("gpio_dc request fail\n");
+			return ret;
 		}
 	}
 
