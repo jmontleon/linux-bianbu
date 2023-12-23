@@ -20,8 +20,8 @@
 
 #define INVALID_GPIO 0xFFFFFFFF
 
-#define LCD_PANEL_RESET_CNT 4
-#define LCD_DELAY_AFTER_RESET 50
+#define LCD_PANEL_RESET_CNT 2
+#define LCD_DELAY_AFTER_RESET 100
 
 enum {
 	CMD_CODE_INIT = 0,
@@ -83,7 +83,7 @@ struct spacemit_panel {
 	struct regulator *vdd_2v8;
 	u32 gpio_reset;
 	u32 gpio_bl;
-	u32 gpio_dc;
+	u32 gpio_dc[2];
 	atomic_t enable_refcnt;
 	atomic_t prepare_refcnt;
 	u32 reset_toggle_cnt;

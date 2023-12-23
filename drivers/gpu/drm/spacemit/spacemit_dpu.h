@@ -15,7 +15,7 @@
 #include <linux/bug.h>
 #include <video/videomode.h>
 #include <linux/workqueue.h>
-
+#include <linux/reset.h>
 #include <drm/drm_atomic_uapi.h>
 #include <drm/drm_print.h>
 #include <drm/drm_crtc.h>
@@ -56,6 +56,7 @@
 #define DPU_STOP_TIMEOUT		(2000)
 #define DPU_CTRL_MAX_TIMING_INTER1	(0xf)
 
+/*
 #define DPU_PXCLK_DEFAULT	98000000
 #define DPU_MCLK_DEFAULT	307000000
 #define DPU_MCLK_MAX		614400000
@@ -63,6 +64,15 @@
 #define DPU_AXICLK_DEFAULT	409000000
 #define DPU_ESCCLK_DEFAULT	52000000
 #define DPU_BITCLK_DEFAULT	624000000
+*/
+
+#define DPU_PXCLK_DEFAULT	88000000
+#define DPU_MCLK_DEFAULT	307200000
+#define DPU_MCLK_MAX		614400000
+#define DPU_MCLK_MIN		40960000
+#define DPU_AXICLK_DEFAULT	409000000
+#define DPU_ESCCLK_DEFAULT	51200000
+#define DPU_BITCLK_DEFAULT	614400000
 
 #define MAX_SCALER_NUMS		1
 
@@ -127,6 +137,10 @@ struct spacemit_dpu {
 	uint64_t cur_bw;
 	struct drm_property *color_matrix_property;
 	uint32_t bitclk;
+	struct reset_control *dsi_reset;
+	struct reset_control *mclk_reset;
+	struct reset_control *lcd_reset;
+	struct reset_control *esc_reset;
 #ifdef CONFIG_SPACEMIT_DEBUG
 	bool (*is_dpu_running)(struct spacemit_dpu* dpu);
 	struct notifier_block nb;
