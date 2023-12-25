@@ -15,4 +15,10 @@ config SPACEMIT_PM_DOMAINS
 
 endif
 
+config SPACEMIT_REBOOT_CONTROL
+	tristate "Spacemit k1x reboot handler"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  Spacemit reboot into fastboot mode
+
 source "drivers/soc/spacemit/jpu/Kconfig"
