@@ -22,6 +22,7 @@
 #include <linux/sched_clock.h>
 #include <linux/stat.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 
 #define TMR_CCR		(0x000c)
 #define TMR_TN_MM(n, m)	(0x0010 + ((n) << 4) + ((m) << 2))
@@ -376,6 +377,7 @@ int __init spacemit_timer_init(struct device_node *np, int tid, void __iomem *ba
 {
 	struct spacemit_timer *tm = spacemit_timers[tid];
 	struct clk *clk;
+	struct reset_control *resets;
 	u32 tmp, delay;
 
 	if (tm)
@@ -405,6 +407,13 @@ int __init spacemit_timer_init(struct device_node *np, int tid, void __iomem *ba
 		pr_err("Timer %d: fail to set clock rate to %uHz!\n", tid, fc_freq);
 		goto out;
 	}
+
+	resets = of_reset_control_get(np, 0);
+	if(IS_ERR(resets)) {
+		clk_disable_unprepare(clk);
+		return PTR_ERR(resets);
+	}
+	reset_control_deassert(resets);
 	/*
 	 * The calculation formula for the loop cycle is:
 	 *
