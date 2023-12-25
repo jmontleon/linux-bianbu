@@ -1303,10 +1303,11 @@
 			compatible = "spacemit,soc-timer";
 			reg = <0x0 0xd4014000 0x0 0xc8>;
 			spacemit,timer-id = <0>;
-			spacemit,timer-fastclk-frequency = <3250000>;
-			spacemit,timer-apb-frequency = <10000000>;
-			spacemit,timer-frequency = <32768>;
-			clocks = <&pll_clk_timer>;
+			spacemit,timer-fastclk-frequency = <12800000>;
+			spacemit,timer-apb-frequency = <52000000>;
+			spacemit,timer-frequency = <12800000>;
+			clocks = <&ccu CLK_TIMERS1>;
+			resets = <&reset RESET_TIMERS1>;
 			status = "ok";
 
 			counter0 {
