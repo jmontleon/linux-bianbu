@@ -359,7 +359,7 @@ static int spacemit_pd_attach_dev(struct generic_pm_domain *genpd, struct device
 	if (!of_property_read_bool(dev->of_node, "regulator,pm-runtime,no-sleep")) {
 		count = of_property_count_strings(dev->of_node, "vin-supply-names");
 		if (count < 0)
-			pr_info("no vin-suppuly-names found\n");
+			pr_debug("no vin-suppuly-names found\n");
 		else {
 			err = of_property_read_string_array(dev->of_node, "vin-supply-names",
 				strings, count);
@@ -565,7 +565,7 @@ static int spacemit_get_pm_domain_parameters(struct device_node *node, struct sp
 	err |= of_property_read_u32(node, "use_hw", &pd->param.use_hw);
 
 	if (err)
-		pr_warn("get pm domain parameter failed\n");
+		pr_debug("get pm domain parameter failed\n");
 
 	return 0;
 }
@@ -605,7 +605,7 @@ static int spacemit_pm_add_one_domain(struct spacemit_pmu *pmu, struct device_no
 	/* get the power supply of the power-domain */
 	count = of_property_count_strings(node, "vin-supply-names");
 	if (count < 0)
-		pr_info("no vin-suppuly-names found\n");
+		pr_debug("no vin-suppuly-names found\n");
 	else {
 		err = of_property_read_string_array(node, "vin-supply-names",
 			strings, count);
