@@ -83,7 +83,7 @@ static void spacemit_dsi_encoder_mode_set(struct drm_encoder *encoder,
 {
 	struct spacemit_dsi *dsi = encoder_to_dsi(encoder);
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	drm_display_mode_to_videomode(mode, &dsi->ctx.vm);
 }
@@ -92,7 +92,7 @@ static int spacemit_dsi_encoder_atomic_check(struct drm_encoder *encoder,
 				    struct drm_crtc_state *crtc_state,
 				    struct drm_connector_state *conn_state)
 {
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	return 0;
 }
@@ -114,6 +114,8 @@ static int spacemit_dsi_encoder_init(struct drm_device *drm, struct spacemit_dsi
 	struct device *dev = dsi->host.dev;
 	u32 crtc_mask;
 	int ret;
+
+	DRM_DEBUG("%s()\n", __func__);
 
 	crtc_mask = drm_of_find_possible_crtcs(drm, dev->of_node);
 	if (!crtc_mask) {
@@ -474,7 +476,7 @@ spacemit_dsi_connector_best_encoder(struct drm_connector *connector)
 {
 	struct spacemit_dsi *dsi = connector_to_dsi(connector);
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 	return &dsi->encoder;
 }
 
