@@ -839,11 +839,38 @@ static void spacemit_dpu_unbind(struct device *dev, struct device *master,
 	void *data)
 {
 	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
+	int result;
 #ifdef CONFIG_SPACEMIT_DEBUG
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 #endif
 
 	DRM_INFO("%s()\n", __func__);
+
+	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
+		result = reset_control_assert(dpu->esc_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to assert esc_reset: %d\n", result);
+		}
+	}
+	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
+		result = reset_control_assert(dpu->lcd_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to assert lcd_reset: %d\n", result);
+		}
+	}
+	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
+		result = reset_control_assert(dpu->mclk_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to assert mclk_reset: %d\n", result);
+		}
+	}
+	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
+		result = reset_control_assert(dpu->dsi_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to assert dsi_reset: %d\n", result);
+		}
+	}
+
 	pm_runtime_disable(dev);
 	of_reserved_mem_device_release(dpu->dev);
 	drm_crtc_cleanup(&dpu->crtc);
@@ -912,19 +939,19 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	}
 #endif
 
-	dpu->dsi_reset = devm_reset_control_get_exclusive(&pdev->dev, "dsi_reset");
+	dpu->dsi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "dsi_reset");
 	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
 		DRM_DEV_ERROR(dev, "not found dsi_reset\n");
 	}
-	dpu->mclk_reset = devm_reset_control_get_exclusive(&pdev->dev, "mclk_reset");
+	dpu->mclk_reset = devm_reset_control_get_optional_shared(&pdev->dev, "mclk_reset");
 	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
 		DRM_DEV_ERROR(dev, "not found mclk_reset\n");
 	}
-	dpu->lcd_reset = devm_reset_control_get_exclusive(&pdev->dev, "lcd_reset");
+	dpu->lcd_reset = devm_reset_control_get_optional_shared(&pdev->dev, "lcd_reset");
 	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
 		DRM_DEV_ERROR(dev, "not found lcd_reset\n");
 	}
-	dpu->esc_reset = devm_reset_control_get_exclusive(&pdev->dev, "esc_reset");
+	dpu->esc_reset = devm_reset_control_get_optional_shared(&pdev->dev, "esc_reset");
 	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
 		DRM_DEV_ERROR(dev, "not found esc_reset\n");
 	}
@@ -938,38 +965,29 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	if (spacemit_dpu_logo_booton)
 		pm_runtime_get_sync(&pdev->dev);
 
-	result = reset_control_assert(dpu->esc_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to assert esc_reset: %d\n", result);
+	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
+		result = reset_control_deassert(dpu->dsi_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to deassert dsi_reset: %d\n", result);
+		}
 	}
-	result = reset_control_assert(dpu->lcd_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to assert lcd_reset: %d\n", result);
+	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
+		result = reset_control_deassert(dpu->mclk_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to deassert mclk_reset: %d\n", result);
+		}
 	}
-	result = reset_control_assert(dpu->mclk_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to assert mclk_reset: %d\n", result);
+	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
+		result = reset_control_deassert(dpu->lcd_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to deassert lcd_reset: %d\n", result);
+		}
 	}
-	result = reset_control_assert(dpu->dsi_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to assert dsi_reset: %d\n", result);
-	}
-	udelay(2);
-	result = reset_control_deassert(dpu->dsi_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to deassert dsi_reset: %d\n", result);
-	}
-	result = reset_control_deassert(dpu->mclk_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to deassert mclk_reset: %d\n", result);
-	}
-	result = reset_control_deassert(dpu->lcd_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to deassert lcd_reset: %d\n", result);
-	}
-	result = reset_control_deassert(dpu->esc_reset);
-	if (result < 0) {
-		DRM_DEV_ERROR(dev, "Failed to deassert esc_reset: %d\n", result);
+	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
+		result = reset_control_deassert(dpu->esc_reset);
+		if (result < 0) {
+			DRM_DEV_ERROR(dev, "Failed to deassert esc_reset: %d\n", result);
+		}
 	}
 
 	return component_add(dev, &dpu_component_ops);
