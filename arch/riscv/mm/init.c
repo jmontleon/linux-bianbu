@@ -317,7 +317,7 @@ static void __init setup_bootmem(void)
 #ifdef CONFIG_ZONE_DMA32
 	#ifdef CONFIG_SOC_SPACEMIT_K1X
 	/* 2GB~4GB is IO area on spacemit-k1x, will be reserved when early_init_fdt_scan_reserved_mem */
-	dma_contiguous_reserve(min(2UL*SZ_1G, dma32_phys_limit));
+	dma_contiguous_reserve(min(2UL*SZ_1G, (unsigned long)dma32_phys_limit));
 	#else
 	dma_contiguous_reserve(dma32_phys_limit);
 	#endif
