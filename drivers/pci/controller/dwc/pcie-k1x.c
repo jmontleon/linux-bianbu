@@ -731,7 +731,7 @@ static irqreturn_t k1x_pcie_irq_handler(int irq, void *arg)
 	struct k1x_pcie *k1x = arg;
 	int num;
 	u32 reg, reg_ahb;
-	u8 chan;
+	__maybe_unused u8 chan;
 #if 0
 	DMA_DIRC dirc = DMA_READ;
 	DMA_INT_TYPE type;
@@ -819,7 +819,7 @@ static void k1x_pcie_ep_init(struct dw_pcie_ep *ep)
 	k1x_pcie_enable_wrapper_interrupts(k1x);
 }
 
-static void k1x_pcie_ep_enable_irq(struct dw_pcie_ep *ep)
+__maybe_unused static void k1x_pcie_ep_enable_irq(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 	struct k1x_pcie *k1x = to_k1x_pcie(pci);
@@ -827,7 +827,7 @@ static void k1x_pcie_ep_enable_irq(struct dw_pcie_ep *ep)
 	k1x_pcie_enable_wrapper_interrupts(k1x);
 }
 
-static void k1x_pcie_ep_disable_irq(struct dw_pcie_ep *ep)
+__maybe_unused static void k1x_pcie_ep_disable_irq(struct dw_pcie_ep *ep)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_ep(ep);
 	struct k1x_pcie *k1x = to_k1x_pcie(pci);
