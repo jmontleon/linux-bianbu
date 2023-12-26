@@ -14,7 +14,8 @@
 #include "ccu_mix.h"
 
 #define TIMEOUT_LIMIT (20000) /* max timeout 10000us */
-
+static int twsi8_reg_val = 0x04;
+const char * tswi8_clk_name = "twsi8_clk";
 static void ccu_mix_disable(struct clk_hw *hw)
 {
 	struct ccu_mix *mix = hw_to_ccu_mix(hw);
@@ -26,6 +27,19 @@ static void ccu_mix_disable(struct clk_hw *hw)
 
 	if (!gate)
 		return;
+
+	if (!strcmp(common->name, tswi8_clk_name)){
+		twsi8_reg_val &= ~gate->gate_mask;;
+		twsi8_reg_val |= gate->val_disable;
+		tmp = twsi8_reg_val;
+		if (common->reg_type == CLK_DIV_TYPE_2REG_NOFC_V3
+			|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4)
+			writel(tmp, common->base + common->reg_sel);
+		else
+			writel(tmp, common->base + common->reg_ctrl);
+		return;
+	}
+
 	if (common->lock)
 		spin_lock_irqsave(common->lock, flags);
 
@@ -73,6 +87,19 @@ static int ccu_mix_enable(struct clk_hw *hw)
 
     if (!gate)
 		return 0;
+
+	if (!strcmp(common->name, tswi8_clk_name)){
+		twsi8_reg_val &= ~gate->gate_mask;;
+		twsi8_reg_val |= gate->val_enable;
+		tmp = twsi8_reg_val;
+		if (common->reg_type == CLK_DIV_TYPE_2REG_NOFC_V3
+			|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4)
+			writel(tmp, common->base + common->reg_sel);
+		else
+			writel(tmp, common->base + common->reg_ctrl);
+		return 0;
+	}
+
 	if (common->lock)
 		spin_lock_irqsave(common->lock, flags);
 
@@ -141,6 +168,10 @@ static int ccu_mix_is_enabled(struct clk_hw *hw)
 
 	if (!gate)
 		return 1;
+
+	if (!strcmp(common->name, tswi8_clk_name)){
+		return (twsi8_reg_val & gate->gate_mask) == gate->val_enable;
+	}
 
 	if (common->lock)
 		spin_lock_irqsave(common->lock, flags);
@@ -295,6 +326,15 @@ static int ccu_mix_set_rate(struct clk_hw *hw, unsigned long rate,
 	}
 
 	best_rate = ccu_mix_calc_best_rate(hw, rate, &mux_val, &div_val);
+	if (!strcmp(common->name, tswi8_clk_name)){
+		if(mux){
+		cur_mux = twsi8_reg_val >> mux->shift;
+		cur_mux &= (1 << mux->width) - 1;
+		if(cur_mux != mux_val)
+			clk_hw_set_parent(hw, clk_hw_get_parent_by_index(hw, mux_val));
+		}
+		return 0;
+	}
 	if (common->reg_type == CLK_DIV_TYPE_2REG_NOFC_V3
 		|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4)
 		reg = readl(common->base + common->reg_sel);
@@ -357,6 +397,12 @@ static u8 ccu_mix_get_parent(struct clk_hw *hw)
 	if(!mux)
 		return 0;
 
+	if (!strcmp(common->name, tswi8_clk_name)){
+		parent = twsi8_reg_val >> mux->shift;
+		parent &= (1 << mux->width) - 1;
+		return parent;
+	}
+
 	if (common->reg_type == CLK_DIV_TYPE_2REG_NOFC_V3
 		|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4)
 		reg = readl(common->base + common->reg_sel);
@@ -391,6 +437,18 @@ static int ccu_mix_set_parent(struct clk_hw *hw, u8 index)
 
 	if (mux->table)
 		index = mux->table[index];
+
+	if (!strcmp(common->name, tswi8_clk_name)){
+		twsi8_reg_val &= ~GENMASK(mux->width + mux->shift - 1, mux->shift);
+		twsi8_reg_val |= (index << mux->shift);
+		reg = twsi8_reg_val;
+		if (common->reg_type == CLK_DIV_TYPE_2REG_NOFC_V3
+			|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4)
+			writel(reg, common->base + common->reg_sel);
+		else
+			writel(reg, common->base + common->reg_ctrl);
+		return 0;
+	}
 
 	spin_lock_irqsave(common->lock, flags);
 
