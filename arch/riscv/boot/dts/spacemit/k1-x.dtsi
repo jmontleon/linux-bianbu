@@ -424,6 +424,11 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+		area_reserved@80000000 {
+			/* dram area is 0~2GB, and 4GB~, the 2GB~4GB is io area */
+			reg = <0x0 0x80000000 0x0 0x80000000>;
+			no-map;
+		};
 	};
 
 	soc {
