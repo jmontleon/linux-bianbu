@@ -433,7 +433,7 @@
 	spacemit,sdh-quirks2 = <(
 			SDHCI_QUIRK2_PRESET_VALUE_BROKEN
 			)>;
-	spacemit,sdh-freq = <204800000>;
+	spacemit,sdh-freq = <375000000>;
 	status = "okay";
 };
 
