@@ -140,18 +140,18 @@ static int spacemit_drm_dump_show(struct seq_file *s, void *data)
 	struct drm_info_node *node = s->private;
 	struct drm_minor *minor = node->minor;
 	struct drm_device *drm_dev = minor->dev;
-	struct drm_printer p = drm_seq_file_printer(s);
-	struct spacemit_drm_private *priv = drm_dev->dev_private;
+	__maybe_unused struct drm_printer p = drm_seq_file_printer(s);
+	__maybe_unused struct spacemit_drm_private *priv = drm_dev->dev_private;
 	struct drm_plane *plane;
 	struct drm_framebuffer *fb;
-	char file_name[128];
-	int i;
+	__maybe_unused char file_name[128];
+	__maybe_unused int i;
 
 	DRM_INFO("%s()\n", __func__);
 
 	mutex_lock(&drm_dev->mode_config.fb_lock);
 	drm_for_each_fb(fb, drm_dev) {
-		DRM_INFO("%s() framebuffer[%u] \n", fb->base.id);
+		DRM_INFO("%s() framebuffer[%u] \n", __func__, fb->base.id);
 		drm_for_each_plane(plane, drm_dev) {
 			if (plane->state->fb != fb)
 				continue;
@@ -171,8 +171,8 @@ static const struct drm_info_list spacemit_debugfs_files[] = {
 static void spacemit_drm_debugfs_init(struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
-	struct spacemit_drm_private *priv = dev->dev_private;
-	struct drm_crtc *crtc;
+	__maybe_unused struct spacemit_drm_private *priv = dev->dev_private;
+	__maybe_unused struct drm_crtc *crtc;
 
 	DRM_INFO("%s()\n", __func__);
 	drm_debugfs_create_files(spacemit_debugfs_files,
