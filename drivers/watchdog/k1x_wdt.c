@@ -314,7 +314,7 @@ static int spa_wdt_ping(struct watchdog_device *wdd)
 		ret = -EINVAL;
 
 	spin_unlock(&info->wdt_lock);
-	spin_lock(&reboot_lock);
+	spin_unlock(&reboot_lock);
 
 	return ret;
 }
@@ -667,11 +667,11 @@ static int spa_wdt_probe(struct platform_device *pdev)
 	watchdog_set_nowayout(&spa_wdt, nowayout);
 
 	info->wdt_dev = spa_wdt;
-	ret = watchdog_register_device(&info->wdt_dev);
+	/*ret = watchdog_register_device(&info->wdt_dev);
 	if (ret) {
 		dev_err(info->dev, "cannot register watchdog (%d)\n", ret);
 		goto err_register_fail;
-	}
+	}*/
 
 	info->feed_timeout = ktime_set(SPACEMIT_WATCHDOG_FEED_TIMEOUT, 0);
 	hrtimer_init(&info->feed_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
@@ -715,8 +715,8 @@ err_alloc:
 		spa_wdt_stop(&info->wdt_dev);
 	}
 
-	watchdog_unregister_device(&info->wdt_dev);
-err_register_fail:
+/*	watchdog_unregister_device(&info->wdt_dev);
+err_register_fail:*/
 	spa_disable_wdt_clk(info);
 	clk_put(info->clk);
 
