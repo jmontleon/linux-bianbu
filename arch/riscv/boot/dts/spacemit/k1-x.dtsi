@@ -613,6 +613,7 @@
 					bit_auto_pwr_on = <0>;
 					bit_pwr_stat = <3>;
 					bit_hw_pwr_stat = <11>;
+					use_hw = <1>;
 					#power-domain-cells = <0>;
 				};
 
