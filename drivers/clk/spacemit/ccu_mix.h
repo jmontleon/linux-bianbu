@@ -87,6 +87,7 @@ struct ccu_mix {
 		.common	= {						\
 			.reg_ctrl		= _reg,				\
 			.base_type 		= _base_type,       \
+			.name			= _name,       \
 			.num_parents	= 1,		\
 			.hw.init	= CLK_HW_INIT(_name,	\
 						      _parent,		\
@@ -101,6 +102,7 @@ struct ccu_mix {
 		.common = { 					\
 			.reg_ctrl		= _reg, 			\
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.num_parents	= 0,		\
 			.hw.init	= CLK_HW_INIT_NO_PARENT(_name,	\
 							  &ccu_mix_ops, \
@@ -113,6 +115,7 @@ struct ccu_mix {
 	struct ccu_mix _struct = {					\
 		.factor	= CCU_FACTOR_INIT(_div, _mul),	 \
 		.common = { 					\
+			.name			= _name,    \
 			.num_parents	= 1,		\
 			.hw.init	= CLK_HW_INIT(_name,	\
 							  _parent,		\
@@ -128,6 +131,7 @@ struct ccu_mix {
 		.common = { 					\
 			.reg_ctrl		= _reg, 			\
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.parent_names	= _parents,         \
 			.num_parents	= ARRAY_SIZE(_parents),		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,	\
@@ -144,6 +148,7 @@ struct ccu_mix {
 		.common = { 					\
 			.reg_ctrl		= _reg, 			\
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.num_parents	= 1,		\
 			.hw.init	= CLK_HW_INIT(_name,	\
 							  _parent,		\
@@ -161,6 +166,7 @@ struct ccu_mix {
 		.common = { 					\
 			.reg_ctrl		= _reg, 			\
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.num_parents	= 1,		\
 			.hw.init	= CLK_HW_INIT(_name,	\
 							  _parent,		\
@@ -178,6 +184,7 @@ struct ccu_mix {
 		.common = { 					\
 			.reg_ctrl		= _reg, 			\
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.parent_names	= _parents,         \
 			.num_parents	= ARRAY_SIZE(_parents),		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,	\
@@ -195,6 +202,7 @@ struct ccu_mix {
 		.common = { 					\
 			.reg_ctrl		= _reg, 			\
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.num_parents	= 1,		\
 			.hw.init	= CLK_HW_INIT(_name,	\
 							  _parent,		\
@@ -216,6 +224,7 @@ struct ccu_mix {
 		.common	= {						\
 			.reg_ctrl		= _reg_ctrl,				\
 			.base_type 		= _base_type,       \
+			.name			= _name,       \
 			.parent_names	= _parents,         \
 			.num_parents	= ARRAY_SIZE(_parents),		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,	\
@@ -238,6 +247,7 @@ struct ccu_mix {
 			.reg_sel		= _reg_sel, 	 \
 			.fc 			= _fc,		   \
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.parent_names	= _parents,         \
 			.num_parents	= ARRAY_SIZE(_parents),		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
@@ -260,6 +270,7 @@ struct ccu_mix {
 			.reg_ctrl		= _reg_ctrl,			\
 			.fc 			= _fc,		   \
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.parent_names	= _parents,         \
 			.num_parents	= ARRAY_SIZE(_parents),		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
@@ -281,6 +292,7 @@ struct ccu_mix {
 				.reg_ctrl		= _reg_ctrl,			\
 				.fc 			= _fc,		   \
 				.base_type		= _base_type,		\
+				.name			= _name,       \
 				.parent_names	= _parents, 		\
 				.num_parents	= ARRAY_SIZE(_parents), 	\
 				.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
@@ -302,6 +314,7 @@ struct ccu_mix {
 			.reg_ctrl		= _reg_ctrl, 			\
 			.fc 			= _fc,         \
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.num_parents	= 1,		\
 			.hw.init	= CLK_HW_INIT(_name,		\
 							  _parent,		\
@@ -320,6 +333,7 @@ struct ccu_mix {
 			.reg_ctrl		= _reg_ctrl, 			\
 			.fc 			= _fc,         \
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.parent_names	= _parents,         \
 			.num_parents	= ARRAY_SIZE(_parents),		\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
@@ -338,6 +352,7 @@ struct ccu_mix {
 			.reg_ctrl		= _reg_ctrl,			\
 			.fc 			= _fc,		   \
 			.base_type		= _base_type,		\
+			.name			= _name,       \
 			.parent_names	= _parents, 		\
 			.num_parents	= ARRAY_SIZE(_parents), 	\
 			.hw.init	= CLK_HW_INIT_PARENTS(_name,		\
