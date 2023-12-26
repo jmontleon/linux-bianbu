@@ -26,7 +26,7 @@ static int k1x_reset_handler(struct notifier_block *this, unsigned long mode,
 	struct spacemit_reboot_ctrl *info = container_of(this,struct spacemit_reboot_ctrl,
 			reset_handler);
 
-	if(cmd == NULL || (cmd != NULL && !strcmp(cmd, rebootcmd)))
+	if(cmd != NULL && !strcmp(cmd, rebootcmd))
 		writel(RESET_REG_VALUE, info->base);
 
 	return NOTIFY_DONE;
