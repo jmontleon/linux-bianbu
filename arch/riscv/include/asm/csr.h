@@ -447,6 +447,7 @@
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 /* TCM enable register */
 #define CSR_TCMCFG		0x5db
+#define TCM_EN			_AC(0x00000001, UL) /* TCM Access Enable */
 #endif
 
 /* Scalar Crypto Extension - Entropy */
