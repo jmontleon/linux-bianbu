@@ -587,7 +587,7 @@ static SPACEMIT_CCU_MUX_GATE(twsi7_clk, "twsi7_clk", twsi_parent_names,
 	0);
 static SPACEMIT_CCU_MUX_GATE(twsi8_clk, "twsi8_clk", twsi_parent_names,
 	BASE_TYPE_APBC, APBC_TWSI8_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x7, 0x3, 0x4,
 	0);
 static const char *timer_parent_names[] = {
 	"pll1_d192_12p8", "clk_32k", "pll1_d384_6p4", "vctcxo_3", "vctcxo_1"
