@@ -367,6 +367,9 @@ static int spacemit_reset_update(struct reset_controller_dev *rcdev,
 	if(id < RESET_UART1 || id >= RESET_NUMBER)
 		return 0;
 
+	if (id == RESET_TWSI8)
+		return 0;
+
 	spin_lock_irqsave(reset->lock, flags);
 	if(assert == true){
 		spacemit_reset_set(rcdev, id, assert);
