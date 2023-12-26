@@ -432,6 +432,7 @@
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 /* TCM enable register */
 #define CSR_TCMCFG		0x5db
+#define TCM_EN			_AC(0x00000001, UL) /* TCM Access Enable */
 #endif
 
 /* Scalar Crypto Extension - Entropy */
@@ -564,11 +565,6 @@
 			      : : "rK" (__v)			\
 			      : "memory");			\
 })
-
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-#define tcm_config_save()		csr_read(CSR_TCMCFG)
-#define tcm_config_restore(flags)	csr_set(CSR_TCMCFG, flags)
-#endif
 
 #endif /* __ASSEMBLY__ */
 
