@@ -52,9 +52,9 @@ static int riscv_clock_next_event(unsigned long delta,
 
 static int riscv_set_state_shutdown(struct clock_event_device *ce)
 {
-        csr_clear(CSR_IE, IE_TIE);
-
 	u64 next_tval = 0xffffffffffffffff;
+
+        csr_clear(CSR_IE, IE_TIE);
 
 	if (static_branch_likely(&riscv_sstc_available)) {
 #if defined(CONFIG_32BIT)
