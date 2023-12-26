@@ -516,38 +516,6 @@ static void spacemit_sdhci_set_clock(struct sdhci_host *host, unsigned int clock
 	sdhci_set_clock(host, clock);
 };
 
-static int spacemit_sdhci_enable_dma(struct sdhci_host *host)
-{
-	struct mmc_host *mmc = host->mmc;
-	struct device *dev = mmc_dev(mmc);
-	int ret = -EINVAL;
-
-#ifdef CONFIG_AQUILAC_STPU
-	if (host->flags & SDHCI_USE_64_BIT_DMA) {
-		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
-		if (ret) {
-			pr_warn("%s: Failed to set 64-bit DMA mask.\n", mmc_hostname(mmc));
-			host->flags &= ~SDHCI_USE_64_BIT_DMA;
-		}
-	}
-
-	if (ret) {
-		ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
-		if (ret)
-			pr_warn("%s: Failed to set 32-bit DMA mask.\n", mmc_hostname(mmc));
-	}
-#else
-	/* set 64-bit DMA mask on stpu-evb */
-	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
-	if (ret) {
-		pr_warn("%s: Failed to set 64-bit DMA mask.\n", mmc_hostname(mmc));
-		host->flags &= ~SDHCI_USE_64_BIT_DMA;
-	}
-#endif
-
-	return ret;
-}
-
 static void spacemit_sdhci_phy_dll_init(struct sdhci_host *host)
 {
 	u32 reg;
@@ -1095,7 +1063,6 @@ static void spacemit_sdhci_set_encrypt(struct sdhci_host *host, unsigned int enc
 
 static const struct sdhci_ops spacemit_sdhci_ops = {
 	.set_clock = spacemit_sdhci_set_clock,
-	.enable_dma = spacemit_sdhci_enable_dma,
 	.platform_send_init_74_clocks = spacemit_sdhci_gen_init_74_clocks,
 	.get_max_clock = spacemit_sdhci_clk_get_max_clock,
 	.get_max_timeout_count = spacemit_get_max_timeout_count,
@@ -1123,6 +1090,7 @@ static struct sdhci_pltfm_data sdhci_k1x_pdata = {
 		| SDHCI_QUIRK_NO_ENDATTR_IN_NOPDESC
 		| SDHCI_QUIRK_32BIT_ADMA_SIZE
 		| SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
+	.quirks2 = SDHCI_QUIRK2_BROKEN_64_BIT_DMA,
 };
 
 static const struct of_device_id sdhci_spacemit_of_match[] = {
