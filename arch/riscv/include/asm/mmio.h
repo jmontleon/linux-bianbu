@@ -149,4 +149,42 @@ static inline u64 __raw_readq(const volatile void __iomem *addr)
 #define writeq(v, c)	({ __io_bw(); writeq_cpu((v), (c)); __io_aw(); })
 #endif
 
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+/*
+  on the spacemit k1x platform, there is some i/o area
+  is override by the tcm, so, need switch the tcm when
+  read or write these i/o area
+*/
+#include <asm/irqflags.h>
+
+/* i/o read on the tcm override area */
+static inline u32 tcm_override_readl(const volatile void __iomem *addr)
+{
+	u32	val;
+	unsigned long flags, tcm_csr;
+
+	flags = arch_local_irq_save();
+	tcm_csr = csr_read_clear(CSR_TCMCFG, TCM_EN);
+	val = readl(addr);
+	csr_set(CSR_TCMCFG, tcm_csr);
+	arch_local_irq_restore(flags);
+
+	return val;
+}
+
+/* i/o write on the tcm override area */
+static inline void tcm_override_writel(u32 val, volatile void __iomem *addr)
+{
+	unsigned long flags, tcm_csr;
+
+	flags = arch_local_irq_save();
+	tcm_csr = csr_read_clear(CSR_TCMCFG, TCM_EN);
+	writel(val, addr);
+	csr_set(CSR_TCMCFG, tcm_csr);
+	arch_local_irq_restore(flags);
+}
+
+#endif
+
 #endif /* _ASM_RISCV_MMIO_H */
