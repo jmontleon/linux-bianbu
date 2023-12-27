@@ -337,10 +337,20 @@ static void spacemit_save_sdhci_regs(struct sdhci_host *host, u32 cmd)
 		read_sdh_regs(host, &pre_com_reg[0], &pre_pri_reg[0]);
 }
 
-void spacemit_sdio_detect_change(void)
+extern void mmc_stop_host(struct mmc_host *host);
+void spacemit_sdio_detect_change(int enable_scan)
 {
-	if (sdio_host)
-		mmc_detect_change(sdio_host->mmc, 0);
+	if (sdio_host) {
+		sdio_host->mmc->rescan_disable = !enable_scan;
+		if (enable_scan) {
+			mmc_detect_change(sdio_host->mmc, 0);
+		} else {
+			/* stop the sdio card */
+			if (mmc_card_is_removable(sdio_host->mmc) && sdio_host->mmc->card) {
+				mmc_stop_host(sdio_host->mmc);
+			}
+		}
+	}
 }
 EXPORT_SYMBOL(spacemit_sdio_detect_change);
 
@@ -1342,6 +1352,7 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 		if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 			pr_notice("sdio: save sdio_host <- %p\n", host);
 			sdio_host = host;
+			sdio_host->mmc->rescan_disable = 1;
 		}
 	}
 
