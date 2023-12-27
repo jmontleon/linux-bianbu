@@ -664,7 +664,7 @@
 
     pinctrl_pwm0_2: pwm0_2_grp {
         pinctrl-single,pins = <
-            K1X_PADCONF(GPIO_20, MUX_MODE4, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))         /* pwm0 */
+            K1X_PADCONF(GPIO_22, MUX_MODE4, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))         /* pwm0 */
         >;
     };
 
@@ -953,7 +953,7 @@
         >;
     };
 
-    pinctrl_i2c2_1: i2c2_1_grp {
+    pinctrl_i2c2_2: i2c2_2_grp {
         pinctrl-single,pins =<
             K1X_PADCONF(GPIO_68,    MUX_MODE3, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))   /* i2c2_scl */
             K1X_PADCONF(GPIO_69,    MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))     /* i2c2_sda */
