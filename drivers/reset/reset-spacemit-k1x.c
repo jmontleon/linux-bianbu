@@ -117,6 +117,16 @@
 #define APMU_EMAC1_CLK_RES_CTRL     0x3ec
 /* end of APMU register offset */
 
+/* APBC2 register offset */
+#define APBC2_UART1_CLK_RST		0x00
+#define APBC2_SSP2_CLK_RST		0x04
+#define APBC2_TWSI3_CLK_RST		0x08
+#define APBC2_RTC_CLK_RST		0x0c
+#define APBC2_TIMERS0_CLK_RST		0x10
+#define APBC2_KPC_CLK_RST		0x14
+#define APBC2_GPIO_CLK_RST		0x1c
+/* end of APBC2 register offset */
+
 enum spacemit_reset_base_type{
 	RST_BASE_TYPE_MPMU       = 0,
 	RST_BASE_TYPE_APMU       = 1,
@@ -126,6 +136,7 @@ enum spacemit_reset_base_type{
 	RST_BASE_TYPE_DCIU       = 5,
 	RST_BASE_TYPE_DDRC       = 6,
 	RST_BASE_TYPE_AUDC       = 7,
+	RST_BASE_TYPE_APBC2      = 8,
 };
 
 struct spacemit_reset_signal {
@@ -153,6 +164,7 @@ struct spacemit_reset {
 	void __iomem *dciu_base;
 	void __iomem *ddrc_base;
 	void __iomem *audio_ctrl_base;
+	void __iomem *apbc2_base;
 	const struct spacemit_reset_signal *signals;
 };
 
@@ -255,6 +267,14 @@ static const struct spacemit_reset_signal
 	[RESET_PCIE2]	 = { APMU_PCIE_CLK_RES_CTRL_2, 0x138, 0x38, 0x100, RST_BASE_TYPE_APMU },
 	[RESET_EMAC0]	 = { APMU_EMAC0_CLK_RES_CTRL, BIT(1), BIT(1), 0, RST_BASE_TYPE_APMU },
 	[RESET_EMAC1]	 = { APMU_EMAC1_CLK_RES_CTRL, BIT(1), BIT(1), 0, RST_BASE_TYPE_APMU },
+	//APBC2
+	[RESET_SEC_UART1] 	= { APBC2_UART1_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	[RESET_SEC_SSP2] 	= { APBC2_SSP2_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	[RESET_SEC_TWSI3] 	= { APBC2_TWSI3_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	[RESET_SEC_RTC] 	= { APBC2_RTC_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	[RESET_SEC_TIMERS0] 	= { APBC2_TIMERS0_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	[RESET_SEC_KPC] 	= { APBC2_KPC_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	[RESET_SEC_GPIO] 	= { APBC2_GPIO_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
 };
 
 static struct spacemit_reset *to_spacemit_reset(
@@ -291,6 +311,9 @@ static u32 spacemit_reset_read(struct spacemit_reset *reset,
 			break;
 		case RST_BASE_TYPE_AUDC:
 			base = reset->audio_ctrl_base;
+			break;
+		case RST_BASE_TYPE_APBC2:
+			base = reset->apbc2_base;
 			break;
 		default:
 			base = reset->apbc_base;
@@ -329,6 +352,9 @@ static void spacemit_reset_write(struct spacemit_reset *reset, u32 value,
 			break;
 		case RST_BASE_TYPE_AUDC:
 			base = reset->audio_ctrl_base;
+			break;
+		case RST_BASE_TYPE_APBC2:
+			base = reset->apbc2_base;
 			break;
 		default:
 			base = reset->apbc_base;
@@ -447,6 +473,12 @@ static void spacemit_reset_init(struct device_node *np)
 		reset->ddrc_base = of_iomap(np, 6);
 		if (!reset->ddrc_base) {
 			pr_err("failed to map ddrc registers\n");
+			goto out;
+		}
+
+		reset->apbc2_base = of_iomap(np, 7);
+		if (!reset->apbc2_base) {
+			pr_err("failed to map apbc2 registers\n");
 			goto out;
 		}
 	}
