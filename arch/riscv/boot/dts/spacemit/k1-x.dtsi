@@ -25,6 +25,8 @@
 		serial6 = &uart7;
 		serial7 = &uart8;
 		serial8 = &uart9;
+		ethernet0 = &eth0;
+		ethernet1 = &eth1;
 	};
 
 	cpus: cpus {
@@ -1366,6 +1368,7 @@
 			reset-names = "emac-reset";
 			interrupts = <131>;
 			interrupt-parent = <&intc>;
+			mac-address = [ 00 00 00 00 00 00 ];
 			ptp-support;
 			ptp-clk-rate = <10000000>;
 			lpm-qos = <7>;
@@ -1385,6 +1388,7 @@
 			reset-names = "emac-reset";
 			interrupts = <133>;
 			interrupt-parent = <&intc>;
+			mac-address = [ 00 00 00 00 00 00 ];
 			ptp-support;
 			ptp-clk-rate = <10000000>;
 			lpm-qos = <7>;
