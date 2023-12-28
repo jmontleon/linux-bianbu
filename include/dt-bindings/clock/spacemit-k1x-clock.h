@@ -173,5 +173,13 @@
 #define CLK_EMAC1_BUS  167
 #define CLK_EMAC1_PTP  168
 
-#define CLK_MAX_NO     169
+#define CLK_SEC_UART1   169
+#define CLK_SEC_SSP2    170
+#define CLK_SEC_TWSI3   171
+#define CLK_SEC_RTC     172
+#define CLK_SEC_TIMERS0 173
+#define CLK_SEC_KPC     174
+#define CLK_SEC_GPIO    175
+
+#define CLK_MAX_NO      176
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */
