@@ -449,6 +449,33 @@
 	status = "okay";
 };
 
+&i2c6 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_i2c6_1>;
+        status = "okay";
+
+	eeprom@50{
+                compatible = "atmel,24c02";
+                reg = <0x50>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eeprom_1v8-supply = <&ldo_11>;
+		vin-supply-names = "eeprom_1v8";
+                power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+		status = "okay";
+
+		mac_address0: mac_address0@0 {
+			reg = <0x0 6>;
+		};
+
+		mac_address1: mac_address1@0 {
+                        reg = <0x6 6>;
+                };
+
+        };
+};
+
 /* eMMC */
 &sdhci2 {
 	bus-width = <8>;
@@ -484,6 +511,9 @@
         dma-burst-len = <5>;
 
         ref-clock-from-phy;
+
+	nvmem-cells = <&mac_address0>;
+	nvmem-cell-names = "mac-address";
 
         clk-tuning-enable;
         clk-tuning-by-delayline;
@@ -522,6 +552,9 @@
         dma-burst-len = <5>;
 
         ref-clock-from-phy;
+
+	nvmem-cells = <&mac_address1>;
+        nvmem-cell-names = "mac-address";
 
         clk-tuning-enable;
         clk-tuning-by-delayline;
