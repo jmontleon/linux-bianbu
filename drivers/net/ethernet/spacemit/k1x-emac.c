@@ -2504,7 +2504,7 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 {
 	struct device_node *np = pdev->dev.of_node;
 	struct resource *res;
-	char *mac_addr = NULL;
+	u8 mac_addr[ETH_ALEN] = {0};
 	u32 tx_phase, rx_phase;
 	u32 ctrl_reg;
 	int ret;
