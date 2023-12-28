@@ -103,6 +103,15 @@
 #define	RESET_EMAC0        92
 #define	RESET_EMAC1        93
 
-#define RESET_NUMBER       94
+//APBC2
+#define	RESET_SEC_UART1    94
+#define	RESET_SEC_SSP2     95
+#define	RESET_SEC_TWSI3    96
+#define	RESET_SEC_RTC      97
+#define	RESET_SEC_TIMERS0  98
+#define	RESET_SEC_KPC      99
+#define	RESET_SEC_GPIO     100
+
+#define	RESET_NUMBER       101
 
 #endif /* __DT_BINDINGS_RESET_SAPCEMIT_K1X_H__ */
