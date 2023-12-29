@@ -291,7 +291,7 @@ static int read_message(struct mvx_fw *fw,
 
 	if (mve_buf_attr == MVX_FW_BUF_CACHEABLE) {
 		dma_sync_single_for_cpu(fw->dev,
-			virt_to_phys(mve),
+			phys_cpu2vpu(virt_to_phys(mve)),
 			MVE_PAGE_SIZE, DMA_FROM_DEVICE);
 	}
 
@@ -354,7 +354,7 @@ static int read_message(struct mvx_fw *fw,
 	if (host_buf_attr == MVX_FW_BUF_CACHEABLE) {
 		wmb();
 		dma_sync_single_for_device(fw->dev,
-				   virt_to_phys(&host->out_rpos),
+				   phys_cpu2vpu(virt_to_phys(&host->out_rpos)),
 				   sizeof(host->out_rpos), DMA_TO_DEVICE);
 	}
 
@@ -425,7 +425,7 @@ static int write_message(struct mvx_fw *fw,
 
 	if (mve_buf_attr == MVX_FW_BUF_CACHEABLE) {
 		dma_sync_single_for_cpu(fw->dev,
-				virt_to_phys(&mve->in_rpos),
+				phys_cpu2vpu(virt_to_phys(&mve->in_rpos)),
 				sizeof(mve->in_rpos), DMA_FROM_DEVICE);
 	}
 
@@ -455,7 +455,7 @@ static int write_message(struct mvx_fw *fw,
 	if (host_buf_attr == MVX_FW_BUF_CACHEABLE) {
 		wmb();
 		dma_sync_single_for_device(fw->dev,
-				   virt_to_phys(host),
+				   phys_cpu2vpu(virt_to_phys(host)),
 				   MVE_PAGE_SIZE, DMA_TO_DEVICE);
 	}
 
@@ -468,7 +468,7 @@ static int write_message(struct mvx_fw *fw,
 	if (host_buf_attr == MVX_FW_BUF_CACHEABLE) {
 		wmb();
 		dma_sync_single_for_device(fw->dev,
-				   virt_to_phys(&host->in_wpos),
+				   phys_cpu2vpu(virt_to_phys(&host->in_wpos)),
 				   sizeof(host->in_wpos), DMA_TO_DEVICE);
 	}
 
@@ -2885,7 +2885,7 @@ static int handle_rpc_v2(struct mvx_fw *fw)
 
 	if (fw->buf_attr[MVX_FW_REGION_RPC] == MVX_FW_BUF_CACHEABLE) {
 		dma_sync_single_for_cpu(fw->dev,
-				virt_to_phys(rpc_area), sizeof(*rpc_area),
+				phys_cpu2vpu((virt_to_phys(rpc_area))), sizeof(*rpc_area),
 				DMA_FROM_DEVICE);
 	}
 
@@ -2939,7 +2939,7 @@ static int handle_rpc_v2(struct mvx_fw *fw)
 			wmb();
 			dma_sync_single_for_device(
 				fw->dev,
-				virt_to_phys(rpc_area), sizeof(*rpc_area),
+				phys_cpu2vpu(virt_to_phys(rpc_area)), sizeof(*rpc_area),
 				DMA_TO_DEVICE);
 		}
 
@@ -2971,7 +2971,7 @@ static int handle_fw_ram_print_v2(struct mvx_fw *fw)
 	char *print_buf = NULL;
 
 	dma_sync_single_for_cpu(fw->dev,
-				virt_to_phys(rpt_area), sizeof(*rpt_area),
+				phys_cpu2vpu(virt_to_phys(rpt_area)), sizeof(*rpt_area),
 				DMA_FROM_DEVICE);
 
 	wr_cnt = rpt_area->wr_cnt;
@@ -2993,7 +2993,7 @@ static int handle_fw_ram_print_v2(struct mvx_fw *fw)
 		wmb();
 		dma_sync_single_for_device(
 			fw->dev,
-			virt_to_phys(&rpt_area->rd_cnt), sizeof(rpt_area->rd_cnt),
+			phys_cpu2vpu(virt_to_phys(&rpt_area->rd_cnt)), sizeof(rpt_area->rd_cnt),
 			DMA_TO_DEVICE);
 
 		ret = 1;
@@ -3018,7 +3018,7 @@ static void unmap_msq(struct mvx_fw *fw,
 	if (ret == 0)
 		mvx_mmu_unmap_va(fw->mmu, begin, MVE_PAGE_SIZE);
 
-	mvx_mmu_free_page(fw->dev, virt_to_phys(*data));
+	mvx_mmu_free_page(fw->dev, phys_cpu2vpu(virt_to_phys(*data)));
 
 	*data = NULL;
 }
@@ -3050,7 +3050,7 @@ static int map_msq(struct mvx_fw *fw,
 		return ret;
 	}
 
-	*data = phys_to_virt(page);
+	*data = phys_to_virt(phys_vpu2cpu(page));
 
 	return 0;
 }
@@ -3128,7 +3128,7 @@ static void unmap_fw_print_ram(struct mvx_fw *fw,
 	if (ret == 0)
 		mvx_mmu_unmap_va(fw->mmu, begin, MVE_FW_PRINT_RAM_SIZE);
 
-	mvx_mmu_free_contiguous_pages(fw->dev, virt_to_phys(*data), MVE_FW_PRINT_RAM_SIZE >> PAGE_SHIFT);
+	mvx_mmu_free_contiguous_pages(fw->dev, phys_cpu2vpu(virt_to_phys(*data)), MVE_FW_PRINT_RAM_SIZE >> PAGE_SHIFT);
 
 	*data = NULL;
 }
@@ -3160,7 +3160,7 @@ static int map_fw_print_ram(struct mvx_fw *fw,
 		return ret;
 	}
 
-	*data = phys_to_virt(page);
+	*data = phys_to_virt(phys_vpu2cpu(page));
 
 	return 0;
 }
@@ -3248,7 +3248,7 @@ static void print_pair(char *name_in,
 		       enum mvx_fw_buffer_attr mve_buf_attr)
 {
 	if (mve_buf_attr == MVX_FW_BUF_CACHEABLE) {
-		dma_sync_single_for_cpu(device, virt_to_phys(mve),
+		dma_sync_single_for_cpu(device, phys_cpu2vpu(virt_to_phys(mve)),
 				MVE_PAGE_SIZE, DMA_FROM_DEVICE);
 	}
 	mvx_seq_printf(s, name_in, ind, "wr=%10d, rd=%10d, avail=%10d\n",
@@ -3299,7 +3299,7 @@ static void print_debug_v2(struct mvx_fw *fw)
 	union mve_rpc_params *p = &rpc_area->params;
 
 	if (fw->buf_attr[MVX_FW_REGION_MSG_MVE] == MVX_FW_BUF_CACHEABLE) {
-		dma_sync_single_for_cpu(fw->dev, virt_to_phys(msg_mve),
+		dma_sync_single_for_cpu(fw->dev, phys_cpu2vpu(virt_to_phys(msg_mve)),
 				MVE_PAGE_SIZE, DMA_FROM_DEVICE);
 	}
 
