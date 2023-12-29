@@ -181,140 +181,140 @@ static const struct ccu_pll_rate_tbl pll3_rate_tbl[] = {
 static SPACEMIT_CCU_PLL(pll2, "pll2", &pll2_rate_tbl, ARRAY_SIZE(pll2_rate_tbl),
 	BASE_TYPE_APBS, APB_SPARE7_REG, APB_SPARE8_REG, APB_SPARE9_REG,
 	MPMU_POSR, POSR_PLL2_LOCK, 1,
-	0);
+	CLK_IGNORE_UNUSED);
 
 static SPACEMIT_CCU_PLL(pll3, "pll3", &pll3_rate_tbl, ARRAY_SIZE(pll3_rate_tbl),
 	BASE_TYPE_APBS, APB_SPARE10_REG, APB_SPARE11_REG, APB_SPARE12_REG,
 	MPMU_POSR, POSR_PLL3_LOCK, 1,
-	0);
+	CLK_IGNORE_UNUSED);
 
 //pll1
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d2, "pll1_d2", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(1), BIT(1), 0x0,
-	2, 1, 0);
+	2, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d3, "pll1_d3", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(2), BIT(2), 0x0,
-	3, 1, 0);
+	3, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d4, "pll1_d4", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(3), BIT(3), 0x0,
-	4, 1, 0);
+	4, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d5, "pll1_d5", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(4), BIT(4), 0x0,
-	5, 1, 0);
+	5, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d6, "pll1_d6", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(5), BIT(5), 0x0,
-	6, 1, 0);
+	6, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d7, "pll1_d7", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(6), BIT(6), 0x0,
-	7, 1, 0);
+	7, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d8, "pll1_d8", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(7), BIT(7), 0x0,
-	8, 1, 0);
+	8, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d11_223p4, "pll1_d11_223p4", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(15), BIT(15), 0x0,
-	11, 1, 0);
+	11, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d13_189, "pll1_d13_189", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(16), BIT(16), 0x0,
-	13, 1, 0);
+	13, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d23_106p8, "pll1_d23_106p8", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(20), BIT(20), 0x0,
-	23, 1, 0);
+	23, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d64_38p4, "pll1_d64_38p4", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(0), BIT(0), 0x0,
-	64, 1, 0);
+	64, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_aud_245p7, "pll1_aud_245p7", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(10), BIT(10), 0x0,
-	10, 1, 0);
+	10, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_aud_24p5, "pll1_aud_24p5", "pll1_2457p6_vco",
 	BASE_TYPE_APBS, APB_SPARE2_REG,
 	BIT(11), BIT(11), 0x0,
-	100, 1, 0);
+	100, 1, CLK_IGNORE_UNUSED);
 
 //pll2
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d1, "pll2_d1", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(0), BIT(0), 0x0,
-	1, 1, 0);
+	1, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d2, "pll2_d2", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(1), BIT(1), 0x0,
-	2, 1, 0);
+	2, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d3, "pll2_d3", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(2), BIT(2), 0x0,
-	3, 1, 0);
+	3, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d4, "pll2_d4", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(3), BIT(3), 0x0,
-	4, 1, 0);
+	4, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d5, "pll2_d5", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(4), BIT(4), 0x0,
-	5, 1, 0);
+	5, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d6, "pll2_d6", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(5), BIT(5), 0x0,
-	6, 1, 0);
+	6, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d7, "pll2_d7", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(6), BIT(6), 0x0,
-	7, 1, 0);
+	7, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll2_d8, "pll2_d8", "pll2",
 	BASE_TYPE_APBS, APB_SPARE8_REG,
 	BIT(7), BIT(7), 0x0,
-	8, 1, 0);
+	8, 1, CLK_IGNORE_UNUSED);
 
 //pll3
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d1, "pll3_d1", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(0), BIT(0), 0x0,
-	1, 1, 0);
+	1, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d2, "pll3_d2", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(1), BIT(1), 0x0,
-	2, 1, 0);
+	2, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d3, "pll3_d3", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(2), BIT(2), 0x0,
-	3, 1, 0);
+	3, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d4, "pll3_d4", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(3), BIT(3), 0x0,
-	4, 1, 0);
+	4, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d5, "pll3_d5", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(4), BIT(4), 0x0,
-	5, 1, 0);
+	5, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d6, "pll3_d6", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(5), BIT(5), 0x0,
-	6, 1, 0);
+	6, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d7, "pll3_d7", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(6), BIT(6), 0x0,
-	7, 1, 0);
+	7, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll3_d8, "pll3_d8", "pll3",
 	BASE_TYPE_APBS, APB_SPARE11_REG,
 	BIT(7), BIT(7), 0x0,
-	8, 1, 0);
+	8, 1, CLK_IGNORE_UNUSED);
 
 //pll1_d8
 static SPACEMIT_CCU_GATE(pll1_d8_307p2, "pll1_d8_307p2", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(13), BIT(13), 0x0,
-	0);
+	CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_FACTOR(pll1_d32_76p8, "pll1_d32_76p8", "pll1_d8_307p2",
 	4, 1);
 static SPACEMIT_CCU_FACTOR(pll1_d40_61p44, "pll1_d40_61p44", "pll1_d8_307p2",
@@ -324,35 +324,35 @@ static SPACEMIT_CCU_FACTOR(pll1_d16_153p6, "pll1_d16_153p6", "pll1_d8",
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d24_102p4, "pll1_d24_102p4", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(12), BIT(12), 0x0,
-	3, 1, 0);
+	3, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d48_51p2, "pll1_d48_51p2", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(7), BIT(7), 0x0,
-	6, 1, 0);
+	6, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d48_51p2_ap, "pll1_d48_51p2_ap", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(11), BIT(11), 0x0,
-	6, 1, 0);
+	6, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_m3d128_57p6, "pll1_m3d128_57p6", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(8), BIT(8), 0x0,
-	16, 3, 0);
+	16, 3, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d96_25p6, "pll1_d96_25p6", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(4), BIT(4), 0x0,
-	12, 1, 0);
+	12, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d192_12p8, "pll1_d192_12p8", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(3), BIT(3), 0x0,
-	24, 1, 0);
+	24, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d192_12p8_wdt, "pll1_d192_12p8_wdt", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(19), BIT(19), 0x0,
-	24, 1, 0);
+	24, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d384_6p4, "pll1_d384_6p4", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(2), BIT(2), 0x0,
-	48, 1, 0);
+	48, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_FACTOR(pll1_d768_3p2, "pll1_d768_3p2", "pll1_d384_6p4",
 	2, 1);
 static SPACEMIT_CCU_FACTOR(pll1_d1536_1p6, "pll1_d1536_1p6", "pll1_d384_6p4",
@@ -366,43 +366,43 @@ static SPACEMIT_CCU_FACTOR(pll1_d7_351p08, "pll1_d7_351p08", "pll1_d7",
 static SPACEMIT_CCU_GATE(pll1_d6_409p6, "pll1_d6_409p6", "pll1_d6",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(0), BIT(0), 0x0,
-	0);
+	CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d12_204p8, "pll1_d12_204p8", "pll1_d6",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(5), BIT(5), 0x0,
-	2, 1, 0);
+	2, 1, CLK_IGNORE_UNUSED);
 //pll1_d5
 static SPACEMIT_CCU_GATE(pll1_d5_491p52, "pll1_d5_491p52", "pll1_d5",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(21), BIT(21), 0x0,
-	0);
+	CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d10_245p76, "pll1_d10_245p76", "pll1_d5",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(18), BIT(18), 0x0,
-	2, 1, 0);
+	2, 1, CLK_IGNORE_UNUSED);
 //pll1_d4
 static SPACEMIT_CCU_GATE(pll1_d4_614p4, "pll1_d4_614p4", "pll1_d4",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(15), BIT(15), 0x0,
-	0);
+	CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d52_47p26, "pll1_d52_47p26", "pll1_d4",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(10), BIT(10), 0x0,
-	13, 1, 0);
+	13, 1, CLK_IGNORE_UNUSED);
 static SPACEMIT_CCU_GATE_FACTOR(pll1_d78_31p5, "pll1_d78_31p5", "pll1_d4",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(6), BIT(6), 0x0,
-	39, 2, 0);
+	39, 2, CLK_IGNORE_UNUSED);
 //pll1_d3
 static SPACEMIT_CCU_GATE(pll1_d3_819p2, "pll1_d3_819p2", "pll1_d3",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(14), BIT(14), 0x0,
-	0);
+	CLK_IGNORE_UNUSED);
 //pll1_d2
 static SPACEMIT_CCU_GATE(pll1_d2_1228p8, "pll1_d2_1228p8", "pll1_d2",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(16), BIT(16), 0x0,
-	0);
+	CLK_IGNORE_UNUSED);
 
 //mpmu
 static struct ccu_ddn_info uart_ddn_mask_info = {
@@ -418,14 +418,14 @@ static struct ccu_ddn_tbl slow_uart1_tbl[] = {
 static struct ccu_ddn_tbl slow_uart2_tbl[] = {
 	{.num = 6144, .den = 960},/*rate = parent_rate*960/6144/2) */
 };
-static SPACEMIT_CCU_DDN_GATE(slow_uart1_14p74, "slow_uart1_14p74", "pll1_d16_153p6", 
+static SPACEMIT_CCU_DDN_GATE(slow_uart1_14p74, "slow_uart1_14p74", "pll1_d16_153p6",
 	&uart_ddn_mask_info, &slow_uart1_tbl, ARRAY_SIZE(slow_uart1_tbl),
 	BASE_TYPE_MPMU, MPMU_SUCCR, MPMU_ACGR, BIT(1),
-	0);
-static SPACEMIT_CCU_DDN_GATE(slow_uart2_48, "slow_uart2_48", "pll1_d4_614p4", 
+	CLK_IGNORE_UNUSED);
+static SPACEMIT_CCU_DDN_GATE(slow_uart2_48, "slow_uart2_48", "pll1_d4_614p4",
 	&uart_ddn_mask_info, &slow_uart2_tbl, ARRAY_SIZE(slow_uart2_tbl),
 	BASE_TYPE_MPMU, MPMU_SUCCR_1, MPMU_ACGR, BIT(1),
-	0);
+	CLK_IGNORE_UNUSED);
 
 //apbc
 static const char * const uart_parent_names[] = {
