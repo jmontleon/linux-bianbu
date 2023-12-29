@@ -49,6 +49,7 @@
 #include "mvx_seq.h"
 #include "mvx_dvfs.h"
 #include "mvx_v4l2_session.h"
+#include "mvx_mmu.h"
 
 /****************************************************************************
  * Private variables
@@ -1560,7 +1561,7 @@ static void fw_bin_ready(struct mvx_fw_bin *bin,
 	session->isession.ncores = session->client_ops->get_ncores(
 		session->client_ops);
 	session->isession.l0_pte = mvx_mmu_set_pte(
-		MVX_ATTR_PRIVATE, virt_to_phys(session->mmu.page_table),
+		MVX_ATTR_PRIVATE, phys_cpu2vpu(virt_to_phys(session->mmu.page_table)),
 		MVX_ACCESS_READ_WRITE);
 
 	session->csession = session->client_ops->register_session(
