@@ -466,4 +466,27 @@ int mvx_mmu_pages_debugfs_init(struct mvx_mmu_pages *pages,
 			       char *name,
 			       struct dentry *parent);
 
+/***
+ *                                                                  CPU
+ * 0x04 8000 0000                                         +-->  +----------+
+ *                                                        |     |          |
+ *                  DEVICE                 DRAM           |     |          |
+ * 0x04 0000 0000+---------+  <------+  +----------+  +---+     |          |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |    DDR   |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |          |
+ * 0x01 0000 0000|         |            |          |      +-->  +----------+
+ *               |         |            |          |      |     |          |
+ *               |         |            |          |      |     |    IO    |
+ * 0x00 8000 0000+---------+  <------+  +----------+  +---+-->  +----------+
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |    DDR   |
+ * 0x00 0000 0000+---------+  <------+  +----------+  +------>  +----------+
+ *
+ */
+unsigned long phys_vpu2cpu(unsigned long phys_addr);
+unsigned long phys_cpu2vpu(unsigned long phys_addr);
+
 #endif /* _MVX_MMU_H_ */
