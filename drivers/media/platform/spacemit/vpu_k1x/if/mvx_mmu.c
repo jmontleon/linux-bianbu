@@ -211,13 +211,13 @@ static mvx_mmu_pte *ptw(struct mvx_mmu *mmu,
 		pte[index] = mvx_mmu_set_pte(MVX_ATTR_PRIVATE, l2,
 					     MVX_ACCESS_READ_ONLY);
 		dma_sync_single_for_device(mmu->dev,
-					   virt_to_phys(&pte[index]),
+					   phys_cpu2vpu(virt_to_phys(&pte[index])),
 					   sizeof(pte[index]), DMA_TO_DEVICE);
 	}
 
 	/* Level 2. */
 	index = get_index(va, 1);
-	pte = phys_to_virt(l2);
+	pte = phys_to_virt(phys_vpu2cpu(l2));
 
 	return &pte[index];
 }
@@ -279,7 +279,7 @@ static int map_page(struct mvx_mmu *mmu,
 
 	/* Map in physical address and flush data. */
 	*pte = mvx_mmu_set_pte(attr, pa, access);
-	dma_sync_single_for_device(mmu->dev, virt_to_phys(pte), sizeof(*pte),
+	dma_sync_single_for_device(mmu->dev, phys_cpu2vpu(virt_to_phys(pte)), sizeof(*pte),
 				   DMA_TO_DEVICE);
 
 	return 0;
@@ -301,7 +301,7 @@ static void unmap_page(struct mvx_mmu *mmu,
 
 	/* Unmap virtual address and flush data. */
 	*pte = 0;
-	dma_sync_single_for_device(mmu->dev, virt_to_phys(pte), sizeof(*pte),
+	dma_sync_single_for_device(mmu->dev, phys_cpu2vpu(virt_to_phys(pte)), sizeof(*pte),
 				   DMA_TO_DEVICE);
 }
 
@@ -380,7 +380,7 @@ static int mapped_count(phys_addr_t pa)
 	if (pa != 0) {
 		int j;
 		phys_addr_t pa2;
-		mvx_mmu_pte *l2 = phys_to_virt(pa);
+		mvx_mmu_pte *l2 = phys_to_virt(phys_vpu2cpu(pa));
 
 		for (j = 0; j < MVE_INDEX_SIZE; j++) {
 			pa2 = get_pa(l2[j]);
@@ -611,7 +611,7 @@ int mvx_mmu_construct(struct mvx_mmu *mmu,
 	if (page_table == 0)
 		return -ENOMEM;
 
-	mmu->page_table = phys_to_virt(page_table);
+	mmu->page_table = phys_to_virt(phys_vpu2cpu(page_table));
 
 	return 0;
 }
@@ -634,7 +634,7 @@ void mvx_mmu_destruct(struct mvx_mmu *mmu)
 	}
 
 	pa = virt_to_phys(mmu->page_table);
-	mvx_mmu_free_page(mmu->dev, pa);
+	mvx_mmu_free_page(mmu->dev, phys_cpu2vpu(pa));
 
 	WARN_ON(count > 0);
 }
@@ -712,7 +712,7 @@ void mvx_mmu_free_contiguous_pages(struct device *dev, phys_addr_t pa, size_t np
 	if (pa == 0)
 		return;
 
-	page = phys_to_page(pa);
+	page = phys_to_page(phys_vpu2cpu(pa));
 
 	dma_unmap_page(dev, pa, npages << PAGE_SHIFT, DMA_BIDIRECTIONAL);
 	__free_pages(page, get_order(npages << PAGE_SHIFT));
@@ -760,7 +760,7 @@ void mvx_mmu_free_page(struct device *dev,
 	if (pa == 0)
 		return;
 
-	page = phys_to_page(pa);
+	page = phys_to_page(phys_vpu2cpu(pa));
 
 	dma_unmap_page(dev, pa, PAGE_SIZE, DMA_BIDIRECTIONAL);
 	__free_page(page);
@@ -1167,7 +1167,7 @@ int mvx_mmu_map_l2(struct mvx_mmu *mmu,
 	pte[index] = mvx_mmu_set_pte(MVX_ATTR_PRIVATE, pa,
 				     MVX_ACCESS_READ_ONLY);
 	dma_sync_single_for_device(mmu->dev,
-				   virt_to_phys(&pte[index]),
+				   phys_cpu2vpu(virt_to_phys(&pte[index])),
 				   sizeof(pte[index]), DMA_TO_DEVICE);
 
 	return 0;
@@ -1229,7 +1229,7 @@ int mvx_mmu_read(struct mvx_mmu *mmu,
 		dma_sync_single_for_cpu(mmu->dev, pa, n, DMA_FROM_DEVICE);
 
 		/* Convert from physical to Linux logical address. */
-		src = phys_to_virt(pa);
+		src = phys_to_virt(phys_vpu2cpu(pa));
 		memcpy(data, src, n);
 
 		va += n;
@@ -1263,7 +1263,7 @@ int mvx_mmu_write(struct mvx_mmu *mmu,
 			return ret;
 
 		/* Convert from physical to Linux logical address. */
-		dst = phys_to_virt(pa);
+		dst = phys_to_virt(phys_vpu2cpu(pa));
 		memcpy(dst, data, n);
 
 		/* Flush the data to memory. */
@@ -1296,7 +1296,7 @@ void mvx_mmu_print(struct mvx_mmu *mmu)
 		unsigned int j;
 
 		if (pa != 0) {
-			mvx_mmu_pte *l2 = phys_to_virt(pa);
+			mvx_mmu_pte *l2 = phys_to_virt(phys_vpu2cpu(pa));
 
 			MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_INFO,
 				      "%-4u: PA=0x%llx, ATTR=%u, ACC=%u",
@@ -1347,4 +1347,20 @@ int mvx_mmu_pages_debugfs_init(struct mvx_mmu_pages *pages,
 		return -ENOMEM;
 
 	return 0;
+}
+
+unsigned long phys_vpu2cpu(unsigned long phys_addr)
+{
+	if (phys_addr >= 0x80000000UL) {
+		phys_addr += 0x80000000UL;
+	}
+	return phys_addr;
+}
+
+unsigned long phys_cpu2vpu(unsigned long phys_addr)
+{
+	if (phys_addr >= 0x100000000UL) {
+		phys_addr -= 0x80000000UL;
+	}
+	return phys_addr;
 }
