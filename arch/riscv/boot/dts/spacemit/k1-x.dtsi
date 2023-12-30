@@ -446,6 +446,7 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>;
 			#interconnect-cells = <0>;
+			status = "okay";
 		};
 
 		/* dram mapping for vpu/gpu/v2d/jpu for ex. */
@@ -456,6 +457,7 @@
 			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
 				     <0x0 0x80000000 0x1 0x00000000 0x3 0x80000000>;
 			#interconnect-cells = <0>;
+			status = "okay";
 		};
 
 		clint0: clint@e4000000 {
@@ -550,12 +552,12 @@
 			ranges;
 
 			mpmu: mpmu@1 {
-				compatible = "spacemit,spacemit-mpmu", "syscon", "simple-mfd";
+				compatible = "simple-mfd", "spacemit,spacemit-mpmu", "syscon";
 				reg = <0x0 0xd4050000 0x0 0x3004>;
 			};
 
 			apmu: apmu@2 {
-				compatible = "spacemit,spacemit-apmu", "syscon", "simple-mfd";
+				compatible = "simple-mfd", "spacemit,spacemit-apmu", "syscon";
 				reg = <0x0 0xd4282800 0x0 0x3f4>;
 			};
 
