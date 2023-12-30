@@ -424,6 +424,13 @@ config AMLOGIC_THERMAL
 	  This driver can also be built as a module. If so, the module will
 	  be called amlogic_thermal.
 
+config K1X_THERMAL
+	tristate "Spacemit K1X Thermal Support"
+	depends on OF && SOC_SPACEMIT
+	help
+	  Enable this option if you want to have support for thermal management
+	  controller present in Spacemit SoCs
+
 menu "Intel thermal drivers"
 depends on X86 || X86_INTEL_QUARK || COMPILE_TEST
 source "drivers/thermal/intel/Kconfig"
