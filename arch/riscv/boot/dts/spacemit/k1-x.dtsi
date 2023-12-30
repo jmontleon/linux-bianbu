@@ -9,6 +9,7 @@
 #include <dt-bindings/clock/spacemit-k1x-clock.h>
 #include <dt-bindings/display/spacemit-dpu.h>
 #include <dt-bindings/pmu/k1x_pmu.h>
+#include <dt-bindings/dma/k1x-dmac.h>
 
 / {
 	compatible = "spacemit,k1-x";
