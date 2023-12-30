@@ -1743,6 +1743,104 @@
 			status = "disabled";
 		};
 
+                thermal: thermal@d4018000 {
+                        compatible = "spacemit,k1x-tsensor";
+                        reg = <0x0 0xd4018000 0x0 0x100>;
+                        interrupt-parent = <&intc>;
+                        interrupts = <61>;
+                        clocks = <&ccu CLK_TSEN>;
+                        clock-names = "thermal_core";
+                        resets = <&reset RESET_TSEN>;
+                        reset-names = "tsen_reset";
+			/* bjt-tsensor map:
+			 * bjt0: local,         bjt1: top,
+			 * bjt2: gpu,           bjt3: cluster0,
+			 * bjt4: cluster1,
+			 */
+			sensor_range = <0x3 0x4>;
+			/* emergent_reboot_threshold = <110>; */
+                        #thermal-sensor-cells = <1>;
+                        status = "okay";
+                };
+
+		thermal-zones {
+			cluster0_thermal {
+				polling-delay = <0>;
+				polling-delay-passive = <0>;
+				thermal-sensors = <&thermal 3>;
+
+				trips {
+					cls0_trip0: cls0-trip-point0 {
+						temperature = <60000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls0_trip1: cls0-trip-point1 {
+						temperature = <70000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls0_trip2: cls0-trip-point2 {
+						temperature = <80000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls0_trip3: cls0-trip-point3 {
+						temperature = <85000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls0_trip4: cls0-trip-point4 {
+						temperature = <105000>;
+						hysteresis = <5000>;
+						type = "critical";
+					};
+				};
+			};
+
+			cluster1_thermal {
+				polling-delay = <0>;
+				polling-delay-passive = <0>;
+				thermal-sensors = <&thermal 4>;
+
+				trips {
+					cls1_trip0: cls1-trip-point0 {
+						temperature = <60000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls1_trip1: cls1-trip-point1 {
+						temperature = <70000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls1_trip2: cls1-trip-point2 {
+						temperature = <80000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls1_trip3: cls1-trip-point3 {
+						temperature = <85000>;
+						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls1_trip4: cls1-trip-point4 {
+						temperature = <105000>;
+						hysteresis = <5000>;
+						type = "critical";
+					};
+				};
+			};
+		};
+
 		tcm: tcm@0xd8000000 {
 			compatible = "spacemit,k1-x-tcm";
 			reg = <0x0 0xd8000000 0x0 0x80000>;
