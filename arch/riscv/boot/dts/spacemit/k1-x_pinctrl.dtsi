@@ -326,14 +326,15 @@
             K1X_PADCONF(GPIO_44,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))   /* mn_clk */
         >;
     };
-
+    pinctrl_i2c1: i2c1_grp {
+        pinctrl-single,pins =<
+            K1X_PADCONF(GPIO_56,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c1_scl */
+            K1X_PADCONF(GPIO_57,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c1_sda */
+        >;
+    };
     pinctrl_camera2: camera2_grp {
         pinctrl-single,pins =<
             K1X_PADCONF(GPIO_120,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* cam_mclk2 */
-            K1X_PADCONF(GPIO_118,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c7_scl */
-            K1X_PADCONF(GPIO_119,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c7_sda */
-            K1X_PADCONF(GPIO_121,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* camera2_rst */
-            K1X_PADCONF(GPIO_122,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* camera2_pdn */
         >;
     };
 
@@ -849,24 +850,21 @@
             K1X_PADCONF(GPIO_47,   MUX_MODE5, (EDGE_NONE | PULL_DOWN | PAD_3V_DS4))   /* one_wire */
         >;
     };
-
+    pinctrl_i2c0: i2c0_grp {
+        pinctrl-single,pins =<
+            K1X_PADCONF(GPIO_54,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c0_scl */
+            K1X_PADCONF(GPIO_55,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c0_sda */
+        >;
+    };
     pinctrl_camera0: camera0_grp {
         pinctrl-single,pins =<
             K1X_PADCONF(GPIO_53,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* cam_mclk0 */
-            K1X_PADCONF(GPIO_54,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c0_scl */
-            K1X_PADCONF(GPIO_55,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c0_sda */
-            K1X_PADCONF(GPIO_111,   MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* camera0_rst */
-            K1X_PADCONF(GPIO_113,   MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* camera0_pdn */
         >;
     };
 
     pinctrl_camera1: camera1_grp {
         pinctrl-single,pins =<
             K1X_PADCONF(GPIO_58,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* cam_mclk1 */
-            K1X_PADCONF(GPIO_56,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c1_scl */
-            K1X_PADCONF(GPIO_57,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* i2c1_sda */
-            K1X_PADCONF(GPIO_112,   MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* camera1_rst */
-            K1X_PADCONF(GPIO_114,   MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))  /* camera1_pdn */
         >;
     };
 
