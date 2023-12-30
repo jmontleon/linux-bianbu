@@ -434,7 +434,7 @@
 		};
 	};
 
-	soc {
+	soc: soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -1917,6 +1917,7 @@
 				<&reset RESET_ISP>,
 				<&reset RESET_ISP_AHB>;
 			reset-names = "jpg_reset", "lcd_mclk_reset", "isp_ci_reset", "freset", "sreset";
+
 			jpu,cclk-max-frequency = /bits/ 64 <1000000000>;
 			jpu,cclk-min-frequency = <409000000>;
 			jpu,cclk-default-frequency = <614000000>;
