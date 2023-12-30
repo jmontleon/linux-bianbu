@@ -146,7 +146,7 @@ struct platform_driver spacemit_dphy_driver = {
 	}
 };
 
-module_platform_driver(spacemit_dphy_driver);
+//module_platform_driver(spacemit_dphy_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spacemit MIPI DSI PHY driver");
