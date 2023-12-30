@@ -21,4 +21,11 @@ config SPACEMIT_REBOOT_CONTROL
 	help
 	  Spacemit reboot into fastboot mode
 
+config SPACEMI_K1X_DMA_RANGE
+	tristate "Spacemit dram range driver for k1x"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  This driver is an empty shell, in order to make the dma-ranges function
+          effective
+
 source "drivers/soc/spacemit/jpu/Kconfig"
