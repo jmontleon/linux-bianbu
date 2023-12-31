@@ -857,7 +857,7 @@ int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *p
 }
 EXPORT_SYMBOL(spacemit_aes_cbc_decrypt);
 
-static void engine_reg_dump(int index)
+__maybe_unused static void engine_reg_dump(int index)
 {
         uint32_t val;
         printk("======> engine[%d] reg dump start! <======\n", index);
