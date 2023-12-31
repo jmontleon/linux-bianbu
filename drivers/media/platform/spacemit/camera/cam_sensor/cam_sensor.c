@@ -641,8 +641,7 @@ static int cam_sensor_read(struct cam_i2c_data *data,
 err:
 	cam_info("%s: Failed reading register 0x%02x!", __func__, reg);
 #if 1
-	int i;
-	for (i=0; i<1000; i++) {
+	for (int i=0; i<1000; i++) {
 		msleep(1000);
 		if (i % 60 == 0)
 			cam_info("sleep %ds", i);
