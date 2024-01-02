@@ -491,6 +491,7 @@ static void fe_isp_set_clk(struct isp_context *isp_ctx, int clk_mode)
 }
 
 #ifdef CONFIG_SPACEMIT_K1X_VI_IOMMU
+
 static uint32_t fe_isp_fill_trans_tab_by_sg(uint32_t *tt_base, struct sg_table *sgt,
 					    uint32_t offset, uint32_t length)
 {
@@ -511,14 +512,14 @@ static uint32_t fe_isp_fill_trans_tab_by_sg(uint32_t *tt_base, struct sg_table *
 			temp_offset = offset - temp_size + sg_dma_len(sg);
 		else
 			temp_offset = 0;
-		start_addr = ((sg_phys(sg) + temp_offset) >> 12) << 12;
+		start_addr = ((phys_cpu2cam(sg_phys(sg)) + temp_offset) >> 12) << 12;
 
 		temp_length = temp_size - offset;
 		if (temp_length >= length)
 			temp_offset = sg_dma_len(sg) - temp_length + length;
 		else
 			temp_offset = sg_dma_len(sg);
-		end_addr = ((sg_phys(sg) + temp_offset + 0xfff) >> 12) << 12;
+		end_addr = ((phys_cpu2cam(sg_phys(sg)) + temp_offset + 0xfff) >> 12) << 12;
 
 		for (dmad = start_addr; dmad < end_addr; dmad += 0x1000)
 			tt_base[tt_size++] = (dmad >> 12) & 0x3fffff;
@@ -576,6 +577,7 @@ static dma_addr_t spm_vb2_buf_paddr(struct vb2_buffer *vb, unsigned int plane_no
 		isp_mmu_call(isp_ctx->mmu_dev, enable_channel, tid);
 		paddr = (dma_addr_t)isp_ctx->mmu_dev->ops->get_sva(isp_ctx->mmu_dev, tid, offset);
 	}
+
 	return paddr;
 }
 #endif
@@ -5221,7 +5223,7 @@ void *fe_isp_create_ctx(struct platform_device *pdev)
 		cam_err("failed to alloc mem for mmu reserved");
 		return NULL;
 	}
-	isp_ctx->rsvd_phy_addr = virt_to_phys(isp_ctx->rsvd_vaddr);
+	isp_ctx->rsvd_phy_addr = phys_cpu2cam(virt_to_phys(isp_ctx->rsvd_vaddr));
 	cam_info("rsvd_phy_addr=0x%llx size=%d", (uint64_t)isp_ctx->rsvd_phy_addr, MMU_RESERVED_MEM_SIZE);
 	memset(isp_ctx->rsvd_vaddr, 0xff, MMU_RESERVED_MEM_SIZE);
 

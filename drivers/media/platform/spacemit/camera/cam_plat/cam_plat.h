@@ -166,6 +166,9 @@ struct ccic_irq_data {
 #define subdev_to_plat_csd(subdev) \
 	container_of(subdev, struct plat_cam_subdev, sd)
 
+unsigned long phys_cam2cpu(unsigned long phys_addr);
+unsigned long phys_cpu2cam(unsigned long phys_addr);
+
 int plat_cam_register_subdev(struct plat_cam_subdev *csd);
 
 int plat_cam_unregister_subdev(struct plat_cam_subdev *csd);
