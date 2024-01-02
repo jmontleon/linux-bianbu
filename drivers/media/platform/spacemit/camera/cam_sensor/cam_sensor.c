@@ -1256,8 +1256,8 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		ret = PTR_ERR(sensor->mclk);
 		goto st_err;
 	}
-#if 0
-#ifdef JINDIE_EVB
+//#if 0
+//#ifdef JINDIE_EVB
 	sensor->afvdd = devm_regulator_get(dev, "af_2v8");
 	if (IS_ERR(sensor->afvdd)) {
 		dev_warn(dev, "Failed to get regulator af_2v8\n");
@@ -1281,8 +1281,8 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		dev_warn(dev, "Failed to get regulator dvdd_1v2\n");
 		sensor->dvdd = NULL;
 	}
-#endif
-#endif
+//#endif
+//#endif
 	/* pwdn-gpios */
 	sensor->pwdn = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
 	if (IS_ERR(sensor->pwdn)) {
