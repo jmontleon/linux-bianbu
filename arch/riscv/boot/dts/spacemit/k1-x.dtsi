@@ -568,7 +568,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				domains = <0x8>;
+				domains = <0x9>;
 
 				power-domain@SPT_PD_BUS {
 					reg = <0x0>;
@@ -657,8 +657,23 @@
 					#power-domain-cells = <0>;
 				};
 
-				power-domain@SPT_PD_DUMMY {
+				power-domain@SPT_PD_HDMI {
 					reg = <0x7>;
+					pm_qos = <12>;
+					reg_pwr_ctrl = <0x3f4>;
+					bit_hw_mode = <4>;
+					bit_sleep2 = <3>;
+					bit_sleep1 = <2>;
+					bit_isolation = <1>;
+					bit_auto_pwr_on = <0>;
+					bit_pwr_stat = <7>;
+					bit_hw_pwr_stat = <15>;
+					use_hw = <1>;
+					#power-domain-cells = <0>;
+				};
+
+				power-domain@SPT_PD_DUMMY {
+					reg = <0x8>;
 					pm_qos = <15>;
 					#power-domain-cells = <0>;
 				};
