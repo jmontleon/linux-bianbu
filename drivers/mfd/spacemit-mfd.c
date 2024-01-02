@@ -11,13 +11,15 @@
 
 SPM8821_MFD_CELL;
 SPM8821_REGMAP_CONFIG;
+SPM8821_CHIP_ID_REG;
 
 PM853_MFD_CELL;
 PM853_REGMAP_CONFIG;
+PM853_CHIP_ID_REG;
 
 static const struct of_device_id spacemit_pmic_of_match[] = {
-	{ .compatible = "spacemit,spm8821" , .data = (void *)SPACEMIT_SPM8821_ID_REG },
-	{ .compatible = "spacemit,pm853" , .data = (void *)SPACEMIT_PM853_ID_REG },
+	{ .compatible = "spacemit,spm8821" , .data = (void *)&spm8821_id_reg },
+	{ .compatible = "spacemit,pm853" , .data = (void *)&pm853_id_reg },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, spacemit_pmic_of_match);
@@ -77,7 +79,7 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	int ret;
 	int nr_cells;
 	unsigned char pmic_id;
-	unsigned long pmic_id_reg;
+	struct chip_id_reg *pmic_id_reg;
 	struct spacemit_pmic *pmic;
 	const struct mfd_cell *cells;
 	const struct of_device_id *of_id;
@@ -94,15 +96,41 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	pmic_id_reg = (unsigned long)of_id->data;
+	pmic_id_reg = (struct chip_id_reg *)of_id->data;
 
-	ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg, &pmic_id);
-	if (ret) {
-		pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
-		return -EINVAL;
+	if (pmic_id_reg->reg_num == 1) {
+		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->device_id_reg, &pmic_id);
+		if (ret) {
+			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		pmic->variant = pmic_id;
+	} else {
+		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->user_id_reg, &pmic_id);
+		if (ret) {
+			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		pmic->variant = pmic_id;
+
+		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->version_id_reg, &pmic_id);
+		if (ret) {
+			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		pmic->variant = ((pmic->variant) << 8) | pmic_id;
+
+		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->device_id_reg, &pmic_id);
+		if (ret) {
+			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
+			return -EINVAL;
+		}
+
+		pmic->variant = ((pmic->variant) << 8) | pmic_id;
 	}
-
-	pmic->variant = pmic_id;
 
 	switch (pmic->variant) {
 	case SPM8821_ID:
