@@ -2,7 +2,6 @@
 subdir-ccflags-y += -I$(srctree)/drivers/media/platform/spacemit/camera/cam_util
 subdir-ccflags-y += -I$(srctree)/drivers/media/platform/spacemit/camera/cam_plat
 # subdir-ccflags-y += -DCONFIG_ARCH_ZYNQMP
-subdir-ccflags-y += -DJINDIE_EVB
 subdir-ccflags-y += -DCONFIG_ARCH_SPACEMIT
 
 obj-$(CONFIG_SPACEMIT_K1X_CAMERA_V2) += cam_plat_v2.o
