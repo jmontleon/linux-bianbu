@@ -27,6 +27,22 @@ struct plat_cam_device {
 #define to_plat_cam_dev(v4l2_dev)	\
 	(struct plat_cam_device *)(v4l2_dev)
 
+unsigned long phys_cam2cpu(unsigned long phys_addr)
+{
+	if (phys_addr >= 0x80000000UL) {
+		phys_addr += 0x80000000UL;
+	}
+	return phys_addr;
+}
+
+unsigned long phys_cpu2cam(unsigned long phys_addr)
+{
+	if (phys_addr >= 0x100000000UL) {
+		phys_addr -= 0x80000000UL;
+	}
+	return phys_addr;
+}
+
 static void plat_cam_sd_notify(struct v4l2_subdev *sd,
 			       unsigned int notification, void *arg)
 {
