@@ -9,6 +9,14 @@
 
 struct v2d_iommu_res sV2dIommuRes;
 
+unsigned long phys_cpu2v2d(unsigned long phys_addr)
+{
+	if (phys_addr >= 0x100000000UL) {
+		phys_addr -= 0x80000000UL;
+	}
+	return phys_addr;
+}
+
 static u32 __read_reg(struct v2d_iommu_res *res, u64 offset)
 {
 	return readl(res->base + offset + V2D_IOMMU_BASE_OFFSET);
@@ -185,7 +193,7 @@ int v2d_iommu_map_sg(unsigned long iova, struct scatterlist *sg, unsigned int ne
 		goto out_iova_err;
 
 	for_each_sg(sg, s, nents, i) {
-		paddr = page_to_phys(sg_page(s)) + s->offset;
+		paddr = phys_cpu2v2d(page_to_phys(sg_page(s))) + s->offset;
 		size = s->length;
 		if (!IS_ALIGNED(s->offset, res->page_size)) {
 			pr_err("v2d iommu paddr not aligned: iova %lx, paddr %llx, size %lx\n",
