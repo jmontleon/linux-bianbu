@@ -32,8 +32,6 @@ enum PM853_reg {
 	PM853_ID_LDO5_SW,
 };
 
-#define SPACEMIT_PM853_ID_REG		0x0
-
 #define PM853_LDO_BUCK_EN_REG0		0x11
 #define PM853_LDO_BUCK_EN_REG1		0x12
 #define PM853_LDO_BUCK_EN_REG2		0x13
@@ -107,6 +105,12 @@ enum PM853_reg {
 #define PM853_LDO22_VSEL_REG		0xf0
 
 #define SPACEMIT_PM853_MAX_REG		0xf1
+
+#define PM853_CHIP_ID_REG							\
+	static const struct chip_id_reg pm853_id_reg = {			\
+		.reg_num = 1,						\
+		.device_id_reg = 0x0,					\
+	};
 
 #define PM853_MFD_CELL	\
 	static const struct mfd_cell pm853[] = {				\

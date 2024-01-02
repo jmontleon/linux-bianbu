@@ -17,7 +17,7 @@ struct spacemit_pmic {
 	struct i2c_client		*i2c;
 	struct regmap_irq_chip_data	*irq_data;
 	struct regmap			*regmap;
-	unsigned char			variant;
+	unsigned int			variant;
 	const struct regmap_config	*regmap_cfg;
 	const struct regmap_irq_chip	*regmap_irq_chip;
 
@@ -81,8 +81,15 @@ struct pin_config_desc {
 	} itype;
 };
 
+struct chip_id_reg {
+	unsigned char device_id_reg;
+	unsigned char version_id_reg;
+	unsigned char user_id_reg;
+	unsigned char reg_num;
+};
+
 /* pmic ID configuration */
-#define SPM8821_ID			0x1
+#define SPM8821_ID			0x0
 #define PM853_ID			0x50
 
 /* common regulator defination */
