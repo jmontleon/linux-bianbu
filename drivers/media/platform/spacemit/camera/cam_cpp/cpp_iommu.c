@@ -623,7 +623,7 @@ static int __iommu_fill_ttb_by_sg(struct sg_table *sgt, uint32_t offset,
 		else
 			temp_offset = 0;
 
-		start_addr = ((sg_phys(sg) + temp_offset) >> 12) << 12;
+		start_addr = ((phys_cpu2cam(sg_phys(sg)) + temp_offset) >> 12) << 12;
 
 		temp_length = temp_size - offset;
 		if (temp_length >= length)
@@ -631,7 +631,7 @@ static int __iommu_fill_ttb_by_sg(struct sg_table *sgt, uint32_t offset,
 		else
 			temp_offset = sg_dma_len(sg);
 
-		end_addr = ((sg_phys(sg) + temp_offset + 0xfff) >> 12) << 12;
+		end_addr = ((phys_cpu2cam(sg_phys(sg)) + temp_offset + 0xfff) >> 12) << 12;
 
 		for (dmad = start_addr; dmad < end_addr; dmad += 0x1000)
 			tt_base[tt_size++] = (dmad >> 12) & 0x3fffff;
@@ -822,6 +822,8 @@ void cpp_iommu_unregister(struct cpp_device *cpp_dev)
 	size = IOMMU_TRANS_TAB_MAX_NUM * sizeof(uint32_t) * CPP_IOMMU_CH_NUM;
 	dmam_free_coherent(&cpp_dev->pdev->dev, size, mmu_dev->rsvd_cpu_addr,
 			   mmu_dev->rsvd_dma_addr);
+	dmam_free_coherent(&cpp_dev->pdev->dev, size, mmu_dev->to_cpu_addr,
+			   mmu_dev->to_dma_addr);
 	devm_kfree(&(cpp_dev->pdev->dev), cpp_dev->mmu_dev);
 	cpp_dev->mmu_dev = NULL;
 
