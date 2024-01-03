@@ -108,6 +108,8 @@ static int spacemit_dphy_probe(struct platform_device *pdev)
 	const char *str;
 	int ret;
 
+	DRM_INFO("%s()\n", __func__);
+
 	dphy = devm_kzalloc(&pdev->dev, sizeof(*dphy), GFP_KERNEL);
 	if (!dphy)
 		return -ENOMEM;
