@@ -559,7 +559,7 @@
 
 			apmu: apmu@2 {
 				compatible = "simple-mfd", "spacemit,spacemit-apmu", "syscon";
-				reg = <0x0 0xd4282800 0x0 0x3f4>;
+				reg = <0x0 0xd4282800 0x0 0x400>;
 			};
 
 			power: power-controller {
