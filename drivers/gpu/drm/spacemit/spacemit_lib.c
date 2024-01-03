@@ -13,9 +13,6 @@
 #include <linux/fs.h>
 #include "spacemit_lib.h"
 
-#undef pr_fmt
-#define pr_fmt(__fmt) "[drm][%20s] "__fmt, __func__
-
 struct bmp_header {
 	u16 magic;
 	u32 size;
