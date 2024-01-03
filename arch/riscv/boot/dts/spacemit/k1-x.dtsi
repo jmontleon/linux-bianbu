@@ -298,8 +298,14 @@
 			compatible = "operating-points-v2";
 			opp-shared;
 
+			clocks = <&ccu CLK_CPU_C0_ACE>, <&ccu CLK_CPU_C0_TCM>, <&ccu CLK_CCI550>;
+			clock-names = "ace","tcm", "cci";
+			cci-hz = /bits/ 64 <614000000>;
+
 			opp614400000 {
 				opp-hz = /bits/ 64 <614400000>;
+				tcm-hz = /bits/ 64 <307200000>;
+				ace-hz = /bits/ 64 <307200000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
@@ -307,23 +313,31 @@
 			opp819000000 {
 				opp-hz = /bits/ 64 <819000000>;
 				opp-microvolt = <950000>;
+				tcm-hz = /bits/ 64 <409500000>;
+				ace-hz = /bits/ 64 <409500000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1000000000 {
 				opp-hz = /bits/ 64 <1000000000>;
+				tcm-hz = /bits/ 64 <500000000>;
+				ace-hz = /bits/ 64 <500000000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1228800000 {
 				opp-hz = /bits/ 64 <1228800000>;
+				tcm-hz = /bits/ 64 <614400000>;
+				ace-hz = /bits/ 64 <614400000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1600000000 {
 				opp-hz = /bits/ 64 <1600000000>;
+				tcm-hz = /bits/ 64 <800000000>;
+				ace-hz = /bits/ 64 <800000000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
@@ -333,32 +347,41 @@
 			compatible = "operating-points-v2";
 			opp-shared;
 
+			clocks = <&ccu CLK_CPU_C1_ACE>, <&ccu CLK_CCI550>;
+			clock-names = "ace", "cci";
+			cci-hz = /bits/ 64 <614000000>;
+
 			opp614400000 {
 				opp-hz = /bits/ 64 <614400000>;
+				ace-hz = /bits/ 64 <307200000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp819000000 {
 				opp-hz = /bits/ 64 <819000000>;
+				ace-hz = /bits/ 64 <409500000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1000000000 {
 				opp-hz = /bits/ 64 <1000000000>;
+				ace-hz = /bits/ 64 <500000000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1228800000 {
 				opp-hz = /bits/ 64 <1228800000>;
+				ace-hz = /bits/ 64 <614400000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
 
 			opp1600000000 {
 				opp-hz = /bits/ 64 <1600000000>;
+				ace-hz = /bits/ 64 <800000000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
