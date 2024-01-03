@@ -13,7 +13,9 @@
 #include <linux/io.h>
 
 #define RESET_REG_VALUE 0x55a
+#define RESET_REG_VALUE1 0x55f
 static char *rebootcmd = "bootloader";
+static char *shellcmd = "uboot";
 
 struct spacemit_reboot_ctrl {
 	void __iomem *base;
@@ -28,6 +30,9 @@ static int k1x_reset_handler(struct notifier_block *this, unsigned long mode,
 
 	if(cmd != NULL && !strcmp(cmd, rebootcmd))
 		writel(RESET_REG_VALUE, info->base);
+
+	if(cmd != NULL && !strcmp(cmd, shellcmd))
+                writel(RESET_REG_VALUE1, info->base);
 
 	return NOTIFY_DONE;
 }
