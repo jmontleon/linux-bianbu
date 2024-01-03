@@ -219,6 +219,8 @@ static int spacemit_wb_probe(struct platform_device *pdev)
 	struct spacemit_wb *wb;
 	int ret;
 
+	DRM_INFO("%s()\n", __func__);
+
 	wb = devm_kzalloc(&pdev->dev, sizeof(*wb), GFP_KERNEL);
 	if (!wb) {
 		DRM_ERROR("failed to allocate wb data.\n");

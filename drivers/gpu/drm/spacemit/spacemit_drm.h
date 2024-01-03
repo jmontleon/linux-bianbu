@@ -29,6 +29,7 @@ struct spacemit_hw_device {
 	u32 solid_color_shift;
 	int hdr_coef_size;
 	int scale_coef_size;
+	bool is_hdmi;
 };
 
 struct spacemit_drm_private {

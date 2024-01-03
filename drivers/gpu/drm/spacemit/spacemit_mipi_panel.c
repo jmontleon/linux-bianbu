@@ -536,6 +536,8 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 	struct device *dev = &slave->dev;
 	u32 tmp;
 
+	DRM_INFO("%s()\n", __func__);
+
 	panel = devm_kzalloc(&slave->dev, sizeof(*panel), GFP_KERNEL);
 	if (!panel)
 		return -ENOMEM;

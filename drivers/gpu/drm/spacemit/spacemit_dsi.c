@@ -684,6 +684,8 @@ static int spacemit_dsi_probe(struct platform_device *pdev)
 	const char *str;
 	int ret;
 
+	DRM_INFO("%s()\n", __func__);
+
 	dsi = devm_kzalloc(&pdev->dev, sizeof(*dsi), GFP_KERNEL);
 	if (!dsi) {
 		DRM_ERROR("failed to allocate dsi data.\n");
