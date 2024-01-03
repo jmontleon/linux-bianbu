@@ -110,6 +110,7 @@ struct dpu_clk_context {
 	struct clk *hclk;
 	struct clk *escclk;
 	struct clk *bitclk;
+	struct clk *hmclk;
 };
 
 struct spacemit_dpu {
@@ -141,6 +142,7 @@ struct spacemit_dpu {
 	struct reset_control *mclk_reset;
 	struct reset_control *lcd_reset;
 	struct reset_control *esc_reset;
+	struct reset_control *hdmi_reset;
 #ifdef CONFIG_SPACEMIT_DEBUG
 	bool (*is_dpu_running)(struct spacemit_dpu* dpu);
 	struct notifier_block nb;
