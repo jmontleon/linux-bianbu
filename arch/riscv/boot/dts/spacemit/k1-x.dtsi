@@ -1628,6 +1628,8 @@
 			#size-cells = <2>;
 			ranges = <0x01000000 0x0 0x80002000 0 0x80002000 0x0 0x100000>,
 				<0x02000000 0x0 0x80102000 0 0x80102000 0x0 0x0f000000>;
+			interconnects = <&dram_range1>;
+			interconnect-names = "dma-mem";
 
 			interrupts = <141>, <145>;
 			interrupt-parent = <&intc>;
@@ -1674,6 +1676,8 @@
 			#size-cells = <2>;
 			ranges = <0x01000000 0x0 0x90002000 0 0x90002000 0x0 0x100000>,
 				<0x02000000 0x0 0x90102000 0 0x90102000 0x0 0x0f000000>;
+			interconnects = <&dram_range1>;
+			interconnect-names = "dma-mem";
 
 			interrupts = <142>, <146>;
 			interrupt-parent = <&intc>;
@@ -1720,6 +1724,8 @@
 			#size-cells = <2>;
 			ranges = <0x01000000 0x0 0xa0002000 0 0xa0002000 0x0 0x100000>,
 				<0x02000000 0x0 0xa0102000 0 0xa0102000 0x0 0x10000000>;
+			interconnects = <&dram_range1>;
+			interconnect-names = "dma-mem";
 
 			interrupts = <143>, <147>;
 			interrupt-parent = <&intc>;
