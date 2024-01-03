@@ -370,8 +370,6 @@ static void spacemit_reset_set(struct reset_controller_dev *rcdev,
 	u32 value;
 	struct spacemit_reset *reset = to_spacemit_reset(rcdev);
 
-	LOG_INFO("assert = %d, id = %d ", assert, id);
-
 	value = spacemit_reset_read(reset, id);
 	if(assert == true) {
 		value &= ~ reset->signals[id].mask;
