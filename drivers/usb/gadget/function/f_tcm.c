@@ -63,11 +63,10 @@ static void bot_status_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_uas *fu = cmd->fu;
 
 	transport_generic_free_cmd(&cmd->se_cmd, 0);
-	if (req->status == -ESHUTDOWN)
-		return;
-
-	if (req->status < 0)
+	if (req->status < 0) {
 		pr_err("ERR %s(%d)\n", __func__, __LINE__);
+		return;
+	}
 
 	/* CSW completed, wait for next CBW */
 	bot_enqueue_cmd_cbw(fu);
@@ -198,11 +197,6 @@ static void bot_read_compl(struct usb_ep *ep, struct usb_request *req)
 	if (req->status < 0)
 		pr_err("ERR %s(%d)\n", __func__, __LINE__);
 
-	if (req->status == -ESHUTDOWN) {
-		transport_generic_free_cmd(&cmd->se_cmd, 0);
-		return;
-	}
-
 	bot_send_status(cmd, true);
 }
 
@@ -251,8 +245,11 @@ static int usbg_prepare_w_request(struct usbg_cmd *, struct usb_request *);
 static int bot_send_write_request(struct usbg_cmd *cmd)
 {
 	struct f_uas *fu = cmd->fu;
+	struct se_cmd *se_cmd = &cmd->se_cmd;
 	int ret;
 
+	init_completion(&cmd->write_complete);
+	cmd->write_aborted = false;
 	cmd->fu = fu;
 
 	if (!cmd->data_len) {
@@ -260,12 +257,22 @@ static int bot_send_write_request(struct usbg_cmd *cmd)
 		return -EINVAL;
 	}
 
+	fu->bot_req_out->complete = usbg_data_write_cmpl;
+	fu->bot_req_out->length = se_cmd->data_length;
+	fu->bot_req_out->context = cmd;
+
 	ret = usbg_prepare_w_request(cmd, fu->bot_req_out);
 	if (ret)
 		goto cleanup;
 	ret = usb_ep_queue(fu->ep_out, fu->bot_req_out, GFP_KERNEL);
-	if (ret)
-		pr_err("%s(%d)\n", __func__, __LINE__);
+	if (ret) {
+		pr_err("%s(%d): %d\n", __func__, __LINE__, ret);
+		goto cleanup;
+	}
+
+	wait_for_completion(&cmd->write_complete);
+	if (!cmd->write_aborted)
+		target_execute_cmd(se_cmd);
 
 cleanup:
 	return ret;
@@ -278,31 +285,14 @@ static void bot_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_uas *fu = req->context;
 	int ret;
 
-	if (req->status == -ESHUTDOWN)
-		return;
-
 	fu->flags &= ~USBG_BOT_CMD_PEND;
 
-	if (req->status < 0) {
-		struct usb_gadget *gadget = fuas_to_gadget(fu);
-
-		dev_err(&gadget->dev, "BOT command req err (%d)\n", req->status);
-		bot_enqueue_cmd_cbw(fu);
+	if (req->status < 0)
 		return;
-	}
 
 	ret = bot_submit_command(fu, req->buf, req->actual);
-	if (ret) {
+	if (ret)
 		pr_err("%s(%d): %d\n", __func__, __LINE__, ret);
-		if (!(fu->flags & USBG_BOT_WEDGED))
-			usb_ep_set_wedge(fu->ep_in);
-
-		fu->flags |= USBG_BOT_WEDGED;
-		bot_enqueue_cmd_cbw(fu);
-	} else if (fu->flags & USBG_BOT_WEDGED) {
-		fu->flags &= ~USBG_BOT_WEDGED;
-		usb_ep_clear_halt(fu->ep_in);
-	}
 }
 
 static int bot_prepare_reqs(struct f_uas *fu)
@@ -444,10 +434,14 @@ static int usbg_bot_setup(struct usb_function *f,
 			pr_err("No LUNs configured?\n");
 			return -EINVAL;
 		}
+		/*
+		 * If 4 LUNs are present we return 3 i.e. LUN 0..3 can be
+		 * accessed. The upper limit is 0xf
+		 */
 		luns--;
-		if (luns > US_BULK_MAX_LUN_LIMIT) {
+		if (luns > 0xf) {
 			pr_info_once("Limiting the number of luns to 16\n");
-			luns = US_BULK_MAX_LUN_LIMIT;
+			luns = 0xf;
 		}
 		ret_lun = cdev->req->buf;
 		*ret_lun = luns;
@@ -456,11 +450,6 @@ static int usbg_bot_setup(struct usb_function *f,
 
 	case US_BULK_RESET_REQUEST:
 		/* XXX maybe we should remove previous requests for IN + OUT */
-		if (fu->flags & USBG_BOT_WEDGED) {
-			fu->flags &= ~USBG_BOT_WEDGED;
-			usb_ep_clear_halt(fu->ep_in);
-		}
-
 		bot_enqueue_cmd_cbw(fu);
 		return 0;
 	}
@@ -479,6 +468,8 @@ static int tcm_to_uasp_response(enum tcm_tmrsp_table code)
 		return RC_TMF_COMPLETE;
 	case TMR_LUN_DOES_NOT_EXIST:
 		return RC_INCORRECT_LUN;
+	case TMR_OVERLAPPED_TAG_ATTEMPTED:
+		return RC_OVERLAPPED_TAG;
 	case TMR_FUNCTION_REJECTED:
 	case TMR_TASK_MGMT_FUNCTION_NOT_SUPPORTED:
 	default:
@@ -497,12 +488,16 @@ static unsigned char uasp_to_tcm_func(int code)
 		return TMR_CLEAR_TASK_SET;
 	case TMF_LOGICAL_UNIT_RESET:
 		return TMR_LUN_RESET;
+	case TMF_I_T_NEXUS_RESET:
+		return TMR_I_T_NEXUS_RESET;
 	case TMF_CLEAR_ACA:
 		return TMR_CLEAR_ACA;
-	case TMF_I_T_NEXUS_RESET:
 	case TMF_QUERY_TASK:
+		return TMR_QUERY_TASK;
 	case TMF_QUERY_TASK_SET:
+		return TMR_QUERY_TASK_SET;
 	case TMF_QUERY_ASYNC_EVENT:
+		return TMR_QUERY_ASYNC_EVENT;
 	default:
 		return TMR_UNKNOWN;
 	}
@@ -526,8 +521,9 @@ static void uasp_cleanup_one_stream(struct f_uas *fu, struct uas_stream *stream)
 static void uasp_free_cmdreq(struct f_uas *fu)
 {
 	int i;
+	int num_cmds = fu->num_cmds;
 
-	for (i = 0; i < USBG_NUM_CMDS; i++) {
+	for (i = 0; i < num_cmds; i++) {
 		usb_ep_free_request(fu->ep_cmd, fu->cmd[i].req);
 		kfree(fu->cmd[i].buf);
 		fu->cmd[i].req = NULL;
@@ -538,6 +534,7 @@ static void uasp_free_cmdreq(struct f_uas *fu)
 static void uasp_cleanup_old_alt(struct f_uas *fu)
 {
 	int i;
+	int num_cmds = fu->num_cmds;
 
 	if (!(fu->flags & USBG_ENABLED))
 		return;
@@ -547,9 +544,25 @@ static void uasp_cleanup_old_alt(struct f_uas *fu)
 	usb_ep_disable(fu->ep_status);
 	usb_ep_disable(fu->ep_cmd);
 
-	for (i = 0; i < USBG_NUM_CMDS; i++)
+	for (i = 0; i < num_cmds; i++)
 		uasp_cleanup_one_stream(fu, &fu->stream[i]);
 	uasp_free_cmdreq(fu);
+}
+
+static struct uas_stream *uasp_get_stream_by_tag(struct f_uas *fu, u16 tag)
+{
+	/*
+	 * For simplicity, we use mod operation to quickly find an in-progress
+	 * matching command tag to check for overlapped command. The assumption
+	 * is that the UASP class driver will limit to using tag id from 1 to
+	 * USBG_NUM_CMDS. This is based on observation from the Windows and
+	 * Linux UASP storage class driver behavior. If an unusual UASP class
+	 * driver uses a tag greater than USBG_NUM_CMDS, then this method may no
+	 * longer work due to possible stream id collision. In that case, we
+	 * need to use a proper algorithm to fetch the stream (or simply walk
+	 * through all active streams to check for overlap).
+	 */
+	return &fu->stream[tag % fu->num_cmds];
 }
 
 static void uasp_status_data_cmpl(struct usb_ep *ep, struct usb_request *req);
@@ -559,8 +572,10 @@ static int uasp_prepare_r_request(struct usbg_cmd *cmd)
 	struct se_cmd *se_cmd = &cmd->se_cmd;
 	struct f_uas *fu = cmd->fu;
 	struct usb_gadget *gadget = fuas_to_gadget(fu);
-	struct uas_stream *stream = &fu->stream[se_cmd->map_tag];
-
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
+	if (!stream->req_in){
+		return -ESHUTDOWN;
+	}
 	if (!gadget->sg_supported) {
 		cmd->data_buf = kmalloc(se_cmd->data_length, GFP_ATOMIC);
 		if (!cmd->data_buf)
@@ -592,7 +607,11 @@ static void uasp_prepare_status(struct usbg_cmd *cmd)
 {
 	struct se_cmd *se_cmd = &cmd->se_cmd;
 	struct sense_iu *iu = &cmd->sense_iu;
-	struct uas_stream *stream = &cmd->fu->stream[se_cmd->map_tag];
+	struct uas_stream *stream;
+	stream = uasp_get_stream_by_tag(cmd->fu, cmd->tag);
+	if (!stream->req_status) {
+		return;
+	}
 
 	cmd->state = UASP_QUEUE_COMMAND;
 	iu->iu_id = IU_ID_STATUS;
@@ -603,19 +622,21 @@ static void uasp_prepare_status(struct usbg_cmd *cmd)
 	 */
 	iu->len = cpu_to_be16(se_cmd->scsi_sense_length);
 	iu->status = se_cmd->scsi_status;
+
 	stream->req_status->is_last = 1;
 	stream->req_status->stream_id = cmd->tag;
 	stream->req_status->context = cmd;
 	stream->req_status->length = se_cmd->scsi_sense_length + 16;
 	stream->req_status->buf = iu;
 	stream->req_status->complete = uasp_status_data_cmpl;
+
 }
 
 static void uasp_prepare_response(struct usbg_cmd *cmd)
 {
 	struct se_cmd *se_cmd = &cmd->se_cmd;
 	struct response_iu *rsp_iu = &cmd->response_iu;
-	struct uas_stream *stream = &cmd->fu->stream[se_cmd->map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(cmd->fu, cmd->tag);
 
 	cmd->state = UASP_QUEUE_COMMAND;
 	rsp_iu->iu_id = IU_ID_RESPONSE;
@@ -634,24 +655,20 @@ static void uasp_prepare_response(struct usbg_cmd *cmd)
 	 * RC_TMF_NOT_SUPPORTED and print a warning to the user.
 	 */
 	switch (cmd->tmr_func) {
-	case TMF_ABORT_TASK:
-	case TMF_ABORT_TASK_SET:
-	case TMF_CLEAR_TASK_SET:
-	case TMF_LOGICAL_UNIT_RESET:
-	case TMF_CLEAR_ACA:
-	case TMF_I_T_NEXUS_RESET:
-	case TMF_QUERY_TASK:
-	case TMF_QUERY_TASK_SET:
-	case TMF_QUERY_ASYNC_EVENT:
+	case TMR_ABORT_TASK:
+	case TMR_ABORT_TASK_SET:
+	case TMR_CLEAR_TASK_SET:
+	case TMR_LUN_RESET:
+	case TMR_I_T_NEXUS_RESET:
+	case TMR_CLEAR_ACA:
+	case TMR_QUERY_TASK:
+	case TMR_QUERY_TASK_SET:
+	case TMR_QUERY_ASYNC_EVENT:
 		if (rsp_iu->response_code == RC_TMF_NOT_SUPPORTED) {
-			struct usb_gadget *gadget = fuas_to_gadget(cmd->fu);
-
-			dev_warn(&gadget->dev, "TMF function %d not supported\n",
-				 cmd->tmr_func);
+			pr_warn("TMR function %d not supported\n",
+				cmd->tmr_func);
 			rsp_iu->response_code = RC_TMF_FAILED;
 		}
-		break;
-	default:
 		break;
 	}
 
@@ -670,7 +687,7 @@ static void uasp_status_data_cmpl(struct usb_ep *ep, struct usb_request *req)
 {
 	struct usbg_cmd *cmd = req->context;
 	struct f_uas *fu = cmd->fu;
-	struct uas_stream *stream = &fu->stream[cmd->se_cmd.map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
 	int ret;
 
 	if (req->status == -ESHUTDOWN)
@@ -709,12 +726,12 @@ static void uasp_status_data_cmpl(struct usb_ep *ep, struct usb_request *req)
 		 * So send overlapped attempted status.
 		 */
 		if (cmd->tmr_rsp == RC_OVERLAPPED_TAG &&
-		    req->status == -ECONNRESET) {
+			req->status == -ECONNRESET) {
 			uasp_send_tm_response(cmd);
 			return;
 		}
 
-		hash_del(&stream->node);
+		stream->cmd = NULL;
 
 		/*
 		 * If no command submitted to target core here, just free the
@@ -722,19 +739,18 @@ static void uasp_status_data_cmpl(struct usb_ep *ep, struct usb_request *req)
 		 * status response instead of the target core.
 		 */
 		if (cmd->tmr_rsp != RC_OVERLAPPED_TAG &&
-		    cmd->tmr_rsp != RC_RESPONSE_UNKNOWN) {
+			cmd->tmr_rsp != RC_RESPONSE_UNKNOWN) {
 			struct se_session *se_sess;
 
 			se_sess = fu->tpg->tpg_nexus->tvn_se_sess;
 			sbitmap_queue_clear(&se_sess->sess_tag_pool,
-					    cmd->se_cmd.map_tag,
-					    cmd->se_cmd.map_cpu);
+						cmd->se_cmd.map_tag,
+						cmd->se_cmd.map_cpu);
 		} else {
 			transport_generic_free_cmd(&cmd->se_cmd, 0);
 		}
 
 		usb_ep_queue(fu->ep_cmd, cmd->req, GFP_ATOMIC);
-		complete(&stream->cmd_completion);
 		break;
 
 	default:
@@ -743,14 +759,14 @@ static void uasp_status_data_cmpl(struct usb_ep *ep, struct usb_request *req)
 	return;
 
 cleanup:
-	hash_del(&stream->node);
+	stream->cmd = NULL;
 	transport_generic_free_cmd(&cmd->se_cmd, 0);
 }
 
 static int uasp_send_status_response(struct usbg_cmd *cmd)
 {
 	struct f_uas *fu = cmd->fu;
-	struct uas_stream *stream = &fu->stream[cmd->se_cmd.map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
 	struct sense_iu *iu = &cmd->sense_iu;
 
 	iu->tag = cpu_to_be16(cmd->tag);
@@ -762,7 +778,7 @@ static int uasp_send_status_response(struct usbg_cmd *cmd)
 static int uasp_send_tm_response(struct usbg_cmd *cmd)
 {
 	struct f_uas *fu = cmd->fu;
-	struct uas_stream *stream = &fu->stream[cmd->se_cmd.map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
 	struct response_iu *iu = &cmd->response_iu;
 
 	iu->tag = cpu_to_be16(cmd->tag);
@@ -774,7 +790,7 @@ static int uasp_send_tm_response(struct usbg_cmd *cmd)
 static int uasp_send_read_response(struct usbg_cmd *cmd)
 {
 	struct f_uas *fu = cmd->fu;
-	struct uas_stream *stream = &fu->stream[cmd->se_cmd.map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
 	struct sense_iu *iu = &cmd->sense_iu;
 	int ret;
 
@@ -804,7 +820,6 @@ static int uasp_send_read_response(struct usbg_cmd *cmd)
 		cmd->state = UASP_SEND_DATA;
 		stream->req_status->buf = iu;
 		stream->req_status->length = sizeof(struct iu);
-
 		ret = usb_ep_queue(fu->ep_status, stream->req_status,
 				GFP_ATOMIC);
 		if (ret)
@@ -818,10 +833,12 @@ static int uasp_send_write_request(struct usbg_cmd *cmd)
 {
 	struct f_uas *fu = cmd->fu;
 	struct se_cmd *se_cmd = &cmd->se_cmd;
-	struct uas_stream *stream = &fu->stream[se_cmd->map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
 	struct sense_iu *iu = &cmd->sense_iu;
 	int ret;
 
+	init_completion(&cmd->write_complete);
+	cmd->write_aborted = false;
 	cmd->fu = fu;
 
 	iu->tag = cpu_to_be16(cmd->tag);
@@ -853,6 +870,13 @@ static int uasp_send_write_request(struct usbg_cmd *cmd)
 			pr_err("%s(%d)\n", __func__, __LINE__);
 	}
 
+	if (ret)
+		goto cleanup;
+
+	wait_for_completion(&cmd->write_complete);
+
+	if (!cmd->write_aborted)
+		target_execute_cmd(se_cmd);
 cleanup:
 	return ret;
 }
@@ -876,8 +900,6 @@ static void uasp_cmd_complete(struct usb_ep *ep, struct usb_request *req)
 
 static int uasp_alloc_stream_res(struct f_uas *fu, struct uas_stream *stream)
 {
-	init_completion(&stream->cmd_completion);
-
 	stream->req_in = usb_ep_alloc_request(fu->ep_in, GFP_KERNEL);
 	if (!stream->req_in)
 		goto out;
@@ -928,14 +950,15 @@ static int uasp_prepare_reqs(struct f_uas *fu)
 {
 	int ret;
 	int i;
+	int num_cmds = fu->num_cmds;
 
-	for (i = 0; i < USBG_NUM_CMDS; i++) {
+	for (i = 0; i < num_cmds; i++) {
 		ret = uasp_alloc_stream_res(fu, &fu->stream[i]);
 		if (ret)
 			goto err_cleanup;
 	}
 
-	for (i = 0; i < USBG_NUM_CMDS; i++) {
+	for (i = 0; i < num_cmds; i++) {
 		ret = uasp_alloc_cmd(fu, i);
 		if (ret)
 			goto err_free_stream;
@@ -972,6 +995,11 @@ static void uasp_set_alt(struct f_uas *fu)
 	if (gadget->speed >= USB_SPEED_SUPER)
 		fu->flags |= USBG_USE_STREAMS;
 
+	if (fu->flags & USBG_USE_STREAMS)
+		fu->num_cmds = USBG_NUM_CMDS;
+	else
+		fu->num_cmds = 1;
+
 	config_ep_by_speed_and_alt(gadget, f, fu->ep_in, USB_G_ALT_INT_UAS);
 	ret = usb_ep_enable(fu->ep_in);
 	if (ret)
@@ -996,7 +1024,8 @@ static void uasp_set_alt(struct f_uas *fu)
 		goto err_wq;
 	fu->flags |= USBG_ENABLED;
 
-	pr_info("Using the UAS protocol\n");
+	pr_info("Using the UAS protocol, TCQ %s\n",
+		(fu->flags & USBG_USE_STREAMS) ? "Supported" : "Not Supported");
 	return;
 err_wq:
 	usb_ep_disable(fu->ep_status);
@@ -1078,16 +1107,15 @@ static void usbg_data_write_cmpl(struct usb_ep *ep, struct usb_request *req)
 {
 	struct usbg_cmd *cmd = req->context;
 	struct se_cmd *se_cmd = &cmd->se_cmd;
+	struct uas_stream *stream = uasp_get_stream_by_tag(cmd->fu, cmd->tag);
 
 	cmd->state = UASP_QUEUE_COMMAND;
 
 	if (req->status == -ESHUTDOWN) {
-		struct uas_stream *stream = &cmd->fu->stream[se_cmd->map_tag];
-
-		hash_del(&stream->node);
+		stream->cmd = NULL;
 		target_put_sess_cmd(se_cmd);
 		transport_generic_free_cmd(&cmd->se_cmd, 0);
-		return;
+		goto abort_completion;
 	}
 
 	if (req->status) {
@@ -1102,22 +1130,23 @@ static void usbg_data_write_cmpl(struct usb_ep *ep, struct usb_request *req)
 				se_cmd->data_length);
 	}
 
-	cmd->flags |= USBG_CMD_PENDING_DATA_WRITE;
-	queue_work(cmd->fu->tpg->workqueue, &cmd->work);
+	complete(&cmd->write_complete);
 	return;
 
 cleanup:
 	target_put_sess_cmd(se_cmd);
-
 	/* Command was aborted due to overlapped tag */
 	if (cmd->state == UASP_QUEUE_COMMAND &&
-	    cmd->tmr_rsp == RC_OVERLAPPED_TAG) {
+		cmd->tmr_rsp == RC_OVERLAPPED_TAG) {
 		uasp_send_tm_response(cmd);
-		return;
+		goto abort_completion;
 	}
-
 	transport_send_check_condition_and_sense(se_cmd,
 			TCM_CHECK_CONDITION_ABORT_CMD, 0);
+abort_completion:
+	cmd->write_aborted = true;
+	complete(&cmd->write_complete);
+	return;
 }
 
 static int usbg_prepare_w_request(struct usbg_cmd *cmd, struct usb_request *req)
@@ -1197,7 +1226,7 @@ static void usbg_submit_tmr(struct usbg_cmd *cmd)
 
 	target_submit_tmr(se_cmd, se_sess,
 			  cmd->response_iu.add_response_info,
-			  cmd->unpacked_lun, NULL, uasp_to_tcm_func(cmd->tmr_func),
+			  cmd->unpacked_lun, NULL, cmd->tmr_func,
 			  GFP_ATOMIC, cmd->tag, flags);
 }
 
@@ -1208,36 +1237,25 @@ static void usbg_submit_cmd(struct usbg_cmd *cmd)
 	struct usbg_tpg *tpg;
 	int dir, flags = (TARGET_SCF_UNKNOWN_SIZE | TARGET_SCF_ACK_KREF);
 
-	/*
-	 * Note: each command will spawn its own process, and each stage of the
-	 * command is processed sequentially. Should this no longer be the case,
-	 * locking is needed.
-	 */
-	if (cmd->flags & USBG_CMD_PENDING_DATA_WRITE) {
-		target_execute_cmd(&cmd->se_cmd);
-		cmd->flags &= ~USBG_CMD_PENDING_DATA_WRITE;
-		return;
-	}
-
 	se_cmd = &cmd->se_cmd;
 	tpg = cmd->fu->tpg;
 	tv_nexus = tpg->tpg_nexus;
 	dir = get_cmd_dir(cmd->cmd_buf);
-	if (dir < 0)
+	if (dir < 0) {
+		__target_init_cmd(se_cmd,
+				  tv_nexus->tvn_se_sess->se_tpg->se_tpg_tfo,
+				  tv_nexus->tvn_se_sess, cmd->data_len, DMA_NONE,
+				  cmd->prio_attr, cmd->sense_iu.sense,
+				  cmd->unpacked_lun, NULL);
 		goto out;
+	}
 
 	target_submit_cmd(se_cmd, tv_nexus->tvn_se_sess, cmd->cmd_buf,
 			  cmd->sense_iu.sense, cmd->unpacked_lun, 0,
 			  cmd->prio_attr, dir, flags);
-
 	return;
 
 out:
-	__target_init_cmd(se_cmd,
-			  tv_nexus->tvn_se_sess->se_tpg->se_tpg_tfo,
-			  tv_nexus->tvn_se_sess, cmd->data_len, DMA_NONE,
-			  cmd->prio_attr, cmd->sense_iu.sense,
-			  cmd->unpacked_lun, NULL);
 	transport_send_check_condition_and_sense(se_cmd,
 			TCM_UNSUPPORTED_SCSI_OPCODE, 0);
 }
@@ -1263,50 +1281,27 @@ static void usbg_cmd_work(struct work_struct *work)
 
 skip:
 	if (cmd->tmr_rsp == RC_OVERLAPPED_TAG) {
-		struct f_uas *fu = cmd->fu;
 		struct se_session *se_sess;
-		struct uas_stream *stream = NULL;
-		struct hlist_node *tmp;
-		struct usbg_cmd *active_cmd = NULL;
+		struct uas_stream *stream;
 
 		se_sess = cmd->fu->tpg->tpg_nexus->tvn_se_sess;
-
-		hash_for_each_possible_safe(fu->stream_hash, stream, tmp, node, cmd->tag) {
-			int i = stream - &fu->stream[0];
-
-			active_cmd = &((struct usbg_cmd *)se_sess->sess_cmd_map)[i];
-			if (active_cmd->tag == cmd->tag)
-				break;
-		}
-
-		/* Sanity check */
-		if (!stream || (active_cmd && active_cmd->tag != cmd->tag)) {
-			usbg_submit_command(cmd->fu, cmd->req);
-			return;
-		}
-
-		reinit_completion(&stream->cmd_completion);
+		stream = uasp_get_stream_by_tag(cmd->fu, cmd->tag);
 
 		/*
-		 * A UASP command consists of the command, data, and status
-		 * stages, each operating sequentially from different endpoints.
-		 *
-		 * Each USB endpoint operates independently, and depending on
-		 * hardware implementation, a completion callback for a transfer
-		 * from one endpoint may not reflect the order of completion on
-		 * the wire. This is particularly true for devices with
-		 * endpoints that have independent interrupts and event buffers.
-		 *
-		 * The driver must still detect misbehaving hosts and respond
-		 * with an overlap status. To reduce false overlap failures,
-		 * allow the active and matching stream ID a brief 1ms to
-		 * complete before responding with an overlap command failure.
-		 * Overlap failure should be rare.
+		 * There's no guarantee of a matching completion order between
+		 * different endpoints. i.e. The device may receive a new (CDB)
+		 * command request completion of the command endpoint before it
+		 * gets notified of the previous command status completion from
+		 * a status endpoint. The driver still needs to detect
+		 * misbehaving host and respond with an overlap command tag. To
+		 * prevent false overlapped tag failure, give the active and
+		 * matching stream id a short time (1ms) to complete before
+		 * respond with overlapped command failure.
 		 */
-		wait_for_completion_timeout(&stream->cmd_completion, msecs_to_jiffies(1));
+		msleep(1);
 
-		/* If the previous stream is completed, retry the command. */
-		if (!hash_hashed(&stream->node)) {
+		/* If the stream is completed, retry the command. */
+		if (!stream->cmd) {
 			usbg_submit_command(cmd->fu, cmd->req);
 			return;
 		}
@@ -1316,15 +1311,15 @@ skip:
 		 * to remove the bitmap index from the session tag pool.
 		 */
 		sbitmap_queue_clear(&se_sess->sess_tag_pool,
-				    cmd->se_cmd.map_tag,
-				    cmd->se_cmd.map_cpu);
+					cmd->se_cmd.map_tag,
+					cmd->se_cmd.map_cpu);
 
 		/*
 		 * Overlap command tag detected. Cancel any pending transfer of
 		 * the command submitted to target core.
 		 */
-		active_cmd->tmr_rsp = RC_OVERLAPPED_TAG;
-		usbg_aborted_task(&active_cmd->se_cmd);
+		stream->cmd->tmr_rsp = RC_OVERLAPPED_TAG;
+		usbg_aborted_task(&stream->cmd->se_cmd);
 
 		/* Send the response after the transfer is aborted. */
 		return;
@@ -1348,6 +1343,10 @@ static struct usbg_cmd *usbg_get_cmd(struct f_uas *fu,
 	memset(cmd, 0, sizeof(*cmd));
 	cmd->se_cmd.map_tag = tag;
 	cmd->se_cmd.map_cpu = cpu;
+	/*
+	 * CPU LIO will execute the cmd on. Defaults to the CPU the cmd is
+	 * initialized on. Drivers can override.
+	 */
 	cmd->se_cmd.cpuid = cpu;
 	cmd->se_cmd.tag = cmd->tag = scsi_tag;
 	cmd->fu = fu;
@@ -1364,7 +1363,6 @@ static int usbg_submit_command(struct f_uas *fu, struct usb_request *req)
 	struct usbg_tpg *tpg = fu->tpg;
 	struct tcm_usbg_nexus *tv_nexus;
 	struct uas_stream *stream;
-	struct hlist_node *tmp;
 	struct command_iu *cmd_iu;
 	u32 cmd_len;
 	u16 scsi_tag;
@@ -1381,14 +1379,12 @@ static int usbg_submit_command(struct f_uas *fu, struct usb_request *req)
 		pr_err("usbg_get_cmd failed\n");
 		return -ENOMEM;
 	}
-
 	cmd->req = req;
 	cmd->fu = fu;
 	cmd->tag = scsi_tag;
 	cmd->se_cmd.tag = scsi_tag;
 	cmd->tmr_func = 0;
 	cmd->tmr_rsp = RC_RESPONSE_UNKNOWN;
-	cmd->flags = 0;
 
 	cmd_iu = (struct command_iu *)iu;
 
@@ -1400,38 +1396,31 @@ static int usbg_submit_command(struct f_uas *fu, struct usb_request *req)
 		goto skip;
 	}
 
-	hash_for_each_possible_safe(fu->stream_hash, stream, tmp, node, scsi_tag) {
-		struct usbg_cmd *active_cmd;
-		struct se_session *se_sess;
-		int i = stream - &fu->stream[0];
-
-		se_sess = cmd->fu->tpg->tpg_nexus->tvn_se_sess;
-		active_cmd = &((struct usbg_cmd *)se_sess->sess_cmd_map)[i];
-
-		if (active_cmd->tag == scsi_tag) {
-			cmd->tmr_rsp = RC_OVERLAPPED_TAG;
-			goto skip;
-		}
+	stream = uasp_get_stream_by_tag(fu, scsi_tag);
+	if (stream->cmd) {
+		pr_err("Command tag %d overlapped\n", scsi_tag);
+		cmd->tmr_rsp = RC_OVERLAPPED_TAG;
+		goto skip;
 	}
-
-	stream = &fu->stream[cmd->se_cmd.map_tag];
-	hash_add(fu->stream_hash, &stream->node, scsi_tag);
+	stream->cmd = cmd;
 
 	if (iu->iu_id == IU_ID_TASK_MGMT) {
 		struct task_mgmt_iu *tm_iu;
 
 		tm_iu = (struct task_mgmt_iu *)iu;
-		cmd->tmr_func = tm_iu->function;
+		cmd->tmr_func = uasp_to_tcm_func(tm_iu->function);
 		goto skip;
 	}
 
 	cmd_len = (cmd_iu->len & ~0x3) + 16;
 	if (cmd_len > USBG_MAX_CMD) {
+		pr_err("invalid len %d\n", cmd_len);
 		target_free_tag(tv_nexus->tvn_se_sess, &cmd->se_cmd);
-		hash_del(&stream->node);
+		stream->cmd = NULL;
 		return -EINVAL;
 	}
 	memcpy(cmd->cmd_buf, cmd_iu->cdb, cmd_len);
+
 
 	switch (cmd_iu->prio_attr & 0x7) {
 	case UAS_HEAD_TAG:
@@ -1465,26 +1454,20 @@ static void bot_cmd_work(struct work_struct *work)
 	struct se_cmd *se_cmd;
 	struct tcm_usbg_nexus *tv_nexus;
 	struct usbg_tpg *tpg;
-	int flags = TARGET_SCF_ACK_KREF;
-	int dir;
-
-	/*
-	 * Note: each command will spawn its own process, and each stage of the
-	 * command is processed sequentially. Should this no longer be the case,
-	 * locking is needed.
-	 */
-	if (cmd->flags & USBG_CMD_PENDING_DATA_WRITE) {
-		target_execute_cmd(&cmd->se_cmd);
-		cmd->flags &= ~USBG_CMD_PENDING_DATA_WRITE;
-		return;
-	}
+	int dir, flags = (TARGET_SCF_UNKNOWN_SIZE | TARGET_SCF_ACK_KREF);
 
 	se_cmd = &cmd->se_cmd;
 	tpg = cmd->fu->tpg;
 	tv_nexus = tpg->tpg_nexus;
 	dir = get_cmd_dir(cmd->cmd_buf);
-	if (dir < 0)
+	if (dir < 0) {
+		__target_init_cmd(se_cmd,
+				  tv_nexus->tvn_se_sess->se_tpg->se_tpg_tfo,
+				  tv_nexus->tvn_se_sess, cmd->data_len, DMA_NONE,
+				  cmd->prio_attr, cmd->sense_iu.sense,
+				  cmd->unpacked_lun, NULL);
 		goto out;
+	}
 
 	target_submit_cmd(se_cmd, tv_nexus->tvn_se_sess,
 			  cmd->cmd_buf, cmd->sense_iu.sense, cmd->unpacked_lun,
@@ -1492,13 +1475,9 @@ static void bot_cmd_work(struct work_struct *work)
 	return;
 
 out:
-	__target_init_cmd(se_cmd,
-			  tv_nexus->tvn_se_sess->se_tpg->se_tpg_tfo,
-			  tv_nexus->tvn_se_sess, cmd->data_len, DMA_NONE,
-			  cmd->prio_attr, cmd->sense_iu.sense,
-			  cmd->unpacked_lun, NULL);
 	transport_send_check_condition_and_sense(se_cmd,
 				TCM_UNSUPPORTED_SCSI_OPCODE, 0);
+	transport_generic_free_cmd(&cmd->se_cmd, 0);
 }
 
 static int bot_submit_command(struct f_uas *fu,
@@ -1542,7 +1521,6 @@ static int bot_submit_command(struct f_uas *fu,
 	cmd->is_read = cbw->Flags & US_BULK_FLAG_IN ? 1 : 0;
 	cmd->data_len = le32_to_cpu(cbw->DataTransferLength);
 	cmd->se_cmd.tag = le32_to_cpu(cmd->bot_tag);
-	cmd->flags = 0;
 
 	INIT_WORK(&cmd->work, bot_cmd_work);
 	queue_work(tpg->workqueue, &cmd->work);
@@ -1579,7 +1557,6 @@ static void usbg_release_cmd(struct se_cmd *se_cmd)
 			se_cmd);
 	struct se_session *se_sess = se_cmd->se_sess;
 
-	cmd->tag = 0;
 	kfree(cmd->data_buf);
 	target_free_tag(se_sess, se_cmd);
 }
@@ -1595,8 +1572,7 @@ static void usbg_aborted_task(struct se_cmd *se_cmd)
 {
 	struct usbg_cmd *cmd = container_of(se_cmd, struct usbg_cmd, se_cmd);
 	struct f_uas *fu = cmd->fu;
-	struct usb_gadget *gadget = fuas_to_gadget(fu);
-	struct uas_stream *stream = &fu->stream[se_cmd->map_tag];
+	struct uas_stream *stream = uasp_get_stream_by_tag(fu, cmd->tag);
 	int ret = 0;
 
 	if (stream->req_out->status == -EINPROGRESS)
@@ -1607,8 +1583,7 @@ static void usbg_aborted_task(struct se_cmd *se_cmd)
 		ret = usb_ep_dequeue(fu->ep_status, stream->req_status);
 
 	if (ret)
-		dev_err(&gadget->dev, "Failed to abort cmd tag %d, (%d)\n",
-			cmd->tag, ret);
+		pr_err("Unable to dequeue se_cmd out %p\n", se_cmd);
 
 	cmd->state = UASP_QUEUE_COMMAND;
 }
@@ -1636,7 +1611,7 @@ static int usbg_init_nodeacl(struct se_node_acl *se_nacl, const char *name)
 }
 
 static struct se_portal_group *usbg_make_tpg(struct se_wwn *wwn,
-					     const char *name)
+						 const char *name)
 {
 	struct usbg_tport *tport = container_of(wwn, struct usbg_tport,
 			tport_wwn);
@@ -1839,7 +1814,7 @@ out:
 }
 
 static int usbg_alloc_sess_cb(struct se_portal_group *se_tpg,
-			      struct se_session *se_sess, void *p)
+				  struct se_session *se_sess, void *p)
 {
 	struct usbg_tpg *tpg = container_of(se_tpg,
 				struct usbg_tpg, se_tpg);
@@ -1867,10 +1842,10 @@ static int tcm_usbg_make_nexus(struct usbg_tpg *tpg, char *name)
 	}
 
 	tv_nexus->tvn_se_sess = target_setup_session(&tpg->se_tpg,
-						     USB_G_DEFAULT_SESSION_TAGS,
-						     sizeof(struct usbg_cmd),
-						     TARGET_PROT_NORMAL, name,
-						     tv_nexus, usbg_alloc_sess_cb);
+							 USB_G_DEFAULT_SESSION_TAGS,
+							 sizeof(struct usbg_cmd),
+							 TARGET_PROT_NORMAL, name,
+							 tv_nexus, usbg_alloc_sess_cb);
 	if (IS_ERR(tv_nexus->tvn_se_sess)) {
 #define MAKE_NEXUS_MSG "core_tpg_check_initiator_node_acl() failed for %s\n"
 		pr_debug(MAKE_NEXUS_MSG, name);
@@ -2159,6 +2134,7 @@ static struct usb_ss_ep_comp_descriptor uasp_status_in_ep_comp_desc = {
 	.bLength =		sizeof(uasp_status_in_ep_comp_desc),
 	.bDescriptorType =	USB_DT_SS_ENDPOINT_COMP,
 	.bmAttributes =		UASP_SS_EP_COMP_LOG_STREAMS,
+	.bMaxBurst =		15,
 };
 
 static struct usb_endpoint_descriptor uasp_cmd_desc = {
@@ -2300,39 +2276,43 @@ static int tcm_bind(struct usb_configuration *c, struct usb_function *f)
 	bot_intf_desc.bInterfaceNumber = iface;
 	uasp_intf_desc.bInterfaceNumber = iface;
 	fu->iface = iface;
-	ep = usb_ep_autoconfig(gadget, &uasp_fs_bi_desc);
+	ep = usb_ep_autoconfig_ss(gadget, &uasp_ss_bi_desc,
+			&uasp_bi_ep_comp_desc);
 	if (!ep)
 		goto ep_fail;
 
 	fu->ep_in = ep;
 
-	ep = usb_ep_autoconfig(gadget, &uasp_fs_bo_desc);
+	ep = usb_ep_autoconfig_ss(gadget, &uasp_ss_bo_desc,
+			&uasp_bo_ep_comp_desc);
 	if (!ep)
 		goto ep_fail;
 	fu->ep_out = ep;
 
-	ep = usb_ep_autoconfig(gadget, &uasp_fs_status_desc);
+	ep = usb_ep_autoconfig_ss(gadget, &uasp_ss_status_desc,
+			&uasp_status_in_ep_comp_desc);
 	if (!ep)
 		goto ep_fail;
 	fu->ep_status = ep;
 
-	ep = usb_ep_autoconfig(gadget, &uasp_fs_cmd_desc);
+	ep = usb_ep_autoconfig_ss(gadget, &uasp_ss_cmd_desc,
+			&uasp_cmd_comp_desc);
 	if (!ep)
 		goto ep_fail;
 	fu->ep_cmd = ep;
 
 	/* Assume endpoint addresses are the same for both speeds */
-	uasp_bi_desc.bEndpointAddress =	uasp_fs_bi_desc.bEndpointAddress;
-	uasp_bo_desc.bEndpointAddress = uasp_fs_bo_desc.bEndpointAddress;
+	uasp_bi_desc.bEndpointAddress =	uasp_ss_bi_desc.bEndpointAddress;
+	uasp_bo_desc.bEndpointAddress = uasp_ss_bo_desc.bEndpointAddress;
 	uasp_status_desc.bEndpointAddress =
-		uasp_fs_status_desc.bEndpointAddress;
-	uasp_cmd_desc.bEndpointAddress = uasp_fs_cmd_desc.bEndpointAddress;
+		uasp_ss_status_desc.bEndpointAddress;
+	uasp_cmd_desc.bEndpointAddress = uasp_ss_cmd_desc.bEndpointAddress;
 
-	uasp_ss_bi_desc.bEndpointAddress = uasp_fs_bi_desc.bEndpointAddress;
-	uasp_ss_bo_desc.bEndpointAddress = uasp_fs_bo_desc.bEndpointAddress;
-	uasp_ss_status_desc.bEndpointAddress =
-		uasp_fs_status_desc.bEndpointAddress;
-	uasp_ss_cmd_desc.bEndpointAddress = uasp_fs_cmd_desc.bEndpointAddress;
+	uasp_fs_bi_desc.bEndpointAddress = uasp_ss_bi_desc.bEndpointAddress;
+	uasp_fs_bo_desc.bEndpointAddress = uasp_ss_bo_desc.bEndpointAddress;
+	uasp_fs_status_desc.bEndpointAddress =
+		uasp_ss_status_desc.bEndpointAddress;
+	uasp_fs_cmd_desc.bEndpointAddress = uasp_ss_cmd_desc.bEndpointAddress;
 
 	ret = usb_assign_descriptors(f, uasp_fs_function_desc,
 			uasp_hs_function_desc, uasp_ss_function_desc,
@@ -2376,14 +2356,9 @@ static void tcm_delayed_set_alt(struct work_struct *wq)
 
 static int tcm_get_alt(struct usb_function *f, unsigned intf)
 {
-	struct f_uas *fu = to_f_uas(f);
-
-	if (fu->iface != intf)
-		return -EOPNOTSUPP;
-
-	if (fu->flags & USBG_IS_BOT)
+	if (intf == bot_intf_desc.bInterfaceNumber)
 		return USB_G_ALT_INT_BBB;
-	else if (fu->flags & USBG_IS_UAS)
+	if (intf == uasp_intf_desc.bInterfaceNumber)
 		return USB_G_ALT_INT_UAS;
 
 	return -EOPNOTSUPP;
@@ -2392,9 +2367,6 @@ static int tcm_get_alt(struct usb_function *f, unsigned intf)
 static int tcm_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct f_uas *fu = to_f_uas(f);
-
-	if (fu->iface != intf)
-		return -EOPNOTSUPP;
 
 	if ((alt == USB_G_ALT_INT_BBB) || (alt == USB_G_ALT_INT_UAS)) {
 		struct guas_setup_wq *work;
@@ -2604,8 +2576,6 @@ static struct usb_function *tcm_alloc(struct usb_function_instance *fi)
 	fu->function.disable = tcm_disable;
 	fu->function.free_func = tcm_free;
 	fu->tpg = tpg_instances[i].tpg;
-
-	hash_init(fu->stream_hash);
 	mutex_unlock(&tpg_instances_lock);
 
 	return &fu->function;
@@ -2616,7 +2586,7 @@ DECLARE_USB_FUNCTION(tcm, tcm_alloc_inst, tcm_alloc);
 static int __init tcm_init(void)
 {
 	int ret;
-
+	pr_info("f_tcm: UAS support multiple cmds\n");
 	ret = usb_function_register(&tcmusb_func);
 	if (ret)
 		return ret;
