@@ -1607,9 +1607,13 @@
 			      <0x0 0xca300000 0x0 0x0001ff24>, /* atu registers */
 			      <0x0 0x80000000 0x0 0x00002000>, /* config space */
 			      <0x0 0xd4282bcc 0x0 0x00000008>, /* k1x soc config addr */
-			      <0x0 0xc0b20000 0x0 0x00001000>; /* phy ahb */
-			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
+			      <0x0 0xc0b20000 0x0 0x00001000>, /* phy ahb */
+			      <0x0 0xc0b10000 0x0 0x00001000>, /* phy addr */
+			      <0x0 0xd4282bcc 0x0 0x00000008>, /* conf0 addr */
+			      <0x0 0xc0b10000 0x0 0x00001000>; /* phy0 addr */
+			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb", "phy_addr", "conf0_addr", "phy0_addr";
 
+			k1x,pcie-port = <0>;
 			clocks = <&ccu CLK_PCIE0>;
 			clock-names = "pcie-clk";
 			resets = <&reset RESET_PCIE0>;
@@ -1649,9 +1653,13 @@
 			      <0x0 0xca700000 0x0 0x0001ff24>, /* atu registers */
 			      <0x0 0x90000000 0x0 0x00002000>, /* config space */
 			      <0x0 0xd4282bd4 0x0 0x00000008>, /* k1x soc config addr */
-			      <0x0 0xc0c20000 0x0 0x00001000>; /* phy ahb */
-			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
+			      <0x0 0xc0c20000 0x0 0x00001000>, /* phy ahb */
+			      <0x0 0xc0c10000 0x0 0x00001000>, /* phy addr */
+			      <0x0 0xd4282bcc 0x0 0x00000008>, /* conf0 addr */
+			      <0x0 0xc0b10000 0x0 0x00001000>; /* phy0 addr */
+			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb", "phy_addr", "conf0_addr", "phy0_addr";
 
+			k1x,pcie-port = <1>;
 			clocks = <&ccu CLK_PCIE1>;
 			clock-names = "pcie-clk";
 			resets = <&reset RESET_PCIE1>;
@@ -1659,13 +1667,13 @@
 
 			bus-range = <0x00 0xff>;
 			max-link-speed = <2>;
-			num-lanes = <1>;
+			num-lanes = <2>;
 			num-viewport = <8>;
 			device_type = "pci";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x01000000 0x0 0x90002000 0 0x90002000 0x0 0x100000>,
-				<0x02000000 0x0 0x90102000 0 0x90102000 0x0 0x10000000>;
+				<0x02000000 0x0 0x90102000 0 0x90102000 0x0 0x0f000000>;
 
 			interrupts = <142>, <146>;
 			interrupt-parent = <&intc>;
@@ -1691,9 +1699,13 @@
 			      <0x0 0xcab00000 0x0 0x0001ff24>, /* atu registers */
 			      <0x0 0xa0000000 0x0 0x00002000>, /* config space */
 			      <0x0 0xd4282bdc 0x0 0x00000008>, /* k1x soc config addr */
-			      <0x0 0xc0d20000 0x0 0x00001000>; /* phy ahb */
-			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb";
+			      <0x0 0xc0d20000 0x0 0x00001000>, /* phy ahb */
+			      <0x0 0xc0d10000 0x0 0x00001000>, /* phy addr */
+			      <0x0 0xd4282bcc 0x0 0x00000008>, /* conf0 addr */
+			      <0x0 0xc0b10000 0x0 0x00001000>; /* phy0 addr */
+			reg-names = "dbi", "atu", "config", "k1x_conf", "phy_ahb", "phy_addr", "conf0_addr", "phy0_addr";
 
+			k1x,pcie-port = <2>;
 			clocks = <&ccu CLK_PCIE2>;
 			clock-names = "pcie-clk";
 			resets = <&reset RESET_PCIE2>;
