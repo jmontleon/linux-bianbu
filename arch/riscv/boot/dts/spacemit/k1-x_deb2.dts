@@ -96,7 +96,7 @@
 		>;
 		default-brightness-level = <100>;
 
-		status = "okay";
+		status = "disabled";
 	};
 
 	memory@0 {
@@ -170,7 +170,7 @@
 &pwm1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm1_2>;
-	status = "ok";
+	status = "disabled";
 };
 
 &dpu_online2 {
@@ -183,7 +183,7 @@
 };
 
 &dsi2 {
-	status = "okay";
+	status = "disabled";
 
 	panel2: panel2@0 {
 		status = "ok";
@@ -199,7 +199,13 @@
 };
 
 &lcds {
-	status = "ok";
+	status = "disabled";
+};
+
+&hdmi{
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hdmi_0>;
 };
 
 &i2c0 {
@@ -464,6 +470,14 @@
 			K1X_PADCONF(QSPI_CSI,  MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))    /* qspi_csi */
 		>;
 	};
+
+	pinctrl_pcie1_0: pcie1_0_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_15,    MUX_MODE4, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))  /* PCIe1_perstn */
+			K1X_PADCONF(GPIO_16,    MUX_MODE4, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))  /* PCIe1_waken */
+			K1X_PADCONF(GPIO_17,    MUX_MODE4, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))  /* PCIe1_clkreqn */
+		>;
+	};
 };
 
 /* SD */
@@ -672,6 +686,13 @@
 
 &pcie0_rc {
 	status = "disabled";
+};
+
+&pcie1_rc {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie1_0>;
 };
 
 &imggpu {
