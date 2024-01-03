@@ -24,7 +24,7 @@
 
 /* Supported variants of the hardware */
 enum {
-	SATURN = 0,
+	SATURN_HDMI = 0,
 	SATURN_LE,
 	/* keep the next entry last */
 	DP_MAX_DEVICES
