@@ -22,6 +22,13 @@
 #include "dpu/dpu_saturn.h"
 #include "dpu/dpu_trace.h"
 
+//as per weston requirement, suppoted modifiers need to be reported to user space,
+//which is different from sf
+static const uint64_t supported_format_modifiers[] = {
+	DRM_FORMAT_MOD_LINEAR,
+	DRM_FORMAT_MOD_INVALID
+};
+
 struct spacemit_plane *to_spacemit_plane(struct drm_plane *plane)
 {
 	return container_of(plane, struct spacemit_plane, plane);
@@ -669,7 +676,7 @@ struct drm_plane *spacemit_plane_init(struct drm_device *drm,
 
 		err = drm_universal_plane_init(drm, &p->plane, plane_crtc_mask,
 					       &spacemit_plane_funcs, formats,
-					       n_formats, NULL,
+					       n_formats, supported_format_modifiers,
 					       plane_type, NULL);
 		if (err) {
 			DRM_ERROR("fail to init %s plane%d\n", (i < priv->num_pipes) ? "primary" : "overlay", i);
