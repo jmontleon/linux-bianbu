@@ -16,6 +16,8 @@
 #define UASP_SS_EP_COMP_LOG_STREAMS 4
 #define UASP_SS_EP_COMP_NUM_STREAMS (1 << UASP_SS_EP_COMP_LOG_STREAMS)
 
+#define USBG_NUM_CMDS		(UASP_SS_EP_COMP_NUM_STREAMS + 1)
+
 enum {
 	USB_G_STR_INT_UAS = 0,
 	USB_G_STR_INT_BBB,
@@ -24,7 +26,8 @@ enum {
 #define USB_G_ALT_INT_BBB       0
 #define USB_G_ALT_INT_UAS       1
 
-#define USB_G_DEFAULT_SESSION_TAGS	128
+#define USB_G_DEFAULT_SESSION_TAGS	USBG_NUM_CMDS
+
 
 struct tcm_usbg_nexus {
 	struct se_session *tvn_se_sess;
@@ -75,12 +78,17 @@ struct usbg_cmd {
 	struct completion write_complete;
 	struct kref ref;
 
+	struct usb_request *req;
+
 	/* UAS only */
 	u16 tag;
 	u16 prio_attr;
 	struct sense_iu sense_iu;
+	struct response_iu response_iu;
 	enum uas_state state;
-	struct uas_stream *stream;
+	int tmr_func;
+	int tmr_rsp;
+#define	RC_RESPONSE_UNKNOWN 0xff
 
 	/* BOT only */
 	__le32 bot_tag;
@@ -93,6 +101,8 @@ struct uas_stream {
 	struct usb_request	*req_in;
 	struct usb_request	*req_out;
 	struct usb_request	*req_status;
+
+	struct usbg_cmd		*cmd;
 };
 
 struct usbg_cdb {
@@ -117,14 +127,14 @@ struct f_uas {
 #define USBG_IS_BOT		(1 << 3)
 #define USBG_BOT_CMD_PEND	(1 << 4)
 
-	struct usbg_cdb		cmd;
+	struct usbg_cdb		cmd[USBG_NUM_CMDS];
 	struct usb_ep		*ep_in;
 	struct usb_ep		*ep_out;
 
 	/* UAS */
 	struct usb_ep		*ep_status;
 	struct usb_ep		*ep_cmd;
-	struct uas_stream	stream[UASP_SS_EP_COMP_NUM_STREAMS];
+	struct uas_stream	stream[USBG_NUM_CMDS];
 
 	/* BOT */
 	struct bot_status	bot_status;
