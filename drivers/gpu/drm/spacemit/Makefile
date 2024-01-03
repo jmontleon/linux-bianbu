@@ -4,6 +4,7 @@ spacemit-drm-y := 	spacemit_drm.o \
 				spacemit_cmdlist.o \
 				spacemit_dpu.o \
 				spacemit_planes.o \
+				spacemit_hdmi.o \
 				spacemit_dsi.o \
 				spacemit_wb.o \
 				spacemit_dphy.o \
