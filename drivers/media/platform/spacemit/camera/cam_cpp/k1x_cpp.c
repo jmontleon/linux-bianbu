@@ -888,12 +888,12 @@ static int cpp_update_clock_rate(struct cpp_device *cpp_dev,
 			cam_err("fnc clk round rate failed: %ld", clk_val);
 			return -EINVAL;
 		}
-
 		ret = clk_set_rate(cpp_dev->fnc_clk, clk_val);
 		if (ret < 0) {
 			cam_err("fnc clk set rate failed: %d", ret);
 			return ret;
 		}
+
 	}
 
 	if (bus_rate > 0) {
@@ -902,7 +902,6 @@ static int cpp_update_clock_rate(struct cpp_device *cpp_dev,
 			cam_err("bus clk round rate failed: %ld", clk_val);
 			return -EINVAL;
 		}
-
 		ret = clk_set_rate(cpp_dev->bus_clk, clk_val);
 		if (ret < 0) {
 			cam_err("bus clk set rate failed: %d", ret);
@@ -988,14 +987,15 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		return ret;
 	}
 
-	ret = cpp_update_clock_rate(cpp_dev, CPP_FNC_DEFAULT_FREQ,
-				    ISP_BUS_DEFAULT_FREQ);
+
+	ret = cpp_enable_clocks(cpp_dev);
 	if (ret) {
 		pm_runtime_put_sync(&cpp_dev->pdev->dev);
 		return ret;
 	}
 
-	ret = cpp_enable_clocks(cpp_dev);
+	ret = cpp_update_clock_rate(cpp_dev, CPP_FNC_DEFAULT_FREQ,
+				    ISP_BUS_DEFAULT_FREQ);
 	if (ret) {
 		pm_runtime_put_sync(&cpp_dev->pdev->dev);
 		return ret;
