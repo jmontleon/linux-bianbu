@@ -203,6 +203,7 @@ PVRSRV_ERROR PVRSRVCommonConnectionConnect(void **ppvPrivData, void *pvOSData)
 	/* Allocate connection data area, no stats since process not registered yet */
 	psConnection = OSAllocZMemNoStats(sizeof(*psConnection));
 	PVR_LOG_RETURN_IF_NOMEM(psConnection, "psConnection");
+	psConnection->bSyncConnection = IMG_FALSE;
 
 	/* Allocate process statistics as early as possible to catch all allocs */
 #if defined(PVRSRV_ENABLE_PROCESS_STATS) && !defined(PVRSRV_DEBUG_LINUX_MEMORY_STATS)
