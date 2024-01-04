@@ -1514,12 +1514,37 @@
 			status = "disabled";
 		};
 
+		extcon: extcon@d428287c {
+			compatible = "spacemit,vbus-id";
+			reg =  <0x0 0xd428287c 0x0 0x4>,
+			       <0x0 0xd4282918 0x0 0x4>;
+			reg-names = "reg_pmuap", "pin_state";
+			interrupts = <106>;
+			interrupt-parent = <&intc>;
+			clocks = <&ccu CLK_USB_AXI>;
+			status = "disabled";
+		};
+
 		usbphy: usbphy@c0940000 {
 			compatible = "spacemit,usb2-phy";
 			reg = <0x0 0xc0940000 0x0 0x200>;
 			spacemit,phy-name = "mv-usb-phy";
 			spacemit,pll-lock-bypass;
 			clocks = <&ccu CLK_USB_AXI>;
+			status = "disabled";
+		};
+
+		otg: otg@c0900100 {
+			compatible = "spacemit,mv-otg";
+			reg = <0x0 0xc0900100 0x0 0x4000>;
+			interrupts = <105>;
+			interrupt-parent = <&intc>;
+			spacemit,otg-name = "mv-otg";
+			spacemit,otg-force-a-bus-req;
+			clocks = <&ccu CLK_USB_AXI>;
+			resets = <&reset RESET_USB_AXI>;
+			usb-phy = <&usbphy>;
+			extcon = <&extcon>;
 			status = "disabled";
 		};
 
@@ -1535,6 +1560,21 @@
 			usb-phy = <&usbphy>;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
+			usb-otg = <&otg>;
+			status = "disabled";
+		};
+
+		ehci: ehci@c0900100 {
+			compatible = "spacemit,mv-ehci";
+			reg = <0x0 0xc0900100 0x0 0x4000>;
+			interrupts = <105>;
+			interrupt-parent = <&intc>;
+			spacemit,ehci-name = "mv-ehci";
+			spacemit,otg-force-a-bus-req;
+			resets = <&reset RESET_USB_AXI>;
+			clocks = <&ccu CLK_USB_AXI>;
+			usb-phy = <&usbphy>;
+			usb-otg = <&otg>;
 			status = "disabled";
 		};
 
