@@ -10,6 +10,7 @@
 #include <dt-bindings/display/spacemit-dpu.h>
 #include <dt-bindings/pmu/k1x_pmu.h>
 #include <dt-bindings/dma/k1x-dmac.h>
+#include <dt-bindings/thermal/thermal.h>
 
 / {
 	compatible = "spacemit,k1-x";
@@ -52,6 +53,7 @@
 			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst0_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -78,6 +80,7 @@
 			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst0_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu1_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -104,6 +107,7 @@
 			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst0_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu2_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -130,6 +134,7 @@
 			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst0_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu3_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -156,6 +161,7 @@
 			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst1_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu4_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -182,6 +188,7 @@
 			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst1_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu5_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -208,6 +215,7 @@
 			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst1_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu6_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -234,6 +242,7 @@
 			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
 			operating-points-v2 = <&clst1_core_opp_table>;
+			#cooling-cells = <2>;
 
 			cpu7_intc: interrupt-controller {
 				#interrupt-cells = <1>;
@@ -302,26 +311,10 @@
 			clock-names = "ace","tcm", "cci";
 			cci-hz = /bits/ 64 <614000000>;
 
-			opp614400000 {
-				opp-hz = /bits/ 64 <614400000>;
-				tcm-hz = /bits/ 64 <307200000>;
-				ace-hz = /bits/ 64 <307200000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				opp-microvolt = <950000>;
-				tcm-hz = /bits/ 64 <409500000>;
-				ace-hz = /bits/ 64 <409500000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1000000000 {
-				opp-hz = /bits/ 64 <1000000000>;
-				tcm-hz = /bits/ 64 <500000000>;
-				ace-hz = /bits/ 64 <500000000>;
+			opp1600000000 {
+				opp-hz = /bits/ 64 <1600000000>;
+				tcm-hz = /bits/ 64 <800000000>;
+				ace-hz = /bits/ 64 <800000000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
@@ -334,10 +327,26 @@
 				clock-latency-ns = <200000>;
 			};
 
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				tcm-hz = /bits/ 64 <800000000>;
-				ace-hz = /bits/ 64 <800000000>;
+			opp1000000000 {
+				opp-hz = /bits/ 64 <1000000000>;
+				tcm-hz = /bits/ 64 <500000000>;
+				ace-hz = /bits/ 64 <500000000>;
+				opp-microvolt = <950000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp819000000 {
+				opp-hz = /bits/ 64 <819000000>;
+				opp-microvolt = <950000>;
+				tcm-hz = /bits/ 64 <409500000>;
+				ace-hz = /bits/ 64 <409500000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp614400000 {
+				opp-hz = /bits/ 64 <614400000>;
+				tcm-hz = /bits/ 64 <307200000>;
+				ace-hz = /bits/ 64 <307200000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
@@ -351,23 +360,9 @@
 			clock-names = "ace", "cci";
 			cci-hz = /bits/ 64 <614000000>;
 
-			opp614400000 {
-				opp-hz = /bits/ 64 <614400000>;
-				ace-hz = /bits/ 64 <307200000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				ace-hz = /bits/ 64 <409500000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1000000000 {
-				opp-hz = /bits/ 64 <1000000000>;
-				ace-hz = /bits/ 64 <500000000>;
+			opp1600000000 {
+				opp-hz = /bits/ 64 <1600000000>;
+				ace-hz = /bits/ 64 <800000000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
@@ -379,9 +374,23 @@
 				clock-latency-ns = <200000>;
 			};
 
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				ace-hz = /bits/ 64 <800000000>;
+			opp1000000000 {
+				opp-hz = /bits/ 64 <1000000000>;
+				ace-hz = /bits/ 64 <500000000>;
+				opp-microvolt = <950000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp819000000 {
+				opp-hz = /bits/ 64 <819000000>;
+				ace-hz = /bits/ 64 <409500000>;
+				opp-microvolt = <950000>;
+				clock-latency-ns = <200000>;
+			};
+
+			opp614400000 {
+				opp-hz = /bits/ 64 <614400000>;
+				ace-hz = /bits/ 64 <307200000>;
 				opp-microvolt = <950000>;
 				clock-latency-ns = <200000>;
 			};
@@ -1836,27 +1845,39 @@
 					};
 
 					cls0_trip1: cls0-trip-point1 {
-						temperature = <70000>;
+						temperature = <75000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls0_trip2: cls0-trip-point2 {
-						temperature = <80000>;
+						temperature = <90000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls0_trip3: cls0-trip-point3 {
-						temperature = <85000>;
-						hysteresis = <5000>;
-						type = "passive";
-					};
-
-					cls0_trip4: cls0-trip-point4 {
 						temperature = <105000>;
 						hysteresis = <5000>;
 						type = "critical";
+					};
+				};
+
+				cooling-maps {
+					map0 {
+						trip = <&cls0_trip1>;
+						cooling-device = <&cpu_0 1 2>,
+								 <&cpu_1 1 2>,
+								 <&cpu_2 1 2>,
+								 <&cpu_3 1 2>;
+					};
+
+					map1 {
+						trip = <&cls0_trip2>;
+						cooling-device = <&cpu_0 3 4>,
+								 <&cpu_1 3 4>,
+								 <&cpu_2 3 4>,
+								 <&cpu_3 3 4>;
 					};
 				};
 			};
@@ -1874,29 +1895,42 @@
 					};
 
 					cls1_trip1: cls1-trip-point1 {
-						temperature = <70000>;
+						temperature = <75000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls1_trip2: cls1-trip-point2 {
-						temperature = <80000>;
+						temperature = <90000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls1_trip3: cls1-trip-point3 {
-						temperature = <85000>;
-						hysteresis = <5000>;
-						type = "passive";
-					};
-
-					cls1_trip4: cls1-trip-point4 {
 						temperature = <105000>;
 						hysteresis = <5000>;
 						type = "critical";
 					};
 				};
+
+				cooling-maps {
+					map0 {
+						trip = <&cls1_trip1>;
+						cooling-device = <&cpu_4 1 2>,
+								 <&cpu_5 1 2>,
+								 <&cpu_6 1 2>,
+								 <&cpu_7 1 2>;
+					};
+
+					map1 {
+						trip = <&cls1_trip2>;
+						cooling-device = <&cpu_4 3 4>,
+								 <&cpu_5 3 4>,
+								 <&cpu_6 3 4>,
+								 <&cpu_7 3 4>;
+					};
+				};
+
 			};
 		};
 
