@@ -145,7 +145,9 @@ pvrsrvkm-y += \
  spacemit/sysconfig.o \
  spacemit/spacemit_init.o \
  server_rgxkicksync_bridge.o \
- rgxkicksync.o
+ rgxkicksync.o \
+ pvr_sync_ioctl_common.o \
+ pvr_sync_ioctl_drm.o
 pvrsrvkm-$(CONFIG_ARM)   += osfunc_arm.o
 pvrsrvkm-$(CONFIG_ARM64) += osfunc_arm64.o
 pvrsrvkm-$(CONFIG_EVENT_TRACING) += trace_events.o pvr_gputrace.o
