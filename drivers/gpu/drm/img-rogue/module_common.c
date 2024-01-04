@@ -624,6 +624,7 @@ static int PVRSRVDeviceSyncOpen(PVRSRV_DEVICE_NODE *psDeviceNode,
 		iErr = -ENOMEM;
 		goto fail_alloc_connection;
 	}
+	psConnection->bSyncConnection = IMG_TRUE;
 #if (PVRSRV_DEVICE_INIT_MODE == PVRSRV_LINUX_DEV_INIT_ON_CONNECT)
 	psConnectionPriv->pvConnectionData = (void*)psConnection;
 #else
@@ -686,6 +687,7 @@ out:
 void PVRSRVDeviceRelease(PVRSRV_DEVICE_NODE *psDeviceNode,
                          struct drm_file *psDRMFile)
 {
+	CONNECTION_DATA *psConnection = NULL;
 	PVR_UNREFERENCED_PARAMETER(psDeviceNode);
 
 	if (psDRMFile->driver_priv)
@@ -717,8 +719,18 @@ void PVRSRVDeviceRelease(PVRSRV_DEVICE_NODE *psDeviceNode,
 				pvr_sync_close(psConnectionPriv->pvSyncConnectionData);
 #endif
 #endif
+			psConnection = psConnectionPriv->pvConnectionData;
+			if (psConnection->bSyncConnection == IMG_TRUE)
+			{
+				if (psConnection->hOsPrivateData != NULL)
+				{
+					OSConnectionPrivateDataDeInit(psConnection->hOsPrivateData);
+					psConnection->hOsPrivateData = NULL;
+				}
+				kfree(psConnection);
+				psConnection = NULL;
+			}
 		}
-
 		kfree(psDRMFile->driver_priv);
 		psDRMFile->driver_priv = NULL;
 	}
