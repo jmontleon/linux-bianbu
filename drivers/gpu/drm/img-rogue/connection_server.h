@@ -110,6 +110,7 @@ typedef struct _CONNECTION_DATA_
 	/* List navigation for deferred freeing of connection data */
 	struct _CONNECTION_DATA_	**ppsThis;
 	struct _CONNECTION_DATA_	*psNext;
+	IMG_BOOL            bSyncConnection;
 } CONNECTION_DATA;
 
 #include "osconnection_server.h"
