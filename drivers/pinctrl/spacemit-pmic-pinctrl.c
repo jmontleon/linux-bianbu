@@ -399,7 +399,7 @@ static int spacemit_pmic_pinctrl_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id spacemit_pmic_pinctrl_of_match[] = {
-	{ .compatible = "spacemit,pmic,spm8821-pinctrl" },
+	{ .compatible = "pmic,pinctrl,spm8821" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, spacemit_pmic_pinctrl_of_match);
