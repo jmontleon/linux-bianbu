@@ -115,7 +115,8 @@ enum PM853_reg {
 #define PM853_MFD_CELL	\
 	static const struct mfd_cell pm853[] = {				\
 		{								\
-			.name = "spacemit-regulator",				\
+			.name = "spacemit-regulator@pm853",			\
+			.of_compatible = "pmic,regulator,pm853",		\
 		},								\
 	};
 
