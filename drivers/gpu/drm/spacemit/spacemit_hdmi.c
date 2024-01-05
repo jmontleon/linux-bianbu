@@ -154,17 +154,38 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
 	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
+	u32 value;
+
 	// hdmi config
-	writel(0x40, hdmi_addr + 0x34);
-	writel(0x20200000, hdmi_addr + 0xe8);
-	writel(0x508d425a, hdmi_addr + 0xec);
-	writel(0x861, hdmi_addr + 0xf0);
-	writel(0x3, hdmi_addr + 0xe4);
+	if (mode->hdisplay > 1024) {
+		// 1920x1080
+		writel(0x4d, hdmi_addr + 0x34);
+		writel(0x20200000, hdmi_addr + 0xe8);
+		writel(0x509D453E, hdmi_addr + 0xec);
+		writel(0x821, hdmi_addr + 0xf0);
+		writel(0x3, hdmi_addr + 0xe4);
 
-	writel(0x28008320, hdmi_addr + 0x20);
-	writel(0x1e00a20d, hdmi_addr + 0x24);
-	writel(0x0e404000, hdmi_addr + 0x28);
+		udelay(2);
+		value = readl_relaxed(hdmi_addr + 0xe4);
+		DRM_INFO("%s() hdmi 0xe4 0x%x\n", __func__, value);
 
+		writel(0x30184000, hdmi_addr + 0x28);
+	} else {
+		// 640x480
+		writel(0x40, hdmi_addr + 0x34);
+		writel(0x20200000, hdmi_addr + 0xe8);
+		writel(0x508d425a, hdmi_addr + 0xec);
+		writel(0x861, hdmi_addr + 0xf0);
+		writel(0x3, hdmi_addr + 0xe4);
+
+		udelay(2);
+		value = readl_relaxed(hdmi_addr + 0xe4);
+		DRM_INFO("%s() hdmi 0xe4 0x%x\n", __func__, value);
+
+		writel(0x28008320, hdmi_addr + 0x20);
+		writel(0x1e00a20d, hdmi_addr + 0x24);
+		writel(0x0e404000, hdmi_addr + 0x28);
+	}
 
 	spacemit_hdmi_config_video_timing(hdmi, mode);
 
@@ -180,6 +201,7 @@ static void spacemit_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
 	DRM_INFO("%s()\n", __func__);
+
 	/* Store the display mode for plugin/DPMS poweron events */
 	drm_mode_copy(&hdmi->previous_mode, adj_mode);
 }
@@ -188,6 +210,7 @@ static void spacemit_hdmi_encoder_enable(struct drm_encoder *encoder)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
 	DRM_INFO("%s()\n", __func__);
+
 	spacemit_hdmi_set_pwr_mode(hdmi, NORMAL);
 	spacemit_hdmi_setup(hdmi, &hdmi->previous_mode);
 }
@@ -195,7 +218,7 @@ static void spacemit_hdmi_encoder_enable(struct drm_encoder *encoder)
 static void spacemit_hdmi_encoder_disable(struct drm_encoder *encoder)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
-
+	DRM_INFO("%s()\n", __func__);
 	spacemit_hdmi_set_pwr_mode(hdmi, LOWER_PWR);
 }
 
@@ -234,6 +257,7 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 	// struct edid *edid;
 	int ret = 0;
 
+	ret = drm_add_modes_noedid(connector, 1920, 1080);
 	return ret;
 }
 
@@ -313,6 +337,8 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	// int irq;
 	int ret;
 
+	DRM_INFO("%s()\n", __func__);
+
 	hdmi = devm_kzalloc(dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
 		return -ENOMEM;
@@ -338,6 +364,8 @@ static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 {
 	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
 
+	DRM_INFO("%s()\n", __func__);
+
 	hdmi->connector.funcs->destroy(&hdmi->connector);
 }
 
@@ -354,6 +382,7 @@ static int spacemit_hdmi_probe(struct platform_device *pdev)
 
 static int spacemit_hdmi_remove(struct platform_device *pdev)
 {
+	DRM_INFO("%s()\n", __func__);
 	component_del(&pdev->dev, &spacemit_hdmi_ops);
 
 	return 0;
