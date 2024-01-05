@@ -113,7 +113,9 @@ DEFINE_SPINLOCK(g_cru_lock);
 #define MPMU_RIPCCR     0x210 //no define
 #define MPMU_ACGR       0x1024
 #define MPMU_SUCCR      0x14
-#define MPMU_SUCCR_1	0x10b0
+#define MPMU_SUCCR_1    0x10b0
+#define MPMU_APBCSCR    0x1050
+
 /* end of MPMU register offset */
 
 /* APMU register offset */
@@ -1061,6 +1063,13 @@ static SPACEMIT_CCU_GATE(gpio_sec_clk, "gpio_sec_clk", "vctcxo_24",
 	0x3, 0x3, 0x0,
 	0);
 
+static const char * const apb_parent_names[] = {
+	"pll1_d96_25p6", "pll1_d48_51p2", "pll1_d96_25p6", "pll1_d24_102p4"
+};
+static SPACEMIT_CCU_MUX(apb_clk, "apb_clk", apb_parent_names,
+	BASE_TYPE_MPMU, MPMU_APBCSCR,
+	0, 2, 0);
+
 static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.hws	= {
 		[CLK_PLL2]		= &pll2.common.hw,
@@ -1239,6 +1248,7 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_SEC_TIMERS0]	= &timers0_sec_clk.common.hw,
 		[CLK_SEC_KPC]		= &kpc_sec_clk.common.hw,
 		[CLK_SEC_GPIO]		= &gpio_sec_clk.common.hw,
+		[CLK_APB]		= &apb_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
@@ -1258,6 +1268,8 @@ static struct clk_hw_table bootup_enable_clk_table[] = {
 	{"pll3_d2", 	CLK_PLL3_D2},
 	{"pll3_d3", 	CLK_PLL3_D3},
 	{"pll2_d3", 	CLK_PLL2_D3},
+	{"apb_clk", 	CLK_APB},
+	{"pmua_aclk", 	CLK_PMUA_ACLK},
 };
 
 void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
