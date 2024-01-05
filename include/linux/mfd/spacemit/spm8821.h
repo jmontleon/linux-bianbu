@@ -52,7 +52,7 @@ enum SPM8821_reg {
 #define SPM8821_ALDO4_VOLT_REG		0x65
 
 #define SPM8821_ALDO_EN_MASK		0x1
-#define SPM8821_ALDO_VSEL_MASK		0x3f
+#define SPM8821_ALDO_VSEL_MASK		0x7f
 
 #define SPM8821_DLDO1_CTRL_REG		0x67
 #define SPM8821_DLDO2_CTRL_REG		0x6a
@@ -71,7 +71,7 @@ enum SPM8821_reg {
 #define SPM8821_DLDO7_VOLT_REG		0x7a
 
 #define SPM8821_DLDO_EN_MASK		0x1
-#define SPM8821_DLDO_VSEL_MASK		0x3f
+#define SPM8821_DLDO_VSEL_MASK		0x7f
 
 #define SPM8821_SWITCH_CTRL_REG		0x59
 #define SPM8821_SWTICH_EN_MASK		0x1
@@ -88,11 +88,12 @@ enum SPM8821_reg {
 #define SPM8821_MFD_CELL	\
 	static const struct mfd_cell spm8821[] = {				\
 		{								\
-			.name = "spacemit-regulator",				\
+			.name = "spacemit-regulator@spm8821",			\
+			.of_compatible = "pmic,regulator,spm8821",		\
 		},								\
 		{ 								\
-			.of_compatible = "spacemit,pmic,spm8821-pinctrl",	\
-			.name = "spacemit-pmic-pinctrl",			\
+			.name = "spacemit-pinctrl@spm8821",			\
+			.of_compatible = "pmic,pinctrl,spm8821",		\
 		},								\
 	};
 
