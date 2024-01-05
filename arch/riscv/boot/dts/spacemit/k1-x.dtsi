@@ -1638,6 +1638,10 @@
 			clock-names = "sdh-io", "sdh-core";
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			regulator,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "disabled";
 		};
 
@@ -1654,6 +1658,10 @@
 			clock-names = "sdh-io", "sdh-core";
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			regulator,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "disabled";
 		};
 
@@ -1670,6 +1678,10 @@
 			clock-names = "sdh-io", "sdh-core";
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			regulator,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "disabled";
 		};
 
