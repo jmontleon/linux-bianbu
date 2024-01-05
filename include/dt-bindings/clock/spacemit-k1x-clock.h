@@ -181,5 +181,7 @@
 #define CLK_SEC_KPC     174
 #define CLK_SEC_GPIO    175
 
-#define CLK_MAX_NO      176
+#define CLK_APB         176
+
+#define CLK_MAX_NO      177
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */
