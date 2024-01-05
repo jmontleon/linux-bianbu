@@ -1326,6 +1326,7 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_suspend_ignore_children(&pdev->dev, 1);
+	pm_runtime_get_sync(&pdev->dev);
 
 	if ((host->mmc->caps2 & MMC_CAP2_NO_MMC) || (host->quirks2 & SDHCI_QUIRK2_BROKEN_PHY_MODULE)) {
 		pr_debug("%s: get card pinctrl\n", mmc_hostname(host->mmc));
