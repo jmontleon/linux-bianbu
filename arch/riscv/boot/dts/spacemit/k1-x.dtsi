@@ -2096,7 +2096,7 @@
 			spacemit-dpu-min-mclk = <40960000>;
 			status = "ok";
 
-			dpu_online2_out: endpoint@0 {
+			dpu_online2_out_dsi: endpoint@0 {
 				remote-endpoint = <&dsi2_in>;
 			};
 
@@ -2119,6 +2119,8 @@
 			interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
 			clocks = <&ccu CLK_HDMI>;
 			clock-names = "hmclk";
+			assigned-clocks = <&ccu CLK_HDMI>;
+			assigned-clock-parents = <&ccu CLK_PLL1_409P6>;
 			resets = <&reset RESET_HDMI>;
 			reset-names= "hdmi_reset";
 			power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
@@ -2126,8 +2128,8 @@
 			ip = "spacemit-saturn";
 			status = "ok";
 
-			dpu_online2_out: endpoint@0 {
-				remote-endpoint = <&hdmi_in_vop>;
+			dpu_online2_out_hdmi: endpoint@0 {
+				remote-endpoint = <&hdmi_in_dpu>;
 			};
 
 			dpu_offline0_out: endpoint@1 {
@@ -2143,9 +2145,9 @@
 			hdmi_in: port {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				hdmi_in_vop: endpoint@0 {
+				hdmi_in_dpu: endpoint@0 {
 					reg = <0>;
-					remote-endpoint = <&dpu_online2_out>;
+					remote-endpoint = <&dpu_online2_out_hdmi>;
 				};
 			};
 		};
@@ -2171,13 +2173,14 @@
 						remote-endpoint = <&dphy2_in>;
 					};
 				};
-
+				/*
 				port@1 {
 					reg = <1>;
 					dsi2_in: endpoint {
-						remote-endpoint = <&dpu_online2_out>;
+						remote-endpoint = <&dpu_online2_out_dsi>;
 					};
 				};
+				*/
 			};
 		};
 
