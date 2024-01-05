@@ -17,6 +17,13 @@
 #include <linux/gpio/consumer.h>
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
+static const struct of_device_id spacemit_regulator_of_match[] = {
+	{ .compatible = "pmic,regulator,spm8821" , },
+	{ .compatible = "pmic,regulator,pm853" , },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, spacemit_regulator_of_match);
+
 static const struct regulator_ops pmic_dcdc_ldo_ops = {
 	.list_voltage		= regulator_list_voltage_linear_range,
 	.map_voltage		= regulator_map_voltage_linear_range,
@@ -87,6 +94,7 @@ static struct platform_driver spacemit_regulator_driver = {
 	.probe = spacemit_regulator_probe,
 	.driver = {
 		.name = "spacemit-regulator",
+		.of_match_table = spacemit_regulator_of_match,
 	},
 };
 
