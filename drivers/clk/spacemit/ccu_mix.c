@@ -58,6 +58,9 @@ static void ccu_mix_disable(struct clk_hw *hw)
 	else
 		writel(tmp, common->base + common->reg_ctrl);
 
+	if (common->lock)
+		spin_unlock_irqrestore(common->lock, flags);
+
 	if (gate->flags & SPACEMIT_CLK_GATE_NEED_DELAY) {
 		rate = clk_hw_get_rate(&common->hw);
 
@@ -67,9 +70,6 @@ static void ccu_mix_disable(struct clk_hw *hw)
 			/* Need delay 2M cycles. */
 			udelay(DIV_ROUND_UP(2000000, rate));
 	}
-
-	if (common->lock)
-		spin_unlock_irqrestore(common->lock, flags);
 
 	return;
 }
@@ -124,6 +124,9 @@ static int ccu_mix_enable(struct clk_hw *hw)
 	else
 		val = readl(common->base + common->reg_ctrl);
 
+	if (common->lock)
+		spin_unlock_irqrestore(common->lock, flags);
+
 	while ((val & gate->gate_mask) != gate->val_enable && (timeout_power < TIMEOUT_LIMIT)) {
 		udelay(timeout_power);
 		if (common->reg_type == CLK_DIV_TYPE_2REG_NOFC_V3
@@ -141,9 +144,6 @@ static int ccu_mix_enable(struct clk_hw *hw)
 		else
 			pr_err("write clk_gate  %s timeout after %d us!\n", clk_hw_get_name(&common->hw), timeout_power);
 	}
-
-	if (common->lock)
-		spin_unlock_irqrestore(common->lock, flags);
 
 	if (gate->flags & SPACEMIT_CLK_GATE_NEED_DELAY) {
 		rate = clk_hw_get_rate(&common->hw);
@@ -223,12 +223,9 @@ static int ccu_mix_trigger_fc(struct clk_hw *hw)
 {
 	struct ccu_mix *mix = hw_to_ccu_mix(hw);
 	struct ccu_common * common = &mix->common;
-	unsigned long flags;
 	unsigned long val = 0;
 
 	int ret = 0, timeout = 50;
-
-	spin_lock_irqsave(common->lock, flags);
 
 	if (common->reg_type == CLK_DIV_TYPE_1REG_FC_V2
 		|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4
@@ -264,7 +261,6 @@ static int ccu_mix_trigger_fc(struct clk_hw *hw)
 		}
 	}
 
-	spin_unlock_irqrestore(common->lock, flags);
 	return ret;
 
 }
@@ -318,8 +314,8 @@ static int ccu_mix_set_rate(struct clk_hw *hw, unsigned long rate,
 	unsigned long best_rate = 0;
 	unsigned long flags;
 	u32 cur_mux, cur_div, mux_val = 0, div_val = 0;
-	u32 reg;
-	int ret;
+	u32 reg = 0;
+	int ret = 0;
 
 	if(!div && !mux){
 		return 0;
@@ -373,16 +369,16 @@ static int ccu_mix_set_rate(struct clk_hw *hw, unsigned long rate,
 		writel(reg | (div_val << div->shift),
 	       common->base + common->reg_ctrl);
 
-	spin_unlock_irqrestore(common->lock, flags);
-
 	if (common->reg_type == CLK_DIV_TYPE_1REG_FC_V2
 		|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4
 		|| common->reg_type == CLK_DIV_TYPE_1REG_FC_DIV_V5) {
 
 		ret = ccu_mix_trigger_fc(hw);
-		if(ret)
-			pr_err("%s of %s timeout\n", __func__, clk_hw_get_name(&common->hw));
 	}
+	spin_unlock_irqrestore(common->lock, flags);
+
+	if(ret)
+		pr_err("%s of %s timeout\n", __func__, clk_hw_get_name(&common->hw));
 	return 0;
 }
 
@@ -429,8 +425,8 @@ static int ccu_mix_set_parent(struct clk_hw *hw, u8 index)
 	struct ccu_common * common = &mix->common;
 	struct ccu_mux_config *mux = mix->mux;
 	unsigned long flags;
-	u32 reg;
-	int ret;
+	u32 reg = 0;
+	int ret = 0;
 
 	if(!mux)
 		return 0;
@@ -466,15 +462,16 @@ static int ccu_mix_set_parent(struct clk_hw *hw, u8 index)
 	else
 		writel(reg | (index << mux->shift), common->base + common->reg_ctrl);
 
-	spin_unlock_irqrestore(common->lock, flags);
 	if (common->reg_type == CLK_DIV_TYPE_1REG_FC_V2
 		|| common->reg_type == CLK_DIV_TYPE_2REG_FC_V4
 		|| common->reg_type == CLK_DIV_TYPE_1REG_FC_MUX_V6) {
 
 		ret = ccu_mix_trigger_fc(hw);
-		if(ret)
-			pr_err("%s of %s timeout\n", __func__, clk_hw_get_name(&common->hw));
 	}
+	spin_unlock_irqrestore(common->lock, flags);
+
+	if(ret)
+		pr_err("%s of %s timeout\n", __func__, clk_hw_get_name(&common->hw));
 
 	return 0;
 }
