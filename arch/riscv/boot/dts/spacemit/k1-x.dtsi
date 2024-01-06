@@ -1771,7 +1771,7 @@
 					<0000 0 0 2 &pcie1_intc 2>, /* int_b */
 					<0000 0 0 3 &pcie1_intc 3>, /* int_c */
 					<0000 0 0 4 &pcie1_intc 4>; /* int_d */
-			linux,pci-domain = <0>;
+			linux,pci-domain = <1>;
 			status = "disabled";
 			pcie1_intc: interrupt-controller@0 {
 				interrupt-controller;
