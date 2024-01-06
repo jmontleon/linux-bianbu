@@ -7,15 +7,20 @@
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/reboot.h>
+#include <linux/ioport.h>
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
-SPM8821_MFD_CELL;
 SPM8821_REGMAP_CONFIG;
 SPM8821_CHIP_ID_REG;
+SPM8821_IRQS_DESC;
+SPM8821_IRQ_CHIP_DESC;
+SPM8821_POWER_KEY_RESOURCES_DESC;
+SPM8821_MFD_CELL;
 
 PM853_MFD_CELL;
 PM853_REGMAP_CONFIG;
 PM853_CHIP_ID_REG;
+
 
 static const struct of_device_id spacemit_pmic_of_match[] = {
 	{ .compatible = "spacemit,spm8821" , .data = (void *)&spm8821_id_reg },
@@ -67,6 +72,8 @@ static int spacemit_prepare_sub_pmic(struct spacemit_pmic *pmic)
 			pmic->regmap_cfg);
 	if (IS_ERR(sub->power_regmap))
 		return PTR_ERR(sub->power_regmap);
+
+	regcache_cache_bypass(sub->power_regmap, true);
 
 	i2c_set_clientdata(sub->power_page, pmic);
 
@@ -135,7 +142,7 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	switch (pmic->variant) {
 	case SPM8821_ID:
 		pmic->regmap_cfg = &spm8821_regmap_config;
-		/* pmic->regmap_irq_chip = ; */
+		pmic->regmap_irq_chip = &spm8821_irq_chip;
 		cells = spm8821;
 		nr_cells = ARRAY_SIZE(spm8821);
 		break;
@@ -164,6 +171,8 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 		return PTR_ERR(pmic->regmap);
 	}
 
+	regcache_cache_bypass(pmic->regmap, true);
+
 	/* prepare sub pmic */
 	if (pmic->sub) {
 		ret = spacemit_prepare_sub_pmic(pmic);
@@ -176,10 +185,20 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	if (!client->irq) {
 		pr_warn("%s:%d, No interrupt supported\n",
 				__func__, __LINE__);
+	} else {
+		if (pmic->regmap_irq_chip) {
+			ret = regmap_add_irq_chip(pmic->regmap, client->irq, IRQF_ONESHOT, -1,
+				pmic->regmap_irq_chip, &pmic->irq_data);
+			if (ret) {
+				pr_err("failed to add irqchip %d\n", ret);
+				return ret;
+			}
+		}
 	}
 
 	ret = devm_mfd_add_devices(&client->dev, PLATFORM_DEVID_NONE,
-			      cells, nr_cells, NULL, 0, NULL);
+			      cells, nr_cells, NULL, 0,
+			      regmap_irq_get_domain(pmic->irq_data));
 	if (ret) {
 		pr_err("failed to add MFD devices %d\n", ret);
 		return -EINVAL;
