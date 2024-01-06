@@ -84,19 +84,6 @@ enum SPM8821_reg {
 		.user_id_reg = 0xa2,					\
 	};
 
-/* mfd configuration */
-#define SPM8821_MFD_CELL	\
-	static const struct mfd_cell spm8821[] = {				\
-		{								\
-			.name = "spacemit-regulator@spm8821",			\
-			.of_compatible = "pmic,regulator,spm8821",		\
-		},								\
-		{ 								\
-			.name = "spacemit-pinctrl@spm8821",			\
-			.of_compatible = "pmic,pinctrl,spm8821",		\
-		},								\
-	};
-
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
 		.reg_bits = 8,	\
@@ -314,5 +301,379 @@ static const struct pin_config_desc spm8821_pinconfig_desc[] = \
 	SPM8XX_DESC_PIN_CONFIG_COM(4, 0x0, 0x10, 0x1, 0x10, 0x3, 0xc, 0x4, 0xc0, 0x10, 0x5, 0x10, 0x7, 0xc),		\
 	SPM8XX_DESC_PIN_CONFIG_COM(5, 0x0, 0x20, 0x1, 0x20, 0x3, 0x30, 0x4, 0xc0, 0x20, 0x5, 0x20, 0x7, 0x30),		\
 };
+
+/* irq description */
+enum IRQ_line {
+	/* reg: 0x91 */
+	SPM8821_E_GPI0,
+	SPM8821_E_GPI1,
+	SPM8821_E_GPI2,
+	SPM8821_E_GPI3,
+	SPM8821_E_GPI4,
+	SPM8821_E_GPI5,
+
+	/* reg: 0x92 */
+	SPM8821_E_ADC_TEMP,
+	SPM8821_E_ADC_EOC,
+	SPM8821_E_ADC_EOS,
+	SPM8821_E_WDT_TO,
+	SPM8821_E_ALARM,
+	SPM8821_E_TICK,
+
+	/* reg: 0x93 */
+	SPM8821_E_LDO_OV,
+	SPM8821_E_LDO_UV,
+	SPM8821_E_LDO_SC,
+	SPM8821_E_SW_SC,
+	SPM8821_E_TEMP_WARN,
+	SPM8821_E_TEMP_SEVERE,
+	SPM8821_E_TEMP_CRIT,
+
+	/* reg: 0x94 */
+	SPM8821_E_BUCK1_OV,
+	SPM8821_E_BUCK2_OV,
+	SPM8821_E_BUCK3_OV,
+	SPM8821_E_BUCK4_OV,
+	SPM8821_E_BUCK5_OV,
+	SPM8821_E_BUCK6_OV,
+
+	/* reg: 0x95 */
+	SPM8821_E_BUCK1_UV,
+	SPM8821_E_BUCK2_UV,
+	SPM8821_E_BUCK3_UV,
+	SPM8821_E_BUCK4_UV,
+	SPM8821_E_BUCK5_UV,
+	SPM8821_E_BUCK6_UV,
+
+	/* reg: 0x96 */
+	SPM8821_E_BUCK1_SC,
+	SPM8821_E_BUCK2_SC,
+	SPM8821_E_BUCK3_SC,
+	SPM8821_E_BUCK4_SC,
+	SPM8821_E_BUCK5_SC,
+	SPM8821_E_BUCK6_SC,
+
+	/* reg: 0x97 */
+	SPM8821_E_PWRON_RINTR,
+	SPM8821_E_PWRON_FINTR,
+	SPM8821_E_PWRON_SINTR,
+	SPM8821_E_PWRON_LINTR,
+	SPM8821_E_PWRON_SDINTR,
+	SPM8821_E_VSYS_OV,
+};
+
+#define SPM8821_E_GPI0_MSK	BIT(0)
+#define SPM8821_E_GPI1_MSK	BIT(1)
+#define SPM8821_E_GPI2_MSK	BIT(2)
+#define SPM8821_E_GPI3_MSK	BIT(3)
+#define SPM8821_E_GPI4_MSK	BIT(4)
+#define SPM8821_E_GPI5_MSK	BIT(5)
+
+#define SPM8821_E_ADC_TEMP_MSK	BIT(0)
+#define SPM8821_E_ADC_EOC_MSK	BIT(1)
+#define SPM8821_E_ADC_EOS_MSK	BIT(2)
+#define SPM8821_E_WDT_TO_MSK	BIT(3)
+#define SPM8821_E_ALARM_MSK	BIT(4)
+#define SPM8821_E_TICK_MSK	BIT(5)
+
+#define SPM8821_E_LDO_OV_MSK	BIT(0)
+#define SPM8821_E_LDO_UV_MSK	BIT(1)
+#define SPM8821_E_LDO_SC_MSK	BIT(2)
+#define SPM8821_E_SW_SC_MSK	BIT(3)
+#define SPM8821_E_TEMP_WARN_MSK	BIT(4)
+#define SPM8821_E_TEMP_SEVERE_MSK	BIT(5)
+#define SPM8821_E_TEMP_CRIT_MSK		BIT(6)
+
+#define SPM8821_E_BUCK1_OV_MSK	BIT(0)
+#define SPM8821_E_BUCK2_OV_MSK	BIT(1)
+#define SPM8821_E_BUCK3_OV_MSK	BIT(2)
+#define SPM8821_E_BUCK4_OV_MSK	BIT(3)
+#define SPM8821_E_BUCK5_OV_MSK	BIT(4)
+#define SPM8821_E_BUCK6_OV_MSK	BIT(5)
+
+#define SPM8821_E_BUCK1_UV_MSK	BIT(0)
+#define SPM8821_E_BUCK2_UV_MSK	BIT(1)
+#define SPM8821_E_BUCK3_UV_MSK	BIT(2)
+#define SPM8821_E_BUCK4_UV_MSK	BIT(3)
+#define SPM8821_E_BUCK5_UV_MSK	BIT(4)
+#define SPM8821_E_BUCK6_UV_MSK	BIT(5)
+
+#define SPM8821_E_BUCK1_SC_MSK	BIT(0)
+#define SPM8821_E_BUCK2_SC_MSK	BIT(1)
+#define SPM8821_E_BUCK3_SC_MSK	BIT(2)
+#define SPM8821_E_BUCK4_SC_MSK	BIT(3)
+#define SPM8821_E_BUCK5_SC_MSK	BIT(4)
+#define SPM8821_E_BUCK6_SC_MSK	BIT(5)
+
+#define SPM8821_E_PWRON_RINTR_MSK	BIT(0)
+#define SPM8821_E_PWRON_FINTR_MSK	BIT(1)
+#define SPM8821_E_PWRON_SINTR_MSK	BIT(2)
+#define SPM8821_E_PWRON_LINTR_MSK	BIT(3)
+#define SPM8821_E_PWRON_SDINTR_MSK	BIT(4)
+#define SPM8821_E_VSYS_OV_MSK		BIT(5)
+
+#define SPM8821_E_STATUS_REG_BASE	0x91
+#define SPM8821_E_EN_REG_BASE		0x98
+
+#define SPM8821_IRQS_DESC				\
+static const struct regmap_irq spm8821_irqs[] = {	\
+	[SPM8821_E_GPI0] = {				\
+		.mask = SPM8821_E_GPI0_MSK,		\
+		.reg_offset = 0,			\
+	},						\
+							\
+	[SPM8821_E_GPI1] = {				\
+		.mask = SPM8821_E_GPI1_MSK,		\
+		.reg_offset = 0,			\
+	},						\
+							\
+	[SPM8821_E_GPI2] = {				\
+		.mask = SPM8821_E_GPI2_MSK,		\
+		.reg_offset = 0,			\
+	},						\
+							\
+	[SPM8821_E_GPI3] = {				\
+		.mask = SPM8821_E_GPI3_MSK,		\
+		.reg_offset = 0,			\
+	},						\
+							\
+	[SPM8821_E_GPI4] = {				\
+		.mask = SPM8821_E_GPI4_MSK,		\
+		.reg_offset = 0,			\
+	},						\
+							\
+	[SPM8821_E_GPI5] = {				\
+		.mask = SPM8821_E_GPI5_MSK,		\
+		.reg_offset = 0,			\
+	},						\
+							\
+	[SPM8821_E_ADC_TEMP] = {			\
+		.mask = SPM8821_E_ADC_TEMP_MSK,		\
+		.reg_offset = 1,			\
+	},						\
+							\
+	[SPM8821_E_ADC_EOC] = {				\
+		.mask = SPM8821_E_ADC_EOC_MSK,		\
+		.reg_offset = 1,			\
+	},						\
+							\
+	[SPM8821_E_ADC_EOS] = {				\
+		.mask = SPM8821_E_ADC_EOS_MSK,		\
+		.reg_offset = 1,			\
+	},						\
+							\
+	[SPM8821_E_WDT_TO] = {				\
+		.mask = SPM8821_E_WDT_TO_MSK,		\
+		.reg_offset = 1,			\
+	},						\
+							\
+	[SPM8821_E_ALARM] = {				\
+		.mask = SPM8821_E_ALARM_MSK,		\
+		.reg_offset = 1,			\
+	},						\
+							\
+	[SPM8821_E_TICK] = {				\
+		.mask = SPM8821_E_TICK_MSK,		\
+		.reg_offset = 1,			\
+	},						\
+							\
+	[SPM8821_E_LDO_OV] = {				\
+		.mask = SPM8821_E_LDO_OV_MSK,		\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_LDO_UV] = {				\
+		.mask = SPM8821_E_LDO_UV_MSK,		\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_LDO_SC] = {				\
+		.mask = SPM8821_E_LDO_SC_MSK,		\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_SW_SC] = {				\
+		.mask = SPM8821_E_SW_SC_MSK,		\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_TEMP_WARN] = {			\
+		.mask = SPM8821_E_TEMP_WARN_MSK,	\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_TEMP_SEVERE] = {			\
+		.mask = SPM8821_E_TEMP_SEVERE_MSK,	\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_TEMP_CRIT] = {			\
+		.mask = SPM8821_E_TEMP_CRIT_MSK,	\
+		.reg_offset = 2,			\
+	},						\
+							\
+	[SPM8821_E_BUCK1_OV] = {			\
+		.mask = SPM8821_E_BUCK1_OV_MSK,		\
+		.reg_offset = 3,			\
+	},						\
+							\
+	[SPM8821_E_BUCK2_OV] = {			\
+		.mask = SPM8821_E_BUCK2_OV_MSK,		\
+		.reg_offset = 3,			\
+	},						\
+							\
+	[SPM8821_E_BUCK3_OV] = {			\
+		.mask = SPM8821_E_BUCK3_OV_MSK,		\
+		.reg_offset = 3,			\
+	},						\
+							\
+	[SPM8821_E_BUCK4_OV] = {			\
+		.mask = SPM8821_E_BUCK4_OV_MSK,		\
+		.reg_offset = 3,			\
+	},						\
+							\
+	[SPM8821_E_BUCK5_OV] = {			\
+		.mask = SPM8821_E_BUCK5_OV_MSK,		\
+		.reg_offset = 3,			\
+	},						\
+							\
+	[SPM8821_E_BUCK6_OV] = {			\
+		.mask = SPM8821_E_BUCK6_OV_MSK,		\
+		.reg_offset = 3,			\
+	},						\
+							\
+	[SPM8821_E_BUCK1_UV] = {			\
+		.mask = SPM8821_E_BUCK1_UV_MSK,		\
+		.reg_offset = 4,			\
+	},						\
+							\
+	[SPM8821_E_BUCK2_UV] = {			\
+		.mask = SPM8821_E_BUCK2_UV_MSK,		\
+		.reg_offset = 4,			\
+	},						\
+							\
+	[SPM8821_E_BUCK3_UV] = {			\
+		.mask = SPM8821_E_BUCK3_UV_MSK,		\
+		.reg_offset = 4,			\
+	},						\
+							\
+	[SPM8821_E_BUCK4_UV] = {			\
+		.mask = SPM8821_E_BUCK4_UV_MSK,		\
+		.reg_offset = 4,			\
+	},						\
+							\
+	[SPM8821_E_BUCK5_UV] = {			\
+		.mask = SPM8821_E_BUCK5_UV_MSK,		\
+		.reg_offset = 4,			\
+	},						\
+							\
+	[SPM8821_E_BUCK6_UV] = {			\
+		.mask = SPM8821_E_BUCK6_UV_MSK,		\
+		.reg_offset = 4,			\
+	},						\
+							\
+	[SPM8821_E_BUCK1_SC] = {			\
+		.mask = SPM8821_E_BUCK1_SC_MSK,		\
+		.reg_offset = 5,			\
+	},						\
+							\
+	[SPM8821_E_BUCK2_SC] = {			\
+		.mask = SPM8821_E_BUCK2_SC_MSK,		\
+		.reg_offset = 5,			\
+	},						\
+							\
+	[SPM8821_E_BUCK3_SC] = {			\
+		.mask = SPM8821_E_BUCK3_SC_MSK,		\
+		.reg_offset = 5,			\
+	},						\
+							\
+	[SPM8821_E_BUCK4_SC] = {			\
+		.mask = SPM8821_E_BUCK4_SC_MSK,		\
+		.reg_offset = 5,			\
+	},						\
+							\
+	[SPM8821_E_BUCK5_SC] = {			\
+		.mask = SPM8821_E_BUCK5_SC_MSK,		\
+		.reg_offset = 5,			\
+	},						\
+							\
+	[SPM8821_E_BUCK6_SC] = {			\
+		.mask = SPM8821_E_BUCK6_SC_MSK,		\
+		.reg_offset = 5,			\
+	},						\
+							\
+	[SPM8821_E_PWRON_RINTR] = {			\
+		.mask = SPM8821_E_PWRON_RINTR_MSK,	\
+		.reg_offset = 6,			\
+	},						\
+							\
+	[SPM8821_E_PWRON_FINTR] = {			\
+		.mask = SPM8821_E_PWRON_FINTR_MSK,	\
+		.reg_offset = 6,			\
+	},						\
+							\
+	[SPM8821_E_PWRON_SINTR] = {			\
+		.mask = SPM8821_E_PWRON_SINTR_MSK,	\
+		.reg_offset = 6,			\
+	},						\
+							\
+	[SPM8821_E_PWRON_LINTR] = {			\
+		.mask = SPM8821_E_PWRON_LINTR_MSK,	\
+		.reg_offset = 6,			\
+	},						\
+							\
+	[SPM8821_E_PWRON_SDINTR] = {			\
+		.mask = SPM8821_E_PWRON_SDINTR_MSK,	\
+		.reg_offset = 6,			\
+	},						\
+							\
+	[SPM8821_E_VSYS_OV] = {				\
+		.mask = SPM8821_E_VSYS_OV_MSK,		\
+		.reg_offset = 6,			\
+	},						\
+};
+
+
+#define SPM8821_IRQ_CHIP_DESC				\
+static const struct regmap_irq_chip spm8821_irq_chip = {	\
+	.name = "spm8821",					\
+	.irqs = spm8821_irqs,					\
+	.num_irqs = ARRAY_SIZE(spm8821_irqs),			\
+	.num_regs = 7,						\
+	.status_base = SPM8821_E_STATUS_REG_BASE,		\
+	.mask_base = SPM8821_E_EN_REG_BASE,			\
+	.ack_base = SPM8821_E_STATUS_REG_BASE,			\
+	.init_ack_masked = true,				\
+	.mask_invert = true,					\
+};
+
+
+/* power-key */
+#define SPM8821_POWER_KEY_RESOURCES_DESC			\
+static const struct resource spm8821_pwrkey_resources[] = {	\
+	DEFINE_RES_IRQ(SPM8821_E_PWRON_RINTR),			\
+	DEFINE_RES_IRQ(SPM8821_E_PWRON_FINTR),			\
+	DEFINE_RES_IRQ(SPM8821_E_PWRON_SINTR),			\
+	DEFINE_RES_IRQ(SPM8821_E_PWRON_LINTR),			\
+};
+
+/* mfd configuration */
+#define SPM8821_MFD_CELL	\
+	static const struct mfd_cell spm8821[] = {				\
+		{								\
+			.name = "spacemit-regulator@spm8821",			\
+			.of_compatible = "pmic,regulator,spm8821",		\
+		},								\
+		{ 								\
+			.name = "spacemit-pinctrl@spm8821",			\
+			.of_compatible = "pmic,pinctrl,spm8821",		\
+		},								\
+		{								\
+			.name = "spacemit-pwrkey@spm8821",			\
+			.of_compatible = "pmic,pwrkey,spm8821",			\
+			.num_resources = ARRAY_SIZE(spm8821_pwrkey_resources),	\
+			.resources = &spm8821_pwrkey_resources[0],		\
+		},								\
+	};
 
 #endif /* __SPM8821_H__ */
