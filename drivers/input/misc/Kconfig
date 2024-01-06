@@ -929,6 +929,15 @@ config INPUT_QNAP_MCU
 	  To compile this driver as a module, choose M here: the
 	  module will be called qnap-mcu-input.
 
+config INPUT_SPACEMIT_POWERKEY
+	tristate "Spacemit PMIC pwrkey support"
+	depends on MFD_SPACEMIT_PMIC
+	help
+	  Say Y to enable support for PMIC PWRKEY.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called spacemit-pwrkey.
+
 config INPUT_RAVE_SP_PWRBUTTON
 	tristate "RAVE SP Power button Driver"
 	depends on RAVE_SP_CORE
