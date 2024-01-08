@@ -220,34 +220,31 @@ static int dpu_parse_dt(struct spacemit_dpu *dpu, struct device_node *np)
 {
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 
+
+
 	clk_ctx->pxclk = of_clk_get_by_name(np, "pxclk");
 	if (IS_ERR(clk_ctx->pxclk)) {
-		pr_err("%s, read pxclk failed from dts!\n", __func__);
-		return PTR_ERR(clk_ctx->pxclk);
+		pr_info("%s, read pxclk failed from dts!\n", __func__);
 	}
 
 	clk_ctx->mclk = of_clk_get_by_name(np, "mclk");
 	if (IS_ERR(clk_ctx->mclk)) {
-		pr_err("%s, read mclk failed from dts!\n", __func__);
-		return PTR_ERR(clk_ctx->mclk);
+		pr_info("%s, read mclk failed from dts!\n", __func__);
 	}
 
 	clk_ctx->hclk = of_clk_get_by_name(np, "hclk");
 	if (IS_ERR(clk_ctx->hclk)) {
-		pr_err("%s, read hclk failed from dts!\n", __func__);
-		return PTR_ERR(clk_ctx->hclk);
+		pr_info("%s, read hclk failed from dts!\n", __func__);
 	}
 
 	clk_ctx->escclk = of_clk_get_by_name(np, "escclk");
 	if (IS_ERR(clk_ctx->escclk)) {
-		pr_err("%s, read escclk failed from dts!\n", __func__);
-		return PTR_ERR(clk_ctx->escclk);
+		pr_info("%s, read escclk failed from dts!\n", __func__);
 	}
 
 	clk_ctx->bitclk = of_clk_get_by_name(np, "bitclk");
 	if (IS_ERR(clk_ctx->bitclk)) {
-		pr_err("%s, read bitclk failed from dts!\n", __func__);
-		return PTR_ERR(clk_ctx->bitclk);
+		pr_info("%s, read bitclk failed from dts!\n", __func__);
 	}
 
 	clk_ctx->hmclk = of_clk_get_by_name(np, "hmclk");
