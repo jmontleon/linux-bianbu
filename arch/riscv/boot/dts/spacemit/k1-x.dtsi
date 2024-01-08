@@ -1061,7 +1061,6 @@
                         status = "disabled";
                 };
 
-
 		i2c4: i2c@d4012800 {
 			compatible = "spacemit,k1x-i2c";
 			spacemit,adapter-id = <4>;
@@ -1091,7 +1090,7 @@
                         cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-			status = "okay";
+			status = "disabled";
 		};
 
                 i2c5: i2c@d4013800 {
@@ -1155,7 +1154,7 @@
                         cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-			status = "okay";
+			status = "disabled";
 		};
 
 		i2c7: i2c@d401d000 {
@@ -1187,7 +1186,7 @@
                         cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-			status = "okay";
+			status = "disabled";
 		};
 
 		i2c8: i2c@d401d800 {
@@ -1219,7 +1218,7 @@
                         cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-                        status = "okay";
+                        status = "disabled";
                 };
 
 		pwm0: pwm@d401a000 {
@@ -2227,6 +2226,11 @@
 					remote-endpoint = <&dsi2_out>;
 				};
 			};
+		};
+
+		pwm_bl: lcd_backlight {
+			compatible = "pwm-backlight";
+			status = "disabled";
 		};
 
 		imggpu: imggpu@cac00000 {
