@@ -846,31 +846,31 @@ static void spacemit_dpu_unbind(struct device *dev, struct device *master,
 
 	DRM_INFO("%s()\n", __func__);
 
-	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
 		result = reset_control_assert(dpu->esc_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to assert esc_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
 		result = reset_control_assert(dpu->lcd_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to assert lcd_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
 		result = reset_control_assert(dpu->mclk_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to assert mclk_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
 		result = reset_control_assert(dpu->dsi_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to assert dsi_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
 		result = reset_control_assert(dpu->hdmi_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to assert hdmi_reset: %d\n", result);
@@ -975,31 +975,31 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	if (spacemit_dpu_logo_booton)
 		pm_runtime_get_sync(&pdev->dev);
 
-	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
 		result = reset_control_deassert(dpu->dsi_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to deassert dsi_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
 		result = reset_control_deassert(dpu->mclk_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to deassert mclk_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
 		result = reset_control_deassert(dpu->lcd_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to deassert lcd_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
 		result = reset_control_deassert(dpu->esc_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to deassert esc_reset: %d\n", result);
 		}
 	}
-	if (IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+	if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
 		result = reset_control_deassert(dpu->hdmi_reset);
 		if (result < 0) {
 			DRM_DEV_INFO(dev, "Failed to deassert hdmi_reset: %d\n", result);
