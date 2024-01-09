@@ -647,7 +647,6 @@ static const struct regmap_irq_chip spm8821_irq_chip = {	\
 	.mask_invert = true,					\
 };
 
-
 /* power-key */
 #define SPM8821_POWER_KEY_RESOURCES_DESC			\
 static const struct resource spm8821_pwrkey_resources[] = {	\
@@ -656,6 +655,79 @@ static const struct resource spm8821_pwrkey_resources[] = {	\
 	DEFINE_RES_IRQ(SPM8821_E_PWRON_SINTR),			\
 	DEFINE_RES_IRQ(SPM8821_E_PWRON_LINTR),			\
 };
+
+/* rtc desc */
+#define SPM8821_RTC_RESOURCES_DESC				\
+static const struct resource spm8821_rtc_resources[] = {	\
+	DEFINE_RES_IRQ(SPM8821_E_ALARM),			\
+};
+
+#define SPM8821_RTC_REG_DESC					\
+static const struct rtc_regdesc spm8821_regdesc = {		\
+	.cnt_s = {						\
+		.reg = 0xd,					\
+		.msk = 0x3f,					\
+	},							\
+								\
+	.cnt_mi = {						\
+		.reg = 0xe,					\
+		.msk = 0x3f,					\
+	},							\
+								\
+	.cnt_h = {						\
+		.reg = 0xf,					\
+		.msk = 0x1f,					\
+	},							\
+								\
+	.cnt_d = {						\
+		.reg = 0x10,					\
+		.msk = 0x1f,					\
+	},							\
+								\
+	.cnt_mo = {						\
+		.reg = 0x11,					\
+		.msk = 0xf,					\
+	},							\
+								\
+	.cnt_y = {						\
+		.reg = 0x12,					\
+		.msk = 0x3f,					\
+	},							\
+								\
+	.alarm_s = {						\
+		.reg = 0x13,					\
+		.msk = 0x3f,					\
+	},							\
+								\
+	.alarm_mi = {						\
+		.reg = 0x14,					\
+		.msk = 0x3f,					\
+	},							\
+								\
+	.alarm_h = {						\
+		.reg = 0x15,					\
+		.msk = 0x1f,					\
+	},							\
+								\
+	.alarm_d = {						\
+		.reg = 0x16,					\
+		.msk = 0x1f,					\
+	},							\
+								\
+	.alarm_mo = {						\
+		.reg = 0x17,					\
+		.msk = 0xf,					\
+	},							\
+								\
+	.alarm_y = {						\
+		.reg = 0x18,					\
+		.msk = 0x3f,					\
+	},							\
+								\
+	.rtc_ctl = {						\
+		.reg = 0x1d,					\
+	},							\
+}; 
 
 /* mfd configuration */
 #define SPM8821_MFD_CELL	\
@@ -673,6 +745,12 @@ static const struct resource spm8821_pwrkey_resources[] = {	\
 			.of_compatible = "pmic,pwrkey,spm8821",			\
 			.num_resources = ARRAY_SIZE(spm8821_pwrkey_resources),	\
 			.resources = &spm8821_pwrkey_resources[0],		\
+		},								\
+		{								\
+			.name = "spacemit-rtc@spm8821",				\
+			.of_compatible = "pmic,rtc,spm8821",			\
+			.num_resources = ARRAY_SIZE(spm8821_rtc_resources),	\
+			.resources = &spm8821_rtc_resources[0],			\
 		},								\
 	};
 
