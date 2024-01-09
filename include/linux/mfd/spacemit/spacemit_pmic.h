@@ -27,6 +27,7 @@ struct spacemit_pmic {
 	struct spacemit_sub_pmic *sub;
 };
 
+/* pinctrl */
 struct pin_func_desc {
 	const char *name;
 	unsigned char pin_id;
@@ -81,6 +82,94 @@ struct pin_config_desc {
 	} itype;
 };
 
+/* rtc */
+union rtc_ctl_desc {
+	unsigned char val;
+	struct {
+		unsigned char crystal_en:1;
+		unsigned char out_32k_en:1;
+		unsigned char rtc_en:1;
+		unsigned char rtc_clk_sel:1;
+		unsigned char tick_type:1;
+		unsigned char alarm_en:1;
+		unsigned char tick_en:1;
+		unsigned char reserved:1;
+	} bits;
+};
+
+struct rtc_regdesc {
+	/* seconds */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} cnt_s;
+
+	/* mini */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} cnt_mi;
+
+	/* hour */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} cnt_h;
+
+	/* day */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} cnt_d;
+
+	/* mounth */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} cnt_mo;
+
+	/* year */
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} cnt_y;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} alarm_s;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} alarm_mi;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} alarm_h;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} alarm_d;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} alarm_mo;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} alarm_y;
+
+	struct  {
+		unsigned char reg;
+	} rtc_ctl;
+};
+
+/* chip id */
 struct chip_id_reg {
 	unsigned char device_id_reg;
 	unsigned char version_id_reg;
