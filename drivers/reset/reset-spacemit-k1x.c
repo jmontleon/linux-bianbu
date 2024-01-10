@@ -429,7 +429,8 @@ static const struct spacemit_reset_variant k1x_reset_data = {
 static void spacemit_reset_init(struct device_node *np)
 {
 	struct spacemit_reset *reset;
-	LOG_INFO("init reset");
+
+	//LOG_INFO("init reset");
 	if (of_device_is_compatible(np, "spacemit,k1x-reset")){
 		reset = &k1x_reset_controller;
 		reset->mpmu_base = of_iomap(np, 0);
@@ -487,7 +488,7 @@ static void spacemit_reset_init(struct device_node *np)
 	reset->rcdev.nr_resets = k1x_reset_data.signals_num;
 	reset->rcdev.ops       = &k1x_reset_data.ops;
 	reset->rcdev.of_node   = np;
-	LOG_INFO("register");
+	//LOG_INFO("register");
 	reset_controller_register(&reset->rcdev);
 out:
 	return;
