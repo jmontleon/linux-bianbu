@@ -909,7 +909,7 @@ static int cpp_update_clock_rate(struct cpp_device *cpp_dev,
 		}
 	}
 
-	cam_info("func clock rate: %ld, bus clock rate: %ld",
+	cam_dbg("func clock rate: %ld, bus clock rate: %ld",
 		 clk_get_rate(cpp_dev->fnc_clk), clk_get_rate(cpp_dev->bus_clk));
 
 	return 0;
@@ -1232,7 +1232,7 @@ static int cpp_probe(struct platform_device *pdev)
 	int ret = 0;
 	int irq = 0;
 
-	cam_info("enter cpp_probe\n");
+	cam_dbg("enter cpp_probe\n");
 	match_dev = of_match_device(k1xcpp_dt_match, &pdev->dev);
 	if (!match_dev || !match_dev->data) {
 		dev_err(&pdev->dev, "no match data\n");
@@ -1261,7 +1261,7 @@ static int cpp_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no irq resource");
 		return -ENODEV;
 	}
-	dev_info(&pdev->dev, "cpp irq: %d\n", irq);
+	dev_dbg(&pdev->dev, "cpp irq: %d\n", irq);
 	ret = devm_request_irq(&pdev->dev, irq,
 			       cpp_dev->ops->isr, 0, CPP_DRV_NAME, cpp_dev);
 	if (ret) {
@@ -1370,7 +1370,7 @@ static int cpp_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	device_init_wakeup(&pdev->dev, true);
 
-	cam_info("%s probed", dev_name(&pdev->dev));
+	cam_dbg("%s probed", dev_name(&pdev->dev));
 	return ret;
 
 err_work:
@@ -1398,7 +1398,7 @@ static int cpp_remove(struct platform_device *pdev)
 	cpp_iommu_unregister(cpp_dev);
 	mutex_destroy(&cpp_dev->mutex);
 	devm_kfree(&pdev->dev, cpp_dev);
-	cam_info("%s removed", dev_name(&pdev->dev));
+	cam_dbg("%s removed", dev_name(&pdev->dev));
 
 	return 0;
 }
