@@ -167,7 +167,7 @@ static void spacemit_drm_debugfs_init(struct drm_minor *minor)
 {
 	struct drm_device *dev = minor->dev;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 	drm_debugfs_create_files(spacemit_debugfs_files,
 						ARRAY_SIZE(spacemit_debugfs_files),
 						minor->debugfs_root,
@@ -219,7 +219,7 @@ static int spacemit_drm_bind(struct device *dev)
 	struct spacemit_drm_private *priv;
 	int err;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	drm = drm_dev_alloc(&spacemit_drm_drv, dev);
 	if (IS_ERR(drm))
@@ -288,7 +288,7 @@ static void spacemit_drm_put_dev(struct drm_device *dev)
 
 static void spacemit_drm_unbind(struct device *dev)
 {
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 	spacemit_drm_put_dev(dev_get_drvdata(dev));
 }
 
@@ -385,7 +385,7 @@ static int spacemit_drm_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct resource *r;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	ret = dma_coerce_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
 	if (ret)
