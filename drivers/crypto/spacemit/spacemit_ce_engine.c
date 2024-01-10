@@ -1034,7 +1034,7 @@ static int ce_aes_test(u32 num)
 	int err;
 
 	unsigned char iv[16];
-	int i, y;
+	int i, y, ret;
 	int index = num;
 	unsigned char *ct_buf;
 	unsigned char *pt_buf;
@@ -1050,8 +1050,9 @@ static int ce_aes_test(u32 num)
 	while (--index >= 0) {
 		dev_info(dev,"================ aes test(%d) =============\n",index);
 		for (i = 0; i < (int)(sizeof(tests) / sizeof(tests[0])); i++) {
-			if ((err = ce_rijndael_setup_internal(index, tests[i].key, tests[i].keylen * BYTES_TO_BITS)) != 0) {
-				return err;
+			ret = ce_rijndael_setup_internal(index, tests[i].key, tests[i].keylen * BYTES_TO_BITS);
+			if (ret != 0) {
+				goto err;
 			}
 			memcpy(ct_buf, tests[i].ct , 16);
 			memcpy(pt_buf, tests[i].pt , 16);
@@ -1059,13 +1060,15 @@ static int ce_aes_test(u32 num)
 			if (memcmp(ct_buf_tmp, tests[i].ct, 16)) {
 				dev_err(dev,"  (ecb test)failed : tmp[0] != tests[i].ct\n");
 				dump_data("(ecb ct)", (const unsigned char *)ct_buf_tmp, 16);
-				return -EPERM;
+				ret = -EPERM;
+				goto err;
 			}
 			spacemit_aes_ecb_decrypt(index, ct_buf_tmp, pt_buf_tmp, tests[i].key, tests[i].keylen, 1);
 			dump_data("(ecb after encrypt-decrypt)", (const unsigned char *)pt_buf_tmp, 16);
 			if (memcmp(pt_buf_tmp, tests[i].pt, 16)) {
 				dev_err_once(dev,"  (ecb test)failed : tmp[1] != tests[i].pt\n");
-				return -EPERM;
+				ret = -EPERM;
+				goto err;
 			}
 
 			memset(ct_buf_tmp, 0, PT_CT_SIZE);
@@ -1077,7 +1080,8 @@ static int ce_aes_test(u32 num)
 			dump_data("(cbc after encrypt-decrypt)", (const unsigned char *)pt_buf_tmp, 16);
 			if (memcmp(pt_buf_tmp, tests[i].pt, 16)) {
 				dev_err_once(dev,"  (cbc test)failed : tmp[1] != tests[i].pt\n");
-				return -EPERM;
+				ret = -EPERM;
+				goto err
 			}
 
 			/* now see if we can encrypt all zero bytes 1000 times, decrypt and come back where we started */
@@ -1095,7 +1099,8 @@ static int ce_aes_test(u32 num)
 			for (y = 0; y < 16; y++) {
 				if (ct_buf_tmp[y] != 0) {
 					dev_err_once(dev," failed : encrypt & decrypt 100 times failed!\n");
-					return -EPERM;
+					ret = -EPERM;
+					goto err;
 				}
 			}
 		}
@@ -1103,6 +1108,12 @@ static int ce_aes_test(u32 num)
 	}
 
 	return 0;
+err:
+	kfree(ct_buf);
+	kfree(pt_buf);
+	kfree(ct_buf_tmp);
+	kfree(pt_buf_tmp);
+	return ret;
 }
 #endif
 
