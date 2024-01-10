@@ -39,6 +39,7 @@ struct spacemit_pctl {
 	int funcdesc_nums, confdesc_nums;
 	const struct pin_func_desc *func_desc;
 	const struct pin_config_desc *config_desc;
+	char *name;
 };
 
 static const struct pinctrl_ops spacemit_gpio_pinctrl_ops = {
@@ -102,19 +103,14 @@ static int spacemit_pmx_gpio_set_direction(struct pinctrl_dev *pctldev,
 {
 	int ret;
 	struct spacemit_pctl *pctl = pinctrl_dev_get_drvdata(pctldev);
-	struct spacemit_pmic *pmic = dev_get_drvdata(pctl->dev->parent);
 
-	switch (pmic->variant) {
-	case SPM8821_ID:
+	if (strcmp(pctl->name, "spm8821") == 0)
 		/* when input == true, it means that we should set this pin
 		 * as gpioin, so we should pass function(0) to set_mux
 		 */
 		ret = spacemit_gpio_pinmux_set(pctldev, !input, offset);
-		break;
-	default:
-	       dev_err(pctl->dev, "unsupported Spacemit pmic ID: %d\n", pmic->variant);
-	       return -EINVAL;
-	}
+	else
+		return -EINVAL;
 
 	return ret;
 }
@@ -152,7 +148,6 @@ static int spacemit_gpio_get_direction(struct gpio_chip *chip,
 	int i, ret;
 	unsigned int val, direction = 0;
 	struct spacemit_pctl *pctl = gpiochip_get_data(chip);
-	struct spacemit_pmic *pmic = dev_get_drvdata(pctl->dev->parent);
 
 	/* read the function set register */
 	for (i = 0; i < pctl->funcdesc_nums; ++i) {
@@ -170,15 +165,10 @@ static int spacemit_gpio_get_direction(struct gpio_chip *chip,
 		}
 	}
 
-	switch (pmic->variant) {
-	case SPM8821_ID:
+	if (strcmp(pctl->name, "spm8821") == 0)
 		return !direction;
-	default:
-	       dev_err(pctl->dev, "unsupported Spacemit pmic ID: %d\n", pmic->variant);
-	       return -EINVAL;
-	}
-
-	return -EINVAL;
+	else
+		return -EINVAL;
 }
 
 static void spacemit_gpio_set(struct gpio_chip *chip, unsigned int offset,
@@ -286,43 +276,43 @@ static const struct pinconf_ops spacemit_gpio_pinconf_ops = {
 	.pin_config_group_set	= spacemit_pconf_group_set,
 };
 
+static const struct of_device_id spacemit_pmic_pinctrl_of_match[] = {
+	{ .compatible = "pmic,pinctrl,spm8821", .data = (void *)&spm8821_pinctrl_match_data },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, spacemit_pmic_pinctrl_of_match);
+
 static int spacemit_pmic_pinctrl_probe(struct platform_device *pdev)
 {
-	int nfunc, i, numfuncdesc, res, numpinconf;
+	int i, res;
 	struct spacemit_pctl *pctl;
 	unsigned int npins;
 	const char **pin_names;
 	unsigned int *pin_nums;
 	struct pinctrl_pin_desc *pins;
-	const char **pinmux_functions;
+	const struct of_device_id *of_id;
 	struct spacemit_pmic *pmic = dev_get_drvdata(pdev->dev.parent);
-	const struct pin_func_desc *pinfuncdesc;
-	const struct pin_config_desc *pinconfdesc;
+	struct pinctrl_match_data *match_data;
 
-	switch (pmic->variant) {
-	case SPM8821_ID:
-		pinmux_functions = spm8821_pinmux_functions;
-		nfunc = ARRAY_SIZE(spm8821_pinmux_functions);
-		pinfuncdesc = spm8821_pinfunc_desc;
-		numfuncdesc = ARRAY_SIZE(spm8821_pinfunc_desc);
-		pinconfdesc = spm8821_pinconfig_desc;
-		numpinconf = ARRAY_SIZE(spm8821_pinconfig_desc);
-	       break;
-	default:
-	       pr_err("unsupported Spacemit pmic ID: %d\n", pmic->variant);
-	       return -EINVAL;
+	of_id = of_match_device(spacemit_pmic_pinctrl_of_match, &pdev->dev);
+	if (!of_id) {
+		pr_err("Unable to match OF ID\n");
+		return -ENODEV;
 	}
+
+	match_data = (struct pinctrl_match_data *)of_id->data;
 
 	pctl = devm_kzalloc(&pdev->dev, sizeof(*pctl), GFP_KERNEL);
 	if (!pctl)
 		return -ENOMEM;
 
+	pctl->name = match_data->name;
 	pctl->dev = &pdev->dev;
 	pctl->regmap = pmic->regmap;
-	pctl->func_desc = pinfuncdesc;
-	pctl->funcdesc_nums = numfuncdesc;
-	pctl->config_desc = pinconfdesc;
-	pctl->confdesc_nums = numpinconf;
+	pctl->func_desc = match_data->pinfunc_desc;
+	pctl->funcdesc_nums = match_data->nr_pin_fuc_desc;
+	pctl->config_desc = match_data->pinconf_desc;
+	pctl->confdesc_nums = match_data->nr_pin_conf_desc;
 	dev_set_drvdata(&pdev->dev, pctl);
 
 	if (of_property_read_u32(pdev->dev.of_node, "spacemit,npins", &npins))
@@ -366,8 +356,8 @@ static int spacemit_pmic_pinctrl_probe(struct platform_device *pdev)
 					     "Failed to register group");
 	}
 
-	for (i = 0; i < nfunc; ++i) {
-		res = pinmux_generic_add_function(pctl->pctldev, pinmux_functions[i],
+	for (i = 0; i < match_data->nr_pin_mux; ++i) {
+		res = pinmux_generic_add_function(pctl->pctldev, match_data->pinmux_funcs[i],
 						  pin_names, npins, pctl);
 		if (res < 0)
 			return dev_err_probe(pctl->dev, res,
@@ -397,12 +387,6 @@ static int spacemit_pmic_pinctrl_probe(struct platform_device *pdev)
 
 	return 0;
 }
-
-static const struct of_device_id spacemit_pmic_pinctrl_of_match[] = {
-	{ .compatible = "pmic,pinctrl,spm8821" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, spacemit_pmic_pinctrl_of_match);
 
 static struct platform_driver spacemit_pmic_pinctrl_driver = {
 	.probe = spacemit_pmic_pinctrl_probe,
