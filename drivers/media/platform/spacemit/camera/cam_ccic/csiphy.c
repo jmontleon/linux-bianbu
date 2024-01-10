@@ -256,7 +256,7 @@ static int k1x_csiphy_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	int ret;
 
-	pr_info("%s begin to probe\n", dev_name(&pdev->dev));
+	pr_debug("%s begin to probe\n", dev_name(&pdev->dev));
 
 	csiphy_dev = devm_kzalloc(&pdev->dev, sizeof(struct csiphy_device), GFP_KERNEL);
 	if (!csiphy_dev) {
@@ -311,7 +311,7 @@ static int k1x_csiphy_probe(struct platform_device *pdev)
 	list_add(&csiphy_dev->list, &csiphy_list);
 	mutex_unlock(&csiphy_list_mutex);
 
-	pr_info("%s probed", dev_name(&pdev->dev));
+	pr_debug("%s probed", dev_name(&pdev->dev));
 
 	return ret;
 }
@@ -327,7 +327,7 @@ static int k1x_csiphy_remove(struct platform_device *pdev)
 	}
 
 	devm_kfree(&pdev->dev, csiphy_dev);
-	pr_info("%s removed", dev_name(&pdev->dev));
+	pr_debug("%s removed", dev_name(&pdev->dev));
 
 	return 0;
 }
