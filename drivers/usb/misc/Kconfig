@@ -343,3 +343,11 @@ config USB_ONBOARD_DEV_USB5744
 	  during hub start-up configuration stage. It is must to enable this
 	  option on AMD Kria KR260 Robotics Starter Kit as this hub is
 	  connected to USB-SD converter which mounts the root filesystem.
+
+config SPACEMIT_ONBOARD_USB_HUB
+	tristate "Spacemit onboard USB hub support"
+	depends on ARCH_SPACEMIT || COMPILE_TEST
+	default SOC_SPACEMIT_K1X && USB_DWC3_SPACEMIT
+	help
+	  Say Y here if you want to support onboard usb hubs on Spacemit
+	  platform. If unsure, say Y when compile for Spacemit platform.
