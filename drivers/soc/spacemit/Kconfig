@@ -29,3 +29,4 @@ config SPACEMI_K1X_DMA_RANGE
           effective
 
 source "drivers/soc/spacemit/jpu/Kconfig"
+source "drivers/soc/spacemit/spacemit-rf/Kconfig"
