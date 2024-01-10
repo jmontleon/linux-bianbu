@@ -11,51 +11,28 @@
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
 SPM8821_REGMAP_CONFIG;
-SPM8821_CHIP_ID_REG;
 SPM8821_IRQS_DESC;
 SPM8821_IRQ_CHIP_DESC;
 SPM8821_POWER_KEY_RESOURCES_DESC;
 SPM8821_RTC_RESOURCES_DESC;
 SPM8821_MFD_CELL;
+SPM8821_MFD_MATCH_DATA;
 
 PM853_MFD_CELL;
 PM853_REGMAP_CONFIG;
-PM853_CHIP_ID_REG;
+PM853_MFD_MATCH_DATA;
 
+SY8810L_MFD_CELL;
+SY8810L_REGMAP_CONFIG;
+SY8810L_MFD_MATCH_DATA;
 
 static const struct of_device_id spacemit_pmic_of_match[] = {
-	{ .compatible = "spacemit,spm8821" , .data = (void *)&spm8821_id_reg },
-	{ .compatible = "spacemit,pm853" , .data = (void *)&pm853_id_reg },
+	{ .compatible = "spacemit,spm8821" , .data = (void *)&spm8821_mfd_match_data },
+	{ .compatible = "spacemit,pm853" , .data = (void *)&pm853_mfd_match_data },
+	{ .compatible = "spacemit,sy8810l" , .data = (void *)&sy8810l_mfd_match_data },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, spacemit_pmic_of_match);
-
-static int __spacemit_pmic_read_u8(struct i2c_client *c, u8 reg, u8 *val)
-{
-	struct i2c_msg msg[2];
-	int ret;
-	u8 buf;
-
-	msg[0].addr = c->addr;
-	msg[0].flags = 0;
-	msg[0].len = 1;
-	msg[0].buf = &reg;
-
-	msg[1].addr = c->addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = 1;
-	msg[1].buf = (char *)&buf;
-
-	ret = i2c_transfer(c->adapter, msg, 2);
-	if (ret < 0) {
-		dev_err(&c->dev, "i2c read transfer error: %d\n", ret);
-		return ret;
-	}
-
-	*val = buf;
-
-	return 0;
-}
 
 static int spacemit_prepare_sub_pmic(struct spacemit_pmic *pmic)
 {
@@ -86,11 +63,11 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 {
 	int ret;
 	int nr_cells;
-	unsigned char pmic_id;
-	struct chip_id_reg *pmic_id_reg;
+	struct device_node *np;
 	struct spacemit_pmic *pmic;
 	const struct mfd_cell *cells;
 	const struct of_device_id *of_id;
+	struct mfd_match_data *match_data;
 
 	pmic = devm_kzalloc(&client->dev, sizeof(*pmic), GFP_KERNEL);
 	if (!pmic) {
@@ -104,61 +81,25 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
-	pmic_id_reg = (struct chip_id_reg *)of_id->data;
+	/* find the property in device node */
+	np = of_find_compatible_node(NULL, NULL, of_id->compatible);
+	if (!np)
+		return 0;
 
-	if (pmic_id_reg->reg_num == 1) {
-		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->device_id_reg, &pmic_id);
-		if (ret) {
-			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
-			return -EINVAL;
-		}
+	of_node_put(np);
 
-		pmic->variant = pmic_id;
-	} else {
-		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->user_id_reg, &pmic_id);
-		if (ret) {
-			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
-			return -EINVAL;
-		}
+	match_data = (struct mfd_match_data *)of_id->data;
 
-		pmic->variant = pmic_id;
+	pmic->regmap_cfg = match_data->regmap_cfg;
+	pmic->regmap_irq_chip = match_data->regmap_irq_chip;
+	cells = match_data->mfd_cells;
+	nr_cells = match_data->nr_cells;
 
-		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->version_id_reg, &pmic_id);
-		if (ret) {
-			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
-			return -EINVAL;
-		}
-
-		pmic->variant = ((pmic->variant) << 8) | pmic_id;
-
-		ret = __spacemit_pmic_read_u8(client, (unsigned char)pmic_id_reg->device_id_reg, &pmic_id);
-		if (ret) {
-			pr_err("%s:%d, read pmic id failed\n", __func__, __LINE__);
-			return -EINVAL;
-		}
-
-		pmic->variant = ((pmic->variant) << 8) | pmic_id;
-	}
-
-	switch (pmic->variant) {
-	case SPM8821_ID:
-		pmic->regmap_cfg = &spm8821_regmap_config;
-		pmic->regmap_irq_chip = &spm8821_irq_chip;
-		cells = spm8821;
-		nr_cells = ARRAY_SIZE(spm8821);
-		break;
-	case PM853_ID:
-		pmic->regmap_cfg = &pm853_regmap_config;
-		cells = pm853;
-		nr_cells = ARRAY_SIZE(pm853);
+	if (strcmp(match_data->name, "pm853") == 0) {
 		pmic->sub = devm_kzalloc(&client->dev, sizeof(struct spacemit_sub_pmic), GFP_KERNEL);
 		if (!pmic->sub)
 			return -ENOMEM;
-		break;
-	default:
-		pr_err("%s:%d, Unsupported SPACEMIT ID :%d\n",
-				__func__, __LINE__, pmic->variant);
-		return -EINVAL;
+
 	}
 
 	pmic->i2c = client;
