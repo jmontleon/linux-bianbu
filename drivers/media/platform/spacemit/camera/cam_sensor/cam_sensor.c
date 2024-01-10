@@ -124,7 +124,7 @@ static int cam_sensor_power_set(struct cam_sensor_device *msnr_dev, u32 on)
 			usleep_range(10 * 1000, 10 * 1000);
 			//cam_info("rst-gpios to high --------- ZRong");
 		}
-		cam_info("sensor%d unreset", msnr_dev->id);
+		cam_dbg("sensor%d unreset", msnr_dev->id);
 	} else {
 		/* rst-gpios */
 		if (!IS_ERR_OR_NULL(msnr_dev->rst))
@@ -147,7 +147,7 @@ static int cam_sensor_power_set(struct cam_sensor_device *msnr_dev, u32 on)
 			regulator_disable(msnr_dev->afvdd);
 
 		clk_disable_unprepare(msnr_dev->mclk);
-		cam_info("sensor%d reset", msnr_dev->id);
+		cam_dbg("sensor%d reset", msnr_dev->id);
 	}
 
 	return ret;
@@ -811,7 +811,7 @@ static int camsnr_mipi_clock_set(unsigned long arg, unsigned int dphy_no)
 
 	ret = ccic_dphy_hssettle_set(dphy_no, sns_mipi_clock);
 	if (!ret)
-		cam_info("mipi%d: set mipi clock\n", dphy_no);
+		cam_dbg("mipi%d: set mipi clock\n", dphy_no);
 
 	return ret;
 }
@@ -1309,7 +1309,7 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		}
 	}
 #ifdef CONFIG_ARCH_ZYNQMP
-	cam_info("dptc-gpios,cell_id =0x%x",cell_id);
+	cam_dbg("dptc-gpios,cell_id =0x%x",cell_id);
 	/* dptc-gpios */
 	sensor->dptc = devm_gpiod_get(dev, "dptc", GPIOD_OUT_HIGH);
 	if (IS_ERR(sensor->dptc)) {
@@ -1347,7 +1347,7 @@ static int cam_sensor_remove(struct platform_device *pdev)
 	}
 	mutex_destroy(&msnr_dev->lock);
 	cam_snr_dev_destroy(&msnr_dev->cdev, msnr_dev->id);
-	cam_info("camera sensor%d removed", msnr_dev->id);
+	cam_dbg("camera sensor%d removed", msnr_dev->id);
 	devm_kfree(&pdev->dev, msnr_dev);
 
 	return 0;
@@ -1358,7 +1358,7 @@ static int cam_sensor_probe(struct platform_device *pdev)
 	struct cam_sensor_device *msnr_dev;
 	int ret;
 
-	cam_info("camera sensor begin to probed");
+	cam_dbg("camera sensor begin to probed");
 
 	msnr_dev = devm_kzalloc(&pdev->dev, sizeof(struct cam_sensor_device),
 				GFP_KERNEL);
@@ -1376,7 +1376,7 @@ static int cam_sensor_probe(struct platform_device *pdev)
 	mutex_init(&msnr_dev->lock);
 
 	g_sdev[msnr_dev->id] = msnr_dev;
-	cam_info("camera sensor%d probed", msnr_dev->id);
+	cam_dbg("camera sensor%d probed", msnr_dev->id);
 
 	return ret;
 }

@@ -345,7 +345,7 @@ static int ccic_clk_set_rate(struct ccic_ctrl *ctrl_dev, int mode)
 #endif
 
 	clk_set_rate(ccic_dev->csi_clk, clk_val);
-	pr_info("cam clk[csi_func]: %ld\n", clk_val);
+	pr_debug("cam clk[csi_func]: %ld\n", clk_val);
 
 	if (mode == SC2_MODE_ISP) {
 #if defined(CONFIG_SPACEMIT_ZEBU)
@@ -355,7 +355,7 @@ static int ccic_clk_set_rate(struct ccic_ctrl *ctrl_dev, int mode)
 #endif
 
 		clk_set_rate(ccic_dev->clk4x, clk_val);
-		pr_info("cam clk[ccic4x_func]: %ld\n", clk_val);
+		pr_debug("cam clk[ccic4x_func]: %ld\n", clk_val);
 	}
 
 	return 0;
@@ -713,7 +713,7 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 	int ret;
 	int irq;
 
-	pr_info("%s begin to probe\n", dev_name(&pdev->dev));
+	pr_debug("%s begin to probe\n", dev_name(&pdev->dev));
 
 	ret = of_property_read_u32(np, "cell-index", &pdev->id);
 	if (ret < 0) {
@@ -758,7 +758,7 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "no irq resource");
 		return -ENODEV;
 	}
-	dev_info(&pdev->dev, "ipe irq: %d\n", irq);
+	dev_dbg(&pdev->dev, "ipe irq: %d\n", irq);
 	ret = devm_request_irq(&pdev->dev, irq, k1x_ccic_isr,
 			       IRQF_SHARED, K1X_CCIC_DRV_NAME, ccic_dev);
 	if (ret) {
@@ -796,7 +796,7 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 
 	ccic_device_register(ccic_dev);
 
-	pr_info("%s probed", dev_name(&pdev->dev));
+	pr_debug("%s probed", dev_name(&pdev->dev));
 
 	return ret;
 }

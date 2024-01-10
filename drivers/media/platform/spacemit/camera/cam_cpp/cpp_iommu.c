@@ -793,7 +793,7 @@ int cpp_iommu_register(struct cpp_device *cpp_dev)
 		pr_err("%s: alloc timeout memory failed\n", __func__);
 		return -ENOMEM;
 	} else {
-		pr_info("%s: timeout memory %pad\n", __func__,
+		pr_debug("%s: timeout memory %pad\n", __func__,
 			&mmu_dev->to_dma_addr);
 	}
 
