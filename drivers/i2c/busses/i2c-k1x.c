@@ -1920,7 +1920,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 		pm_suspend_ignore_children(&pdev->dev, 1);
 		pm_runtime_enable(spacemit_i2c->dev);
 	} else
-		dev_info(spacemit_i2c->dev, "clock keeps always on\n");
+		dev_dbg(spacemit_i2c->dev, "clock keeps always on\n");
 
 	spacemit_i2c->dbgfs_mode = SPACEMIT_I2C_MODE_INVALID;
 	spacemit_i2c->shutdown = false;
@@ -1942,7 +1942,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	}
 #endif
 
-	dev_notice(spacemit_i2c->dev, "driver probe success with dma %s\n",
+	dev_dbg(spacemit_i2c->dev, "driver probe success with dma %s\n",
 		spacemit_i2c->dma_disable ? "disabled" : "enabled");
 	return 0;
 
@@ -1982,7 +1982,7 @@ static int spacemit_i2c_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(spacemit_i2c->clk);
 
-	dev_notice(spacemit_i2c->dev, "driver removed\n");
+	dev_dbg(spacemit_i2c->dev, "driver removed\n");
 	return 0;
 }
 
