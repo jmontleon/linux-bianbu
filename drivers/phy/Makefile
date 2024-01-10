@@ -39,4 +39,5 @@ obj-y					+= allwinner/	\
 					   sunplus/	\
 					   tegra/	\
 					   ti/		\
+					   spacemit/	\
 					   xilinx/
