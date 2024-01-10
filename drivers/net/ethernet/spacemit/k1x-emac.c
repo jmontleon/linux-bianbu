@@ -2282,7 +2282,7 @@ static int emac_mdio_init(struct emac_priv *priv)
 			if ((of_phy_register_fixed_link(dev->of_node) < 0)) {
 				return -ENODEV;
 			}
-			dev_info(dev, "find fixed link\n");
+			dev_dbg(dev, "find fixed link\n");
 			return 0;
 		}
 
@@ -2548,35 +2548,35 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 	if (of_property_read_u32(np, "tx-threshold",
 				 &priv->tx_threshold)) {
 		priv->tx_threshold = DEFAULT_TX_THRESHOLD;
-		dev_info(&pdev->dev, "%s tx_threshold using default value:%d \n",
+		dev_dbg(&pdev->dev, "%s tx_threshold using default value:%d \n",
 			__func__, priv->tx_threshold);
 	}
 
 	if (of_property_read_u32(np, "rx-threshold",
 				 &priv->rx_threshold)) {
 		priv->rx_threshold = DEFAULT_RX_THRESHOLD;
-		dev_info(&pdev->dev, "%s rx_threshold using default value:%d \n",
+		dev_dbg(&pdev->dev, "%s rx_threshold using default value:%d \n",
 			__func__, priv->rx_threshold);
 	}
 
 	if (of_property_read_u32(np, "tx-ring-num",
 				 &priv->tx_ring_num)) {
 		priv->tx_ring_num = DEFAULT_TX_RING_NUM;
-		dev_info(&pdev->dev, "%s tx_ring_num using default value:%d \n",
+		dev_dbg(&pdev->dev, "%s tx_ring_num using default value:%d \n",
 			__func__, priv->tx_ring_num);
 	}
 
 	if (of_property_read_u32(np, "rx-ring-num",
 				 &priv->rx_ring_num)) {
 		priv->rx_ring_num = DEFAULT_RX_RING_NUM;
-		dev_info(&pdev->dev, "%s rx_ring_num using default value:%d \n",
+		dev_dbg(&pdev->dev, "%s rx_ring_num using default value:%d \n",
 			__func__, priv->rx_ring_num);
 	}
 
 	if (of_property_read_u32(np, "dma-burst-len",
 				 &priv->dma_burst_len)) {
 		priv->dma_burst_len = DEFAULT_DMA_BURST_LEN;
-		dev_info(&pdev->dev, "%s dma_burst_len using default value:%d \n",
+		dev_dbg(&pdev->dev, "%s dma_burst_len using default value:%d \n",
 			__func__, priv->dma_burst_len);
 	} else {
 		if (priv->dma_burst_len <= 0 && priv->dma_burst_len > 7) {
@@ -2588,7 +2588,7 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 
 	if (of_property_read_bool(np, "ref-clock-from-phy")) {
 		priv->ref_clk_frm_soc = 0;
-		dev_info(&pdev->dev, "%s ref clock from external phy \n", __func__);
+		dev_dbg(&pdev->dev, "%s ref clock from external phy \n", __func__);
 	} else
 		priv->ref_clk_frm_soc = 1;
 
@@ -2604,17 +2604,17 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 		eth_hw_addr_set(priv->ndev, mac_addr);
 	}
 
-	dev_info(&pdev->dev, "%s tx-threshold:%d rx_therhold:%d tx_ring_num:%d rx_ring_num:%d dma-bur_len:%d\n",
+	dev_dbg(&pdev->dev, "%s tx-threshold:%d rx_therhold:%d tx_ring_num:%d rx_ring_num:%d dma-bur_len:%d\n",
 		__func__, priv->tx_threshold, priv->rx_threshold, priv->tx_ring_num,
 		priv->rx_ring_num, priv->dma_burst_len);
 
 	priv->ptp_support = of_property_read_bool(np, "ptp-support");
 	if (priv->ptp_support) {
-		dev_info(&pdev->dev, "EMAC support IEEE1588 PTP Protocol\n");
+		dev_dbg(&pdev->dev, "EMAC support IEEE1588 PTP Protocol\n");
 		if (of_property_read_u32(np, "ptp-clk-rate",
 					&priv->ptp_clk_rate)) {
 			priv->ptp_clk_rate = 20000000;
-			dev_info(&pdev->dev, "%s ptp_clk rate using default value:%d may inaccurate!!1\n",
+			dev_dbg(&pdev->dev, "%s ptp_clk rate using default value:%d may inaccurate!!1\n",
 				__func__, priv->ptp_clk_rate);
 		}
 	}
