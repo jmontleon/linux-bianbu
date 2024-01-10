@@ -106,12 +106,6 @@ enum PM853_reg {
 
 #define SPACEMIT_PM853_MAX_REG		0xf1
 
-#define PM853_CHIP_ID_REG							\
-	static const struct chip_id_reg pm853_id_reg = {			\
-		.reg_num = 1,						\
-		.device_id_reg = 0x0,					\
-	};
-
 #define PM853_MFD_CELL	\
 	static const struct mfd_cell pm853[] = {				\
 		{								\
@@ -314,6 +308,21 @@ static const struct regulator_desc pm853_reg[] = {	\
 	\
 	/* PWR SWITCH */	\
 	PM853_DESC_SWITCH(PM853_ID_LDO5_SW, "SWITCH_REG1", "vcc_sys", PM853_LDO_BUCK_EN_REG3, PM853_SW_EN_MSK),		\
+};
+
+#define PM853_MFD_MATCH_DATA				\
+static struct mfd_match_data pm853_mfd_match_data = {	\
+	.regmap_cfg = &pm853_regmap_config,		\
+	.mfd_cells = pm853,				\
+	.nr_cells = ARRAY_SIZE(pm853),			\
+	.name = "pm853",				\
+};
+
+#define PM853_REGULATOR_MATCH_DATA					\
+static struct regulator_match_data pm853_regulator_match_data = {	\
+	.desc = pm853_reg,						\
+	.nr_desc = ARRAY_SIZE(pm853_reg),				\
+	.name = "pm853",						\
 };
 
 #endif
