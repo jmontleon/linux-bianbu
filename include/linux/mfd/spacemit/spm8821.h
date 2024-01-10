@@ -76,14 +76,6 @@ enum SPM8821_reg {
 #define SPM8821_SWITCH_CTRL_REG		0x59
 #define SPM8821_SWTICH_EN_MASK		0x1
 
-#define SPM8821_CHIP_ID_REG							\
-	static const struct chip_id_reg spm8821_id_reg = {			\
-		.reg_num = 3,						\
-		.device_id_reg = 0xa0,					\
-		.version_id_reg = 0xa1,					\
-		.user_id_reg = 0xa2,					\
-	};
-
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
 		.reg_bits = 8,	\
@@ -753,5 +745,32 @@ static const struct rtc_regdesc spm8821_regdesc = {		\
 			.resources = &spm8821_rtc_resources[0],			\
 		},								\
 	};
+
+#define SPM8821_MFD_MATCH_DATA					\
+static struct mfd_match_data spm8821_mfd_match_data = {		\
+	.regmap_cfg = &spm8821_regmap_config,			\
+	.regmap_irq_chip = &spm8821_irq_chip,			\
+	.mfd_cells = spm8821,					\
+	.nr_cells = ARRAY_SIZE(spm8821),			\
+	.name = "spm8821",					\
+};
+
+#define SPM8821_PINCTRL_MATCH_DATA				\
+static struct pinctrl_match_data spm8821_pinctrl_match_data = {				\
+	.nr_pin_mux = ARRAY_SIZE(spm8821_pinmux_functions),	\
+	.pinmux_funcs = spm8821_pinmux_functions,		\
+	.nr_pin_fuc_desc = ARRAY_SIZE(spm8821_pinfunc_desc),	\
+	.pinfunc_desc = spm8821_pinfunc_desc,			\
+	.nr_pin_conf_desc = ARRAY_SIZE(spm8821_pinconfig_desc),	\
+	.pinconf_desc = spm8821_pinconfig_desc,			\
+	.name = "spm8821",					\
+};
+
+#define SPM8821_REGULATOR_MATCH_DATA					\
+static struct regulator_match_data spm8821_regulator_match_data = {	\
+	.nr_desc = ARRAY_SIZE(spm8821_reg),				\
+	.desc = spm8821_reg,						\
+	.name = "spm8821",						\
+};
 
 #endif /* __SPM8821_H__ */

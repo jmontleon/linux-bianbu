@@ -17,13 +17,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
-static const struct of_device_id spacemit_regulator_of_match[] = {
-	{ .compatible = "pmic,regulator,spm8821" , },
-	{ .compatible = "pmic,regulator,pm853" , },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, spacemit_regulator_of_match);
-
 static const struct regulator_ops pmic_dcdc_ldo_ops = {
 	.list_voltage		= regulator_list_voltage_linear_range,
 	.map_voltage		= regulator_map_voltage_linear_range,
@@ -42,45 +35,53 @@ static const struct regulator_ops pmic_switch_ops = {
 };
 
 SPM8821_BUCK_LINER_RANGE;SPM8821_LDO_LINER_RANGE;SPM8821_REGULATOR_DESC;
+SPM8821_REGULATOR_MATCH_DATA;
 
 PM853_BUCK_LINER_RANGE1;PM853_BUCK_LINER_RANGE2;PM853_LDO_LINER_RANGE1;
 PM853_LDO_LINER_RANGE2;PM853_LDO_LINER_RANGE3;PM853_LDO_LINER_RANGE4;
-PM853_REGULATOR_DESC;
+PM853_REGULATOR_DESC;PM853_REGULATOR_MATCH_DATA;
+
+SY8810L_BUCK_LINER_RANGE;SY8810L_REGULATOR_DESC;SY8810L_REGULATOR_MATCH_DATA;
+
+static const struct of_device_id spacemit_regulator_of_match[] = {
+	{ .compatible = "pmic,regulator,spm8821", .data = (void *)&spm8821_regulator_match_data },
+	{ .compatible = "pmic,regulator,pm853", .data = (void *)&pm853_regulator_match_data },
+	{ .compatible = "pmic,regulator,sy8810l", .data = (void *)&sy8810l_regulator_match_data },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, spacemit_regulator_of_match);
 
 static int spacemit_regulator_probe(struct platform_device *pdev)
 {
 	struct regulator_config config = {};
 	struct spacemit_pmic *pmic = dev_get_drvdata(pdev->dev.parent);
 	struct i2c_client *client;
-	const struct regulator_desc *regulators;
+	const struct of_device_id *of_id;
+	struct regulator_match_data *match_data;
 	struct regulator_dev *regulator_dev;
-	int i, nregulators;
+	int i;
 
-	switch (pmic->variant) {
-	case SPM8821_ID:
-		client = pmic->i2c;
-		regulators = spm8821_reg;
-		nregulators = ARRAY_SIZE(spm8821_reg);
-
-		config.dev = &client->dev;
-		config.regmap = pmic->regmap;
-	       break;
-	case PM853_ID:
-		client = pmic->sub->power_page;
-		regulators = pm853_reg;
-		nregulators = ARRAY_SIZE(pm853_reg);
-
-		config.dev = &pmic->i2c->dev;
-		config.regmap = pmic->sub->power_regmap;
-		break;
-	default:
-	       pr_err("unsupported Spacemit pmic ID: %d\n", pmic->variant);
-	       return -EINVAL;
+	of_id = of_match_device(spacemit_regulator_of_match, &pdev->dev);
+	if (!of_id) {
+		pr_err("Unable to match OF ID\n");
+		return -ENODEV;
 	}
 
-	for (i = 0; i < nregulators; ++i) {
+	match_data = (struct regulator_match_data *)of_id->data;
+
+	client = pmic->i2c;
+	config.dev = &client->dev;
+	config.regmap = pmic->regmap;
+
+	if (strcmp(match_data->name, "pm853") == 0) {
+		client = pmic->sub->power_page;
+		config.dev = &pmic->i2c->dev;
+		config.regmap = pmic->sub->power_regmap;	
+	}
+
+	for (i = 0; i < match_data->nr_desc; ++i) {
 		regulator_dev = devm_regulator_register(&pdev->dev,
-				regulators + i, &config);
+				match_data->desc + i, &config);
 		if (IS_ERR(regulator_dev)) {
 			pr_err("failed to register %d regulator\n", i);
 			return PTR_ERR(regulator_dev);

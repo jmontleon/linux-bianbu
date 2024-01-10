@@ -17,10 +17,8 @@ struct spacemit_pmic {
 	struct i2c_client		*i2c;
 	struct regmap_irq_chip_data	*irq_data;
 	struct regmap			*regmap;
-	unsigned int			variant;
 	const struct regmap_config	*regmap_cfg;
 	const struct regmap_irq_chip	*regmap_irq_chip;
-
 	/**
 	 * this is only used for pm853
 	 */
@@ -169,17 +167,32 @@ struct rtc_regdesc {
 	} rtc_ctl;
 };
 
-/* chip id */
-struct chip_id_reg {
-	unsigned char device_id_reg;
-	unsigned char version_id_reg;
-	unsigned char user_id_reg;
-	unsigned char reg_num;
+/* mfd: match data */
+struct mfd_match_data {
+	const struct regmap_config *regmap_cfg;
+	const struct regmap_irq_chip *regmap_irq_chip;
+	const struct mfd_cell *mfd_cells;
+	int nr_cells;
+	const char *name;
 };
 
-/* pmic ID configuration */
-#define SPM8821_ID			0x0
-#define PM853_ID			0x50
+/* regulator: match data */
+struct regulator_match_data {
+	int nr_desc;
+	const struct regulator_desc *desc;
+	const char *name;
+};
+
+/* pinctrl: match data */
+struct pinctrl_match_data {
+	int nr_pin_mux;
+	const char **pinmux_funcs;
+	int nr_pin_fuc_desc;
+	const struct pin_func_desc *pinfunc_desc;
+	int nr_pin_conf_desc;
+	const struct pin_config_desc *pinconf_desc;
+	const char *name;
+};
 
 /* common regulator defination */
 #define SPM8XX_DESC_COMMON(_id, _match, _supply, _nv, _vr, _vm, _er, _em, _lr, _ops)       \
@@ -269,5 +282,6 @@ struct chip_id_reg {
 
 #include "spm8821.h"
 #include "pm853.h"
+#include "sy8810l.h"
 
 #endif /* __SPACEMIT_PMIC_H__ */
