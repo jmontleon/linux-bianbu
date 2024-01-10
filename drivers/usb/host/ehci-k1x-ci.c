@@ -185,7 +185,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	int retval = -ENODEV;
 	u32 offset;
 
-	dev_info(&pdev->dev, "mv_ehci_probe: Enter ... \n");
+	dev_dbg(&pdev->dev, "mv_ehci_probe: Enter ... \n");
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(&pdev->dev, "failed to allocate memory for platform_data\n");
@@ -343,7 +343,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		}
 	}
 
-	dev_info(&pdev->dev,
+	dev_dbg(&pdev->dev,
 		 "successful find EHCI device with regs 0x%p irq %d"
 		 " working in %s mode\n", hcd->regs, hcd->irq,
 		 ehci_mv->mode == MV_USB_MODE_OTG ? "OTG" : "Host");
