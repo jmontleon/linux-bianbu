@@ -420,7 +420,7 @@ static int qspi_set_func_clk(struct k1x_qspi *qspi)
 		return ret;
 	}
 
-	dev_notice(qspi->dev, "bus clock %dHz, PMUap reg[0x%08x]:0x%08x\n",
+	dev_dbg(qspi->dev, "bus clock %dHz, PMUap reg[0x%08x]:0x%08x\n",
 		qspi->max_hz, qspi->pmuap_reg, qspi_readl(qspi, qspi->pmuap_addr));
 
 	return 0;
@@ -716,7 +716,7 @@ static void k1x_qspi_prepare_dma(struct k1x_qspi *qspi)
 			qspi->rx_dma = NULL;
 			qspi->rx_dma_enable = 0;
 		} else {
-			dev_notice(dev, "rx dma enable, channel:%d\n", qspi->rx_dma->chan_id);
+			dev_dbg(dev, "rx dma enable, channel:%d\n", qspi->rx_dma->chan_id);
 		}
 	}
 
@@ -735,7 +735,7 @@ static void k1x_qspi_prepare_dma(struct k1x_qspi *qspi)
 				qspi->tx_dma = NULL;
 				qspi->tx_dma_enable = 0;
 			} else {
-				dev_notice(dev, "tx dma enable, channel:%d\n", qspi->tx_dma->chan_id);
+				dev_dbg(dev, "tx dma enable, channel:%d\n", qspi->tx_dma->chan_id);
 			}
 		} else {
 			qspi->tx_dma_enable = 0;
@@ -884,7 +884,7 @@ static int k1x_qspi_ahb_read(struct k1x_qspi *qspi,
 	}
 
 	if (qspi->rx_dma_enable && ret) {
-		dev_notice(qspi->dev, "rx dma read fallback to memcpy read.\n");
+		dev_dbg(qspi->dev, "rx dma read fallback to memcpy read.\n");
 	}
 
 	if (!qspi->rx_dma_enable || (qspi->rx_dma_enable && ret)) {
@@ -1382,7 +1382,7 @@ static int k1x_qspi_host_init(struct k1x_qspi *qspi)
 	/* clear all interrupt status */
 	qspi_writel(qspi, 0xffffffff, base + QSPI_FR);
 
-	dev_notice(qspi->dev, "qspi host init done.\n");
+	dev_dbg(qspi->dev, "qspi host init done.\n");
 #ifdef K1X_DUMP_QSPI_REG
 	qspi_dump_reg(qspi);
 #endif
@@ -1461,7 +1461,7 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 	else
 		qspi->sfb2ad += qspi->sfb1ad;
 
-	dev_notice(dev, "k1x_qspi_probe:memmap base:0x%pa, memmap size:0x%x\n",
+	dev_dbg(dev, "k1x_qspi_probe:memmap base:0x%pa, memmap size:0x%x\n",
 			&qspi->memmap_base, qspi->memmap_size);
 
 	host_irq = platform_get_irq(pdev, 0);
@@ -1476,7 +1476,7 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 		goto err_put_ctrl;
 	}
 	init_completion(&qspi->cmd_completion);
-	dev_notice(qspi->dev, "k1x_qspi_probe: host_irq:%d\n", host_irq);
+	dev_dbg(qspi->dev, "k1x_qspi_probe: host_irq:%d\n", host_irq);
 
 	/* map QSPI PMUap register address */
 	if (of_property_read_u32(dev->of_node, "k1x,qspi-pmuap-reg", &qspi->pmuap_reg)) {
@@ -1537,9 +1537,9 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 	ctlr->num_chipselect = 1;
 	ctlr->mem_ops = &k1x_qspi_mem_ops;
 
-	dev_notice(dev, "k1x_qspi_probe: rx_buf_size:%d, tx_buf_size:%d\n",
+	dev_dbg(dev, "k1x_qspi_probe: rx_buf_size:%d, tx_buf_size:%d\n",
 			qspi->rx_buf_size, qspi->tx_buf_size);
-	dev_notice(dev, "k1x_qspi_probe: ahb_buf_size:%d, ahb_read:%d\n",
+	dev_dbg(dev, "k1x_qspi_probe: ahb_buf_size:%d, ahb_read:%d\n",
 			qspi->ahb_buf_size, qspi->ahb_read_enable);
 
 	if (qspi->tx_dma_enable)
