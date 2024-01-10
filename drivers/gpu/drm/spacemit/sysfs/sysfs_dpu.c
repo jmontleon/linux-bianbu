@@ -135,19 +135,19 @@ int spacemit_dpu_sysfs_init(struct device *dev)
 	if (ret)
 		DRM_ERROR("failed to create device file: enable_dump_reg\n");
 	else
-		DRM_INFO("create device file enable_dump_reg\n");
+		DRM_DEBUG("create device file enable_dump_reg\n");
 
 	ret = device_create_file(dev, &dev_attr_dpu_enable_dump_fps);
 	if (ret)
 		DRM_ERROR("failed to create device file: enable_dump_fps\n");
 	else
-		DRM_INFO("create device file enable_dump_fps\n");
+		DRM_DEBUG("create device file enable_dump_fps\n");
 #ifdef CONFIG_PM
 	ret = device_create_file(dev, &dev_attr_dpu_enable_auto_fc);
 	if (ret)
 		DRM_ERROR("failed to create device file: enable_auto_fc\n");
 	else
-		DRM_INFO("create device file enable_auto_fc\n");
+		DRM_DEBUG("create device file enable_auto_fc\n");
 #endif
 	return 0;
 }

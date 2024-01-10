@@ -74,7 +74,7 @@ static int spacemit_wb_connector_get_modes(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	return drm_add_modes_noedid(connector, dev->mode_config.max_width,
 				    dev->mode_config.max_height);
@@ -86,7 +86,7 @@ spacemit_wb_connector_mode_valid(struct drm_connector *connector,
 {
 	enum drm_mode_status mode_status = MODE_OK;
 
-	DRM_INFO("%s(%s)\n", __func__, mode->name);
+	DRM_DEBUG("%s(%s)\n", __func__, mode->name);
 
 	return mode_status;
 }
@@ -205,7 +205,7 @@ static void spacemit_wb_unbind(struct device *dev,
 				struct device *master, void *data)
 {
 	/* do nothing */
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 }
 
 static const struct component_ops spacemit_wb_component_ops = {
@@ -219,7 +219,7 @@ static int spacemit_wb_probe(struct platform_device *pdev)
 	struct spacemit_wb *wb;
 	int ret;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	wb = devm_kzalloc(&pdev->dev, sizeof(*wb), GFP_KERNEL);
 	if (!wb) {
