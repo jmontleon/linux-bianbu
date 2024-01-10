@@ -667,7 +667,7 @@ static int k1xisp_dev_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct k1xisp_dev *isp_dev = NULL;
 
-	isp_log_info("k1xisp begin to probe");
+	isp_log_dbg("k1xisp begin to probe");
 
 	ret = k1xisp_cdevs_create();
 	if (ret) {
@@ -685,7 +685,7 @@ static int k1xisp_dev_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	GET_ISP_DEV(isp_dev);
-	isp_log_info
+	isp_log_dbg
 	    ("k1xisp device drvier probe successful,regBase=0x%lx,regEnd=0x%lx!",
 	     isp_dev->isp_regbase, isp_dev->isp_regend);
 	return 0;
@@ -733,7 +733,7 @@ static int k1xisp_dev_remove(struct platform_device *pdev)
 	k1xisp_dev_context_destroy(pdev);
 	k1xisp_cdevs_destroy();
 
-	isp_log_info("k1xisp device drvier remove successful!");
+	isp_log_dbg("k1xisp device drvier remove successful!");
 	return 0;
 }
 

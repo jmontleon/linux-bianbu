@@ -450,7 +450,7 @@ static int k1xvi_probe(struct platform_device *pdev)
 	struct k1xvi_platform_data *drvdata = NULL;
 	int ret = 0;
 
-	cam_info("%s enter.", __func__);
+	cam_dbg("%s enter.", __func__);
 	mutex_lock(&g_init_mlock);
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata) {
@@ -491,7 +491,7 @@ static int k1xvi_probe(struct platform_device *pdev)
 	drvdata->pdev = pdev;
 	platform_set_drvdata(pdev, drvdata);
 	g_pdev = pdev;
-	cam_info("%s leave.", __func__);
+	cam_dbg("%s leave.", __func__);
 	mutex_unlock(&g_init_mlock);
 	return 0;
 entities_fail:

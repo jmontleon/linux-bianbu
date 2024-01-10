@@ -190,7 +190,7 @@ static int k1xisp_pipe_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = pipe_dev;
 	mutex_unlock(&pipe_dev->isp_pipedev_mutex);
-	isp_log_info("open k1xisp pipe dev%d!", pipe_dev->pipedev_id);
+	isp_log_dbg("open k1xisp pipe dev%d!", pipe_dev->pipedev_id);
 	return ret;
 
 fail_clock:
@@ -269,7 +269,7 @@ static int k1xisp_pipe_release(struct inode *inode, struct file *filp)
 
 	filp->private_data = NULL;
 	mutex_unlock(&pipe_dev->isp_pipedev_mutex);
-	isp_log_info("close k1xisp pipe dev%d!", pipe_dev->pipedev_id);
+	isp_log_dbg("close k1xisp pipe dev%d!", pipe_dev->pipedev_id);
 	return ret;
 }
 
@@ -889,7 +889,7 @@ int k1xisp_pipe_trigger_capture(struct k1xisp_pipe_dev *pipe_dev,
 		}
 	}
 
-	isp_log_info("isp pipe(%d) capture done!", pipe_dev->pipedev_id);
+	isp_log_dbg("isp pipe(%d) capture done!", pipe_dev->pipedev_id);
 	if (stop_job)
 		isp_pipe_stop_job(pipe_dev, ISP_PIPE_WORK_TYPE_CAPTURE);
 
