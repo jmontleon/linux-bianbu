@@ -2002,6 +2002,12 @@ static int dwc3_probe(struct platform_device *pdev)
 			goto disable_clks;
 	}
 
+	if (IS_ENABLED(CONFIG_SOC_SPACEMIT_K1X)) {
+		ret = dma_set_mask_and_coherent(dwc->sysdev, DMA_BIT_MASK(32));
+		if (ret)
+			goto disable_clks;
+	}
+
 	spin_lock_init(&dwc->lock);
 	mutex_init(&dwc->mutex);
 
