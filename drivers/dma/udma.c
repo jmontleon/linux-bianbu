@@ -412,7 +412,7 @@ static int dma_init(void)
 	dma_set_mask(dma_dev->dev, DMA_BIT_MASK(32));
 
 	INIT_LIST_HEAD(&dmabuf_list);
-	dev_info(dma_dev->dev, "dma channel id = %d\n",dma_chan->chan_id);
+	dev_dbg(dma_dev->dev, "dma channel id = %d\n",dma_chan->chan_id);
 	mutex_init(&dma_mutex);
 
 	return 0;
