@@ -11,6 +11,7 @@
 #include <dt-bindings/pmu/k1x_pmu.h>
 #include <dt-bindings/dma/k1x-dmac.h>
 #include <dt-bindings/thermal/thermal.h>
+#include <dt-bindings/phy/phy.h>
 
 / {
 	compatible = "spacemit,k1-x";
@@ -1601,6 +1602,31 @@
 			status = "disabled";
 		};
 
+		combphy: phy@c0b10000{
+			compatible = "spacemit,k1x-combphy";
+			reg = <0x0 0xc0b10000 0x0 0x800>,
+				  <0x0 0xd4282910 0x0 0x400>;
+			reg-names = "puphy", "phy_sel";
+			resets = <&reset RESET_PCIE0>;
+			reset-names = "phy_rst";
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		usb2phy: usb2phy@0xc0a30000 {
+			compatible = "spacemit,usb2-phy";
+			reg = <0x0 0xc0a30000  0x0 0x200>;
+			spacemit,phy-name = "mv-usb-phy";
+			spacemit,pll-lock-bypass;
+			clocks = <&ccu CLK_USB30>;
+			status = "disabled";
+		};
+
+		usb3hub: usb3hub@0 {
+			compatible = "spacemit,usb3-hub";
+			status = "disabled";
+		};
+
 		usbdrd3: usb3@0 {
 			compatible = "spacemit,k1-x-dwc3";
 			#address-cells = <2>;
@@ -1621,6 +1647,9 @@
 				reg = <0x0 0xc0a00000 0x0 0x10000>;
 				interrupt-parent = <&intc>;
 				interrupts = <125>;
+				phys = <&combphy PHY_TYPE_USB3>;
+				phy-names = "usb3-phy";
+				usb-phy = <&usb2phy>;
 			};
 		};
 
