@@ -527,7 +527,7 @@ static int mv_ep_enable(struct usb_ep *_ep,
 
 	direction = ep_dir(ep);
 	max = usb_endpoint_maxp(desc);
-	pr_info("mv_ep_enable: %d MPS= 0x%x \n", ep->ep_num, max);
+	pr_debug("mv_ep_enable: %d MPS= 0x%x \n", ep->ep_num, max);
 
 	/*
 	 * disable HW zero length termination select
@@ -672,7 +672,7 @@ static int  mv_ep_disable(struct usb_ep *_ep)
 			: (EPCTRL_RX_ENABLE | EPCTRL_RX_TYPE));
 	writel(epctrlx, &udc->op_regs->epctrlx[ep->ep_num]);
 
-	pr_info("mv_ep_disable: %d \n", ep->ep_num);
+	pr_debug("mv_ep_disable: %d \n", ep->ep_num);
 
 	/* nuke all pending requests (does flush) */
 	nuke(ep, -ESHUTDOWN);
@@ -1168,7 +1168,7 @@ static int mv_udc_enable_internal(struct mv_udc *udc)
 {
 	int retval;
 
-	pr_info("mv_udc_enable_internal: udc->active= %d \n", udc->active);
+	pr_debug("mv_udc_enable_internal: udc->active= %d \n", udc->active);
 	if (udc->active)
 		return 0;
 
@@ -1206,7 +1206,7 @@ static int mv_udc_enable(struct mv_udc *udc)
 
 static void mv_udc_disable_internal(struct mv_udc *udc)
 {
-	pr_info("mv_udc_disable_internal... \n");
+	pr_debug("mv_udc_disable_internal... \n");
 	if (udc->active) {
 		dev_dbg(&udc->dev->dev, "disable udc\n");
 		usb_phy_shutdown(udc->phy);
