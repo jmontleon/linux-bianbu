@@ -1382,7 +1382,8 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 	int ret;
 	struct spacemit_k1x_clk *clk_info;
 	struct clk_hw_onecell_data *hw_clks = &spacemit_k1x_hw_clks;
-	LOG_INFO("init clock");
+
+	//LOG_INFO("init clock");
 	if (of_device_is_compatible(np, "spacemit,k1x-clock")){
 		clk_info = &k1x_clock_controller;
 
@@ -1435,7 +1436,7 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 		}
 	}
 	ret = spacemit_ccu_probe(np, clk_info, hw_clks);
-	LOG_INFO("init clock finish");
+	//LOG_INFO("init clock finish");
 	if (ret)
 		return;
 out:
