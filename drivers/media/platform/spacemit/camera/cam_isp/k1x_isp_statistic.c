@@ -602,7 +602,7 @@ int k1xisp_stat_flush_buffer(struct k1xisp_stats_node *stats_node)
 				kbuf_info->buf_status = ISP_BUFFER_STATUS_INVALID;
 			}
 		}
-		isp_log_info("flush the %d stat bufferque!", i);
+		isp_log_dbg("flush the %d stat bufferque!", i);
 	}
 
 	k1xisp_stat_bufqueue_init(stats_node);
