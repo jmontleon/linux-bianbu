@@ -110,7 +110,7 @@ static int mv_usb2_get_phydata(struct platform_device *pdev,
 	if (!of_property_read_u32(np, "spacemit,usb2-phy-rev", &phy_rev))
 		mv_phy->drv_data.phy_rev = phy_rev;
 	else
-		pr_info("No PHY revision found, use the default setting!");
+		dev_info(&pdev->dev, "No PHY revision found, use the default setting!");
 
 	return 0;
 }
@@ -121,7 +121,7 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 	struct resource *r;
 	int ret = 0;
 
-	dev_info(&pdev->dev, "k1x-ci-usb-phy-probe: Enter...\n");
+	dev_dbg(&pdev->dev, "k1x-ci-usb-phy-probe: Enter...\n");
 	mv_phy = devm_kzalloc(&pdev->dev, sizeof(*mv_phy), GFP_KERNEL);
 	if (mv_phy == NULL) {
 		dev_err(&pdev->dev, "failed to allocate memory\n");
