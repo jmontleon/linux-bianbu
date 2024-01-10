@@ -26,7 +26,7 @@ int spacemit_dphy_resume(struct spacemit_dphy *dphy)
 	if (dphy->core && dphy->core->init)
 		dphy->core->init(&dphy->ctx);
 
-	DRM_INFO("dphy resume OK\n");
+	DRM_DEBUG("dphy resume OK\n");
 	return 0;
 }
 
@@ -35,7 +35,7 @@ int spacemit_dphy_suspend(struct spacemit_dphy *dphy)
 	if (dphy->core && dphy->core->uninit)
 		dphy->core->uninit(&dphy->ctx);
 
-	DRM_INFO("dphy suspend OK\n");
+	DRM_DEBUG("dphy suspend OK\n");
 	return 0;
 }
 
@@ -44,7 +44,7 @@ int spacemit_dphy_reset(struct spacemit_dphy *dphy)
 	if (dphy->core && dphy->core->reset)
 		dphy->core->reset(&dphy->ctx);
 
-	DRM_INFO("dphy reset OK\n");
+	DRM_DEBUG("dphy reset OK\n");
 	return 0;
 }
 
@@ -53,7 +53,7 @@ int spacemit_dphy_get_status(struct spacemit_dphy *dphy)
 	if (dphy->core && dphy->core->get_status)
 		dphy->core->get_status(&dphy->ctx);
 
-	DRM_INFO("dphy get status OK\n");
+	DRM_DEBUG("dphy get status OK\n");
 	return 0;
 }
 
@@ -108,7 +108,7 @@ static int spacemit_dphy_probe(struct platform_device *pdev)
 	const char *str;
 	int ret;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	dphy = devm_kzalloc(&pdev->dev, sizeof(*dphy), GFP_KERNEL);
 	if (!dphy)
@@ -127,7 +127,7 @@ static int spacemit_dphy_probe(struct platform_device *pdev)
 	spacemit_dphy_sysfs_init(&dphy->dev);
 	platform_set_drvdata(pdev, dphy);
 
-	DRM_INFO("dphy driver probe success\n");
+	DRM_DEBUG("dphy driver probe success\n");
 
 	return 0;
 }

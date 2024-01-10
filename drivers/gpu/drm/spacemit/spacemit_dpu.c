@@ -284,7 +284,7 @@ static void spacemit_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 	struct videomode vm;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 	trace_spacemit_crtc_mode_set_nofb(dpu->dev_id);
 	drm_display_mode_to_videomode(&crtc->mode, &vm);
 }
@@ -294,7 +294,7 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 
-	DRM_INFO("%s(power on)\n", __func__);
+	DRM_DEBUG("%s(power on)\n", __func__);
 	trace_spacemit_crtc_atomic_enable(dpu->dev_id);
 
 	/* If bootloader logo is boot on, release its resources first */
@@ -318,7 +318,7 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 	struct drm_device *drm = dpu->crtc.dev;
 
-	DRM_INFO("%s(power off)\n", __func__);
+	DRM_DEBUG("%s(power off)\n", __func__);
 	trace_spacemit_crtc_atomic_disable(dpu->dev_id);
 
 	spacemit_dpu_uninit(dpu);
@@ -610,7 +610,7 @@ static int spacemit_crtc_init(struct drm_device *drm, struct drm_crtc *crtc,
 
 	spacemit_crtc_create_properties(crtc);
 
-	DRM_INFO("%s() ok\n", __func__);
+	DRM_DEBUG("%s() ok\n", __func__);
 	return 0;
 }
 
@@ -824,7 +824,7 @@ static int spacemit_dpu_bind(struct device *dev, struct device *master, void *da
 	dpu->nb.notifier_call = dpu_clkoffdet_notifier_handler;
 	clk_notifier_register(clk_ctx->mclk, &dpu->nb);
 #endif
-	DRM_INFO("dpu driver probe success\n");
+	DRM_DEBUG("dpu driver probe success\n");
 
 	return 0;
 
@@ -844,7 +844,7 @@ static void spacemit_dpu_unbind(struct device *dev, struct device *master,
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 #endif
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
 		result = reset_control_assert(dpu->esc_reset);
@@ -905,7 +905,7 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	u32 dpu_id;
 	int result;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	if (!dev->of_node) {
 		DRM_DEV_ERROR(dev, "can't find dpu devices\n");
@@ -947,23 +947,23 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 
 	dpu->dsi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "dsi_reset");
 	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
-		DRM_DEV_INFO(dev, "not found dsi_reset\n");
+		DRM_DEV_DEBUG(dev, "not found dsi_reset\n");
 	}
 	dpu->mclk_reset = devm_reset_control_get_optional_shared(&pdev->dev, "mclk_reset");
 	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
-		DRM_DEV_INFO(dev, "not found mclk_reset\n");
+		DRM_DEV_DEBUG(dev, "not found mclk_reset\n");
 	}
 	dpu->lcd_reset = devm_reset_control_get_optional_shared(&pdev->dev, "lcd_reset");
 	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
-		DRM_DEV_INFO(dev, "not found lcd_reset\n");
+		DRM_DEV_DEBUG(dev, "not found lcd_reset\n");
 	}
 	dpu->esc_reset = devm_reset_control_get_optional_shared(&pdev->dev, "esc_reset");
 	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
-		DRM_DEV_INFO(dev, "not found esc_reset\n");
+		DRM_DEV_DEBUG(dev, "not found esc_reset\n");
 	}
 	dpu->hdmi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "hdmi_reset");
 	if (IS_ERR_OR_NULL(dpu->hdmi_reset)) {
-		DRM_DEV_INFO(dev, "not found hdmi_reset\n");
+		DRM_DEV_DEBUG(dev, "not found hdmi_reset\n");
 	}
 
 	/*
