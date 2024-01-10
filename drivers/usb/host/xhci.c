@@ -5366,6 +5366,12 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
 	}
 
+	if (IS_ENABLED(CONFIG_SOC_SPACEMIT_K1X) &&
+			!dma_set_mask(dev, DMA_BIT_MASK(32))) {
+		dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
+		xhci_dbg(xhci, "Force Enabling 32-bit DMA addresses.\n");
+	}
+
 	xhci_dbg(xhci, "Calling HCD init\n");
 	/* Initialize HCD and host controller data structures. */
 	retval = xhci_init(hcd);
