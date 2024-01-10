@@ -1135,7 +1135,7 @@ static int fe_rawdump_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 			if (!atomic_read(&rawdump->close_done))
 				cam_warn("%s(%s) stream off not signaled", __func__, sc_subdev->name);
 			else
-				cam_info("%s(%s) stream off ok", __func__, sc_subdev->name);
+				cam_dbg("%s(%s) stream off ok", __func__, sc_subdev->name);
 		}
 	}
 	hw_isp_top_set_rdp_cfg_rdy(SC_BLOCK(isp_ctx->pipes[0]), rawdump->idx, 1);
@@ -1170,7 +1170,7 @@ static int csi_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 #endif
 		mipi_lane_num = csi->pad_fmts[CSI_PAD_IN].format.field & SPACEMIT_VI_PRI_DATA_MASK;
 		mipi_lane_num &= SPACEMIT_VI_MIPI_LANE_MASK;
-		cam_info("%s(%s) mipi lane num:%d", __func__, sc_subdev->name, mipi_lane_num);
+		cam_dbg("%s(%s) mipi lane num:%d", __func__, sc_subdev->name, mipi_lane_num);
 		ret = csi_ctrl->ops->config_csi2idi_mux(csi_ctrl, csi2vc, csi2idi, 1);
 		if (ret) {
 			cam_err("%s(%s) config mux(enable) failed ret=%d", __func__, sc_subdev->name, ret);
@@ -2323,7 +2323,7 @@ static int fe_pipe_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 			else if (l_ret < 0)
 				cam_warn("%s(%s) wait stream off interrputed by user app", __func__, sc_subdev->name);
 			else
-				cam_info("%s(%s) wait stream off ok", __func__, sc_subdev->name);
+				cam_dbg("%s(%s) wait stream off ok", __func__, sc_subdev->name);
 		}
 		hw_isp_top_enable_vsync_pass_through(SC_BLOCK(isp_ctx->pipes[0]), pipe->idx, 0);
 		hw_isp_top_set_vsync2href_dly_cnt(SC_BLOCK(isp_ctx->pipes[0]), pipe->idx, 0);
@@ -2897,7 +2897,7 @@ static int __fe_isp_s_power(struct v4l2_subdev *sd, int on)
 			else if (l_ret < 0)
 				cam_err("%s global reset is interrupted by user app", __func__);
 			else
-				cam_info("%s global reset done", __func__);
+				cam_dbg("%s global reset done", __func__);
 
 #ifdef CONFIG_SPACEMIT_DEBUG
 			vi_running_info.b_dev_running = false;
@@ -3722,7 +3722,7 @@ static long fe_isp_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *
 			cam_err("%s global reset is interrupted by user app", __func__);
 			return -1;
 		} else {
-			cam_info("%s global reset done", __func__);
+			cam_dbg("%s global reset done", __func__);
 		}
 		return 0;
 		break;
@@ -5224,7 +5224,7 @@ void *fe_isp_create_ctx(struct platform_device *pdev)
 		return NULL;
 	}
 	isp_ctx->rsvd_phy_addr = phys_cpu2cam(virt_to_phys(isp_ctx->rsvd_vaddr));
-	cam_info("rsvd_phy_addr=0x%llx size=%d", (uint64_t)isp_ctx->rsvd_phy_addr, MMU_RESERVED_MEM_SIZE);
+	cam_dbg("rsvd_phy_addr=0x%llx size=%d", (uint64_t)isp_ctx->rsvd_phy_addr, MMU_RESERVED_MEM_SIZE);
 	memset(isp_ctx->rsvd_vaddr, 0xff, MMU_RESERVED_MEM_SIZE);
 
 	isp_ctx->mmu_dev = isp_iommu_create(dev, isp_ctx->base_addr);
