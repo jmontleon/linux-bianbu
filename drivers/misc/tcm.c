@@ -98,19 +98,19 @@ static void add_node(mm_heap_t *heap, list_manager_t *list, mm_node_t *node, cha
 	node->next_paddr = node->paddr + node->size;
 	if (list_empty(&list->head)) {
 		list_add(&node->list, &list->head);
-		dev_info(tcm.dev, "[%s] add first node:%lx addr:%lx len:%lx\n", tip, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
+		dev_dbg(tcm.dev, "[%s] add first node:%lx addr:%lx len:%lx\n", tip, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 		return;
 	}
 
 	list_for_each_entry(cur, &list->head, list) {
 		if ((size_t)cur->paddr > (size_t)node->paddr ) {
 			list_add_tail(&node->list, &cur->list);
-			dev_info(tcm.dev, "[%s] add node:%lx addr:%lx len:%lx\n", tip, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
+			dev_dbg(tcm.dev, "[%s] add node:%lx addr:%lx len:%lx\n", tip, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 			return;
 		}
 	}
 
-	dev_info(tcm.dev, "[%s] add tail node:%lx addr:%lx len:%lx\n", tip, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
+	dev_dbg(tcm.dev, "[%s] add tail node:%lx addr:%lx len:%lx\n", tip, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 
 	list_add_tail(&node->list, &list->head);
 }
@@ -156,7 +156,7 @@ static void mm_addregion(mm_heap_t *heap, void *heapstart, size_t heapsize)
 	node->size		 = heapsize;
 
 	add_free_node(heap, node);
-	dev_info(tcm.dev, "mm init(start:0x%lx)(len:0x%lx)\n", heapbase, heapsize);
+	dev_dbg(tcm.dev, "mm init(start:0x%lx)(len:0x%lx)\n", heapbase, heapsize);
 }
 
 static mm_node_t *get_free_max_node(mm_heap_t *heap, size_t size)
@@ -181,7 +181,7 @@ static int node_fission(mm_heap_t *heap, mm_node_t *node, size_t size)
 {
 	size_t remaining = node->size - size;
 
-	dev_info(tcm.dev, "remaining size:%lx\n", remaining);
+	dev_dbg(tcm.dev, "remaining size:%lx\n", remaining);
 	if (remaining > 0) {
 		mm_node_t *remainder = (mm_node_t *)(kmalloc(sizeof(mm_node_t), GFP_KERNEL));
 		if (!remainder) {
@@ -209,7 +209,7 @@ static void *mm_max_mallc(mm_heap_t *heap, size_t size, size_t *valid_size)
 
 	node = get_free_max_node(heap, size);
 
-	dev_info(tcm.dev, "\n%s node:(%lx)(%lx)(%lx)\n", __func__, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
+	dev_dbg(tcm.dev, "\n%s node:(%lx)(%lx)(%lx)\n", __func__, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 
 	if (size <= node->size) {
 		node_fission(heap, node, size);
@@ -243,7 +243,7 @@ static void mm_free(mm_heap_t *heap, void *mem)
 	node = get_node_by_ptr(heap, mem);
 	if (!node) return;
 
-	dev_info(tcm.dev, "%s  node:(%lx)(%lx)(%lx)\n", __func__, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
+	dev_dbg(tcm.dev, "%s  node:(%lx)(%lx)(%lx)\n", __func__, (uintptr_t)node, (uintptr_t)node->paddr, node->size);
 
 	del_alloc_node(heap, node);
 
@@ -252,12 +252,12 @@ static void mm_free(mm_heap_t *heap, void *mem)
 			cur->size	+= node->size;
 			gc_flag		|= 1;
 
-			dev_info(tcm.dev, "gc prev succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
+			dev_dbg(tcm.dev, "gc prev succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
 			if (!list_is_last(&cur->list, &heap->free.head)) {
 				if (cur->next_paddr == (size_t)next->paddr) {
 					cur->size	+= next->size;
 					gc_flag		|= 2;
-					dev_info(tcm.dev, "gc 2 next succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
+					dev_dbg(tcm.dev, "gc 2 next succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
 					list_del(&next->list);
 					kfree(next);
 				}
@@ -269,7 +269,7 @@ static void mm_free(mm_heap_t *heap, void *mem)
 			cur->paddr	 = node->paddr;
 			cur->size	+= node->size;
 			gc_flag		|= 2;
-			dev_info(tcm.dev, "gc next succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
+			dev_dbg(tcm.dev, "gc next succful(%lx)(%lx)(%lx)\n", (uintptr_t)cur, (uintptr_t)cur->paddr, cur->size);
 			break;;
 		}
 	}
@@ -440,7 +440,7 @@ static void tcm_vma_close(struct vm_area_struct *vma)
 		kfree(cur);
 	}
 	kfree(head);
-	dev_info(tcm.dev, "wake up block thread");
+	dev_dbg(tcm.dev, "wake up block thread");
 	wake_up_all(&tcm.wait);
 }
 
@@ -556,7 +556,7 @@ static unsigned int tcm_poll(struct file *file, poll_table *wait)
 	__poll_t mask = 0;
 
 	request_mem_t *node = get_req_mem_node(task_pid_nr(current));
-	dev_info(tcm.dev, "poll get node(%lx)\n", (size_t)node);
+	dev_dbg(tcm.dev, "poll get node(%lx)\n", (size_t)node);
 
 	if (node == NULL) {
 		mask = EPOLLERR;
@@ -606,7 +606,7 @@ static int tcm_probe(struct platform_device *pdev)
 	np = tcm.dev->of_node;
 	num = (np) ? of_get_available_child_count(np) + 1 : 1;
 
-	dev_info(tcm.dev, "-----------child num:%d\n", num);
+	dev_dbg(tcm.dev, "-----------child num:%d\n", num);
 	g_mmheap = kmalloc(sizeof(mm_heap_t)*num, GFP_KERNEL);
 	if (!g_mmheap)
 		return -ENOMEM;
@@ -643,13 +643,13 @@ static int tcm_probe(struct platform_device *pdev)
 	mutex_init(&tcm.mutex);
 	init_waitqueue_head(&tcm.wait);
 	INIT_LIST_HEAD(&tcm.req_head);
-	dev_info(tcm.dev, "tcm register succfully\n");
+	dev_dbg(tcm.dev, "tcm register succfully\n");
 	return 0;
 }
 
 static int tcm_remove(struct platform_device *pdev)
 {
-	dev_info(tcm.dev, "tcm deregister succfully\n");
+	dev_dbg(tcm.dev, "tcm deregister succfully\n");
 	csr_write(0x5db, 0);
 	kfree(g_mmheap);
 	misc_deregister(&tcm_misc_device);
