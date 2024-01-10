@@ -1473,7 +1473,7 @@ static int mmp_pdma_probe(struct platform_device *op)
 	pdev->dma_channels = dma_channels;
 
 	pdev->max_burst_size = max_burst_size;
-	dev_info(pdev->dev, "set max burst size to %d\n", max_burst_size);
+	dev_dbg(pdev->dev, "set max burst size to %d\n", max_burst_size);
 
 #ifdef CONFIG_PM
 	pm_runtime_enable(&op->dev);
@@ -1556,7 +1556,7 @@ static int mmp_pdma_probe(struct platform_device *op)
 	}
 
 	platform_set_drvdata(op, pdev);
-	dev_info(pdev->device.dev, "initialized %d channels\n", dma_channels);
+	dev_dbg(pdev->device.dev, "initialized %d channels\n", dma_channels);
 	return 0;
 
 err_rst:
