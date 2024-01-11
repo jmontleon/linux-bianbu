@@ -28,6 +28,9 @@
 		serial6 = &uart7;
 		serial7 = &uart8;
 		serial8 = &uart9;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+		mmc2 = &sdhci2;
 		ethernet0 = &eth0;
 		ethernet1 = &eth1;
 	};
