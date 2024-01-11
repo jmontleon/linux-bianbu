@@ -529,8 +529,9 @@ static void uasp_cleanup_one_stream(struct f_uas *fu, struct uas_stream *stream)
 static void uasp_free_cmdreq(struct f_uas *fu)
 {
 	int i;
+	int num_cmds = fu->num_cmds;
 
-	for (i = 0; i < USBG_NUM_CMDS; i++) {
+	for (i = 0; i < num_cmds; i++) {
 		usb_ep_free_request(fu->ep_cmd, fu->cmd[i].req);
 		kfree(fu->cmd[i].buf);
 		fu->cmd[i].req = NULL;
@@ -541,6 +542,7 @@ static void uasp_free_cmdreq(struct f_uas *fu)
 static void uasp_cleanup_old_alt(struct f_uas *fu)
 {
 	int i;
+	int num_cmds = fu->num_cmds;
 
 	if (!(fu->flags & USBG_ENABLED))
 		return;
@@ -550,7 +552,7 @@ static void uasp_cleanup_old_alt(struct f_uas *fu)
 	usb_ep_disable(fu->ep_status);
 	usb_ep_disable(fu->ep_cmd);
 
-	for (i = 0; i < USBG_NUM_CMDS; i++)
+	for (i = 0; i < num_cmds; i++)
 		uasp_cleanup_one_stream(fu, &fu->stream[i]);
 	uasp_free_cmdreq(fu);
 }
@@ -568,7 +570,7 @@ static struct uas_stream *uasp_get_stream_by_tag(struct f_uas *fu, u16 tag)
 	 * need to use a proper algorithm to fetch the stream (or simply walk
 	 * through all active streams to check for overlap).
 	 */
-	return &fu->stream[tag % USBG_NUM_CMDS];
+	return &fu->stream[tag % fu->num_cmds];
 }
 
 static void uasp_status_data_cmpl(struct usb_ep *ep, struct usb_request *req);
@@ -951,14 +953,15 @@ static int uasp_prepare_reqs(struct f_uas *fu)
 {
 	int ret;
 	int i;
+	int num_cmds = fu->num_cmds;
 
-	for (i = 0; i < USBG_NUM_CMDS; i++) {
+	for (i = 0; i < num_cmds; i++) {
 		ret = uasp_alloc_stream_res(fu, &fu->stream[i]);
 		if (ret)
 			goto err_cleanup;
 	}
 
-	for (i = 0; i < USBG_NUM_CMDS; i++) {
+	for (i = 0; i < num_cmds; i++) {
 		ret = uasp_alloc_cmd(fu, i);
 		if (ret)
 			goto err_free_stream;
@@ -995,6 +998,11 @@ static void uasp_set_alt(struct f_uas *fu)
 	if (gadget->speed >= USB_SPEED_SUPER)
 		fu->flags |= USBG_USE_STREAMS;
 
+	if (fu->flags & USBG_USE_STREAMS)
+		fu->num_cmds = USBG_NUM_CMDS;
+	else
+		fu->num_cmds = 1;
+
 	config_ep_by_speed_and_alt(gadget, f, fu->ep_in, USB_G_ALT_INT_UAS);
 	ret = usb_ep_enable(fu->ep_in);
 	if (ret)
@@ -1019,7 +1027,8 @@ static void uasp_set_alt(struct f_uas *fu)
 		goto err_wq;
 	fu->flags |= USBG_ENABLED;
 
-	pr_info("Using the UAS protocol\n");
+	pr_info("Using the UAS protocol, TCQ %s\n",
+		(fu->flags & USBG_USE_STREAMS) ? "Supported" : "Not Supported");
 	return;
 err_wq:
 	usb_ep_disable(fu->ep_status);

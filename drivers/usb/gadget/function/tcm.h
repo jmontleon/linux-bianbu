@@ -119,6 +119,7 @@ struct f_uas {
 	struct usbg_tpg		*tpg;
 	struct usb_function	function;
 	u16			iface;
+	u16			num_cmds;
 
 	u32			flags;
 #define USBG_ENABLED		(1 << 0)
