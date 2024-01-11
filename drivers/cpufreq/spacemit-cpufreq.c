@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
 #include <linux/cpufreq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -6,39 +8,38 @@
 #include <linux/clk/clk-conf.h>
 #include <linux/pm_qos.h>
 #include <linux/notifier.h>
+#include <linux/regulator/consumer.h>
 #include "../opp/opp.h"
 
-#if 0
-#define CCI_CLK_DEFAULT_RATE	245760
-
-struct per_dev_qos {
-	struct clk *clk;
+struct per_device_qos {
+	struct regulator *regulator;
+	struct freq_qos_request qos;
 	struct notifier_block notifier;
-	struct dev_pm_qos_request req;
 };
 
-static struct per_dev_qos *clk_dev_qos;
+static struct freq_constraints vol_constraints;
+static struct per_device_qos *vol_qos[CONFIG_NR_CPUS];
 
-static int spacemit_handle_clk_max_notifier_call(struct notifier_block *nb, unsigned long action, void *data)
+static int spacemit_vol_qos_notifier_call(struct notifier_block *nb, unsigned long action, void *data)
 {
-	struct per_dev_qos *per_qos = container_of(nb, struct per_dev_qos, notifier);
+	struct per_device_qos *per_qos = container_of(nb, struct per_device_qos, notifier);
 
-	clk_set_rate(per_qos->clk, action * 1000);
+	regulator_set_voltage(per_qos->regulator, action * 1000, action * 1000);
 
 	return 0;
 }
-#endif
 
 static int spacemit_policy_notifier(struct notifier_block *nb,
                                   unsigned long event, void *data)
 {
-	int cpu;
+	int cpu, err;
 	u64 rates;
 	static int cci_init;
 	struct clk *cci_clk;
 	struct device *cpu_dev;
 	struct cpufreq_policy *policy = data;
 	struct opp_table *opp_table;
+	const char *strings;
 
 	cpu = cpumask_first(policy->related_cpus);
 	cpu_dev = get_cpu_device(cpu);
@@ -52,6 +53,32 @@ static int spacemit_policy_notifier(struct notifier_block *nb,
 		cci_init = 1;
 	}
 
+	vol_qos[cpu] = devm_kzalloc(cpu_dev, sizeof(struct per_device_qos), GFP_KERNEL);
+	if (!vol_qos[cpu])
+		return -ENOMEM;
+
+	err = of_property_read_string_array(cpu_dev->of_node, "vin-supply-names",
+			&strings, 1);
+	if (err >= 0) {
+		vol_qos[cpu]->regulator = devm_regulator_get(cpu_dev, strings);
+		if (IS_ERR(vol_qos[cpu]->regulator)) {
+			pr_err("regulator supply %s, get failed\n", strings);
+			return PTR_ERR(vol_qos[cpu]->regulator);
+		}
+
+		err = regulator_enable(vol_qos[cpu]->regulator);
+
+	} else {
+		/* using the same regulator */
+		vol_qos[cpu]->regulator = vol_qos[0]->regulator;
+	}
+
+	vol_qos[cpu]->notifier.notifier_call = spacemit_vol_qos_notifier_call;
+	freq_qos_add_notifier(&vol_constraints, FREQ_QOS_MIN, &vol_qos[cpu]->notifier);
+
+	if (vol_qos[cpu]->regulator)
+		freq_qos_add_request(&vol_constraints, &vol_qos[cpu]->qos, FREQ_QOS_MIN,
+				regulator_get_voltage(vol_qos[cpu]->regulator) / 1000);
 	return 0;
 }
 
@@ -66,46 +93,32 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 	struct device_node *np;
 	struct clk *tcm_clk, *ace_clk;
 	u64 rates;
+	u32 microvol;
 
 	cpu = cpumask_first(policy->related_cpus);
 	cpu_dev = get_cpu_device(cpu);
 	opp_table = _find_opp_table(cpu_dev);
 
-#if 0
-	if (clk_dev_qos == NULL) {
-		clk_dev_qos = (struct per_dev_qos *)devm_kzalloc(cpu_dev, sizeof(struct per_dev_qos), GFP_KERNEL);
-		if (!clk_dev_qos) {
-			pr_err(" allocate per device qos error\n");
-			return -ENOMEM;
-		}
-
-		clk_dev_qos->clk = of_clk_get_by_name(opp_table->np, "cci");
-		clk_dev_qos->notifier.notifier_call = spacemit_handle_clk_max_notifier_call;
-		dev_pm_qos_add_notifier(get_cpu_device(0), &clk_dev_qos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
-		dev_pm_qos_add_request(get_cpu_device(0), &clk_dev_qos->req, DEV_PM_QOS_MAX_FREQUENCY, CCI_CLK_DEFAULT_RATE);
-	}
-#endif
 	for_each_available_child_of_node(opp_table->np, np) {
 		of_property_read_u64_array(np, "opp-hz", &rates, 1);
-		if (rates == freqs->new * 1000)
+		if (rates == freqs->new * 1000) {
+			of_property_read_u32(np, "opp-microvolt", &microvol);
 			break;
-	}
-#if 0
-	if (event == CPUFREQ_PRECHANGE) {
-		/* decrease the freqs */
-		if (freqs->old > freqs->new) {
-			/* decrease the cci first */
-			of_property_read_u64_array(np, "cci-hz", &rates, 1);
-			dev_pm_qos_update_request(&clk_dev_qos->req, rates / 1000);
 		}
 	}
-#endif
 
 	/* get the tcm/ace clk handler */
 	tcm_clk = of_clk_get_by_name(opp_table->np, "tcm");
 	ace_clk = of_clk_get_by_name(opp_table->np, "ace");
 
 	if (event == CPUFREQ_PRECHANGE) {
+
+		if (freqs->new > freqs->old) {
+			/* increase voltage first */
+			if (vol_qos[cpu]->regulator)
+				freq_qos_update_request(&vol_qos[cpu]->qos, microvol / 1000);
+		}
+
 		/**
 		 * change the tcm/ace's frequency first.
 		 * binary division is safe
@@ -140,14 +153,12 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 			clk_set_rate(ace_clk, rates);
 			clk_put(ace_clk);
 		}
-#if 0
-		/* increase the freqs */
-		if (freqs->old < freqs->new) {
-			/* increase the cci after */
-			of_property_read_u64_array(np, "cci-hz", &rates, 1);
-			dev_pm_qos_update_request(&clk_dev_qos->req, rates / 1000);
+
+		if (freqs->new < freqs->old) {
+			/* decrease the voltage last */
+			if (vol_qos[cpu]->regulator)
+				freq_qos_update_request(&vol_qos[cpu]->qos, microvol / 1000);
 		}
-#endif
 	}
 
 	dev_pm_opp_put_opp_table(opp_table);
@@ -178,6 +189,8 @@ static int __init spacemit_processor_driver_init(void)
                pr_err("register cpufreq notifier failed\n");
                return -EINVAL;
        }
+
+       freq_constraints_init(&vol_constraints);
 
        return 0;
 }
