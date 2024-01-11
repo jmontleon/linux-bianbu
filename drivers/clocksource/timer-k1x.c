@@ -538,7 +538,7 @@ int __init spacemit_timer_setup(struct spacemit_timer_evt *evt)
 
 	if (broadcast) {
 		evt->irqa.name = "broadcast-timer";
-		evt->ced.features |= CLOCK_EVT_FEAT_DYNIRQ;
+		/* evt->ced.features |= CLOCK_EVT_FEAT_DYNIRQ; */
 		evt->ced.cpumask = cpu_possible_mask;
 		ret = request_irq(evt->ced.irq, timer_interrupt, IRQF_TIMER | IRQF_IRQPOLL | IRQF_ONESHOT, "broadcast-timer", evt->irqa.dev_id);
 		if (ret < 0)
