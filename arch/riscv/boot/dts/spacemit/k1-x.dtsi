@@ -52,7 +52,7 @@
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -79,7 +79,7 @@
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -106,7 +106,7 @@
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -133,7 +133,7 @@
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -160,7 +160,7 @@
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -187,7 +187,7 @@
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -214,7 +214,7 @@
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
@@ -241,7 +241,7 @@
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
-			cpu-idle-states = <&CPU_NONRET>, <&CLUSTER_NONRET>, <&TOP_NONRET>;
+			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
 			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
