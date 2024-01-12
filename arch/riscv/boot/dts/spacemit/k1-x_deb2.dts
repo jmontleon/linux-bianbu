@@ -139,11 +139,12 @@
 		//vdd_voltage = <3300000>;
 		io-supply = <&ldo_7>;
 		io_voltage = <1800000>;
+		pwr-gpios  = <&gpio 67 0>;
 		status = "okay";
 
 		wlan_pwrseq: wlan_pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios     = <&gpio 67 0>;
+			regon-gpios     = <&gpio 116 0>;
 			hostwake-gpios  = <&gpio 66 0>;
 		};
 	};
@@ -492,7 +493,8 @@
 		&range DVL0     2 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_110 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_114 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
-		&range GPIO_115 2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_115 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_116 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_123 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_124 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_125 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -682,7 +684,7 @@
 		rgmii1: phy@1 {
 			compatible = "ethernet-phy-id001c.c916";
 			device_type = "ethernet-phy";
-			reg = <0x2>;
+			reg = <0x1>;
 			phy-mode = "rgmii";
 		};
 	};
