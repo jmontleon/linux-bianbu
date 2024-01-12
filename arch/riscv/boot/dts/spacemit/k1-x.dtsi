@@ -2350,4 +2350,17 @@
 			 */
 			<0x0 0x0 0xffffffff 0xffffff00 0x0007fff8>;
 	};
+
+	spacemit-snd-pcm {
+		compatible = "spacemit,spacemit-snd-pcm";
+	};
+
+	spacemit-snd-sspa {
+		compatible = "spacemit,spacemit-snd-sspa";
+	};
+
+	sound: snd-card@0 {
+		compatible = "spacemit,spacemit-snd";
+		status = "ok";
+	};
 };
