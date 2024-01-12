@@ -441,25 +441,23 @@
 		};
 	};
 
-/**
- *	sy8810l: sy8810l@70 {
- *		compatible = "spacemit,sy8810l";
- *		reg = <0x70>;
- *
- *		dcdc1-supply = <&dcdc_1>;
- *
- *		regulators {
- *			compatible = "pmic,regulator,sy8810l";
- *
- *			edcdc_1: EDCDC_REG1 {
- *				regulator-name = "edcdc1";
- *				regulator-min-microvolt = <600000>;
- *				regulator-max-microvolt = <1500000>;
- *				regulator-always-on;
- *			};
- *		};
- *	};
- */
+ 	sy8810l: sy8810l@70 {
+ 		compatible = "spacemit,sy8810l";
+ 		reg = <0x70>;
+
+ 		dcdc1-supply = <&dcdc_1>;
+
+ 		regulators {
+ 			compatible = "pmic,regulator,sy8810l";
+
+ 			edcdc_1: EDCDC_REG1 {
+ 				regulator-name = "edcdc1";
+ 				regulator-min-microvolt = <600000>;
+ 				regulator-max-microvolt = <1500000>;
+ 				regulator-always-on;
+ 			};
+ 		};
+ 	};
 };
 
 &pinctrl {
@@ -798,9 +796,19 @@
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 };
 
-/**
- * &cpu_0 {
- *       clst0-supply = <&edcdc_1>;
- *       vin-supply-names = "clst0";
- *};
- */
+&cpu_0 {
+	clst0-supply = <&edcdc_1>;
+	vin-supply-names = "clst0";
+};
+
+&clst0_core_opp_table {
+	opp1600000000 {
+		opp-microvolt = <1050000>;
+	};
+};
+
+&clst1_core_opp_table {
+	opp1600000000 {
+		opp-microvolt = <1050000>;
+	};
+};
