@@ -6,6 +6,8 @@
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_fb_helper.h>
+#include <drm/drm_aperture.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_debugfs.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -220,6 +222,12 @@ static int spacemit_drm_bind(struct device *dev)
 	int err;
 
 	DRM_DEBUG("%s()\n", __func__);
+	/* Remove existing drivers that may own the framebuffer memory. */
+	err = drm_aperture_remove_framebuffers(false, &spacemit_drm_drv);
+	if (err) {
+		DRM_ERROR("Failed to remove existing framebuffers - %d.\n", err);
+		return err;
+	}
 
 	drm = drm_dev_alloc(&spacemit_drm_drv, dev);
 	if (IS_ERR(drm))
@@ -260,6 +268,7 @@ static int spacemit_drm_bind(struct device *dev)
 	err = drm_dev_register(drm, 0);
 	if (err < 0)
 		goto err_kms_helper_poll_fini;
+	drm_fbdev_generic_setup(drm, 32);
 
 	return 0;
 
