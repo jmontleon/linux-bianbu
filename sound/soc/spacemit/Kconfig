@@ -1,0 +1,7 @@
+config SND_SOC_SPACEMIT
+	tristate "SoC Audio for SPACEMIT System-on-Chip"
+	select SND_SOC_COMPRESS
+	select SND_SOC_GENERIC_DMAENGINE_PCM if (SND_SOC && SND)
+	help
+	  Say Y or M here if you want support for audio on SPACEMIT SoC.
+
