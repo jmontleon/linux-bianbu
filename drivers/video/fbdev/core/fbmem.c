@@ -498,6 +498,7 @@ static int fb_show_logo_line(struct fb_info *info, int rotate,
 		fb_set_logo(info, logo, logo_new, fb_logo.depth);
 	}
 
+	fb_center_logo = TRUE;
 	if (fb_center_logo) {
 		int xres = info->var.xres;
 		int yres = info->var.yres;
@@ -690,6 +691,8 @@ int fb_show_logo(struct fb_info *info, int rotate)
 		return 0;
 
 	count = fb_logo_count < 0 ? num_online_cpus() : fb_logo_count;
+
+	count = 1;
 	y = fb_show_logo_line(info, rotate, fb_logo.logo, 0, count);
 	y = fb_show_extra_logos(info, y, rotate);
 
