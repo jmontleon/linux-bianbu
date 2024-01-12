@@ -75,11 +75,10 @@ static struct snd_pcm_hardware spacemit_snd_pcm_hardware_playback = {
 				SNDRV_PCM_INFO_MMAP_VALID |
 				SNDRV_PCM_INFO_INTERLEAVED |
 				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
-	.formats =              (SNDRV_PCM_FMTBIT_S16_LE |
-				SNDRV_PCM_FMTBIT_S24_LE),
-	.rates =                SNDRV_PCM_RATE_8000_192000,
-	.rate_min =             8000,
-	.rate_max =             192000,
+	.formats =              SNDRV_PCM_FMTBIT_S16_LE,
+	.rates =                SNDRV_PCM_RATE_48000,
+	.rate_min =             SNDRV_PCM_RATE_48000,
+	.rate_max =             SNDRV_PCM_RATE_48000,
 	.channels_min =         SPACEMIT_SND_PCM_PLAYBACK_MIN_CHANNELS,
 	.channels_max =         SPACEMIT_SND_PCM_PLAYBACK_MAX_CHANNELS,
 	.buffer_bytes_max =     SPACEMIT_SND_PCM_PLAYBACK_MAX_NUM_PERIODS *
