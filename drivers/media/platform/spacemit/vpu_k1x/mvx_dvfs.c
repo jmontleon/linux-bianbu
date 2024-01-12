@@ -970,7 +970,7 @@ static int vpu_set_cur_state(struct thermal_cooling_device *cdev,
     return 0;
 }
 
-static struct thermal_cooling_device_ops vpu_cooling_ops = {
+__maybe_unused static struct thermal_cooling_device_ops vpu_cooling_ops = {
     .get_max_state		= vpu_get_max_state,
     .get_cur_state		= vpu_get_cur_state,
     .set_cur_state		= vpu_set_cur_state,
