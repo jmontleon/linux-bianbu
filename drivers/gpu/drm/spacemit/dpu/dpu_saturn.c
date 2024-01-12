@@ -1444,6 +1444,9 @@ static int dpu_init(struct spacemit_dpu *dpu)
 #ifdef CONFIG_SPACEMIT_FPGA
 	void __iomem *addr = (void __iomem *)ioremap(0xD4282800, 100);
 #endif
+	void __iomem *ciu_addr = (void __iomem *)ioremap(0xD4282C00, 0x200);
+	u32 value;
+
 	DRM_INFO("%s \n", __func__);
 	trace_dpu_init(dpu->dev_id);
 
@@ -1457,10 +1460,20 @@ static int dpu_init(struct spacemit_dpu *dpu)
 		DRM_ERROR("%s wait cfg ready done timeout\n", __func__);
 
 #ifdef CONFIG_SPACEMIT_FPGA
-	//for FPGA: enable PMU
+	// for FPGA: enable PMU
 	writel(0xffa1ffff, addr + 0x44);
 	writel(0xFF65FF05, addr + 0x4c);
 #endif
+
+	if (hwdev->is_hdmi) {
+		value = readl_relaxed(ciu_addr + 0x011c);
+		DRM_INFO("%s ciu offset 0x011c:0x%x\n", __func__, value);
+		writel(value | 0xff00, ciu_addr + 0x0124);
+		udelay(2);
+		value = readl_relaxed(ciu_addr + 0x0124);
+		DRM_INFO("%s ciu offset 0x0124:0x%x\n", __func__, value);
+	}
+
 	saturn_init_regs(dpu);
 	saturn_setup_dma_top(dpu);
 	saturn_setup_mmu_top(dpu);
