@@ -498,7 +498,6 @@ static int fb_show_logo_line(struct fb_info *info, int rotate,
 		fb_set_logo(info, logo, logo_new, fb_logo.depth);
 	}
 
-	fb_center_logo = TRUE;
 	if (fb_center_logo) {
 		int xres = info->var.xres;
 		int yres = info->var.yres;
@@ -676,6 +675,8 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 	}
 
 	height = fb_logo.logo->height;
+
+	fb_center_logo = TRUE;
 	if (fb_center_logo)
 		height += (yres - fb_logo.logo->height) / 2;
 
