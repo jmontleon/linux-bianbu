@@ -1102,11 +1102,11 @@ static inline int rwnx_rx_sm_disconnect_ind(struct rwnx_hw *rwnx_hw,
     rx_priv = rwnx_hw->usbdev->rx_priv;
 #endif
     if((rwnx_vif->wdev.iftype == NL80211_IFTYPE_STATION) || (rwnx_vif->wdev.iftype == NL80211_IFTYPE_P2P_CLIENT)) {
-        macaddr = rwnx_vif->ndev->dev_addr;
+        macaddr = (u8 *)rwnx_vif->ndev->dev_addr;
 		AICWFDBG(LOGINFO, "deinit:macaddr:%x,%x,%x,%x,%x,%x\r\n", macaddr[0],macaddr[1],macaddr[2], \
                                macaddr[3],macaddr[4],macaddr[5]);
         list_for_each_entry_safe(reord_info, tmp, &rx_priv->stas_reord_list, list) {
-            macaddr = rwnx_vif->ndev->dev_addr;
+            macaddr = (u8 *)rwnx_vif->ndev->dev_addr;
 			AICWFDBG(LOGINFO, "reord_mac:%x,%x,%x,%x,%x,%x\r\n", reord_info->mac_addr[0],reord_info->mac_addr[1],reord_info->mac_addr[2], \
                                    reord_info->mac_addr[3],reord_info->mac_addr[4],reord_info->mac_addr[5]);
             if (!memcmp(reord_info->mac_addr, macaddr, 6)) {

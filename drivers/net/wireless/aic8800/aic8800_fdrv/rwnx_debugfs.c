@@ -1750,7 +1750,7 @@ static ssize_t rwnx_dbgfs_rc_fixed_rate_idx_write(struct file *file,
     /* Get the station index from MAC address */
     sscanf(file->f_path.dentry->d_parent->d_iname, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
             &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
-    if (mac == NULL)
+    if (*mac == 0)
         return 0;
     sta = rwnx_get_sta(priv, mac);
     if (sta == NULL)
