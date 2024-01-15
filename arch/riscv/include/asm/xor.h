@@ -1,4 +1,3 @@
-
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (C) 2021 SiFive
@@ -9,21 +8,7 @@
 #ifdef CONFIG_RISCV_ISA_V
 #include <asm/vector.h>
 #include <asm/switch_to.h>
-
-void xor_regs_2_(unsigned long bytes, unsigned long *__restrict p1,
-		 const unsigned long *__restrict p2);
-void xor_regs_3_(unsigned long bytes, unsigned long *__restrict p1,
-		 const unsigned long *__restrict p2,
-		 const unsigned long *__restrict p3);
-void xor_regs_4_(unsigned long bytes, unsigned long *__restrict p1,
-		 const unsigned long *__restrict p2,
-		 const unsigned long *__restrict p3,
-		 const unsigned long *__restrict p4);
-void xor_regs_5_(unsigned long bytes, unsigned long *__restrict p1,
-		 const unsigned long *__restrict p2,
-		 const unsigned long *__restrict p3,
-		 const unsigned long *__restrict p4,
-		 const unsigned long *__restrict p5);
+#include <asm/asm-prototypes.h>
 
 static void xor_vector_2(unsigned long bytes, unsigned long *__restrict p1,
 			 const unsigned long *__restrict p2)

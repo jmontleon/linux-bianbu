@@ -3,10 +3,10 @@
  * Copyright (C) 2021 SiFive
  */
 #include <linux/linkage.h>
-#include <asm-generic/export.h>
+#include <linux/export.h>
 #include <asm/asm.h>
 
-ENTRY(xor_regs_2_)
+SYM_FUNC_START(xor_regs_2_)
 	vsetvli a3, a0, e8, m8, ta, ma
 	vle8.v v0, (a1)
 	vle8.v v8, (a2)
@@ -17,10 +17,10 @@ ENTRY(xor_regs_2_)
 	add a1, a1, a3
 	bnez a0, xor_regs_2_
 	ret
-END(xor_regs_2_)
+SYM_FUNC_END(xor_regs_2_)
 EXPORT_SYMBOL(xor_regs_2_)
 
-ENTRY(xor_regs_3_)
+SYM_FUNC_START(xor_regs_3_)
 	vsetvli a4, a0, e8, m8, ta, ma
 	vle8.v v0, (a1)
 	vle8.v v8, (a2)
@@ -34,10 +34,10 @@ ENTRY(xor_regs_3_)
 	add a1, a1, a4
 	bnez a0, xor_regs_3_
 	ret
-END(xor_regs_3_)
+SYM_FUNC_END(xor_regs_3_)
 EXPORT_SYMBOL(xor_regs_3_)
 
-ENTRY(xor_regs_4_)
+SYM_FUNC_START(xor_regs_4_)
 	vsetvli a5, a0, e8, m8, ta, ma
 	vle8.v v0, (a1)
 	vle8.v v8, (a2)
@@ -54,10 +54,10 @@ ENTRY(xor_regs_4_)
 	add a1, a1, a5
 	bnez a0, xor_regs_4_
 	ret
-END(xor_regs_4_)
+SYM_FUNC_END(xor_regs_4_)
 EXPORT_SYMBOL(xor_regs_4_)
 
-ENTRY(xor_regs_5_)
+SYM_FUNC_START(xor_regs_5_)
 	vsetvli a6, a0, e8, m8, ta, ma
 	vle8.v v0, (a1)
 	vle8.v v8, (a2)
@@ -77,5 +77,5 @@ ENTRY(xor_regs_5_)
 	add a1, a1, a6
 	bnez a0, xor_regs_5_
 	ret
-END(xor_regs_5_)
+SYM_FUNC_END(xor_regs_5_)
 EXPORT_SYMBOL(xor_regs_5_)
