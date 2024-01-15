@@ -312,6 +312,14 @@ static SPACEMIT_CCU_GATE_FACTOR(pll3_d8, "pll3_d8", "pll3",
 	BIT(7), BIT(7), 0x0,
 	8, 1, CLK_IGNORE_UNUSED);
 
+//pll3_div
+static SPACEMIT_CCU_FACTOR(pll3_80, "pll3_80", "pll3_d8",
+	5, 1);
+static SPACEMIT_CCU_FACTOR(pll3_40, "pll3_40", "pll3_d8",
+	10, 1);
+static SPACEMIT_CCU_FACTOR(pll3_20, "pll3_20", "pll3_d8",
+	20, 1);
+
 //pll1_d8
 static SPACEMIT_CCU_GATE(pll1_d8_307p2, "pll1_d8_307p2", "pll1_d8",
 	BASE_TYPE_MPMU, MPMU_ACGR,
@@ -643,7 +651,7 @@ static SPACEMIT_CCU_GATE_NO_PARENT(ipc_ap2aud_clk, "ipc_ap2aud_clk", NULL,
 	BASE_TYPE_APBC, APBC_IPC_AP2AUD_CLK_RST,
 	0x3, 0x3, 0x0, 0);
 static const char *can_parent_names[] = {
-	"pll1_m3d128_57p6", "slow_uart1_14p74", "slow_uart2_48"
+	"pll3_20", "pll3_40", "pll3_80"
 };
 static SPACEMIT_CCU_MUX_GATE(can0_clk, "can0_clk", can_parent_names,
 	BASE_TYPE_APBC, APBC_CAN0_CLK_RST,
@@ -1103,6 +1111,9 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_PLL3_D6]		= &pll3_d6.common.hw,
 		[CLK_PLL3_D7]		= &pll3_d7.common.hw,
 		[CLK_PLL3_D8]		= &pll3_d8.common.hw,
+		[CLK_PLL3_80]		= &pll3_80.common.hw,
+		[CLK_PLL3_40]		= &pll3_40.common.hw,
+		[CLK_PLL3_20]		= &pll3_20.common.hw,
 		[CLK_PLL1_307P2]	= &pll1_d8_307p2.common.hw,
 		[CLK_PLL1_76P8]		= &pll1_d32_76p8.common.hw,
 		[CLK_PLL1_61P44]	= &pll1_d40_61p44.common.hw,
