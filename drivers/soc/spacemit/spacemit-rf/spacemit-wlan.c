@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
+#include "spacemit-pwrseq.h"
 
 struct wlan_pwrseq {
 	struct device		*dev;
@@ -27,11 +28,12 @@ struct wlan_pwrseq {
 
 	struct gpio_desc *regon;
 	struct gpio_desc *hostwake;
+
+	struct mutex wlan_mutex;
 };
 
 static struct wlan_pwrseq *pdata = NULL;
 static int spacemit_wlan_on(struct wlan_pwrseq *pwrseq, bool on_off);
-static DEFINE_MUTEX(spacemit_wlan_mutex);
 
 void spacemit_wlan_set_power(bool on_off)
 {
@@ -41,14 +43,13 @@ void spacemit_wlan_set_power(bool on_off)
 	if (!pwrseq)
 		return;
 
-	mutex_lock(&spacemit_wlan_mutex);
+	mutex_lock(&pwrseq->wlan_mutex);
 	if (on_off != pwrseq->power_state) {
 		ret = spacemit_wlan_on(pwrseq, on_off);
 		if (ret)
 			dev_err(pwrseq->dev, "set power failed\n");
 	}
-
-	mutex_unlock(&spacemit_wlan_mutex);
+	mutex_unlock(&pwrseq->wlan_mutex);
 }
 EXPORT_SYMBOL_GPL(spacemit_wlan_set_power);
 
@@ -84,15 +85,21 @@ EXPORT_SYMBOL_GPL(spacemit_wlan_get_oob_irq_flags);
 
 static int spacemit_wlan_on(struct wlan_pwrseq *pwrseq, bool on_off)
 {
+	struct spacemit_pwrseq *parent_pwrseq = spacemit_get_pwrseq();
+
 	if (!pwrseq || IS_ERR(pwrseq->regon))
 		return 0;
 
 	if (on_off){
+		if(parent_pwrseq)
+			spacemit_power_on(parent_pwrseq, 1);
 		gpiod_set_value(pwrseq->regon, 1);
 		if (pwrseq->power_on_delay_ms)
 			msleep(pwrseq->power_on_delay_ms);
 	}else{
 		gpiod_set_value(pwrseq->regon, 0);
+		if(parent_pwrseq)
+			spacemit_power_on(parent_pwrseq, 0);
 	}
 
 	pwrseq->power_state = on_off;
@@ -101,7 +108,7 @@ static int spacemit_wlan_on(struct wlan_pwrseq *pwrseq, bool on_off)
 
 static int spacemit_wlan_probe(struct platform_device *pdev)
 {
-	struct device		*dev = &pdev->dev;
+	struct device *dev = &pdev->dev;
 	struct wlan_pwrseq *pwrseq;
 
 	pwrseq = devm_kzalloc(dev, sizeof(*pwrseq), GFP_KERNEL);
@@ -109,32 +116,39 @@ static int spacemit_wlan_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pwrseq->dev = dev;
-	pdata = pwrseq;
 	platform_set_drvdata(pdev, pwrseq);
 
-	pwrseq->regon = devm_gpiod_get_index(dev, "regon",
-							0, GPIOD_OUT_LOW);
+	pwrseq->regon = devm_gpiod_get(dev, "regon", GPIOD_OUT_LOW);
 	if (IS_ERR(pwrseq->regon) &&
 		PTR_ERR(pwrseq->regon) != -ENOENT &&
 		PTR_ERR(pwrseq->regon) != -ENOSYS) {
 		return PTR_ERR(pwrseq->regon);
 	}
 
-	pwrseq->hostwake = devm_gpiod_get_index(dev, "hostwake",
-							1, GPIOD_IN);
+	pwrseq->hostwake = devm_gpiod_get(dev, "hostwake", GPIOD_IN);
 	if (IS_ERR(pwrseq->hostwake) &&
 		PTR_ERR(pwrseq->hostwake) != -ENOENT &&
 		PTR_ERR(pwrseq->hostwake) != -ENOSYS) {
 		return PTR_ERR(pwrseq->hostwake);
 	}
 
-	device_property_read_u32(dev, "power-on-delay-ms",
-				 &pwrseq->power_on_delay_ms);
+	if(device_property_read_u32(dev, "power-on-delay-ms",
+				 &pwrseq->power_on_delay_ms))
+		pwrseq->power_on_delay_ms = 10;
+
+	mutex_init(&pwrseq->wlan_mutex);
+	pdata = pwrseq;
+
 	return 0;
 }
 
 static int spacemit_wlan_remove(struct platform_device *pdev)
 {
+	struct wlan_pwrseq *pwrseq = platform_get_drvdata(pdev);
+
+	mutex_destroy(&pwrseq->wlan_mutex);
+	pdata = NULL;
+
 	return 0;
 }
 
