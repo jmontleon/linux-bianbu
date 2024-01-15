@@ -22,19 +22,14 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
+#include "spacemit-pwrseq.h"
 
-struct spacemit_pwrseq {
-	struct device		*dev;
-	bool clk_enabled;
-	u32 power_on_delay_ms;
+struct spacemit_pwrseq *pwrseq_data;
 
-	struct clk *ext_clk;
-	struct gpio_descs *pwr_gpios;
-	struct regulator *vdd_supply;
-	struct regulator *io_supply;
-	int	vdd_voltage;
-	int io_voltage;
-};
+struct spacemit_pwrseq *spacemit_get_pwrseq(void)
+{
+	return pwrseq_data;
+}
 
 static void spacemit_set_gpios_value(struct spacemit_pwrseq *pwrseq,
 						int value)
@@ -87,38 +82,44 @@ static int spacemit_regulator_set_voltage_if_supported(struct regulator *regulat
 }
 
 static void spacemit_regulator_on(struct spacemit_pwrseq *pwrseq,
-						struct regulator *regulator, bool on_off)
+						struct regulator *regulator, int volt, bool on_off)
 {
 	struct device *dev = pwrseq->dev;
-	int ret;
+	int ret, min_uV, max_uV;
 
 	if(on_off){
+		/*
+		 * mostly, vdd voltage is 3.3V, io voltage is 1.8V or 3.3V.
+		 * maybe need support 1.2V io signaling later.
+		 */
 		if(regulator == pwrseq->io_supply){
-			ret = spacemit_regulator_set_voltage_if_supported(regulator,
-						1700000, pwrseq->io_voltage, 1950000);
+			min_uV = max(volt - 100000, 1700000);
+			max_uV = min(volt + 150000, 3300000);
 		}else{
-			ret = spacemit_regulator_set_voltage_if_supported(regulator,
-						2700000, pwrseq->vdd_voltage, 3600000);
+			min_uV = max(volt - 300000, 2700000);
+			max_uV = min(volt + 200000, 3600000);
 		}
 
+		ret = spacemit_regulator_set_voltage_if_supported(regulator,
+					min_uV, volt, max_uV);
 		if (ret < 0) {
-			dev_err(dev, "set vdd_supply voltage failed!\n");
+			dev_err(dev, "set voltage failed!\n");
 			return;
 		}
 
 		ret = regulator_enable(regulator);
 		if (ret < 0) {
-			dev_err(dev, "enable vdd_supply failed\n");
+			dev_err(dev, "enable failed\n");
 			return;
 		}
 
 		ret = regulator_get_voltage(regulator);
 		if (ret < 0) {
-			dev_err(dev, "get vdd_supply voltage failed\n");
+			dev_err(dev, "get voltage failed\n");
 			return;
 		}
 
-		dev_info(dev, "check vdd_supply voltage: %d\n", ret);
+		dev_info(dev, "check voltage: %d\n", ret);
 	}else{
 		regulator_disable(regulator);
 	}
@@ -128,10 +129,10 @@ static void spacemit_pre_power_on(struct spacemit_pwrseq *pwrseq,
 						bool on_off)
 {
 	if(!IS_ERR(pwrseq->vdd_supply))
-		spacemit_regulator_on(pwrseq, pwrseq->vdd_supply, on_off);
+		spacemit_regulator_on(pwrseq, pwrseq->vdd_supply, pwrseq->vdd_voltage, on_off);
 
 	if(!IS_ERR(pwrseq->io_supply))
-		spacemit_regulator_on(pwrseq, pwrseq->io_supply, on_off);
+		spacemit_regulator_on(pwrseq, pwrseq->io_supply, pwrseq->io_voltage, on_off);
 }
 
 static void spacemit_post_power_on(struct spacemit_pwrseq *pwrseq,
@@ -153,23 +154,36 @@ static void spacemit_post_power_on(struct spacemit_pwrseq *pwrseq,
 void spacemit_power_on(struct spacemit_pwrseq *pwrseq,
 						bool on_off)
 {
+	mutex_lock(&pwrseq->pwrseq_mutex);
 	if(on_off){
-		spacemit_pre_power_on(pwrseq, on_off);
-		spacemit_set_gpios_value(pwrseq, on_off);
-		if (pwrseq->power_on_delay_ms)
-			msleep(pwrseq->power_on_delay_ms);
-		spacemit_post_power_on(pwrseq, on_off);
+		if (!atomic_read(&pwrseq->pwrseq_count)){
+			dev_info(pwrseq->dev, "turn power on\n");
+			spacemit_pre_power_on(pwrseq, on_off);
+			spacemit_set_gpios_value(pwrseq, on_off);
+			if (pwrseq->power_on_delay_ms)
+				msleep(pwrseq->power_on_delay_ms);
+			spacemit_post_power_on(pwrseq, on_off);
+		}
+		atomic_inc(&pwrseq->pwrseq_count);
 	}else{
-		spacemit_post_power_on(pwrseq, on_off);
-		spacemit_set_gpios_value(pwrseq, on_off);
-		spacemit_pre_power_on(pwrseq, on_off);
+		if (atomic_read(&pwrseq->pwrseq_count)){
+			if (!atomic_dec_return(&pwrseq->pwrseq_count)){
+				dev_info(pwrseq->dev, "turn power off\n");
+				spacemit_post_power_on(pwrseq, on_off);
+				spacemit_set_gpios_value(pwrseq, on_off);
+				spacemit_pre_power_on(pwrseq, on_off);
+			}
+		}else{
+			dev_err(pwrseq->dev, "already power off, please check\n");
+		}
 	}
+	mutex_unlock(&pwrseq->pwrseq_mutex);
 }
 
 static int spacemit_pwrseq_probe(struct platform_device *pdev)
 {
-	struct device		*dev = &pdev->dev;
-	struct device_node	*node = dev->of_node;
+	struct device *dev = &pdev->dev;
+	struct device_node *node = dev->of_node;
 	struct spacemit_pwrseq *pwrseq;
 	int ret;
 
@@ -186,7 +200,7 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		dev_dbg(dev, "No vdd regulator found\n");
 	}else{
-		if (!device_property_read_u32(dev, "vdd_voltage", &pwrseq->vdd_voltage)) {
+		if (device_property_read_u32(dev, "vdd_voltage", &pwrseq->vdd_voltage)) {
 			pwrseq->vdd_voltage = 3300000;
 			dev_dbg(dev, "failed get vdd voltage,use default value (%u)\n", pwrseq->vdd_voltage);
 		}
@@ -198,7 +212,7 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 			return -EPROBE_DEFER;
 		dev_dbg(dev, "No io regulator found\n");
 	}else{
-		if (!device_property_read_u32(dev, "io_voltage", &pwrseq->io_voltage)) {
+		if (device_property_read_u32(dev, "io_voltage", &pwrseq->io_voltage)) {
 			pwrseq->io_voltage = 1800000;
 			dev_dbg(dev, "failed get io voltage,use default value (%u)\n", pwrseq->io_voltage);
 		}
@@ -218,8 +232,12 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 		return PTR_ERR(pwrseq->ext_clk);
 	}
 
-	device_property_read_u32(dev, "power-on-delay-ms",
-				 &pwrseq->power_on_delay_ms);
+	if(device_property_read_u32(dev, "power-on-delay-ms",
+				 &pwrseq->power_on_delay_ms))
+		pwrseq->power_on_delay_ms = 10;
+
+	if(device_property_read_bool(dev, "power-always-on"))
+		pwrseq->always_on = true;
 
 	if (node) {
 		ret = of_platform_populate(node, NULL, NULL, dev);
@@ -233,19 +251,28 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	spacemit_power_on(pwrseq, 1);
+	pwrseq_data = pwrseq;
+
+	mutex_init(&pwrseq->pwrseq_mutex);
+	atomic_set(&pwrseq->pwrseq_count, 0);
+
+	if(pwrseq->always_on)
+		spacemit_power_on(pwrseq, 1);
+
 	return 0;
 }
 
 static int spacemit_pwrseq_remove(struct platform_device *pdev)
 {
-	struct spacemit_pwrseq	*pwrseq = platform_get_drvdata(pdev);
+	struct spacemit_pwrseq *pwrseq = platform_get_drvdata(pdev);
 
+	if(pwrseq->always_on)
+		spacemit_power_on(pwrseq, 0);
+
+	mutex_destroy(&pwrseq->pwrseq_mutex);
 	of_platform_depopulate(&pdev->dev);
 
-	if (pwrseq->ext_clk >= 0)
-		clk_disable_unprepare(pwrseq->ext_clk);
-
+	pwrseq_data = NULL;
 	return 0;
 }
 
