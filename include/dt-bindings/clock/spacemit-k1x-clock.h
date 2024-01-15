@@ -183,5 +183,9 @@
 
 #define CLK_APB         176
 
-#define CLK_MAX_NO      177
+#define CLK_PLL3_80     177
+#define CLK_PLL3_40     178
+#define CLK_PLL3_20     179
+
+#define CLK_MAX_NO      180
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */
