@@ -19,6 +19,7 @@
 #include <linux/firmware/imx/sci.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/reset.h>
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/netdevice.h>
@@ -634,11 +635,20 @@ static int flexcan_clks_enable(const struct flexcan_priv *priv)
 			clk_disable_unprepare(priv->clk_ipg);
 	}
 
+	if (priv->reset) {
+		err = reset_control_deassert(priv->reset);
+		if(err) {
+			clk_disable_unprepare(priv->clk_per);
+			clk_disable_unprepare(priv->clk_ipg);
+		}
+	}
+
 	return err;
 }
 
 static void flexcan_clks_disable(const struct flexcan_priv *priv)
 {
+	reset_control_assert(priv->reset);
 	clk_disable_unprepare(priv->clk_per);
 	clk_disable_unprepare(priv->clk_ipg);
 }
@@ -2093,6 +2103,7 @@ static int flexcan_probe(struct platform_device *pdev)
 	struct regulator *reg_xceiver;
 	struct phy *transceiver;
 	struct clk *clk_ipg = NULL, *clk_per = NULL;
+	struct reset_control *reset;
 	struct flexcan_regs __iomem *regs;
 	struct flexcan_platform_data *pdata;
 	int err, irq;
@@ -2138,6 +2149,12 @@ static int flexcan_probe(struct platform_device *pdev)
 			return PTR_ERR(clk_per);
 		}
 		clock_freq = clk_get_rate(clk_per);
+	}
+
+	reset = devm_reset_control_get_optional(&pdev->dev,NULL);
+	if(IS_ERR(reset)) {
+		dev_err(&pdev->dev, "flexcan get reset failed\n");
+		return PTR_ERR(reset);
 	}
 
 	irq = platform_get_irq(pdev, 0);
@@ -2208,6 +2225,7 @@ static int flexcan_probe(struct platform_device *pdev)
 	priv->clk_ipg = clk_ipg;
 	priv->clk_per = clk_per;
 	priv->clk_src = clk_src;
+	priv->reset = reset;
 	priv->reg_xceiver = reg_xceiver;
 	priv->transceiver = transceiver;
 
