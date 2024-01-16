@@ -13,6 +13,8 @@
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/gpio/driver.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -29,6 +31,7 @@
 SPM8821_PINMUX_DESC;
 SPM8821_PINFUNC_DESC;
 SPM8821_PIN_CINFIG_DESC;
+SPM8821_PINCTRL_MATCH_DATA;
 
 struct spacemit_pctl {
 	struct gpio_chip	chip;
@@ -39,7 +42,7 @@ struct spacemit_pctl {
 	int funcdesc_nums, confdesc_nums;
 	const struct pin_func_desc *func_desc;
 	const struct pin_config_desc *config_desc;
-	char *name;
+	const char *name;
 };
 
 static const struct pinctrl_ops spacemit_gpio_pinctrl_ops = {
