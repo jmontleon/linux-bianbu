@@ -11,6 +11,9 @@
 #include <linux/module.h>
 #include <linux/cpufeature.h>
 #include <linux/types.h>
+#include <linux/device.h>
+#include <linux/scatterlist.h>
+#include <linux/highmem-internal.h>
 #include "crypto/skcipher.h"
 #include "spacemit_engine.h"
 
@@ -24,6 +27,7 @@ extern int spacemit_aes_ecb_decrypt(int index, const unsigned char *ct,unsigned 
 extern int spacemit_aes_cbc_encrypt(int index, const unsigned char *pt,unsigned char *ct, u8 *key, unsigned int len, u8 *IV,unsigned int blocks);
 extern int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *pt, u8 *key, unsigned int len, u8 *IV,unsigned int blocks);
 extern int spacemit_crypto_aes_set_key(int index, struct crypto_tfm *tfm, const u8 *key,unsigned int keylen);
+extern void spacemit_aes_getaddr(unsigned char **in, unsigned char **out);
 
 int aes_setkey(struct crypto_skcipher *tfm, const u8 *key,unsigned int keylen)
 {
@@ -34,76 +38,210 @@ static int ecb_encrypt(struct skcipher_request *req)
 {
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
-	int err, first;
-	struct skcipher_walk walk;
-	unsigned int blocks;
+	int i;
+	unsigned char* map_addr;
+	struct scatterlist* sg;
+	int len = 0,sgl_len;
+	unsigned char* sg_va,*in_buffer,*out_buffer;
+	int total_len = req->cryptlen;
+	int singal_len = 0;
 
-	err = skcipher_walk_virt(&walk, req, false);
+	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	for(i = 0; total_len > 0; i++){
+		if(total_len > SPACEMIT_AES_BUFFER_LEN)
+			singal_len = SPACEMIT_AES_BUFFER_LEN;
+		else
+			singal_len = total_len;
 
-	for (first = 1; (blocks = (walk.nbytes / AES_BLOCK_SIZE)); first = 0) {
-		spacemit_aes_ecb_encrypt(0,walk.src.virt.addr, walk.dst.virt.addr,
-				(u8 *)(ctx->key_enc),(unsigned int)(ctx->key_length), blocks);
-		err = skcipher_walk_done(&walk, walk.nbytes % AES_BLOCK_SIZE);
+		map_addr = in_buffer;
+		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(map_addr,sg_va,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->src = sg_next(sg);
+
+		spacemit_aes_ecb_encrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_enc),
+				(unsigned int)(ctx->key_length), singal_len / AES_BLOCK_SIZE);
+
+		map_addr = out_buffer;
+		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(sg_va,map_addr,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->dst = sg_next(sg);
+
+		total_len = total_len - singal_len;
+
 	}
 
-	return err;
+	return 0;
 }
 
 static int ecb_decrypt(struct skcipher_request *req)
 {
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
-	int err,  first;
-	struct skcipher_walk walk;
-	unsigned int blocks;
+	int i;
+	unsigned char* map_addr;
+	struct scatterlist* sg;
+	int len = 0,sgl_len;
+	unsigned char* sg_va,*in_buffer,*out_buffer;
+	int total_len = req->cryptlen;
+	int singal_len = 0;
 
-	err = skcipher_walk_virt(&walk, req, false);
+	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	for(i = 0; total_len > 0; i++){
+		if(total_len > SPACEMIT_AES_BUFFER_LEN)
+			singal_len = SPACEMIT_AES_BUFFER_LEN;
+		else
+			singal_len = total_len;
 
-	for (first = 1; (blocks = (walk.nbytes / AES_BLOCK_SIZE)); first = 0) {
-		spacemit_aes_ecb_decrypt(0,walk.src.virt.addr, walk.dst.virt.addr,
-				(u8 *)(ctx->key_dec),(unsigned int)(ctx->key_length), blocks);
-		err = skcipher_walk_done(&walk, walk.nbytes % AES_BLOCK_SIZE);
+		map_addr = in_buffer;
+		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(map_addr,sg_va,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->src = sg_next(sg);
+
+		spacemit_aes_ecb_decrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_dec),
+				(unsigned int)(ctx->key_length), singal_len / AES_BLOCK_SIZE);
+
+		map_addr = out_buffer;
+		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(sg_va,map_addr,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->dst = sg_next(sg);
+
+		total_len = total_len - singal_len;
 	}
 
-	return err;
+	return 0;
 }
 
 static int cbc_encrypt(struct skcipher_request *req)
 {
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
-	int err,  first;
-	struct skcipher_walk walk;
-	unsigned int blocks;
+	int i;
+	unsigned char* map_addr;
+	struct scatterlist* sg;
+	int len = 0,sgl_len;
+	unsigned char* sg_va,*in_buffer,*out_buffer;
+	int total_len = req->cryptlen;
+	int singal_len = 0;
 
-	err = skcipher_walk_virt(&walk, req, false);
+	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	for(i = 0; total_len > 0; i++){
+		if(total_len > SPACEMIT_AES_BUFFER_LEN)
+			singal_len = SPACEMIT_AES_BUFFER_LEN;
+		else
+			singal_len = total_len;
 
-	for (first = 1; (blocks = (walk.nbytes / AES_BLOCK_SIZE)); first = 0) {
-		spacemit_aes_cbc_encrypt(0,walk.src.virt.addr, walk.dst.virt.addr,(u8 *)(ctx->key_enc),
-				(unsigned int)(ctx->key_length), (u8 *)walk.iv,blocks);
-		err = skcipher_walk_done(&walk, walk.nbytes % AES_BLOCK_SIZE);
+		map_addr = in_buffer;
+		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(map_addr,sg_va,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->src = sg_next(sg);
+
+		spacemit_aes_cbc_encrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_enc),
+				(unsigned int)(ctx->key_length), (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
+
+		map_addr = out_buffer;
+		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(sg_va,map_addr,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->dst = sg_next(sg);
+
+		total_len = total_len - singal_len;
+
 	}
 
-	return err;
+	return 0;
 }
 
 static int cbc_decrypt(struct skcipher_request *req)
 {
 	struct crypto_skcipher *tfm = crypto_skcipher_reqtfm(req);
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
-	int err,  first;
-	struct skcipher_walk walk;
-	unsigned int blocks;
+	int i;
+	unsigned char* map_addr;
+	struct scatterlist* sg;
+	int len = 0,sgl_len;
+	unsigned char* sg_va,*in_buffer,*out_buffer;
+	int total_len = req->cryptlen;
+	int singal_len = 0;
 
-	err = skcipher_walk_virt(&walk, req, false);
+	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	for(i = 0; total_len > 0; i++){
+		if(total_len > SPACEMIT_AES_BUFFER_LEN)
+			singal_len = SPACEMIT_AES_BUFFER_LEN;
+		else
+			singal_len = total_len;
 
-	for (first = 1; (blocks = (walk.nbytes / AES_BLOCK_SIZE)); first = 0) {
-		spacemit_aes_cbc_decrypt(0,walk.src.virt.addr, walk.dst.virt.addr,(u8 *)(ctx->key_dec),
-				(unsigned int)(ctx->key_length), (u8 *)walk.iv,blocks);
-		err = skcipher_walk_done(&walk, walk.nbytes % AES_BLOCK_SIZE);
+		map_addr = in_buffer;
+		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(map_addr,sg_va,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->src = sg_next(sg);
+
+		spacemit_aes_cbc_decrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_dec),
+				(unsigned int)(ctx->key_length), (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
+
+		map_addr = out_buffer;
+		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		{
+			if(len != 0)
+				sg = sg_next(sg);
+			sg_va = (unsigned char*)(PageHighMem(sg_page(sg)) ? kmap_atomic(sg_page(sg)) : page_address(sg_page(sg))) + offset_in_page(sg->offset);
+			memcpy(sg_va,map_addr,sg->length);
+			sgl_len++;
+			map_addr += sg->length;
+		}
+		req->dst = sg_next(sg);
+
+		total_len = total_len - singal_len;
 	}
 
-	return err;
+	return 0;
 }
 
 static struct skcipher_alg aes_algs[] = {
@@ -118,7 +256,7 @@ static struct skcipher_alg aes_algs[] = {
 	.base.cra_module	= THIS_MODULE,
 	.min_keysize		= AES_MIN_KEY_SIZE,
 	.max_keysize		= AES_MAX_KEY_SIZE,
-	.ivsize			= 0,
+	.ivsize			= AES_BLOCK_SIZE,
 	.setkey			= aes_setkey,
 	.encrypt		= ecb_encrypt,
 	.decrypt		= ecb_decrypt,
