@@ -31,6 +31,8 @@
 #include "spacemit_engine.h"
 
 struct device *dev;
+unsigned char *in_buffer, *out_buffer;
+uint64_t dma_addr_in, dma_addr_out;
 static struct regmap *ciu_base;
 static struct engine_info engine[ENGINE_MAX];
 
@@ -558,26 +560,15 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 				  AES_MODE_T mode,uint8_t *inv, AES_OP_MODE_T op)
 {
 	int ret;
-	uint64_t dma_addr_in;
-	uint64_t dma_addr_out;
 	uint32_t dma_addr_in_low,dma_addr_in_high;
 	uint32_t dma_addr_out_low,dma_addr_out_high;
 	uint32_t val;
 
-	if (is_vmalloc_addr(buf_in)) {
-		dev_err(dev, "buffer is not dma capable\n");
-		return -EFAULT;
-	} else if (object_is_on_stack(buf_in)) {
-		dev_err(dev, "buffer is on stack\n");
-		return -EFAULT;
-	}
-
-	dma_addr_in = dma_map_single(dev, (void *)buf_in, blocks << 4, DMA_TO_DEVICE);
+	dma_sync_single_for_device(dev,dma_addr_in,blocks*16,DMA_TO_DEVICE);
 		if (dma_mapping_error(dev, dma_addr_in)) {
 			dev_err(dev, "failed to map buffer\n");
 			return -EFAULT;
 		}
-	dma_addr_out = dma_map_single(dev, buf_out, blocks << 4, DMA_FROM_DEVICE);
 		if (dma_mapping_error(dev, dma_addr_out)) {
 			dev_err(dev, "failed to map buffer\n");
 			return -EFAULT;
@@ -695,7 +686,6 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 	dma_input_start(index);
 	dma_output_start(index);
 	crypto_aes_start(index);
-
 	ret = dma_wait_int_input_finish(index);
 	if (ret) {
 		dev_err_once(dev, "%s : %d : dma_wait_input_finish failed! ret = %d\n",__func__,__LINE__,ret);
@@ -707,14 +697,12 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 		dev_err_once(dev, "%s : %d : crypto_aes_wait failed! ret = %d\n",__func__,__LINE__,ret);
 		goto error;
 	}
-
 	ret = dma_wait_int_output_finish(index);
 	if (ret) {
 		dev_err_once(dev, "%s : %d : dma_wait_output_finish failed! ret = %d\n",__func__,__LINE__,ret);
 		goto error;
 	}
-	dma_unmap_single(dev, dma_addr_in, blocks << 4, DMA_TO_DEVICE);
-	dma_unmap_single(dev, dma_addr_out, blocks << 4, DMA_FROM_DEVICE);
+	dma_sync_single_for_cpu(dev,dma_addr_out,blocks*16,DMA_FROM_DEVICE);
 
 	/* Readback IV after operation*/
 	switch(mode) {
@@ -856,6 +844,13 @@ int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *p
 	return ce_aes_process_nblocks_noalign(index, ct,pt,blocks, &skey1,NULL,E_AES_CBC,IV,E_AES_DECRYPT);
 }
 EXPORT_SYMBOL(spacemit_aes_cbc_decrypt);
+
+void spacemit_aes_getaddr(unsigned char **in,unsigned char **out)
+{
+	*in = in_buffer;
+	*out = out_buffer;
+}
+EXPORT_SYMBOL(spacemit_aes_getaddr);
 
 __maybe_unused static void engine_reg_dump(int index)
 {
@@ -1081,7 +1076,7 @@ static int ce_aes_test(u32 num)
 			if (memcmp(pt_buf_tmp, tests[i].pt, 16)) {
 				dev_err_once(dev,"  (cbc test)failed : tmp[1] != tests[i].pt\n");
 				ret = -EPERM;
-				goto err
+				goto err;
 			}
 
 			/* now see if we can encrypt all zero bytes 1000 times, decrypt and come back where we started */
@@ -1263,6 +1258,8 @@ static int crypto_engine_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	in_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_in, DMA_TO_DEVICE, GFP_KERNEL);
+	out_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_out, DMA_FROM_DEVICE, GFP_KERNEL);
 	for(i=0; i < num_engines; i++)
 	{
 		sprintf(obj_name,"spacemit-crypto-engine-%d",i);
@@ -1362,6 +1359,8 @@ err_ioremap:
 
 static int crypto_engine_remove(struct platform_device *pdev)
 {
+	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, in_buffer, dma_addr_in, DMA_FROM_DEVICE);
+	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, out_buffer, dma_addr_out, DMA_FROM_DEVICE);
 	return 0;
 }
 
