@@ -33,9 +33,13 @@
 #define ID_NBTXK 0x6
 #define ID_NBRXK 0x7
 #define ID_FLOK_vbuffer 0x8
-
+#define ID_A_FLoK_coarse 0x9
+#define ID_G_FLoK_coarse 0xa
+#define ID_A_FLoK_fine 0xb
+#define ID_G_FLoK_fine 0xc
 #define ID_TX_PAD_GainGapK 0xe
 #define ID_TX_PA_GainGapK 0xf
+#define ID_IQK_Restore 0x10
 
 /*@-----------------------End Define Parameters-----------------------*/
 
@@ -88,6 +92,9 @@ struct halrf_iqk_info {
 	u8 iqk_table_idx[NUM];
 	bool is_fw_iqk;
 	u32	time;
+	u32 lok_0x58[2];
+	u32 lok_0x5c[2];
+	u32 lok_0x7c[2];	
 };
 
 void halrf_iqk_init(struct rf_info *rf);

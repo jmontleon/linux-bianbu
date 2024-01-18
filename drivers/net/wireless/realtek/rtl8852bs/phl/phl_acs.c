@@ -123,7 +123,8 @@ struct rtw_ch phl_acs_chnl_tbl[MAX_ACS_INFO] = {
 };
 
 
-void phl_acs_mntr_trigger(struct phl_info_t *phl_info, struct phl_acs_parm *parm)
+void phl_acs_mntr_trigger(struct phl_info_t *phl_i, enum phl_band_idx band_idx,
+				struct phl_acs_parm *parm)
 {
 	struct acs_mntr_parm mntr_parm = {0};
 
@@ -132,14 +133,14 @@ void phl_acs_mntr_trigger(struct phl_info_t *phl_info, struct phl_acs_parm *parm
 		PHL_ERR("[ACS][%s] invalid idx:%d\n", __func__, parm->idx);
 		return;
 	}
-
 	mntr_parm.mntr_time = parm->monitor_time;
 	mntr_parm.nhm_incld_cca = parm->nhm_include_cca;
 
-	rtw_hal_acs_mntr_trigger(phl_info->hal, &mntr_parm);
+	rtw_hal_acs_mntr_trigger(phl_i->hal, band_idx, &mntr_parm);
 }
 
-void phl_acs_mntr_result(struct phl_info_t *phl_info, struct phl_acs_parm *parm)
+void phl_acs_mntr_result(struct phl_info_t *phl_info,
+			enum phl_band_idx band_idx, struct phl_acs_parm *parm)
 {
 	struct phl_acs_info *acs_info = (struct phl_acs_info *)phl_info->acs_info;
 
@@ -149,7 +150,7 @@ void phl_acs_mntr_result(struct phl_info_t *phl_info, struct phl_acs_parm *parm)
 		return;
 	}
 
-	rtw_hal_acs_mntr_result(phl_info->hal, &acs_info->rpt[parm->idx]);
+	rtw_hal_acs_mntr_result(phl_info->hal, band_idx, &acs_info->rpt[parm->idx]);
 }
 
 enum rtw_phl_status phl_acs_info_init(struct phl_info_t *phl_info)
@@ -230,11 +231,13 @@ u8 rtw_phl_get_acs_chnl_tbl_idx(void *phl, enum band_type band, u8 channel)
 }
 #endif /* CONFIG_RTW_ACS */
 
-void rtw_phl_get_env_rpt(void *phl, struct rtw_env_report *env_rpt, struct rtw_wifi_role_t *wrole)
+void rtw_phl_get_env_rpt(void *phl,
+                         struct rtw_env_report *env_rpt,
+                         u8 hw_band)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
 
-	rtw_hal_env_rpt(hal_com, env_rpt, wrole);
+	rtw_hal_env_rpt(hal_com, env_rpt, hw_band);
 
 }

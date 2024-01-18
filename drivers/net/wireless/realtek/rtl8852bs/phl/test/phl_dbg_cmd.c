@@ -103,10 +103,10 @@ void phl_dbg_core_cmd_parser(void *phl, char input[][MAX_ARGV],
 	{
 		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
 				 "phl_dbg_core_cmd_parser : PHL_DBG_CORE_HELP \n");
-		for (i = 0; i < phl_ary_size - 2; i++)
+		for (i = 0; i < phl_ary_size; i++)
 			PHL_DBG_MON_INFO(out_len, used, output + used,
 					 out_len - used, "%-5d: %s\n",
-			          (int)i, phl_dbg_core_cmd_i[i + 2].name);
+			          (int)i, phl_dbg_core_cmd_i[i].name);
 
 	}
 	break;
@@ -141,9 +141,6 @@ phl_dbg_core_proc_cmd(struct phl_info_t *phl_info,
 			break;
 		}
 	} while (argc < MAX_ARGC);
-
-	if (argc == 1)
-		argv[0][_os_strlen((u8 *)argv[0])] = '\0';
 
 	phl_dbg_core_cmd_parser(phl_info, argv, argc, output, out_len);
 
@@ -237,42 +234,50 @@ void
 _phl_dbg_cmd_switch_chbw(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			 u32 input_num, char *output, u32 out_len)
 {
-	u32 band = 0;
+	u32 band_idx = 0;
 	u32 bw = 0;
 	u32 offset = 0;
 	u32 ch = 36;
+	u32 ch_band = (u32)BAND_MAX;
 	u32 used = 0;
 	struct rtw_chan_def chdef = {0};
 
 	do {
-		if (input_num < 5){
+		if (input_num < 6){
 			PHL_DBG_MON_INFO(out_len, used, output + used,
 					 out_len - used,
-					 "\n[DBG] echo phl set_ch [band(0,1)] [ch(hex)] [bw(0,1,2,3)] [offset(0,1,2,3)]\n");
+					 "\n[DBG] echo phl set_ch [band_idx(0,1)] [ch_band(0,1,2)] [ch(hex)] [bw(0,1,2,3)] [offset(0,1,2,3)]\n");
 			break;
 		}
 
-		if (!_get_hex_from_string(input[1], &band))
+		if (!_get_hex_from_string(input[1], &band_idx))
 			break;
 
-		if (band > 1)
+		if (band_idx > 1)
 			break;
 
-		if (!_get_hex_from_string(input[2], &ch))
+		if (!_get_hex_from_string(input[2], &ch_band))
+			break;
+
+		if (!_get_hex_from_string(input[3], &ch))
 			break;
 
 
-		if (!_get_hex_from_string(input[3], &bw))
+		if (!_get_hex_from_string(input[4], &bw))
 			break;
 
 
-		if (!_get_hex_from_string(input[4], &offset))
+		if (!_get_hex_from_string(input[5], &offset))
 			break;
 
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 				 out_len - used,
-				 "\n[DBG] PHL_DBG_SET_CH_BW ==> band = %d\n",
-				 (int)band);
+				 "\n[DBG] PHL_DBG_SET_CH_BW ==> band_idx = %d\n",
+				 (int)band_idx);
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+				 out_len - used,
+				 "\n[DBG] PHL_DBG_SET_CH_BW ==> ch_band = %d\n",
+				 (int)ch_band);
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 				 out_len - used,
 				 "[DBG] PHL_DBG_SET_CH_BW ==> ch = %d\n",
@@ -287,74 +292,246 @@ _phl_dbg_cmd_switch_chbw(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 				 (int)offset);
 
 		chdef.chan = (u8)ch;
-		chdef.band = rtw_phl_get_band_type(chdef.chan);
+		chdef.band = (enum band_type)ch_band;
 		chdef.bw = (enum channel_width)bw;
 		chdef.offset = (enum chan_offset)offset;
 
-		rtw_hal_set_ch_bw(phl_info->hal, (u8)band, &chdef, false, false);
+		rtw_hal_set_ch_bw(phl_info->hal, (u8)band_idx, &chdef, false, false, false);
 
 	} while (0);
 }
 
-void _dump_wifi_role(struct phl_info_t *phl_info, char *output, u32 out_len)
+void _dump_wifi_role(struct phl_info_t *phl_info,
+		char input[][MAX_ARGV], u32 input_num,
+		char *output, u32 out_len)
 {
 	struct rtw_wifi_role_t *wrole = NULL;
 	struct rtw_phl_stainfo_t *sta_info = NULL;
+#if defined(CONFIG_PHL_RELEASE_RPT_ENABLE) || defined(CONFIG_PCI_HCI)
+	struct rtw_wp_rpt_stats *rpt_stats = NULL;
+#endif
 	u32 used = 0;
 	u8 j = 0;
+	struct rtw_wifi_role_link_t *rlink = NULL;
+	u8 lidx;
+	u32 show_cap = 0, role_idx = 0xff, rlink_idx = 0xff;
+
 	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
 				"==> PHL_DBG_DUMP_WROLE CH/BW information\n");
+
+	if (input_num > 1) {
+		if (!_os_strcmp(input[1], "-h")) {
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "phl role [option] [wrole idx] [rlink idx]\n"
+						"option:\n"
+						"-h\tshow usage\n"
+						"-c\tshow capability\n");
+			return;
+		}
+
+		if (!_os_strcmp(input[1], "-c"))
+			show_cap = 1;
+	}
+
+	if (input_num > 2)
+		_get_hex_from_string(input[2], &role_idx);
+
+	if (input_num > 3)
+		_get_hex_from_string(input[3], &rlink_idx);
+
 	for( j = 0; j < MAX_WIFI_ROLE_NUMBER; j++) {
-		wrole = rtw_phl_get_wrole_by_ridx(phl_info->phl_com, j);
+		if (role_idx != 0xff && role_idx != j)
+			continue;
+
+		wrole = phl_get_wrole_by_ridx(phl_info, j);
 		if (NULL == wrole)
 			continue;
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole idx = 0x%x \n", j);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->type = 0x%x \n",
-				 wrole->type);
-		/* debug_dump_mac_addr(wrole->mac_addr); */
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.bw = 0x%x \n",
-				 wrole->chandef.bw);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.band = 0x%x \n",
-				 wrole->chandef.band);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.center_ch = 0x%x \n",
-				 wrole->chandef.center_ch);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.chan = 0x%x \n",
-				 wrole->chandef.chan);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.center_freq1 = %u \n",
-				 (int)wrole->chandef.center_freq1);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.center_freq2 = %u \n",
-				 (int)wrole->chandef.center_freq2);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "wrole->chandef.offset = 0x%x \n",
-				 wrole->chandef.offset);
 
-		sta_info = rtw_phl_get_stainfo_self(phl_info, wrole);
-		if (NULL == sta_info)
-			continue;
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "sta_info->macid = 0x%x \n",
-				 sta_info->macid);
+				 out_len - used, "wrole idx = %d \n", j);
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "sta_info->aid = 0x%x \n",
-				 sta_info->aid);
+				 out_len - used, "wrole->type = %u \n",
+				 wrole->type);
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "mac_addr : %02x-%02x-%02x-%02x-%02x-%02x- \n",
-				 sta_info->mac_addr[0], sta_info->mac_addr[1],
-				 sta_info->mac_addr[2], sta_info->mac_addr[3],
-				 sta_info->mac_addr[4], sta_info->mac_addr[5]);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				 out_len - used, "sta_info->wmode = 0x%x \n",
-				 sta_info->wmode);
-		PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used,
+				"wrole->mac_addr : %02x-%02x-%02x-%02x-%02x-%02x- \n",
+				wrole->mac_addr[0], wrole->mac_addr[1],
+				wrole->mac_addr[2], wrole->mac_addr[3],
+				wrole->mac_addr[4], wrole->mac_addr[5]);
+
+		for (lidx = 0; lidx < RTW_RLINK_MAX; lidx++) {
+			if (rlink_idx != 0xff && rlink_idx != lidx)
+				continue;
+
+			rlink = get_rlink(wrole, lidx);
+
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				 out_len - used, "rlink->lidx = %d \n", lidx);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.bw = %u \n",
+					rlink->chandef.bw);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.band = %u \n",
+					rlink->chandef.band);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.center_ch = %u \n",
+					rlink->chandef.center_ch);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.chan = %u \n",
+					rlink->chandef.chan);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.center_freq1 = %u \n",
+					(int)rlink->chandef.center_freq1);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.center_freq2 = %u \n",
+					(int)rlink->chandef.center_freq2);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "rlink->chandef.offset = %u \n",
+					rlink->chandef.offset);
+
+			if (show_cap)  {
+				PHL_DBG_MON_DUMP(out_len, used, output + used, out_len - used,
+						"rlink->cap", &rlink->cap, sizeof(rlink->cap));
+				PHL_DBG_MON_DUMP(out_len, used, output + used, out_len - used,
+						"rlink->protocol_cap", &rlink->protocol_cap,
+						sizeof(rlink->protocol_cap));
+			}
+
+			sta_info = rtw_phl_get_stainfo_self(phl_info, rlink);
+			if (NULL == sta_info) {
+				PHL_DBG_MON_INFO(out_len, used, output + used,
 					out_len - used, "-----------------------------\n");
+				continue;
+			}
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "sta_info->macid = %u \n",
+				sta_info->macid);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "sta_info->aid = %u \n",
+				sta_info->aid);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used,
+				"sta_info->mac_addr : %02x-%02x-%02x-%02x-%02x-%02x- \n",
+				sta_info->mac_addr[0], sta_info->mac_addr[1],
+				sta_info->mac_addr[2], sta_info->mac_addr[3],
+				sta_info->mac_addr[4], sta_info->mac_addr[5]);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "sta_info->wmode = 0x%x \n",
+				sta_info->wmode);
+#if defined(CONFIG_PHL_RELEASE_RPT_ENABLE) || defined(CONFIG_PCI_HCI)
+			rpt_stats =
+				(struct rtw_wp_rpt_stats *)sta_info->hal_sta->trx_stat.wp_rpt_stats;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "sta_info->busy_cnt = %u \n",
+				(unsigned int)rpt_stats->busy_cnt);
+#endif
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "-----------------------------\n");
+		}
+	}
+}
+
+void _dump_mr_info(struct phl_info_t *phl_info, char *output, u32 out_len)
+{
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	struct mr_ctl_t *mr_ctl = phlcom_to_mr_ctrl(phl_com);
+	u8 role_num = 0, i;
+	u32 used = 0;
+	int chanctx_num = 0;
+	struct hw_band_ctl_t *band_ctrl = NULL;
+
+	for (i = 0; i < MAX_BAND_NUM; i++) {
+		band_ctrl = &mr_ctl->band_ctrl[i];
+		chanctx_num = phl_mr_get_chanctx_num(phl_info, band_ctrl);
+		role_num = phl_mr_get_role_num(phl_info, band_ctrl);
+
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				 "[BAND-%d] port map:0x%02x, role num:%d map:0x%02x\n",
+				band_ctrl->id, band_ctrl->port_map, role_num, band_ctrl->role_map);
+
+		/*dump mr_info*/
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				"[BAND-%d] sta_num:%d, ld_sta_num:%d, lg_sta_num:%d\n",
+				band_ctrl->id, band_ctrl->cur_info.sta_num,
+				band_ctrl->cur_info.ld_sta_num, band_ctrl->cur_info.lg_sta_num);
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				"[BAND-%d] ap_num:%d, ld_ap_num:%d\n",
+				band_ctrl->id, band_ctrl->cur_info.ap_num, band_ctrl->cur_info.ld_ap_num);
+
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				"[BAND-%d] chan_ctx num:%d, cc_band_map:0x%04x\n",
+				band_ctrl->id, chanctx_num, band_ctrl->chctx_band_map);
+
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				"\t chctx_band -");
+		if (band_ctrl->chctx_band_map == 0)
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_NON\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_24G))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_24G\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_5G_B1))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_5G_B1\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_5G_B2))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_5G_B2\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_5G_B3))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_5G_B3\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_5G_B4))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_5G_B4\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_6G_U5))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_6G_U5\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_6G_U6))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_6G_U6\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_6G_U7))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_6G_U7\n");
+		if (band_ctrl->chctx_band_map & BIT(CC_BAND_6G_U8))
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				" %s ", "B_6G_U8\n");
+
+		if (chanctx_num) {
+			struct rtw_chan_ctx *chanctx = NULL;
+			_os_list *chctx_list = &band_ctrl->chan_ctx_queue.queue;
+			void *drv = phl_to_drvpriv(phl_info);
+
+			_os_spinlock(drv, &band_ctrl->chan_ctx_queue.lock, _bh, NULL);
+			phl_list_for_loop(chanctx, struct rtw_chan_ctx, chctx_list, list) {
+
+				role_num = phl_chanctx_get_rnum(phl_info, &band_ctrl->chan_ctx_queue, chanctx);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+					"\t[CH-CTX] role num:%d map:0x%02x, DFS enable:%s\n",
+					role_num, chanctx->role_map,
+					(chanctx->dfs_enabled) ? "Y" : "N");
+
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] band:%u\n", chanctx->chan_def.band);
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] chan:%u\n", chanctx->chan_def.chan);
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] center_ch:%u\n", chanctx->chan_def.center_ch);
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] bw:%u\n", chanctx->chan_def.bw);
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] offset:%u\n", chanctx->chan_def.offset);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] center_freq1:%u\n", (int)chanctx->chan_def.center_freq1);
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] center_freq2:%u\n", (int)chanctx->chan_def.center_freq2);
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"\t[CH] hw_value:%u\n",chanctx ->chan_def.hw_value);
+			}
+			_os_spinunlock(drv, &band_ctrl->chan_ctx_queue.lock, _bh, NULL);
+		}
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+						"-----------------------------\n");
 	}
 }
 
@@ -452,6 +629,142 @@ void _dump_rx_rate(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			);
 
 }
+
+#ifdef DEBUG_PHL_RX
+void _dump_phl_rx(struct phl_info_t *phl_info, char *output, u32 out_len)
+{
+	u32 used = 0;
+	struct phl_rx_stats *rx_stats = &phl_info->rx_stats;
+
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rx_isr=%u\n", rx_stats->rx_isr);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"phl_rx=%u\n", rx_stats->phl_rx);
+
+#ifdef CONFIG_PCI_HCI
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rdu=%u\n", rtw_phl_get_hw_cnt_rdu(phl_info));
+
+	do {
+		struct hci_info_t *hci_info = (struct hci_info_t *)phl_info->hci;
+		struct rtw_rx_buf_ring *rx_buf_ring;
+		u8 ch;
+
+		for (ch = 0; ch < hci_info->total_rxch_num; ch++) {
+			u16 rxcnt, host_idx, hw_idx;
+			rxcnt = rtw_hal_rx_res_query(phl_info->hal, ch, &host_idx, &hw_idx);
+			PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				"rxbd[%d]: host_idx=%3u,hw_idx=%3u,num=%3u,avail=%u\n",
+				ch, host_idx, hw_idx, rtw_hal_get_rxbd_num(phl_info->hal, ch), rxcnt);
+		}
+
+		rx_buf_ring = (struct rtw_rx_buf_ring *)phl_info->hci->rxbuf_pool;
+
+		for (ch = 0; ch < hci_info->total_rxch_num; ch++) {
+#ifdef CONFIG_DYNAMIC_RX_BUF
+			if (ch == 0)
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+					"rxbuf_pool[%d]: idle_rxbuf_cnt=%3u,busy_rxbuf_cnt=%3u,empty_rxbuf_cnt=%u\n",
+					ch, rx_buf_ring[ch].idle_rxbuf_cnt, rx_buf_ring[ch].busy_rxbuf_cnt,
+					rx_buf_ring[ch].empty_rxbuf_cnt);
+			else
+#endif
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+					"rxbuf_pool[%d]: idle_rxbuf_cnt=%3u,busy_rxbuf_cnt=%3u\n",
+					ch, rx_buf_ring[ch].idle_rxbuf_cnt, rx_buf_ring[ch].busy_rxbuf_cnt);
+		}
+	} while (0);
+#endif /* CONFIG_PCI_HCI */
+
+	do {
+		struct rtw_phl_rx_ring *ring = &phl_info->phl_rx_ring;
+		u16 wptr, rptr, ring_res;
+
+		wptr = (u16)_os_atomic_read(phl_to_drvpriv(phl_info), &ring->phl_idx);
+		rptr = (u16)_os_atomic_read(phl_to_drvpriv(phl_info), &ring->core_idx);
+		ring_res = phl_calc_avail_rptr(rptr, wptr, MAX_PHL_RX_RING_ENTRY_NUM);
+
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"phl_rx_ring: phl_idx=%d,core_idx=%d,num=%d,rx_pkt_num=%d\n",
+			wptr, rptr, MAX_PHL_RX_RING_ENTRY_NUM, ring_res);
+	} while (0);
+
+	do {
+		struct phl_rx_pkt_pool *rx_pkt_pool;
+
+		rx_pkt_pool = (struct phl_rx_pkt_pool *)phl_info->rx_pkt_pool;
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"phl_rx_pkt_pool: total=%d,idle_cnt=%d\n",
+			MAX_PHL_RING_RX_PKT_NUM, rx_pkt_pool->idle_cnt);
+	} while (0);
+
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rx_type: all=%u,wifi=%u,wp=%u,ppdu=%u,c2h=%u\n",
+		rx_stats->rx_type_all,
+		rx_stats->rx_type_wifi, rx_stats->rx_type_wp,
+		rx_stats->rx_type_ppdu, rx_stats->rx_type_c2h);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"amsdu=%u\n", rx_stats->rx_amsdu);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"drop@get_single_rx=%u (rx_rdy=%u,rxbd=%u)\n",
+		rx_stats->rx_drop_get, rx_stats->rx_rdy_fail, rx_stats->rxbd_fail);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"drop@reorder=%u (seq_less=%u,dup=%u)\n",
+		rx_stats->rx_drop_reorder,
+		rx_stats->reorder_seq_less, rx_stats->reorder_dup);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"reorder: dont=%u,put=%u (total=%u)\n",
+		rx_stats->rx_dont_reorder, rx_stats->rx_put_reorder,
+		rx_stats->rx_dont_reorder + rx_stats->rx_put_reorder);
+#ifdef PHL_RXSC_AMPDU
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"ampdu: orig=%u,rxsc=%u (add=%u)\n",
+		rx_stats->rxsc_ampdu[0], rx_stats->rxsc_ampdu[1],
+		rx_stats->rxsc_ampdu[2]);
+#endif
+#ifdef CONFIG_DYNAMIC_RX_BUF
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rxbuf_empty=%u\n", rx_stats->rxbuf_empty);
+#endif
+
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"cnt_rx_pktsz =%u\n", phl_info->cnt_rx_pktsz);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rx_pktsz     =%u\n", rx_stats->rx_pktsz_phl);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rx_pktsz_core=%u\n", rx_stats->rx_pktsz_core);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rx_pkt       =%u\n", rx_stats->rx_type_wifi);
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+		"rx_pkt_core  =%u\n", rx_stats->rx_pkt_core);
+
+}
+
+void phl_dbg_cmd_phl_rx(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+				u32 input_num, char *output, u32 out_len)
+{
+	u32 used = 0;
+
+	if (1 == input_num) {
+		_dump_phl_rx(phl_info, output, out_len);
+	} else if (!_os_strcmp(input[1], "clear")) {
+		_os_mem_set(phl_to_drvpriv(phl_info), &phl_info->rx_stats,
+			0, sizeof(phl_info->rx_stats));
+	} else if (!_os_strcmp(input[1], "cnt_rx_pktsz")) {
+		int value;
+		if (input_num > 2 && _os_sscanf(input[2], "%d", &value) == 1)
+			phl_info->cnt_rx_pktsz = value;
+	} else if (!_os_strcmp(input[1], "sched_phl_rx")) {
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"Schedule PHL RX!\n");
+		rtw_phl_start_rx_process(phl_info);
+	} else if (!_os_strcmp(input[1], "sched_core_rx")) {
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"Schedule Core RX!\n");
+		_phl_indic_new_rxpkt(phl_info);
+	}
+}
+#endif /* DEBUG_PHL_RX */
 
 static const char *_get_mac_pwr_st_str(enum rtw_mac_pwr_st st)
 {
@@ -622,59 +935,94 @@ void _dump_mcc_info(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 exit:
 	return;
 }
+#endif /*CONFIG_MCC_SUPPORT*/
 
-void _mcc_set_dbg_info(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+
+void _rxbcn_dbg_info(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	u32 input_num, char *output, u32 out_len)
 {
-	struct rtw_phl_mcc_dbg_info mcc_dbg_i = {0};
-	u32 ntfy_cnt = 0;
 	u32 used = 0;
+	u8 idx = 0;
+	u16 lower_bound = 0;
 
 	if (!input_num)
 		goto _exit;
 	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "\n");
 	if (!_os_strcmp("-h", input[2])) {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "_mcc_set_dbg_info: Para1 string list: ntfy_rx, clean\n");
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "_mcc_set_dbg_info: Para2: Enter ntfy counter(0~7), 0: Notify continuously\n");
+			out_len - used, "_rxbcn_dbg_info: Para1 string list: show\n");
 		goto _exit;
-	} else if (!_os_strcmp("ntfy_rx", input[2])) {
-		mcc_dbg_i.ntfy_rx = true;
-	} else if (!_os_strcmp("clean", input[2])) {
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "_mcc_set_dbg_info: Clean setting\n");
-		goto _cfg;
+	} else if (!_os_strcmp("show", input[2])) {
+		struct rtw_wifi_role_link_t *rlink = NULL;
+		struct rtw_phl_stainfo_t *sta = NULL;
+		struct rtw_rx_bcn_info bcn_i = {0};
+		struct rtw_bcn_histogram *hist_i = NULL;
+		struct rtw_wifi_role_t *wrole = NULL;
+		u8 ridx = 0, lidx = 0;
+
+		for (ridx = 0; ridx < MAX_WIFI_ROLE_NUMBER; ridx++) {
+			wrole = phl_get_wrole_by_ridx(phl_info, ridx);
+			if ((wrole == NULL) || (wrole->active == false) ||
+			    (wrole->mstate != MLME_LINKED))
+				continue;
+			if (!rtw_phl_role_is_client_category(wrole))
+				continue;
+			for (lidx = 0; lidx < wrole->rlink_num; lidx++) {
+				rlink = get_rlink(wrole, lidx);
+				sta = rtw_phl_get_stainfo_self(phl_info, rlink);
+				phl_get_sta_bcn_info(phl_info, sta, &bcn_i);
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+						out_len - used,
+						"Pkt len(%d), rate(%d), intvl(%d) num_wdg(%d), TBTT_Ofst(0x%x %04x us), TBTT_Ofst_Setting(0x%x %04x us), TBTT_conf_lvl(%d)\n",
+						bcn_i.pkt_len, bcn_i.rate,
+						bcn_i.bcn_intvl,
+						bcn_i.last_num_per_watchdog,
+						(u16)(bcn_i.offset_i.offset >> 16),
+						(u16)(bcn_i.offset_i.offset & 0xFFFF),
+						(u16)(bcn_i.offset_i.cr_tbtt_shift >> 16),
+						(u16)(bcn_i.offset_i.cr_tbtt_shift & 0xFFFF),
+						bcn_i.offset_i.conf_lvl);
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+						out_len - used,
+						"bcn_dist_i: num(%d), min(%d), max(%d), outlier_num(%d), outlier_l(%d), outlier_h(%d)\n",
+						bcn_i.bcn_s_i.num,
+						bcn_i.bcn_dist_i.min,
+						bcn_i.bcn_dist_i.max,
+						bcn_i.bcn_dist_i.outlier_num,
+						bcn_i.bcn_dist_i.outlier_l,
+						bcn_i.bcn_dist_i.outlier_h);
+				hist_i = &bcn_i.bcn_dist_i.hist_i;
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+						out_len - used,
+						"Mod Histogram, Num(%d)\n",
+						hist_i->num);
+				for (idx = 0; idx < MAX_NUM_BIN; idx++) {
+					PHL_DBG_MON_INFO(out_len, used, output + used,
+							out_len - used,
+							"Histogram: %2d ~ %02d, num: %d\n",
+							lower_bound,
+							hist_i->h_array[H_UPPER][idx],
+							hist_i->h_array[H_CNT][idx]);
+					lower_bound = hist_i->h_array[H_UPPER][idx];
+				}
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+							out_len - used,
+							"Suggest bcn_timeout(%d), macid(%d)\n",
+							bcn_i.cfg.bcn_timeout,
+							bcn_i.cfg.macid);
+			}
+		}
 	} else {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "_mcc_set_dbg_info: error Para1, try enter -h\n");
+				out_len - used, "_rxbcn_dbg_info: error Para1, try enter -h\n");
 		goto _exit;
-	}
-	/* get setting */
-	_get_hex_from_string(input[3], &ntfy_cnt);
-	if (ntfy_cnt > 7) {
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "_mcc_set_dbg_info: Out of range, ntfy_cnt(%d) > 7\n",
-				(u8)ntfy_cnt);
-		goto _exit;
-	}
-	mcc_dbg_i.ntfy_cnt = (u8)ntfy_cnt;
-_cfg:
-	PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "_mcc_set_dbg_info: ntfy_rx(%d), ntfy_cnt(%d)\n",
-			mcc_dbg_i.ntfy_rx, mcc_dbg_i.ntfy_cnt);
-	if (phl_mcc_set_dbg_info(phl_info, &mcc_dbg_i)) {
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "_mcc_set_dbg_info: Up ok\n");
-	} else {
-		PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "_mcc_set_dbg_info: Up failed\n");
 	}
 _exit:
 	return;
 }
 
-void _mcc_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+
+void _bcn_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			u32 input_num, char *output, u32 out_len)
 {
 	u32 used = 0;
@@ -684,21 +1032,20 @@ void _mcc_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "\n");
 	if (!_os_strcmp("-h", input[1])) {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "_mcc_cmd_parser: Para string list: show, set_dbg\n");
-	} else if (!_os_strcmp("show", input[1])) {
-		_dump_mcc_info(phl_info, input, input_num, output, out_len);
-	} else if (!_os_strcmp("set_dbg", input[1])) {
-		_mcc_set_dbg_info(phl_info, input, input_num, output, out_len);
+				out_len - used, "_bcn_cmd_parser: Para string list: rxbcn\n");
+	} else if (!_os_strcmp("rxbcn", input[1])) {
+		_rxbcn_dbg_info(phl_info, input, input_num, output, out_len);
 	} else {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "_mcc_set_dbg_info: error Para, try enter -h\n");
+				out_len - used, "_bcn_cmd_parser: error Para, try enter -h\n");
 	}
 }
 
-#endif
 void phl_dbg_cmd_snd(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		      u32 input_num, char *output, u32 out_len)
 {
+#ifdef CONFIG_PHL_CMD_BF
+	enum rtw_phl_status psts = RTW_PHL_STATUS_SUCCESS;
 	u32 role_idx;
 	u32 ctrl;
 	u32 used = 0;
@@ -714,21 +1061,42 @@ void phl_dbg_cmd_snd(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			 (int)ctrl, (int)role_idx);
 
 	if (1 == ctrl) {
-		rtw_phl_sound_start(phl_info, (u8)role_idx, 0, 200,
-				    PHL_SND_TEST_F_ONE_TIME |
-				    PHL_SND_TEST_F_PASS_STS_CHK);
+		psts = rtw_phl_sound_start(phl_info, (u8)role_idx, 0, 200,
+					   PHL_SND_TEST_F_ONE_TIME |
+					   PHL_SND_TEST_F_PASS_STS_CHK);
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 			out_len - used, "SOUND START(once) : wrole %d !!\n", (int)role_idx);
 	} else if (2 == ctrl) {
-		rtw_phl_sound_abort(phl_info);
+		psts = rtw_phl_sound_abort(phl_info);
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 			out_len - used, "SOUND ABORT!!\n");
 	} else if (3 == ctrl) {
-		rtw_phl_sound_start(phl_info, (u8)role_idx, 0, 200,
-				    PHL_SND_TEST_F_PASS_STS_CHK);
+		psts = rtw_phl_sound_start(phl_info, (u8)role_idx, 0, 200,
+					   PHL_SND_TEST_F_PASS_STS_CHK);
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 			out_len - used, "SOUND START(loop) : wrole %d !!\n", (int)role_idx);
-	} else if(9 == ctrl) {
+	} else if (4 == ctrl) {
+		u16 macid[4] = { 0, 0, 0, 0};
+		struct rtw_wifi_role_t *role = NULL;
+		struct rtw_wifi_role_link_t *rlink = NULL;
+		u8 idx = 0;
+
+		role = phl_get_wrole_by_ridx(phl_info, (u8)role_idx);
+		if (NULL != role) {
+			for (idx = 0; idx < role->rlink_num; idx++) {
+				rlink = get_rlink(role, idx);
+
+				psts = rtw_phl_snd_add_grp(phl_info, rlink, 0, (u16 *)&macid, 1, true, false);
+				psts = rtw_phl_snd_add_grp(phl_info, rlink, 1, (u16 *)&macid, 1, true, false);
+
+				psts = rtw_phl_sound_start_ex(phl_info, (u8)role_idx, 0, 100,
+							PHL_SND_TEST_F_PASS_STS_CHK);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "SOUND START(loop), skip group : wrole %d !!\n", (int)role_idx);
+			}
+		}
+	} else if (9 == ctrl) {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 			out_len - used, "DUMP BF Entry in debugview\n");
 			rtw_hal_bf_dbg_dump_entry_all(phl_info->hal);
@@ -736,6 +1104,7 @@ void phl_dbg_cmd_snd(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		PHL_DBG_MON_INFO(out_len, used, output + used,
 			out_len - used, "SOUND TEST CMD not found!\n");
 	}
+#endif
 }
 
 void _convert_tx_rate(enum hal_rate_mode mode, u8 mcs_ss_idx, char *str, u32 str_len)
@@ -935,31 +1304,44 @@ void phl_dbg_cmd_asoc_sta(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	void *drv = phl_to_drvpriv(phl_info);
 	char tx_rate_str[32] = {0};
 	char rx_rate_str[32] = {0};
+	u8 idx = 0, jdx = 0;
 	u8 path_idx = 0;
 	u16 rssi = 0;
-
-	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	struct rtw_wifi_role_link_t *rlink = NULL;
+	struct phl_tid_ampdu_rx *tid_rx = NULL;
 
 	PHL_DBG_MON_INFO(out_len, used, output + used,
 			out_len - used, "\nDUMP Associate STA infomations\n");
 	if(input_num < 2) {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "phl asoc_sta [wrole index] [1=dump list basic information]\n");
+			out_len - used, "phl asoc_sta [option] [wrole index]\n"
+					"option:\n"
+					"1\tdump list basic information\n"
+					"2\tdump list badic & cap information\n");
 		return;
 	}
-	_get_hex_from_string(input[1], &ctrl);
-	_get_hex_from_string(input[2], &wrole_idx);
+
+	if (input_num > 1)
+		_get_hex_from_string(input[1], &ctrl);
+
+	if (input_num > 2)
+		_get_hex_from_string(input[2], &wrole_idx);
+
 	if (wrole_idx >= MAX_WIFI_ROLE_NUMBER) {
 		PHL_DBG_MON_INFO(out_len, used, output + used,
-			out_len - used, "Wrole Index shall < 5\n");
+				out_len - used, "Wrole Index shall < %d\n",
+				MAX_WIFI_ROLE_NUMBER);
 		return;
 	}
-	wrole = rtw_phl_get_wrole_by_ridx(phl_info->phl_com, (u8)wrole_idx);
-	if (1 == ctrl) {
-		_os_spinlock(drv, &wrole->assoc_sta_queue.lock, _bh, NULL);
-		phl_list_for_loop_safe(psta, n, struct rtw_phl_stainfo_t,
-			       &wrole->assoc_sta_queue.queue, list) {
-			PHL_DBG_MON_INFO(out_len, used, output + used,
+	wrole = phl_get_wrole_by_ridx(phl_info, (u8)wrole_idx);
+	if (1 == ctrl || 2 == ctrl) {
+		for (idx = 0; idx < wrole->rlink_num; idx++) {
+			rlink = get_rlink(wrole, idx);
+			_os_spinlock(drv, &rlink->assoc_sta_queue.lock, _bh, NULL);
+			phl_list_for_loop_safe(psta, n, struct rtw_phl_stainfo_t,
+			       &rlink->assoc_sta_queue.queue, list) {
+				PHL_DBG_MON_INFO(out_len, used, output + used,
 				out_len - used, "\nmac_id 0x%x ; aid 0x%x ; mac addr %02x-%02x-%02x-%02x-%02x-%02x ; AX_Support %d\n",
 				(int)psta->macid, (int)psta->aid,
 				psta->mac_addr[0], psta->mac_addr[1],
@@ -967,56 +1349,128 @@ void phl_dbg_cmd_asoc_sta(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 				psta->mac_addr[4], psta->mac_addr[5],
 				(psta->wmode&WLAN_MD_11AX) ? 1 : 0);
 
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "WROLE-IDX:%d wlan_mode:0x%02x, chan:%d, bw%d\n",
-				psta->wrole->id, psta->wmode, psta->chandef.chan, psta->chandef.bw);
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "WROLE-IDX:%d RLINK-IDX:%d wlan_mode:0x%02x, chan:%d, bw:%d, rlink_state:%s\n",
+				psta->wrole->id,
+				psta->rlink->id,
+				psta->wmode,
+				psta->chandef.chan,
+				psta->chandef.bw,
+				rlink->mstate?((rlink->mstate & MLME_LINKING)?"Linking":"Linked Up"):"No Link");
 
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "[Stats] Tput -[Tx:%d KBits Rx :%d KBits]\n",
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "[Stats] Tput - [Tx:%d KBits Rx:%d KBits]\n",
 				(int)psta->stats.tx_tp_kbits, (int)psta->stats.rx_tp_kbits);
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-					 out_len - used, "[Stats] MA SNR:%d\n",
-					 psta->hal_sta->rssi_stat.snr_ma >> PHL_RSSI_MA_H );
 
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "[Stats] RSSI:%d(dBm)\n",
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used, "[Stats] MA SNR:%d\n",
+						 psta->hal_sta->rssi_stat.snr_ma >> PHL_RSSI_MA_H );
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "[Stats] MA RSSI:%d(dBm)\n",
 				psta->hal_sta->rssi_stat.ma_rssi - PHL_MAX_RSSI);
 
-			for (path_idx = 0; path_idx < hal_com->rfpath_rx_num; path_idx++) {
-				rssi = (psta->hal_sta->rssi_stat.rssi_ma_path[path_idx] >> 5) & 0x7f;
-				PHL_DBG_MON_INFO(out_len, used, output + used,
-						 out_len - used, "[Stats] Path[%d] MA RSSI:%d(dBm)\n",
-						 path_idx, rssi - PHL_MAX_RSSI);
+				for (path_idx = 0;path_idx < phl_com->phy_cap[0].rx_path_num; path_idx++) {
+					rssi = (psta->hal_sta->rssi_stat.rssi_ma_path[path_idx] >> 5) & 0x7f;
+					PHL_DBG_MON_INFO(out_len, used, output + used,
+							 out_len - used, "[Stats] Path[%d] MA RSSI:%d(dBm)\n",
+		  					 path_idx, rssi - PHL_MAX_RSSI);
 
-				rssi = (psta->hal_sta->rssi_stat.rssi_bcn_ma_path[path_idx] >> 5) & 0x7f;
+					rssi = (psta->hal_sta->rssi_stat.rssi_bcn_ma_path[path_idx] >> 5) & 0x7f;
+					PHL_DBG_MON_INFO(out_len, used, output + used,
+							 out_len - used, "[Stats] Path[%d] BCN MA RSSI:%d(dBm)\n",
+							 path_idx, rssi - PHL_MAX_RSSI);
+				}
+
+				if((HAL_HT_MODE == psta->hal_sta->ra_info.rpt_rt_i.mode)
+					|| (HAL_VHT_MODE == psta->hal_sta->ra_info.rpt_rt_i.mode)) {
+					PHL_DBG_MON_INFO(out_len, used, output + used,
+						out_len - used, "[Stats] is_support_sgi:%s\n",
+						(RTW_GILTF_SGI_4XHE08 == psta->hal_sta->ra_info.rpt_rt_i.gi_ltf)?"yes":"no");
+				} else {
+					PHL_DBG_MON_INFO(out_len, used, output + used,
+						out_len - used, "[Stats] is_support_sgi:no\n");
+				}
+
+				_convert_tx_rate( psta->hal_sta->ra_info.rpt_rt_i.mode,
+						psta->hal_sta->ra_info.rpt_rt_i.mcs_ss_idx,
+						tx_rate_str, 32);
 				PHL_DBG_MON_INFO(out_len, used, output + used,
-						 out_len - used, "[Stats] Path[%d] BCN MA RSSI:%d(dBm)\n",
-						 path_idx, rssi - PHL_MAX_RSSI);
+					out_len - used, "[Stats] Tx Rate:%s\n",
+					tx_rate_str);
+
+				_convert_rx_rate(psta->stats.rx_rate, rx_rate_str, 32);
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "[Stats] Rx Rate:%s\n",
+					rx_rate_str);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "[Stats] rx_ok_cnt:%d rx_err_cnt:%d\n",
+					(int)psta->hal_sta->trx_stat.rx_ok_cnt,
+					(int)psta->hal_sta->trx_stat.rx_err_cnt);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "[Stats] curr_retry_ratio:%d\n",
+					psta->hal_sta->ra_info.curr_retry_ratio);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "[Stats] dis_ra:%s\n",
+					psta->hal_sta->ra_info.dis_ra?"yes":"no");
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "[Stats] ra_mask:0x%016llx\n",
+					psta->hal_sta->ra_info.ra_mask);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+					out_len - used, "[Stats] cur_ra_mask:0x%016llx\n",
+					psta->hal_sta->ra_info.cur_ra_mask);
+
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used, "[Stats] tx retry ratio:%d %%\n",
+						 (u8)psta->hal_sta->ra_info.curr_retry_ratio);
+				_os_spinlock(drv, &psta->tid_rx_lock, _bh, NULL);
+				for (jdx = 0; jdx < RTW_MAX_TID_NUM; jdx++) {
+					tid_rx = psta->tid_rx[jdx];
+					if (!tid_rx)
+						continue;
+					PHL_DBG_MON_INFO(out_len, used, output + used,
+							out_len - used, "[RxBA] TID[%d]: Ampdus size(%d), stored_mpdu_num(%d)\n",
+							tid_rx->tid, tid_rx->buf_size,
+							tid_rx->stored_mpdu_num);
+				}
+				_os_spinunlock(drv, &psta->tid_rx_lock, _bh, NULL);
+				if (ctrl == 2)
+					PHL_DBG_MON_DUMP(out_len, used, output + used, out_len - used,
+						"[Cap] asoc_cap", &psta->asoc_cap, sizeof(psta->asoc_cap));
 			}
-
-			_convert_tx_rate( psta->hal_sta->ra_info.rpt_rt_i.mode,
-					psta->hal_sta->ra_info.rpt_rt_i.mcs_ss_idx,
-			 		tx_rate_str, 32);
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "[Stats] Tx Rate :%s\n",
-				tx_rate_str);
-
-			_convert_rx_rate(psta->stats.rx_rate, rx_rate_str, 32);
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "[Stats] Rx Rate :%s\n",
-				rx_rate_str);
-
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-				out_len - used, "[Stats] rx_ok_cnt:%d rx_err_cnt:%d\n",
-				(int)psta->hal_sta->trx_stat.rx_ok_cnt,
-				(int)psta->hal_sta->trx_stat.rx_err_cnt);
-
-			PHL_DBG_MON_INFO(out_len, used, output + used,
-					 out_len - used, "[Stats] tx retry ratio:%d %%\n",
-					 (u8)psta->hal_sta->ra_info.curr_retry_ratio);
-
+			_os_spinunlock(drv, &rlink->assoc_sta_queue.lock, _bh, NULL);
 		}
-		_os_spinunlock(drv, &wrole->assoc_sta_queue.lock, _bh, NULL);
+	}
+}
+
+void phl_dbg_cmd_phy_stats(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+		      u32 input_num, char *output, u32 out_len)
+{
+	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
+	u32 used = 0;
+	int i;
+
+	PHL_DBG_MON_INFO(out_len, used, output + used,
+			out_len - used, "\nDUMP PHY stats\n");
+	for(i=0; i<HW_BAND_MAX; i++) {
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+			out_len - used, "\n[PHY%d]\tcurrent_igi = 0x%x, fa_cnt_cck = %d, fa_cnt_ofdm = %d, Total False Alarm = %d\n",
+			i,
+			(unsigned int)hal_com->band[i].stat_info.igi_fa_rssi,
+			(int)hal_com->band[i].stat_info.cnt_cck_fail,
+			(int)hal_com->band[i].stat_info.cnt_ofdm_fail,
+			(int)hal_com->band[i].stat_info.cnt_fail_all);
+
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+			out_len - used, "\tcnt_cca_all = %d, cnt_crc32_error_all = %d, cnt_crc32_ok_all = %d\n",
+			(int)hal_com->band[i].stat_info.cnt_cca_all,
+			(int)hal_com->band[i].stat_info.cnt_crc32_error_all,
+			(int)hal_com->band[i].stat_info.cnt_crc32_ok_all);
 	}
 }
 
@@ -1275,7 +1729,249 @@ void phl_dbg_cmd_show_rssi(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	}
 
 }
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+void phl_dbg_cmd_sniffer(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+		 	 u32 input_num, char *output, u32 out_len)
+{
+	u8 id = 0;
+	u32 i;
+	u32 used = 0;
+	u32 phl_ary_size = sizeof(phl_dbg_sniffer_cmd_i) /
+			   sizeof(struct phl_dbg_cmd_info);
 
+	if (phl_ary_size == 0)
+		return;
+
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "\n");
+	/* Parsing Cmd ID */
+	if (input_num) {
+		for (i = 0; i < phl_ary_size; i++) {
+			if (_os_strcmp(phl_dbg_sniffer_cmd_i[i].name, input[1]) == 0) {
+				id = phl_dbg_sniffer_cmd_i[i].id;
+				PHL_DBG("[%s]===>\n", phl_dbg_sniffer_cmd_i[i].name);
+				break;
+			}
+		}
+		if (i == phl_ary_size) {
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "PHL SNIFFER CMD not found!\n");
+			return;
+		}
+	}
+
+	switch (id) {
+	case PHL_DBG_SNIFFER_HELP:
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				 "phl_dbg_cmd_parser : PHL_DBG_SNIFFER_HELP \n");
+		for (i = 0; i < phl_ary_size - 2; i++)
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used, "%-5d: %s\n",
+			          (int)i, phl_dbg_sniffer_cmd_i[i + 2].name);
+	break;
+	case PHL_DBG_SNIFFER_PSTS_MODE:
+	{
+		u32 mode;
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"[DBG] PHL_DBG_SNIFFER_PSTS_MODE : 0 = normal, 1 = performance \n");
+		if (input_num <= 1)
+			break;
+		_get_hex_from_string(input[2], &mode);
+		phl_info->phl_com->ppdu_sts_info.sniffer_info_mode =
+			(mode == 1) ? SNIFFER_INFO_MODE_HIGH_PERFORMANCE : SNIFFER_INFO_MODE_NORMAL;
+
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				 "[DBG] set sniffer_info_mode = %d\n",
+				 phl_info->phl_com->ppdu_sts_info.sniffer_info_mode);
+	}
+	break;
+	default:
+	break;
+	}
+}
+#endif
+
+static void _phl_switch_lamode(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+			 u32 input_num, char *output, u32 out_len)
+{
+	u32 used = 0;
+	u32 mode = 0;
+	struct rtw_phl_com_t *phl_com = (struct rtw_phl_com_t *) phl_info->phl_com;
+
+	_get_hex_from_string(input[1], &mode);
+	phl_com->dev_cap.la_mode = mode > 0 ? true:false;
+
+	if (phl_com->dev_cap.la_mode){
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "enable lamode\n");
+	} else {
+		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "disable lamode\n");
+	}
+}
+
+#ifdef CONFIG_PHL_CHANNEL_INFO_DBG
+void _phl_dbg_cmd_chan_info(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+		      u32 input_num, char *output, u32 out_len)
+{
+	u32 en;
+	u32 data_sz = 0;
+	u32 mimo_sz = 0;
+	u32 group_num = 0;
+	u32 used = 0;
+	u32 mode = 0;
+	struct rtw_chinfo_action_parm act_parm;
+	struct rtw_phl_stainfo_t *phl_sta;
+	struct rtw_wifi_role_link_t *rlink;
+	void *d = phl_to_drvpriv(phl_info);
+
+	if (input_num != 5 && input_num != 2 && input_num != 6){
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used,
+				 "\n[DBG] echo phl set_chan_info [en(0,1)] [mode(0,1,2,3)]");
+
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used,
+				 "[data_sz(0,1)] [mimo_sz(hex)] [group_num(0,1,2,3)]\n");
+
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used,
+				 "\n[DBG] echo phl set_chan_info [en(0,1)] [data_sz(0,1)] [mimo_sz(hex)] [group_num(0,1,2,3)]\n");
+
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used,
+				 "\n[DBG] echo phl set_chan_info 0 to disable\n");
+		return;
+	}
+
+	rlink = &(phl_info->phl_com->wifi_roles[0].rlink[0]);
+	if (rlink->mstate != MLME_LINKED) {
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+			out_len - used,
+			"[DBG] please connect to AP firset\n");
+		return;
+	}
+
+	phl_sta = rtw_phl_get_stainfo_self(phl_info, rlink);
+	if (phl_sta == NULL || phl_sta->active != true) {
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+			out_len - used,
+			"[DBG] please check interface state first\n");
+		return;
+	}
+
+	if (!_get_hex_from_string(input[1], &en))
+		return;
+
+	PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used,
+					 "\n[DBG] PHL_DBG_CHAN_INFO ==> en = %d\n",
+					 (int)en);
+
+	_os_mem_set(d, &act_parm, 0, sizeof(struct rtw_chinfo_action_parm));
+
+	if (input_num == 2) {
+		act_parm.act = CHINFO_ACT_EN;
+		act_parm.sta = phl_sta;
+		act_parm.mode = CHINFO_MODE_MACID;
+		act_parm.enable = (u8)en;
+		rtw_phl_cmd_cfg_chinfo(phl_info, &act_parm, PHL_CMD_WAIT, 500);
+	} else {
+		if (input_num == 5) {
+			/* default for macid hit */
+			act_parm.mode = CHINFO_MODE_MACID;
+			if (!_get_hex_from_string(input[2], &data_sz))
+				return;
+
+			if (!_get_hex_from_string(input[3], &mimo_sz))
+				return;
+
+			if (!_get_hex_from_string(input[4], &group_num))
+				return;
+		} else if (input_num == 6) {
+			/* choose mode*/
+			if (!_get_hex_from_string(input[2], &mode))
+				return;
+			act_parm.mode = mode;
+			if (!_get_hex_from_string(input[3], &data_sz))
+				return;
+
+			if (!_get_hex_from_string(input[4], &mimo_sz))
+				return;
+
+			if (!_get_hex_from_string(input[5], &group_num))
+				return;
+		}
+
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used,
+					 "[DBG] PHL_DBG_CHAN_INFO ==> mode = %d\n",
+					 (int)act_parm.mode);
+
+		if(data_sz == 0) {
+			act_parm.accuracy = CHINFO_ACCU_1BYTE;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used,
+					 "[DBG] PHL_DBG_CHAN_INFO ==> data_sz = 1BYTE(%d)\n",
+					 (int)data_sz);
+		} else if (data_sz == 1) {
+			act_parm.accuracy = CHINFO_ACCU_2BYTES;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used,
+					 "[DBG] PHL_DBG_CHAN_INFO ==> data_sz = 2BYTES(%d)\n",
+					 (int)data_sz);
+		} else {
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used,
+					 "[DBG] PHL_DBG_CHAN_INFO ==> unknown data_sz = %d\n",
+					 (int)data_sz);
+			return;
+		}
+
+		PHL_DBG_MON_INFO(out_len, used, output + used,
+					 out_len - used,
+					 "[DBG] PHL_DBG_CHAN_INFO ==> mimo_sz = 0x%02x\n",
+					 (int)mimo_sz);
+
+		if(group_num == 0) {
+			act_parm.group_num = CHINFO_GROUP_NUM_1;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used,
+						 "[DBG] PHL_DBG_CHAN_INFO ==> group_num = 1/1(%d)\n",
+						 (int)group_num);
+		} else if (group_num == 1) {
+			act_parm.group_num = CHINFO_GROUP_NUM_2;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used,
+						 "[DBG] PHL_DBG_CHAN_INFO ==> group_num = 1/2(%d)\n",
+						 (int)group_num);
+		} else if (group_num == 2) {
+			act_parm.group_num = CHINFO_GROUP_NUM_4;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used,
+						 "[DBG] PHL_DBG_CHAN_INFO ==> group_num = 1/4(%d)\n",
+						 (int)group_num);
+		} else if (group_num == 3) {
+			act_parm.group_num = CHINFO_GROUP_NUM_16;
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used,
+						 "[DBG] PHL_DBG_CHAN_INFO ==> group_num = 1/16(%d)\n",
+						 (int)group_num);
+		} else {
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+						 out_len - used,
+						 "[DBG] PHL_DBG_CHAN_INFO ==> unknown group_num = %d\n",
+						 (int)group_num);
+			return;
+		}
+		act_parm.act = CHINFO_ACT_CFG;
+		act_parm.sta = phl_sta;
+		act_parm.enable = (u8)en;
+		act_parm.trig_period = 30;
+		act_parm.ele_bitmap = mimo_sz;
+		rtw_phl_cmd_cfg_chinfo(phl_info, &act_parm, PHL_CMD_WAIT, 500);
+		act_parm.act = CHINFO_ACT_EN;
+		rtw_phl_cmd_cfg_chinfo(phl_info, &act_parm, PHL_CMD_WAIT, 500);
+	}
+}
+#endif
 #ifdef CONFIG_RTW_DEBUG
 static void _phl_set_level(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			 u32 input_num, char *output, u32 out_len)
@@ -1307,6 +2003,16 @@ static void _phl_set_level(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 				out_len - used, "PHL CMD not found!\n");
 }
 #endif /*CONFIG_RTW_DEBUG*/
+
+#ifdef CONFIG_RTW_DEBUG_CCCR
+static void _phl_dump_cccr(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+			 u32 input_num, char *output, u32 out_len)
+{
+	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
+
+	rtw_hal_dbg_cccr_dump(hal_com);
+}
+#endif /*CONFIG_RTW_DEBUG_CCCR*/
 
 void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		        u32 input_num, char *output, u32 out_len)
@@ -1361,10 +2067,12 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		u32 ret = 0;
 
 		PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
-			"[DBG] PHL_DBG_COMP [1=set comp_bit, 2=clear comp_bit, 4=set value]\n");
-		if (input_num <= 2)
+			"[DBG] PHL_DBG_COMP [1=set comp_bit, 2=clear comp_bit, 3=show, 4=set value] \n");
+		if (input_num <= 1)
 			break;
 		_get_hex_from_string(input[1], &ctrl);
+		if (ctrl != 3 && input_num <= 2)
+			break;
 		_get_hex_from_string(input[2], &comp);
 
 		ret = rtw_phl_dbg_ctrl_comp((u8)ctrl, comp);
@@ -1374,7 +2082,7 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	break;
 	case PHL_DBG_DUMP_WROLE:
 	{
-		_dump_wifi_role(phl_info, output, out_len);
+		_dump_wifi_role(phl_info, input, input_num, output, out_len);
 	}
 	break;
 	case PHL_DBG_SET_CH_BW:
@@ -1388,6 +2096,13 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		_dump_rx_rate(phl_info, input, input_num, output, out_len);
 	}
 	break;
+#ifdef DEBUG_PHL_RX
+	case PHL_DBG_PHL_RX:
+	{
+		phl_dbg_cmd_phl_rx(phl_info, input, input_num, output, out_len);
+	}
+	break;
+#endif
 	case PHL_DBG_SOUND :
 	{
 		phl_dbg_cmd_snd(phl_info, input, input_num, output, out_len);
@@ -1396,6 +2111,11 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	case PHL_DBG_ASOC_STA:
 	{
 		phl_dbg_cmd_asoc_sta(phl_info, input, input_num, output, out_len);
+	}
+	break;
+	case PHL_DBG_PHY_STATS:
+	{
+		phl_dbg_cmd_phy_stats(phl_info, input, input_num, output, out_len);
 	}
 	break;
 	#ifdef CONFIG_FSM
@@ -1440,10 +2160,20 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 #ifdef CONFIG_MCC_SUPPORT
 	case PHL_DBG_MCC:
 	{
-		_mcc_cmd_parser(phl_info, input, input_num, output, out_len);
+		_dump_mcc_info(phl_info, input, input_num, output, out_len);
 	}
 	break;
 #endif /* CONFIG_MCC_SUPPORT */
+	case PHL_DBG_BCN:
+	{
+		_bcn_cmd_parser(phl_info, input, input_num, output, out_len);
+	}
+	break;
+	case PHL_DBG_MR:
+	{
+		_dump_mr_info(phl_info, output, out_len);
+	}
+	break;
 
 	case PHL_DBG_ECSA:
 	{
@@ -1466,7 +2196,7 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		_os_sscanf(input[5], "%d", &op_class);
 		_os_sscanf(input[6], "%d", &mode);
 		_os_sscanf(input[7], "%d", &delay_start_ms);
-		role = rtw_phl_get_wrole_by_ridx(phl_info->phl_com, 2);
+		role = phl_get_wrole_by_ridx(phl_info, 2);
 		if(role){
 			param.ecsa_type = ECSA_TYPE_AP;
 			param.ch = (u8)chan;
@@ -1479,7 +2209,15 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			param.new_chan_def.bw = (u8)bw;
 			param.new_chan_def.offset = (u8)offset;
 
-			rtw_phl_ecsa_start(phl_info, role, &param);
+			if (role->rlink_num == 1) {
+				rtw_phl_ecsa_start(phl_info,
+				                   role,
+				                   &role->rlink[role->rlink_num-1],
+				                   &param);
+			} else {
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "[DBG] MLD not support ECSA\n");
+			}
 		}
 		else
 			PHL_DBG_MON_INFO(out_len, used, output + used,
@@ -1490,6 +2228,11 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 #endif /* CONFIG_PHL_ECSA */
 	}
 	break;
+
+	case PHL_DBG_LA_ENABLE:
+		_phl_switch_lamode(phl_info, input, input_num, output, out_len);
+	break;
+
 	case PHL_DBG_CFG_TX_DUTY:
 	{
 		int tx_duty = 100;
@@ -1518,11 +2261,29 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 			"[DBG] Current TX duty control: %d \n", tx_duty);
 	}
 	break;
+#ifdef CONFIG_PHL_CHANNEL_INFO_DBG
+	case PHL_DBG_CHAN_INFO:
+		_phl_dbg_cmd_chan_info(phl_info, input, input_num, output, out_len);
+		break;
+#endif
 
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+	case PHL_DBG_SNIFFER:
+	{
+		phl_dbg_cmd_sniffer(phl_info, input, input_num, output, out_len);
+	}
+	break;
+#endif
 	case PHL_DBG_SET_LEVEL:
 	#ifdef CONFIG_RTW_DEBUG
 		_phl_set_level(phl_info, input, input_num, output, out_len);
 	#endif /*CONFIG_RTW_DEBUG*/
+	break;
+
+	case PHL_DBG_CCCR_DUMP:
+	#ifdef CONFIG_RTW_DEBUG_CCCR
+		_phl_dump_cccr(phl_info, input, input_num, output, out_len);
+	#endif /*CONFIG_RTW_DEBUG_CCCR*/
 	break;
 
 	default:
@@ -1551,9 +2312,6 @@ phl_dbg_proc_cmd(struct phl_info_t *phl_info,
 			break;
 		}
 	} while (argc < MAX_ARGC);
-
-	if (argc == 1)
-		argv[0][_os_strlen((u8 *)argv[0])] = '\0';
 
 	phl_dbg_cmd_parser(phl_info, argv, argc, output, out_len);
 

@@ -27,6 +27,10 @@ u8 rtw_free_drv_sw(_adapter *padapter);
 u8 rtw_reset_drv_sw(_adapter *padapter);
 void rtw_drv_stop_prim_iface(_adapter *adapter);
 
+u8 rtw_adapter_link_init(struct dvobj_priv *dvobj);
+void rtw_adapter_link_deinit(struct dvobj_priv *dvobj);
+int rtw_init_link_capab(struct dvobj_priv *dvobj);
+
 #if 0 /*#ifdef CONFIG_CORE_CMD_THREAD*/
 u32 rtw_start_drv_threads(_adapter *padapter);
 void rtw_stop_drv_threads(_adapter *padapter);
@@ -76,13 +80,6 @@ void rtw_set_rtnl_lock_holder(struct dvobj_priv *dvobj, _thread_hdl_ thd_hdl);
 extern int rtw_ioctl(struct ifnet *ifp, u_long cmd, caddr_t data);
 #endif
 
-void rtw_ips_dev_unload(_adapter *padapter);
-
-#ifdef CONFIG_IPS
-int rtw_ips_pwr_up(_adapter *padapter);
-void rtw_ips_pwr_down(_adapter *padapter);
-#endif
-
 #ifdef CONFIG_CONCURRENT_MODE
 struct _io_ops;
 struct dvobj_priv;
@@ -92,7 +89,7 @@ void rtw_drv_free_vir_ifaces(struct dvobj_priv *dvobj);
 #endif
 
 void rtw_ndev_destructor(_nic_hdl ndev);
-#ifdef CONFIG_ARP_KEEP_ALIVE
+#ifdef CONFIG_ARP_KEEP_ALIVE_GW
 int rtw_gw_addr_query(_adapter *padapter);
 #endif
 

@@ -13,7 +13,6 @@
  *
  *****************************************************************************/
 #define _RTL8852B_OPS_C_
-#include "../hal_headers.h"
 #include "rtl8852b_hal.h"
 
 static void read_chip_version_8852b(struct rtw_phl_com_t *phl_com,
@@ -57,9 +56,9 @@ void hal_set_ops_8852b(struct rtw_phl_com_t *phl_com,
 	ops->cfg_bcn = hal_config_beacon_8852b;
 	ops->upt_bcn = hal_update_beacon_8852b;
 #endif
+	ops->get_path_from_ant_num = hal_get_path_from_ant_num_8852b;
+	ops->cfg_ppdu_sts = rtw_hal_mac_ppdu_stat_cfg;
 
-	ops->pkt_ofld = rtw_hal_mac_pkt_ofld;
-	ops->pkt_update_ids = rtw_hal_mac_pkt_update_ids;
 }
 
 #if 0

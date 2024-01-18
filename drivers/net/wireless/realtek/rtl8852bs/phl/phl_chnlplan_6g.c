@@ -37,6 +37,8 @@ const struct regulatory_domain_mapping_6g rdmap6[MAX_RD_MAP_NUM_6GHZ] = {
     {0x07, REGULATION_IC, 6},
     {0x08, REGULATION_KCC, 6},
     {0x09, REGULATION_KCC, 1},
+    {0x1b, REGULATION_ACMA, 1},
+    {0x1c, REGULATION_MKK, 1},
     {0x7f, REGULATION_WW, 5},
 };
 

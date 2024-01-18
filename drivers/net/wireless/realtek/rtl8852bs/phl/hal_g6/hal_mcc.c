@@ -168,33 +168,11 @@ enum rtw_hal_status _mcc_replace_pattern(struct hal_info_t *hal,
 	struct rtw_phl_mcc_role *ref_role =
 				&new_info->mcc_role[new_info->ref_role_idx];
 	bool btc_in_group = false;
-	struct rtw_phl_mcc_dbg_info dbg_i = {0};
-	u64 new_tsf = 0, ori_tsf = 0;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> _mcc_replace_pattern\n");
 	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_mac_get_mcc_group(hal, &new_info->group)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_replace_pattern(): Allocate group fail\n");
 		goto exit;
-	}
-	new_tsf = new_info->tsf_high;
-	new_tsf = new_tsf << 32;
-	new_tsf |= new_info->tsf_low;
-	ori_tsf = ori_info->tsf_high;
-	ori_tsf = ori_tsf << 32;
-	ori_tsf |= ori_info->tsf_low;
-	if (new_tsf < ori_tsf) {
-		u64 cnt = 0;
-
-		PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "_mcc_replace_pattern(): new_tsf(0x%08x %08x) < ori_tsf(0x%08x %08x), we shall extend the new start tsf\n",
-			new_info->tsf_high, new_info->tsf_low,
-			ori_info->tsf_high, ori_info->tsf_low);
-		cnt = _os_division64((ori_tsf - new_tsf),
-				     (new_info->mcc_intvl * TU));
-		new_tsf = new_tsf + ((cnt + 1) * (new_info->mcc_intvl * TU));
-		new_info->tsf_high = (u32)(new_tsf >> 32);
-		new_info->tsf_low = (u32)new_tsf;
-		PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "_mcc_replace_pattern(): extended new_tsf(0x%08x %08x)\n",
-			new_info->tsf_high, new_info->tsf_low);
 	}
 	_os_mem_set(hal_to_drvpriv(hal), &new_info->dbg_hal_i, 0,
 			sizeof(struct rtw_phl_mcc_dbg_hal_info));
@@ -218,9 +196,7 @@ enum rtw_hal_status _mcc_replace_pattern(struct hal_info_t *hal,
 	}
 	status = rtw_hal_mac_start_mcc(hal, new_info->group,
 					(u8)ref_role->macid, new_info->tsf_high,
-					new_info->tsf_low, btc_in_group, 1,
-					ori_info->group,
-					&dbg_i);
+					new_info->tsf_low, btc_in_group, 1, ori_info->group);
 	if (status != RTW_HAL_STATUS_SUCCESS) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_replace_pattern(): Start MCC failed\n");
 		goto exit;
@@ -230,6 +206,34 @@ exit:
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "<<< _mcc_replace_pattern(): Ststus(%d)\n",
 		status);
 	return status;
+}
+
+void
+_mcc_check_start_t(struct rtw_phl_mcc_en_info *ori_info,
+			struct rtw_phl_mcc_en_info *new_info)
+{
+	u64 new_tsf = 0, ori_tsf = 0;
+
+	new_tsf = new_info->tsf_high;
+	new_tsf = new_tsf << 32;
+	new_tsf |= new_info->tsf_low;
+	ori_tsf = ori_info->tsf_high;
+	ori_tsf = ori_tsf << 32;
+	ori_tsf |= ori_info->tsf_low;
+	if (new_tsf < ori_tsf) {
+		u64 cnt = 0;
+
+		PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "%s: new_tsf(0x%08x %08x) < ori_tsf(0x%08x %08x), we shall extend the new start tsf\n",
+			__FUNCTION__, new_info->tsf_high, new_info->tsf_low,
+			ori_info->tsf_high, ori_info->tsf_low);
+		cnt = _os_division64((ori_tsf - new_tsf),
+				     (new_info->mcc_intvl * TU));
+		new_tsf = new_tsf + ((cnt + 1) * (new_info->mcc_intvl * TU));
+		new_info->tsf_high = (u32)(new_tsf >> 32);
+		new_info->tsf_low = (u32)new_tsf;
+		PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "%s: extended new_tsf(0x%08x %08x)\n",
+			__FUNCTION__, new_info->tsf_high, new_info->tsf_low);
+	}
 }
 
 enum rtw_hal_status rtw_hal_mcc_get_2ports_tsf(void *hal, u8 group,
@@ -337,6 +341,8 @@ enum rtw_hal_status rtw_hal_mcc_change_pattern(void *hal,
 				struct rtw_phl_mcc_bt_info *new_bt_info)
 {
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
+
+	_mcc_check_start_t(ori_info, new_info);
 	/* mcc_set_duration only can change 2 wifi slot,
 	otherwise we shall create new pattern and replace previous pattern*/
 	if (new_info->m_pattern.slot_num == 2 &&
@@ -403,7 +409,7 @@ enum rtw_hal_status rtw_hal_mcc_disable(void *hal, u8 group, u16 macid,
 #ifdef RTW_WKARD_HALRF_MCC
 	rtw_hal_rf_dpk_switch(hal, true);
 #endif /* RTW_WKARD_HALRF_MCC */
-	rtw_hal_notification(hal, MSG_EVT_MCC_STOP, sta->wrole->hw_band);
+	rtw_hal_notification(hal, MSG_EVT_MCC_STOP, sta->rlink->hw_band);
 	status = RTW_HAL_STATUS_SUCCESS;
 exit:
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "rtw_hal_mcc_disable(): Ststus(%d)\n",
@@ -413,8 +419,7 @@ exit:
 
 enum rtw_hal_status rtw_hal_mcc_enable(void *hal, struct rtw_phl_mcc_en_info *info,
 					struct rtw_phl_mcc_bt_info *bt_info,
-					enum rtw_phl_tdmra_wmode wmode,
-					struct rtw_phl_mcc_dbg_info *dbg_i)
+					enum rtw_phl_tdmra_wmode wmode)
 {
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
 	struct rtw_phl_mcc_role *ref_role = &info->mcc_role[info->ref_role_idx];
@@ -447,8 +452,7 @@ enum rtw_hal_status rtw_hal_mcc_enable(void *hal, struct rtw_phl_mcc_en_info *in
 	}
 	status = rtw_hal_mac_start_mcc(hal, info->group,
 					(u8)ref_role->macid, info->tsf_high,
-					info->tsf_low, btc_in_group, 0, 0,
-					dbg_i);
+					info->tsf_low, btc_in_group, 0, 0);
 	if (status != RTW_HAL_STATUS_SUCCESS) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_hal_mcc_enable(): Start MCC failed\n");
 		goto exit;
@@ -462,7 +466,7 @@ enum rtw_hal_status rtw_hal_mcc_enable(void *hal, struct rtw_phl_mcc_en_info *in
 			PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_hal_mcc_enable(): Notify MCC start failed\n");
 		}
 	}
-	rtw_hal_notification(hal, MSG_EVT_MCC_START, ref_role->wrole->hw_band);
+	rtw_hal_notification(hal, MSG_EVT_MCC_START, ref_role->rlink->hw_band);
 	status = RTW_HAL_STATUS_SUCCESS;
 exit:
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "rtw_hal_mcc_enable(): Ststus(%d)\n",

@@ -54,7 +54,6 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_FREECNT,
 	HW_VAR_STOP_BCN,
 	HW_VAR_RESUME_BCN,
-
 	/* PHYDM odm->SupportAbility */
 	HW_VAR_CAM_EMPTY_ENTRY,
 	HW_VAR_CAM_INVALID_ALL,
@@ -63,9 +62,6 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_AC_PARAM_BE,
 	HW_VAR_AC_PARAM_BK,
 	HW_VAR_ACM_CTRL,
-#ifdef CONFIG_WMMPS_STA
-	HW_VAR_UAPSD_TID,
-#endif /* CONFIG_WMMPS_STA */
 	HW_VAR_AMPDU_MIN_SPACE,
 #ifdef CONFIG_80211N_HT
 	HW_VAR_AMPDU_FACTOR,
@@ -76,11 +72,6 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_H2C_FW_PWRMODE,
 	HW_VAR_H2C_INACTIVE_IPS,
 	HW_VAR_H2C_FW_JOINBSSRPT,
-	HW_VAR_FWLPS_RF_ON,
-	HW_VAR_H2C_FW_P2P_PS_OFFLOAD,
-#ifdef CONFIG_LPS_PG
-	HW_VAR_LPS_PG_HANDLE,
-#endif
 	HW_VAR_TRIGGER_GPIO_0,
 	HW_VAR_BT_SET_COEXIST,
 	HW_VAR_BT_ISSUE_DELBA,
@@ -111,10 +102,6 @@ typedef enum _HW_VARIABLES {
 	HW_VAR_USB_MODE,
 	HW_VAR_PORT_SWITCH,
 	HW_VAR_PORT_CFG,
-	HW_VAR_DM_IN_LPS_LCLK,/*flag CONFIG_LPS_LCLK_WD_TIMER*/
-	#ifdef DBG_CHECK_FW_PS_STATE
-	HW_VAR_FW_PS_STATE,
-	#endif
 	HW_VAR_SOUNDING_ENTER,
 	HW_VAR_SOUNDING_LEAVE,
 	HW_VAR_SOUNDING_RATE,
@@ -179,14 +166,8 @@ static inline u8 rtw_hal_set_def_var(_adapter *padapter, HAL_DEF_VARIABLE def_va
 	return 0;
 }
 
-u8 rtw_hal_get_def_var(struct _ADAPTER *a,
-		       enum _HAL_DEF_VARIABLE def_var, void *val);
-
-static inline u8 rtw_hal_check_ips_status(_adapter *padapter)
-{
-	return 0;
-}
-
+u8 rtw_hal_get_def_var(struct _ADAPTER *a, struct _ADAPTER_LINK *alink,
+				enum _HAL_DEF_VARIABLE def_var, void *val);
 
 static inline void rtw_hal_sec_read_cam_ent(_adapter *adapter, u8 id, u8 *ctrl, u8 *mac, u8 *key)
 {}
@@ -236,9 +217,6 @@ static inline u8 rtw_hal_get_sounding_info(_adapter *adapter,u16 *throughput,
 static inline void rtw_hal_dump_target_tx_power(void *sel, _adapter *adapter)
 {}
 
-static inline void rtw_hal_dump_tx_power_by_rate(void *sel, _adapter *adapter)
-{}
-
 static inline void rtw_hal_dump_trx_mode(void *sel, _adapter *adapter)
 {}
 
@@ -274,15 +252,7 @@ void rtw_led_set_ctl_en_mask_virtual(_adapter *adapter);
 #endif /* defined(CONFIG_RTW_LED) && defined(CONFIG_RTW_SW_LED) */
 
 #ifdef CONFIG_PCI_HCI
-static inline void rtw_hal_irp_reset(_adapter *padapter)
-{}
-static inline void rtw_hal_pci_dbi_write(_adapter *padapter, u16 addr, u8 data)
-{}
 static inline u8 rtw_hal_pci_dbi_read(_adapter *padapter, u16 addr)
-{	return 0;}
-static inline void rtw_hal_pci_mdio_write(_adapter *padapter, u8 addr, u16 data)
-{}
-static inline u16 rtw_hal_pci_mdio_read(_adapter *padapter, u8 addr)
 {	return 0;}
 static inline u8 rtw_hal_pci_l1off_nic_support(_adapter *padapter)
 {	return 0;}
@@ -299,10 +269,6 @@ static inline void rtw_hal_unmap_beacon_icf(_adapter *padapter)
 #if defined(CONFIG_PCI_HCI)
 static inline u8 rtw_hal_check_nic_enough_desc_all(_adapter *padapter)
 { return _SUCCESS;}
-static s32 rtw_hal_dump_xframe(_adapter *adapter, struct xmit_frame *pxmitframe)
-{ return _SUCCESS;}
-
-
 #endif
 
 static inline s32 rtw_hal_macid_sleep(_adapter *adapter, u8 macid)
@@ -332,11 +298,6 @@ static inline s32 rtw_hal_fill_h2c_cmd(_adapter *padapter, u8 ElementID, u32 Cmd
 	return 0;
 }
 
-static inline void rtw_hal_reqtxrpt(_adapter *padapter, u8 macid)
-{
-	//if (hal->hal_ops.reqtxrpt)
-		//hal->hal_ops.reqtxrpt(padapter, macid);
-}
 static inline u8 rtw_hal_get_port(_adapter *adapter)
 {	return 0;}
 
@@ -346,34 +307,6 @@ static inline void rtw_hal_read_edca(_adapter *adapter, u16 *vo_params, u16 *vi_
 	//hal->hal_func.read_wmmedca_reg(padapter, vo_params, vi_params, be_params, bk_params);
 }
 
-static inline void rtw_hal_update_iqk_fw_offload_cap(_adapter *adapter)
-{}
-
-static inline void rtw_hal_dump_sta_traffic(void *sel, _adapter *adapter, struct sta_info *psta)
-{}
-static inline s32 rtw_hal_set_FwMediaStatusRpt_single_cmd
-	(_adapter *adapter, bool opmode, bool miracast, bool miracast_sink, u8 role, u8 macid)
-{	return 0;}
-
-static inline void rtw_hal_rcr_set_chk_bssid(_adapter *adapter, u8 self_action)
-{}
-
-enum QSEL_ID {
-	QSLT_BK_ID,
-	QSLT_BE_ID,
-	QSLT_VI_ID,
-	QSLT_VO_ID,
-	QSLT_BEACON_ID,
-	QSLT_HIGH_ID,
-	QSLT_MGNT_ID,
-	QSLT_CMD_ID
-};
-
-static inline u8 rtw_hal_get_qsel(_adapter *adapter, enum QSEL_ID qsel)
-{
-	/*QSLT_HIGH*/
-	return 0;
-}
 /************************ xmit *******************/
 static inline void rtw_hal_bcn_param_setting(_adapter *padapter)
 {
@@ -385,10 +318,6 @@ static inline void rtw_hal_set_tx_power_level(_adapter *adapter, u8 channel)
 
 
 /****************** GEORGIA_TODO_REDEFINE_IO ************************/
-static inline u32 rtw_hal_get_htsf(_adapter *adapter)/*get tst high 4 bytes */
-{
-	return 0;
-}
 static inline u32 rtw_hal_get_ltsf(_adapter *adapter)/*get tst low 4 bytes */
 {
 	return 0;
@@ -398,12 +327,6 @@ static inline u32 rtw_hal_get_dma_statu(_adapter *adapter)
 {
 	return 0;
 }
-#ifdef DBG_TXBD_DESC_DUMP
-static inline u32 rtw_hal_get_txbd_rwreg(_adapter *adapter)
-{
-	return 0;
-}
-#endif
 
 #ifdef RTW_SUPPORT_PLATFORM_SHUTDOWN
 static inline u8 rtw_hal_sdio_leave_suspend(_adapter *adapter)
@@ -411,18 +334,6 @@ static inline u8 rtw_hal_sdio_leave_suspend(_adapter *adapter)
 	return 0;
 }
 #endif
-
-#if defined(CONFIG_FWLPS_IN_IPS)
-static inline void rtw_hal_set_fw_in_ips_mode(_adapter *padapter, u8 enable)
-{}
-#endif
-#ifdef CONFIG_LPS_RPWM_TIMER
-static inline bool rtw_hal_is_leave_ps(_adapter *padapter)
-{
-	return _FALSE;
-}
-#endif
-
 
 static inline void rtw_hal_get_version(char *str, u32 len)
 {

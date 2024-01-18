@@ -77,12 +77,13 @@ struct test_mgnt_info{
 	/* test module context root */
 	void *mp_ctx;
 	void *ver_ctx;
+	void *fpga_ctx;
 };
 
 struct test_module_cmd {
 	u8 type;
-	u8 buf[MAX_TEST_CMD_BUF];
 	u16 len;
+	u8 buf[MAX_TEST_CMD_BUF];
 };
 
 struct test_module_info {
@@ -221,7 +222,9 @@ int test_thread(void *param)
 			} else if (obj->submd_test_mode == INTGR_TEST_MODE) {
 				PHL_INFO("[TM]: %s INTGR_TEST_MODE \n", __FUNCTION__);
 				thread = &obj->objthread;
-				_os_thread_init(d, thread, run_test, obj, obj->test_obj.name);
+				if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, thread, run_test, obj, obj->test_obj.name)) {
+					PHL_ERR("[TM]: thread init run_test fail. return.\n");
+				}
 				_os_thread_schedule(d, thread);
 			}
 			test_mgnt->cur_test_obj = NULL;
@@ -239,12 +242,14 @@ static void _test_submodule_deinit(void *tm)
 
 	phl_test_mp_deinit(test_mgnt->mp_ctx);
 	phl_test_verify_deinit(test_mgnt->ver_ctx);
+	phl_test_fpga_deinit(test_mgnt->fpga_ctx);
 }
 
 u8 phl_test_module_init(struct phl_info_t *phl_info)
 {
 	struct rtw_phl_com_t* phl_com = phl_info->phl_com;
 	struct test_mgnt_info *test_mgnt = NULL;
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
 	void *d = NULL;
 	u8 i = 0;
 
@@ -265,19 +270,29 @@ u8 phl_test_module_init(struct phl_info_t *phl_info)
 	for(i = 0; i < MAX_TEST_OBJ_NUM; i++)
 		test_mgnt->test_obj_pool[i].submd_obj_id = TEST_SUB_MODULE_UNKNOWN;
 
-	if (phl_test_mp_alloc(test_mgnt->phl, test_mgnt->hal, &(test_mgnt->mp_ctx)) != RTW_PHL_STATUS_SUCCESS) {
+	psts = phl_test_mp_alloc(test_mgnt->phl, test_mgnt->hal, &(test_mgnt->mp_ctx));
+	if (psts != RTW_PHL_STATUS_SUCCESS) {
 		PHL_INFO("[TM]: %s phl_test_mp_alloc fail!\n",__FUNCTION__);
 		goto _mp_module_mem;
 	}
 
-	if(phl_test_verify_alloc(test_mgnt->phl, test_mgnt->hal, &(test_mgnt->ver_ctx)) != RTW_PHL_STATUS_SUCCESS) {
+	psts = phl_test_verify_alloc(test_mgnt->phl, test_mgnt->hal, &(test_mgnt->ver_ctx));
+	if(psts != RTW_PHL_STATUS_SUCCESS) {
 		PHL_INFO("[TM]: %s phl_test_verify_alloc fail!\n",__FUNCTION__);
 		goto _verify_module_mem;
+	}
+
+	psts = phl_test_fpga_alloc(test_mgnt->phl, test_mgnt->hal, &(test_mgnt->fpga_ctx));
+	if(psts != RTW_PHL_STATUS_SUCCESS) {
+		PHL_INFO("[TM]: %s phl_test_fpga_alloc fail!\n",__FUNCTION__);
+		goto _fpga_module_mem;
 	}
 
 	PHL_INFO("[TM]: %s\n",__FUNCTION__);
 	return true;
 
+_fpga_module_mem:
+	phl_test_verify_free(&test_mgnt->ver_ctx);
 _verify_module_mem:
 	phl_test_mp_free(&test_mgnt->mp_ctx);
 _mp_module_mem:
@@ -301,6 +316,7 @@ void phl_test_module_deinit(struct rtw_phl_com_t* phl_com)
 
 	phl_test_mp_free(&test_mgnt->mp_ctx);
 	phl_test_verify_free(&test_mgnt->ver_ctx);
+	phl_test_fpga_free(&test_mgnt->fpga_ctx);
 	_os_mem_free(d, test_mgnt, sizeof(struct test_mgnt_info));
 	phl_com->test_mgnt = NULL;
 	PHL_INFO("[TM]: %s\n",__FUNCTION__);
@@ -341,7 +357,10 @@ u8 phl_test_module_start(struct rtw_phl_com_t* phl_com)
 
 	thread = &(test_mgnt->thread);
 	_os_sema_init(d, &(test_mgnt->busy_chk), 0);
-	_os_thread_init(d, thread, test_thread, thread, "test_thread");
+	if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, thread, test_thread, thread, "test_thread")) {
+		PHL_ERR("[TM]: thread init test_thread fail. return false.\n");
+		return false;
+	}
 	_os_thread_schedule(d, thread);
 	PHL_INFO("[TM]: %s\n",__FUNCTION__);
 	return true;
@@ -525,8 +544,10 @@ u8 init_obj_thread(struct test_mgnt_info *test_mgnt,
 
 	switch(lvl){
 	case TEST_LVL_LOW:
-	case TEST_LVL_NORMAL:
 		obj->handler.type = RTW_PHL_HANDLER_PRIO_LOW;
+		break;
+	case TEST_LVL_NORMAL:
+		obj->handler.type = RTW_PHL_HANDLER_PRIO_NORMAL;
 		break;
 	case TEST_LVL_HIGH:
 		obj->handler.type = RTW_PHL_HANDLER_PRIO_HIGH;
@@ -535,15 +556,21 @@ u8 init_obj_thread(struct test_mgnt_info *test_mgnt,
 	case TEST_LVL_MAX:
 		PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "init_obj_thread(): Unsupported case:%d, please check it\n",
 				lvl);
-		break;
+		return false;
 	default:
 		PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "init_obj_thread(): Unrecognize case:%d, please check it\n",
 				lvl);
-		break;
+		return false;
 	}
+
 	obj->handler.callback = _test_obj_thread_callback;
 	obj->handler.context = obj;
 	obj->handler.drv_priv = test_mgnt->phl_com->drv_priv;
+
+	#if defined(CONFIG_RTW_OS_HANDLER_EXT)
+	obj->handler.id = RTW_PHL_TEST_HANDLER;
+	#endif /* CONFIG_RTW_OS_HANDLER_EXT */
+
 	pstatus = phl_register_handler(test_mgnt->phl_com, &(obj->handler));
 	return (RTW_PHL_STATUS_SUCCESS != pstatus) ? (false) : (true);
 }
@@ -604,7 +631,7 @@ u8 rtw_phl_test_add_new_test_obj(struct rtw_phl_com_t *phl_com,
 		if (init_obj_thread(test_mgnt, obj, lvl)) {
 			SET_STATUS_FLAG(obj->status, TO_STATUS_ENQ);
 			_enqueue_obj(d,	&(test_mgnt->busy_queue), obj);
-			_os_sema_up(d, &(test_mgnt->busy_chk));
+
 			PHL_INFO("[TM]: %s, id %u EnQ\n", __FUNCTION__, submd_id);
 		} else {
 			_enqueue_obj(d,	&(test_mgnt->idle_queue), obj);
@@ -613,6 +640,9 @@ u8 rtw_phl_test_add_new_test_obj(struct rtw_phl_com_t *phl_com,
 	}
 	if (is_idle_empty || !TEST_STATUS_FLAG(obj->status, TO_STATUS_ENQ))
 		return false;
+
+	_os_sema_up(d, &(test_mgnt->busy_chk));
+
 	return true;
 }
 
@@ -665,6 +695,9 @@ void rtw_phl_test_submodule_init(struct rtw_phl_com_t* phl_com, void *buf)
 			phl_test_verify_start(test_mgnt->ver_ctx);
 			break;
 		case TEST_SUB_MODULE_FPGA:
+			phl_test_fpga_init(test_mgnt->fpga_ctx);
+			phl_test_fpga_start(test_mgnt->fpga_ctx, tm_info->tm_mode);
+			break;
 		case TEST_SUB_MODULE_TOOL:
 		default:
 			break;
@@ -691,6 +724,9 @@ void rtw_phl_test_submodule_deinit(struct rtw_phl_com_t* phl_com, void *buf)
 			phl_test_verify_deinit(test_mgnt->ver_ctx);
 			break;
 		case TEST_SUB_MODULE_FPGA:
+			phl_test_fpga_stop(test_mgnt->fpga_ctx, tm_info->tm_mode);
+			phl_test_fpga_deinit(test_mgnt->fpga_ctx);
+			break;
 		case TEST_SUB_MODULE_TOOL:
 		default:
 			break;
@@ -711,8 +747,9 @@ rtw_phl_test_submodule_cmd_process(struct rtw_phl_com_t* phl_com,
 
 	cmd = (struct test_module_cmd *)buf;
 	type = cmd->type;
-	/* debug_dump_data(cmd->buf, MAX_TEST_CMD_BUF, "[TM] cmd buf ="); */
+	/*debug_dump_data(cmd->buf, MAX_TEST_CMD_BUF, "[TM] cmd buf =");*/
 	PHL_INFO("%s: len = %d\n", __FUNCTION__, cmd->len);
+	PHL_INFO("%s: type = %d\n", __FUNCTION__, cmd->type);
 
 	switch(type) {
 		case TEST_SUB_MODULE_MP:
@@ -722,6 +759,8 @@ rtw_phl_test_submodule_cmd_process(struct rtw_phl_com_t* phl_com,
 			phl_test_verify_cmd_process(test_mgnt->ver_ctx, cmd->buf, cmd->len, TEST_SUB_MODULE_VERIFY);
 			break;
 		case TEST_SUB_MODULE_FPGA:
+			phl_test_fpga_cmd_process(test_mgnt->fpga_ctx, cmd->buf, cmd->len, TEST_SUB_MODULE_FPGA);
+			break;
 		case TEST_SUB_MODULE_TOOL:
 		default:
 			break;
@@ -751,6 +790,8 @@ rtw_phl_test_submodule_get_rpt(struct rtw_phl_com_t* phl_com,
 			phl_test_verify_get_rpt(test_mgnt->ver_ctx, cmd->buf, cmd->len);
 			break;
 		case TEST_SUB_MODULE_FPGA:
+			phl_test_fpga_get_rpt(test_mgnt->fpga_ctx, cmd->buf, cmd->len);
+			break;
 		case TEST_SUB_MODULE_TOOL:
 		default:
 			break;

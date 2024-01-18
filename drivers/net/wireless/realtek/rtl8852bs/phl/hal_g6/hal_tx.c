@@ -53,6 +53,19 @@ u16 hal_calc_avail_wptr(u16 rptr, u16 wptr, u16 bndy)
 	return avail_wptr;
 }
 
+
+enum rtw_hal_status
+rtw_hal_enable_hwamsdu(void *hal,
+			   u8 enable,
+			   u8 max_num,
+			   u8 en_single_amsdu,
+			   u8 en_last_amsdu_padding)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	return rtw_hal_mac_enable_hwamsdu(hal_info, enable, max_num, en_single_amsdu, en_last_amsdu_padding);
+}
+
 /**
  * rtw_hal_tx_chnl_mapping - query hw tx dma channel mapping to the sw xmit ring
  * identified by macid, tid and band
@@ -70,7 +83,7 @@ u8 rtw_hal_tx_chnl_mapping(void *hal, u16 macid,
 	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
 	u8 tx_chnl = 0;
 
-	tx_chnl = trx_ops->map_hw_tx_chnl(macid, cat, band);
+	tx_chnl = trx_ops->map_hw_tx_chnl(hal_info, macid, cat, band);
 
 	return tx_chnl;
 }
@@ -109,15 +122,28 @@ enum rtw_hal_status rtw_hal_chk_allq_empty(void *hal, u8 *empty)
 	return rtw_hal_mac_chk_allq_empty(hal_info, empty);
 }
 
-
-enum rtw_hal_status rtw_hal_fill_txdesc(void *hal, struct rtw_xmit_req *treq,
-					u8 *wd_buf, u32 *wd_len)
+enum rtw_hal_status
+rtw_hal_fill_txdesc(void *hal,
+                    struct rtw_xmit_req *treq,
+                    u8 *wd_buf,
+                    u32 *wd_len)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 
-
-	return rtw_hal_mac_ax_fill_txdesc(hal_info->mac, treq, wd_buf, wd_len);
+	return rtw_hal_mac_fill_txdesc(hal_info->mac, treq, wd_buf, wd_len);
 }
+
+
+enum rtw_hal_status
+rtw_hal_get_hwseq(void *hal, u16 macid, u8 ref_sel, u8 ssn_sel, u16 *hw_seq)
+{
+	enum rtw_hal_status sts = RTW_HAL_STATUS_SUCCESS;
+
+	sts = rtw_hal_mac_get_hwseq(hal, macid, ref_sel, ssn_sel, hw_seq);
+
+	return sts;
+}
+
 
 enum rtw_hal_status
 rtw_hal_poll_hw_tx_done(void *hal)
@@ -171,16 +197,26 @@ u8 rtw_hal_convert_qsel_to_tid(void *hal, u8 qsel_id, u8 tid_indic)
  */
 u16 rtw_hal_tx_res_query(void *hal, u8 dma_ch, u16 *host_idx, u16 *hw_idx)
 {
+	enum rtw_hal_status sts = RTW_HAL_STATUS_FAILURE;
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
 	u16 res_num = 0;
 
-	res_num = trx_ops->query_tx_res(hal_info->hal_com, dma_ch, host_idx,
-					hw_idx);
+	sts = rtw_hal_mac_tx_res_query(hal_info, dma_ch, host_idx, hw_idx,
+	                               &res_num);
 
 	return res_num;
 }
 
+enum phl_band_idx rtw_hal_query_txch_hwband(void *hal, u8 dma_ch)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
+	enum phl_band_idx band_idx = HW_BAND_0;
+
+	band_idx = trx_ops->query_txch_hwband(dma_ch);
+
+	return band_idx;
+}
 
 /**
  * rtw_hal_query_txch_num - query total hw tx dma channels number
@@ -263,15 +299,20 @@ enum rtw_hal_status rtw_hal_update_txbd(void *hal, void *txbd, void *wd, u8 dma_
  *
  * returns enum RTW_HAL_STATUS
  */
-enum rtw_hal_status rtw_hal_trigger_txstart(void *hal, void *txbd, u8 dma_ch)
+enum rtw_hal_status
+rtw_hal_trigger_txstart(void *hal, struct tx_base_desc *txbd, u8 dma_ch)
 {
-	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+	enum rtw_hal_status sts = RTW_HAL_STATUS_FAILURE;
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
 
-	hstatus = trx_ops->tx_start(hal, txbd, dma_ch);
+	sts = rtw_hal_mac_trigger_txstart(hal_info, txbd, dma_ch);
 
-	return hstatus;
+	if (sts != RTW_HAL_STATUS_SUCCESS) {
+		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "%s : trigger tx start fail!\n",
+		          __func__);
+	}
+
+	return sts;
 }
 
 u8 rtw_hal_poll_txdma_idle(void *hal)
@@ -338,30 +379,23 @@ u8 rtw_hal_get_max_bulkout_wd_num(void *hal)
 	return trx_ops->get_max_bulkout_wd_num(hal);
 }
 
-/**
- * rtw_hal_fill_wd - fill wd-info and wd-boddy for xmit packet
- * @hal: see struct hal_info_t
- * @phl_pkt_req: packet xmit request from phl, see struct rtw_phl_pkt_req
- *
- * returns enum RTW_HAL_STATUS
- */
-enum rtw_hal_status rtw_hal_fill_wd(void *hal,
-				struct rtw_xmit_req *tx_req,
-				u8 *wd_buf, u32 *wd_len)
+u16 rtw_hal_get_max_dma_txagg_msk(void *hal)
 {
-	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	return hal_mac_usb_get_max_dma_txagg_msk(hal_info);
+}
+
+u32 rtw_hal_get_wd_len(void *hal,
+				struct rtw_xmit_req *tx_req)
+{
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
+	u32 wd_len = 0;
 
-#ifdef RTW_WKARD_CCX_RPT_LIMIT_CTRL
-	if (tx_req->mdata.spe_rpt) {
-		if (tx_req->mdata.data_tx_cnt_lmt_en)
-			hal_info->hal_com->spe_pkt_cnt_lmt = tx_req->mdata.data_tx_cnt_lmt;
-	}
-#endif
-	hstatus = trx_ops->hal_fill_wd(hal_info, tx_req, wd_buf, wd_len);
+	wd_len = trx_ops->hal_get_wd_len(hal_info, tx_req);
 
-	return hstatus;
+	return wd_len;
 }
 
 #endif
@@ -397,19 +431,57 @@ enum rtw_hal_status rtw_hal_sdio_tx(void *hal, u8 dma_ch, u8 *buf, u32 buf_len,
 }
 #endif /* CONFIG_SDIO_HCI */
 
-#define TX_DBG_STATUS_DUMP_INTERVAL 30000 /* ms */
-void rtw_hal_tx_dbg_status_dump(void *hal, enum phl_band_idx hwband)
+/**
+ * rtw_hal_fill_wd - fill wd-info and wd-boddy for xmit packet
+ * @hal: see struct hal_info_t
+ * @phl_pkt_req: packet xmit request from phl, see struct rtw_phl_pkt_req
+ *
+ * returns enum RTW_HAL_STATUS
+ */
+enum rtw_hal_status rtw_hal_fill_wd(void *hal,
+				struct rtw_xmit_req *tx_req,
+				u8 *wd_buf, u32 *wd_len)
+{
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+#if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI)
+	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
+#endif
+
+#ifdef RTW_WKARD_CCX_RPT_LIMIT_CTRL
+	if (tx_req->mdata.spe_rpt) {
+		if (tx_req->mdata.data_tx_cnt_lmt_en)
+			hal_info->hal_com->spe_pkt_cnt_lmt = tx_req->mdata.data_tx_cnt_lmt;
+	}
+#endif
+#if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI)
+	if (trx_ops->hal_fill_wd)
+		hstatus = trx_ops->hal_fill_wd(hal_info, tx_req, wd_buf, wd_len);
+	else
+#endif
+		hstatus = rtw_hal_mac_fill_txdesc(hal_info->mac, tx_req, wd_buf, wd_len);
+
+	return hstatus;
+}
+
+enum rtw_hal_status rtw_hal_cfg_hw_cts2self(void *hal, u8 band_sel, u8 enable,
+					    u8 non_sec_thr, u8 sec_thr)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_mac_dbg_dump_cfg cfg = {0};
-	static u32 last_dump_t = 0;
+	struct mac_ax_cts2self_cfg mac_hw_cts_cfg;
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
 
-	cfg.tx_flow_dbg = 1;
+	if (enable)
+		mac_hw_cts_cfg.threshold_sel = MAC_AX_CTS2SELF_BOTH_THRESHOLD;
+	else
+		mac_hw_cts_cfg.threshold_sel = MAC_AX_CTS2SELF_DISABLE;
 
-	if (phl_get_passing_time_ms(last_dump_t) >= TX_DBG_STATUS_DUMP_INTERVAL) {
-		rtw_hal_notification(hal_info, MSG_EVT_DBG_TX_DUMP, hwband);
-		rtw_hal_mac_dbg_status_dump(hal_info, &cfg);
-		last_dump_t = _os_get_cur_time_ms();
-	}
+	mac_hw_cts_cfg.band_sel = band_sel;
+	mac_hw_cts_cfg.non_sec_threshold = non_sec_thr;
+	mac_hw_cts_cfg.sec_threshold = sec_thr;
+
+	hstatus = rtw_hal_mac_cfg_hw_cts2slef(hal_info, &mac_hw_cts_cfg);
+
+	return hstatus;
 }
 

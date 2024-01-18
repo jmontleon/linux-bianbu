@@ -23,6 +23,7 @@
 #include "mac_ax/secure_boot.h"
 #include "mac_ax/efuse.h"
 #include "mac_ax/p2p.h"
+#include "mac_ax/twt.h"
 #include "mac_ax/dbcc.h"
 #if MAC_AX_SDIO_SUPPORT
 #include "mac_ax/_sdio.h"
@@ -37,12 +38,14 @@
 #endif
 
 #define MAC_AX_MAJOR_VER	0	/*Software Architcture Modify*/
-#define MAC_AX_PROTOTYPE_VER	25	/*New Feature;Regular Release*/
-#define MAC_AX_SUB_VER		72	/*for bug fix*/
-#define MAC_AX_SUB_INDEX	0	/*for special used*/
+#define MAC_AX_PROTOTYPE_VER	29	/*New Feature;Regular Release*/
+#define MAC_AX_SUB_VER		43	/*for bug fix*/
+#define MAC_AX_SUB_INDEX	2	/*for special used*/
 
 #define MAC_AX_SRC_VER(a, b, c, d)                                             \
 				(((a) << 24) + ((b) << 16) + ((c) << 8) + (d))
+
+#define acv_mask		0x0F
 
 #ifdef CONFIG_NEW_HALMAC_INTERFACE
 
@@ -126,5 +129,15 @@ u32 is_chip_id(struct mac_ax_adapter *adapter, enum mac_ax_chip_id id);
  */
 
 u32 is_cv(struct mac_ax_adapter *adapter, enum rtw_cv cv);
+
+/**
+ * @brief xlat_chip_id
+ *
+ * @param hw_id
+ * @param *chip_id
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 xlat_chip_id(u8 hw_id, u8 *chip_id);
 
 #endif

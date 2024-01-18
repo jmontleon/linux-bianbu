@@ -18,31 +18,33 @@
 #define HT_CAP_IE_LEN 26
 #define HT_OP_IE_LEN 22
 
-struct ht_priv {
-	u8	ht_option;
+struct ampdu_priv {
 	u8	ampdu_enable;/* for enable Tx A-MPDU */
 	u8	tx_amsdu_enable;/* for enable Tx A-MSDU */
-	u8	bss_coexist;/* for 20/40 Bss coexist */
 
 	/* u8	baddbareq_issued[16]; */
-	u32	tx_amsdu_maxlen; /* 1: 8k, 0:4k ; default:8k, for tx */
 	u32	rx_ampdu_maxlen; /* for rx reordering ctrl win_sz, updated when join_callback. */
-
 	u8	rx_ampdu_min_spacing;
-
-	u8	ch_offset;/* PRIME_CHNL_OFFSET */
-	u8	sgi_20m;
-	u8	sgi_40m;
 
 	/* for processing Tx A-MPDU */
 	u8	agg_enable_bitmap;
 	/* u8	ADDBA_retry_count; */
 	u8	candidate_tid_bitmap;
+};
+
+struct ht_priv {
+	u8	ht_option;
+	u8	bss_coexist;/* for 20/40 Bss coexist */
+
+	u32	tx_amsdu_maxlen; /* 1: 8k, 0:4k ; default:8k, for tx */
+
+	u8	ch_offset;/* PRIME_CHNL_OFFSET */
+	u8	sgi_20m;
+	u8	sgi_40m;
 
 	u8	ldpc_cap;
 	u8	stbc_cap;
 	u8	beamform_cap;
-	u8	smps_cap; /*spatial multiplexing power save mode. 0:static SMPS, 1:dynamic SMPS, 3:SMPS disabled, 2:reserved*/
 
 	u8 op_present:1; /* ht_op is present */
 
@@ -51,7 +53,7 @@ struct ht_priv {
 
 };
 
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 struct ht_priv_infra_ap {
 
 	/*Infra mode, only store AP's info , not intersection of STA and AP*/
@@ -64,7 +66,7 @@ struct ht_priv_infra_ap {
 	u8	Rx_ss_infra_ap;
 	u16	rx_highest_data_rate_infra_ap;
 };
-#endif /* ROKU_PRIVATE */
+#endif /* PRIVATE_R */
 
 typedef enum AGGRE_SIZE {
 	HT_AGG_SIZE_8K = 0,
@@ -194,6 +196,7 @@ typedef enum AGGRE_SIZE {
 #define GET_HT_OP_ELE_HT_PROTECT(_pEleStart)				LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 2, 0, 2)
 #define GET_HT_OP_ELE_NON_GREEN_PRESENT(_pEleStart)			LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 2, 2, 1)
 #define GET_HT_OP_ELE_OBSS_NON_HT_PRESENT(_pEleStart)		LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 2, 4, 1)
+#define GET_HT_OP_ELE_CHL_CENTER_FREQ_SEGMENT2(_pEleStart)		LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 2, 5, 8)
 #define GET_HT_OP_ELE_DUAL_BEACON(_pEleStart)				LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 4, 6, 1)
 #define GET_HT_OP_ELE_DUAL_CTS(_pEleStart)					LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 4, 7, 1)
 #define GET_HT_OP_ELE_STBC_BEACON(_pEleStart)				LE_BITS_TO_1BYTE(((u8 *)(_pEleStart)) + 5, 0, 1)

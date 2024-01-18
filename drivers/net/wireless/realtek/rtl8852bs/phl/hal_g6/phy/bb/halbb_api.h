@@ -16,6 +16,7 @@
 #define _HALBB_API_H_
 
 #include "halbb_ic_hw_info.h"
+#include "halbb_dbcc_ex.h"
 
 /*@--------------------------[Define] ---------------------------------------*/
 #define IGI_2_RSSI(igi)		(igi - 10)
@@ -42,7 +43,11 @@ enum bb_rfe_src_sel {
 	ANTSEL_7		= 0xf
 };
 
-
+enum bb_mlo {
+	MLO_OFF_BB0,
+	MLO_OFF_BB1,
+	MLO_ON
+};
 /*@--------------------------[Structure]-------------------------------------*/
 struct bb_api_info {
 	u32 rxiqc_reg1; /*N-mode: for pathA REG0xc14*/
@@ -56,18 +61,24 @@ struct bb_api_info {
 };
 /*@--------------------------[Prptotype]-------------------------------------*/
 struct bb_info;
+u8 halbb_dbcc_get_valid_rf_path_mask(struct bb_info *bb);
+u8 halbb_ch_2_band(struct bb_info *bb, u8 fc_ch);
+u16 halbb_get_csi_buf_idx(struct bb_info *bb, u8 buf_idx, u8 txsc_idx);
+
 void halbb_reset_bb_phy(struct bb_info *bb, enum phl_phy_idx phy_idx);
-u8 halbb_wifi_event_notify(struct bb_info *bb, enum phl_msg_evt_id event, enum phl_phy_idx phy_idx);
 void halbb_gpio_setting_init(struct bb_info *bb);
 void halbb_pre_agc_en(struct bb_info *bb, bool enable);
-void halbb_set_gain_error(struct bb_info *bb, u8 central_ch);
+void halbb_set_gain_error(struct bb_info *bb, u8 central_ch, enum band_type band, enum rf_path path);
 u8 halbb_stop_ic_trx(struct bb_info *bb, u8 set_type);
 void halbb_ic_api_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			char *output, u32 *_out_len);
-void halbb_reset_adc(struct bb_info *bb);
+u16 halbb_fc_mapping(struct bb_info *bb, enum band_type band, u8 central_ch);
+u8 halbb_get_prim_sb (struct bb_info *bb, u8 central_ch, u8 pri_ch, enum channel_width bw);
 void halbb_ic_hw_setting_non_io(struct bb_info *bb);
 void halbb_ic_hw_setting_low_io(struct bb_info *bb);
+void halbb_ic_hw_setting_dbcc(struct bb_info *bb);
 void halbb_ic_hw_setting(struct bb_info *bb);
 void halbb_ic_hw_setting_dbg(struct bb_info *bb, char input[][16], 
 			     u32 *_used, char *output, u32 *_out_len);
+void halbb_ctrl_tx_path_div(struct bb_info * bb, enum bb_path tx_path_1ss);
 #endif

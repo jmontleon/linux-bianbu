@@ -17,13 +17,24 @@
 
 #define CSI_BUF_IDX_HW_MSK 0x7FF
 
-#define CSI_BUF_SUB_IDX_80 0b0
+
+#define CSI_BUF_SUB_IDX_FULL_BW 0b0
 #define CSI_BUF_SUB_IDX_40_U 0b100100
 #define CSI_BUF_SUB_IDX_40_L 0b101000
 #define CSI_BUF_SUB_IDX_20_UU 0b000100
 #define CSI_BUF_SUB_IDX_20_UL 0b001000
 #define CSI_BUF_SUB_IDX_20_LU 0b001100
 #define CSI_BUF_SUB_IDX_20_LL 0b010000
+/* following is used in csi buffer size is 160Mhz */
+#define CSI_BUF_SUB_IDX_160M_20_LL 0b010000
+#define CSI_BUF_SUB_IDX_160M_20_LL 0b010000
+#define CSI_BUF_SUB_IDX_160M_20_LL 0b010000
+#define CSI_BUF_SUB_IDX_160M_20_LL 0b010000
+#define CSI_BUF_SUB_IDX_160M_40_U 0b101100
+#define CSI_BUF_SUB_IDX_160M_40_L 0b110000
+#define CSI_BUF_SUB_IDX_160M_80_U 0b110100
+#define CSI_BUF_SUB_IDX_160M_80_L 0b111000
+
 #define CSI_BUF_SUB_IDX_NON 0b111111
 
 #define CSI_BUF_STS_BUSY 1
@@ -61,7 +72,8 @@ struct hal_csi_buf {
 	u16 sub_idx:6;
 	u16 idx:5;
 	u16 type:1;
-	u16 rsvd:4;
+	u16 b160mhz:1;
+	u16 rsvd:3;
 };
 
 struct hal_csi_obj {

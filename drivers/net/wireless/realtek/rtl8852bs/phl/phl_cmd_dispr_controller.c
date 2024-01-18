@@ -56,7 +56,7 @@ _dispr_resume_io_ctrl(struct phl_info_t *phl_info,
 		ctl.id = MSG_MDL_ID_FIELD(msg->msg_id);
 		sts = phl_data_ctrler(phl_info, &ctl, msg);
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_,
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
 			          "[DATA_CTRL] SW Tx paused by module(0x%x) resume fail by module(%d) with event(%d)\n",
 			          phl_info->pause_tx_id, ctl.id,
 			          MSG_EVT_ID_FIELD(msg->msg_id));
@@ -68,7 +68,7 @@ _dispr_resume_io_ctrl(struct phl_info_t *phl_info,
 		ctl.id = MSG_MDL_ID_FIELD(msg->msg_id);
 		sts = phl_data_ctrler(phl_info, &ctl, msg);
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
-			PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_,
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
 			          "[DATA_CTRL] SW Rx paused by module(0x%x) resume fail by module(%d) with event(%d)\n",
 			          phl_info->pause_rx_id, ctl.id,
 			          MSG_EVT_ID_FIELD(msg->msg_id));
@@ -95,7 +95,7 @@ _dispr_cannot_io_ctrl(struct phl_info_t *phl_info,
 	ctl.id = MSG_MDL_ID_FIELD(msg->msg_id);
 	sts = phl_data_ctrler(phl_info, &ctl, msg);
 	if (RTW_PHL_STATUS_SUCCESS != sts) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
 		          "[DATA_CTRL] SW T/Rx pause fail by module(%d) with event(%d)\n",
 		          ctl.id, MSG_EVT_ID_FIELD(msg->msg_id));
 		ret = MDL_RET_FAIL;

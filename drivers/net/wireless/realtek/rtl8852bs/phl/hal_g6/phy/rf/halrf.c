@@ -28,19 +28,49 @@
 
 enum rtw_hal_status halrf_chl_rfk_trigger(void *rf_void,
 			   enum phl_phy_idx phy_idx,
-			   bool force)
+			   enum rfk_tri_type rfk_tri_typ)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+
+	RF_DBG(rf, DBG_RF_RFK, "[RFK] PHY%d RFK trigger Type = %d\n", phy_idx, rfk_tri_typ);
+		
+	if (rfk_tri_typ == RFK_TYPE_FORCE_NOT_DO || rfk_tri_typ == RFK_TYPE_DBCC_EN ||
+	    rfk_tri_typ == RFK_TYPE_PLATFORM_INIT || rfk_tri_typ >= RFK_TYPE_MAX) {
+		RF_DBG(rf, DBG_RF_RFK, "[RFK] Skip RFK trigger !!!\n");
+	} else if (rfk_tri_typ == RFK_TYPE_SCAN_CHG_CH || rfk_tri_typ == RFK_TYPE_SCAN_BK_OP) {
+		halrf_scan_rx_dck_trigger(rf, phy_idx, rfk_tri_typ);
+	} else {
+		halrf_common_setting_chl_rfk(rf, phy_idx, true);
+		halrf_chl_rfk_trigger_traditional(rf, phy_idx, rfk_tri_typ);
+		halrf_common_setting_chl_rfk(rf, phy_idx, false);
+	}
+		return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status halrf_chl_rfk_trigger_traditional(void *rf_void,
+			   enum phl_phy_idx phy_idx,
+			   enum rfk_tri_type rfk_tri_typ)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	u32 start_time, finish_time;
+	bool is_reload;
 
 	start_time = _os_get_cur_time_us();
 	rf->is_chl_rfk = true;
+
 	halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_CHLK, RFK_START);
 	halrf_tmac_tx_pause(rf, phy_idx, true);
-	if (rf->phl_com->dev_state & RTW_DEV_IN_DFS_CAC_PERIOD) {
+
+	//if (rf->phl_com->dev_state & RTW_DEV_IN_DFS_CAC_PERIOD) {
+	if (halrf_is_under_cac(rf, phy_idx)) {
 		/*[RX dck]*/
 		halrf_rx_dck_trigger(rf, phy_idx, true);
 	} else {
+		/*DBCC check*/
+		is_reload = halrf_chlk_reload_check_dbcc(rf, phy_idx);
+		/*get mcc info*/
+		halrf_mcc_get_ch_info(rf, phy_idx);
+
 		/*[RX Gain K]*/
 		halrf_do_rx_gain_k(rf, phy_idx);
 
@@ -51,13 +81,17 @@ enum rtw_hal_status halrf_chl_rfk_trigger(void *rf_void,
 		halrf_rx_dck_trigger(rf, phy_idx, true);
 
 		/*[LOK, IQK]*/
-		halrf_iqk_trigger(rf, phy_idx, force);
+		halrf_iqk_trigger(rf, phy_idx, rfk_tri_typ);
 
 		/*[TSSI Trk]*/
-		halrf_tssi_trigger(rf, phy_idx);
+		halrf_tssi_trigger(rf, phy_idx, true);
 
 		/*[DPK]*/
-		halrf_dpk_trigger(rf, phy_idx, force);
+		halrf_dpk_trigger(rf, phy_idx, rfk_tri_typ);
+
+		if(!is_reload)
+			halrf_chlk_backup_dbcc(rf, phy_idx);
+
 		halrf_fw_ntfy(rf, phy_idx);
 	}
 	halrf_tmac_tx_pause(rf, phy_idx, false);
@@ -65,6 +99,8 @@ enum rtw_hal_status halrf_chl_rfk_trigger(void *rf_void,
 	rf->is_chl_rfk = false;
 
 	finish_time = _os_get_cur_time_us();
+	rf->rfk_total_time = finish_time - start_time;
+
 	RF_DBG(rf, DBG_RF_RFK, "[RFK] halrf_chl_rfk_trigger processing time = %d.%dms\n",
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
@@ -81,7 +117,7 @@ void halrf_dack_recover(void *rf_void,
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 	#if 0
-	if ((rf->phl_com->drv_mode == RTW_DRV_MODE_MP) &
+	if (phl_is_mp_mode(rf->phl_com) &
 	    (hal_i->is_con_tx ||
 	    hal_i->is_single_tone ||
 	    hal_i->is_carrier_suppresion))
@@ -111,23 +147,13 @@ enum rtw_hal_status halrf_dack_trigger(void *rf_void, bool force)
 	struct halrf_dack_info *dack = &rf->dack;
 	u32 start_time, finish_time;
 
-	#if 0
-	if ((rf->phl_com->drv_mode == RTW_DRV_MODE_MP) &
-	    (hal_i->is_con_tx ||
-	    hal_i->is_single_tone ||
-	    hal_i->is_carrier_suppresion))
-			return;
-
-	if (hal_i->rfk_forbidden)
-		return;
-	#endif
-
 	if (!(rf->support_ability & HAL_RF_DACK))
 		return RTW_HAL_STATUS_SUCCESS;
 #if 0
 	halrf_btc_rfk_ntfy(rf, (BIT(HW_PHY_0) << 4), RF_BTC_DACK, RFK_START);
 #endif
 	start_time = _os_get_cur_time_us();
+	halrf_reset_io_count(rf);
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
@@ -137,12 +163,8 @@ enum rtw_hal_status halrf_dack_trigger(void *rf_void, bool force)
 			halrf_dac_cal_8852a_b(rf, force);			
 		break;
 #endif
-#ifdef RF_8852B_SUPPORT
-	case CHIP_WIFI6_8852B:
-		halrf_dac_cal_8852b(rf, force);			
-		break;
-#endif
-		default:
+	default:
+		halrf_ops_dack(rf, force);
 		break;
 	}
 	finish_time = _os_get_cur_time_us();
@@ -153,6 +175,9 @@ enum rtw_hal_status halrf_dack_trigger(void *rf_void, bool force)
 	RF_DBG(rf, DBG_RF_RFK, "[DACK] DACK processing time = %d.%dms\n",
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
+
+	RF_DBG(rf, DBG_RF_FW, "[FW]DACK w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
@@ -165,43 +190,55 @@ enum rtw_hal_status halrf_rx_dck_trigger(void *rf_void,
 	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
 
 	u32 start_time, finish_time;
-	#if 0
-	if ((rf->phl_com->drv_mode == RTW_DRV_MODE_MP) &
-	    (hal_i->is_con_tx ||
-	    hal_i->is_single_tone ||
-	    hal_i->is_carrier_suppresion))
-			return;
+	bool lock = false;
 
-	if (hal_i->rfk_forbidden)
-		return;
-	#endif
+	if (!(rf->chlk_map & HAL_RF_RXDCK))
+		return RTW_HAL_STATUS_SUCCESS;
+
 
 	if (!(rf->support_ability & HAL_RF_RXDCK))
 		return RTW_HAL_STATUS_SUCCESS;
+
 #if 0
 	for (i = 0; i < 2000; i++)
 		halrf_delay_us(rf, 10); /*delay 20ms*/
 #endif
+	rf->rfk_is_processing = true;
+
 	start_time = _os_get_cur_time_us();
 	if(!rf->is_chl_rfk) {
 		halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_RXDCK, RFK_START);
 		halrf_tmac_tx_pause(rf, phy_idx, true);
 	}
+	if (phl_is_mp_mode(rf->phl_com)) {	
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
+
+	halrf_reset_io_count(rf);
+
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
-			halrf_rx_dck_8852a(rf, phy_idx, is_afe);
+		halrf_ops_rx_dck(rf, phy_idx, is_afe);
 		break;
 #endif
-#ifdef RF_8852B_SUPPORT
-	case CHIP_WIFI6_8852B:
-			halrf_rx_dck_8852b(rf, phy_idx, false);
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_ops_rx_dck(rf, phy_idx, true);
 		break;
 #endif
-
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_ops_rx_dck(rf, phy_idx, true);
+		break;
+#endif
 		default:
+			halrf_ops_rx_dck(rf, phy_idx, false);	
 		break;
 	}
+
+	rf->rfk_is_processing = false;
 
 	finish_time = _os_get_cur_time_us();
 	if(!rf->is_chl_rfk) {
@@ -211,8 +248,175 @@ enum rtw_hal_status halrf_rx_dck_trigger(void *rf_void,
 	RF_DBG(rf, DBG_RF_RXDCK, "[RX_DCK] RX_DCK processing time = %d.%dms\n",
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
-
+	RF_DBG(rf, DBG_RF_FW, "[FW]RX_DCK w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
 	rx_dck->rxdck_time = HALRF_ABS(finish_time, start_time) / 1000;
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status halrf_thermal_rx_dck_trigger(void *rf_void,
+						enum phl_phy_idx phy_idx, bool is_afe)
+{
+
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
+
+	u32 start_time, finish_time;
+	u32 i;
+	bool lock = false;
+
+	if (!(rf->chlk_map & HAL_RF_RXDCK))
+		return RTW_HAL_STATUS_SUCCESS;
+
+
+	if (!(rf->support_ability & HAL_RF_RXDCK))
+		return RTW_HAL_STATUS_SUCCESS;
+
+#if 0
+	for (i = 0; i < 2000; i++)
+		halrf_delay_us(rf, 10); /*delay 20ms*/
+#endif
+	rf->rfk_is_processing = true;
+
+	start_time = _os_get_cur_time_us();
+
+	halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_RXDCK, RFK_START);
+	halrf_tmac_tx_pause(rf, phy_idx, true);
+
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
+	halrf_reset_io_count(rf);
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		for (i = 0; i < 2000; i++)
+			halrf_delay_us(rf, 10); /*delay 20ms*/
+		halrf_thermal_rx_dck_8852c(rf, phy_idx, false);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		for (i = 0; i < 2000; i++)
+			halrf_delay_us(rf, 10); /*delay 20ms*/
+		halrf_thermal_rx_dck_8852bp(rf, phy_idx, false);
+		break;
+#endif
+	default:
+		break;
+	}
+
+	rf->rfk_is_processing = false;
+
+	finish_time = _os_get_cur_time_us();
+
+	halrf_tmac_tx_pause(rf, phy_idx, false);
+	halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_RXDCK, RFK_STOP);
+
+	RF_DBG(rf, DBG_RF_RXDCK, "[RX_DCK] RX_DCK (thermal) processing time = %d.%dms\n",
+		HALRF_ABS(finish_time, start_time) / 1000,
+		HALRF_ABS(finish_time, start_time) % 1000);
+	RF_DBG(rf, DBG_RF_FW, "[FW]RX_DCK w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
+	rx_dck->rxdck_time = HALRF_ABS(finish_time, start_time) / 1000;
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status halrf_scan_rx_dck_trigger(void *rf_void,
+						enum phl_phy_idx phy_idx,
+						enum rfk_tri_type tri_type)
+{
+
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
+
+	u32 start_time, finish_time;
+	bool lock = false;
+
+	if (!(rf->chlk_map & HAL_RF_RXDCK))
+		return RTW_HAL_STATUS_SUCCESS;
+
+
+	if (!(rf->support_ability & HAL_RF_RXDCK))
+		return RTW_HAL_STATUS_SUCCESS;
+
+	rf->rfk_is_processing = true;
+
+	start_time = _os_get_cur_time_us();
+
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
+	halrf_reset_io_count(rf);
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_scan_rx_dck_8852c(rf, phy_idx, tri_type);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_scan_rx_dck_8852bp(rf, phy_idx, tri_type);
+		break;
+#endif
+	default:
+		break;
+	}
+
+	rf->rfk_is_processing = false;
+
+	finish_time = _os_get_cur_time_us();
+
+	RF_DBG(rf, DBG_RF_RXDCK, "[RX_DCK] RX_DCK (thermal) processing time = %d.%dms\n",
+		HALRF_ABS(finish_time, start_time) / 1000,
+		HALRF_ABS(finish_time, start_time) % 1000);
+	RF_DBG(rf, DBG_RF_FW, "[FW]RX_DCK w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
+	rx_dck->rxdck_time = HALRF_ABS(finish_time, start_time) / 1000;
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status halrf_rx_dck_tracking(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
+
+	if (!(rf->support_ability & HAL_RF_RXDCK_TRACK) || rf->rfk_is_processing ||
+		rf->is_watchdog_stop || rf->psd.psd_progress || !(rx_dck->is_rxdck_track_en))
+		return RTW_HAL_STATUS_SUCCESS;
+
+	halrf_watchdog_stop(rf, true); /*avoid race condition*/
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_rxdck_track_8852c(rf);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_rxdck_track_8852bp(rf);
+		break;
+#endif
+		default:
+		break;
+	}
+
+	halrf_watchdog_stop(rf, false);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -225,22 +429,22 @@ enum rtw_hal_status halrf_iqk_trigger(void *rf_void,
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 	struct halrf_iqk_info *iqk_info = &rf->iqk;
 	u32 start_time, finish_time;
+	bool lock = false;
 
-	#if 0
-	if ((rf->phl_com->drv_mode == RTW_DRV_MODE_MP) &
-	    (hal_i->is_con_tx ||
-	    hal_i->is_single_tone ||
-	    hal_i->is_carrier_suppresion))
-			return;
-
-	if (hal_i->rfk_forbidden)
-		return;
-	#endif
+	if (!(rf->chlk_map & HAL_RF_IQK))
+		return RTW_HAL_STATUS_SUCCESS;
 
 	if (!(rf->support_ability & HAL_RF_IQK))
 		return RTW_HAL_STATUS_SUCCESS;
 	rf->rfk_is_processing = true;
 	start_time = _os_get_cur_time_us();
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
+
+	halrf_reset_io_count(rf);
+
 	if(!rf->is_chl_rfk) {
 		halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_IQK, RFK_START);
 		halrf_tmac_tx_pause(rf, phy_idx, true);
@@ -257,9 +461,11 @@ enum rtw_hal_status halrf_iqk_trigger(void *rf_void,
 	RF_DBG(rf, DBG_RF_IQK, "[IQK] IQK processing time = %d.%dms\n",
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
-
+	RF_DBG(rf, DBG_RF_FW, "[FW]IQK w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
 	iqk_info->time = HALRF_ABS(finish_time, start_time) / 1000;
-
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
@@ -269,7 +475,7 @@ void halrf_lck_trigger(void *rf_void)
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
 	#if 0
-	if ((rf->phl_com->drv_mode == RTW_DRV_MODE_MP) &
+	if (phl_is_mp_mode(rf->phl_com) &
 	    (hal_i->is_con_tx ||
 	    hal_i->is_single_tone ||
 	    hal_i->is_carrier_suppresion))
@@ -282,23 +488,182 @@ void halrf_lck_trigger(void *rf_void)
 	if (!(rf->support_ability & HAL_RF_LCK))
 		return;
 		
-#if 0
-		while (*dm->is_scan_in_process) {
-			RF_DBG(dm, DBG_RF_IQK, "[LCK]scan is in process, bypass LCK\n");
-			return;
-		}
-#endif
 	
+	rf->lck_times++;	/*Total LCK Times*/
+
 	switch (hal_i->chip_id) {
-#ifdef RF_8852A_SUPPORT
-		case CHIP_WIFI6_8852A:
-			break;
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_lck_8852c(rf);
+		break;
 #endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_lck_8832br(rf);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+		halrf_lck_8192xb(rf);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_lck_8852bp(rf);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_lck_8730a(rf);
+		break;
+#endif
+
 		default:
 			break;
 		}
+}
 
+void halrf_lck_tracking(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
+	if (rf->rfk_is_processing || rf->is_watchdog_stop)
+		return;
+
+	if (!(rf->support_ability & HAL_RF_LCK))
+		return;
+		
+
+	rf->is_watchdog_stop = true; /*avoid race condition*/
+	
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_lck_tracking_8852c(rf);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_lck_tracking_8832br(rf);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+		halrf_lck_tracking_8192xb(rf);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_lck_tracking_8730a(rf);
+		break;
+#endif
+
+		default:
+			break;
+		}
+	rf->is_watchdog_stop = false;
+}
+
+void halrf_op5k_init(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct halrf_op5k_info *op5k = &rf->op5k_info;
+
+	op5k->record_bw = CHANNEL_WIDTH_MAX;
+}
+
+void halrf_op5k_trigger(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	if (!(rf->support_ability & HAL_RF_OP5K))
+		return;
+	
+	switch (hal_i->chip_id) {
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_op5k_trigger_8832br(rf);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_op5k_trigger_8192xb(rf);
+		break;
+#endif
+		default:
+			break;
+	}
+}
+
+void halrf_op5k_trigger_by_bw(void *rf_void, enum channel_width bw)
+{
+#if 0
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_op5k_info *op5k = &rf->op5k_info;
+
+	if (!(rf->support_ability & HAL_RF_OP5K))
+		return;
+	
+	RF_DBG(rf, DBG_RF_OP5K, "=======> %s bw = %d\n", __func__, bw);
+
+	if (op5k->record_bw == bw) {
+		RF_DBG(rf, DBG_RF_OP5K,
+			"=======> %s op5k->record_bw == bw(%d) Return!!!\n",
+			__func__, bw);
+		return;
+	}
+	
+	switch (hal_i->chip_id) {
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_op5k_trigger_8832br(rf);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_op5k_trigger_8192xb(rf);
+		break;
+#endif
+		default:
+			break;
+	}
+
+	op5k->record_bw = bw;
+#endif
+}
+
+void halrf_op5k_tracking(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	if (rf->rfk_is_processing || rf->is_watchdog_stop)
+		return;
+
+	if (!(rf->support_ability & HAL_RF_OP5K_TRACK))
+		return;
+
+	rf->is_watchdog_stop = true; /*avoid race condition*/
+	
+	switch (hal_i->chip_id) {
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_op5k_tracking_8832br(rf);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_op5k_tracking_8192xb(rf);
+		break;
+#endif
+		default:
+			break;
+	}
+
+	rf->is_watchdog_stop = false;
 }
 
 enum rtw_hal_status halrf_dpk_trigger(void *rf_void,
@@ -310,18 +675,12 @@ enum rtw_hal_status halrf_dpk_trigger(void *rf_void,
 	struct halrf_dpk_info *dpk = &rf->dpk;
 
 	u32 start_time, finish_time;
-#if 0
-	if ((rf->phl_com->drv_mode == RTW_DRV_MODE_MP) &
-	    (hal_i->is_con_tx ||
-	    hal_i->is_single_tone ||
-	    hal_i->is_carrier_suppresion))
-			return;
+	bool lock = false;
 
-	if (hal_i->rfk_forbidden)
-		return;
-#endif
+	if (!(rf->chlk_map & HAL_RF_DPK))
+		return RTW_HAL_STATUS_SUCCESS;
 
-	if (!(rf->support_ability & HAL_RF_DPK) || rf->phl_com->id.id == 0x1010a) /*USB buffalo*/
+	if (!(rf->support_ability & HAL_RF_DPK))
 		return RTW_HAL_STATUS_SUCCESS;
 	if(!rf->is_chl_rfk) {
 		halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_DPK, RFK_START);
@@ -330,7 +689,16 @@ enum rtw_hal_status halrf_dpk_trigger(void *rf_void,
 	rf->rfk_is_processing = true;
 
 	start_time = _os_get_cur_time_us();
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
 
+	halrf_reset_io_count(rf);
+
+#if 1
+	halrf_ops_dpk(rf, phy_idx, force);
+#else
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
@@ -342,10 +710,41 @@ enum rtw_hal_status halrf_dpk_trigger(void *rf_void,
 		halrf_dpk_8852b(rf, phy_idx, force);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_dpk_8852c(rf, phy_idx, force);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_dpk_8852bp(rf, phy_idx, force);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_dpk_8851b(rf, phy_idx, force);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_dpk_8832br(rf, phy_idx, force);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_dpk_8192xb(rf, phy_idx, force);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_dpk_8730a(rf, phy_idx, force);
+		break;
+#endif
+
 		default:
 		break;
 	}
-
+#endif
 	rf->rfk_is_processing = false;
 
 	finish_time = _os_get_cur_time_us();
@@ -356,9 +755,11 @@ enum rtw_hal_status halrf_dpk_trigger(void *rf_void,
 	RF_DBG(rf, DBG_RF_DPK, "[DPK] DPK processing time = %d.%dms\n",
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
-
+	RF_DBG(rf, DBG_RF_FW, "[FW]DPK w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
 	dpk->dpk_time = HALRF_ABS(finish_time, start_time) / 1000;
-
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
@@ -369,8 +770,10 @@ enum rtw_hal_status halrf_dpk_tracking(void *rf_void)
 	struct halrf_dpk_info *dpk = &rf->dpk;
 
 	if (!(rf->support_ability & HAL_RF_DPK_TRACK) || rf->rfk_is_processing ||
-		rf->psd.psd_progress)
+		rf->is_watchdog_stop || rf->psd.psd_progress || !(dpk->is_dpk_track_en))
 		return RTW_HAL_STATUS_SUCCESS;
+
+	halrf_watchdog_stop(rf, true); /*avoid race condition*/
 
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
@@ -383,9 +786,42 @@ enum rtw_hal_status halrf_dpk_tracking(void *rf_void)
 		halrf_dpk_track_8852b(rf);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_dpk_track_8852c(rf);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_dpk_track_8852bp(rf);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_dpk_track_8851b(rf);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_dpk_track_8832br(rf);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_dpk_track_8192xb(rf);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_dpk_track_8730a(rf);
+		break;
+#endif
+
 		default:
 		break;
 	}
+
+	halrf_watchdog_stop(rf, false);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -396,8 +832,10 @@ enum rtw_hal_status halrf_tssi_tracking(void *rf_void)
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
 	if ((!(rf->support_ability & HAL_RF_TX_PWR_TRACK)) || (!(rf->support_ability & HAL_RF_TSSI_TRK))
-		|| rf->rfk_is_processing || rf->psd.psd_progress)
+		|| rf->rfk_is_processing || rf->is_watchdog_stop || rf->psd.psd_progress)
 		return RTW_HAL_STATUS_SUCCESS;
+
+	halrf_watchdog_stop(rf, true); /*avoid race condition*/
 
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
@@ -408,6 +846,8 @@ enum rtw_hal_status halrf_tssi_tracking(void *rf_void)
 		default:
 			break;
 	}
+
+	halrf_watchdog_stop(rf, false);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -444,9 +884,10 @@ enum rtw_hal_status halrf_tssi_ant_open(void *rf_void)
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
 	if ((!(rf->support_ability & HAL_RF_TX_PWR_TRACK)) || (!(rf->support_ability & HAL_RF_TSSI_TRK))
-		|| rf->rfk_is_processing || rf->psd.psd_progress)
+		|| rf->rfk_is_processing || rf->is_watchdog_stop || rf->psd.psd_progress)
 		return RTW_HAL_STATUS_SUCCESS;
 
+	halrf_watchdog_stop(rf, true); /*avoid race condition*/
 
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
@@ -461,29 +902,82 @@ enum rtw_hal_status halrf_tssi_ant_open(void *rf_void)
 			break;
 #endif
 
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_ant_open_8852c(rf);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_ant_open_8832br(rf);
+			break;
+#endif
+
+#ifdef RF_8730A_SUPPORT
+		case CHIP_WIFI6_8730A:
+			halrf_tssi_ant_open_8730a(rf);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_tssi_ant_open_8852bp(rf);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_tssi_ant_open_8851b(rf);
+			break;
+#endif
+
+
 		default:
 			break;
 	}
 
+	halrf_watchdog_stop(rf, false);
+
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
-enum rtw_hal_status halrf_tssi_trigger(void *rf_void, enum phl_phy_idx phy_idx)
+enum rtw_hal_status halrf_tssi_trigger(void *rf_void, enum phl_phy_idx phy_idx, bool hwtx_en)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 	struct halrf_tssi_info *tssi_info = &rf->tssi;
+	u32 phy_tmp;
 	u32 start_time, finish_time;
+	bool lock = false;
+
+	if (!(rf->chlk_map & HAL_RF_TX_PWR_TRACK))
+		return RTW_HAL_STATUS_SUCCESS;
 
 	start_time = _os_get_cur_time_us();
+	
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
+	if (rf->hal_com->dbcc_en)
+		phy_tmp = phy_idx;
+	else
+		phy_tmp = HW_PHY_0;
 
-	if (rf->phl_com->drv_mode == RTW_DRV_MODE_MP) {
-		if (tssi_info->tssi_type == TSSI_OFF ) {
+	if (phl_is_mp_mode(rf->phl_com)) {
+		if (tssi_info->tssi_type[phy_tmp] == TSSI_OFF ) {
 			rf->support_ability = rf->support_ability & ~HAL_RF_TX_PWR_TRACK;
 		}
 	}
 
+	halrf_reset_io_count(rf);
+
 	if (!(rf->support_ability & HAL_RF_TX_PWR_TRACK)) {
+
+#if 1		
+		halrf_ops_tssi_disable(rf, phy_idx);
+#else
 		switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 			case CHIP_WIFI6_8852A:
@@ -495,31 +989,99 @@ enum rtw_hal_status halrf_tssi_trigger(void *rf_void, enum phl_phy_idx phy_idx)
 				halrf_tssi_disable_8852b(rf, phy_idx);
 			break;
 #endif
+#ifdef RF_8852C_SUPPORT
+			case CHIP_WIFI6_8852C:
+				halrf_tssi_disable_8852c(rf, phy_idx);
+			break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+			case CHIP_WIFI6_8832BR:
+				halrf_tssi_disable_8832br(rf, phy_idx);
+			break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+			case CHIP_WIFI6_8192XB:
+				halrf_tssi_disable_8192xb(rf, phy_idx);
+			break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+			case CHIP_WIFI6_8852BP:
+				halrf_tssi_disable_8852bp(rf, phy_idx);
+			break;
+#endif
+#ifdef RF_8851B_SUPPORT
+			case CHIP_WIFI6_8851B:
+				halrf_tssi_disable_8851b(rf, phy_idx);
+			break;
+#endif
+#ifdef RF_8730A_SUPPORT
+			case CHIP_WIFI6_8730A:
+				halrf_tssi_disable_8730a(rf, phy_idx);
+			break;
+#endif
 
 			default:
 			break;
 		}
-
+#endif
+		if (lock)
+			halrf_mutex_unlock(rf, &rf->rf_lock);
 		return RTW_HAL_STATUS_SUCCESS;
 	}
 
 	rf->rfk_is_processing = true;
 
+#if 1
+	halrf_ops_do_tssi(rf, phy_idx, hwtx_en);
+#else
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 		case CHIP_WIFI6_8852A:
-			halrf_do_tssi_8852a(rf, phy_idx);
+			halrf_do_tssi_8852a(rf, phy_idx, hwtx_en);
 		break;
 #endif
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
-			halrf_do_tssi_8852b(rf, phy_idx);
+			halrf_do_tssi_8852b(rf, phy_idx, hwtx_en);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_do_tssi_8852c(rf, phy_idx, hwtx_en);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+		//	halrf_do_tssi_8832br(rf, phy_idx);
+			halrf_do_tssi_8832br(rf, phy_idx, hwtx_en);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+		//	halrf_do_tssi_8192xb(rf, phy_idx);
+			halrf_do_tssi_8192xb(rf, phy_idx, hwtx_en);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_do_tssi_8852bp(rf, phy_idx, hwtx_en);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_do_tssi_8851b(rf, phy_idx, hwtx_en);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+		case CHIP_WIFI6_8730A:
+			halrf_do_tssi_8730a(rf, phy_idx);
+		break;
+#endif
+
 		default:
 		break;
 	}
-
+#endif
 	rf->rfk_is_processing = false;
 
 	finish_time = _os_get_cur_time_us();
@@ -530,7 +1092,10 @@ enum rtw_hal_status halrf_tssi_trigger(void *rf_void, enum phl_phy_idx phy_idx)
 		__func__,
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
-
+	RF_DBG(rf, DBG_RF_FW, "[FW]TSSI w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
@@ -555,6 +1120,31 @@ void halrf_do_tssi_scan(void *rf_void, enum phl_phy_idx phy_idx)
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		halrf_do_tssi_scan_8852b(rf, phy_idx);
+		break;
+#endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_do_tssi_scan_8852c(rf, phy_idx);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_do_tssi_scan_8832br(rf, phy_idx);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_do_tssi_scan_8192xb(rf, phy_idx);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_do_tssi_scan_8852bp(rf, phy_idx);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_do_tssi_scan_8851b(rf, phy_idx);
 		break;
 #endif
 
@@ -616,6 +1206,36 @@ void halrf_tssi_default_txagc(void *rf_void,
 		break;
 #endif
 
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_tssi_default_txagc_8852c(rf, phy_idx, enable);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_tssi_default_txagc_8832br(rf, phy_idx, enable);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_tssi_default_txagc_8192xb(rf, phy_idx, enable);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_tssi_default_txagc_8852bp(rf, phy_idx, enable);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_tssi_default_txagc_8851b(rf, phy_idx, enable);
+		break;
+#endif
+
 	default:
 		break;
 	}
@@ -631,6 +1251,8 @@ void halrf_tssi_set_efuse_to_de(void *rf_void,
 	if (!(rf->support_ability & HAL_RF_TX_PWR_TRACK))
 		return;
 
+	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 	rf->rfk_is_processing = true;
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
@@ -644,10 +1266,43 @@ void halrf_tssi_set_efuse_to_de(void *rf_void,
 		halrf_tssi_set_efuse_to_de_8852b(rf, phy_idx);
 		break;
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_tssi_set_efuse_to_de_8852c(rf, phy_idx);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_tssi_set_efuse_to_de_8832br(rf, phy_idx);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_tssi_set_efuse_to_de_8192xb(rf, phy_idx);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_tssi_set_efuse_to_de_8852bp(rf, phy_idx);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_tssi_set_efuse_to_de_8851b(rf, phy_idx);
+		break;
+#endif
+
 	default:
 		break;
 	}
 	rf->rfk_is_processing = false;
+
+	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 }
 
 void halrf_tssi_scan_ch(void *rf_void, enum rf_path path)
@@ -657,6 +1312,8 @@ void halrf_tssi_scan_ch(void *rf_void, enum rf_path path)
 
 	if (!(rf->support_ability & HAL_RF_TX_PWR_TRACK))
 		return;
+
+	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
 
 	rf->rfk_is_processing = true;
 	switch (hal_i->chip_id) {
@@ -671,10 +1328,117 @@ void halrf_tssi_scan_ch(void *rf_void, enum rf_path path)
 		halrf_tssi_scan_ch_8852b(rf, path);
 		break;
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_tssi_scan_ch_8852c(rf, path);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_tssi_scan_ch_8832br(rf, path);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_tssi_scan_ch_8192xb(rf, path);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_tssi_scan_ch_8852bp(rf, path);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_tssi_scan_ch_8851b(rf, path);
+		break;
+#endif
+
+
 	default:
 		break;
 	}
 	rf->rfk_is_processing = false;
+
+	halrf_write_fwofld_end(rf);		/*FW Offload End*/
+}
+
+void halrf_tssi_scan_setting_ch(void *rf_void,
+	enum phl_phy_idx phy_idx, enum rf_path path)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	if (!(rf->support_ability & HAL_RF_TX_PWR_TRACK))
+		return;
+
+	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
+	rf->rfk_is_processing = true;
+	switch (hal_i->chip_id) {
+#ifdef RF_8852A_SUPPORT
+	case CHIP_WIFI6_8852A:
+		halrf_tssi_scan_ch_setting_8852ab(rf, phy_idx, path);
+		break;
+#endif
+
+#ifdef RF_8852B_SUPPORT
+	case CHIP_WIFI6_8852B:
+		halrf_tssi_scan_ch_setting_8852b(rf, phy_idx, path);
+		break;
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_tssi_scan_ch_setting_8852c(rf, phy_idx, path);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_tssi_scan_ch_setting_8832br(rf, phy_idx, path);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_tssi_scan_ch_setting_8192xb(rf, phy_idx, path);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_tssi_scan_ch_setting_8852bp(rf, phy_idx, path);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_tssi_scan_ch_setting_8851b(rf, phy_idx, path);
+		break;
+#endif
+
+	default:
+		break;
+	}
+	rf->rfk_is_processing = false;
+
+	halrf_write_fwofld_end(rf);		/*FW Offload End*/
+}
+
+u32 halrf_tssi_get_current_power(void *rf_void, enum rf_path path)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+
+	if (path == RF_PATH_A)
+		return halrf_rreg(rf, 0x1c78, 0x1ff);
+	else
+		return halrf_rreg(rf, 0x3c78, 0x1ff);
 }
 
 void halrf_hw_tx(void *rf_void, u8 path, u16 cnt, s16 dbm, u32 rate, u8 bw,
@@ -687,13 +1451,43 @@ void halrf_hw_tx(void *rf_void, u8 path, u16 cnt, s16 dbm, u32 rate, u8 bw,
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
-		halrf_tssi_hw_tx_8852a(rf, HW_PHY_0, path, cnt, dbm, T_HT_MF, 0, enable);
+		halrf_tssi_hw_tx_8852a(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
 		break;
 #endif
 
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
-		_halrf_tssi_hw_tx_8852b(rf, HW_PHY_0, path, cnt, 1000, dbm, T_HT_MF, 0, enable);
+		halrf_tssi_hw_tx_8852b(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
+		break;
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_tssi_hw_tx_8852c(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_tssi_hw_tx_8832br(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_tssi_hw_tx_8192xb(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_tssi_hw_tx_8852bp(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_tssi_hw_tx_8851b(rf, HW_PHY_0, path, cnt, dbm, HT_MF_FMT, 0, enable);
 		break;
 #endif
 
@@ -724,6 +1518,42 @@ void halrf_kfree_get_info(void *rf_void, char input[][16], u32 *_used,
 		break;
 #endif
 
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_kfree_get_info_8852c(rf, input, _used,
+				output, _out_len);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_kfree_get_info_8832br(rf, input, _used,
+				output, _out_len);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_kfree_get_info_8192xb(rf, input, _used,
+				output, _out_len);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_kfree_get_info_8852bp(rf, input, _used,
+				output, _out_len);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_kfree_get_info_8851b(rf, input, _used,
+				output, _out_len);
+		break;
+#endif
+
+
 	default:
 		break;
 	}
@@ -734,18 +1564,20 @@ void halrf_txgapk_init(void *rf_void)
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
+
+	if (!(rf->chlk_map & HAL_RF_TXGAPK))
+		return;
+	if (!(rf->support_ability & HAL_RF_TXGAPK))
+		return;
+
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
 		//halrf_txgapk_init_8852a(rf);
 		break;
 #endif
-#ifdef RF_8852B_SUPPORT
-	case CHIP_WIFI6_8852B:
-		halrf_txgapk_init_8852b(rf);
-		break;
-#endif
 	default:
+		halrf_ops_txgapk_init(rf);
 		break;
 	}
 }
@@ -759,8 +1591,21 @@ enum rtw_hal_status halrf_gapk_trigger(void *rf_void,
 	struct halrf_gapk_info *txgapk_info = &rf->gapk;
 
 	u32 start_time, finish_time;
+	bool lock = false;
+
+	if (!(rf->chlk_map & HAL_RF_TXGAPK))
+		return RTW_HAL_STATUS_SUCCESS;
 	if (!(rf->support_ability & HAL_RF_TXGAPK))
 		return RTW_HAL_STATUS_SUCCESS;
+
+//#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+//	if (rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0))
+//		return RTW_HAL_STATUS_SUCCESS;
+//#endif
+
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	return RTW_HAL_STATUS_SUCCESS;
+#endif
 	if(!rf->is_chl_rfk) {
 		halrf_btc_rfk_ntfy(rf, (BIT(phy_idx) << 4), RF_BTC_TXGAPK, RFK_START);
 		halrf_tmac_tx_pause(rf, phy_idx, true);
@@ -769,23 +1614,16 @@ enum rtw_hal_status halrf_gapk_trigger(void *rf_void,
 	
 	start_time = _os_get_cur_time_us();
 
-	halrf_txgapk_init(rf);
-
-	switch (hal_i->chip_id) {
-#ifdef RF_8852A_SUPPORT
-	case CHIP_WIFI6_8852A:
-		halrf_do_txgapk_8852a(rf, phy_idx);
-		break;
-#endif
-#ifdef RF_8852B_SUPPORT
-	case CHIP_WIFI6_8852B:
-		halrf_do_txgapk_8852b(rf, phy_idx);
-		break;
-#endif
-
-		default:
-		break;
+	if(!txgapk_info->is_gapk_init)
+		halrf_txgapk_init(rf);
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
 	}
+
+	halrf_reset_io_count(rf);
+
+	halrf_ops_do_txgapk(rf, phy_idx);
 
 	rf->rfk_is_processing = false;
 
@@ -796,10 +1634,14 @@ enum rtw_hal_status halrf_gapk_trigger(void *rf_void,
 	}
 	txgapk_info->txgapk_time = HALRF_ABS(finish_time, start_time) / 1000;
 	
-	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK] %s processing time = %d.%dms\n",
+	RF_DBG(rf, DBG_RF_RFK, "[TXGAPK] %s processing time = %d.%dms\n",
 		__func__,
 		HALRF_ABS(finish_time, start_time) / 1000,
 		HALRF_ABS(finish_time, start_time) % 1000);
+	RF_DBG(rf, DBG_RF_FW, "[FW]gapk w=%d r=%d, fw_w=%d, h2c=%d\n",
+		rf->w_count, rf->r_count, rf->fw_w_count, rf->sw_trigger_count);
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -810,20 +1652,23 @@ enum rtw_hal_status halrf_gapk_enable(void *rf_void,
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
+	if (!(rf->support_ability & HAL_RF_TXGAPK))
+		return RTW_HAL_STATUS_SUCCESS;
+
 	rf->rfk_is_processing = true;
 
 	switch (hal_i->chip_id) {
-#ifdef RF_8852A_SUPPORT
-	case CHIP_WIFI6_8852A:
-		halrf_txgapk_enable_8852a(rf, phy_idx);
+#if defined(RF_8852C_SUPPORT) || defined(RF_8832BR_SUPPORT) || defined(RF_8192XB_SUPPORT)
+	case CHIP_WIFI6_8852C:
+	case CHIP_WIFI6_8832BR:
+	case CHIP_WIFI6_8192XB:
+		//it needs to use trigger cmd
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> please use txgapk trigger\n"); 
 		break;
 #endif
-#ifdef RF_8852B_SUPPORT
-	case CHIP_WIFI6_8852B:
-		halrf_txgapk_enable_8852b(rf, phy_idx);
-		break;
-#endif
-		default:
+
+	default:
+		halrf_ops_txgapk_enable(rf, phy_idx);
 		break;
 	}
 
@@ -839,20 +1684,16 @@ enum rtw_hal_status halrf_gapk_disable(void *rf_void,
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
+/*
+	if (!(rf->support_ability & HAL_RF_TXGAPK))
+		return RTW_HAL_STATUS_SUCCESS;
+*/
 	rf->rfk_is_processing = true;
 
 	switch (hal_i->chip_id) {
-#ifdef RF_8852A_SUPPORT
-	case CHIP_WIFI6_8852A:
-		halrf_txgapk_write_table_default_8852a(rf, phy_idx);
-		break;
-#endif
-#ifdef RF_8852B_SUPPORT
-	case CHIP_WIFI6_8852B:
-		halrf_txgapk_write_table_default_8852b(rf, phy_idx);
-		break;
-#endif
-		default:
+
+	default:
+		halrf_ops_txgapk_w_table_default(rf, phy_idx);
 		break;
 	}
 
@@ -883,37 +1724,37 @@ void halrf_rck_trigger(void *rf_void,
 			halrf_rck_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		for (path = 0; path < 2; path++)
+			halrf_rck_8852c(rf, path);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		for (path = 0; path < 2; path++)
+			halrf_rck_8852bp(rf, path);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		for (path = 0; path < 2; path++)
+			halrf_rck_8832br(rf, path);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		for (path = 0; path < 2; path++)
+			halrf_rck_8192xb(rf, path);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_rck_8730a(rf);
+		break;
+#endif
+
 	default:
-		break;
-	}
-}
-
-void halrf_gapk_save_tx_gain(struct rf_info *rf)
-{
-	struct rtw_hal_com_t *hal_i = rf->hal_com;
-
-	switch (hal_i->chip_id) {
-#ifdef RF_8852A_SUPPORT
-	case CHIP_WIFI6_8852A:
-		//halrf_gapk_save_tx_gain_8852a(rf);
-		break;
-#endif
-		default:
-		break;
-	}
-}
-
-void halrf_gapk_reload_tx_gain(struct rf_info *rf)
-{
-	struct rtw_hal_com_t *hal_i = rf->hal_com;
-
-	switch (hal_i->chip_id) {
-#ifdef RF_8852A_SUPPORT
-	case CHIP_WIFI6_8852A:
-		//halrf_gapk_reload_tx_gain_8852a(rf);
-		break;
-#endif
-		default:
 		break;
 	}
 }
@@ -947,6 +1788,18 @@ void halrf_lo_test(void *rf_void, bool is_on, enum rf_path path)
 		halrf_lo_test_8852b(rf, is_on, path);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_lo_test_8852c(rf, is_on, path);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_lo_test_8851b(rf, is_on, path);
+		break;
+#endif
+
 		default:
 		break;
 	}
@@ -970,7 +1823,28 @@ void halrf_iqk_onoff(void *rf_void, bool is_enable)
 			halrf_iqk_onoff_8852ab(rf, is_enable);
 		break;
 #endif
-			default:
+#ifdef RF_8852B_SUPPORT
+		case CHIP_WIFI6_8852B:
+			halrf_iqk_onoff_8852b(rf, is_enable);
+		break;
+#endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_iqk_onoff_8852c(rf, is_enable);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_iqk_onoff_8832br(rf, is_enable);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_iqk_onoff_8192xb(rf, is_enable);
+		break;
+#endif
+		default:
 			break;
 	}
 	rf->rfk_is_processing = false;
@@ -1015,6 +1889,37 @@ void halrf_dpk_onoff(void *rf_void, bool is_enable)
 				halrf_dpk_onoff_8852b(rf, path, false);
 			break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		for (path = 0; path < 2; path++)
+			halrf_dpk_onoff_8852c(rf, path, false);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		for (path = 0; path < 2; path++)
+			halrf_dpk_onoff_8852bp(rf, path, false);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		for (path = 0; path < 2; path++)
+			halrf_dpk_onoff_8851b(rf, path, false);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		for (path = 0; path < 2; path++)
+			halrf_dpk_onoff_8832br(rf, path, false);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		for (path = 0; path < 2; path++)
+			halrf_dpk_onoff_8192xb(rf, path, false);
+		break;
+#endif
+
 			default:
 			break;
 		}
@@ -1024,11 +1929,9 @@ void halrf_dpk_onoff(void *rf_void, bool is_enable)
 void halrf_dpk_track_onoff(void *rf_void, bool is_enable)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct halrf_dpk_info *dpk = &rf->dpk;
 
-	if (is_enable)
-		rf->support_ability = rf->support_ability | HAL_RF_DPK_TRACK;
-	else
-		rf->support_ability = rf->support_ability & ~HAL_RF_DPK_TRACK;
+	dpk->is_dpk_track_en = is_enable;
 }
 
 void halrf_dpk_switch(void *rf_void, bool is_enable)
@@ -1074,9 +1977,11 @@ void halrf_dpk_init(void *rf_void)
 			dpk->bp[path][idx].gs = 0;
 			dpk->bp[path][idx].pwsf = 0;
 		}
+		dpk->max_dpk_txagc[path] = 0x3F;
 	}
 
 	dpk->is_dpk_enable = true;
+	dpk->is_dpk_track_en = true;
 	dpk->is_dpk_reload_en = false;
 
 	switch (hal_i->chip_id) {
@@ -1085,11 +1990,27 @@ void halrf_dpk_init(void *rf_void)
 		halrf_dpk_init_8852a(rf);
 		break;
 #endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_dpk_init_8852bp(rf);
+		break;
+#endif
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		halrf_dpk_init_8852b(rf);
 		break;
 #endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_dpk_init_8851b(rf);
+		break;
+#endif
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_dpk_init_8730a(rf);
+		break;
+#endif
+
 	default:
 		break;
 	}
@@ -1124,16 +2045,70 @@ void halrf_rx_dck_onoff(void *rf_void, bool is_enable)
 		halrf_rx_dck_onoff_8852b(rf, is_enable);
 		break;
 #endif
-		default:
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_rx_dck_onoff_8852c(rf, is_enable);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_rx_dck_onoff_8851b(rf, is_enable);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_rx_dck_onoff_8832br(rf, is_enable);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_rx_dck_onoff_8192xb(rf, is_enable);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_rx_dck_onoff_8852bp(rf, is_enable);
+		break;
+#endif
+	default:
 		break;
 	}
 }
 
-void halrf_gapk_onoff(void *rf_void, bool is_enable)
+void halrf_rx_dck_track_onoff(void *rf_void, bool is_enable)
 {
-	/*parameter to default or not*/
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
 
+	rx_dck->is_rxdck_track_en = is_enable;
 }
+
+void halrf_rx_dck_init(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
+
+	rx_dck->is_rxdck_track_en = true;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		if (halrf_rrf(rf, RF_PATH_A, 0x95, BIT(3)) == 0x1) /*if auto DCK enabled*/
+			rx_dck->is_auto_res = true;
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		if (halrf_rrf(rf, RF_PATH_A, 0x95, BIT(3)) == 0x1) /*if auto DCK enabled*/
+			rx_dck->is_auto_res = true;
+		break;
+#endif
+	default:
+		break;
+	}
+}
+
 
 void halrf_dack_onoff(void *rf_void, bool is_enable)
 {
@@ -1163,17 +2138,11 @@ bool halrf_get_dpk_onoff(void *rf_void)
 bool halrf_get_dpk_track_onoff(void *rf_void)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct halrf_dpk_info *dpk = &rf->dpk;
 
-	if (rf->support_ability & HAL_RF_DPK_TRACK)
-		return 1;
-	else
-		return 0;
+	return dpk->is_dpk_track_en;
 }
 
-bool halrf_get_gapk_onoff(void *rf_void)
-{
-	return 1;
-}
 bool halrf_get_dack_onoff(void *rf_void)
 {
 	return 1;
@@ -1198,8 +2167,36 @@ u8 halrf_get_thermal(void *rf_void, u8 rf_path)
 		return halrf_get_thermal_8852b(rf, rf_path);
 #endif
 
-	return 0;
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_get_thermal_8852c(rf, rf_path);
+#endif
 
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		return halrf_get_thermal_8832br(rf, rf_path);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		return halrf_get_thermal_8192xb(rf, rf_path);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		return halrf_get_thermal_8852bp(rf, rf_path);
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		return halrf_get_thermal_8730a(rf, rf_path);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		return halrf_get_thermal_8851b(rf, rf_path);
+#endif
+	return 0;
 }
 
 u32 halrf_get_tssi_de(void *rf_void, enum phl_phy_idx phy_idx, u8 path)
@@ -1219,13 +2216,43 @@ s32 halrf_get_online_tssi_de(void *rf_void, enum phl_phy_idx phy_idx, u8 path, s
 			tmp = halrf_get_online_tssi_de_8852a(rf, phy_idx, path, dbm, puot);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			tmp = halrf_get_online_tssi_de_8852b(rf, phy_idx, path, dbm, puot);
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			tmp = halrf_get_online_tssi_de_8852c(rf, phy_idx, path, dbm, puot);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			tmp = halrf_get_online_tssi_de_8832br(rf, phy_idx, path, dbm, puot);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			tmp = halrf_get_online_tssi_de_8192xb(rf, phy_idx, path, dbm, puot);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			tmp = halrf_get_online_tssi_de_8852bp(rf, phy_idx, path, dbm, puot);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			tmp = halrf_get_online_tssi_de_8851b(rf, phy_idx, path, dbm, puot);
+			break;
+#endif
+		default:
 			break;
 	}
 
@@ -1243,13 +2270,44 @@ void halrf_tssi_enable(void *rf_void, enum phl_phy_idx phy_idx)
 			halrf_tssi_enable_8852a(rf, phy_idx);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			halrf_tssi_enable_8852b(rf, phy_idx);
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_enable_8852c(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_enable_8832br(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_tssi_enable_8192xb(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_tssi_enable_8852bp(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_tssi_enable_8851b(rf, phy_idx);
+			break;
+#endif
+
+		default:
 			break;
 	}
 }
@@ -1265,12 +2323,241 @@ void halrf_tssi_disable(void *rf_void, enum phl_phy_idx phy_idx)
 			halrf_tssi_disable_8852a(rf, phy_idx);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			halrf_tssi_disable_8852b(rf, phy_idx);
 			break;
 #endif
-			default:
+
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_disable_8852c(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_disable_8832br(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_tssi_disable_8192xb(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_tssi_disable_8852bp(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_tssi_disable_8851b(rf, phy_idx);
+			break;
+#endif
+
+		default:
+			break;
+	}
+}
+
+void halrf_tssi_slope_onoff(void *rf_void, u8 tssi_slope_type)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_slope_onoff_8852c(rf, tssi_slope_type);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_slope_onoff_8832br(rf, tssi_slope_type);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			/*halrf_tssi_slope_onoff_8192xb(rf, tssi_slope_type);*/
+			break;
+#endif
+
+		default:
+			break;
+	}
+}
+
+/*MP sloep K*/
+void halrf_tssi_do_slope(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_do_slope_8852c(rf);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_do_slope_8832br(rf);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			/*halrf_tssi_do_slope_8192xb(rf);*/
+			break;
+#endif
+
+		default:
+			break;
+	}
+}
+
+/*MP sloep K*/
+u32 halrf_tssi_get_cw(void *rf_void, enum rf_path path)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			return halrf_tssi_get_cw_8852c(rf, path);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			return halrf_tssi_get_cw_8832br(rf, path);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			/*return halrf_tssi_get_cw_8192xb(rf, path);*/
+			break;
+#endif
+
+		default:
+			break;
+	}
+
+	return 0;
+}
+
+/*MP sloep K*/
+void halrf_tssi_slope_apply(void *rf_void,
+	u32 gain_first, u32 gain_second,
+	u32 cw_first, u32 cw_second, enum rf_path path,
+	u32* gain_diff, u32* cw_diff)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_slope_apply_8852c(rf,
+						gain_first, gain_second,
+						cw_first, cw_second, path,
+						gain_diff, cw_diff);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_slope_apply_8832br(rf,
+						gain_first, gain_second,
+						cw_first, cw_second, path,
+						gain_diff, cw_diff);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			/*halrf_tssi_slope_apply_8192xb(rf,
+						gain_first, gain_second,
+						cw_first, cw_second, path,
+						gain_diff, cw_diff);*/
+			break;
+#endif
+
+		default:
+			break;
+	}
+}
+
+/*MP sloep K*/
+void halrf_tssi_current_slope_apply(void *rf_void,
+	u32 gain_diff, u32 cw_diff, enum rf_path path)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_current_slope_apply_8852c(rf,
+						gain_diff, cw_diff, path);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_current_slope_apply_8832br(rf,
+						gain_diff, cw_diff, path);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			/*halrf_tssi_current_slope_apply_8192xb(rf,
+						gain_diff, cw_diff, path);*/
+			break;
+#endif
+
+		default:
+			break;
+	}
+}
+
+/*MP sloep K*/
+void halrf_tssi_finish_slope(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_finish_slope_8852c(rf);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_finish_slope_8832br(rf);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			/*halrf_tssi_finish_slope_8192xb(rf);*/
+			break;
+#endif
+
+		default:
 			break;
 	}
 }
@@ -1279,9 +2566,10 @@ void halrf_tssi_init(void *rf_void)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	u8 i;
 
-	rf->is_tssi_mode[RF_PATH_A] = false;
-	rf->is_tssi_mode[RF_PATH_B] = false;
+	for (i = 0; i < MAX_RF_PATH; i++)
+		rf->is_tssi_mode[i] = false;
 }
 
 s8 halrf_get_ther_protected_threshold(void *rf_void)
@@ -1302,7 +2590,25 @@ s8 halrf_get_ther_protected_threshold(void *rf_void)
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			return halrf_get_ther_protected_threshold_8852c(rf);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			return halrf_get_ther_protected_threshold_8852bp(rf);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			return halrf_get_ther_protected_threshold_8851b(rf);
+			break;
+#endif
+
+		default:
 			break;
 	}
 
@@ -1320,14 +2626,61 @@ void halrf_set_tssi_de_for_tx_verify(void *rf_void, enum phl_phy_idx phy_idx, u3
 			halrf_set_tssi_de_for_tx_verify_8852a(rf, phy_idx, tssi_de, path);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			halrf_set_tssi_de_for_tx_verify_8852b(rf, phy_idx, tssi_de, path);
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_set_tssi_de_for_tx_verify_8852c(rf, phy_idx, tssi_de, path);
 			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_set_tssi_de_for_tx_verify_8832br(rf, phy_idx, tssi_de, path);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_set_tssi_de_for_tx_verify_8192xb(rf, phy_idx, tssi_de, path);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_set_tssi_de_for_tx_verify_8852bp(rf, phy_idx, tssi_de, path);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_set_tssi_de_for_tx_verify_8851b(rf, phy_idx, tssi_de, path);
+			break;
+#endif
+		default:
+			break;
+	}
+}
+
+void halrf_tssi_cck_by_pass(void *rf_void,
+			enum phl_phy_idx phy, bool by_pass_en)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	
+	switch (hal_i->chip_id) {
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_tssi_cck_by_pass_8192xb(rf, phy, by_pass_en);
+		break;
+#endif
+		default:
+		break;
 	}
 }
 
@@ -1349,6 +2702,36 @@ u32 halrf_tssi_get_final(void *rf_void, enum phl_phy_idx phy_idx, u8 path)
 			break;
 #endif
 
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			return halrf_tssi_get_final_8852c(rf, path);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			return halrf_tssi_get_final_8832br(rf, path);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			return halrf_tssi_get_final_8192xb(rf, path);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			return halrf_tssi_get_final_8852bp(rf, path);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			return halrf_tssi_get_final_8851b(rf, path);
+			break;
+#endif
+
 		default:
 			break;
 	}
@@ -1367,9 +2750,40 @@ void halrf_set_tssi_de_offset(void *rf_void, enum phl_phy_idx phy_idx, u32 tssi_
 			halrf_set_tssi_de_offset_8852a(rf, phy_idx, tssi_de_offset, path);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			halrf_set_tssi_de_offset_8852b(rf, phy_idx, tssi_de_offset, path);
+			break;
+#endif
+
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_set_tssi_de_offset_8852c(rf, phy_idx, tssi_de_offset, path);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_set_tssi_de_offset_8832br(rf, phy_idx, tssi_de_offset, path);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_set_tssi_de_offset_8192xb(rf, phy_idx, tssi_de_offset, path);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_set_tssi_de_offset_8852bp(rf, phy_idx, tssi_de_offset, path);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_set_tssi_de_offset_8851b(rf, phy_idx, tssi_de_offset, path);
 			break;
 #endif
 
@@ -1419,18 +2833,24 @@ void halrf_set_power_track(void *rf_void, enum phl_phy_idx phy_idx, u8 value)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct halrf_tssi_info *tssi_info = &rf->tssi;
+	u32 phy_tmp;
 
-	tssi_info->tssi_type = value;
+	if (rf->hal_com->dbcc_en)
+		phy_tmp = phy_idx;
+	else
+		phy_tmp = HW_PHY_0;
+
+	tssi_info->tssi_type[phy_tmp] = value;
 
 	if (value == TSSI_OFF) {
-		halrf_tssi_trigger(rf, phy_idx);
+		halrf_tssi_trigger(rf, phy_idx, true);
 		rf->support_ability = rf->support_ability & ~HAL_RF_TX_PWR_TRACK;
 	} else if (value == TSSI_ON) {
 		rf->support_ability = rf->support_ability | HAL_RF_TX_PWR_TRACK;
-		halrf_tssi_trigger(rf, phy_idx);
+		halrf_tssi_trigger(rf, phy_idx, true);
 	} else if (value == TSSI_CAL) {
 		rf->support_ability = rf->support_ability | HAL_RF_TX_PWR_TRACK;
-		halrf_tssi_trigger(rf, phy_idx);
+		halrf_tssi_trigger(rf, phy_idx, true);
 	} else
 		rf->support_ability = rf->support_ability & ~HAL_RF_TX_PWR_TRACK;
 
@@ -1442,7 +2862,21 @@ u8 halrf_get_power_track(void *rf_void)
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct halrf_tssi_info *tssi_info = &rf->tssi;
 
-	return tssi_info->tssi_type;
+	return tssi_info->tssi_type[HW_PHY_0];
+}
+
+u8 halrf_get_power_track_phy(void *rf_void, enum phl_phy_idx phy_idx)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct halrf_tssi_info *tssi_info = &rf->tssi;
+	u32 phy_tmp;
+
+	if (rf->hal_com->dbcc_en)
+		phy_tmp = phy_idx;
+	else
+		phy_tmp = HW_PHY_0;
+
+	return tssi_info->tssi_type[phy_tmp];
 }
 
 void halrf_tssi_get_efuse_ex(void *rf_void, enum phl_phy_idx phy_idx)
@@ -1456,13 +2890,50 @@ void halrf_tssi_get_efuse_ex(void *rf_void, enum phl_phy_idx phy_idx)
 			halrf_tssi_get_efuse_8852a(rf, phy_idx);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			halrf_tssi_get_efuse_8852b(rf, phy_idx);
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_tssi_get_efuse_8852c(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_tssi_get_efuse_8832br(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_tssi_get_efuse_8192xb(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_tssi_get_efuse_8852bp(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_tssi_get_efuse_8851b(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8730A_SUPPORT
+		case CHIP_WIFI6_8730A:
+			halrf_tssi_get_efuse_8730a(rf, phy_idx);
+			break;
+#endif
+
+		default:
 			break;
 	}
 	halrf_get_efuse_power_table_switch(rf, phy_idx);
@@ -1479,9 +2950,40 @@ bool halrf_tssi_check_efuse_data(void *rf_void, enum phl_phy_idx phy_idx)
 			return halrf_tssi_check_efuse_data_8852a(rf, phy_idx);
 			break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			return halrf_tssi_check_efuse_data_8852b(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			return halrf_tssi_check_efuse_data_8852c(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			return halrf_tssi_check_efuse_data_8832br(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			return halrf_tssi_check_efuse_data_8192xb(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			return halrf_tssi_check_efuse_data_8852bp(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			return halrf_tssi_check_efuse_data_8851b(rf, phy_idx);
 			break;
 #endif
 
@@ -1509,7 +3011,43 @@ void halrf_set_ref_power_to_struct(void *rf_void, enum phl_phy_idx phy_idx)
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_set_ref_power_to_struct_8852c(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_set_ref_power_to_struct_8832br(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_set_ref_power_to_struct_8192xb(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_set_ref_power_to_struct_8852bp(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8730A_SUPPORT
+		case CHIP_WIFI6_8730A:
+			halrf_set_ref_power_to_struct_8730a(rf, phy_idx);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_set_ref_power_to_struct_8851b(rf, phy_idx);
+			break;
+#endif
+
+		default:
 			break;
 	}
 }
@@ -1542,6 +3080,21 @@ void halrf_bf_config_rf(void *rf_void)
 			halrf_bf_config_rf_8852a(rf);
 			break;
 #endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_bf_config_rf_8852c(rf);
+			break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_bf_config_rf_8192xb(rf);
+			break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_bf_config_rf_8832br(rf);
+			break;
+#endif
 			default:
 			break;
 		}
@@ -1563,6 +3116,36 @@ bool halrf_get_efuse_info(void *rf_void, u8 *efuse_map,
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		return halrf_get_efuse_info_8852b(rf, efuse_map, id, value, length,
+					autoload_status);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_get_efuse_info_8852c(rf, efuse_map, id, value, length,
+					autoload_status);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		return halrf_get_efuse_info_8832br(rf, efuse_map, id, value, length,
+					autoload_status);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		return halrf_get_efuse_info_8192xb(rf, efuse_map, id, value, length,
+					autoload_status);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		return halrf_get_efuse_info_8852bp(rf, efuse_map, id, value, length,
+					autoload_status);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		return halrf_get_efuse_info_8851b(rf, efuse_map, id, value, length,
 					autoload_status);
 #endif
 
@@ -1598,6 +3181,36 @@ void halrf_get_efuse_trim(void *rf_void, enum phl_phy_idx phy_idx)
 		halrf_get_efuse_trim_8852b(rf, phy_idx);
 #endif
 
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_get_efuse_trim_8852c(rf, phy_idx);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		halrf_get_efuse_trim_8832br(rf, phy_idx);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_get_efuse_trim_8192xb(rf, phy_idx);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		halrf_get_efuse_trim_8852bp(rf, phy_idx);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_get_efuse_trim_8851b(rf, phy_idx);
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		halrf_get_efuse_trim_8730a(rf, phy_idx);
+#endif
+
 }
 
 void halrf_do_rx_gain_k(void *rf_void, enum phl_phy_idx phy_idx)
@@ -1625,6 +3238,12 @@ bool halrf_set_dbcc(void *rf_void, bool dbcc_en)
 	if (hal_com->chip_id == CHIP_WIFI6_8852A)
 		return halrf_set_dbcc_8852a(rf, dbcc_en);
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_set_dbcc_8852c(rf, dbcc_en);
+#endif
+
 	return 0;
 }
 
@@ -1644,6 +3263,30 @@ void halrf_wlan_tx_power_control(void *rf_void, enum phl_phy_idx phy,
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			halrf_wlan_tx_power_control_8852b(rf,
+				phy, pwr_ctrl_idx, tx_power_val, enable);
+			break;
+#endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_wlan_tx_power_control_8852c(rf,
+				phy, pwr_ctrl_idx, tx_power_val, enable);
+			break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_wlan_tx_power_control_8852bp(rf,
+				phy, pwr_ctrl_idx, tx_power_val, enable);
+			break;
+#endif
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_wlan_tx_power_control_8851b(rf,
+				phy, pwr_ctrl_idx, tx_power_val, enable);
+			break;
+#endif
+#ifdef RF_8730A_SUPPORT
+		case CHIP_WIFI6_8730A:
+			halrf_wlan_tx_power_control_8730a(rf,
 				phy, pwr_ctrl_idx, tx_power_val, enable);
 			break;
 #endif
@@ -1669,6 +3312,27 @@ bool halrf_wl_tx_power_control(void *rf_void, u32 tx_power_val)
 			rtn = halrf_wl_tx_power_control_8852b(rf, tx_power_val);
 			break;
 #endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			rtn = halrf_wl_tx_power_control_8852c(rf, tx_power_val);
+			break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			rtn = halrf_wl_tx_power_control_8852bp(rf, tx_power_val);
+			break;
+#endif
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			rtn = halrf_wl_tx_power_control_8851b(rf, tx_power_val);
+			break;
+#endif
+#ifdef RF_8730A_SUPPORT
+		case CHIP_WIFI6_8730A:
+			rtn = halrf_wl_tx_power_control_8730a(rf, tx_power_val);
+			break;
+#endif
+
 		default:
 			break;
 	}
@@ -1679,16 +3343,24 @@ bool halrf_wl_tx_power_control(void *rf_void, u32 tx_power_val)
 void halrf_watchdog(void *rf_void)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
+	bool lock = false;
 
-  	if (rf->is_watchdog_stop)
-		return;
-	halrf_watchdog_stop( rf, true);
-	/*halrf_thermal_period(rf);*/
+	if (phl_is_mp_mode(rf->phl_com)) {
+		halrf_mutex_lock(rf, &rf->rf_lock);
+		lock = true;
+	}
+	rf->cur_ther_s0 = halrf_get_thermal(rf, RF_PATH_A);
+	rf->cur_ther_s1 = halrf_get_thermal(rf, RF_PATH_B);
 	halrf_tssi_ant_open(rf);
 	halrf_tssi_tracking(rf);
 	halrf_dpk_tracking(rf);
 	halrf_iqk_tracking(rf);
-	halrf_watchdog_stop( rf, false);
+	halrf_lck_tracking(rf);
+	halrf_rx_dck_tracking(rf);
+	/*halrf_op5k_tracking(rf);*/
+	/*halrf_set_tpe_control(rf);*/
+	if (lock)
+		halrf_mutex_unlock(rf, &rf->rf_lock);
 }
 
 u8 halrf_get_default_rfe_type(void *rf_void)
@@ -1725,8 +3397,16 @@ bool halrf_iqk_get_ther_rek(void *rf_void)
 		return halrf_iqk_get_ther_rek_8852ab(rf);
 #endif
 #ifdef RF_8852B_SUPPORT
-		if (hal_com->chip_id == CHIP_WIFI6_8852B)
-			return halrf_iqk_get_ther_rek_8852b(rf);
+	if (hal_com->chip_id == CHIP_WIFI6_8852B)
+		return halrf_iqk_get_ther_rek_8852b(rf);
+#endif
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_iqk_get_ther_rek_8852c(rf);
+#endif
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		return halrf_iqk_get_ther_rek_8730a(rf);
 #endif
 
 	return false;
@@ -1738,8 +3418,11 @@ enum rtw_hal_status halrf_iqk_tracking(void *rf_void)
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
 	struct halrf_iqk_info *iqk = &rf->iqk;
 
-	if (!(rf->support_ability & HAL_RF_IQK) || rf->rfk_is_processing)
+	if (!(rf->support_ability & HAL_RF_IQK) || rf->rfk_is_processing ||
+		rf->is_watchdog_stop)
 		return RTW_HAL_STATUS_SUCCESS;
+
+	halrf_watchdog_stop(rf, true); /*avoid race condition*/
 
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
@@ -1747,19 +3430,45 @@ enum rtw_hal_status halrf_iqk_tracking(void *rf_void)
 		halrf_iqk_track_8852ab(rf);
 #if 0
 		if (halrf_iqk_get_ther_rek(rf))
-			halrf_iqk(rf, 0x0, false);
+			halrf_iqk_trigger(rf, 0x0, false);
 #endif
 	break;
 #endif
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		halrf_iqk_track_8852b(rf);
+#if 0
+		if (halrf_iqk_get_ther_rek(rf))
+			halrf_iqk_trigger(rf, 0x0, false);
+#endif
+	break;
+#endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_iqk_track_8852c(rf);
+#if 0
+		if (halrf_iqk_get_ther_rek(rf))
+			halrf_iqk_trigger(rf, 0x0, false);
+#endif
+		break;
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		halrf_iqk_track_8730a(rf);
+#if 0
+		if (halrf_iqk_get_ther_rek(rf))
+			halrf_iqk_trigger(rf, 0x0, false);
+#endif
+
 	break;
 #endif
 
 	default:
 	break;
 	}
+
+	halrf_watchdog_stop(rf, false);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -1779,6 +3488,37 @@ void halrf_psd_init(void *rf_void, enum phl_phy_idx phy,
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		halrf_psd_init_8852b(rf, phy, path, iq_path, avg, fft);
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_psd_init_8852c(rf, phy, path, iq_path, avg, fft);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		halrf_psd_init_8832br(rf, phy, path, iq_path, avg, fft);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_psd_init_8192xb(rf, phy, path, iq_path, avg, fft);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		halrf_psd_init_8852bp(rf, phy, path, iq_path, avg, fft);
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		halrf_psd_init_8730a(rf, phy, path, iq_path, avg, fft);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_psd_init_8851b(rf, phy, path, iq_path, avg, fft);
+#endif
+
 }
 
 void halrf_psd_restore(void *rf_void, enum phl_phy_idx phy)
@@ -1795,6 +3535,37 @@ void halrf_psd_restore(void *rf_void, enum phl_phy_idx phy)
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		halrf_psd_restore_8852b(rf, phy);
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_psd_restore_8852c(rf, phy);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		halrf_psd_restore_8832br(rf, phy);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_psd_restore_8192xb(rf, phy);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		halrf_psd_restore_8852bp(rf, phy);
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		halrf_psd_restore_8730a(rf, phy);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_psd_restore_8851b(rf, phy);
+#endif
+
 }
 
 u32 halrf_psd_get_point_data(void *rf_void, enum phl_phy_idx phy, s32 point)
@@ -1810,6 +3581,36 @@ u32 halrf_psd_get_point_data(void *rf_void, enum phl_phy_idx phy, s32 point)
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		return halrf_psd_get_point_data_8852b(rf, phy, point);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_psd_get_point_data_8852c(rf, phy, point);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		return halrf_psd_get_point_data_8832br(rf, phy, point);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		return halrf_psd_get_point_data_8192xb(rf, phy, point);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		return halrf_psd_get_point_data_8852bp(rf, phy, point);
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		return halrf_psd_get_point_data_8730a(rf, phy, point);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		return halrf_psd_get_point_data_8851b(rf, phy, point);
 #endif
 
 	return 0;
@@ -1829,6 +3630,36 @@ void halrf_psd_query(void *rf_void, enum phl_phy_idx phy,
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		halrf_psd_query_8852b(rf, phy, point, start_point, stop_point, outbuf);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_psd_query_8852c(rf, phy, point, start_point, stop_point, outbuf);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		halrf_psd_query_8832br(rf, phy, point, start_point, stop_point, outbuf);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_psd_query_8192xb(rf, phy, point, start_point, stop_point, outbuf);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		halrf_psd_query_8852bp(rf, phy, point, start_point, stop_point, outbuf);
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		halrf_psd_query_8730a(rf, phy, point, start_point, stop_point, outbuf);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_psd_query_8851b(rf, phy, point, start_point, stop_point, outbuf);
 #endif
 
 }
@@ -1859,6 +3690,36 @@ void halrf_set_fix_power_to_struct(void *rf_void,
 		break;
 #endif
 
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_set_fix_power_to_struct_8852c(rf, phy, dbm);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_set_fix_power_to_struct_8832br(rf, phy, dbm);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_set_fix_power_to_struct_8192xb(rf, phy, dbm);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_set_fix_power_to_struct_8852bp(rf, phy, dbm);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_set_fix_power_to_struct_8851b(rf, phy, dbm);
+		break;
+#endif
+
 		default:
 		break;
 	}
@@ -1886,7 +3747,42 @@ void halrf_pwr_by_rate_info(struct rf_info *rf, char input[][16], u32 *_used,
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_pwr_by_rate_info_8852c(rf, input, &used,
+				output, &out_len, phy);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_pwr_by_rate_info_8832br(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_pwr_by_rate_info_8192xb(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_pwr_by_rate_info_8852bp(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_pwr_by_rate_info_8851b(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+		default:
 			break;
 	}
 
@@ -1916,7 +3812,42 @@ void halrf_pwr_limit_info(struct rf_info *rf, char input[][16], u32 *_used,
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_pwr_limit_info_8852c(rf, input, &used,
+				output, &out_len, phy);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_pwr_limit_info_8832br(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_pwr_limit_info_8192xb(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_pwr_limit_info_8852bp(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_pwr_limit_info_8851b(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+		default:
 			break;
 	}
 
@@ -1946,7 +3877,42 @@ void halrf_pwr_limit_ru_info(struct rf_info *rf, char input[][16], u32 *_used,
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_pwr_limit_ru_info_8852c(rf, input, &used,
+				output, &out_len, phy);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_pwr_limit_ru_info_8832br(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_pwr_limit_ru_info_8192xb(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_pwr_limit_ru_info_8852bp(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_pwr_limit_ru_info_8851b(rf, input, &used,
+				output, &out_len);
+			break;
+#endif
+
+		default:
 			break;
 	}
 }
@@ -1955,30 +3921,60 @@ void halrf_get_tssi_info(struct rf_info *rf, char input[][16], u32 *_used,
 			 char *output, u32 *_out_len)
 {
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
-	u32 used = *_used;
-	u32 out_len = *_out_len;
 
 	switch (hal_i->chip_id) {
 #ifdef RF_8852A_SUPPORT
 		case CHIP_WIFI6_8852A:
-			halrf_get_tssi_info_8852a(rf, input, &used,
-				output, &out_len);
+			halrf_get_tssi_info_8852a(rf, input, _used,
+				output, _out_len);
 			break;
 #endif
 
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
-			halrf_get_tssi_info_8852b(rf, input, &used,
-				output, &out_len);
+			halrf_get_tssi_info_8852b(rf, input, _used,
+				output, _out_len);
 			break;
 #endif
 
-			default:
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_get_tssi_info_8852c(rf, input, _used,
+				output, _out_len);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_get_tssi_info_8832br(rf, input, _used,
+				output, _out_len);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_get_tssi_info_8192xb(rf, input, _used,
+				output, _out_len);
+			break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_get_tssi_info_8852bp(rf, input, _used,
+				output, _out_len);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_get_tssi_info_8851b(rf, input, _used,
+				output, _out_len);
+			break;
+#endif
+
+		default:
 			break;
 	}
-
-	*_used = used;
-	*_out_len = out_len;
 }
 
 void halrf_get_tssi_trk_info(struct rf_info *rf, char input[][16], u32 *_used,
@@ -1995,7 +3991,7 @@ void halrf_get_tssi_trk_info(struct rf_info *rf, char input[][16], u32 *_used,
 				output, &out_len);
 			break;
 #endif
-			default:
+		default:
 			break;
 	}
 }
@@ -2010,6 +4006,13 @@ void halrf_tssi_backup_txagc(struct rf_info *rf, enum phl_phy_idx phy, bool enab
 			halrf_tssi_backup_txagc_8852b(rf, phy, enable);
 			break;
 #endif
+
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			//halrf_tssi_backup_txagc_8852c(rf, phy, enable);
+			break;
+#endif
+
 		default:
 			break;
 	}
@@ -2025,13 +4028,59 @@ void halrf_set_tx_shape(struct rf_info *rf, u8 tx_shape_idx)
 			halrf_set_tx_shape_8852b(rf, tx_shape_idx);
 			break;
 #endif
+
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_set_tx_shape_8852c(rf, tx_shape_idx);
+			break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_set_tx_shape_8832br(rf, tx_shape_idx);
+			break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_set_tx_shape_8192xb(rf, tx_shape_idx);
+			break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_set_tx_shape_8852bp(rf, tx_shape_idx);
+			break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_set_tx_shape_8851b(rf, tx_shape_idx);
+			break;
+#endif
+
 		default:
 			break;
 	}
 }
 
+void halrf_ctl_band_ch_bw(void *rf_void, enum phl_phy_idx phy, enum band_type band, u8 central_ch, enum channel_width bw)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
 
-void halrf_ctl_bw(void *rf_void, enum channel_width bw)
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			halrf_ctl_band_ch_bw_8852c(rf, phy, band, central_ch, bw);
+		break;
+#endif
+	default:
+		break;
+
+	}
+}
+
+void halrf_ctl_bw(void *rf_void, enum phl_phy_idx phy, enum channel_width bw)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
@@ -2042,6 +4091,32 @@ void halrf_ctl_bw(void *rf_void, enum channel_width bw)
 				halrf_ctrl_bw_8852b(rf, bw);
 			break;
 #endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+				//halrf_ctrl_bw_8852c(rf, phy, bw);
+			break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+				halrf_ctrl_bw_8832br(rf, phy, bw);
+			break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+				halrf_ctrl_bw_8192xb(rf, phy, bw);
+			break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+				halrf_ctrl_bw_8852bp(rf, phy, bw);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:	
+				halrf_ctrl_bw_8851b(rf, bw);
+			break;
+#endif
+
 		default:
 		break;
 	}
@@ -2049,7 +4124,7 @@ void halrf_ctl_bw(void *rf_void, enum channel_width bw)
 
 }
 
-void halrf_ctl_ch(void *rf_void,  u8 central_ch)
+void halrf_ctl_ch(void *rf_void,  enum phl_phy_idx phy, u8 central_ch, enum band_type band)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
@@ -2060,6 +4135,36 @@ void halrf_ctl_ch(void *rf_void,  u8 central_ch)
 			halrf_ctrl_ch_8852b(rf, central_ch);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+		case CHIP_WIFI6_8852C:
+			//halrf_ctrl_ch_8852c(rf, phy, central_ch, band);
+		break;
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+		case CHIP_WIFI6_8832BR:
+			halrf_ctrl_ch_8832br(rf, phy, central_ch, band);
+		break;
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+		case CHIP_WIFI6_8192XB:
+			halrf_ctrl_ch_8192xb(rf, phy, central_ch, band);
+		break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+		case CHIP_WIFI6_8852BP:
+			halrf_ctrl_ch_8852bp(rf, phy, central_ch, band);
+		break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_ctrl_ch_8851b(rf, central_ch);
+		break;
+#endif
+
 		default:
 		break;
 	}
@@ -2082,6 +4187,32 @@ void halrf_rxbb_bw(void *rf_void, enum phl_phy_idx phy, enum channel_width bw)
 		halrf_rxbb_bw_8852b(rf, phy, bw);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_rxbb_bw_8852c(rf, phy, bw);
+		break;
+#endif
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		halrf_rxbb_bw_8852bp(rf, phy, bw);
+		break;
+#endif
+#ifdef RF_8832BR_SUPPORT
+	case CHIP_WIFI6_8832BR:
+		halrf_rxbb_bw_8832br(rf, phy, bw);
+		break;
+#endif
+#ifdef RF_8192XB_SUPPORT
+	case CHIP_WIFI6_8192XB:
+		halrf_rxbb_bw_8192xb(rf, phy, bw);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_rxbb_bw_8851b(rf, phy, bw);
+		break;
+#endif
+
 	default:
 		break;
 	}
@@ -2102,7 +4233,17 @@ void halrf_config_radio_to_fw(void *rf_void)
 #endif
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
-			halrf_config_8852b_radio_to_fw(rf);
+		halrf_config_8852b_radio_to_fw(rf);
+		break;
+#endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_config_8852c_radio_to_fw(rf);
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		halrf_config_8851b_radio_to_fw(rf);
 		break;
 #endif
 		default:
@@ -2119,6 +4260,11 @@ void halrf_rfc_reg_backup(void *rf_void)
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
 		halrf_rfc_reg_backup_8852a(rf);
+		break;
+#endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_rfc_reg_backup_8852c(rf);
 		break;
 #endif
 		default:
@@ -2138,6 +4284,11 @@ bool halrf_rfc_reg_check_fail(void *rf_void)
 		fail = halrf_rfc_reg_check_fail_8852a(rf);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		fail = halrf_rfc_reg_check_fail_8852c(rf);
+		break;
+#endif
 		default:
 		break;
 	}
@@ -2155,6 +4306,27 @@ void halrf_rfk_reg_backup(void *rf_void)
 		halrf_rfk_reg_backup_8852a(rf);
 		break;
 #endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_rfk_reg_backup_8852c(rf);
+		break;
+#endif
+		default:
+		break;
+	}
+}
+
+void halrf_rfk_reg_reload(void *rf_void)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_rfk_reg_reload_8852c(rf);
+		break;
+#endif
 		default:
 		break;
 	}
@@ -2170,6 +4342,11 @@ bool halrf_rfk_reg_check_fail(void *rf_void)
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
 		fail = halrf_rfk_reg_check_fail_8852a(rf);
+		break;
+#endif
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		fail = halrf_rfk_reg_check_fail_8852c(rf);
 		break;
 #endif
 		default:
@@ -2246,8 +4423,16 @@ void halrf_disconnect_notify(void *rf_void, struct rtw_chan_def *chandef )
 		 halrf_disconnect_notify_8852a(rf, chandef);
 #endif
 #ifdef RF_8852B_SUPPORT
-	if (hal_com->chip_id == CHIP_WIFI6_8852A)
+	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		 halrf_disconnect_notify_8852b(rf, chandef);
+#endif
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		 halrf_disconnect_notify_8852c(rf, chandef);
+#endif
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		 halrf_disconnect_notify_8851b(rf, chandef);
 #endif
 
 	return;
@@ -2268,6 +4453,14 @@ bool  halrf_check_mcc_ch(void *rf_void, struct rtw_chan_def *chandef )
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		fail = halrf_check_mcc_ch_8852b(rf, chandef);
 #endif
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		fail = halrf_check_mcc_ch_8852c(rf, chandef);
+#endif
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		fail = halrf_check_mcc_ch_8851b(rf, chandef);
+#endif
 
 	return fail;
 
@@ -2286,6 +4479,19 @@ void  halrf_fw_ntfy(void *rf_void, enum phl_phy_idx phy_idx)
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		halrf_fw_ntfy_8852b(rf, phy_idx);
 #endif
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_fw_ntfy_8852c(rf, phy_idx);
+#endif
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		halrf_fw_ntfy_8730a(rf, phy_idx);
+#endif
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_fw_ntfy_8851b(rf, phy_idx);
+#endif
+
 
 	return;
 }
@@ -2300,6 +4506,21 @@ void halrf_set_regulation_from_driver(void *rf_void,
 	if (hal_com->chip_id == CHIP_WIFI6_8852A)
 		halrf_set_regulation_from_driver_8852a(rf, regulation_idx);
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_set_regulation_from_driver_8852c(rf, regulation_idx);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		halrf_set_regulation_from_driver_8832br(rf, regulation_idx);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_set_regulation_from_driver_8192xb(rf, regulation_idx);
+#endif
 	return;
 }
 
@@ -2311,12 +4532,34 @@ u32 halrf_get_nctl_reg_ver(struct rf_info *rf)
 	if (hal_com->chip_id == CHIP_WIFI6_8852A)
 		return halrf_get_8852a_nctl_reg_ver();
 #endif
+
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		return halrf_get_8852b_nctl_reg_ver();
 #endif
-	return 0;
 
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_get_8852c_nctl_reg_ver();
+#endif
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		return halrf_get_8832br_nctl_reg_ver();
+#endif
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		return halrf_get_8192xb_nctl_reg_ver();
+#endif
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		return halrf_get_8852bp_nctl_reg_ver();
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		return halrf_get_8851b_nctl_reg_ver();
+#endif
+	return 0;
 }
 
 u32 halrf_get_radio_reg_ver(struct rf_info *rf)
@@ -2327,10 +4570,17 @@ u32 halrf_get_radio_reg_ver(struct rf_info *rf)
 	if (hal_com->chip_id == CHIP_WIFI6_8852A)
 		return halrf_get_8852a_radio_reg_ver();
 #endif
+
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		return halrf_get_8852b_radio_reg_ver();
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_get_8852c_radio_reg_ver();
+#endif
+
 	return 0;
 }
 
@@ -2351,17 +4601,22 @@ u32 halrf_get_radio_ver_from_reg(struct rf_info *rf)
 		return halrf_rrf(rf, RF_PATH_A, 0xFE, 0xfff);
 #endif
 
-#if 0 /* TBD */
 #ifdef RF_8832BR_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
-		return halrf_rrf(rf, RF_PATH_A, 0xFE, 0xfff);
+		return halrf_rrf(rf, RF_PATH_A, 0x9F, 0xfff);
 #endif
 #ifdef RF_8192XB_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
 		return halrf_rrf(rf, RF_PATH_A, 0xFE, 0xfff);
 #endif
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		return halrf_rrf(rf, RF_PATH_A, 0xFE, 0xfff);
 #endif
-
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		return halrf_rrf(rf, RF_PATH_A, 0x9F, 0xfff);
+#endif
 	return 0;
 }
 
@@ -2377,6 +4632,30 @@ void halrf_config_nctl_reg(struct rf_info *rf)
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		halrf_config_8852b_nctl_reg(rf);
 #endif
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_config_8852c_nctl_reg(rf);
+#endif
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		halrf_config_8832br_nctl_reg(rf);
+#endif
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_config_8192xb_nctl_reg(rf);
+#endif
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		halrf_config_8852bp_nctl_reg(rf);
+#endif
+#ifdef RF_8730A_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8730A)
+		halrf_config_8730a_nctl_reg(rf);
+#endif
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_config_8851b_nctl_reg(rf);
+#endif
 
 	return;
 }
@@ -2390,6 +4669,22 @@ void halrf_set_gpio(void *rf_void, enum phl_phy_idx phy, u8 band)
 	if (hal_com->chip_id == CHIP_WIFI6_8852A)
 		halrf_set_gpio_8852a(rf, phy, band);
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		halrf_set_gpio_8852c(rf, phy);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		halrf_set_gpio_8192xb(rf, phy);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_set_gpio_8851b(rf, phy);
+#endif
+
 }
 
 bool halrf_mac_set_pwr_reg(void *rf_void, enum phl_phy_idx phy,
@@ -2407,6 +4702,31 @@ bool halrf_mac_set_pwr_reg(void *rf_void, enum phl_phy_idx phy,
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		result = halrf_mac_set_pwr_reg_8852b(rf, phy, addr, mask, val);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		result = halrf_mac_set_pwr_reg_8852c(rf, phy, addr, mask, val);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		result = halrf_mac_set_pwr_reg_8832br(rf, phy, addr, mask, val);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		result = halrf_mac_set_pwr_reg_8192xb(rf, phy, addr, mask, val);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		result = halrf_mac_set_pwr_reg_8852bp(rf, phy, addr, mask, val);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		result = halrf_mac_set_pwr_reg_8851b(rf, phy, addr, mask, val);
 #endif
 
 	if (result == 0)	/*MAC: MACSUCCESS == 0*/
@@ -2429,6 +4749,31 @@ u32 halrf_mac_get_pwr_reg(void *rf_void, enum phl_phy_idx phy,
 #ifdef RF_8852B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852B)
 		return halrf_mac_get_pwr_reg_8852b(rf, phy, addr, mask);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852C)
+		return halrf_mac_get_pwr_reg_8852c(rf, phy, addr, mask);
+#endif
+
+#ifdef RF_8832BR_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8832BR)
+		return halrf_mac_get_pwr_reg_8832br(rf, phy, addr, mask);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8192XB)
+		return halrf_mac_get_pwr_reg_8192xb(rf, phy, addr, mask);
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BP)
+		return halrf_mac_get_pwr_reg_8852bp(rf, phy, addr, mask);
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		return halrf_mac_get_pwr_reg_8851b(rf, phy, addr, mask);
 #endif
 
 	return 0;
@@ -2478,6 +4823,30 @@ s8 halrf_xtal_tracking_offset(void *rf_void, enum phl_phy_idx phy_idx)
 	break;
 #endif
 
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		return halrf_xtal_tracking_offset_8852c(rf, phy_idx);
+	break;
+#endif
+
+#ifdef RF_8852BP_SUPPORT
+	case CHIP_WIFI6_8852BP:
+		return halrf_xtal_tracking_offset_8852bp(rf, phy_idx);
+	break;
+#endif
+
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		return halrf_xtal_tracking_offset_8851b(rf, phy_idx);
+	break;
+#endif
+
+#ifdef RF_8730A_SUPPORT
+	case CHIP_WIFI6_8730A:
+		return halrf_xtal_tracking_offset_8730a(rf, phy_idx);
+	break;
+#endif
+
 	default:
 	break;
 	}
@@ -2506,6 +4875,253 @@ void halrf_rfe_ant_num_chk(void *rf_void)
 #endif
 	default:
 	break;
+	}
+}
+
+void halrf_syn1_onoff(void *rf_void, enum phl_phy_idx phy, u8 path, bool syn1_turn_on) {
+
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_syn1_onoff_8852c(rf, phy, path, syn1_turn_on);
+	break;
+#endif
+
+	default:
+	break;
+	}
+	return ;
+}
+
+void halrf_adie_pow_ctrl(void *rf_void, bool rf_off, bool others_off)
+{
+
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_adie_pow_ctrl_8852c(rf, rf_off, others_off);
+	break;
+#endif
+
+	default:
+	break;
+	}
+}
+
+void halrf_afe_pow_ctrl(void *rf_void, bool adda_off, bool pll_off)
+{
+
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852C_SUPPORT
+	case CHIP_WIFI6_8852C:
+		halrf_afe_pow_ctrl_8852c(rf, adda_off, pll_off);
+	break;
+#endif
+
+	default:
+	break;
+	}
+}
+
+u32 halrf_get_iqk_times(void *rf_void) 
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct halrf_iqk_info *iqk_info = &rf->iqk;
+
+	return iqk_info->iqk_times;
+}
+
+u32 halrf_get_lck_times(void *rf_void) 
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+
+	return rf->lck_times;
+}
+
+u32 halrf_get_extra_para_ver_from_reg(struct rf_info *rf)
+{
+#ifdef RF_8832BR_SUPPORT
+	if (rf->ic_type == RF_RTL8832BR)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0x00ff);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (rf->ic_type == RF_RTL8852C)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0x00ff);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (rf->ic_type == RF_RTL8192XB)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0x00ff);
+#endif
+
+#ifdef RF_8832CRVU_SUPPORT
+	if (rf->ic_type == RF_RTL8832CR_VU)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0x00ff);
+#endif
+	
+#ifdef RF_8832BRVT_SUPPORT
+	if (rf->ic_type == RF_RTL8832BR_VT)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0x00ff);
+#endif
+	return 0;
+}
+
+u32 halrf_get_rfe_type_ver_from_reg(struct rf_info *rf)
+{
+#ifdef RF_8832BR_SUPPORT
+	if (rf->ic_type == RF_RTL8832BR)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xff00);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (rf->ic_type == RF_RTL8852C)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xff00);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (rf->ic_type == RF_RTL8192XB)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xff00);
+#endif
+
+#ifdef RF_8832CRVU_SUPPORT
+	if (rf->ic_type == RF_RTL8832CR_VU)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xff00);
+#endif
+	
+#ifdef RF_8832BRVT_SUPPORT
+	if (rf->ic_type == RF_RTL8832BR_VT)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xff00);
+#endif
+	return 0;
+}
+
+u32 halrf_get_fem_id_from_reg(struct rf_info *rf)
+{
+#ifdef RF_8832BR_SUPPORT
+	if (rf->ic_type == RF_RTL8832BR)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xf0000);
+#endif
+
+#ifdef RF_8852C_SUPPORT
+	if (rf->ic_type == RF_RTL8852C)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xf0000);
+#endif
+
+#ifdef RF_8192XB_SUPPORT
+	if (rf->ic_type == RF_RTL8192XB)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xf0000);
+#endif
+
+#ifdef RF_8832CRVU_SUPPORT
+	if (rf->ic_type == RF_RTL8832CR_VU)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xf0000);
+#endif
+	
+#ifdef RF_8832BRVT_SUPPORT
+	if (rf->ic_type == RF_RTL8832BR_VT)
+		return halrf_rrf(rf, RF_PATH_A, 0xFD, 0xf0000);
+#endif
+	return 0;
+}
+
+void halrf_set_pwr_lmt_main_or_aux(void *rf_void, u8 ant)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_com = rf->hal_com;
+	struct halrf_pwr_info *pwr = &rf->pwr_info;
+
+	pwr->ant_type = ant;
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_set_pwr_lmt_main_or_aux_8851b(rf);
+#endif
+
+}
+
+void halrf_set_ext_ant12_pwr_limit_table(void *rf_void, enum phl_phy_idx phy)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_com = rf->hal_com;
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_set_ext_ant12_pwr_limit_table_8851b(rf, phy);
+#endif
+
+}
+
+void halrf_set_ext_ant12_pwr_limit_ru_table(void *rf_void, enum phl_phy_idx phy)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_com = rf->hal_com;
+
+#ifdef RF_8851B_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+		halrf_set_ext_ant12_pwr_limit_ru_table_8851b(rf, phy);
+#endif
+
+}
+
+void halrf_aack_trigger(void *rf_void, enum phl_phy_idx phy_idx)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8851B_SUPPORT
+		case CHIP_WIFI6_8851B:
+			halrf_aack_8851b(rf);
+			break;
+#endif
+			default:
+			break;
+	}
+}
+
+void halrf_set_ant_main_or_aux(void *rf_void, enum rf_path path, bool main)
+{
+	struct rf_info *rf = (struct rf_info *)rf_void;
+
+#ifdef RF_8192XB_SUPPORT
+	if (rf->ic_type == RF_RTL8192XB) {
+		if (path == RF_PATH_A) {
+			if (main) {
+				halrf_wrf(rf, path, 0x2, BIT(17), 0);
+				halrf_wrf(rf, path, 0x2, BIT(15), 0);
+			} else { //aux
+				halrf_wrf(rf, path, 0x2, BIT(17), 1);
+				halrf_wrf(rf, path, 0x2, BIT(15), 1);
+			}
+		}
+	}
+#endif
+
+
+}
+
+void halrf_si_reset(struct rf_info *rf)
+{
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+
+	switch (hal_i->chip_id) {
+#ifdef RF_8852B_SUPPORT
+		case CHIP_WIFI6_8852B:
+			halrf_si_reset_8852b(rf);
+			break;
+#endif
+		default:
+			break;
 	}
 }
 

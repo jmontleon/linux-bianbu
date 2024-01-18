@@ -997,7 +997,7 @@ exit:
 */
 u8 rtw_mesh_select_operating_ch(_adapter *adapter)
 {
-	struct rf_ctl_t *rfctl = adapter_to_rfctl(adapter);
+	struct rtw_chset *chset = adapter_to_chset(adapter);
 	struct rtw_mesh_cfg *mcfg = &adapter->mesh_cfg;
 	struct mlme_priv *mlme = &adapter->mlmepriv;
 	_queue *queue = &(mlme->scanned_queue);
@@ -1034,11 +1034,11 @@ u8 rtw_mesh_select_operating_ch(_adapter *adapter)
 			&& rtw_mesh_cto_mgate_network_filter(adapter, scanned)
 			#endif
 		) {
-			int ch_set_idx = rtw_chset_search_ch(rfctl->channel_set, scanned->network.Configuration.DSConfig);
+			int ch_set_idx = rtw_chset_search_ch(chset, scanned->network.Configuration.DSConfig);
 
 			if (ch_set_idx >= 0
-				&& !(rfctl->channel_set[ch_set_idx].flags & RTW_CHF_NO_IR)
-				&& !CH_IS_NON_OCP(&rfctl->channel_set[ch_set_idx])
+				&& !(chset->chs[ch_set_idx].flags & RTW_CHF_NO_IR)
+				&& !CH_IS_NON_OCP(&chset->chs[ch_set_idx])
 			) {
 				u8 nop, accept;
 
@@ -1046,13 +1046,13 @@ u8 rtw_mesh_select_operating_ch(_adapter *adapter)
 				cand_cnt[ch_set_idx]++;
 				if (max_cand_cnt < cand_cnt[ch_set_idx]) {
 					max_cand_cnt = cand_cnt[ch_set_idx];
-					max_cand_ch = rfctl->channel_set[ch_set_idx].ChannelNum;
+					max_cand_ch = chset->chs[ch_set_idx].ChannelNum;
 				}
 				if (accept) {
 					cand_ap_cnt[ch_set_idx]++;
 					if (max_cand_ap_cnt < cand_ap_cnt[ch_set_idx]) {
 						max_cand_ap_cnt = cand_ap_cnt[ch_set_idx];
-						max_cand_ap_ch = rfctl->channel_set[ch_set_idx].ChannelNum;
+						max_cand_ap_ch = chset->chs[ch_set_idx].ChannelNum;
 					}
 				}
 			}
@@ -1270,9 +1270,9 @@ void dump_mesh_networks(void *sel, _adapter *adapter)
 	rtw_vmfree(mesh_networks, mlme->max_bss_cnt * sizeof(struct wlan_network *));
 }
 
-void rtw_mesh_adjust_chbw(u8 req_ch, u8 *req_bw, u8 *req_offset)
+void rtw_mesh_adjust_bchbw(enum band_type req_band, u8 req_ch, u8 *req_bw, u8 *req_offset)
 {
-	if (req_ch >= 5 && req_ch <= 9) {
+	if (req_band == BAND_ON_24G && req_ch >= 5 && req_ch <= 9) {
 		/* prevent secondary channel offset mismatch */
 		if (*req_bw > CHANNEL_WIDTH_20) {
 			*req_bw = CHANNEL_WIDTH_20;
@@ -2650,7 +2650,7 @@ int rtw_mesh_set_plink_state(_adapter *adapter, const u8 *mac, u8 plink_state)
 	) {
 		sta = rtw_get_stainfo(stapriv, mac);
 		if (!sta) {
-			sta = rtw_alloc_stainfo(stapriv, mac);
+			sta = rtw_alloc_stainfo(stapriv, mac, PHL_CMD_DIRECTLY);
 			if (!sta)
 				goto release_plink_ctl;
 		}
@@ -2932,7 +2932,7 @@ u8 rtw_mesh_ps_annc(_adapter *adapter, u8 ps)
 		if (!sta)
 			continue;
 
-		issue_qos_nulldata(adapter, sta->phl_sta->mac_addr, 7, ps, 3, 500, _FALSE);
+		issue_qos_nulldata(adapter, sta->phl_sta->mac_addr, 7, ps, 3, PS_ANNC_DRV_RETRY_INT_MS, _FALSE);
 		annc_cnt++;
 	}
 

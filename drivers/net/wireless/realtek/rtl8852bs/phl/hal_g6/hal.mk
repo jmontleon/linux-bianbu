@@ -1,5 +1,4 @@
 ########### HAL PATH  #################################
-HAL = hal_g6
 
 ifeq ($(CONFIG_PHL_ARCH), y)
 phl_path := phl/
@@ -46,7 +45,9 @@ _HAL_FILES :=	$(phl_path)$(HAL)/hal_api_mac.o \
 			$(phl_path)$(HAL)/hal_p2pps.o \
 			$(phl_path)$(HAL)/hal_thermal.o \
 			$(phl_path)$(HAL)/hal_txpwr.o \
-			$(phl_path)$(HAL)/hal_dfs.o
+			$(phl_path)$(HAL)/hal_ext_tx_pwr_lmt.o \
+			$(phl_path)$(HAL)/hal_dfs.o \
+			$(phl_path)$(HAL)/hal_scanofld.o
 
 ifeq ($(CONFIG_PCI_HCI), y)
 _HAL_FILES += $(phl_path)$(HAL)/hal_pci.o
@@ -68,6 +69,7 @@ _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_reg.o
 _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_rx.o
 _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_tx.o
 _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_txpwr.o
+_HAL_FILES += $(phl_path)$(HAL)/test/fpga/hal_test_fpga.o
 endif
 
 _HAL_FILES += $(phl_path)$(HAL)/efuse/hal_efuse.o
@@ -85,12 +87,24 @@ ifeq ($(CONFIG_RTL8852A), y)
 include $(phl_path_d1)/$(IC_NAME)/rtl8852a.mk
 endif
 ########### HAL_RTL8852B #################################
-ifeq ($(CONFIG_RTL8852B), y)
-include $(phl_path_d1)/$(IC_NAME)/rtl8852b.mk
+ifneq ($(filter y,$(CONFIG_RTL8852B) $(CONFIG_RTL8852BP)),)
+include $(phl_path_d1)/rtl8852b/rtl8852b.mk
 endif
 ########### HAL_RTL8852C #################################
 ifeq ($(CONFIG_RTL8852C), y)
-include $(phl_path_d1)/$(IC_NAME)/rtl8852c.mk
+include $(phl_path_d1)/rtl8852c/rtl8852c.mk
+endif
+########### HAL_RTL8192XB #################################
+ifneq ($(filter y,$(CONFIG_RTL8832BR) $(CONFIG_RTL8192XB)),)
+include $(phl_path_d1)/rtl8192xb/rtl8192xb.mk
+endif
+########### HAL_RTL8982A #################################
+ifeq ($(CONFIG_RTL8982A), y)
+include $(phl_path_d1)/$(IC_NAME)/rtl8982a.mk
+endif
+########### HAL_RTL8851B #################################
+ifeq ($(CONFIG_RTL8851B), y)
+include $(phl_path_d1)/$(IC_NAME)/rtl8851b.mk
 endif
 
 OBJS += $(_HAL_FILES) $(_HAL_MAC_FILES) $(_BTC_FILES) $(_HAL_IC_FILES)

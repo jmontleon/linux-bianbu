@@ -34,9 +34,11 @@ static struct mac_ax_rx_fltr_ctrl_t rx_fltr_init_opt = {
 	0, /* acpt_unsupport_pkt */
 	0, /* acpt_mac_hdr_content_err_pkt */
 	0, /* acpt_ftm_req_pkt */
+	0, /* rsvd */
 	0, /* pkt_len_fltr */
 	0, /* unsp_pkt_target */
-	3, /* uid_fltr */
+	8, /* uid_fltr */
+	0, /* rsvd */
 	1, /* cck_crc_chk_enable */
 	1, /* cck_sig_chk_enable */
 	1, /* lsig_parity_chk_enable */
@@ -53,7 +55,7 @@ u32 rx_fltr_init(struct mac_ax_adapter *adapter, enum mac_ax_band band)
 	struct mac_ax_ops *mac_ax_ops = adapter_to_mac_ops(adapter);
 	struct mac_ax_rx_fltr_ctrl_t opt_msk = {
 		0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x3, 0x1, 0x1, 0x1,
-		0x1, 0x1, 0x3F, 0x3, 0x3, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1,
+		0x1, 0x1, 0x1, 0x3F, 0x3, 0xf, 0xf, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1,
 		0x1, 0x1
 	};
 
@@ -141,7 +143,7 @@ static void rx_fltr_opt_2_uint(struct mac_ax_adapter *adapter,
 		((fltr_opt->cck_sig_chk_enable) ?
 				B_AX_CCK_SIG_CHK : 0) |
 		((fltr_opt->lsig_parity_chk_enable) ?
-				B_AX_LSIG_PARITY_CHK : 0) |
+				B_AX_LSIG_PARITY_CHK_EN : 0) |
 		((fltr_opt->siga_crc_chk_enable) ?
 				B_AX_SIGA_CRC_CHK : 0) |
 		((fltr_opt->vht_su_sigb_crc_chk_enable) ?
@@ -202,7 +204,7 @@ u32 mac_get_rx_fltr_opt(struct mac_ax_adapter *adapter,
 	fltr_opt->cck_crc_chk_enable = ((val32 & B_AX_CCK_CRC_CHK) != 0);
 	fltr_opt->cck_sig_chk_enable = ((val32 & B_AX_CCK_SIG_CHK) != 0);
 	fltr_opt->lsig_parity_chk_enable = ((val32 &
-					 B_AX_LSIG_PARITY_CHK) != 0);
+					 B_AX_LSIG_PARITY_CHK_EN) != 0);
 	fltr_opt->siga_crc_chk_enable = ((val32 & B_AX_SIGA_CRC_CHK) != 0);
 	fltr_opt->vht_su_sigb_crc_chk_enable = ((val32 &
 						 B_AX_VHT_SU_SIGB_CRC_CHK)

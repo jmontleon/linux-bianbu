@@ -16,12 +16,14 @@
 #define _HALRF_PWR_TABLE_H_
 
 /*@--------------------------Define Parameters-------------------------------*/
-#define TX_PWR_BY_RATE_NUM_BAND 3
+#define TX_TABLE_TO_TX_PWR 4
+
 #define TX_PWR_BY_RATE_NUM_RF 4
 
 #define PW_LMT_MAX_2G_BANDWITH_NUM 2
 #define PW_LMT_MAX_CHANNEL_NUMBER_2G 14
 #define PW_LMT_MAX_CHANNEL_NUMBER_5G 53
+#define PW_LMT_MAX_CHANNEL_NUMBER_6G 120
 
 #define TX_PWR_BY_RATE_NUM_MAC 44
 #define TX_PWR_LIMIT_NUM_MAC 80
@@ -40,16 +42,17 @@ enum halrf_pw_by_rate_para_type {
 };
 
 enum halrf_pw_by_rate_rate_type {
-	PW_BYRATE_RATE_11M_1M,
-	PW_BYRATE_RATE_18M_6M,
-	PW_BYRATE_RATE_54M_24M,
-	PW_BYRATE_RATE_MCS3_0,
-	PW_BYRATE_RATE_MCS7_4,
-	PW_BYRATE_RATE_MCS11_8,
-	PW_BYRATE_RATE_DCM4_0,
-	PW_BYRATE_RATE_AllRate2_1,  /* CCK, OFDM, HT, VHT */
-	PW_BYRATE_RATE_AllRate2_2,  /* HE_HEDCM */
-	PW_BYRATE_RATE_AllRate5_1,  /* OFDM, HT, VHT, HE_HEDCM */
+	PW_BYRATE_RATE_11M_1M = 0,
+	PW_BYRATE_RATE_18M_6M = 1,
+	PW_BYRATE_RATE_54M_24M = 2,
+	PW_BYRATE_RATE_MCS3_0 = 3,
+	PW_BYRATE_RATE_MCS7_4 = 4,
+	PW_BYRATE_RATE_MCS11_8 = 5,
+	PW_BYRATE_RATE_DCM4_0 = 6,
+	PW_BYRATE_RATE_AllRate2_1 = 7,  /* CCK, OFDM, HT, VHT */
+	PW_BYRATE_RATE_AllRate2_2 = 8,  /* HE_HEDCM */
+	PW_BYRATE_RATE_AllRate5_1 = 9,  /* OFDM, HT, VHT, HE_HEDCM */
+	PW_BYRATE_RATE_AllRate6_1 = 10,  /* OFDM, HT, VHT, HE_HEDCM */
 	PW_BYRATE_RATE_NULL = 0xF
 };
 
@@ -108,6 +111,7 @@ enum halrf_pw_lmt_regulation_type {
 	PW_LMT_REGU_UK = 14,
 	/* place predefined ones above */
 	PW_LMT_REGU_EXT_PWR,
+	PW_LMT_REGU_INTERSECT,
 	PW_LMT_REGU_PREDEF_NUM,
 	PW_LMT_REGU_NULL, /* declare this to PW_LMT_MAX_REGULATION_NUM after limit array remove usage of PW_LMT_REGU_NULL */
 	PW_LMT_MAX_REGULATION_NUM = 32
@@ -306,15 +310,24 @@ enum halrf_data_rate {
 	HALRF_DATA_RATE_MAX
 };
 
+enum halrf_pw_lmt_6g_type {
+	PW_LMT_6G_LOW = 0,
+	PW_LMT_6G_STD = 1,
+	PW_LMT_6G_VLOW = 2,
+	PW_LMT_6G_MAX
+};
+
 struct halrf_pwr_info {
 	/*Power by Rate and Power Limit Switch*/
 	u8 pwr_table_switch_efuse;
 	u8 pwr_by_rate_switch;
 	u8 pwr_limit_switch;
 
-	bool regulation[PW_LMT_MAX_BAND][PW_LMT_MAX_REGULATION_NUM];
+//	bool regulation[PW_LMT_MAX_BAND][PW_LMT_MAX_REGULATION_NUM];
+	bool regulation[PW_LMT_MAX_BAND][PW_LMT_MAX_REGULATION_NUM+1];
 	u8 tx_shap_idx[PW_LMT_MAX_BAND][TX_SHAPE_MAX][PW_LMT_MAX_REGULATION_NUM];
-	s8 tx_pwr_by_rate[TX_PWR_BY_RATE_NUM_BAND][HALRF_DATA_RATE_MAX];
+	u8 tx_shap_idx_ru[PW_LMT_MAX_BAND][TX_SHAPE_MAX][PW_LMT_MAX_REGULATION_NUM];
+	s8 tx_pwr_by_rate[PW_LMT_MAX_BAND][HALRF_DATA_RATE_MAX];
 
 	s8 tx_pwr_limit_2g[PW_LMT_MAX_REGULATION_NUM][PW_LMT_MAX_2G_BANDWITH_NUM]
 			[PW_LMT_MAX_RS_NUM][PW_LMT_MAX_BF_NUM][PW_LMT_MAX_CHANNEL_NUMBER_2G][MAX_HALRF_PATH];
@@ -322,11 +335,17 @@ struct halrf_pwr_info {
 	s8 tx_pwr_limit_5g[PW_LMT_MAX_REGULATION_NUM][PW_LMT_MAX_BANDWIDTH_NUM]
 			[PW_LMT_MAX_RS_NUM][PW_LMT_MAX_BF_NUM][PW_LMT_MAX_CHANNEL_NUMBER_5G][MAX_HALRF_PATH];
 
+	s8 tx_pwr_limit_6g[PW_LMT_MAX_REGULATION_NUM][PW_LMT_MAX_BANDWIDTH_NUM]
+			[PW_LMT_MAX_RS_NUM][PW_LMT_MAX_BF_NUM][PW_LMT_MAX_CHANNEL_NUMBER_6G][MAX_HALRF_PATH];
+
 	s8 tx_pwr_limit_ru_2g[PW_LMT_MAX_REGULATION_NUM][PW_LMT_RU_BW_NULL]
 			[PW_LMT_MAX_RS_NUM][PW_LMT_MAX_CHANNEL_NUMBER_2G][MAX_HALRF_PATH];
 
 	s8 tx_pwr_limit_ru_5g[PW_LMT_MAX_REGULATION_NUM][PW_LMT_RU_BW_NULL]
 			[PW_LMT_MAX_RS_NUM][PW_LMT_MAX_CHANNEL_NUMBER_5G][MAX_HALRF_PATH];
+
+	s8 tx_pwr_limit_ru_6g[PW_LMT_MAX_REGULATION_NUM][PW_LMT_RU_BW_NULL]
+			[PW_LMT_MAX_RS_NUM][PW_LMT_MAX_CHANNEL_NUMBER_6G][MAX_HALRF_PATH];
 
 	s8 tx_pwr_by_rate_mac[HW_PHY_MAX][TX_PWR_BY_RATE_NUM_MAC];
 
@@ -347,8 +366,41 @@ struct halrf_pwr_info {
 	s8 fix_power_dbm[MAX_HALRF_PATH];
 	bool set_tx_ptrn_shap_en;
 	u8 set_tx_ptrn_shap_idx[PW_LMT_MAX_BAND][TX_SHAPE_MAX];
+	u16 extra_regd_idx;
 	u8 power_constraint[HW_PHY_MAX];
 	s8 dpk_mcc_power;
+	s8 tx_rate_power_control[HW_PHY_MAX];
+	/*Force Regulation*/
+	bool regulation_force_en;
+	u8 reg_2g;
+	u8 reg_5g;
+	u8 reg_6g;
+	u8 reg_array_2g[PW_LMT_MAX_REGULATION_NUM];
+	u8 reg_array_5g[PW_LMT_MAX_REGULATION_NUM];
+	u8 reg_array_6g[PW_LMT_MAX_REGULATION_NUM];
+	u8 reg_2g_len;
+	u8 reg_5g_len;
+	u8 reg_6g_len;
+	s8 ext_pwr[MAX_HALRF_PATH];
+	s8 ext_pwr_diff[MAX_HALRF_PATH];
+	s8 ext_pwr_org[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_2_4g[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_5g_band1[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_5g_band2[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_5g_band3[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_5g_band4[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_lmt_6g_unii_5_1[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_lmt_6g_unii_5_2[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_lmt_6g_unii_6[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_lmt_6g_unii_7_1[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_lmt_6g_unii_7_2[MAX_HALRF_PATH];
+	s8 ext_pwr_diff_lmt_6g_unii_8[MAX_HALRF_PATH];
+	u8 power_limit_6g_type;
+	u8 ant_gain_reg[PW_LMT_MAX_REGULATION_NUM];
+	s8 ant_gain_2g_oft[PW_LMT_MAX_REGULATION_NUM];
+	s8 ant_gain_5g_oft[PW_LMT_MAX_REGULATION_NUM];
+	s8 ant_gain_6g_oft[PW_LMT_MAX_REGULATION_NUM];
+	u8 ant_type;
 };
 
 extern const char * const _pw_lmt_regu_type_str[PW_LMT_MAX_REGULATION_NUM];
@@ -359,10 +411,6 @@ extern const enum halrf_pw_lmt_regulation_type _regulation_to_pw_lmt_regu_type[R
 
 extern const enum halrf_pw_lmt_regulation_type _tpo_to_pw_lmt_regu_type[TPO_NA];
 #define tpo_to_pw_lmt_regu_type(reg) ((reg) < TPO_NA ? _tpo_to_pw_lmt_regu_type[(reg)] : PW_LMT_REGU_WW13)
-
-const char *halrf_get_pw_lmt_regu_type_str_extra(struct rf_info *rf, u8 band);
-
-u8 halrf_get_regulation_info(struct rf_info *rf, u8 band);
 
 void halrf_power_by_rate_store_to_array(struct rf_info *rf,
 			u32 band, u32 tx_num, u32 rate_id, u32 data);
@@ -375,12 +423,17 @@ void halrf_power_limit_ru_store_to_array(struct rf_info *rf,
 			u8 regulation, u8 chnl, s8 val);
 void halrf_power_limit_ru_set_worldwide(struct rf_info *rf);
 
+#ifndef RF_8730A_SUPPORT
+const char *halrf_get_pw_lmt_regu_type_str_extra(struct rf_info *rf, u8 band);
 u8 halrf_get_power_limit_extra(struct rf_info *rf);
+#endif
 
 void halrf_modify_pwr_table_bitmask(struct rf_info *rf,
 	enum phl_phy_idx phy, enum phl_pwr_table pwr_table);
 
 s8 halrf_get_pwr_control(struct rf_info *rf, enum phl_phy_idx phy);
+
+s8 halrf_get_tx_rate_pwr_control(struct rf_info *rf, enum phl_phy_idx phy);
 
 bool halrf_pwr_is_minus(struct rf_info *rf, u32 reg_tmp);
 

@@ -37,7 +37,7 @@
 	((rtw_wnm_btm_preference_cap(a)) && \
 	(is_zero_mac_addr((a)->mlmepriv.nb_info.roam_target_addr) == _FALSE) && \
 	(_rtw_memcmp((a)->mlmepriv.nb_info.roam_target_addr,\
-		(a)->mlmepriv.cur_network.network.MacAddress, ETH_ALEN) == _FALSE))
+		(a)->mlmepriv.dev_cur_network.network.MacAddress, ETH_ALEN) == _FALSE))
 
 #define rtw_wnm_btm_roam_candidate(a, c) \
 	((rtw_wnm_btm_preference_cap(a)) && \

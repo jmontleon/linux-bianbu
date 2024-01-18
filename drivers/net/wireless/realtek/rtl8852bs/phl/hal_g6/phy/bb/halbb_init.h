@@ -24,6 +24,10 @@
  /*@--------------------------[Structure]-------------------------------------*/
  
  /*@--------------------------[Prptotype]-------------------------------------*/
-void halbb_cmn_info_self_init(struct bb_info *bb);
+void halbb_cmn_info_self_init_per_phy(struct bb_info *bb);
 void halbb_timer_ctrl(struct bb_info *bb, enum bb_timer_cfg_t timer_state);
+void halbb_timer_init(struct bb_info *bb);
+void halbb_cr_cfg_init(struct bb_info *bb);
+enum rtw_hal_status halbb_dm_init_per_phy(struct bb_info *bb_0, enum phl_phy_idx phy_idx);
+void halbb_hw_init(struct bb_info *bb);
 #endif

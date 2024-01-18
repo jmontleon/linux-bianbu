@@ -69,20 +69,13 @@ struct halrf_radio_info {
 
 #endif
 void halrf_config_8852b_nctl_reg(struct rf_info *rf);
-void halrf_config_8852b_radio_a_reg(struct rf_info *rf, bool is_form_folder,
-			   u32 folder_len, u32 *folder_array);
-void halrf_config_8852b_radio_b_reg(struct rf_info *rf, bool is_form_folder,
-			   u32 folder_len, u32 *folder_array);
-void halrf_config_8852b_store_power_by_rate(struct rf_info *rf,
-		bool is_form_folder, u32 folder_len, u32 *folder_array);
-void halrf_config_8852b_store_power_limit(struct rf_info *rf,
-		bool is_form_folder, u32 folder_len, u32 *folder_array);
-void halrf_config_8852b_store_power_limit_ru(struct rf_info *rf,
-		bool is_form_folder, u32 folder_len, u32 *folder_array);
-void halrf_config_8852b_store_pwr_track(struct rf_info *rf,
-		bool is_form_folder, u32 folder_len, u32 *folder_array);
-void halrf_config_8852b_store_xtal_track(struct rf_info *rf,
-		bool is_form_folder, u32 folder_len, u32 *folder_array);
+void halrf_config_8852b_radio_a_reg(struct rf_info *rf, enum phl_phy_idx phy);
+void halrf_config_8852b_radio_b_reg(struct rf_info *rf, enum phl_phy_idx phy);
+void halrf_config_8852b_store_power_by_rate(struct rf_info *rf, enum phl_phy_idx phy);
+void halrf_config_8852b_store_power_limit(struct rf_info *rf, enum phl_phy_idx phy);
+void halrf_config_8852b_store_power_limit_ru(struct rf_info *rf, enum phl_phy_idx phy);
+void halrf_config_8852b_store_pwr_track(struct rf_info *rf, enum phl_phy_idx phy);
+void halrf_config_8852b_store_xtal_track(struct rf_info *rf, enum phl_phy_idx phy);
 
 u32 halrf_get_8852b_nctl_reg_ver(void);
 u32 halrf_get_8852b_radio_reg_ver(void);

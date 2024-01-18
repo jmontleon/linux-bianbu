@@ -21,7 +21,10 @@ enum rtw_hal_status rtw_hal_efuse_init(struct rtw_phl_com_t *phl_com,
 					struct hal_info_t *hal_info);
 void rtw_hal_efuse_deinit(struct rtw_phl_com_t *phl_com,
 					struct hal_info_t *hal_info);
-void rtw_hal_efuse_process(struct hal_info_t *hal_info, char *ic_name);
+void rtw_hal_efuse_process(struct rtw_phl_com_t *phl_com,
+                           struct hal_info_t *hal_info,
+                           char *ic_name
+);
 enum rtw_hal_status
 rtw_hal_efuse_shadow_load(struct hal_info_t *hal_info, bool is_limit);
 enum rtw_hal_status

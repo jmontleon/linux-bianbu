@@ -341,4 +341,5 @@ u32 mac_pre_proc_mc_info(struct mac_ax_multicast_info *info);
 
 u32 mac_cfg_multicast(struct mac_ax_adapter *adapter, u8 add,
 		      struct mac_ax_multicast_info *info);
+
 #endif

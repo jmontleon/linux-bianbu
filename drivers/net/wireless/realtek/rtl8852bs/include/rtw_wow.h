@@ -34,6 +34,7 @@
 
 #define MAX_WKFM_SIZE	16 /* (16 bytes for WKFM bit mask, 16*8 = 128 bits) */
 #define MAX_WKFM_PATTERN_SIZE	128
+#define MAX_IN_PATTERN_SIZE	512
 
 /*
  * MAX_WKFM_PATTERN_STR_LEN : the max. length of wow pattern string
@@ -47,6 +48,18 @@
 
 #define WKFMCAM_ADDR_NUM 6
 #define WKFMCAM_SIZE 24 /* each entry need 6*4 bytes */
+
+#define IS_DISCONNECT_WOW_REASON(rsn) \
+	(rsn == RTW_MAC_WOW_RX_DISASSOC || \
+	 rsn == RTW_MAC_WOW_RX_DEAUTH || \
+	 rsn == RTW_MAC_WOW_FW_DECISION_DISCONNECT || \
+	 rsn == RTW_MAC_WOW_NO_WAKE_RX_PAIRWISEKEY || \
+	 rsn == RTW_MAC_WOW_NO_WAKE_RX_GTK || \
+	 rsn == RTW_MAC_WOW_NO_WAKE_RX_DISASSOC || \
+	 rsn == RTW_MAC_WOW_NO_WAKE_RX_DEAUTH || \
+	 rsn == RTW_MAC_WOW_NO_WAKE_RX_EAPREQ_IDENTIFY || \
+	 rsn == RTW_MAC_WOW_NO_WAKE_FW_DECISION_DISCONNECT || \
+	 0)
 
 struct aoac_report {
 	u8 iv[8];
@@ -96,6 +109,8 @@ typedef struct rtl_priv_pattern {
 } rtl_priv_pattern_t;
 
 struct wow_priv {
+	enum rtw_mac_wow_wake_reason wow_wake_reason;
+
 	struct rtw_wow_gpio_info wow_gpio;
 	struct rtw_disc_det_info wow_disc;
 #ifdef CONFIG_PNO_SUPPORT
@@ -117,23 +132,30 @@ void rtw_set_default_pattern(_adapter *adapter);
 void rtw_wow_pattern_sw_dump(_adapter *adapter);
 void rtw_construct_remote_control_info(_adapter *adapter,
 				       struct rtw_remote_wake_ctrl_info *ctrl_info);
-void rtw_wow_lps_level_decide(_adapter *adapter, u8 wow_en);
-int rtw_pm_set_wow_lps(_adapter *padapter, u8 mode);
-int rtw_pm_set_wow_lps_level(_adapter *padapter, u8 level);
-#ifdef CONFIG_LPS_1T1R
-int rtw_pm_set_wow_lps_1t1r(_adapter *padapter, u8 en);
-#endif
+void rtw_core_wow_handle_wake_up_rsn(void *drv_priv, u8 rsn);
 #ifdef CONFIG_GTK_OL
 void rtw_update_gtk_ofld_info(void *drv_priv, struct rtw_aoac_report *aoac_info,
 			      u8 aoac_report_get_ok, u8 phase);
 #endif
-bool _rtw_wow_chk_cap(_adapter *adapter, u8 cap);
 void rtw_wowlan_set_pattern_cast_type(_adapter *adapter, struct rtw_wowcam_upd_info *wowcam_info);
+#ifdef CONFIG_WRC_WOW_MAGIC
+/**
+ * rtw_cfg_wrc_wol_magic - Enable/disable WRC magic packet wake up feature
+ *
+ * This function uses a non-wowlan adapter to set the address cam required by
+ * the WRC (wireless remote control), and receives packets with A1 and A3 as the
+ * MAC address of the wowlan adapter.
+ *
+ * When this feature is disabled, the driver will reallocate the wifi role of
+ * the non-wowlan adapter.
+ */
+u8 rtw_cfg_wrc_wol_magic(_adapter *padapter, u8 enable);
+#endif
 #endif /* CONFIG_WOWLAN */
 
 #ifdef CONFIG_PNO_SUPPORT
 #define MAX_NLO_SCAN_PLANS 2
-#define MAX_NLO_SCAN_PERIOD 60
+#define MAX_NLO_SCAN_PERIOD 600
 #define MAX_NLO_NORMAL_SCAN_CYCLE 255
 #define NLO_DEFAULT_SCAN_DELAY 3
 int rtw_nlo_enable(struct net_device *net, struct cfg80211_ssid *ssids,

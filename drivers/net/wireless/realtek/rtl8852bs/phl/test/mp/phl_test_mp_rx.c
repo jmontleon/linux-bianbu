@@ -23,6 +23,8 @@ static enum rtw_phl_status phl_mp_rx_phy_crc_ok(
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 
+	rtw_hal_mp_trigger_watchdog_cal(mp);
+
 	hal_status = rtw_hal_mp_rx_phy_crc_ok(mp, arg);
 
 	/* Record the result */
@@ -311,7 +313,7 @@ enum rtw_phl_status mp_rx(struct mp_context *mp, struct mp_rx_arg *arg)
 		break;
 	case MP_RX_CMD_GET_RSSI_EX:
 		PHL_INFO("%s: CMD = MP_RX_CMD_GET_RSSI\n", __FUNCTION__);
-		phl_status = phl_mp_rx_get_rssi(mp, arg);
+		phl_status = phl_mp_rx_get_rssi_ex(mp, arg);
 		break;
 	default:
 		PHL_WARN("%s: CMD NOT RECOGNIZED\n", __FUNCTION__);

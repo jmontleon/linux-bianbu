@@ -15,7 +15,7 @@
 #ifndef __INC_BTC_ACTION_H__
 #define __INC_BTC_ACTION_H__
 
-enum {
+enum btc_phy_map {
 	BTC_PHY_0 = BIT(0),
 	BTC_PHY_1 = BIT(1),
 	BTC_PHY_ALL = BIT(0) | BIT(1),
@@ -40,12 +40,13 @@ enum btc_ant_phase {
 	BTC_ANT_W5G,
 	BTC_ANT_W25G,
 	BTC_ANT_FREERUN,
+	BTC_ANT_FDDTRAIN,
 	BTC_ANT_WRFK,
 	BTC_ANT_BRFK,
 	BTC_ANT_MAX
 };
 
-enum {
+enum btc_plt_map {
 	BTC_PLT_NONE = 0,
 	BTC_PLT_LTE_RX = BIT(0),
 	BTC_PLT_GNT_BT_TX = BIT(1),
@@ -70,9 +71,10 @@ enum btc_cx_poicy_main_type {
 	BTC_CXP_MAIN_MAX
 };
 
-enum {
+enum btc_bslot_length {
 	BTC_BSLOT_A2DP_HID = 60,
 	BTC_BSLOT_A2DP = 50,
+	BTC_BSLOT_A2DP_2 = 40,
 	BTC_BSLOT_INQ = 30,
 	BTC_BSLOT_IDLE = 20,
 };
@@ -104,6 +106,9 @@ enum btc_cx_poicy_type {
 
 	/* TDMA off + pri: WL_Hi-Tx > BT, BT_Hi > other-WL > BT_Lo */
 	BTC_CXP_OFF_BWB2 = (BTC_CXP_OFF << 8) | 8,
+
+	/* TDMA off + pri: WL_Hi-Tx = BT */
+	BTC_CXP_OFF_BWB3 = (BTC_CXP_OFF << 8) | 9,
 
 	/* TDMA off+Bcn-Protect + pri: WL_Hi-Tx > BT_Hi_Rx, BT_Hi > WL > BT_Lo*/
 	BTC_CXP_OFFB_BWB0 = (BTC_CXP_OFFB << 8) | 0,
@@ -204,6 +209,9 @@ enum btc_cx_poicy_type {
 	/* PS-TDMA Auto slot-3: W1:B1 = user-define */
 	BTC_CXP_PAUTO_TDW1B1 = (BTC_CXP_PAUTO << 8) | 3,
 
+	/* PS-TDMA Auto slot-5: W1:B1 = user-define for FDD-Train default */
+	BTC_CXP_PAUTO_FDDT1 = (BTC_CXP_PAUTO << 8) | 4,
+
 	/* TDMA Auto slot2-0: W1:B4 = 30:50 */
 	BTC_CXP_AUTO2_TD3050 = (BTC_CXP_AUTO2 << 8) | 0,
 
@@ -277,5 +285,11 @@ void _set_gnt(struct btc_t *btc, u8 phy_map, u8 wl_state, u8 bt_state);
 
 extern struct fbtc_tdma t_def[];
 extern struct fbtc_slot s_def[];
+
+extern struct btc_fddt_time_ctrl ft_tctrl_def;
+extern struct btc_fddt_break_check ft_bchk_def;
+extern struct btc_fddt_fail_check ft_fchk_def;
+extern struct btc_fddt_cell cell_ul_def[5][5];
+extern struct btc_fddt_cell cell_dl_def[5][5];
 
 #endif

@@ -89,14 +89,14 @@ struct bb_h2c_ra_cfg_info {
 	/*
 	@ Bit0 : CCK
 	@ Bit1 : OFDM
-	@ Bit2 : HT 
+	@ Bit2 : HT
 	@ Bit3 : VHT
 	@ Bit4 : HE
 	*/
 	u8 bw_cap:2;
-	
+
 	u8 macid;
-	
+
 	u8 dcm_cap:1;
 	u8 er_cap:1;
 	u8 init_rate_lv:2;
@@ -104,7 +104,7 @@ struct bb_h2c_ra_cfg_info {
 	u8 en_sgi:1;
 	u8 ldpc_cap:1;
 	u8 stbc_cap:1;
-	
+
 	u8 ss_num:3;
 	u8 giltf_cap:3;
 	u8 upd_bw_nss_mask:1;
@@ -120,11 +120,14 @@ struct bb_h2c_ra_cfg_info {
 	u8 cr_tbl_sel:1;
 	u8 fix_giltf_en:1;
 	u8 fix_giltf:3;
-	u8 rsvd2:1;
+	u8 partial_bw_su_er:1;
 
 	u8 fixed_csi_rate_l;
 
-	u8 fixed_csi_rate_m;
+	u8 is_noisy:1; /*nhm_ratio >= 1% then disable ra bw switch for 92XB, WLANBB-2227*/
+	u8 rsvd0:4;
+	u8 band:2;
+	u8 is_new_bb_ra_dbgreg:1;
 };
 
 struct bb_h2c_rssi_setting {
@@ -133,8 +136,8 @@ struct bb_h2c_rssi_setting {
 	u8 bcn_rssi_a; /* BIT(7) : parse bcn_rssi*/
 	u8 bcn_rssi_b;
 
-	u8 drv_ractrl;
-	/* RSVD */
+	u8 dtp_lv: 2;
+	u8 rsvd1: 6;
 
 	u8 is_fixed_rate:1;
 	u8 fixed_rate:7;
@@ -143,14 +146,49 @@ struct bb_h2c_rssi_setting {
 	u8 fixed_giltf:3;
 	u8 fixed_bw:2;
 	u8 rsvd2_M:1;
-	
+
+	u8 rssi_b:7;
+	u8 endcmd:1;
+};
+
+struct bb_h2c_ra_cfg_info_wifi7 {
+	struct bb_h2c_ra_cfg_info bb_h2c_ra_cmn;
+
+	u8 mode_ctrl_eht:7;
+	u8 rsvd0:1;
+
+	u8 bw_cap_eht:3;
+	u8 rsvd1:5;
+
+	u8 ramask[4];
+};
+
+struct bb_h2c_rssi_setting_wifi7 {
+	u8 macid;
+	u8 rssi_a; /* BIT(7) : parse rssi_b*/
+	u8 bcn_rssi_a; /* BIT(7) : parse bcn_rssi*/
+	u8 bcn_rssi_b;
+
+	u8 fixed_rate_M:1;
+	u8 fixed_bw_M:1;
+	u8 fixed_rate_md_M:1;
+	u8 rsvd0_M:5;
+
+	u8 is_fixed_rate:1;
+	u8 fixed_rate:7;
+
+	u8 fixed_rate_md:2;
+	u8 fixed_giltf:3;
+	u8 fixed_bw:2;
+	u8 rsvd1_M:1;
+
 	u8 rssi_b:7;
 	u8 endcmd:1;
 };
 
 struct bb_h2c_ra_mask {
 	u8 macid;
-	
+
 	u8 mask_or_reveal:1;
 	u8 mask_rate:7;
 
@@ -163,16 +201,28 @@ struct bb_h2c_ra_mask {
 
 struct bb_h2c_ra_adjust {
 	u8 macid;
-	
+
 	u8 drv_shift_value:7;
 	u8 drv_shift_en:1;
+
+	u8 rsvd[2];
 };
 
 struct bb_h2c_ra_d_o_timer {
 	u8 macid;
-	
+
 	u8 d_o_timer_value:7;
 	u8 d_o_timer_en:1;
+
+	u8 rsvd[2];
+};
+
+struct bb_h2c_ra_shift_dafc_tc {
+	u8 enable;
+
+	u8 init_fb_cnt[24]; /*1ss MCS0 ~ 2ss MCS11*/
+
+	u8 rsvd[3];
 };
 
 struct bb_h2c_mu_cfg {
@@ -189,18 +239,24 @@ struct halbb_ra_rpt_info {
 	u8 rpt_macid_m;
 
 	u8 retry_ratio;
-	u8 rsvd0;
+
+	u8 u0_muidx: 3;
+	u8 u1_muidx: 3;
+	u8 en_stbc: 1;
+	u8 rpt_mcs_nss_M: 1;
 
 	u8 rpt_mcs_nss: 7;
-	u8 rsvd1: 1;
+	u8 is_mu: 1;
 
 	u8 rpt_md_sel: 2;
 	u8 rpt_gi_ltf: 3;
 	u8 rpt_bw: 2;
-	u8 rsvd2: 1;
+	u8 rpt_md_sel_M: 1;
 
-	u8 rsvd3;
-	u8 rsvd4;
+	u8 rpt_bw_M: 1;
+	u8 rsvd0: 7;
+
+	u8 rsvd1;
 };
 
 struct halbb_txsts_info {
@@ -227,24 +283,22 @@ struct halbb_txsts_info {
 	u8 tx_retry_vi_m;
 	u8 tx_retry_vo_l;
 	u8 tx_retry_vo_m;
-	
 
 	u8 tx_rate_l;
 	u8 tx_rate_m;
 	u8 retry_ratio;
 	u8 rsvd1;
-	
+
 	u8 tx_total_l;
 	u8 tx_total_m;
 	u8 rsvd2;
 	u8 rsvd3;
-	
+
 	u8 rsvd4;
 	u8 rsvd5;
 	u8 rsvd6;
 	u8 rsvd7;
 };
-
 /*@--------------------------[Prptotype]-------------------------------------*/
 
 #endif

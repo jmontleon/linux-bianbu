@@ -42,24 +42,24 @@ enum rtw_phl_status rtw_phl_msg_hub_hal_send(struct rtw_phl_com_t *phl_com,
 						struct phl_msg_attribute* attr, struct phl_msg* msg);
 
 struct rtw_phl_stainfo_t *
-rtw_phl_get_stainfo_self(void *phl, struct rtw_wifi_role_t *wrole);
+rtw_phl_get_stainfo_self(void *phl, struct rtw_wifi_role_link_t *rlink);
+
+struct rtw_phl_mld_t *
+rtw_phl_get_mld_self(void *phl, struct rtw_wifi_role_t *wrole);
+
 struct rtw_phl_stainfo_t *
 rtw_phl_get_stainfo_by_macid(void *phl, u16 macid);
 
-
-/* For hal wow use */
-void rtw_phl_pkt_ofld_reset_all_entry(struct rtw_phl_com_t *phl_com);
-
+u16 rtw_phl_get_macid_by_addr(void *phl, u8 *addr);
 
 bool rtw_phl_query_regulation_info(void *phl, struct rtw_regulation_info *info);
 
-enum band_type rtw_phl_get_band_type(u8 chan);
-u8 rtw_phl_get_center_ch(u8 ch,
-	enum channel_width bw, enum chan_offset offset);
+u8 rtw_phl_get_center_ch(struct rtw_chan_def *chan_def);
 
 bool rtw_phl_btc_send_cmd(struct rtw_phl_com_t *phl_com,
-				u8 *buf, u32 len, u16 ev_id);
-
+			enum phl_band_idx hw_band, u8 *buf, u32 len, u16 ev_id);
+void rtw_phl_cmd_scan_send_msg(void *phl, u16 evt_id, u8 band_idx, u8 *buf,
+			       u32 len);
 #ifdef CONFIG_PHL_CHANNEL_INFO
 /* Channel info queue operation*/
 u32 rtw_phl_get_chaninfo_idle_number(void *drvpriv, struct rtw_phl_com_t *phl_com);
@@ -79,9 +79,6 @@ struct chan_info_t * rtw_phl_recycle_busy_chaninfo(void *drvpriv, struct rtw_phl
 
 enum rtw_phl_status rtw_phl_ser_l2_notify(struct rtw_phl_com_t *phl_com);
 
-struct rtw_wifi_role_t *
-rtw_phl_get_wrole_by_ridx(struct rtw_phl_com_t *phl_com, u8 rold_idx);
-
 #ifdef CONFIG_CMD_DISP
 enum rtw_phl_status
 rtw_phl_cmd_notify(struct rtw_phl_com_t *phl_com,
@@ -92,13 +89,33 @@ rtw_phl_cmd_notify(struct rtw_phl_com_t *phl_com,
 
 enum rtw_phl_status phl_ps_hal_pwr_req(struct rtw_phl_com_t *phl_com, u8 src, bool pwr_req);
 
+void rtw_phl_init_chdef(struct rtw_phl_com_t *phl_com, struct rtw_chan_def *chdef);
+
+#define rtw_phl_get_rlink(_wrole, _idx) (&(_wrole->rlink[_idx]))
+
 void rtw_phl_enable_interrupt_sync(struct rtw_phl_com_t* phl_com);
 void rtw_phl_disable_interrupt_sync(struct rtw_phl_com_t* phl_com);
+
+/* packet offload */
+void rtw_phl_pkt_ofld_del_all_entry_req(struct rtw_phl_com_t *phl_com);
+
+enum rtw_phl_status
+rtw_phl_pkt_ofld_null_request(struct rtw_phl_com_t* phl_com,
+							  struct rtw_phl_stainfo_t *sta, u32 *token);
+
+enum rtw_phl_status rtw_phl_pkt_ofld_reset_entry(struct rtw_phl_com_t* phl_com, u16 macid);
 
 #ifdef CONFIG_PHL_FW_DUMP_EFUSE
 void rtw_phl_fw_dump_efuse_precfg(struct rtw_phl_com_t* phl_com);
 void rtw_phl_fw_dump_efuse_postcfg(struct rtw_phl_com_t* phl_com);
 #endif /* CONFIG_PHL_FW_DUMP_EFUSE */
+
+const char *rtw_phl_get_lstate_str(enum link_state lstate);
+
+#ifdef CONFIG_PHL_DFS
+bool rtw_phl_is_radar_detect_enabled(struct rtw_phl_com_t *phl_com, u8 band_idx);
+bool rtw_phl_is_under_cac(struct rtw_phl_com_t *phl_com, u8 band_idx);
+#endif
 
 #endif /* _PHL_API_DRV_H_ */
 

@@ -18,6 +18,7 @@
 #define _HV_AX_TYPE_H_
 
 #include "pltfm_cfg.h"
+#include "chip_cfg.h"
 
 typedef unsigned long long u64;
 
@@ -309,6 +310,17 @@ enum hv_ax_ss_delay_tx_band {
 	HV_AX_SS_DELAY_TX_B0 = 1,
 	HV_AX_SS_DELAY_TX_B1 = 2,
 	HV_AX_SS_DELAY_TX_B0_B1 = 3,
+};
+
+enum hv_ax_pwr_seq_sel {
+	HV_AX_PWR_SEQ_SEL_ON_NIC,
+	HV_AX_PWR_SEQ_SEL_OFF_NIC,
+	HV_AX_PWR_SEQ_SEL_CARD_DIS,
+	HV_AX_PWR_SEQ_SEL_ENTER_LPS,
+	HV_AX_PWR_SEQ_SEL_LEAVE_LPS,
+	HV_AX_PWR_SEQ_SEL_IPS,
+	HV_AX_PWR_SEQ_SEL_ON_AP,
+	HV_AX_PWR_SEQ_SEL_OFF_AP,
 };
 
 /**
@@ -852,6 +864,13 @@ struct hv_rx_cnt {
 	u8 msk;
 };
 
+/**
+ * @struct hv_txpkt_info
+ * @brief hv_txpkt_info
+ * hv_txpkt_info is used for non-normal flow WD fields.
+ * Especially for verification WD fields
+ *
+ */
 struct hv_txpkt_info {
 	u8 null_0;
 	u8 null_1;
@@ -1053,6 +1072,13 @@ struct hv_ax_ops {
 				   struct mac_ax_muedca_timer *timer);
 	u32 (*set_hw_ch_busy_cnt)(struct mac_ax_adapter *adapter,
 				  struct mac_ax_ch_busy_cnt_cfg *cfg);
+	u32 (*run_pwr_seq)(struct mac_ax_adapter *adapter,
+			   enum hv_ax_pwr_seq_sel sel);
+	u32 (*read_lte)(struct mac_ax_adapter *adapter,
+			const u32 offset, u32 *val);
+	u32 (*write_lte)(struct mac_ax_adapter *adapter,
+			 const u32 offset, u32 val);
+	u32 (*c2h_log_test)(struct mac_ax_adapter *adapter, u32 len);
 };
 
 #endif

@@ -38,4 +38,5 @@ enum bb_para_init_t {
 /*@--------------------------[Prptotype]-------------------------------------*/
 struct bb_info;
 bool halbb_init_reg(struct bb_info *bb);
+bool halbb_init_bb_cr_per_phy(struct bb_info *bb, enum phl_phy_idx phy_idx);
 #endif

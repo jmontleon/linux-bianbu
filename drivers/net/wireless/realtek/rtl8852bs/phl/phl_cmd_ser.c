@@ -189,13 +189,13 @@ static void _ser_l2_notify(struct cmd_ser *cser)
 
 	rtw_hal_ser_reset_wdt_intr(phl_info->hal);
 
-	if (pq_pop(drv, &cser->stslist, &obj, _first, _ps)) {
+	if (pq_pop(drv, &cser->stslist, &obj, _first, _bh)) {
 		stsl2 = (struct sts_l2*)obj;
 
 		/* Rotate stslist : 0~ (CMD_SER_LOG_SIZE-1) are unused index */
 		stsl2->idx+= CMD_SER_LOG_SIZE;
 		stsl2->ser_log = cser->state;
-		pq_push(drv, &cser->stslist, &stsl2->list, _tail, _ps);
+		pq_push(drv, &cser->stslist, &stsl2->list, _tail, _bh);
 	}
 	_ser_dump_stsl2(cser);
 
@@ -207,6 +207,7 @@ static void _ser_l2_notify(struct cmd_ser *cser)
 		cser->ser_l2_hdlr(phl_to_drvpriv(phl_info));
 
 	phl_disp_eng_clr_pending_msg(cser->phl_info, HW_BAND_0);
+	phl_disp_eng_clr_pending_msg(cser->phl_info, HW_BAND_1);
 
 	SET_MSG_MDL_ID_FIELD(nextmsg.msg_id, PHL_MDL_SER);
 	SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_SER_L2);
@@ -288,6 +289,7 @@ static void _ser_poll_timer_cb(void *priv)
 	}
 
 	nextmsg.band_idx = HW_BAND_0;
+	nextmsg.rsvd[0].value = cser->state;
 
 	if (MSG_EVT_ID_FIELD(nextmsg.msg_id)) {
 		PHL_DBG("%s :: nextmsg->msg_id= 0x%X\n", __func__, MSG_EVT_ID_FIELD(nextmsg.msg_id));
@@ -358,6 +360,48 @@ err:
 	return;
 }
 
+static void _ser_m9_pause_trx(struct cmd_ser *cser)
+{
+	struct phl_info_t *phl_info = cser->phl_info;
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct phl_data_ctl_t ctl = {0};
+
+	ctl.id = PHL_MDL_SER;
+
+	ctl.cmd = PHL_DATA_CTL_SW_TX_PAUSE;
+	sts = phl_data_ctrler(phl_info, &ctl, NULL);
+	if (RTW_PHL_STATUS_SUCCESS != sts) {
+		PHL_WARN("%s(): pause sw tx failure\n", __func__);
+	}
+
+	ctl.cmd = PHL_DATA_CTL_SW_RX_PAUSE;
+	sts = phl_data_ctrler(phl_info, &ctl, NULL);
+#ifdef RTW_WKARD_SER_L1_EXPIRE
+	if (RTW_PHL_STATUS_SUCCESS != sts && RTW_PHL_STATUS_CMD_TIMEOUT != sts) {
+		PHL_WARN("%s(): pause sw rx failure\n", __func__);
+	}
+#else
+	if (RTW_PHL_STATUS_SUCCESS != sts) {
+		PHL_WARN("%s(): pause sw rx failure\n", __func__);
+	}
+#endif
+
+	ctl.cmd = PHL_DATA_CTL_SW_TX_RESET;
+	sts = phl_data_ctrler(phl_info, &ctl, NULL);
+	if (RTW_PHL_STATUS_SUCCESS != sts) {
+		PHL_WARN("%s(): reset sw tx failure\n", __func__);
+	}
+
+	ctl.cmd = PHL_DATA_CTL_SW_RX_RESET;
+	sts = phl_data_ctrler(phl_info, &ctl, NULL);
+	if (RTW_PHL_STATUS_SUCCESS != sts) {
+		PHL_WARN("%s(): reset sw rx failure\n", __func__);
+	}
+
+	return;
+}
+
+
 static void _ser_m3_reset_hw_trx(struct cmd_ser *cser)
 {
 	struct phl_info_t *phl_info = cser->phl_info;
@@ -370,13 +414,6 @@ static void _ser_m3_reset_hw_trx(struct cmd_ser *cser)
 	sts = phl_data_ctrler(phl_info, &ctl, NULL);
 	if (RTW_PHL_STATUS_SUCCESS != sts) {
 		PHL_WARN("%s(): resume hw trx failure\n", __func__);
-		goto err;
-	}
-
-	ctl.cmd = PHL_DATA_CTL_SW_RX_RESUME;
-	sts = phl_data_ctrler(phl_info, &ctl, NULL);
-	if (RTW_PHL_STATUS_SUCCESS != sts) {
-		PHL_WARN("%s(): resume sw rx failure\n", __func__);
 		goto err;
 	}
 
@@ -498,23 +535,16 @@ static void _ser_msg_hdl_m1(struct cmd_ser *cser)
 	_ser_set_status(cser, CMD_SER_M1);
 	_ser_l1_notify(cser);
 
+	rtw_hal_ser_int_cfg(phl_info->hal, phl_info->phl_com, RTW_PHL_SER_M1_PRE_CFG);
+
 	_ser_m1_pause_trx(cser);
+
+	rtw_hal_ser_int_cfg(phl_info->hal, phl_info->phl_com, RTW_PHL_SER_M1_POST_CFG);
 }
 
 static void _ser_msg_hdl_fw_expire(struct cmd_ser *cser)
 {
-	struct phl_info_t *phl_info = cser->phl_info;
-	void *drv = phl_to_drvpriv(phl_info);
-
-	if (CMD_SER_SRC_POLL == cser->evtsrc) {
-		_ser_set_status(cser, CMD_SER_M9);
-
-		_os_set_timer(drv,
-		              &cser->poll_timer,
-		              CMD_SER_USB_POLLING_INTERVAL_IDL);
-	}
-
-	cser->bserl2 = true;
+	/* do nothing, expect FW WDT will happened */
 }
 
 static void _ser_msg_hdl_m3(struct cmd_ser *cser)
@@ -544,41 +574,49 @@ static void _ser_msg_hdl_m5(struct cmd_ser *cser)
 	_ser_set_status(cser, CMD_SER_M5);
 
 	ctl.id = PHL_MDL_SER;
+
+	ctl.cmd = PHL_DATA_CTL_SW_RX_RESUME;
+	sts = phl_data_ctrler(phl_info, &ctl, NULL);
+	if (RTW_PHL_STATUS_SUCCESS != sts)
+		PHL_WARN("%s(): resume sw rx failure\n", __func__);
+
 	ctl.cmd = PHL_DATA_CTL_SW_TX_RESUME;
 	sts = phl_data_ctrler(phl_info, &ctl, NULL);
 	if (RTW_PHL_STATUS_SUCCESS != sts)
 		PHL_WARN("%s(): resume sw tx failure\n", __func__);
 
+	rtw_hal_ser_int_cfg(phl_info->hal, phl_info->phl_com, RTW_PHL_SER_M5_CFG);
+
 	_ser_reset_status(cser);
 
 	phl_disp_eng_clr_pending_msg(cser->phl_info, HW_BAND_0);
+	phl_disp_eng_clr_pending_msg(cser->phl_info, HW_BAND_1);
 }
 
 static void _ser_msg_hdl_m9(struct cmd_ser *cser)
 {
 	struct phl_info_t *phl_info = cser->phl_info;
 	void *drv = phl_to_drvpriv(phl_info);
-	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
-	struct phl_data_ctl_t ctl = {0};
+
+	/* dump FW status for debug*/
+	rtw_hal_fw_dbg_dump(phl_info->hal);
 
 	_os_cancel_timer(drv, &cser->poll_timer);
 	_ser_set_status(cser, CMD_SER_M9);
 
-	if (cser->state > CMD_SER_NOT_OCCUR) {
-		ctl.id = PHL_MDL_SER;
-		ctl.cmd = PHL_DATA_CTL_SW_TX_RESUME;
-		sts = phl_data_ctrler(phl_info, &ctl, NULL);
-		if (RTW_PHL_STATUS_SUCCESS != sts)
-			PHL_WARN("%s(): resume sw tx failure\n", __func__);
-
-		ctl.cmd = PHL_DATA_CTL_SW_RX_RESUME;
-		sts = phl_data_ctrler(phl_info, &ctl, NULL);
-		if (RTW_PHL_STATUS_SUCCESS != sts)
-			PHL_WARN("%s(): resume sw rx failure\n", __func__);
-	}
+	_ser_m9_pause_trx(cser);
 
 	_ser_l2_notify(cser);
 	_ser_reset_status(cser);
+}
+
+static void _ser_msg_hdl_l2_reset_done(struct cmd_ser *cser)
+{
+	/* reset bserl2 to false after L2 done */
+	if (cser->bserl2 == true)
+		cser->bserl2 = false;
+	else
+		PHL_WARN("Ser L2 state not set!\n");
 }
 
 enum phl_mdl_ret_code
@@ -627,6 +665,10 @@ _ser_hdl_internal_evt(void *dispr, void *priv, struct phl_msg *msg)
 		PHL_WARN("MSG_EVT_SER_M9_L2_RESET\n");
 		_ser_msg_hdl_m9(cser);
 		break;
+	case MSG_EVT_SER_L2_RESET_DONE:
+		PHL_WARN("MSG_EVT_SER_L2_RESET_DONE\n");
+		_ser_msg_hdl_l2_reset_done(cser);
+		break;
 	}
 
 	return ret;
@@ -659,11 +701,11 @@ _phl_ser_mdl_init(void *phl, void *dispr, void **priv)
 	               cser,
 	               "cmd_ser_poll_timer");
 
-	INIT_LIST_HEAD(&cser->stslist.queue);
+	pq_init(drv, &cser->stslist);
 	for (idx =0; idx < CMD_SER_LOG_SIZE; idx++) {
 		INIT_LIST_HEAD(&cser->stsl2[idx].list);
 		cser->stsl2[idx].idx = idx;
-		pq_push(drv, &cser->stslist, &cser->stsl2[idx].list, _tail, _ps);
+		pq_push(drv, &cser->stslist, &cser->stsl2[idx].list, _tail, _bh);
 	}
 
 	cser->phl_info = phl_info;
@@ -692,6 +734,7 @@ static void _phl_ser_mdl_deinit(void *dispr, void *priv)
 
 	_os_cancel_timer(drv, &cser->poll_timer);
 	_os_release_timer(drv, &cser->poll_timer);
+	pq_deinit(drv, &cser->stslist);
 	_os_spinlock_free(drv, &cser->_lock);
 	_os_mem_free(drv, cser, sizeof(struct cmd_ser));
 	PHL_INFO(" %s\n", __FUNCTION__);
@@ -862,6 +905,9 @@ phl_ser_send_msg(void *phl, enum RTW_PHL_SER_NOTIFY_EVENT notify)
 	case RTW_PHL_SER_EVENT_CHK:
 		event = MSG_EVT_SER_EVENT_CHK;
 		break;
+	case RTW_PHL_SER_L2_RESET_DONE:
+		event = MSG_EVT_SER_L2_RESET_DONE;
+		break;
 	case RTW_PHL_SER_L0_RESET:
 	default:
 		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "phl_ser_send_msg(): unsupported case %d\n",
@@ -874,7 +920,7 @@ phl_ser_send_msg(void *phl, enum RTW_PHL_SER_NOTIFY_EVENT notify)
 	SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, event);
 	nextmsg.band_idx = HW_BAND_0;
 
-	phl_status = rtw_phl_send_msg_to_dispr(phl,
+	phl_status = phl_disp_eng_send_msg(phl,
 					       &nextmsg,
 					       &attr,
 					       NULL);
@@ -901,6 +947,14 @@ enum rtw_phl_status rtw_phl_ser_l2_notify(struct rtw_phl_com_t *phl_com)
 {
 	enum RTW_PHL_SER_NOTIFY_EVENT notify = RTW_PHL_SER_L2_RESET;
 	PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "rtw_phl_ser_l2_notify triggle L2 Reset !!!\n");
+
+	return phl_ser_send_msg(phl_com->phl_priv, notify);
+}
+
+enum rtw_phl_status rtw_phl_ser_l2_done_notify(struct rtw_phl_com_t *phl_com)
+{
+	enum RTW_PHL_SER_NOTIFY_EVENT notify = RTW_PHL_SER_L2_RESET_DONE;
+	PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "rtw_phl_ser_l2_done_notify restore L2 Reset !!!\n");
 
 	return phl_ser_send_msg(phl_com->phl_priv, notify);
 }

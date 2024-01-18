@@ -26,7 +26,7 @@
 #define __HALRF_IQK_8852BH__
 #ifdef RF_8852B_SUPPORT
 
-#define iqk_version_8852b 0xe
+#define iqk_version_8852b 0x17
 #define ss_8852b 2
 #define mac_reg_num_8852b 2
 #define bb_reg_num_8852b 1

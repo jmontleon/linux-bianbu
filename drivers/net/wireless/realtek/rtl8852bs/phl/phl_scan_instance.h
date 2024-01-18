@@ -19,7 +19,8 @@
 
 enum order_strategy {
 	ORDER_5GHZ_PRIOR = BIT(0),
-	ORDER_ACTIVE_PRIOR = BIT(1)
+	ORDER_ACTIVE_PRIOR = BIT(1),
+	ORDER_CUSTOM = BIT(2)
 };
 
 enum skip_strategy {

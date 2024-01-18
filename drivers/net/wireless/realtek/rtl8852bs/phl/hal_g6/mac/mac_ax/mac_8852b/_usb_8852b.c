@@ -14,6 +14,7 @@
  ******************************************************************************/
 #include "_usb_8852b.h"
 #include "../../mac_ax.h"
+#if MAC_AX_8852B_SUPPORT
 
 #if MAC_AX_USB_SUPPORT
 
@@ -165,7 +166,7 @@ u32 usb_pre_init_8852b(struct mac_ax_adapter *adapter, void *param)
 	val32 = PLTFM_REG_R32(R_AX_USB_HOST_REQUEST_2) | B_AX_R_USBIO_MODE;
 	PLTFM_REG_W32(R_AX_USB_HOST_REQUEST_2, val32);
 	// fix USB IO hang suggest by chihhanli@realtek.com
-	val32 = PLTFM_REG_R32(R_AX_USB_WLAN0_1) & ~(B_AX_USBRX_RST | B_AX_USBTX_RST);
+	val32 = PLTFM_REG_R32(R_AX_USB_WLAN0_1) & ~B_AX_USBRX_RST & ~B_AX_USBTX_RST;
 	PLTFM_REG_W32(R_AX_USB_WLAN0_1, val32);
 
 	val32 = PLTFM_REG_R32(R_AX_HCI_FUNC_EN);
@@ -204,8 +205,9 @@ u32 usb_init_8852b(struct mac_ax_adapter *adapter, void *param)
 	u32 val32;
 	u8 val8;
 
-	adapter->usb_info.max_bulkout_wd_num = GET_FIELD
+	adapter->usb_info.max_bulkout_wd_num = (u8)GET_FIELD
 		(PLTFM_REG_R32(R_AX_CH_PAGE_CTRL), B_AX_PREC_PAGE_CH011);
+	adapter->usb_info.max_dma_txagg_msk = AX_TXD_CH_DMA_MSK;
 
 	val32 = PLTFM_REG_R32(R_AX_USB3_MAC_NPI_CONFIG_INTF_0);
 	val32 &= ~B_AX_SSPHY_LFPS_FILTER;
@@ -314,35 +316,44 @@ u32 write_usb2phy_para_8852b(struct mac_ax_adapter *adapter, u16 offset, u8 val)
 	return MACSUCCESS;
 }
 
+u32 static polling_usb_sie_ready(struct mac_ax_adapter *adapter)
+{
+#define MAC_AX_POLL_SIE_CNT 1000
+#define MAC_AX_POLL_SIE_WAIT_US 50
+	u32 cnt = MAC_AX_POLL_SIE_CNT;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	while (cnt--) {
+		if (!(MAC_REG_R32(R_AX_USB_SIE_INTF) & B_AX_USB_REG_EN))
+			return MACSUCCESS;
+		PLTFM_DELAY_US(MAC_AX_POLL_SIE_WAIT_US);
+	}
+
+	PLTFM_MSG_ERR("%s: polling SIE timeout\n", __func__);
+
+	return MACPOLLTO;
+}
+
 u32 read_usb3phy_para_8852b(struct mac_ax_adapter *adapter, u16 offset, u8 b_sel)
 {
-	u32 value32 = 0;
+	u32 value32 = 0, ret;
 	u16 rdata = 0;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
-	if (is_cv(adapter, CAV)) {
-		value32 = (u32)offset;
-		value32 |= B_AX_USB3_PHY_REG_RDFLAG;
-		PLTFM_REG_W32(R_AX_USB3_PHY, value32);
-		while (PLTFM_REG_R32(R_AX_USB3_PHY) & B_AX_USB3_PHY_REG_RDFLAG)
-			;
-		rdata = GET_FIELD(PLTFM_REG_R32(R_AX_USB3_PHY),
-				  B_AX_USB3_PHY_RWDATA);
-	} else {
-		value32 = SET_CLR_WORD(value32, offset + USBPHYOFFSET,
-				       B_AX_USB_SIE_INTF_ADDR);
-		value32 |= B_AX_USB_REG_SEL;
-		value32 |= B_AX_USB_REG_SEL;
-		value32 |= B_AX_USB_REG_EN;
-		if (b_sel)
-			value32 |= B_AX_USB_PHY_BYTE_SEL;
+	value32 = SET_CLR_WORD(value32, offset + USBPHYOFFSET,
+			       B_AX_USB_SIE_INTF_ADDR);
+	value32 |= B_AX_USB_REG_SEL;
+	value32 |= B_AX_USB_REG_SEL;
+	value32 |= B_AX_USB_REG_EN;
+	if (b_sel)
+		value32 |= B_AX_USB_PHY_BYTE_SEL;
 
-		PLTFM_REG_W32(R_AX_USB_SIE_INTF, value32);
-		while (PLTFM_REG_R32(R_AX_USB_SIE_INTF) & B_AX_USB_REG_EN)
-			;
-
-		rdata = GET_FIELD(PLTFM_REG_R32(R_AX_USB_SIE_INTF),
-				  B_AX_USB_SIE_INTF_RD);
-	}
+	MAC_REG_W32(R_AX_USB_SIE_INTF, value32);
+	ret = polling_usb_sie_ready(adapter);
+	if (ret != MACSUCCESS)
+		PLTFM_MSG_ERR("%s: polling timeout\n");
+	rdata = GET_FIELD(PLTFM_REG_R32(R_AX_USB_SIE_INTF),
+			  B_AX_USB_SIE_INTF_RD);
 
 	return rdata;
 }
@@ -350,31 +361,25 @@ u32 read_usb3phy_para_8852b(struct mac_ax_adapter *adapter, u16 offset, u8 b_sel
 u32 write_usb3phy_para_8852b(struct mac_ax_adapter *adapter,
 			     u16 offset, u8 b_sel, u8 val)
 {
-	u32 value32 = 0;
+	u32 value32 = 0, ret;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
-	if (is_cv(adapter, CAV)) {
-		value32 = SET_CLR_WORD(value32, val, B_AX_USB3_PHY_RWDATA);
-		value32 |= (u32)offset;
-		value32 |= B_AX_USB3_PHY_REG_WRFLAG;
-		PLTFM_REG_W32(R_AX_USB3_PHY, value32);
-		while (PLTFM_REG_R32(R_AX_USB3_PHY) & B_AX_USB3_PHY_REG_WRFLAG)
-			;
-	} else {
-		value32 = SET_CLR_WORD(value32, val, B_AX_USB_SIE_INTF_WD);
-		value32 = SET_CLR_WORD(value32, offset + USBPHYOFFSET,
-				       B_AX_USB_SIE_INTF_ADDR);
-		value32 |= B_AX_USB_REG_SEL;
-		value32 |= B_AX_USB_REG_SEL;
-		value32 |= B_AX_USB_WRITE_EN;
-		value32 |= B_AX_USB_REG_EN;
-		if (b_sel)
-			value32 |= B_AX_USB_PHY_BYTE_SEL;
-		PLTFM_REG_W32(R_AX_USB_SIE_INTF, value32);
-		while (PLTFM_REG_R32(R_AX_USB_SIE_INTF) & B_AX_USB_REG_EN)
-			;
-	}
+	value32 = SET_CLR_WORD(value32, val, B_AX_USB_SIE_INTF_WD);
+	value32 = SET_CLR_WORD(value32, offset + USBPHYOFFSET,
+			       B_AX_USB_SIE_INTF_ADDR);
+	value32 |= B_AX_USB_REG_SEL;
+	value32 |= B_AX_USB_REG_SEL;
+	value32 |= B_AX_USB_WRITE_EN;
+	value32 |= B_AX_USB_REG_EN;
+	if (b_sel)
+		value32 |= B_AX_USB_PHY_BYTE_SEL;
+	MAC_REG_W32(R_AX_USB_SIE_INTF, value32);
 
-	return MACSUCCESS;
+	ret = polling_usb_sie_ready(adapter);
+	if (ret != MACSUCCESS)
+		PLTFM_MSG_ERR("%s: polling timeout\n");
+
+	return ret;
 }
 
 u32 u2u3_switch_8852b(struct mac_ax_adapter *adapter)
@@ -432,6 +437,8 @@ u32 usb_rx_agg_cfg_8852b(struct mac_ax_adapter *adapter,
 	u32 val32;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
+	/* size unit was 4k in 8852A|B|51B */
+#define COMPAT_RX_AGG_UNIT 4
 	if (cfg->mode == MAC_AX_RX_AGG_MODE_DMA) {
 		agg_en = ENABLE;
 		agg_mode = ENABLE;
@@ -444,11 +451,12 @@ u32 usb_rx_agg_cfg_8852b(struct mac_ax_adapter *adapter,
 	}
 
 	if (cfg->thold.drv_define == 0) {
+		/* unit: 4k */
 		size = RXAGGSIZE;
 		timeout = RXAGGTO;
 		pkt_num = 0;
 	} else {
-		size = cfg->thold.size;
+		size = cfg->thold.size / COMPAT_RX_AGG_UNIT;
 		timeout = cfg->thold.timeout;
 		pkt_num = cfg->thold.pkt_num;
 	}
@@ -460,6 +468,8 @@ u32 usb_rx_agg_cfg_8852b(struct mac_ax_adapter *adapter,
 		    SET_WORD(pkt_num, B_AX_RXAGG_PKTNUM_TH) |
 		    SET_WORD(timeout, B_AX_RXAGG_TIMEOUT_TH) |
 		    SET_WORD(size, B_AX_RXAGG_LEN_TH));
+#undef COMPAT_RX_AGG_UNIT
+
 	return MACSUCCESS;
 }
 
@@ -477,18 +487,18 @@ u32 set_usb_wowlan_8852b(struct mac_ax_adapter *adapter,
 		PLTFM_REG_W32(R_AX_USB2_LPM_0, PLTFM_REG_R32(R_AX_USB2_LPM_0) |
 			      B_AX_USB_SUS_WAKEUP_EN);
 		MAC_REG_W32(R_AX_RSV_CTRL, MAC_REG_R32(R_AX_RSV_CTRL) |
-			    B_AX_WLOCK_1C_B6);
+			    B_AX_WLOCK_1C_BIT6);
 		MAC_REG_W32(R_AX_RSV_CTRL, MAC_REG_R32(R_AX_RSV_CTRL) |
 			    B_AX_R_DIS_PRST);
 		MAC_REG_W32(R_AX_RSV_CTRL, MAC_REG_R32(R_AX_RSV_CTRL) &
-			    ~B_AX_WLOCK_1C_B6);
+			    ~B_AX_WLOCK_1C_BIT6);
 	} else if (w_c == MAC_AX_WOW_LEAVE) {
 		MAC_REG_W32(R_AX_RSV_CTRL, MAC_REG_R32(R_AX_RSV_CTRL) |
-			    B_AX_WLOCK_1C_B6);
+			    B_AX_WLOCK_1C_BIT6);
 		MAC_REG_W32(R_AX_RSV_CTRL, MAC_REG_R32(R_AX_RSV_CTRL) &
 			    ~B_AX_R_DIS_PRST);
 		MAC_REG_W32(R_AX_RSV_CTRL, MAC_REG_R32(R_AX_RSV_CTRL) &
-			    ~B_AX_WLOCK_1C_B6);
+			    ~B_AX_WLOCK_1C_BIT6);
 	} else {
 		PLTFM_MSG_ERR("[ERR] Invalid WoWLAN input.\n");
 		return MACFUNCINPUT;
@@ -499,7 +509,7 @@ u32 set_usb_wowlan_8852b(struct mac_ax_adapter *adapter,
 
 u32 usb_get_txagg_num_8852b(struct mac_ax_adapter *adapter, u8 band)
 {
-	u32 quotanum = band ? adapter->dle_info.c1_tx_min : adapter->dle_info.c0_tx_min;
+	u32 quotanum = band ? adapter->dle_info.c1_tx_max : adapter->dle_info.c0_tx_max;
 
 	return quotanum * PLE_PAGE_SIZE / (PINGPONG * (SINGLE_MSDU_SIZE + SEC_FCS_SIZE));
 }
@@ -555,7 +565,7 @@ u32 usb_ep_cfg_8852b(struct mac_ax_adapter *adapter, struct mac_ax_usb_ep *cfg)
 		ep_cfg |= B_AX_EP7_TX_PAUSE;
 		ep_sts |= (B_AX_EP7_TX_PAUSE | B_AX_EP7_PAUSE_STATE);
 	} else {
-		ep_cfg &= ~B_AX_EP7_TX_PAUSE;
+		ep_cfg &= ~B_AX_EP7_TX_PAUSE_V1;
 		ep_sts &= (~B_AX_EP7_TX_PAUSE & ~B_AX_EP7_PAUSE_STATE);
 	}
 	if (cfg->ep8) {
@@ -607,3 +617,4 @@ u32 usb_ep_cfg_8852b(struct mac_ax_adapter *adapter, struct mac_ax_usb_ep *cfg)
 	return MACSUCCESS;
 }
 #endif /* #if MAC_AX_USB_SUPPORT */
+#endif /* #if MAC_AX_8852B_SUPPORT */

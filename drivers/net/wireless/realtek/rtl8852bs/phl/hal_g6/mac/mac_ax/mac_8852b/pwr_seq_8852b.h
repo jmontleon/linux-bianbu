@@ -13,10 +13,11 @@
  * more details.
  *
  ******************************************************************************/
-
 #ifndef _MAC_AX_PWR_SEQ_8852B_H_
 #define _MAC_AX_PWR_SEQ_8852B_H_
 
+#include "../../mac_def.h"
+#if MAC_AX_8852B_SUPPORT
 //#define PWR_SEQ_VER_8852B  000
 
 extern struct mac_pwr_cfg *pwr_on_seq_8852b[];
@@ -27,4 +28,5 @@ extern struct mac_pwr_cfg *enter_lps_seq_8852b[];
 extern struct mac_pwr_cfg *leave_lps_seq_8852b[];
 extern struct mac_pwr_cfg *ips_seq_8852b[];
 #endif
+#endif /* #if MAC_AX_8852B_SUPPORT */
 #endif

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -24,21 +24,25 @@
 #include <basic_types.h>
 #include <osdep_service.h>
 #include <rtw_byteorder.h>
+#include "../phl/rtw_general_def.h"
 #include <wlan_bssdef.h>
 #include <wifi.h>
 #include <ieee80211.h>
-#ifdef CONFIG_ARP_KEEP_ALIVE
+#ifdef CONFIG_ARP_KEEP_ALIVE_GW
 	#include <net/neighbour.h>
 	#include <net/arp.h>
 #endif
 
 typedef struct _ADAPTER _adapter;
+struct _ADAPTER_LINK;
 /* connection interface of drv and hal */
-#include "../phl/rtw_general_def.h"
 
 #include <rtw_debug.h>
 #include <rtw_rf.h>
+#include "../core/rtw_chset.h"
 #include "../core/rtw_chplan.h"
+
+#include "../phl/phl_headers_core.h"
 
 #ifdef CONFIG_80211N_HT
 	#include <rtw_ht.h>
@@ -69,7 +73,6 @@ typedef struct _ADAPTER _adapter;
 /*CONFIG_PHL_ARCH*/
 #include "rtw_cmd.h"
 #include "rtw_phl_cmd.h"
-#include "../phl/phl_headers_core.h"
 #include "phl_api_tmp.h"
 #include "rtw_phl.h"
 
@@ -88,6 +91,11 @@ typedef struct _ADAPTER _adapter;
 #ifdef CONFIG_RTW_MBO
 #include <rtw_mbo.h>
 #endif
+
+#ifdef CONFIG_80211BE_EHT
+	#include <rtw_eht.h>
+#endif
+
 #include <rtw_qos.h>
 #include <rtw_wow.h>
 #include <rtw_pwrctrl.h>
@@ -147,6 +155,10 @@ typedef struct _ADAPTER _adapter;
 	#include <rtw_br_ext.h>
 #endif /* CONFIG_BR_EXT */
 
+#ifdef CONFIG_FPGA_INCLUDED
+	#include <rtw_fpga.h>
+#endif /* CONFIG_FPGA_INCLUDED */
+
 #include <ip.h>
 #include <if_ether.h>
 #include <ethernet.h>
@@ -186,6 +198,7 @@ struct registry_priv {
 	u8	hci;
 	NDIS_802_11_SSID	ssid;
 	u8	network_mode;	/* infra, ad-hoc, auto */
+	u8	band;
 	u8	channel;/* ad-hoc support requirement */
 	u8	wireless_mode;/* A, B, G, auto */
 	u8	band_type;
@@ -199,25 +212,9 @@ struct registry_priv {
 	u16  frag_thresh;
 	u8	adhoc_tx_pwr;
 	u8	soft_ap;
-	u8	power_mgnt;
 	u8	ips_mode;
-	u8	lps_level;
-#ifdef CONFIG_LPS_1T1R
-	u8	lps_1t1r;
-#endif
-	u8	lps_chk_by_tp;
-#ifdef CONFIG_WOWLAN
-	u8	wow_power_mgnt;
-	u8	wow_lps_level;
-	#ifdef CONFIG_LPS_1T1R
-	u8	wow_lps_1t1r;
-	#endif
-#endif /* CONFIG_WOWLAN */
 	u8	lps_mode;
 	u8	smart_ps;
-#ifdef CONFIG_WMMPS_STA
-	u8	wmm_smart_ps;
-#endif /* CONFIG_WMMPS_STA */
 	u8   usb_rxagg_mode;
 	u8	dynamic_agg_enable;
 	u8	long_retry_lmt;
@@ -241,16 +238,10 @@ struct registry_priv {
 	u8	acm_method;
 	/* WMM */
 	u8	wmm_enable;
-#ifdef CONFIG_WMMPS_STA
-	/* uapsd (unscheduled automatic power-save delivery) = a kind of wmmps */
-	u8	uapsd_max_sp_len;
-	/* BIT0: AC_VO UAPSD, BIT1: AC_VI UAPSD, BIT2: AC_BK UAPSD, BIT3: AC_BE UAPSD */
-	u8	uapsd_ac_enable;
-#endif /* CONFIG_WMMPS_STA */
 
 	WLAN_BSSID_EX    dev_network;
 
-	u8 tx_bw_mode;
+	u16 tx_bw_mode;
 #ifdef CONFIG_AP_MODE
 	u8 bmc_tx_rate;
 	#if CONFIG_RTW_AP_DATA_BMC_TO_UC
@@ -310,8 +301,12 @@ struct registry_priv {
 	 * BIT3: Enable VHT MU Beamformee, depend on VHT SU Beamformee
 	 * BIT4: Enable HT Beamformer
 	 * BIT5: Enable HT Beamformee
+	 * BIT6: Enable HE SU Beamformer
+	 * BIT7: Enable HE SU Beamformee
+	 * BIT8: Enable HE MU Beamformer
+	 * BIT9: Enable HE MU Beamformee
 	 */
-	u8	beamform_cap;
+	u16	beamform_cap;
 	u8	dyn_txbf;
 	u8	beamformer_rf_num;
 	u8	beamformee_rf_num;
@@ -341,6 +336,8 @@ struct registry_priv {
 #ifdef CONFIG_REGD_SRC_FROM_OS
 	enum regd_src_t regd_src;
 #endif
+	bool init_regd_always_apply;
+	bool user_regd_always_apply;
 	char alpha2[2];
 	u8	channel_plan;
 	u8	excl_chs[MAX_CHANNEL_NUM_2G_5G];
@@ -348,6 +345,9 @@ struct registry_priv {
 	u8 channel_plan_6g;
 	u8 excl_chs_6g[MAX_CHANNEL_NUM_6G];
 #endif
+	u8 dis_ch_flags;
+	u32 bcn_hint_valid_ms;
+
 	u8	full_ch_in_p2p_handshake; /* 0: reply only softap channel, 1: reply full channel list*/
 
 #ifdef CONFIG_BTC
@@ -377,13 +377,18 @@ struct registry_priv {
 #endif
 
 #ifdef CONFIG_80211D
+	u8 country_ie_slave_en_mode;
+	u8 country_ie_slave_flags;
 	u8 country_ie_slave_en_role;
 	u8 country_ie_slave_en_ifbmp;
+	u32 country_ie_slave_scan_int_ms;
 #endif
 
 	u8 ifname[16];
 	u8 if2name[16];
-
+#if defined(CONFIG_PLATFORM_ANDROID) && (CONFIG_IFACE_NUMBER > 2)
+	u8 if3name[16];
+#endif
 	/* for pll reference clock selction */
 	u8 pll_ref_clk_sel;
 
@@ -401,7 +406,6 @@ struct registry_priv {
 	u8	RFE_Type;
 	u8	PowerTracking_Type;
 	u8	GLNA_Type;
-	u8  check_fw_ps;
 	u8	RegPwrTrimEnable;
 
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
@@ -521,11 +525,25 @@ struct registry_priv {
 	u16 roch_extend_dur; /* minimum duration to stay in roch when mgnt tx */
 #endif
 
-#if defined(ROKU_PRIVATE) && defined(CONFIG_P2P)
+#if defined(PRIVATE_R) && defined(CONFIG_P2P)
 	unsigned long go_hidden_ssid_mode;
 	ATOMIC_T set_hide_ssid_timer;
 #endif
 	u8 amsdu_mode;
+
+	u8 p2p_go_skip_keep_alive;
+
+#if CONFIG_DFS
+#ifdef CONFIG_ECSA_PHL
+	u8 en_ecsa;
+#endif
+#endif
+
+#if CONFIG_IEEE80211_BAND_6GHZ
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
+	bool split_scan_6ghz;
+#endif
+#endif
 };
 
 /* For registry parameters */
@@ -586,7 +604,6 @@ struct registry_priv {
 
 #include <rtw_trx.h>
 
-#define get_hw_port(adapter) (adapter->hw_port)
 #ifdef CONFIG_CONCURRENT_MODE
 	#define is_primary_adapter(adapter) (adapter->adapter_type == PRIMARY_ADAPTER)
 	#define is_vir_adapter(adapter) (adapter->adapter_type == VIRTUAL_ADAPTER)
@@ -597,7 +614,8 @@ struct registry_priv {
 #define GET_PRIMARY_ADAPTER(padapter) (((_adapter *)padapter)->dvobj->padapters[IFACE_ID0])
 #define GET_IFACE_NUMS(padapter) (((_adapter *)padapter)->dvobj->iface_nums)
 #define GET_ADAPTER(padapter, iface_id) (((_adapter *)padapter)->dvobj->padapters[iface_id])
-#define GET_PRIMARY_LINK(padapter) (&(padapter)->adapter_link)
+#define GET_PRIMARY_LINK(padapter) (((_adapter *)padapter)->adapter_link[RTW_RLINK_PRIMARY])
+#define GET_LINK(padapter, link_idx) (((_adapter *)padapter)->adapter_link[link_idx])
 
 
 #ifdef RTW_PHL_TX
@@ -781,9 +799,14 @@ struct fw_hang_info {
 struct rxff_hang_info {
 	u8 dbg_is_rxff_hang;
 	u8 rx_ff_hang_cnt;
+	/* increase when HCI Rx */
+	u16 rx_cnt;
+	/* record in rtw_is_rxff_hang() */
+	u16 last_rx_cnt;
 };
 
 struct hang_info {
+	u8 is_stop;
 	u32 enter_cnt;
 	struct rxff_hang_info dbg_rxff_hang_info;
 	struct fw_hang_info dbg_fw_hang_info;
@@ -914,52 +937,55 @@ struct rtw_traffic_statistics {
 
 struct rf_ctl_t {
 	bool disable_sw_chplan;
+
 	enum regd_src_t regd_src;
-	enum rtw_regd_inr regd_inr;
+	u8 regd_inr_bmp;
 	char alpha2[2];
-	u8 ChannelPlan;
+	u8 domain_code;
 #if CONFIG_IEEE80211_BAND_6GHZ
-	u8 chplan_6g;
-#endif
-	u8 edcca_mode_2g_override;
-#if CONFIG_IEEE80211_BAND_5GHZ
-	u8 edcca_mode_5g_override;
-#endif
-#if CONFIG_IEEE80211_BAND_6GHZ
-	u8 edcca_mode_6g_override;
-#endif
-#if CONFIG_TXPWR_LIMIT
-	u8 txpwr_lmt_override;
+	u8 domain_code_6g;
 #endif
 
-#if defined(CONFIG_80211AX_HE) || defined(CONFIG_80211AC_VHT)
+#if defined(CONFIG_80211AX_HE) || defined(CONFIG_80211AC_VHT) || CONFIG_IEEE80211_BAND_5GHZ
 	u8 proto_en;
 #endif
-
-	/* initial channel plan selectors */
-	char init_alpha2[2];
-	u8 init_ChannelPlan;
+	u8 dis_ch_flags;
+	u8 excl_chs[MAX_CHANNEL_NUM_2G_5G];
 #if CONFIG_IEEE80211_BAND_6GHZ
-	u8 init_chplan_6g;
+	u8 excl_chs_6g[MAX_CHANNEL_NUM_6G];
 #endif
 
-	/* channel plan selectors by user */
-	char user_alpha2[2]; /* "\x00\x00" is not set */
-	u8 user_ChannelPlan;
-#if CONFIG_IEEE80211_BAND_6GHZ
-	u8 user_chplan_6g;
-#endif
+	_mutex regd_req_mutex;
+	_list regd_req_list;
+	u8 regd_req_num;
+	bool init_regd_always_apply;
+	bool user_regd_always_apply;
+	struct regd_req_t init_req;
+	struct regd_req_t *user_req;
+
+	u32 bcn_hint_valid_ms; /* the length of time beacon hint continue */
 
 #ifdef CONFIG_80211D
-	u8 country_ie_slave_en_role;
-	u8 country_ie_slave_en_ifbmp;
+	enum country_ie_slave_en_mode cis_en_mode;
+	u8 cis_flags; /* bitmap of enum country_ie_slave_flags */
 
-	struct country_ie_slave_record cisr[CONFIG_IFACE_NUMBER];
-	u8 effected_cisr_id;
+	u8 cis_en_role; /* per link cis enable role, see COUNTRY_IE_SLAVE_EN_ROLE_XXX, used when CISF_ENV_BSS is not set */
+	u8 cis_en_ifbmp; /* per link cis enable iface bitmap, used when CISF_ENV_BSS is not set */
+	u32 cis_scan_int_ms; /* 0 means no env BSS scan triggerred by driver self, used when CISF_ENV_BSS is set */
+
+	bool cis_enabled; /* enable status */
+
+	/* per link cis status, used when CISF_ENV_BSS is not set */
+	u8 *recv_country_ie[CONFIG_IFACE_NUMBER][RTW_RLINK_MAX];
+	u32 recv_country_ie_len[CONFIG_IFACE_NUMBER][RTW_RLINK_MAX];
+	struct country_ie_slave_record cisr[CONFIG_IFACE_NUMBER][RTW_RLINK_MAX];
+
+	/* effected one, used when CISF_INTERSECT is not set */
+	struct country_ie_slave_record *effected_cisr;
+	struct country_ie_slave_record effected_cisr_cont; /*  valid when effected_cisr != NULL */
 #endif
 
-	u8 max_chan_nums;
-	RT_CHANNEL_INFO channel_set[MAX_CHANNEL_NUM];
+	struct rtw_chset chset;
 	struct op_class_pref_t **spt_op_class_ch;
 	u8 cap_spt_op_class_num;
 	u8 reg_spt_op_class_num;
@@ -999,33 +1025,25 @@ struct rf_ctl_t {
 	enum band_type last_edcca_mode_op_band;
 
 #if CONFIG_DFS
-	u8 csa_mode;
-	u8 csa_switch_cnt;
 
-	/* @csa_ch_width definition from 802.11 spec
-	* 0 for 20 MHz or 40 MHz
-	* 1 for 80 MHz, 160 MHz or 80+80 MHz
-	* 2 for 160 MHz
-	* 3 for non-contiguous 80+80 MHz
-	*/
-	u8 csa_ch_width;
-	struct rtw_chan_def csa_chandef;
+#if CONFIG_IEEE80211_BAND_5GHZ
+	bool radar_detect_by_others[HW_BAND_MAX];
+	/* 5G band is implicit */
+	u8 radar_detect_cch[HW_BAND_MAX];
+	u8 radar_detect_bw[HW_BAND_MAX];
+	u32 radar_detect_freq_hi[HW_BAND_MAX];
+	u32 radar_detect_freq_lo[HW_BAND_MAX];
 
 #ifdef CONFIG_DFS_MASTER
 	enum rtw_dfs_regd dfs_region_domain;
 	_timer radar_detect_timer;
-	bool radar_detect_by_others[HW_BAND_MAX];
 	u8 radar_detect_enabled;
 
 	bool radar_detected;
 
 	enum phl_band_idx radar_detect_hwband;
-	/* 5G band is implicit */
-	u8 radar_detect_ch;
-	u8 radar_detect_bw;
-	u8 radar_detect_offset;
-	u8 radar_detect_cch;
 
+	bool non_ocp_finished;
 	systime cac_start_time;
 	systime cac_end_time;
 	u8 cac_force_stop;
@@ -1040,37 +1058,40 @@ struct rf_ctl_t {
 	u8 dbg_dfs_radar_detect_trigger_non;
 	u8 dbg_dfs_choose_dfs_ch_first;
 #endif /* CONFIG_DFS_MASTER */
+#endif /* CONFIG_IEEE80211_BAND_5GHZ */
+
 #endif /* CONFIG_DFS */
 #ifdef CONFIG_RTW_MBO
 	struct npref_ch_rtp ch_rtp;
 #endif
 };
 
-struct wow_ctl_t {
-	u8 wow_cap;
-};
+#define RFCTL_REG_WORLDWIDE(rfctl)	(IS_ALPHA2_WORLDWIDE(rfctl->alpha2))
+#define RFCTL_REG_ALPHA2_UNSPEC(rfctl)	(IS_ALPHA2_UNSPEC(rfctl->alpha2)) /* ex: only domain code is specified */
+#define RFCTL_REG_INTERSECTED(rfctl)	(IS_ALPHA2_INTERSECTED(rfctl->alpha2))
 
-#define WOW_CAP_TKIP_OL BIT0
-
-#define RFCTL_REG_WORLDWIDE(rfctl) (IS_ALPHA2_WORLDWIDE(rfctl->alpha2))
-#define RFCTL_REG_ALPHA2_UNSPEC(rfctl) (IS_ALPHA2_UNSPEC(rfctl->alpha2)) /* ex: only domain code is specified */
+#if CONFIG_IEEE80211_BAND_5GHZ
+#define RFCTL_REG_EN_11A(rfctl) (((rfctl)->proto_en & CHPLAN_PROTO_EN_A) ? true : false)
+#else
+#define RFCTL_REG_EN_11A(rfctl) false
+#endif
 
 #ifdef CONFIG_80211AC_VHT
-#define RFCTL_REG_EN_11AC(rfctl) (((rfctl)->proto_en & CHPLAN_PROTO_EN_AC) ? 1 : 0)
+#define RFCTL_REG_EN_11AC(rfctl) (((rfctl)->proto_en & CHPLAN_PROTO_EN_AC) ? true : false)
 #else
-#define RFCTL_REG_EN_11AC(rfctl) 0
+#define RFCTL_REG_EN_11AC(rfctl) false
 #endif
 
 #ifdef CONFIG_80211AX_HE
-#define RFCTL_REG_EN_11AX(rfctl) (((rfctl)->proto_en & CHPLAN_PROTO_EN_AX) ? 1 : 0)
+#define RFCTL_REG_EN_11AX(rfctl) (((rfctl)->proto_en & CHPLAN_PROTO_EN_AX) ? true : false)
 #else
-#define RFCTL_REG_EN_11AX(rfctl) 0
+#define RFCTL_REG_EN_11AX(rfctl) false
 #endif
 
 #ifdef CONFIG_DFS_MASTER
 #define IS_CAC_STOPPED(rfctl) ((rfctl)->cac_end_time == RTW_CAC_STOPPED)
 #define IS_CH_WAITING(rfctl) (!IS_CAC_STOPPED(rfctl) && rtw_time_after((rfctl)->cac_end_time, rtw_get_current_time()))
-#define IS_UNDER_CAC(rfctl) (IS_CH_WAITING(rfctl) && rtw_time_after(rtw_get_current_time(), (rfctl)->cac_start_time))
+#define IS_UNDER_CAC(rfctl) (IS_CH_WAITING(rfctl) && rtw_time_after_eq(rtw_get_current_time(), (rfctl)->cac_start_time))
 #define IS_RADAR_DETECTED(rfctl) ((rfctl)->radar_detected)
 #else
 #define IS_CAC_STOPPED(rfctl) 1
@@ -1149,12 +1170,11 @@ struct dvobj_priv {
 	_mutex ioctrl_mutex;
 	_mutex setch_mutex;
 	_mutex setbw_mutex;
-	_mutex rf_read_reg_mutex;
 
 	_adapter *padapters[CONFIG_IFACE_NUMBER];/*IFACE_ID_MAX*/
 	u8 virtual_iface_num;/*from registary*/
 	u8 iface_nums; /* total number of ifaces used runtime */
-	struct mi_state iface_state;
+	struct mi_state iface_state[MAX_BAND_NUM];
 
 	enum rtl_ic_id ic_id;
 	enum rtw_hci_type interface_type;/*USB,SDIO,SPI,PCI*/
@@ -1171,7 +1191,6 @@ struct dvobj_priv {
 	/* struct macid_ctl_t macid_ctl; *//*shared HW resource*/
 	struct cam_ctl_t cam_ctl;/*sec-cam shared HW resource*/
 	struct sec_cam_ent cam_cache[SEC_CAM_ENT_NUM_SW_LIMIT];
-	struct wow_ctl_t wow_ctl;
 
 
 	/****** Band info may be x 2*********/
@@ -1220,7 +1239,7 @@ struct dvobj_priv {
 
 	/*-------- below is for PCIE/USB/SDIO INTERFACE --------*/
 	#ifdef CONFIG_SDIO_HCI
-	SDIO_DATA sdio_data;
+	struct sdio_data sdio_data;
 	#endif
 	#ifdef CONFIG_GSPI_HCI
 	GSPI_DATA gspi_data;
@@ -1272,14 +1291,6 @@ struct dvobj_priv {
 	struct fake_ap fakeap;
 #endif /* CONFIG_DRV_FAKE_AP */
 
-	#ifdef CONFIG_FILE_FWIMG
-	/* Placeholder for per physical adapter firmware file name.
-	 * Freddie ToDo: Move to phl_com as PHL/HAL common feature
-	 *               should be placed there.
-	 */
-	char fw_file[PATH_LENGTH_MAX];
-	#endif
-
 	/* WPAS maintain from w1.fi */
 #define RTW_WPAS_W1FI		0x00
 	/* WPAS maintain from android */
@@ -1287,27 +1298,24 @@ struct dvobj_priv {
 	u8 wpas_type;
 };
 
-#define DEV_STA_NUM(_dvobj)		MSTATE_STA_NUM(&((_dvobj)->iface_state))
-#define DEV_STA_LD_NUM(_dvobj)		MSTATE_STA_LD_NUM(&((_dvobj)->iface_state))
-#define DEV_STA_LG_NUM(_dvobj)		MSTATE_STA_LG_NUM(&((_dvobj)->iface_state))
-#define DEV_TDLS_LD_NUM(_dvobj)		MSTATE_TDLS_LD_NUM(&((_dvobj)->iface_state))
-#define DEV_AP_NUM(_dvobj)			MSTATE_AP_NUM(&((_dvobj)->iface_state))
-#define DEV_AP_STARTING_NUM(_dvobj)	MSTATE_AP_STARTING_NUM(&((_dvobj)->iface_state))
-#define DEV_AP_LD_NUM(_dvobj)		MSTATE_AP_LD_NUM(&((_dvobj)->iface_state))
-#define DEV_ADHOC_NUM(_dvobj)		MSTATE_ADHOC_NUM(&((_dvobj)->iface_state))
-#define DEV_ADHOC_LD_NUM(_dvobj)	MSTATE_ADHOC_LD_NUM(&((_dvobj)->iface_state))
-#define DEV_MESH_NUM(_dvobj)		MSTATE_MESH_NUM(&((_dvobj)->iface_state))
-#define DEV_MESH_LD_NUM(_dvobj)		MSTATE_MESH_LD_NUM(&((_dvobj)->iface_state))
-#define DEV_P2P_DV_NUM(_dvobj)		MSTATE_P2P_DV_NUM(&((_dvobj)->iface_state))
-#define DEV_P2P_GC_NUM(_dvobj)		MSTATE_P2P_GC_NUM(&((_dvobj)->iface_state))
-#define DEV_P2P_GO_NUM(_dvobj)		MSTATE_P2P_GO_NUM(&((_dvobj)->iface_state))
-#define DEV_SCAN_NUM(_dvobj)		MSTATE_SCAN_NUM(&((_dvobj)->iface_state))
-#define DEV_WPS_NUM(_dvobj)			MSTATE_WPS_NUM(&((_dvobj)->iface_state))
-#define DEV_ROCH_NUM(_dvobj)		MSTATE_ROCH_NUM(&((_dvobj)->iface_state))
-#define DEV_MGMT_TX_NUM(_dvobj)		MSTATE_MGMT_TX_NUM(&((_dvobj)->iface_state))
-#define DEV_U_CH(_dvobj)			MSTATE_U_CH(&((_dvobj)->iface_state))
-#define DEV_U_BW(_dvobj)			MSTATE_U_BW(&((_dvobj)->iface_state))
-#define DEV_U_OFFSET(_dvobj)		MSTATE_U_OFFSET(&((_dvobj)->iface_state))
+#define HWBAND_STA_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_STA_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_STA_LD_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_STA_LD_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_STA_LG_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_STA_LG_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_TDLS_LD_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_TDLS_LD_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_AP_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_AP_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_AP_STARTING_NUM(_dvobj, _band_idx)	((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_AP_STARTING_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_AP_LD_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_AP_LD_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_ADHOC_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_ADHOC_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_ADHOC_LD_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_ADHOC_LD_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_MESH_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_MESH_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_MESH_LD_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_MESH_LD_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_P2P_DV_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_P2P_DV_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_P2P_GC_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_P2P_GC_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_P2P_GO_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_P2P_GO_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_SCAN_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_SCAN_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_WPS_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_WPS_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_ROCH_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_ROCH_NUM(&((_dvobj)->iface_state[_band_idx])))
+#define HWBAND_MGMT_TX_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_MGMT_TX_NUM(&((_dvobj)->iface_state[_band_idx])))
 
 #define dvobj_to_pwrctl(dvobj) (&(dvobj->pwrctl_priv))
 #ifdef CONFIG_WOWLAN
@@ -1322,6 +1330,7 @@ struct dvobj_priv {
 #endif
 #define dvobj_to_rfctl(dvobj) (&(dvobj->rf_ctl))
 #define rfctl_to_dvobj(rfctl) container_of((rfctl), struct dvobj_priv, rf_ctl)
+#define dvobj_to_chset(dvobj) (&dvobj_to_rfctl(dvobj)->chset)
 
 #ifdef CONFIG_PCI_HCI
 static inline PCI_DATA *dvobj_to_pci(struct dvobj_priv *dvobj)
@@ -1336,11 +1345,15 @@ static inline USB_DATA *dvobj_to_usb(struct dvobj_priv *dvobj)
 }
 #endif
 #ifdef CONFIG_SDIO_HCI
-static inline SDIO_DATA *dvobj_to_sdio(struct dvobj_priv *dvobj)
-{
-	return &dvobj->sdio_data;
-}
-#endif
+#define dvobj_to_sdio(d)		(&(d)->sdio_data)
+#define rtw_is_sdio30(d)		(!(!dvobj_to_sdio(d)->sd3_bus_mode))
+#define rtw_sdio_get_clock(d)		(dvobj_to_sdio(d)->clock)		/* unit: HZ */
+#define rtw_sdio_get_block_size(d)	(dvobj_to_sdio(d)->block_transfer_len)	/* unit: byte */
+#define rtw_sdio_set_irq_thd(d, id)	do {dvobj_to_sdio(d)->sys_sdio_irq_thd = id;} while (0)
+#ifdef PLATFORM_LINUX
+#define dvobj_to_sdio_func(d)		(dvobj_to_sdio(d)->func)
+#endif /* PLATFORM_LINUX */
+#endif /* CONFIG_SDIO_HCI */
 #ifdef CONFIG_GSPI_HCI
 static inline GSPI_DATA *dvobj_to_gspi(struct dvobj_priv *dvobj)
 {
@@ -1375,7 +1388,6 @@ _adapter *dvobj_get_unregisterd_adapter(struct dvobj_priv *dvobj);
 _adapter *dvobj_get_adapter_by_addr(struct dvobj_priv *dvobj, u8 *addr);
 #define dvobj_get_primary_adapter(dvobj)	((dvobj)->padapters[IFACE_ID0])
 
-void rtw_efuse_dbg_raw_dump(struct dvobj_priv *pdvobj);
 
 enum _ADAPTER_TYPE {
 	PRIMARY_ADAPTER,
@@ -1408,18 +1420,21 @@ typedef struct loopbackdata {
 
 #define ADAPTER_TX_BW_2G(adapter) BW_MODE_2G((adapter)->driver_tx_bw_mode)
 #define ADAPTER_TX_BW_5G(adapter) BW_MODE_5G((adapter)->driver_tx_bw_mode)
+#define ADAPTER_TX_BW_6G(adapter) BW_MODE_6G((adapter)->driver_tx_bw_mode)
 
 #ifdef RTW_PHL_DBG_CMD
 #define	CORE_LOG_NUM 	(100)
 #define MAX_FRAG		(4)
 #define INV_TXFORCE_VAL	(0xFFFF)
 
+/*
 enum _CORE_REC_DUMP {
 	REC_DUMP_NO = 0,
 	REC_DUMP_ALL,
 	REC_DUMP_TX,
 	REC_DUMP_RX,
 };
+*/
 
 enum _CORE_REC_TYPE {
 	REC_TX_MGMT = 0,
@@ -1553,13 +1568,23 @@ enum _DIS_TURBO_EDCA {
 
 struct _ADAPTER_LINK {
 	_adapter *adapter;
+	u8 mac_addr[ETH_ALEN]; /* link address */
+
+#ifdef CONFIG_AP_MODE
+	bool is_ap_chan_ctx_added;
+#endif
+	struct rtw_wifi_role_link_t *wrlink;
+
+	struct link_mlme_priv mlmepriv;
+	struct link_mlme_ext_priv mlmeextpriv;
+	struct link_security_priv securitypriv;
 };
 
-#define ALINK_GET_HWBAND(alink) ((alink)->adapter->phl_role->hw_band)
-#define ALINK_GET_BAND(alink) (rtw_is_2g_ch((alink)->adapter->mlmeextpriv.chandef.chan) ? BAND_ON_24G : BAND_ON_5G)
-#define ALINK_GET_CH(alink) ((alink)->adapter->mlmeextpriv.chandef.chan)
-#define ALINK_GET_BW(alink) ((alink)->adapter->mlmeextpriv.chandef.bw)
-#define ALINK_GET_OFFSET(alink) ((alink)->adapter->mlmeextpriv.chandef.offset)
+#define ALINK_GET_HWBAND(alink) ((alink)->wrlink->hw_band)
+#define ALINK_GET_BAND(alink) ((alink)->mlmeextpriv.chandef.band)
+#define ALINK_GET_CH(alink) ((alink)->mlmeextpriv.chandef.chan)
+#define ALINK_GET_BW(alink) ((alink)->mlmeextpriv.chandef.bw)
+#define ALINK_GET_OFFSET(alink) ((alink)->mlmeextpriv.chandef.offset)
 
 struct _ADAPTER {
 	int	pid[3];/*process id from UI, 0:wpa_supplicant, 1:hostapd, 2:dhcpcd*/
@@ -1572,7 +1597,6 @@ struct _ADAPTER {
 	**	if isprimary is false, the adapter_type value is 1, iface_id is IFACE_ID1 for VIRTUAL_ADAPTER
 	**	refer to iface_id if iface_nums>2 and isprimary is false and the adapter_type value is 0xff.*/
 	u8 adapter_type;/*be used in  Multi-interface to recognize whether is PRIMARY_ADAPTER  or not(PRIMARY_ADAPTER/VIRTUAL_ADAPTER) .*/
-	u8 hw_port; /*interface port type, it depends on HW port */
 
 	u8 mac_addr[ETH_ALEN];
 	/*CONFIG_PHL_ARCH*/
@@ -1588,7 +1612,8 @@ struct _ADAPTER {
 	u8 registered;
 	u8 ndev_unregistering;
 
-	struct _ADAPTER_LINK adapter_link;
+	struct _ADAPTER_LINK *adapter_link[RTW_RLINK_MAX];
+	u8 adapter_link_num;
 
 	struct dvobj_priv *dvobj;
 	struct mlme_priv mlmepriv;
@@ -1613,10 +1638,18 @@ struct _ADAPTER {
 	u8 bmc_tx_rate;
 	#ifdef CONFIG_AP_CMD_DISPR
 	struct ap_cmd_dispr_priv *apcmd_dipsr_priv;
-	u32 ap_start_cmd_token;
 	u32 ap_stop_cmd_token;
+	enum phl_band_idx ap_start_cmd_bidx;
+	enum phl_band_idx ap_stop_cmd_bidx;
 	u8 ap_start_cmd_state;
 	u8 ap_stop_cmd_state;
+	struct phl_cmd_token_req add_del_sta_req;
+	_lock ap_add_del_sta_lock;
+#define ADD_DEL_STA_ST_IDLE		1
+#define ADD_DEL_STA_ST_REQUESTING	2
+#define ADD_DEL_STA_ST_ACQUIRED		3
+	u32 ap_add_del_sta_cmd_token;
+	u8 ap_add_del_sta_cmd_state;
 	#endif
 	#if CONFIG_RTW_AP_DATA_BMC_TO_UC
 	u8 b2u_flags_ap_src;
@@ -1772,7 +1805,7 @@ struct _ADAPTER {
 	u8 fix_bw;
 	u8 data_fb; /* data rate fallback, valid only when fix_rate is not 0xffff */
 	u8 power_offset;
-	u8 driver_tx_bw_mode;
+	u16 driver_tx_bw_mode;
 	u8 rsvd_page_offset;
 	u8 rsvd_page_num;
 	u8 ch_clm_ratio;
@@ -1848,7 +1881,7 @@ struct _ADAPTER {
 					2. disable turboedca,and setting EDCA parameter based on the input parameter*/
 	u32 edca_param_mode;
 	u32 last_edca;
-
+	u8 edca_reset;/*1:be reset 0:not reset*/
 #ifdef CONFIG_STA_CMD_DISPR
 	_lock connect_st_lock;
 	u8 connect_state;
@@ -1859,10 +1892,12 @@ struct _ADAPTER {
 	bool connect_abort;
 	struct phl_cmd_token_req connect_req;
 	u32 connect_token;
+	enum phl_band_idx connect_bidx;/*connect band idx*/
 
 	_lock disconnect_lock;
 	struct phl_cmd_token_req disconnect_req;
 	u32 disconnect_token;
+	enum phl_band_idx disconnect_bidx;/*disconnect band idx*/
 	struct cmd_obj *discon_cmd;
 #endif /* CONFIG_STA_CMD_DISPR */
 
@@ -1895,13 +1930,17 @@ struct _ADAPTER {
 #endif
 
 #define adapter_mac_addr(adapter) (adapter->mac_addr)
+#if defined(CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI) || defined(CONFIG_RTW_SCAN_RAND)
+#define adapter_pno_mac_addr(adapter) \
+	((adapter_wdev_data(adapter))->pno_mac_addr)
+#endif
 
 #ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
 #define adapter_pno_mac_addr(adapter) \
 	((adapter_wdev_data(adapter))->pno_mac_addr)
 #endif
 
-#define adapter_to_chset(adapter) (adapter_to_rfctl((adapter))->channel_set)
+#define adapter_to_chset(adapter) (&adapter_to_rfctl((adapter))->chset)
 
 #define mlme_to_adapter(mlme) container_of((mlme), _adapter, mlmepriv)
 #define tdls_info_to_adapter(tdls) container_of((tdls), _adapter, tdlsinfo)

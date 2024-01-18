@@ -14,8 +14,8 @@
  ******************************************************************************/
 
 #include "pwr_seq_func.h"
-#define MAC_AX_PWR_POLL_CNT 20
-#define MAC_AX_PWR_POLL_CNT_PXP 1000
+#define MAC_AX_PWR_POLL_CNT 3000
+#define MAC_AX_PWR_POLL_CNT_PXP 3000
 #define MAC_AX_PWR_POLL_MS 1
 
 u32 pwr_poll_u32(struct mac_ax_adapter *adapter, u32 offset,

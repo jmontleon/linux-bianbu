@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -15,13 +15,9 @@
 #ifndef __RTW_MI_H_
 #define __RTW_MI_H_
 
-void rtw_mi_update_union_chan_inf(_adapter *adapter, u8 ch, u8 offset , u8 bw);
-u8 rtw_mi_stayin_union_ch_chk(_adapter *adapter);
-u8 rtw_mi_stayin_union_band_chk(_adapter *adapter);
-
-int rtw_mi_get_ch_setting_union_by_ifbmp(struct dvobj_priv *dvobj, u8 ifbmp, u8 *ch, u8 *bw, u8 *offset);
-int rtw_mi_get_ch_setting_union(_adapter *adapter, u8 *ch, u8 *bw, u8 *offset);
-int rtw_mi_get_ch_setting_union_no_self(_adapter *adapter, u8 *ch, u8 *bw, u8 *offset);
+int rtw_mi_get_ch_setting_union_by_ifbmp(_adapter *adapter, u8 ifbmp, enum band_type *band, u8 *ch, u8 *bw, u8 *offset);
+int rtw_mi_get_ch_setting_union(_adapter *adapter, enum band_type *band, u8 *ch, u8 *bw, u8 *offset);
+int rtw_mi_get_ch_setting_union_no_self(_adapter *adapter, enum band_type *band, u8 *ch, u8 *bw, u8 *offset);
 int rtw_mi_get_bch_setting_union_by_hwband(struct dvobj_priv *dvobj, u8 band_idx
 	, enum band_type *band, u8 *ch, u8 *bw, u8 *offset);
 int rtw_mi_get_bch_setting_union_by_hwband_ifbmp(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp
@@ -59,9 +55,6 @@ struct mi_state {
 	u8 p2p_gc;
 	u8 p2p_go;
 #endif
-	u8 union_ch;
-	u8 union_bw;
-	u8 union_offset;
 };
 
 #define MSTATE_STA_NUM(_mstate)			((_mstate)->sta_num)
@@ -76,16 +69,16 @@ struct mi_state {
 
 #ifdef CONFIG_AP_MODE
 #define MSTATE_AP_NUM(_mstate)			((_mstate)->ap_num)
-#define MSTATE_AP_STARTING_NUM(_mstate)	((_mstate)->starting_ap_num)
+#define MSTATE_AP_STARTING_NUM(_mstate)		((_mstate)->starting_ap_num)
 #define MSTATE_AP_LD_NUM(_mstate)		((_mstate)->ld_ap_num)
 #else
 #define MSTATE_AP_NUM(_mstate)			0
-#define MSTATE_AP_STARTING_NUM(_mstate) 0
+#define MSTATE_AP_STARTING_NUM(_mstate)	0
 #define MSTATE_AP_LD_NUM(_mstate)		0
 #endif
 
 #define MSTATE_ADHOC_NUM(_mstate)		((_mstate)->adhoc_num)
-#define MSTATE_ADHOC_LD_NUM(_mstate)	((_mstate)->ld_adhoc_num)
+#define MSTATE_ADHOC_LD_NUM(_mstate)		((_mstate)->ld_adhoc_num)
 
 #ifdef CONFIG_RTW_MESH
 #define MSTATE_MESH_NUM(_mstate)		((_mstate)->mesh_num)
@@ -121,21 +114,8 @@ struct mi_state {
 #define MSTATE_MGMT_TX_NUM(_mstate)		0
 #endif
 
-#define MSTATE_U_CH(_mstate)			((_mstate)->union_ch)
-#define MSTATE_U_BW(_mstate)			((_mstate)->union_bw)
-#define MSTATE_U_OFFSET(_mstate)		((_mstate)->union_offset)
-
-#define rtw_mi_get_union_chan(adapter)	adapter_to_dvobj(adapter)->iface_state.union_ch
-#define rtw_mi_get_union_bw(adapter)		adapter_to_dvobj(adapter)->iface_state.union_bw
-#define rtw_mi_get_union_offset(adapter)	adapter_to_dvobj(adapter)->iface_state.union_offset
-
-#define rtw_mi_get_assoced_sta_num(adapter)	DEV_STA_LD_NUM(adapter_to_dvobj(adapter))
-#define rtw_mi_get_ap_num(adapter)			DEV_AP_NUM(adapter_to_dvobj(adapter))
-#define rtw_mi_get_mesh_num(adapter)		DEV_MESH_NUM(adapter_to_dvobj(adapter))
-u8 rtw_mi_get_assoc_if_num(_adapter *adapter);
-
 /* For now, not return union_ch/bw/offset */
-void rtw_mi_status_by_ifbmp(struct dvobj_priv *dvobj, u8 ifbmp, struct mi_state *mstate);
+void rtw_mi_status_by_ifbmp(_adapter *adapter, u8 ifbmp, struct mi_state *mstate);
 void rtw_mi_status(_adapter *adapter, struct mi_state *mstate);
 void rtw_mi_status_no_self(_adapter *adapter, struct mi_state *mstate);
 void rtw_mi_status_no_others(_adapter *adapter, struct mi_state *mstate);
@@ -236,11 +216,6 @@ u8 rtw_mi_check_pending_xmitbuf(_adapter *padapter);
 u8 rtw_mi_buddy_check_pending_xmitbuf(_adapter *padapter);
 #endif
 
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-u8 rtw_mi_sdio_dequeue_xmit(_adapter *padapter);
-u8 rtw_mi_sdio_buddy_dequeue_xmit(_adapter *padapter);
-#endif
-
 void rtw_mi_adapter_reset(_adapter *padapter);
 void rtw_mi_buddy_adapter_reset(_adapter *padapter);
 
@@ -281,28 +256,31 @@ u8 rtw_mi_buddy_stay_in_p2p_mode(_adapter *padapter);
 
 _adapter *rtw_get_iface_by_id(_adapter *padapter, u8 iface_id);
 _adapter *rtw_get_iface_by_macddr(_adapter *padapter, const u8 *mac_addr);
-_adapter *rtw_get_iface_by_hwport(_adapter *padapter, u8 hw_port);
 
 void rtw_mi_buddy_clone_bcmc_packet(_adapter *padapter, union recv_frame *precvframe);
-
-
-#ifdef CONFIG_PCI_HCI
-/*API be create temporary for MI, caller is interrupt-handler, PCIE's interrupt handler cannot apply to multi-AP*/
-_adapter *rtw_mi_get_ap_adapter(_adapter *padapter);
-#endif
 
 u8 rtw_mi_get_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx);
 _adapter *rtw_mi_get_iface_by_hwband(struct dvobj_priv *dvobj, u8 band_idx);
 u8 rtw_mi_get_ld_sta_ifbmp(_adapter *adapter);
 u8 rtw_mi_get_ld_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx);
+u8 rtw_mi_get_lgd_sta_ifbmp(_adapter *adapter);
+u8 rtw_mi_get_lgd_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx);
 u8 rtw_mi_get_ap_mesh_ifbmp(_adapter *adapter);
 u8 rtw_mi_get_ap_mesh_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx);
 _adapter *rtw_mi_get_ap_mesh_iface_by_hwband(struct dvobj_priv *dvobj, u8 band_idx);
-
+#ifdef	PHL_MR_PROC_CMD
+u8 rtw_mi_dump_mac_addr(_adapter *adapter);
+#endif
 
 u8 rtw_mi_disconnect(_adapter *adapter);
 u8 rtw_mi_buddy_disconnect(_adapter *adapter, Disconnect_type disc_code);
 
 bool rtw_iface_is_operate_at_hwband(_adapter *adapter, u8 band_idx);
+bool rtw_iface_at_same_hwband(_adapter *adapter, _adapter *iface);
+
+u8 rtw_mi_get_hw_port(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
+
+u32 ifbmp_to_iflbmp(u8 ifbmp);
+u8 iflbmp_to_ifbmp(u32 iflbmp);
 
 #endif /*__RTW_MI_H_*/

@@ -27,6 +27,7 @@
 
 /*@--------------------------[Define] ---------------------------------------*/
 #define REG_PWRMACID_OFST	0x0016c
+#define MACREG_PWRMACID_CR	0x0D36c
 #define HALBB_PWR_STATE_NUM	3
 #define DTP_FLOOR_UP_GAP 3
 #define TX_HP_LV_0 0
@@ -46,8 +47,14 @@
 #define TX_PWR_LVL3 6	/*3dBm*/
 #define TX_PWR_LVL2 12	/*6dBm*/
 #define TX_PWR_LVL1 20	/*10dBm*/
-/*@--------------------------[Enum]------------------------------------------*/
 
+#define TSSI_CFG_NUM 4
+#define TSSI_SBW_NUM 15
+
+/*txdiff Table size*/
+#define MCS_SIZE_TAB 12 /*MCS0~MCS11(12)*/
+#define TABLE_SIZE_TAB 4 /*tbl0~tbl3 for each mcs idx*/
+/*@--------------------------[Enum]------------------------------------------*/
 /*@--------------------------[Structure]-------------------------------------*/
 /* @ Dynamic CCA TH part */
 struct bb_macidcca_info {
@@ -66,7 +73,7 @@ struct bb_dyncca_info {
 
 /* @ Power Ctrl part */
 struct bb_dtp_info {
-	/*u8	dyn_tx_power;	
+	/*u8	dyn_tx_power;
 	u8	last_tx_power;*/
 	u8	dyn_tx_pwr_lvl:4;
 	u8	last_pwr_lvl:4;
@@ -75,15 +82,20 @@ struct bb_dtp_info {
 	bool	en_pwr[2];
 };
 
+struct bb_tssi_info {
+	u32 tssi_dbw_table[TSSI_CFG_NUM][TSSI_SBW_NUM];
+};
+
 struct bb_pwr_ctrl_info {
 	u8 pwr;
 
 	/* [] */
 	u8 enhance_pwr_th[HALBB_PWR_STATE_NUM];
 	u8 set_pwr_th[HALBB_PWR_STATE_NUM];
-	u8 pwr_lv_dbm[HALBB_PWR_STATE_NUM];
+	s8 pwr_lv_dbm[HALBB_PWR_STATE_NUM];
 	/**/
 	struct bb_dtp_info dtp_i[PHL_MAX_STA_NUM];
+	struct bb_tssi_info tssi_i;
 };
 
 struct bb_info;
@@ -91,10 +103,18 @@ struct bb_info;
 #ifdef HALBB_PWR_CTRL_SUPPORT
 void halbb_pwr_ctrl(struct bb_info *bb);
 void halbb_pwr_ctrl_init(struct bb_info *bb);
+void halbb_txdiff_tbl_init(struct bb_info* bb);
 void halbb_set_pwr_macid_idx(struct bb_info *bb, u16 macid, s8 pwr, bool pwr_en, u8 idx);
+void halbb_pwr_ctrl_dbg(struct bb_info *bb, char input[][16], u32 *_used,
+		   char *output, u32 *_out_len);
 #endif
 void halbb_macid_ctrl_init(struct bb_info *bb);
 void halbb_tpu_mac_cr_init(struct bb_info *bb, enum phl_phy_idx phy_idx);
+void halbb_tssi_ctrl_mac_cr_init(struct bb_info *bb, enum phl_phy_idx phy_idx);
+void halbb_tssi_ctrl_set_dbw_table(struct bb_info *bb);
+void halbb_tssi_ctrl_set_fast_mode_cfg(struct bb_info *bb, enum phl_band_idx band,
+						enum tssi_bandedge_cfg bandedge_cfg);
 void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		   char *output, u32 *_out_len);
+
 #endif

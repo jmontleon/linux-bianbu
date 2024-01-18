@@ -675,7 +675,6 @@ typedef	enum _ELEMENT_ID {
 
 	EID_WPA2					= 48,
 	EID_ExtSupRates			= 50,
-	EID_NEIGHBOR_REPORT         = 52,
 
 	EID_FTIE					= 55, /* Defined in 802.11r */
 	EID_Timeout				= 56, /* Defined in 802.11r */
@@ -710,7 +709,6 @@ typedef	enum _ELEMENT_ID {
 	EID_VHTCapability 			= 191, /* Based on 802.11ac D2.0 */
 	EID_VHTOperation 			= 192, /* Based on 802.11ac D2.0 */
 	EID_VHTTransmitPower 		= 195,
-	EID_AID						= 197, /* Based on 802.11ac D4.0 */
 	EID_OpModeNotification		= 199, /* Based on 802.11ac D3.0 */
 } ELEMENT_ID, *PELEMENT_ID;
 
@@ -964,13 +962,6 @@ typedef enum _HT_CAP_AMPDU_DENSITY {
 #define RTW_IEEE80211_ADDBA_PARAM_BUF_SIZE_MASK 0xFFC0
 #define IEEE80211_DELBA_PARAM_TID_MASK 0xF000
 #define IEEE80211_DELBA_PARAM_INITIATOR_MASK 0x0800
-
-/* Spatial Multiplexing Power Save Modes */
-#define WLAN_HT_CAP_SM_PS_STATIC		0
-#define WLAN_HT_CAP_SM_PS_DYNAMIC	1
-#define WLAN_HT_CAP_SM_PS_INVALID	2
-#define WLAN_HT_CAP_SM_PS_DISABLED	3
-
 
 #define OP_MODE_PURE                    0
 #define OP_MODE_MAY_BE_LEGACY_STAS      1

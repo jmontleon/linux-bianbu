@@ -20,6 +20,49 @@
 #include "../type.h"
 #include "fwcmd.h"
 
+#define TWT_INFO_SIZE (sizeof(struct mac_ax_twt_info))
+#define TWT_DBG_INFO_SIZE 16 /* 1st dword of each TWT common info */
+
+/**
+ * @addtogroup PowerSaving
+ * @{
+ * @addtogroup TWT
+ * @{
+ */
+
+/**
+ * @brief twt_info_init
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 twt_info_init(struct mac_ax_adapter *adapter);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup PowerSaving
+ * @{
+ * @addtogroup TWT
+ * @{
+ */
+
+/**
+ * @brief twt_info_exit
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 twt_info_exit(struct mac_ax_adapter *adapter);
+/**
+ * @}
+ * @}
+ */
+
 /**
  * @addtogroup PowerSaving
  * @{
@@ -122,10 +165,9 @@ void mac_twt_wait_anno(struct mac_ax_adapter *adapter,
  * @param *adapter
  * @param *tsf
  * @return Please Place Description here.
- * @retval void
+ * @retval u32
  */
-void mac_get_tsf(struct mac_ax_adapter *adapter,
-		 struct mac_ax_port_tsf *tsf);
+u32 mac_get_tsf(struct mac_ax_adapter *adapter, struct mac_ax_port_tsf *tsf);
 /**
  * @}
  * @}

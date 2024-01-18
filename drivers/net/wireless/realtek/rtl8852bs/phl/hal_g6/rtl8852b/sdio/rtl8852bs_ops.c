@@ -16,7 +16,6 @@
 #include "../rtl8852b_hal.h"
 #include "rtl8852bs.h"
 
-
 void hal_set_ops_8852bs(struct rtw_phl_com_t *phl_com,
 					struct hal_info_t *hal)
 {
@@ -36,9 +35,11 @@ void hal_set_ops_8852bs(struct rtw_phl_com_t *phl_com,
 #endif /* CONFIG_WOWLAN */
 	ops->hal_hci_configure = hal_hci_cfg_8852bs;
 	ops->init_default_value = init_default_value_8852bs;
+	ops->init_int_default_value = init_int_default_value_8852bs;
 
 	ops->hal_mp_init = hal_mp_init_8852bs;
 	ops->hal_mp_deinit = hal_mp_deinit_8852bs;
+	ops->hal_mp_path_chk = hal_mp_path_chk_8852bs;
 
 	ops->enable_interrupt = hal_enable_int_8852bs;
 	ops->disable_interrupt = hal_disable_int_8852bs;
@@ -53,8 +54,8 @@ void hal_set_ops_8852bs(struct rtw_phl_com_t *phl_com,
 /*
  * This function copied from 8852bu, maybe we should refine it later...
  */
-static u8 hal_mapping_hw_tx_chnl_8852bs(u16 macid, enum rtw_phl_ring_cat cat,
-					u8 band)
+static u8 hal_mapping_hw_tx_chnl_8852bs(struct hal_info_t *hal,
+				u16 macid, enum rtw_phl_ring_cat cat, u8 band)
 {
 	u8 dma_ch = 0;
 

@@ -43,11 +43,14 @@ int rtw_fakeap_tx(struct _ADAPTER*, struct xmit_frame*);
 s32 rtw_mgnt_xmit(_adapter *adapter, struct xmit_frame *pmgntframe)
 {
 	s32 ret = _FAIL;
+	struct pkt_attrib *attrib = &pmgntframe->attrib;
+	struct _ADAPTER_LINK *adapter_link = attrib->adapter_link;
 
 	update_mgntframe_attrib_addr(adapter, pmgntframe);
 
 #if defined(CONFIG_IEEE80211W) || defined(CONFIG_RTW_MESH)
-	if ((!MLME_IS_MESH(adapter) && SEC_IS_BIP_KEY_INSTALLED(&adapter->securitypriv) == _TRUE)
+	if ((!MLME_IS_MESH(adapter)
+		&& SEC_IS_BIP_KEY_INSTALLED(&adapter_link->securitypriv) == _TRUE)
 		#ifdef CONFIG_RTW_MESH
 		|| (MLME_IS_MESH(adapter) && adapter->mesh_info.mesh_auth_id)
 		#endif

@@ -25,12 +25,4 @@ static inline u32 rtw_hal_get_txdesc_len(void *h,
 		struct pkt_attrib *attrib){return 0;};
 
 
-
-#ifdef CONFIG_PCI_HCI
-static inline u8 rtw_hal_pci_check_enough_txdesc(void *h, u8 queue_id)
-{
-	return 0;
-}
-#endif
-
 #endif /*__PHL_API_TMP_H_*/

@@ -73,7 +73,7 @@
 #define MACPARSEERR	53 /* parse report err */
 #define MACROLEINITFL	54 /* Role API init fail or C2H notify role init fail */
 #define MACPORTCFGTYPE	55 /* Port cfg type error */
-#define MACPORTCFGPORT	56 /* Port cfg port error */
+#define MACPORTERR	56 /* Invalid Port number */
 #define MACWNGKEYTYPE	57 /* Sec cam wrong key type*/
 #define MACKEYNOTEXT	58 /* Delete key , key not exist*/
 #define MACSECCAMFL	59 /* SEC CAM full*/
@@ -87,7 +87,7 @@
 #define MACCPWMSEQERR	67 /* CPWM sequence mismatch */
 #define MACCPWMSTATERR	68 /* CPWM state mismatch */
 #define MACCPUSTATE	69 /* Incorrect CPU state */
-#define MACPSSTATFAIL	70 /* protocol power state check fail */
+#define MACPSSTATFAIL	70 /* protocol power state check tx pause fail */
 #define MACLV1STEPERR	71 /* lv1 rcvy step sel error */
 #define MACFWCHKSUM	72 /* FW checksum is incorrect */
 #define MACFWSECBOOT	73 /* FW security boot is failed */
@@ -134,11 +134,12 @@
 #define MACIOERRISH		114 /* IO not allow when io state hang */
 #define MACHWDMACERR	115 /* DMAC_ERR_ISR */
 #define MACHWCMAC0ERR	116 /* CMAC0_ERR_ISR */
-#define MACHWCMAC1ERR	116 /* CMAC1_ERR_ISR */
 #define MACDRVRM	117 /* driver is removed unexpectedly */
 #define MACMCCGPFL	118 /* Get MCC Group index fail*/
 #define MACFWSTATEERR	119 /* fw state error */
 #define MACFWLOGINTERR 120 /*fw log parsing error*/
+#define MACSYSSTEERR	121 /* Whole System Power State error */
+#define MACHWCMAC1ERR	122 /* CMAC1_ERR_ISR */
 #define MACFWASSERT	123 /* FW Assertion error */
 #define MACFWEXCEP	124 /* FW Exception error */
 #define MACFWRXI300	125 /* FW RXI300 error */
@@ -148,6 +149,8 @@
 #define MACCPWMINTFERR	129 /* CPWM interface error */
 #define MACUSBPAUSEERR	130 /* USB EP PAUSE error */
 #define MACARDYDONE	131 /* The flow is already done */
+#define MACPSSTATPWRBITFAIL	132 /* protocol power state check pwr bit fail */
+#define MACIOERRINSEC	133 /* Security ic not allow indirect access */
 
 /*MAC DBG Status Indication*/
 #define MACSCH_NONEMPTY	1 /* MAC Scheduler non empty */

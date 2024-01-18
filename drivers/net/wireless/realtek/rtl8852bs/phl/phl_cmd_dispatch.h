@@ -32,13 +32,16 @@
  */
 struct phl_cmd_dispatch_engine {
 	struct phl_info_t *phl_info;
+	u16 status;
 	void **dispatcher; //an array of struct cmd_dispatcher
 	u8 phy_num;
 	u8 thread_mode;
-	_os_sema msg_q_sema;
-	_os_thread share_thread;
+
 #ifdef CONFIG_CMD_DISP_SOLO_MODE
 	_os_sema dispr_ctrl_sema; /* keep msg from different dispr sequentially forward to ctrl*/
+#else
+	_os_sema msg_q_sema;
+	_os_thread share_thread;
 #endif
 };
 
@@ -68,6 +71,9 @@ enum rtw_phl_status phl_disp_eng_set_cur_cmd_info(struct phl_info_t *phl, u8 ban
 					       struct phl_module_op_info *op_info);
 enum rtw_phl_status phl_disp_eng_query_cur_cmd_info(struct phl_info_t *phl, u8 band_idx,
 						 struct phl_module_op_info *op_info);
+
+void rtw_phl_dump_mdl(struct phl_msg *msg, const char *caller);
+
 enum rtw_phl_status phl_disp_eng_set_bk_module_info(struct phl_info_t *phl, u8 band_idx,
 						enum phl_module_id id, struct phl_module_op_info *op_info);
 enum rtw_phl_status phl_disp_eng_query_bk_module_info(struct phl_info_t *phl, u8 band_idx,
@@ -85,6 +91,9 @@ enum rtw_phl_status phl_disp_eng_add_token_req(struct phl_info_t *phl, u8 band_i
 					    struct phl_cmd_token_req *req, u32 *req_hdl);
 enum rtw_phl_status phl_disp_eng_cancel_token_req(struct phl_info_t *phl, u8 band_idx, u32 *req_hdl);
 enum rtw_phl_status phl_disp_eng_free_token(struct phl_info_t *phl, u8 band_idx, u32 *req_hdl);
+enum rtw_phl_status phl_disp_eng_clearance_acquire(struct phl_info_t *phl, u8 band_idx);
+enum rtw_phl_status phl_disp_eng_clearance_release(struct phl_info_t *phl, u8 band_idx);
+enum rtw_phl_status phl_disp_eng_exclusive_ready(struct phl_info_t *phl, u8 band_idx);
 enum rtw_phl_status phl_disp_eng_notify_dev_io_status(struct phl_info_t *phl,
                                                       u8 band_idx,
                                                       enum phl_module_id mdl_id,
@@ -116,6 +125,7 @@ enum rtw_phl_status dispr_set_cur_cmd_info(void *dispr,
 					       struct phl_module_op_info *op_info);
 enum rtw_phl_status dispr_query_cur_cmd_info(void *dispr,
 						 struct phl_module_op_info *op_info);
+
 enum rtw_phl_status dispr_get_bk_module_handle(void *dispr,
 						   enum phl_module_id id,
 						   void **handle);
@@ -136,19 +146,27 @@ enum rtw_phl_status dispr_add_token_req(void *dispr,
 					    struct phl_cmd_token_req *req, u32 *req_hdl);
 enum rtw_phl_status dispr_cancel_token_req(void *dispr, u32 *req_hdl);
 enum rtw_phl_status dispr_free_token(void *dispr, u32 *req_hdl);
+
+void dispr_clearance_acquire(void *dispr);
+void dispr_clearance_release(void *dispr);
+void dispr_exclusive_ready(void *dispr, bool renew_req);
+
 enum rtw_phl_status dispr_notify_dev_io_status(void *dispr, enum phl_module_id mdl_id, bool allow_io);
 void dispr_notify_shall_stop(void *dispr);
 u8 dispr_is_fg_empty(void *dispr);
+
+#if !defined(CONFIG_CMD_DISP_SOLO_MODE)
 void dispr_share_thread_loop_hdl(void *dispr);
 void dispr_share_thread_leave_hdl(void *dispr);
 void dispr_share_thread_stop_prior_hdl(void *dispr);
 void dispr_share_thread_stop_post_hdl(void *dispr);
-
+#endif
 enum rtw_phl_status dispr_set_dispatch_seq(void *dispr, struct phl_msg_attribute *attr,
 							struct msg_self_def_seq* seq);
 
-/*ollowing functions are called inside phl_cmd_dispatcher.c */
+/* following functions are called inside phl_cmd_dispatcher.c */
 #define IS_DISPR_CTRL(_mdl_id) ((_mdl_id) < PHL_BK_MDL_ROLE_START)
+
 #define disp_eng_is_solo_thread_mode(_phl) \
 	((_phl)->disp_eng.thread_mode == SOLO_THREAD_MODE)
 void disp_eng_notify_share_thread(struct phl_info_t *phl, void *dispr);

@@ -17,9 +17,12 @@
 
 void phl_datapath_deinit(struct phl_info_t *phl_info);
 enum rtw_phl_status phl_datapath_init(struct phl_info_t *phl_info);
-enum rtw_phl_status phl_datapath_start(struct phl_info_t *phl_info);
-void phl_datapath_stop(struct phl_info_t *phl_info);
+enum rtw_phl_status phl_datapath_start_hw(struct phl_info_t *phl_info);
+void phl_datapath_stop_hw(struct phl_info_t *phl_info);
 void phl_datapath_reset(struct phl_info_t *phl_info, u8 type);
+enum rtw_phl_status phl_datapath_start_sw(struct phl_info_t *phl_info, enum phl_module_id id);
+void phl_datapath_stop_sw(struct phl_info_t *phl_info, enum phl_module_id id);
+
 void phl_trx_free_handler(void *phl);
 void phl_trx_free_sw_rsc(void *phl);
 
@@ -43,6 +46,8 @@ enum rtw_phl_status phl_indic_pkt_complete(void *phl);
 
 enum rtw_phl_status phl_register_tx_ring(void *phl, u16 macid, u8 hw_band, u8 hw_wmm, u8 hw_port);
 enum rtw_phl_status phl_deregister_tx_ring(void *phl, u16 macid);
+enum rtw_phl_status phl_re_register_tx_ring(void *phl, u16 macid, u8 hw_band, u8 hw_wmm, u8 hw_port);
+
 void phl_free_deferred_tx_ring(struct phl_info_t *phl_info);
 
 enum rtw_phl_status phl_enqueue_busy_h2c_pkt(struct phl_info_t *phl_info,
@@ -85,14 +90,38 @@ enum rtw_phl_status
 phl_cmd_cfg_ampdu_hdl(struct phl_info_t *phl_info, u8 *param);
 
 enum rtw_phl_status
+phl_cmd_cfg_amsdu_tx_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
+phl_cmd_get_hwseq_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
 phl_data_ctrler(struct phl_info_t *phl_info, struct phl_data_ctl_t *ctl,
 		struct phl_msg *msg);
 
 void rtw_phl_tx_stop(void *phl);
 void rtw_phl_tx_resume(void *phl);
+u8 rtw_phl_cvt_cat_to_tid(enum rtw_phl_ring_cat cat);
 
+enum rtw_phl_status
+phl_cmd_cfg_hw_seq_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
+phl_cmd_cfg_gt3_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
+phl_cmd_cfg_lifetime_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
+phl_cmd_cfg_power_offset_hdl(struct phl_info_t *phl_info, u8 *param);
+
+void rtw_phl_tx_packet_event_notify(void *phl,
+	struct rtw_wifi_role_link_t *rlink,
+	enum phl_pkt_evt_type pkt_type);
 void rtw_phl_packet_event_notify(void *phl,
-                                 struct rtw_wifi_role_t *wifi_role,
-                                 enum phl_pkt_evt_type pkt_type);
-
+	struct rtw_wifi_role_link_t *rlink,
+        enum phl_pkt_evt_type pkt_evt);
+enum rtw_phl_status
+phl_cmd_cfg_hw_cts2self_hdl(struct phl_info_t *phl_info, u8 *param);
+void phl_tx_dbg_status_dump(struct phl_info_t *phl_info, enum phl_band_idx hwband);
 #endif	/* __PHL_TX_H_ */

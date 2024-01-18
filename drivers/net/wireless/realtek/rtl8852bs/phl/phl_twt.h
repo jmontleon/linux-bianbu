@@ -57,11 +57,6 @@ enum phl_twt_action {
 	PHL_TWT_ACTION_UP_ERROR
 };
 
-enum phl_wait_annc_type {
-	PHL_WAIT_ANNC_DISABLE = 0,
-	PHL_WAIT_ANNC_ENABLE = 1
-};
-
 enum twt_config_state {
 	twt_config_state_free = 0,
 	twt_config_state_idle,
@@ -74,6 +69,7 @@ struct phl_twt_config{
 	u8 idx;
 	enum twt_config_state state;
 	struct rtw_wifi_role_t *role;
+	struct rtw_wifi_role_link_t *rlink;
 	struct rtw_phl_twt_info twt_info;
 	struct phl_queue twt_sta_queue; /*struct rtw_twt_sta_info*/
 };
@@ -104,6 +100,7 @@ struct _twt_teardown {
 	enum rtw_phl_nego_type nego_type;
 	u8 id;
 };
+
 
 /* TWT element */
 /*Control*/
@@ -251,14 +248,29 @@ void phl_twt_deinit(void *phl);
 enum rtw_phl_status
 rtw_phl_twt_disable_all_twt_by_role(void *phl, struct rtw_wifi_role_t *role);
 
-enum rtw_phl_status rtw_phl_twt_alloc_twt_config(void *phl, struct rtw_wifi_role_t *role,
-		struct rtw_phl_twt_setup_info setup_info, u8 benable, u8 *id);
+enum rtw_phl_status
+rtw_phl_twt_alloc_twt_config(void *phl,
+                             struct rtw_wifi_role_link_t *rlink,
+                             struct rtw_phl_twt_setup_info setup_info,
+                             u8 benable,
+                             u8 *id);
 
 enum rtw_phl_status rtw_phl_twt_free_twt_config(void *phl, u8 id);
 
 enum rtw_phl_status rtw_phl_twt_add_sta_info(void *phl, struct rtw_phl_stainfo_t *phl_sta,
 			u8 config_id, u8 id);
 
+enum rtw_phl_status phl_twt_get_target_wake_time(struct phl_info_t *phl,
+						u8 *param);
+
+enum rtw_phl_status phl_twt_accept_for_sta_mode(struct phl_info_t *phl,
+			u8 *param);
+
+enum rtw_phl_status phl_twt_teardown_for_sta_mode(struct phl_info_t *phl,
+				u8 *param);
+
+enum rtw_phl_status rtw_phl_twt_handle_c2h_wait_annc(struct phl_info_t *phl,
+				u8 *buf);
 #else
 
 #define phl_twt_init(_phl) RTW_PHL_STATUS_SUCCESS

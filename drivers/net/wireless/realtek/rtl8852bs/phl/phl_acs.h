@@ -28,8 +28,11 @@ struct phl_acs_info {
 	struct acs_mntr_rpt rpt[MAX_ACS_INFO];
 };
 
-void phl_acs_mntr_trigger(struct phl_info_t *phl_info, struct phl_acs_parm *parm);
-void phl_acs_mntr_result(struct phl_info_t *phl_info, struct phl_acs_parm *parm);
+void phl_acs_mntr_trigger(struct phl_info_t *phl_i, enum phl_band_idx band_idx,
+				struct phl_acs_parm *parm);
+
+void phl_acs_mntr_result(struct phl_info_t *phl_info,
+			enum phl_band_idx band_idx, struct phl_acs_parm *parm);
 enum rtw_phl_status phl_acs_info_init(struct phl_info_t *phl_info);
 void phl_acs_info_deinit(struct phl_info_t *phl_info);
 

@@ -25,6 +25,7 @@
 #ifndef __HALBB_EXPORT_FUN_H__
 #define __HALBB_EXPORT_FUN_H__
 #include "halbb_cfg_ic.h"
+#include "halbb_ic_hw_info.h"
 #include "halbb_hw_cfg_ex.h"
 #include "halbb_init_ex.h"
 #include "halbb_ex.h"
@@ -35,7 +36,7 @@
 #include "halbb_dfs_ex.h"
 #include "halbb_dig_ex.h"
 #include "halbb_mp_ex.h"
-#include "halbb_plcp_tx_ex.h"
+#include "halbb_outsrc_def.h"
 #include "halbb_pmac_setting_ex.h"
 #include "halbb_la_mode_ex.h"
 #include "halbb_ra_ex.h"
@@ -47,11 +48,15 @@
 #include "halbb_rua_tbl_ex.h"
 #include "halbb_env_mntr_ex.h"
 #include "halbb_pwr_ctrl_ex.h"
+#include "halbb_bb_wrapper_outsrc.h"
 #include "halbb_dyn_csi_rsp_ex.h"
+#include "halbb_dbcc_ex.h"
+#include "halbb_snif_ex.h"
 #include "halbb_fwofld_ex.h"
-#ifdef BB_8852A_CAV_SUPPORT
-	#include "halbb_8852a/halbb_8852a_api_ex.h"
-#endif
+#include "halbb_statistics_ex.h"
+#include "halbb_ant_div_ex.h"
+#include "halbb_dbg_cnsl_out_ex.h"
+#include "halbb_dbg_ex.h"
 #ifdef BB_8852A_2_SUPPORT
 	#include "halbb_8852a_2/halbb_8852a_2_api_ex.h"
 #endif
@@ -60,6 +65,13 @@
 #endif
 #ifdef BB_8852C_SUPPORT
 	#include "halbb_8852c/halbb_8852c_api_ex.h"
+	#include "halbb_8852c/halbb_8852c_dcra_ex.h"
+#endif
+#ifdef BB_8192XB_SUPPORT
+	#include "halbb_8192xb/halbb_8192xb_api_ex.h"
+#endif
+#ifdef HALBB_COMPILE_BE_SERIES
+#include "bbmcu/bbmcu_export_fun.h"
 #endif
 #endif
 

@@ -213,10 +213,14 @@ u32 mac_p2p_act_h2c(struct mac_ax_adapter *adapter,
 
 	h2c_end_flow(adapter);
 
-	if (info->act == P2P_ACT_INIT)
+	if (info->act == P2P_ACT_INIT) {
 		adapter->p2p_info[p2pid].macid = info->macid;
-	if (info->act == P2P_ACT_INIT || info->act == P2P_ACT_TERM)
-		adapter->p2p_info[p2pid].wait_dack = 1;
+		adapter->p2p_info[p2pid].wait_init = 1;
+	}
+	if (info->act == P2P_ACT_TERM)
+		adapter->p2p_info[p2pid].wait_term = 1;
+
+	adapter->p2p_info[p2pid].wait_dack = 1;
 
 	return MACSUCCESS;
 fail:

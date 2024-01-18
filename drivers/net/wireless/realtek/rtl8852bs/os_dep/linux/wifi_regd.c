@@ -16,26 +16,191 @@
 #include <drv_types.h>
 
 #ifdef CONFIG_IOCTL_CFG80211
-void rtw_chset_hook_os_channels(struct rf_ctl_t *rfctl)
+void rtw_chset_hook_os_channels(struct rtw_chset *chset, void *os_ref)
 {
-	struct wiphy *wiphy = dvobj_to_wiphy(rfctl_to_dvobj(rfctl));
-	RT_CHANNEL_INFO *channel_set = rfctl->channel_set;
-	u8 max_chan_nums = rfctl->max_chan_nums;
+	struct wiphy *wiphy = os_ref;
 	struct ieee80211_channel *ch;
 	unsigned int i;
 	u32 freq;
 
-	for (i = 0; i < max_chan_nums; i++) {
-		freq = rtw_bch2freq(channel_set[i].band, channel_set[i].ChannelNum);
+	for (i = 0; i < chset->chs_len; i++) {
+		freq = rtw_bch2freq(chset->chs[i].band, chset->chs[i].ChannelNum);
 		ch = ieee80211_get_channel(wiphy, freq);
-		if (!ch) {
-			rtw_warn_on(1);
-			continue;
-		}
-
-		channel_set[i].os_chan = ch;
+		if (!ch)
+			RTW_WARN(FUNC_WIPHY_FMT" can't get %s ch%u\n", FUNC_WIPHY_ARG(wiphy), band_str(chset->chs[i].band), chset->chs[i].ChannelNum);
+		chset->chs[i].os_chan = ch;
 	}
 }
+
+#if CONFIG_RTW_CFG80211_CAC_EVENT
+static void rtw_regd_set_du_chdef(struct wiphy *wiphy)
+{
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+	struct rtw_chset *chset = dvobj_to_chset(wiphy_to_dvobj(wiphy));
+	struct ieee80211_channel *ch = NULL;
+	int i;
+
+	for (i = 0; i < chset->chs_len; i++) {
+		if (chset->chs[i].os_chan) {
+			ch = chset->chs[i].os_chan;
+			break;
+		}
+	}
+
+	if (ch) {
+		wiphy_data->du_chdef.chan = ch;
+		wiphy_data->du_chdef.width = NL80211_CHAN_WIDTH_20;
+		wiphy_data->du_chdef.center_freq1 = ch->center_freq;
+	}
+}
+
+static int rtw_du_wdev_ndev_open(struct net_device *ndev)
+{
+	return -EPERM;
+}
+
+static const struct net_device_ops rtw_du_wdev_ndev_ops = {
+	.ndo_open = rtw_du_wdev_ndev_open,
+};
+
+static struct wireless_dev *rtw_regd_alloc_du_wdev(struct wiphy *wiphy)
+{
+	struct rtw_netdev_priv_indicator *npi;
+	struct net_device *ndev = NULL;
+	struct wireless_dev *wdev = NULL;
+	int ret = 0;
+
+	ndev = alloc_etherdev(sizeof(struct rtw_netdev_priv_indicator));
+	if (!ndev) {
+		RTW_WARN(FUNC_WIPHY_FMT" allocate ndev fail\n", FUNC_WIPHY_ARG(wiphy));
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	snprintf(ndev->name, IFNAMSIZ, "%s-du", wiphy_name(wiphy));
+
+	ndev->priv_destructor = rtw_ndev_destructor;
+	ndev->netdev_ops = &rtw_du_wdev_ndev_ops;
+
+	npi = netdev_priv(ndev);
+	npi->priv = wiphy_to_adapter(wiphy);
+	npi->sizeof_priv = sizeof(_adapter);
+
+	wdev = rtw_zmalloc(sizeof(struct wireless_dev));
+	if (!wdev) {
+		RTW_WARN(FUNC_WIPHY_FMT" allocate wdev fail\n", FUNC_WIPHY_ARG(wiphy));
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	wdev->wiphy = wiphy;
+	wdev->netdev = ndev;
+	wdev->iftype = NL80211_IFTYPE_AP;
+	ndev->ieee80211_ptr = wdev;
+
+	ret = register_netdevice(ndev);
+
+out:
+	if (ret && wdev) {
+		rtw_mfree(wdev, sizeof(struct wireless_dev));
+		wdev = NULL;
+	}
+
+	if (ret && ndev)
+		free_netdev(ndev);
+
+	return wdev;
+}
+
+void rtw_regd_free_du_wdev(struct wiphy *wiphy)
+{
+	struct dvobj_priv *dvobj = wiphy_to_dvobj(wiphy);
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+	u8 rtnl_lock_needed;
+
+	if (!wiphy_data->du_wdev)
+		goto exit;
+
+	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
+	if (rtnl_lock_needed)
+		rtnl_lock();
+
+	unregister_netdevice(wiphy_data->du_wdev->netdev);
+
+	if (rtnl_lock_needed)
+		rtnl_unlock();
+
+	wiphy_data->du_wdev = NULL;
+
+exit:
+	return;
+}
+
+static void rtw_regd_schedule_dfs_chan_update(struct wiphy *wiphy)
+{
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+
+	if (!wiphy_data->du_wdev) {
+		wiphy_data->du_wdev = rtw_regd_alloc_du_wdev(wiphy);
+		if (!wiphy_data->du_wdev)
+			return;
+		rtw_regd_set_du_chdef(wiphy);
+	}
+
+#if defined(CONFIG_MLD_KERNEL_PATCH)
+	/* ToDo CONFIG_RTW_MLD */
+	cfg80211_ch_switch_notify(wiphy_data->du_wdev->netdev, &wiphy_data->du_chdef, 0, 0);
+#else
+	cfg80211_ch_switch_notify(wiphy_data->du_wdev->netdev, &wiphy_data->du_chdef);
+#endif
+}
+
+static void rtw_regd_override_dfs_state(struct wiphy *wiphy, struct get_chplan_resp *chplan, bool non_ocp_only)
+{
+	RT_CHANNEL_INFO *chinfo;
+	struct ieee80211_channel *chan;
+	int i;
+	u8 beaconing_hwband_bmp = 0;
+	bool update = false;
+
+	for (i = HW_BAND_0; i < HW_BAND_MAX; i++)
+		if (HWBAND_AP_NUM(wiphy_to_dvobj(wiphy), i) || HWBAND_MESH_NUM(wiphy_to_dvobj(wiphy), i))
+			beaconing_hwband_bmp |= BIT(i);
+
+	for (i = 0; i < chplan->chs_len; i++) {
+		if (chplan->chs[i].flags & RTW_CHF_DIS)
+			continue;
+		chinfo = &chplan->chs[i];
+		chan = chinfo->os_chan;
+		if (!chan)
+			continue;
+
+		if (CH_IS_NON_OCP(chinfo)
+			&& (chan->dfs_state != NL80211_DFS_UNAVAILABLE
+				|| chan->dfs_state_entered != chinfo->non_ocp_end_time - rtw_ms_to_systime(IEEE80211_DFS_MIN_NOP_TIME_MS))
+		) {
+			chan->dfs_state = NL80211_DFS_UNAVAILABLE;
+			chan->dfs_state_entered = chinfo->non_ocp_end_time
+				- rtw_ms_to_systime(IEEE80211_DFS_MIN_NOP_TIME_MS);
+			update = true;
+		}
+		if (non_ocp_only)
+			continue;
+
+		if (chinfo->cac_done && beaconing_hwband_bmp
+			&& chan->dfs_state != NL80211_DFS_AVAILABLE
+		) {
+			chan->dfs_state = NL80211_DFS_AVAILABLE;
+			update = true;
+		}
+	}
+
+	if (update) {
+		/* trigger cfg80211_sched_dfs_chan_update() */
+		rtw_regd_schedule_dfs_chan_update(wiphy);
+	}
+}
+#endif /* CONFIG_RTW_CFG80211_CAC_EVENT */
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
 bool rtw_regd_is_wiphy_self_managed(struct wiphy *wiphy)
@@ -49,7 +214,7 @@ static struct ieee80211_reg_rule rtw_get_ieee80211_reg_rule(struct get_chplan_re
 	struct ieee80211_reg_rule rule = REG_RULE(
 		start_freq - 10, end_freq + 10, 20, 6, 20,
 		((flags & RTW_CHF_NO_IR) ? NL80211_RRF_NO_IR : 0)
-		//| ((flags & RTW_CHF_DFS) ? NL80211_RRF_DFS : 0) /* TODO: DFS */
+		| ((flags & RTW_CHF_DFS) ? NL80211_RRF_DFS : 0)
 	);
 
 	int regd_max_bw = 160;
@@ -90,7 +255,7 @@ static int rtw_build_wiphy_regd(struct wiphy *wiphy, struct get_chplan_resp *chp
 	enum band_type start_band, band;
 	int last_end_freq, start_freq, end_freq, freq;
 	u32 start_flags, flags;
-	struct ieee80211_regdomain *r;
+	struct ieee80211_regdomain *r = NULL;
 	int rule_num = 0;
 	bool build = 0;
 
@@ -100,8 +265,10 @@ static int rtw_build_wiphy_regd(struct wiphy *wiphy, struct get_chplan_resp *chp
 loop:
 	start_band = BAND_MAX;
 	last_end_freq = 0;
-	for (i = 0; i < chplan->chset_num; i++) {
-		chinfo = &chplan->chset[i];
+	for (i = 0; i < chplan->chs_len; i++) {
+		if (chplan->chs[i].flags & RTW_CHF_DIS)
+			continue;
+		chinfo = &chplan->chs[i];
 		freq = rtw_bch2freq(chinfo->band, chinfo->ChannelNum);
 		if (!freq) {
 			RTW_WARN(FUNC_WIPHY_FMT" rtw_bch2freq(%s, %u) fail\n"
@@ -109,7 +276,14 @@ loop:
 			continue;
 		}
 		band = chinfo->band;
-		flags = chinfo->flags & (RTW_CHF_NO_IR | RTW_CHF_DFS);
+
+		flags = chinfo->flags & RTW_CHF_NO_IR;
+		#if CONFIG_RTW_CFG80211_CAC_EVENT
+		if (wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD)) {
+			if (chinfo->flags & RTW_CHF_DFS)
+				flags |= RTW_CHF_DFS;
+		}
+		#endif
 
 		if (start_band == BAND_MAX) {
 			start_band = band;
@@ -226,6 +400,10 @@ void rtw_update_wiphy_regd(struct wiphy *wiphy, struct get_chplan_resp *chplan, 
 
 	rtw_regd_disable_no_20mhz_chs(wiphy);
 
+	#if CONFIG_RTW_CFG80211_CAC_EVENT
+	rtw_regd_override_dfs_state(wiphy, chplan, false);
+	#endif
+
 	if (rtnl_lock_needed)
 		rtnl_unlock();
 
@@ -239,8 +417,8 @@ free_regd:
 
 static void rtw_regd_overide_flags(struct wiphy *wiphy, struct get_chplan_resp *chplan, bool rtnl_lock_needed)
 {
-	RT_CHANNEL_INFO *channel_set = chplan->chset;
-	u8 max_chan_nums = chplan->chset_num;
+	RT_CHANNEL_INFO *chs = chplan->chs;
+	u8 chs_len = chplan->chs_len;
 	struct ieee80211_supported_band *sband;
 	struct ieee80211_channel *ch;
 	unsigned int i, j;
@@ -262,15 +440,17 @@ static void rtw_regd_overide_flags(struct wiphy *wiphy, struct get_chplan_resp *
 	}
 
 	/* channels apply by channel plans. */
-	for (i = 0; i < max_chan_nums; i++) {
-		ch = channel_set[i].os_chan;
+	for (i = 0; i < chs_len; i++) {
+		if (chs[i].flags & RTW_CHF_DIS)
+			continue;
+		ch = chs[i].os_chan;
 		if (!ch)
 			continue;
 
 		/* enable */
 		ch->flags = 0;
 
-		if (channel_set[i].flags & RTW_CHF_DFS) {
+		if (chs[i].flags & RTW_CHF_DFS) {
 			/*
 			* before integrating with nl80211 flow
 			* bypass IEEE80211_CHAN_RADAR when configured with radar detection
@@ -282,7 +462,7 @@ static void rtw_regd_overide_flags(struct wiphy *wiphy, struct get_chplan_resp *
 				ch->flags |= IEEE80211_CHAN_RADAR;
 		}
 
-		if (channel_set[i].flags & RTW_CHF_NO_IR) {
+		if (chs[i].flags & RTW_CHF_NO_IR) {
 			#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 			ch->flags |= IEEE80211_CHAN_NO_IBSS | IEEE80211_CHAN_PASSIVE_SCAN;
 			#else
@@ -298,8 +478,8 @@ static void rtw_regd_overide_flags(struct wiphy *wiphy, struct get_chplan_resp *
 #ifdef CONFIG_REGD_SRC_FROM_OS
 static void rtw_regd_apply_dfs_flags(struct get_chplan_resp *chplan, bool rtnl_lock_needed)
 {
-	RT_CHANNEL_INFO *channel_set = chplan->chset;
-	u8 max_chan_nums = chplan->chset_num;
+	RT_CHANNEL_INFO *chs = chplan->chs;
+	u8 chs_len = chplan->chs_len;
 	unsigned int i;
 	struct ieee80211_channel *chan;
 
@@ -307,13 +487,15 @@ static void rtw_regd_apply_dfs_flags(struct get_chplan_resp *chplan, bool rtnl_l
 		rtnl_lock();
 
 	/* channels apply by channel plans. */
-	for (i = 0; i < max_chan_nums; i++) {
-		chan = channel_set[i].os_chan;
+	for (i = 0; i < chs_len; i++) {
+		if (chs[i].flags & RTW_CHF_DIS)
+			continue;
+		chan = chs[i].os_chan;
 		if (!chan) {
 			rtw_warn_on(1);
 			continue;
 		}
-		if (channel_set[i].flags & RTW_CHF_DFS) {
+		if (chs[i].flags & RTW_CHF_DFS) {
 			/*
 			* before integrating with nl80211 flow
 			* clear IEEE80211_CHAN_RADAR when configured with radar detection
@@ -330,76 +512,60 @@ static void rtw_regd_apply_dfs_flags(struct get_chplan_resp *chplan, bool rtnl_l
 		rtnl_unlock();
 }
 
-/* init_channel_set_from_wiphy */
-u8 rtw_os_init_channel_set(_adapter *padapter, RT_CHANNEL_INFO *channel_set)
+static u8 wiphy_chan_get_rtw_ch_flags(struct ieee80211_channel *chan)
 {
-	struct wiphy *wiphy = adapter_to_wiphy(padapter);
-	struct rf_ctl_t *rfctl = adapter_to_rfctl(padapter);
-	struct registry_priv *regsty = adapter_to_regsty(padapter);
-	struct ieee80211_channel *chan;
-	u8 chanset_size = 0;
-	int i, j;
+	u8 flags;
 
-	_rtw_memset(channel_set, 0, sizeof(RT_CHANNEL_INFO) * MAX_CHANNEL_NUM);
+	if (!chan || chan->flags & IEEE80211_CHAN_DISABLED)
+		return RTW_CHF_DIS;
 
-	for (i = NL80211_BAND_2GHZ; i <= NL80211_BAND_5GHZ; i++) {
-		if (!wiphy->bands[i])
-			continue;
-		for (j = 0; j < wiphy->bands[i]->n_channels; j++) {
-			chan = &wiphy->bands[i]->channels[j];
-			if (chan->flags & IEEE80211_CHAN_DISABLED)
-				continue;
-			if (rtw_regsty_is_excl_chs(regsty, chan->hw_value))
-				continue;
+	flags = 0;
 
-			if (chanset_size >= MAX_CHANNEL_NUM) {
-				RTW_WARN("chset size can't exceed MAX_CHANNEL_NUM(%u)\n", MAX_CHANNEL_NUM);
-				i = NL80211_BAND_5GHZ + 1;
-				break;
-			}
-
-			channel_set[chanset_size].ChannelNum = chan->hw_value;
-			channel_set[chanset_size].band = nl80211_band_to_rtw_band(i);
-			#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
-			if (chan->flags & (IEEE80211_CHAN_NO_IBSS | IEEE80211_CHAN_PASSIVE_SCAN))
-			#else
-			if (chan->flags & IEEE80211_CHAN_NO_IR)
-			#endif
-				channel_set[chanset_size].flags |= RTW_CHF_NO_IR;
-			if (chan->flags & IEEE80211_CHAN_RADAR)
-				channel_set[chanset_size].flags |= RTW_CHF_DFS;
-			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
-			if (chan->flags & IEEE80211_CHAN_NO_HT40PLUS)
-				channel_set[chanset_size].flags |= RTW_CHF_NO_HT40U;
-			if (chan->flags & IEEE80211_CHAN_NO_HT40MINUS)
-				channel_set[chanset_size].flags |= RTW_CHF_NO_HT40L;
-			#endif
-			#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
-			if (chan->flags & IEEE80211_CHAN_NO_80MHZ)
-				channel_set[chanset_size].flags |= RTW_CHF_NO_80MHZ;
-			if (chan->flags & IEEE80211_CHAN_NO_160MHZ)
-				channel_set[chanset_size].flags |= RTW_CHF_NO_160MHZ;
-			#endif
-			channel_set[chanset_size].os_chan = chan;
-			chanset_size++;
-		}
-	}
-
-#if CONFIG_IEEE80211_BAND_5GHZ
-	#ifdef CONFIG_DFS_MASTER
-	for (i = 0; i < chanset_size; i++)
-		channel_set[i].non_ocp_end_time = rtw_get_current_time();
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
+	if (chan->flags & (IEEE80211_CHAN_NO_IBSS | IEEE80211_CHAN_PASSIVE_SCAN))
+	#else
+	if (chan->flags & IEEE80211_CHAN_NO_IR)
 	#endif
-#endif /* CONFIG_IEEE80211_BAND_5GHZ */
+		flags |= RTW_CHF_NO_IR;
+	if (chan->flags & IEEE80211_CHAN_RADAR)
+		flags |= RTW_CHF_DFS;
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+	if (chan->flags & IEEE80211_CHAN_NO_HT40PLUS)
+		flags |= RTW_CHF_NO_HT40U;
+	if (chan->flags & IEEE80211_CHAN_NO_HT40MINUS)
+		flags |= RTW_CHF_NO_HT40L;
+	#endif
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
+	if (chan->flags & IEEE80211_CHAN_NO_80MHZ)
+		flags |= RTW_CHF_NO_80MHZ;
+	if (chan->flags & IEEE80211_CHAN_NO_160MHZ)
+		flags |= RTW_CHF_NO_160MHZ;
+	#endif
 
-	if (chanset_size)
-		RTW_INFO(FUNC_ADPT_FMT" ch num:%d\n"
-			, FUNC_ADPT_ARG(padapter), chanset_size);
-	else
-		RTW_WARN(FUNC_ADPT_FMT" final chset has no channel\n"
-			, FUNC_ADPT_ARG(padapter));
+	return flags;
+}
 
-	return chanset_size;
+static void rtw_chset_apply_wiphy_chans(struct rtw_chset *chset, u8 d_flags)
+{
+	RT_CHANNEL_INFO *chinfo;
+	u8 i;
+	u8 flags;
+
+	for (i = 0; i < chset->chs_len; i++) {
+		chinfo = &chset->chs[i];
+		if (chinfo->flags & RTW_CHF_DIS)
+			continue;
+		flags = wiphy_chan_get_rtw_ch_flags(chinfo->os_chan);
+		if ((flags & RTW_CHF_DIS) || (flags & d_flags))
+			chinfo->flags = RTW_CHF_DIS;
+		else
+			chinfo->flags |= flags;
+	}
+}
+
+void rtw_chset_apply_from_os(struct rtw_chset *chset, u8 d_flags)
+{
+	rtw_chset_apply_wiphy_chans(chset, d_flags);
 }
 
 s16 rtw_os_get_total_txpwr_regd_lmt_mbm(_adapter *adapter, enum band_type band, u8 cch, enum channel_width bw)
@@ -640,6 +806,26 @@ static int rtw_reg_notifier_return(struct wiphy *wiphy, struct regulatory_reques
 }
 #endif
 
+void rtw_regd_change_complete_sync(struct wiphy *wiphy, struct get_chplan_resp *chplan, bool rtnl_lock_needed)
+{
+	if (chplan->regd_src == REGD_SRC_RTK_PRIV) {
+		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
+		if (rtw_regd_is_wiphy_self_managed(wiphy))
+			rtw_update_wiphy_regd(wiphy, chplan, rtnl_lock_needed);
+		else
+		#endif
+			rtw_regd_overide_flags(wiphy, chplan, rtnl_lock_needed);
+	}
+#ifdef CONFIG_REGD_SRC_FROM_OS
+	else if (chplan->regd_src == REGD_SRC_OS)
+		rtw_regd_apply_dfs_flags(chplan, rtnl_lock_needed);
+#endif
+	else
+		rtw_warn_on(1);
+
+	rtw_free_get_chplan_resp(chplan);
+}
+
 struct async_regd_change_evt {
 	_list list; /* async_regd_change_list */
 	struct wiphy *wiphy;
@@ -668,6 +854,410 @@ static void async_regd_change_work_hdl(_workitem *work)
 	}
 }
 
+int rtw_regd_change_complete_async(struct wiphy *wiphy, struct get_chplan_resp *chplan)
+{
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+	struct async_regd_change_evt *evt;
+
+	evt = rtw_malloc(sizeof(*evt));
+	if (!evt) {
+		rtw_free_get_chplan_resp(chplan);
+		return _FAIL;
+	}
+
+	_rtw_init_listhead(&evt->list);
+	evt->wiphy = wiphy;
+	evt->chplan = chplan;
+
+	_rtw_mutex_lock_interruptible(&wiphy_data->async_regd_change_mutex);
+
+	rtw_list_insert_tail(&evt->list, &wiphy_data->async_regd_change_list);
+
+	_rtw_mutex_unlock(&wiphy_data->async_regd_change_mutex);
+
+	_set_workitem(&wiphy_data->async_regd_change_work);
+
+	return _SUCCESS;
+}
+
+static void rtw_regd_async_regd_change_list_free(struct wiphy *wiphy)
+{
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+	struct async_regd_change_evt *evt;
+	struct get_chplan_resp *chplan;
+	_list *cur, *head;
+
+	_rtw_mutex_lock_interruptible(&wiphy_data->async_regd_change_mutex);
+
+	head = &wiphy_data->async_regd_change_list;
+	cur = get_next(head);
+
+	while ((rtw_end_of_queue_search(head, cur)) == _FALSE) {
+		evt = LIST_CONTAINOR(cur, struct async_regd_change_evt, list);
+		chplan = evt->chplan;
+		cur = get_next(cur);
+		rtw_list_delete(&evt->list);
+		rtw_free_get_chplan_resp(chplan);
+		rtw_mfree(evt, sizeof(*evt));
+	}
+
+	_rtw_mutex_unlock(&wiphy_data->async_regd_change_mutex);
+}
+
+#if CONFIG_RTW_CFG80211_CAC_EVENT
+static bool rtw_cfg80211_get_radar_event_chdef(struct wiphy *wiphy, struct cfg80211_chan_def *chdef
+	, u8 cch, enum channel_width bw, const char *caller)
+{
+	u8 *op_chs;
+	u8 op_ch_num;
+	u8 state;
+
+	/* only channel coverage matters, use first (lowest) op channel, and ht here */
+
+	if (!rtw_get_op_chs_by_bcch_bw(BAND_ON_5G, cch, bw, &op_chs, &op_ch_num)) {
+		RTW_WARN("%s invalid cch:%u bw:%s on %s\n", caller, cch, ch_width_str(bw), band_str(BAND_ON_5G));
+		return false;
+	}
+
+	state = rtw_bchbw_to_cfg80211_chan_def(wiphy, chdef, BAND_ON_5G
+		, op_chs[0], bw, bw == CHANNEL_WIDTH_20 ? CHAN_OFFSET_NO_EXT : CHAN_OFFSET_UPPER, 1);
+
+	return state == _SUCCESS ? true : false;
+
+}
+
+void rtw_cfg80211_radar_detected_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 cch, enum channel_width bw)
+{
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+	struct cfg80211_chan_def chdef;
+
+	if (!rtw_cfg80211_get_radar_event_chdef(wiphy, &chdef, cch, bw, __func__))
+		return;
+
+	cfg80211_radar_event(wiphy, &chdef, GFP_KERNEL);
+}
+
+struct async_cac_change_evt {
+	_list list; /* async_cac_change_list */
+	struct net_device *netdev;
+	struct cfg80211_chan_def chandef;
+	enum nl80211_radar_event event;
+};
+
+static void async_cac_change_work_hdl(_workitem *work)
+{
+	struct rtw_wiphy_data *wiphy_data = container_of(work, struct rtw_wiphy_data, async_cac_change_work);
+	struct async_cac_change_evt *evt;
+	_list *list, *head = &wiphy_data->async_cac_change_list;
+
+	while (1) {
+		_rtw_mutex_lock_interruptible(&wiphy_data->async_cac_change_mutex);
+		list = rtw_is_list_empty(head) ? NULL : get_next(head);
+		if (list)
+			rtw_list_delete(list);
+		_rtw_mutex_unlock(&wiphy_data->async_cac_change_mutex);
+
+		if (!list)
+			break;
+
+		evt = LIST_CONTAINOR(list, struct async_cac_change_evt, list);
+
+		rtnl_lock();
+		cfg80211_cac_event(evt->netdev, &evt->chandef, evt->event, GFP_KERNEL);
+		rtnl_unlock();
+
+		rtw_mfree(evt, sizeof(*evt));
+	}
+}
+
+static int cfg80211_cac_event_async(struct net_device *netdev
+	, const struct cfg80211_chan_def *chandef, enum nl80211_radar_event event)
+{
+	_adapter *adapter = rtw_netdev_priv(netdev);
+	struct wiphy *wiphy = adapter_to_wiphy(adapter);
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+	struct async_cac_change_evt *evt;
+
+	evt = rtw_malloc(sizeof(*evt));
+	if (!evt)
+		return _FAIL;
+
+	_rtw_init_listhead(&evt->list);
+	evt->netdev = netdev;
+	_rtw_memcpy(&evt->chandef, chandef, sizeof(*chandef));
+	evt->event = event;
+
+	_rtw_mutex_lock_interruptible(&wiphy_data->async_cac_change_mutex);
+
+	rtw_list_insert_tail(&evt->list, &wiphy_data->async_cac_change_list);
+
+	_rtw_mutex_unlock(&wiphy_data->async_cac_change_mutex);
+
+	_set_workitem(&wiphy_data->async_cac_change_work);
+
+	return _SUCCESS;
+}
+
+static void rtw_regd_async_cac_change_list_free(struct wiphy *wiphy)
+{
+	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
+	struct async_cac_change_evt *evt;
+	_list *cur, *head;
+
+	_rtw_mutex_lock_interruptible(&wiphy_data->async_cac_change_mutex);
+
+	head = &wiphy_data->async_cac_change_list;
+	cur = get_next(head);
+
+	while ((rtw_end_of_queue_search(head, cur)) == _FALSE) {
+		evt = LIST_CONTAINOR(cur, struct async_cac_change_evt, list);
+		cur = get_next(cur);
+		rtw_list_delete(&evt->list);
+		rtw_mfree(evt, sizeof(*evt));
+	}
+
+	_rtw_mutex_unlock(&wiphy_data->async_cac_change_mutex);
+}
+
+static void rtw_cfg80211_cac_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw, enum nl80211_radar_event event
+	, const char *caller)
+{
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+	struct cfg80211_chan_def chdef;
+	_adapter *iface;
+	int i;
+	bool async;
+
+	if (!ifbmp) {
+		RTW_WARN(FUNC_HWBAND_FMT" ifbmp is empty", caller, HWBAND_ARG(band_idx));
+		return;
+	}
+
+	if (!rtw_cfg80211_get_radar_event_chdef(wiphy, &chdef, cch, bw, caller))
+		return;
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+		if (!iface || !(ifbmp & BIT(iface->iface_id)))
+			continue;
+		if (!iface->rtw_wdev)
+			continue;
+#if defined(CONFIG_MLD_KERNEL_PATCH)
+		async = !((iface->rtw_wdev)->links[0].ap.chandef.chan);
+#else
+		async = !iface->rtw_wdev->chandef.chan;
+#endif
+		RTW_INFO(FUNC_ADPT_FMT" async:%d\n", caller, ADPT_ARG(iface), async);
+		if (async)
+			cfg80211_cac_event_async(iface->pnetdev, &chdef, event);
+		else
+			cfg80211_cac_event(iface->pnetdev, &chdef, event, GFP_KERNEL);
+	}
+}
+
+void rtw_cfg80211_cac_started_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+
+	if (!wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD))
+		return;
+
+	if (ifbmp == 0xFF) {
+		ifbmp &= rtw_mi_get_ap_mesh_ifbmp_by_hwband(dvobj, band_idx);
+		if (!ifbmp)
+			return;
+	}
+
+	rtw_cfg80211_cac_event(rfctl, band_idx, ifbmp, cch, bw, NL80211_RADAR_CAC_STARTED, __func__);
+}
+
+void rtw_cfg80211_cac_finished_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+	_adapter *iface;
+	int i;
+
+	if (!wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD))
+		return;
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+		if (!iface || !(ifbmp & BIT(iface->iface_id)))
+			continue;
+		/* finish only for wdev with cac_started */
+		if (!iface->rtw_wdev || !iface->rtw_wdev->cac_started)
+			ifbmp &= ~BIT(iface->iface_id);
+	}
+
+	rtw_cfg80211_cac_event(rfctl, band_idx, ifbmp, cch, bw, NL80211_RADAR_CAC_FINISHED, __func__);
+}
+
+void rtw_cfg80211_cac_aborted_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+	_adapter *iface;
+	int i;
+
+	if (!wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD))
+		return;
+
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+		if (!iface || !(ifbmp & BIT(iface->iface_id)))
+			continue;
+		/* abort only for wdev with cac_started */
+		if (!iface->rtw_wdev || !iface->rtw_wdev->cac_started)
+			ifbmp &= ~BIT(iface->iface_id);
+	}
+
+	rtw_cfg80211_cac_event(rfctl, band_idx, ifbmp, cch, bw, NL80211_RADAR_CAC_ABORTED, __func__);
+}
+
+static void rtw_cfg80211_cac_force_started_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	rtw_cfg80211_cac_event(rfctl, band_idx, ifbmp, cch, bw, NL80211_RADAR_CAC_STARTED, __func__);
+}
+
+static void rtw_cfg80211_cac_force_finished_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	rtw_cfg80211_cac_event(rfctl, band_idx, ifbmp, cch, bw, NL80211_RADAR_CAC_FINISHED, __func__);
+}
+
+void rtw_cfg80211_cac_force_finished(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+	struct rtw_chset *chset = &rfctl->chset;
+	_adapter *iface;
+	u8 i;
+	u8 *op_chs;
+	u8 op_ch_num;
+	RT_CHANNEL_INFO *chinfo;
+	struct ieee80211_channel *chan;
+	bool need_start = false;
+	u8 finished_ifbmp, started_ifbmp;
+
+	if (!wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD))
+		return;
+
+	if (ifbmp == 0xFF) {
+		ifbmp &= rtw_mi_get_ap_mesh_ifbmp_by_hwband(dvobj, band_idx);
+		if (!ifbmp)
+			return;
+	}
+
+	/*
+	* if coverage channels still USABLE and wdev is not cac_started
+	* send CAC_STARTED to set cac_started and
+	* send CAC_FINISHED to clear cac_started and make coverage channels AVAILABLE
+	*/
+
+	if (!rtw_get_op_chs_by_bcch_bw(BAND_ON_5G, cch, bw, &op_chs, &op_ch_num)) {
+		RTW_WARN("%s invalid cch:%u bw:%s on %s\n", __func__, cch, ch_width_str(bw), band_str(BAND_ON_5G));
+		return;
+	}
+
+	for (i = 0; i < op_ch_num; i++) {
+		chinfo = rtw_chset_get_chinfo_by_bch(chset, BAND_ON_5G, op_chs[i], true);
+		if (!chinfo) {
+			RTW_WARN("%s can't get chinfo by ch:%u on %s\n", __func__, op_chs[i], band_str(BAND_ON_5G));
+			continue;
+		}
+		if (!chinfo->os_chan) {
+			RTW_WARN("%s ch:%u on %s has no os_chan\n", __func__, op_chs[i], band_str(BAND_ON_5G));
+			continue;
+		}
+
+		chan = chinfo->os_chan;
+		if (chan->dfs_state == NL80211_DFS_UNAVAILABLE) {
+			RTW_WARN("%s ch:%u on %s is UNAVAILABLE(NON_OCP)\n", __func__, op_chs[i], band_str(BAND_ON_5G));
+			return;
+		}
+		if (chan->dfs_state == NL80211_DFS_USABLE) {
+			need_start = true;
+			break;
+		}
+	}
+
+	started_ifbmp = need_start ? ifbmp : 0;
+	finished_ifbmp = ifbmp;
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		iface = dvobj->padapters[i];
+		if (!iface || !(ifbmp & BIT(iface->iface_id)))
+			continue;
+		if (!iface->rtw_wdev) {
+			finished_ifbmp &= ~BIT(iface->iface_id);
+			started_ifbmp &= ~BIT(iface->iface_id);
+		}
+		if (need_start && iface->rtw_wdev->cac_started)
+			started_ifbmp &= ~BIT(iface->iface_id);
+		else if (!need_start && !iface->rtw_wdev->cac_started)
+			finished_ifbmp &= ~BIT(iface->iface_id);
+	}
+
+	/* send CAC_STARTED to set cac_started */
+	if (started_ifbmp)
+		rtw_cfg80211_cac_force_started_event(rfctl, band_idx, started_ifbmp, cch, bw);
+
+	/* send CAC_FINISHED to clear cac_started and make coverage channels AVAILABLE */
+	if (finished_ifbmp)
+		rtw_cfg80211_cac_force_finished_event(rfctl, band_idx, finished_ifbmp, cch, bw);
+}
+
+void rtw_cfg80211_nop_finished_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 band, u8 cch, enum channel_width bw)
+{
+	/* non occupancy is controlled by net/wireless/mlme.c */
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+
+	if (!wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD))
+		return;
+}
+
+void rtw_cfg80211_nop_started_event(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 band, u8 cch, enum channel_width bw, bool called_on_cmd_thd)
+{
+	/* non occupancy is controlled by net/wireless/mlme.c */
+	struct dvobj_priv *dvobj = rfctl_to_dvobj(rfctl);
+	struct wiphy *wiphy = dvobj_to_wiphy(dvobj); /* TODO: hwband specific wiphy mapping */
+	struct get_chplan_resp *chplan;
+	bool rtnl_lock_needed;
+
+	if (!wiphy_ext_feature_isset(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD))
+		return;
+
+	if (rtw_get_chplan_cmd(dvobj_get_primary_adapter(dvobj)
+		, called_on_cmd_thd ? RTW_CMDF_DIRECTLY : RTW_CMDF_WAIT_ACK, &chplan) == _FAIL)
+		return;
+
+	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
+	if (rtnl_lock_needed)
+		rtnl_lock();
+
+	rtw_regd_override_dfs_state(wiphy, chplan, true);
+	rtw_regd_schedule_dfs_chan_update(wiphy);
+
+	if (rtnl_lock_needed)
+		rtnl_unlock();
+
+	rtw_free_get_chplan_resp(chplan);
+}
+#endif /* CONFIG_RTW_CFG80211_CAC_EVENT  */
+
 int rtw_regd_init(struct wiphy *wiphy)
 {
 	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
@@ -695,35 +1285,24 @@ int rtw_regd_init(struct wiphy *wiphy)
 		wiphy->regulatory_flags |= REGULATORY_WIPHY_SELF_MANAGED;
 #endif
 
+#if defined(CONFIG_DFS_MASTER) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0))
+	if (rtw_regd_is_wiphy_self_managed(wiphy)
+		&& rtw_rfctl_radar_detect_supported(dvobj_to_rfctl(wiphy_to_dvobj(wiphy)))
+		&& wiphy->bands[NL80211_BAND_5GHZ])
+		wiphy_ext_feature_set(wiphy, NL80211_EXT_FEATURE_DFS_OFFLOAD);
+#endif
+
 	_rtw_init_listhead(&wiphy_data->async_regd_change_list);
 	_rtw_mutex_init(&wiphy_data->async_regd_change_mutex);
 	_init_workitem(&wiphy_data->async_regd_change_work, async_regd_change_work_hdl, NULL);
 
+#if CONFIG_RTW_CFG80211_CAC_EVENT
+	_rtw_init_listhead(&wiphy_data->async_cac_change_list);
+	_rtw_mutex_init(&wiphy_data->async_cac_change_mutex);
+	_init_workitem(&wiphy_data->async_cac_change_work, async_cac_change_work_hdl, NULL);
+#endif
+
 	return 0;
-}
-
-static void rtw_regd_async_regd_change_list_free(struct wiphy *wiphy)
-{
-	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
-	struct async_regd_change_evt *evt;
-	struct get_chplan_resp *chplan;
-	_list *cur, *head;
-
-	_rtw_mutex_lock_interruptible(&wiphy_data->async_regd_change_mutex);
-
-	head = &wiphy_data->async_regd_change_list;
-	cur = get_next(head);
-
-	while ((rtw_end_of_queue_search(head, cur)) == _FALSE) {
-		evt = LIST_CONTAINOR(cur, struct async_regd_change_evt, list);
-		chplan = evt->chplan;
-		cur = get_next(cur);
-		rtw_list_delete(&evt->list);
-		rtw_vmfree(chplan, sizeof(*chplan) + sizeof(RT_CHANNEL_INFO) * chplan->chset_num);
-		rtw_mfree(evt, sizeof(*evt));
-	}
-
-	_rtw_mutex_unlock(&wiphy_data->async_regd_change_mutex);
 }
 
 void rtw_regd_deinit(struct wiphy *wiphy)
@@ -733,51 +1312,11 @@ void rtw_regd_deinit(struct wiphy *wiphy)
 	_cancel_workitem_sync(&wiphy_data->async_regd_change_work);
 	rtw_regd_async_regd_change_list_free(wiphy);
 	_rtw_mutex_free(&wiphy_data->async_regd_change_mutex);
-}
 
-void rtw_regd_change_complete_sync(struct wiphy *wiphy, struct get_chplan_resp *chplan, bool rtnl_lock_needed)
-{
-	if (chplan->regd_src == REGD_SRC_RTK_PRIV) {
-		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 0, 0))
-		if (rtw_regd_is_wiphy_self_managed(wiphy))
-			rtw_update_wiphy_regd(wiphy, chplan, rtnl_lock_needed);
-		else
-		#endif
-			rtw_regd_overide_flags(wiphy, chplan, rtnl_lock_needed);
-	}
-#ifdef CONFIG_REGD_SRC_FROM_OS
-	else if (chplan->regd_src == REGD_SRC_OS)
-		rtw_regd_apply_dfs_flags(chplan, rtnl_lock_needed);
+#if CONFIG_RTW_CFG80211_CAC_EVENT
+	_cancel_workitem_sync(&wiphy_data->async_cac_change_work);
+	rtw_regd_async_cac_change_list_free(wiphy);
+	_rtw_mutex_free(&wiphy_data->async_cac_change_mutex);
 #endif
-	else
-		rtw_warn_on(1);
-
-	rtw_vmfree(chplan, sizeof(struct get_chplan_resp) + sizeof(RT_CHANNEL_INFO) * chplan->chset_num);
-}
-
-int rtw_regd_change_complete_async(struct wiphy *wiphy, struct get_chplan_resp *chplan)
-{
-	struct rtw_wiphy_data *wiphy_data = rtw_wiphy_priv(wiphy);
-	struct async_regd_change_evt *evt;
-
-	evt = rtw_malloc(sizeof(*evt));
-	if (!evt) {
-		rtw_vmfree(chplan, sizeof(struct get_chplan_resp) + sizeof(RT_CHANNEL_INFO) * chplan->chset_num);
-		return _FAIL;
-	}
-
-	_rtw_init_listhead(&evt->list);
-	evt->wiphy = wiphy;
-	evt->chplan = chplan;
-
-	_rtw_mutex_lock_interruptible(&wiphy_data->async_regd_change_mutex);
-
-	rtw_list_insert_tail(&evt->list, &wiphy_data->async_regd_change_list);
-
-	_rtw_mutex_unlock(&wiphy_data->async_regd_change_mutex);
-
-	_set_workitem(&wiphy_data->async_regd_change_work);
-
-	return _SUCCESS;
 }
 #endif /* CONFIG_IOCTL_CFG80211 */

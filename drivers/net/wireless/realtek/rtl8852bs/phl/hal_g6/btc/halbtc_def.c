@@ -64,6 +64,20 @@
 	case BAND_ON_##src: return #src
 #define case_cxstate(src) \
 	case BTC_##src: return #src
+#define case_fddt_state(src) \
+	case BTC_FDDT_STATE_##src: return #src
+#define case_fddt_type(src) \
+	case BTC_FDDT_TYPE_##src: return #src
+#define case_fddt_norun(src) \
+	case BTC_NFRSN_##src: return #src
+#define case_dmerr(src) \
+	case BTC_DMERR_##src: return #src
+#define case_fwerr(src) \
+	case BTC_FWERR_##src: return #src
+#define case_rptmatch(src) \
+	case BTC_RPT_TYPE_##src: return #src
+#define case_h2cerr(src) \
+	case SET_##src: return #src
 
 const char *id_to_str(u8 type, u32 id)
 {
@@ -185,6 +199,7 @@ const char *id_to_str(u8 type, u32 id)
 		case_antpath(W5G);
 		case_antpath(W25G);
 		case_antpath(FREERUN);
+		case_antpath(FDDTRAIN);
 		case_antpath(WRFK);
 		case_antpath(BRFK);
 		}
@@ -229,6 +244,12 @@ const char *id_to_str(u8 type, u32 id)
 		case_chip(WIFI6_8852A);
 		case_chip(WIFI6_8852B);
 		case_chip(WIFI6_8852C);
+#ifdef BTC_8852BP_SUPPORT
+		case_chip(WIFI6_8852BP);
+#endif
+#ifdef BTC_8851B_SUPPORT
+		case_chip(WIFI6_8851B);
+#endif
 		}
 		break;
 	case BTC_STR_POLUT:
@@ -268,6 +289,7 @@ const char *id_to_str(u8 type, u32 id)
 		case_event(BT_CHANGE);
 		case_event(EBT_EXTEND);
 		case_event(E2G_NULL1);
+		case_event(B1FDD_TMR);
 		}
 		break;
 	case BTC_STR_WLMODE:
@@ -329,6 +351,7 @@ const char *id_to_str(u8 type, u32 id)
 		case_cxp(OFF_BWB0);
 		case_cxp(OFF_BWB1);
 		case_cxp(OFF_BWB2);
+		case_cxp(OFF_BWB3);
 		case_cxp(OFFB_BWB0);
 		case_cxp(OFFE_2GBWISOB);
 		case_cxp(OFFE_2GISOB);
@@ -362,6 +385,7 @@ const char *id_to_str(u8 type, u32 id)
 		case_cxp(PAUTO_TD60B1);
 		case_cxp(PAUTO_TD20B1);
 		case_cxp(PAUTO_TDW1B1);
+		case_cxp(PAUTO_FDDT1);
 		case_cxp(AUTO2_TD3050);
 		case_cxp(AUTO2_TD3070);
 		case_cxp(AUTO2_TD5050);
@@ -536,6 +560,127 @@ const char *id_to_str(u8 type, u32 id)
 		case_cxstate(WSCAN_BSCAN);
 		case_cxstate(WLINKING);
 		case_cxstate(WIDLE_BSCAN);
+		}
+		break;
+	case BTC_STR_FDDT_TYPE:
+		switch(id) {
+		case_fddt_type(STOP);
+		case_fddt_type(AUTO);
+		case_fddt_type(FIX_TDD);
+		case_fddt_type(FIX_FULL_FDD);
+		}
+		break;
+	case BTC_STR_FDDT_STATE:
+		switch(id) {
+		case_fddt_state(STOP);
+		case_fddt_state(RUN);
+		case_fddt_state(PENDING);
+		case_fddt_state(DEBUG);
+		}
+		break;
+	case BTC_STR_FDDT_NORUN:
+		switch(id) {
+		case_fddt_norun(SUPPORT);
+		case_fddt_norun(FORCE_STOP);
+		case_fddt_norun(DEDICATED_ANT);
+		case_fddt_norun(ANT_ISO_LOW);
+		case_fddt_norun(ANT_ISO_HI);
+		case_fddt_norun(WL_2GSTA);
+		case_fddt_norun(WL_BUSY);
+		case_fddt_norun(WL_NOSCAN);
+		case_fddt_norun(WL_NORFK);
+		case_fddt_norun(WB_RSSI);
+		case_fddt_norun(BT_PROFILE);
+		case_fddt_norun(BT_A2DP_BUSY);
+		case_fddt_norun(BT_NOINQ);
+		case_fddt_norun(COND_NUM);
+		case_fddt_norun(NHM);
+		case_fddt_norun(RETRY_PERIOD);
+		}
+		break;
+	case BTC_STR_DMERROR:
+		switch(id) {
+		case_dmerr(INIT);
+		case_dmerr(PTA_OWNER);
+		case_dmerr(WL_RFK_TIMEOUT);
+		case_dmerr(BT_RFK_TIMEOUT);
+		case_dmerr(WL_FW_HANG);
+		case_dmerr(CYCLE_HANG);
+		case_dmerr(W1_HANG);
+		case_dmerr(B1_HANG);
+		case_dmerr(TDMA_NO_SYNC);
+		case_dmerr(SLOT_NO_SYNC);
+		case_dmerr(WL_SLOT_DRIFT);
+		case_dmerr(BT_SLOT_DRIFT);
+		case_dmerr(ROLE_NUM_MISMATCH);
+		case_dmerr(NULL1_TX_LATE);
+		case_dmerr(AFH_CONFLICT);
+		case_dmerr(AFH_LE_CONFLICT);
+		case_dmerr(BT_SLOT_FLOOD);
+		case_dmerr(E2G_HANG);
+		case_dmerr(WL_VER_MISMATCH);
+		case_dmerr(BT_VER_MISMATCH);
+		}
+		break;
+	case BTC_STR_FWERROR:
+		switch(id) {
+		case_fwerr(NULL_RESULT);
+		case_fwerr(NULL_EXCEPTION);
+		case_fwerr(B1_EXCEPTION);
+		case_fwerr(W1_EXCEPTION);
+		case_fwerr(B2_EXCEPTION);
+		case_fwerr(B3_EXCEPTION);
+		case_fwerr(B4_EXCEPTION);
+		case_fwerr(AUTO_EXCEPTION);
+		case_fwerr(EXAUTO_EXCEPTION);
+		case_fwerr(BUF_OVERFLOW);
+		case_fwerr(BRLY_EXCEPTION);
+		case_fwerr(SM);
+		case_fwerr(B2_AFTER);
+		case_fwerr(LK_END);
+		case_fwerr(TMR_FAIL);
+		case_fwerr(H2C_SET_EXCEPTION);
+		}
+		break;
+	case BTC_STR_RPTMATCH:
+		switch(id) {
+		case_rptmatch(CTRL);
+		case_rptmatch(TDMA);
+		case_rptmatch(SLOT);
+		case_rptmatch(CYSTA);
+		case_rptmatch(STEP);
+		case_rptmatch(NULLSTA);
+		case_rptmatch(MREG);
+		case_rptmatch(GPIO_DBG);
+		case_rptmatch(BT_VER);
+		case_rptmatch(BT_SCAN);
+		case_rptmatch(BT_AFH);
+		case_rptmatch(BT_DEVICE);
+		case_rptmatch(TEST);
+		}
+		break;
+	case BTC_STR_H2CERROR:
+		switch(id) {
+		case_h2cerr(REPORT_EN);
+		case_h2cerr(SLOT_TABLE);
+		case_h2cerr(MREG_TABLE);
+		case_h2cerr(CX_POLICY);
+		case_h2cerr(GPIO_DBG);
+		case_h2cerr(DRV_INFO);
+		case_h2cerr(DRV_EVENT);
+		case_h2cerr(BT_WREG_ADDR);
+		case_h2cerr(BT_WREG_VAL);
+		case_h2cerr(BT_RREG_ADDR);
+		case_h2cerr(BT_WL_CH_INFO);
+		case_h2cerr(BT_INFO_REPORT);
+		case_h2cerr(BT_IGNORE_WLAN_ACT);
+		case_h2cerr(BT_TX_PWR);
+		case_h2cerr(BT_LNA_CONSTRAIN);
+		case_h2cerr(BT_QUERY_DEV_LIST);
+		case_h2cerr(BT_QUERY_DEV_INFO);
+		case_h2cerr(BT_GOLDEN_RX_RANGE);
+		case_h2cerr(BT_PSD_REPORT);
+		case_h2cerr(H2C_TEST);
 		}
 		break;
 	}

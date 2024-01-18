@@ -38,6 +38,7 @@ struct phl_ecsa_ctrl_t{
 	enum phl_ecsa_state state;
 	struct rtw_phl_com_t *phl_com;
 	struct rtw_wifi_role_t *role;
+	struct rtw_wifi_role_link_t *rlink;
 	struct rtw_phl_ecsa_param ecsa_param;
 	struct rtw_phl_ecsa_ops ops;
 	_os_timer timer;

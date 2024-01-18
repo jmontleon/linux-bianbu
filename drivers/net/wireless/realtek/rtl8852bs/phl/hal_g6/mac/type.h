@@ -22,17 +22,39 @@
 #include "mac_hw_info.h"
 #include "txdesc.h"
 #include "rxdesc.h"
+#include "chip_cfg.h"
 
 #include "mac_ax/mac_ax_dfs.h"
 #include "mac_ax/mac_ax_mac_info.h"
-#include "mac_ax/mac_txccxrpt.h"
-#include "mac_ax/mac_ftmrpt.h"
-#include "mac_ax/mac_ftmackrpt.h"
+#include "mac_ax/eco_patch_check.h"
 
 #if MAC_AX_FEATURE_DBGPKG
 #include "mac_ax/dbgpkg.h"
+#if MAC_AX_8852A_SUPPORT
+#include "mac_ax/mac_8852a/dbgpkg_8852a.h"
 #endif
-
+#if MAC_AX_8852B_SUPPORT
+#include "mac_ax/mac_8852b/dbgpkg_8852b.h"
+#endif
+#if MAC_AX_8852C_SUPPORT
+#include "mac_ax/mac_8852c/dbgpkg_8852c.h"
+#endif
+#if MAC_AX_8192XB_SUPPORT
+#include "mac_ax/mac_8192xb/dbgpkg_8192xb.h"
+#endif
+#if MAC_AX_8851B_SUPPORT
+#include "mac_ax/mac_8851b/dbgpkg_8851b.h"
+#endif
+#if MAC_AX_8851E_SUPPORT
+#include "mac_ax/mac_8851e/dbgpkg_8851e.h"
+#endif
+#if MAC_AX_8852D_SUPPORT
+#include "mac_ax/mac_8852d/dbgpkg_8852d.h"
+#endif
+#if MAC_AX_1115E_SUPPORT
+#include "mac_ax/mac_1115e/dbgpkg_1115e.h"
+#endif
+#endif
 #if MAC_AX_FEATURE_HV
 #include "hv_type.h"
 #endif
@@ -196,6 +218,10 @@
 	adapter->pltfm_cb->rtl_delay_us(adapter->drv_adapter, us)
 #define PLTFM_DELAY_MS(ms)                                                     \
 	adapter->pltfm_cb->rtl_delay_ms(adapter->drv_adapter, ms)
+#define PLTFM_SLEEP_US(us)                                                     \
+	adapter->pltfm_cb->rtl_sleep_us(adapter->drv_adapter, us)
+#define PLTFM_SLEEP_MS(ms)                                                     \
+	adapter->pltfm_cb->rtl_sleep_ms(adapter->drv_adapter, ms)
 
 #define PLTFM_MUTEX_INIT(mutex)                                                \
 	adapter->pltfm_cb->rtl_mutex_init(adapter->drv_adapter, mutex)
@@ -255,7 +281,6 @@
 #define MAC_AX_MG1_SEL		26
 
 #define MAC_AX_HFC_CH_NUM	12
-#define MAC_AX_IECAM_NUM	12
 
 #define MAC_AX_R32_EA		0xEAEAEAEA
 #define MAC_AX_R32_DEAD		0xDEADBEEF
@@ -291,6 +316,8 @@
 #define	BCN_IE_CAM1_BASE_ADDR		0x188A0000
 #define	TXD_FIFO_0_BASE_ADDR		0x18856200
 #define	TXD_FIFO_1_BASE_ADDR		0x188A1080
+#define WD_PAGE_BASE_ADDR		0x0
+#define	WCPU_DATA_BASE_ADDR			0x18E00000
 
 #define CCTL_INFO_SIZE		32
 #define DCTL_INFO_SIZE		16
@@ -368,24 +395,6 @@ enum mac_ax_data_ch {
 	MAC_AX_DATA_CH9 = 9,
 	MAC_AX_DATA_CH10 = 10,
 	MAC_AX_DATA_CH11 = 11,
-};
-
-/**
- * @enum mac_ax_pcie_phy
- *
- * @brief mac_ax_pcie_phy
- *
- * @var mac_ax_pcie_phy::MAC_AX_PCIE_PHY_GEN1
- * Please Place Description here.
- * @var mac_ax_pcie_phy::MAC_AX_PCIE_PHY_GEN2
- * Please Place Description here.
- * @var mac_ax_pcie_phy::MAC_AX_PCIE_PHY_GEN1_UNDEFINE
- * Please Place Description here.
- */
-enum mac_ax_pcie_phy {
-	MAC_AX_PCIE_PHY_GEN1,
-	MAC_AX_PCIE_PHY_GEN2,
-	MAC_AX_PCIE_PHY_GEN1_UNDEFINE = 0x7F,
 };
 
 /**
@@ -1384,14 +1393,19 @@ enum mac_ax_rxcnt_sel {
 	MAC_AX_RXCNT_FULLDRP = 0x20,
 	MAC_AX_RXCNT_FULLDRP_PKT = 0x21,
 	MAC_AX_RXCNT_RXDMA = 0x22,
-	MAC_AX_RXCNT_USER0 = 0x23,
-	MAC_AX_RXCNT_USER1 = 0x24,
-	MAC_AX_RXCNT_USER2 = 0x25,
-	MAC_AX_RXCNT_USER3 = 0x26,
+	MAC_AX_RXCNT_PKTFLTR_DRP = 0x23,
+	MAC_AX_RXCNT_CSIPKT_DMA_OK = 0x24,
+	MAC_AX_RXCNT_CSIPKT_DMA_DROP = 0x25,
+	MAC_AX_RXCNT_NDP_PPDU = 0x26,
 	MAC_AX_RXCNT_CONT_FCS = 0x27,
-	MAC_AX_RXCNT_PKTFLTR_DRP = 0x28,
-	MAC_AX_RXCNT_CSIPKT_DMA_OK = 0x29,
-	MAC_AX_RXCNT_CSIPKT_DMA_DROP = 0x2A
+	MAC_AX_RXCNT_USER0 = 0x28,
+	MAC_AX_RXCNT_USER1 = 0x29,
+	MAC_AX_RXCNT_USER2 = 0x2A,
+	MAC_AX_RXCNT_USER3 = 0x2B,
+	MAC_AX_RXCNT_USER4 = 0x2C,
+	MAC_AX_RXCNT_USER5 = 0x2D,
+	MAC_AX_RXCNT_USER6 = 0x2E,
+	MAC_AX_RXCNT_USER7 = 0x2F,
 };
 
 /**

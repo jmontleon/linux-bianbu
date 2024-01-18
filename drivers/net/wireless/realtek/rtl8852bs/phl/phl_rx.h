@@ -64,9 +64,19 @@ void phl_rx_proc_ppdu_sts(struct phl_info_t *phl_info,
 			  struct rtw_phl_rx_pkt *phl_rx);
 void phl_rx_wp_report_record_sts(struct phl_info_t *phl_info,
 				 u8 macid, u16 ac_queue, u8 txsts);
+void phl_handle_queued_rx(struct phl_info_t *phl_info);
 void phl_reset_rx_stats(struct rtw_stats *stats);
 void phl_dump_all_sta_rx_info(struct phl_info_t *phl_info);
 u16 rtw_phl_query_new_rx_num(void *phl);
 void phl_rx_dbg_dump(struct phl_info_t *phl_info, u8 band_idx);
+
+enum rtw_phl_status
+phl_cmd_get_rx_cnt_by_idx_hdl(struct phl_info_t *phl_info, u8 *cmd);
+enum rtw_phl_status
+phl_cmd_set_reset_rx_cnt_hdl(struct phl_info_t *phl_info, u8 *cmd);
+
+#ifdef CONFIG_PCI_HCI
+u32 rtw_phl_get_hw_cnt_rdu(void *phl);
+#endif
 
 #endif /*_PHL_RX_H_*/

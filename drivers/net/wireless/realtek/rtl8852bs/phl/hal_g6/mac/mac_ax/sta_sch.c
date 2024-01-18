@@ -197,6 +197,15 @@ static u32 wmm_vld_chk(struct mac_ax_adapter *adapter, u8 *vld, u8 wmm)
 	case MAC_AX_CHIP_ID_8192XB:
 		wmm_num = STA_SCH_WMM_NUM_8192XB;
 		break;
+	case MAC_AX_CHIP_ID_8851B:
+		wmm_num = STA_SCH_WMM_NUM_8851B;
+		break;
+	case MAC_AX_CHIP_ID_8851E:
+		wmm_num = STA_SCH_WMM_NUM_8851E;
+		break;
+	case MAC_AX_CHIP_ID_8852D:
+		wmm_num = STA_SCH_WMM_NUM_8852D;
+		break;
 	default:
 		return MACCHIPID;
 	}
@@ -226,6 +235,15 @@ static u32 ul_vld_chk(struct mac_ax_adapter *adapter, u8 *vld)
 	case MAC_AX_CHIP_ID_8192XB:
 		ul_support = STA_SCH_UL_SUPPORT_8192XB;
 		break;
+	case MAC_AX_CHIP_ID_8851B:
+		ul_support = STA_SCH_UL_SUPPORT_8851B;
+		break;
+	case MAC_AX_CHIP_ID_8851E:
+		ul_support = STA_SCH_UL_SUPPORT_8851E;
+		break;
+	case MAC_AX_CHIP_ID_8852D:
+		ul_support = STA_SCH_UL_SUPPORT_8852D;
+		break;
 	default:
 		return MACCHIPID;
 	}
@@ -245,8 +263,7 @@ static u32 get_sta_link(struct mac_ax_adapter *adapter,
 	u8 macid, wmm, ac;
 	u32 ret;
 	u32 cmd;
-	u16 macid_num = adapter->hw_info->macid_num;
-	u16 id_empty = (macid_num << 1) - 1;
+	u16 id_empty = adapter->hw_info->sta_empty_flg;
 
 	if (link->ul) {
 		wmm = 0;
@@ -404,7 +421,7 @@ static u32 chk_role_wmm(struct mac_ax_adapter *adapter, u8 *pmacid, u8 src_wmm)
 	struct mac_role_tbl *role;
 	u8 wmm;
 
-	role = mac_role_srch(adapter, *pmacid);
+	role = role_srch_no_lock(adapter, *pmacid);
 	if (!role)
 		return MACNOITEM;
 
@@ -568,3 +585,115 @@ u32 mac_ss_wmm_map_upd(struct mac_ax_adapter *adapter,
 	return MACSUCCESS;
 }
 
+static void get_dl_su_rpt(struct mac_ax_adapter *adapter,
+			  struct mac_ax_ss_dl_rpt_info *info)
+{
+	u32 val32;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(R_AX_SS_DL_RPT_CRTL);
+	info->wmm0_max = GET_FIELD(val32, B_AX_SS_MAX_SU_NUM_0);
+	info->wmm1_max = GET_FIELD(val32, B_AX_SS_MAX_SU_NUM_1);
+	info->twt_wmm0_max = GET_FIELD(val32, B_AX_SS_TWT_MAX_SU_NUM_0);
+	info->twt_wmm1_max = GET_FIELD(val32, B_AX_SS_TWT_MAX_SU_NUM_1);
+}
+
+static void set_dl_su_rpt(struct mac_ax_adapter *adapter,
+			  struct mac_ax_ss_dl_rpt_info *info)
+{
+	u32 val32;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(R_AX_SS_DL_RPT_CRTL);
+	val32 = SET_CLR_WORD(val32, info->wmm0_max, B_AX_SS_MAX_SU_NUM_0);
+	val32 = SET_CLR_WORD(val32, info->wmm1_max, B_AX_SS_MAX_SU_NUM_1);
+	val32 =	SET_CLR_WORD(val32, info->twt_wmm0_max,
+			     B_AX_SS_TWT_MAX_SU_NUM_0);
+	val32 =	SET_CLR_WORD(val32, info->twt_wmm1_max,
+			     B_AX_SS_TWT_MAX_SU_NUM_1);
+	MAC_REG_W32(R_AX_SS_DL_RPT_CRTL, val32);
+}
+
+static void get_dl_mu_rpt(struct mac_ax_adapter *adapter,
+			  struct mac_ax_ss_dl_rpt_info *info)
+{
+	u32 val32;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(R_AX_SS_DL_MU_RPT_CRTL);
+	info->wmm0_max = GET_FIELD(val32, B_AX_SS_MAX_MU_NUM_0);
+	info->wmm1_max = GET_FIELD(val32, B_AX_SS_MAX_MU_NUM_1);
+	info->twt_wmm0_max = GET_FIELD(val32, B_AX_SS_TWT_MAX_MU_NUM_0);
+	info->twt_wmm1_max = GET_FIELD(val32, B_AX_SS_TWT_MAX_MU_NUM_1);
+}
+
+static void set_dl_mu_rpt(struct mac_ax_adapter *adapter,
+			  struct mac_ax_ss_dl_rpt_info *info)
+{
+	u32 val32;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(R_AX_SS_DL_MU_RPT_CRTL);
+	val32 = SET_CLR_WORD(val32, info->wmm0_max, B_AX_SS_MAX_MU_NUM_0);
+	val32 = SET_CLR_WORD(val32, info->wmm1_max, B_AX_SS_MAX_MU_NUM_1);
+	val32 =	SET_CLR_WORD(val32, info->twt_wmm0_max,
+			     B_AX_SS_TWT_MAX_MU_NUM_0);
+	val32 =	SET_CLR_WORD(val32, info->twt_wmm1_max,
+			     B_AX_SS_TWT_MAX_MU_NUM_1);
+	MAC_REG_W32(R_AX_SS_DL_MU_RPT_CRTL, val32);
+}
+
+static void get_dl_ru_rpt(struct mac_ax_adapter *adapter,
+			  struct mac_ax_ss_dl_rpt_info *info)
+{
+	u32 val32;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(R_AX_SS_DL_RU_RPT_CRTL);
+	info->wmm0_max = GET_FIELD(val32, B_AX_SS_MAX_RU_NUM_0);
+	info->wmm1_max = GET_FIELD(val32, B_AX_SS_MAX_RU_NUM_1);
+	info->twt_wmm0_max = GET_FIELD(val32, B_AX_SS_TWT_MAX_RU_NUM_0);
+	info->twt_wmm1_max = GET_FIELD(val32, B_AX_SS_TWT_MAX_RU_NUM_1);
+}
+
+static void set_dl_ru_rpt(struct mac_ax_adapter *adapter,
+			  struct mac_ax_ss_dl_rpt_info *info)
+{
+	u32 val32;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(R_AX_SS_DL_RU_RPT_CRTL);
+	val32 = SET_CLR_WORD(val32, info->wmm0_max, B_AX_SS_MAX_RU_NUM_0);
+	val32 = SET_CLR_WORD(val32, info->wmm1_max, B_AX_SS_MAX_RU_NUM_1);
+	val32 =	SET_CLR_WORD(val32, info->twt_wmm0_max,
+			     B_AX_SS_TWT_MAX_RU_NUM_0);
+	val32 =	SET_CLR_WORD(val32, info->twt_wmm1_max,
+			     B_AX_SS_TWT_MAX_RU_NUM_1);
+	MAC_REG_W32(R_AX_SS_DL_RU_RPT_CRTL, val32);
+}
+
+void mac_ss_dl_rpt_cfg(struct mac_ax_adapter *adapter,
+		       struct mac_ax_ss_dl_rpt_info *info,
+		       enum mac_ax_ss_rpt_cfg cfg)
+{
+	switch (cfg) {
+	case MAC_AX_SS_DL_SU_RPT_CFG_GET:
+		get_dl_su_rpt(adapter, info);
+		break;
+	case MAC_AX_SS_DL_SU_RPT_CFG_SET:
+		set_dl_su_rpt(adapter, info);
+		break;
+	case MAC_AX_SS_DL_MU_RPT_CFG_GET:
+		get_dl_mu_rpt(adapter, info);
+		break;
+	case MAC_AX_SS_DL_MU_RPT_CFG_SET:
+		set_dl_mu_rpt(adapter, info);
+		break;
+	case MAC_AX_SS_DL_RU_RPT_CFG_GET:
+		get_dl_ru_rpt(adapter, info);
+		break;
+	case MAC_AX_SS_DL_RU_RPT_CFG_SET:
+		set_dl_ru_rpt(adapter, info);
+		break;
+	}
+}

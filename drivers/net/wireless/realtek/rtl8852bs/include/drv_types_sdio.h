@@ -15,25 +15,19 @@
 #ifndef __DRV_TYPES_SDIO_H__
 #define __DRV_TYPES_SDIO_H__
 
-/* SDIO Header Files */
 #ifdef PLATFORM_LINUX
-	#include <linux/mmc/sdio_func.h>
-	#include <linux/mmc/sdio_ids.h>
-	#include <linux/mmc/host.h>
-	#include <linux/mmc/card.h>
-
-	#ifdef CONFIG_PLATFORM_SPRD
-		#include <linux/gpio.h>
-		#include <custom_gpio.h>
-	#endif /* CONFIG_PLATFORM_SPRD */
-#endif
+#include <linux/mmc/sdio_func.h>
+#include <linux/mmc/sdio_ids.h>
+#include <linux/mmc/host.h>
+#include <linux/mmc/card.h>
+#endif /* PLATFORM_LINUX */
 
 #define RTW_SDIO_CLK_33M	33000000
 #define RTW_SDIO_CLK_40M	40000000
 #define RTW_SDIO_CLK_80M	80000000
 #define RTW_SDIO_CLK_160M	160000000
 
-typedef struct sdio_data {
+struct sdio_data {
 	u8  func_number;
 
 	u8  tx_block_mode;
@@ -81,9 +75,7 @@ typedef struct sdio_data {
 	u8 err_test_triggered;	/* Simulate error already triggered */
 #endif /* DBG_SDIO >= 3 */
 #endif /* DBG_SDIO */
-} SDIO_DATA, *PSDIO_DATA;
-
-#define dvobj_to_sdio_func(d)	((d)->sdio_data.func)
+};
 
 #define RTW_SDIO_ADDR_CMD52_BIT	(1<<17)
 #define RTW_SDIO_ADDR_CMD52_GEN(a)	(a | RTW_SDIO_ADDR_CMD52_BIT)
@@ -94,6 +86,5 @@ typedef struct sdio_data {
 #define RTW_SDIO_ADDR_F0_GEN(a)	(a | RTW_SDIO_ADDR_F0_BIT)
 #define RTW_SDIO_ADDR_F0_CLR(a)	(a&~RTW_SDIO_ADDR_F0_BIT)
 #define RTW_SDIO_ADDR_F0_CHK(a)	(a&RTW_SDIO_ADDR_F0_BIT ? 1 : 0)
-
 
 #endif

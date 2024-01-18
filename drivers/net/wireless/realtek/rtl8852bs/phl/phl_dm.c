@@ -38,15 +38,15 @@ phl_ltr_sw_trigger(struct rtw_phl_com_t *phl_com, void *hal,
 	enum rtw_pcie_ltr_state state)
 {
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
-	struct bus_sw_cap_t *sw_cap = &phl_com->bus_sw_cap;
+	struct rtw_stats *phl_stats = &phl_com->phl_stats;
 
 	status = rtw_hal_ltr_sw_trigger(hal, state);
 
 	if (status == RTW_HAL_STATUS_SUCCESS) {
-		sw_cap->ltr_cur_state = state;
-		sw_cap->ltr_last_trigger_time = _os_get_cur_time_us();
+		phl_stats->ltr_cur_state = state;
+		phl_stats->ltr_last_trigger_time = _os_get_cur_time_us();
 		state == RTW_PCIE_LTR_SW_ACT ?
-		sw_cap->ltr_sw_act_tri_cnt++ : sw_cap->ltr_sw_idle_tri_cnt++;
+		phl_stats->ltr_sw_act_tri_cnt++ : phl_stats->ltr_sw_idle_tri_cnt++;
 		return RTW_PHL_STATUS_SUCCESS;
 	} else {
 		return RTW_PHL_STATUS_FAILURE;
@@ -87,21 +87,21 @@ void phl_ltr_sw_ctrl_ntfy(struct rtw_phl_com_t *phl_com, bool enable)
 
 u8 phl_ltr_get_cur_state(struct rtw_phl_com_t *phl_com)
 {
-	return phl_com->bus_sw_cap.ltr_cur_state;
+	return phl_com->phl_stats.ltr_cur_state;
 }
 
 u32 phl_ltr_get_last_trigger_time(struct rtw_phl_com_t *phl_com)
 {
-	return phl_com->bus_sw_cap.ltr_last_trigger_time;
+	return phl_com->phl_stats.ltr_last_trigger_time;
 }
 
 u32 phl_ltr_get_tri_cnt(struct rtw_phl_com_t *phl_com,
 	enum rtw_pcie_ltr_state state)
 {
-	struct bus_sw_cap_t *sw_cap = &phl_com->bus_sw_cap;
+	struct rtw_stats *phl_stats = &phl_com->phl_stats;
 
 	return state == RTW_PCIE_LTR_SW_ACT ?
-			sw_cap->ltr_sw_act_tri_cnt : sw_cap->ltr_sw_idle_tri_cnt;
+			phl_stats->ltr_sw_act_tri_cnt : phl_stats->ltr_sw_idle_tri_cnt;
 }
 
 #define TP_MBPS 100

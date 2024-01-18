@@ -9,6 +9,7 @@ _OS_INTFS_FILES :=	os_dep/osdep_service.o \
 			os_dep/linux/recv_linux.o \
 			os_dep/linux/ioctl_cfg80211.o \
 			os_dep/linux/rtw_cfgvendor.o \
+			os_dep/linux/os_ch_utils.o \
 			os_dep/linux/wifi_regd.o \
 			os_dep/linux/rtw_android.o \
 			os_dep/linux/rtw_proc.o \
@@ -59,9 +60,12 @@ _CORE_FILES :=	core/rtw_cmd.o \
 		core/rtw_wlan_util.o \
 		core/rtw_vht.o \
 		core/rtw_he.o \
+		core/rtw_eht.o \
 		core/rtw_pwrctrl.o \
 		core/rtw_rf.o \
 		core/rtw_chplan.o \
+		core/rtw_regdb_$(CONFIG_RTW_REGDB).o \
+		core/rtw_chset.o \
 		core/rtw_dfs.o \
 		core/rtw_txpwr.o \
 		core/monitor/rtw_radiotap.o \
@@ -121,7 +125,10 @@ endif
 
 ifeq ($(CONFIG_SDIO_HCI), y)
 _CORE_FILES += core/rtw_sdio.o
-_CORE_FILES += core/rtw_trx_sdio.o
+endif
+
+ifeq ($(CONFIG_FPGA_INCLUDED), y)
+_CORE_FILES += core/rtw_fpga.o
 endif
 
 ifeq ($(CONFIG_MP_INCLUDED), y)

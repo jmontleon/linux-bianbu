@@ -15,6 +15,25 @@
 
 #include "twt.h"
 
+u32 twt_info_init(struct mac_ax_adapter *adapter)
+{
+	adapter->twt_info =
+		(struct mac_ax_twt_info *)PLTFM_MALLOC(TWT_INFO_SIZE);
+	adapter->twt_info->err_rec = 0;
+	adapter->twt_info->pdbg_info = (u8 *)PLTFM_MALLOC(TWT_DBG_INFO_SIZE);
+	PLTFM_MEMSET(adapter->twt_info->pdbg_info, 0, TWT_DBG_INFO_SIZE);
+
+	return MACSUCCESS;
+}
+
+u32 twt_info_exit(struct mac_ax_adapter *adapter)
+{
+	PLTFM_FREE(adapter->twt_info->pdbg_info, TWT_DBG_INFO_SIZE);
+	PLTFM_FREE(adapter->twt_info, TWT_INFO_SIZE);
+
+	return MACSUCCESS;
+}
+
 u32 mac_twt_info_upd_h2c(struct mac_ax_adapter *adapter,
 			 struct mac_ax_twt_para *info)
 {
@@ -85,7 +104,7 @@ u32 mac_twt_info_upd_h2c(struct mac_ax_adapter *adapter,
 			      FWCMD_H2C_CL_TWT,
 			      FWCMD_H2C_FUNC_TWTINFO_UPD,
 			      0,
-			      1);
+			      0);
 	if (ret)
 		goto fail;
 
@@ -250,37 +269,61 @@ void mac_twt_wait_anno(struct mac_ax_adapter *adapter,
 				 FWCMD_C2H_WAIT_ANNOUNCE_MACID2);
 }
 
-void mac_get_tsf(struct mac_ax_adapter *adapter,
-		 struct mac_ax_port_tsf *tsf)
+u32 mac_get_tsf(struct mac_ax_adapter *adapter, struct mac_ax_port_tsf *tsf)
 {
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u32 reg_l = 0;
 	u32 reg_h = 0;
+	u32 ret;
+	u8 port = tsf->port;
 
-	switch (tsf->port) {
-	case 0:
-		reg_h = R_AX_TSFTR_HIGH_P0;
-		reg_l = R_AX_TSFTR_LOW_P0;
-	break;
-	case 1:
-		reg_h = R_AX_TSFTR_HIGH_P1;
-		reg_l = R_AX_TSFTR_LOW_P1;
-	break;
-	case 2:
-		reg_h = R_AX_TSFTR_HIGH_P2;
-		reg_l = R_AX_TSFTR_LOW_P2;
-	break;
-	case 3:
-		reg_h = R_AX_TSFTR_HIGH_P3;
-		reg_l = R_AX_TSFTR_LOW_P3;
-	break;
+	ret = check_mac_en(adapter, tsf->band, MAC_AX_CMAC_SEL);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	if (port >= adapter->hw_info->port_num) {
+		PLTFM_MSG_ERR("%s invalid port idx %d\n", __func__, port);
+		return MACPORTERR;
+	}
+
+	switch (port) {
+	case MAC_AX_PORT_0:
+		reg_h = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_HIGH_P0 : R_AX_TSFTR_HIGH_P0_C1;
+		reg_l = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_LOW_P0 : R_AX_TSFTR_LOW_P0_C1;
+		break;
+	case MAC_AX_PORT_1:
+		reg_h = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_HIGH_P1 : R_AX_TSFTR_HIGH_P1_C1;
+		reg_l = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_LOW_P1 : R_AX_TSFTR_LOW_P1_C1;
+		break;
+	case MAC_AX_PORT_2:
+		reg_h = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_HIGH_P2 : R_AX_TSFTR_HIGH_P2_C1;
+		reg_l = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_LOW_P2 : R_AX_TSFTR_LOW_P2_C1;
+		break;
+	case MAC_AX_PORT_3:
+		reg_h = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_HIGH_P3 : R_AX_TSFTR_HIGH_P3_C1;
+		reg_l = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_LOW_P3 : R_AX_TSFTR_LOW_P3_C1;
+		break;
+	case MAC_AX_PORT_4:
+		reg_h = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_HIGH_P4 : R_AX_TSFTR_HIGH_P4_C1;
+		reg_l = tsf->band == MAC_AX_BAND_0 ?
+			R_AX_TSFTR_LOW_P4 : R_AX_TSFTR_LOW_P4_C1;
+		break;
 	default:
-		reg_h = R_AX_TSFTR_HIGH_P0;
-		reg_l = R_AX_TSFTR_LOW_P0;
-	break;
+		return MACFUNCINPUT;
 	}
 
 	tsf->tsf_h = MAC_REG_R32(reg_h);
 	tsf->tsf_l = MAC_REG_R32(reg_l);
+
+	return MACSUCCESS;
 }
 

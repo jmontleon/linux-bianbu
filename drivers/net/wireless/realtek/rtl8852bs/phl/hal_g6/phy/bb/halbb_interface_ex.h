@@ -35,6 +35,8 @@
 struct bb_info;
 void halbb_set_reg(struct bb_info *bb, u32 addr, u32 mask, u32 val);
 u32 halbb_get_reg(struct bb_info *bb, u32 addr, u32 bit_mask);
+void halbb_set_reg_cmn(struct bb_info *bb, u32 addr, u32 mask, u32 val, enum phl_phy_idx phy_idx);
+u32 halbb_get_reg_cmn(struct bb_info *bb, u32 addr, u32 mask, enum phl_phy_idx phy_idx);
 u32 rtw_halbb_c2h_parsing(struct bb_info *bb, u8 classid, u8 cmdid, u16 len, u8 *c2h);
 u8 halbb_set_cmac_txpwr_mode(struct bb_info *bb, struct rtw_phl_stainfo_t *phl_sta_i);
 u8 halbb_set_cmac_ntx_en(struct bb_info *bb, struct rtw_phl_stainfo_t *phl_sta_i);

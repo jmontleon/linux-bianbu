@@ -44,7 +44,7 @@ enum rtw_hal_status rtw_hal_mp_txpwr_get_pwrtrack(
 
 	PHL_INFO("%s\n", __FUNCTION__);
 
-	hal_status = rtw_hal_rf_get_pwrtrack(mp->hal, &arg->txpwr_track_status);
+	hal_status = rtw_hal_rf_get_pwrtrack(mp->hal, &arg->txpwr_track_status, arg->cur_phy);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 	PHL_INFO("%s: pwr track status = %d\n", __FUNCTION__,
 		 arg->txpwr_track_status);
@@ -57,9 +57,11 @@ enum rtw_hal_status rtw_hal_mp_txpwr_set_pwrtrack(
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 
-	PHL_INFO("%s: pwr track status = %d\n", __FUNCTION__, arg->txpwr_track_status);
+	PHL_INFO("%s: pwr track status = %d phy = %d\n", __FUNCTION__,
+	                                                arg->txpwr_track_status,
+	                                                arg->cur_phy);
 
-	hal_status = rtw_hal_rf_set_pwrtrack(mp->hal, mp->cur_phy, arg->txpwr_track_status);
+	hal_status = rtw_hal_rf_set_pwrtrack(mp->hal, arg->cur_phy, arg->txpwr_track_status);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 
 	return hal_status;
@@ -72,10 +74,10 @@ enum rtw_hal_status rtw_hal_mp_txpwr_set_pwr(
 	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
 
 	PHL_INFO("%s: tx power = %d\n", __FUNCTION__, arg->txpwr);
-	PHL_INFO("%s: phy index = %d\n", __FUNCTION__, mp->cur_phy);
+	PHL_INFO("%s: phy index = %d\n", __FUNCTION__, arg->cur_phy);
 
 	hal_status = rtw_hal_bb_set_power(hal_info->hal_com,
-									  arg->txpwr, mp->cur_phy);
+									  arg->txpwr, arg->cur_phy);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 
 	return hal_status;
@@ -86,12 +88,12 @@ enum rtw_hal_status rtw_hal_mp_txpwr_get_pwr(
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
-	
-	PHL_INFO("%s: phy index = %d\n", __FUNCTION__, mp->cur_phy);
+
+	PHL_INFO("%s: phy index = %d\n", __FUNCTION__, arg->cur_phy);
 
 	/* Call hal API */
 	hal_status = rtw_hal_bb_get_power(hal_info->hal_com,
-									  &arg->txpwr, mp->cur_phy);
+									  &arg->txpwr, arg->cur_phy);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 	PHL_INFO("%s: tx power = %d\n", __FUNCTION__, arg->txpwr);
 
@@ -154,7 +156,7 @@ enum rtw_hal_status rtw_hal_mp_txpwr_set_tssi(
 	PHL_INFO("%s: rf path = %d\n", __FUNCTION__, arg->rfpath);
 	PHL_INFO("%s: tssi = %d\n", __FUNCTION__, arg->tssi);
 
-	hal_status = rtw_hal_rf_set_tssi(mp->hal, mp->cur_phy, arg->rfpath, arg->tssi);
+	hal_status = rtw_hal_rf_set_tssi(mp->hal, arg->cur_phy, arg->rfpath, arg->tssi);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 
 	return hal_status;
@@ -168,7 +170,7 @@ enum rtw_hal_status rtw_hal_mp_txpwr_set_tssi_offset(
 	PHL_INFO("%s: rf path = %d\n", __FUNCTION__, arg->rfpath);
 	PHL_INFO("%s: tssi_de_offset = %d\n", __FUNCTION__, arg->tssi_de_offset);
 
-	hal_status = rtw_hal_rf_set_tssi_offset(mp->hal, mp->cur_phy,arg->tssi_de_offset,arg->rfpath);
+	hal_status = rtw_hal_rf_set_tssi_offset(mp->hal, arg->cur_phy,arg->tssi_de_offset,arg->rfpath);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 
 	return hal_status;
@@ -181,7 +183,7 @@ enum rtw_hal_status rtw_hal_mp_txpwr_get_tssi(
 
 	PHL_INFO("%s: rf path = %d\n", __FUNCTION__, arg->rfpath);
 
-	hal_status = rtw_hal_rf_get_tssi(mp->hal, mp->cur_phy, arg->rfpath, &arg->tssi);
+	hal_status = rtw_hal_rf_get_tssi(mp->hal, arg->cur_phy, arg->rfpath, &arg->tssi);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 	PHL_INFO("%s: tssi = %d\n", __FUNCTION__, arg->tssi);
 
@@ -197,7 +199,7 @@ enum rtw_hal_status rtw_hal_mp_txpwr_get_online_tssi_de(
 	PHL_INFO("%s: dbm = %d\n", __FUNCTION__, arg->dbm);
 	PHL_INFO("%s: pout = %d\n", __FUNCTION__, arg->pout);
 
-	hal_status = rtw_hal_rf_get_online_tssi_de(mp->hal, mp->cur_phy, arg->rfpath, arg->dbm, arg->pout, &arg->online_tssi_de);
+	hal_status = rtw_hal_rf_get_online_tssi_de(mp->hal, arg->cur_phy, arg->rfpath, arg->dbm, arg->pout, &arg->online_tssi_de);
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 	PHL_INFO("%s: online tssi de = %d\n", __FUNCTION__, arg->online_tssi_de);
 
@@ -213,12 +215,12 @@ enum rtw_hal_status rtw_hal_mp_set_pwr_lmt_en(
 
 	PHL_INFO("%s: arg pwr_lmt_en = %d\n", __FUNCTION__, arg->pwr_lmt_en);
 
-	hal_status = rtw_hal_mac_set_pwr_lmt_en_val(hal_com, mp->cur_phy, arg->pwr_lmt_en);
+	hal_status = rtw_hal_mac_set_pwr_lmt_en_val(hal_com, arg->cur_phy, arg->pwr_lmt_en);
 	PHL_INFO("%s: set_pwr_lmt_en_val status = %d\n", __FUNCTION__, hal_status);
 
 	if (hal_status == RTW_HAL_STATUS_FAILURE)
 		return hal_status;
-	hal_status = rtw_hal_mac_write_pwr_limit_en(hal_com, mp->cur_phy);
+	hal_status = rtw_hal_mac_write_pwr_limit_en(hal_com, arg->cur_phy);
 	PHL_INFO("%s:write_pwr_limit_en status = %d\n", __FUNCTION__, hal_status);
 
 	return hal_status;
@@ -231,7 +233,7 @@ enum rtw_hal_status rtw_hal_mp_get_pwr_lmt_en(
 	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
 
 	PHL_INFO("%s: \n", __FUNCTION__);
-	arg->pwr_lmt_en = rtw_hal_mac_get_pwr_lmt_en_val(hal_com, mp->cur_phy);
+	arg->pwr_lmt_en = rtw_hal_mac_get_pwr_lmt_en_val(hal_com, arg->cur_phy);
 
 	PHL_INFO("%s: pwr_lmt_en = %d\n", __FUNCTION__, arg->pwr_lmt_en);
 
@@ -309,7 +311,7 @@ void rtw_hal_mp_set_tx_pow_patten_sharp(struct mp_context *mp, struct mp_txpwr_a
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
 
-	rtw_hal_bb_set_pow_patten_sharp(hal_info->hal_com, arg->channel, arg->is_cck, arg->sharp_id, mp->cur_phy);
+	rtw_hal_bb_set_pow_patten_sharp(hal_info->hal_com, arg->channel, arg->is_cck, arg->sharp_id, arg->cur_phy);
 }
 
 

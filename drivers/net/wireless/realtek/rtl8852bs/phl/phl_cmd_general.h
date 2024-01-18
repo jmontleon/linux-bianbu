@@ -15,6 +15,32 @@
 #ifndef _PHL_CMD_GENERAL_H_
 #define _PHL_CMD_GENERAL_H_
 
+#ifdef CONFIG_MR_COEX_SUPPORT
+#define RTW_DUMP_HAL_CR(_phl, _evt, _band) \
+	do {\
+		if (true == rtw_phl_mr_coex_query_inprogress(_phl,\
+				_band, RTW_MR_COEX_CHK_INPROGRESS)) {\
+			rtw_hal_notification_ex(_phl->hal, _evt,\
+					true, true, false, _band);\
+		} else {\
+			rtw_hal_notification_ex(_phl->hal, _evt,\
+					true, true, true, _band);\
+		}\
+	} while(0);
+#else
+#define RTW_DUMP_HAL_CR(_phl, _evt, _band) \
+	do {\
+		rtw_hal_notification_ex(_phl->hal, _evt,\
+					true, true, true, _band);\
+	} while(0);
+#endif
+
+enum rtw_phl_status
+phl_cmd_get_cur_cmdinfo(struct phl_info_t *phl_info,
+					u8 band_idx,
+					struct phl_msg *msg,
+					u8 **cmd, u32 *cmd_len);
+
 enum rtw_phl_status
 phl_cmd_get_cur_cmdinfo(struct phl_info_t *phl_info,
 					u8 band_idx,

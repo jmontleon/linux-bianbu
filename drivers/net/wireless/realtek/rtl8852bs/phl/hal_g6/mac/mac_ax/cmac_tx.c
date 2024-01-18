@@ -13,28 +13,18 @@
  *
  ******************************************************************************/
 #include "cmac_tx.h"
-
-#define PTCL_IDLE_POLL_CNT	2200
-#define SW_CVR_DUR_US	30
-#define SW_CVR_CNT	8
-#define TX_DLY_MAX	9
+#include "mac_priv.h"
 
 static u32 stop_macid_ctn(struct mac_ax_adapter *adapter,
 			  struct mac_role_tbl *role,
 			  struct mac_ax_sch_tx_en_cfg *bak);
-static u32 tx_idle_ck(struct mac_ax_adapter *adapter, u8 band);
-static u32 tx_idle_sel_ck(struct mac_ax_adapter *adapter, enum ptcl_tx_sel sel,
-			  u8 band);
 static u32 tx_idle_sel_ck_b(struct mac_ax_adapter *adapter,
 			    enum ptcl_tx_sel sel, u8 band);
-static u32 macid_idle_ck(struct mac_ax_adapter *adapter,
-			 struct mac_role_tbl *role);
 static u32 band_idle_ck(struct mac_ax_adapter *adapter, u8 band);
-static void tx_on_dly(struct mac_ax_adapter *adapter, u8 band);
 static void sch_2_u16(struct mac_ax_adapter *adapter,
 		      struct mac_ax_sch_tx_en *tx_en, u16 *val16);
-static void u16_2_sch(struct mac_ax_adapter *adapter,
-		      struct mac_ax_sch_tx_en *tx_en, u16 val16);
+static void sch_2_u32(struct mac_ax_adapter *adapter,
+		      struct mac_ax_sch_tx_en *tx_en, u32 *val32);
 static u32 h2c_usr_edca(struct mac_ax_adapter *adapter,
 			struct mac_ax_usr_edca_param *param);
 static u32 h2c_usr_tx_rpt(struct mac_ax_adapter *adapter,
@@ -210,7 +200,7 @@ u32 set_hw_edca_param(struct mac_ax_adapter *adapter,
 	u32 val32;
 	u32 reg_edca;
 	u32 ret;
-	u32 cw;
+	u16 val16;
 	enum mac_ax_cmac_path_sel path;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
@@ -223,70 +213,45 @@ u32 set_hw_edca_param(struct mac_ax_adapter *adapter,
 		return ret;
 
 	path = param->path;
-	cw = (param->ecw_max << 4) | param->ecw_min;
 
-#if MAC_USB_IO_ACC
-	if (adapter->hw_info->intf == MAC_AX_INTF_USB &&
-	    adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
-		if (path == MAC_AX_CMAC_PATH_SEL_MG0_1) {
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_MGQ_CW), cw, 0);
+#if MAC_AX_FW_REG_OFLD
+	if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
+		if (path == MAC_AX_CMAC_PATH_SEL_MG0_1 ||
+		    path == MAC_AX_CMAC_PATH_SEL_MG2 ||
+		    path == MAC_AX_CMAC_PATH_SEL_BCN) {
+			val16 = SET_WORD((param->ecw_max << 4) | param->ecw_min,
+					 B_AX_BE_0_CW) |
+				SET_WORD(param->aifs_us, B_AX_BE_0_AIFS);
+			ret = MAC_REG_W16_OFLD((u16)reg_edca, val16, 1);
 			if (ret != MACSUCCESS)
 				return ret;
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_MGQ_AIFS),
-					     param->aifs_us, 1);
-		} else if (path == MAC_AX_CMAC_PATH_SEL_MG2) {
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_CPUMGQ_CW), cw, 0);
-			if (ret != MACSUCCESS)
-				return ret;
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_CPUMGQ_AIFS),
-					     param->aifs_us, 1);
-		} else if (path == MAC_AX_CMAC_PATH_SEL_BCN) {
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_BCNQ_CW), cw, 0);
-			if (ret != MACSUCCESS)
-				return ret;
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_BCNQ_AIFS),
-					     param->aifs_us, 1);
 		} else {
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_BE_0_TXOPLMT),
-					     param->txop_32us, 0);
+			val32 = SET_WORD(param->txop_32us, B_AX_BE_0_TXOPLMT) |
+				SET_WORD((param->ecw_max << 4) | param->ecw_min,
+					 B_AX_BE_0_CW) |
+				SET_WORD(param->aifs_us, B_AX_BE_0_AIFS);
+			ret = MAC_REG_W32_OFLD((u16)reg_edca, val32, 1);
 			if (ret != MACSUCCESS)
 				return ret;
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_BE_0_CW), cw, 0);
-			if (ret != MACSUCCESS)
-				return ret;
-			ret = MAC_REG_W_OFLD((u16)reg_edca,
-					     GET_MSK(B_AX_BE_0_AIFS),
-					     param->aifs_us, 1);
 		}
-		return ret;
+		return MACSUCCESS;
 	}
 #endif
 
-	val32 = MAC_REG_R32(reg_edca);
-	if (path == MAC_AX_CMAC_PATH_SEL_MG0_1) {
-		val32 = SET_CLR_WORD(val32, cw, B_AX_MGQ_CW);
-		val32 = SET_CLR_WORD(val32, param->aifs_us, B_AX_MGQ_AIFS);
-	} else if (path == MAC_AX_CMAC_PATH_SEL_MG2) {
-		val32 = SET_CLR_WORD(val32, cw, B_AX_CPUMGQ_CW);
-		val32 = SET_CLR_WORD(val32, param->aifs_us, B_AX_CPUMGQ_AIFS);
-	} else if (path == MAC_AX_CMAC_PATH_SEL_BCN) {
-		val32 = SET_CLR_WORD(val32, cw, B_AX_BCNQ_CW);
-		val32 = SET_CLR_WORD(val32, param->aifs_us, B_AX_BCNQ_AIFS);
+	if (path == MAC_AX_CMAC_PATH_SEL_MG0_1 ||
+	    path == MAC_AX_CMAC_PATH_SEL_MG2 ||
+	    path == MAC_AX_CMAC_PATH_SEL_BCN) {
+		val16 = SET_WORD((param->ecw_max << 4) | param->ecw_min,
+				 B_AX_BE_0_CW) |
+			SET_WORD(param->aifs_us, B_AX_BE_0_AIFS);
+		MAC_REG_W16(reg_edca, val16);
 	} else {
-		val32 = SET_CLR_WORD(val32,
-				     param->txop_32us, B_AX_BE_0_TXOPLMT);
-		val32 = SET_CLR_WORD(val32, cw, B_AX_BE_0_CW);
-		val32 = SET_CLR_WORD(val32, param->aifs_us, B_AX_BE_0_AIFS);
+		val32 = SET_WORD(param->txop_32us, B_AX_BE_0_TXOPLMT) |
+			SET_WORD((param->ecw_max << 4) | param->ecw_min,
+				 B_AX_BE_0_CW) |
+			SET_WORD(param->aifs_us, B_AX_BE_0_AIFS);
+		MAC_REG_W32(reg_edca, val32);
 	}
-	MAC_REG_W32(reg_edca, val32);
 
 	return MACSUCCESS;
 }
@@ -610,6 +575,7 @@ u32 set_hw_sch_tx_en(struct mac_ax_adapter *adapter,
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u16 tx_en_u16;
 	u16 mask_u16;
+	u32 tx_en_u32, mask_u32, val32;
 	struct mac_ax_sch_tx_en tx_en;
 	struct mac_ax_sch_tx_en tx_en_mask;
 	u8 chip_id = adapter->hw_info->chip_id;
@@ -625,28 +591,138 @@ u32 set_hw_sch_tx_en(struct mac_ax_adapter *adapter,
 	sch_2_u16(adapter, &tx_en, &tx_en_u16);
 	sch_2_u16(adapter, &tx_en_mask, &mask_u16);
 
-	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY ||
-	    chip_id == MAC_AX_CHIP_ID_8852C ||
-	    chip_id == MAC_AX_CHIP_ID_8192XB) {
-		val16 = MAC_REG_R16(band ? R_AX_CTN_TXEN_C1 : R_AX_CTN_TXEN);
+	if (chip_id == MAC_AX_CHIP_ID_8852A ||
+	    chip_id == MAC_AX_CHIP_ID_8852B ||
+	    chip_id == MAC_AX_CHIP_ID_8851B) {
+		if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
+			val16 = MAC_REG_R16(band ? R_AX_CTN_TXEN_C1 :
+					    R_AX_CTN_TXEN);
 
-		val16 = (tx_en_u16 & mask_u16) | (~(~tx_en_u16 & mask_u16) & val16);
+			val16 = (tx_en_u16 & mask_u16) |
+				(~(~tx_en_u16 & mask_u16) & val16);
 
-		MAC_REG_W16(band ? R_AX_CTN_TXEN_C1 : R_AX_CTN_TXEN, val16);
+			MAC_REG_W16(band ? R_AX_CTN_TXEN_C1 : R_AX_CTN_TXEN,
+				    val16);
+		} else {
+			hw_sch_tx_en(adapter, band, tx_en_u16, mask_u16);
+		}
+	} else if (chip_id == MAC_AX_CHIP_ID_8852C ||
+		   chip_id == MAC_AX_CHIP_ID_8192XB ||
+		   chip_id == MAC_AX_CHIP_ID_8851E ||
+		   chip_id == MAC_AX_CHIP_ID_8852D) {
+		sch_2_u32(adapter, &tx_en, &tx_en_u32);
+		sch_2_u32(adapter, &tx_en_mask, &mask_u32);
+
+		val32 = MAC_REG_R32(band ? R_AX_CTN_DRV_TXEN_C1 :
+				    R_AX_CTN_DRV_TXEN);
+
+		val32 = (tx_en_u32 & mask_u32) |
+			(~(~tx_en_u32 & mask_u32) & val32);
+
+		MAC_REG_W32(band ? R_AX_CTN_DRV_TXEN_C1 :
+			    R_AX_CTN_DRV_TXEN, val32);
 	} else {
-		hw_sch_tx_en(adapter, band, tx_en_u16, mask_u16);
+		return MACNOITEM;
 	}
 
 	return MACSUCCESS;
+}
+
+u32 hw_sch_tx_en_h2c_pkt(struct mac_ax_adapter *adapter, u8 band,
+			 u16 tx_en_u16, u16 mask_u16)
+{
+	u32 ret = MACSUCCESS;
+	#if MAC_AX_PHL_H2C
+	struct rtw_h2c_pkt *h2cb;
+	#else
+	struct h2c_buf *h2cb;
+	#endif
+	u8 *buf;
+	struct fwcmd_sch_tx_en_pkt *write_ptr;
+
+	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
+		PLTFM_MSG_ERR("[ERR]%s fw not ready\n", __func__);
+		return MACNOFW;
+	}
+
+	if (adapter->sm.sch_tx_en_ofld != MAC_AX_OFLD_H2C_IDLE) {
+		PLTFM_MSG_ERR("[ERR]SchTxEn PKT state machine not MAC_AX_OFLD_H2C_IDLE\n");
+		return MACPROCERR;
+	}
+
+	adapter->sm.sch_tx_en_ofld = MAC_AX_OFLD_H2C_SENDING;
+
+	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	if (!h2cb)
+		return MACNPTR;
+
+	buf = h2cb_put(h2cb, sizeof(struct fwcmd_sch_tx_en_pkt));
+	if (!buf) {
+		ret = MACNOBUF;
+		goto end;
+	}
+	write_ptr = (struct fwcmd_sch_tx_en_pkt *)buf;
+	write_ptr->dword0 =
+		cpu_to_le32(SET_WORD(tx_en_u16, FWCMD_H2C_H2CPKT_SCH_TX_PAUSE_TX_EN));
+	write_ptr->dword1 =
+		cpu_to_le32(SET_WORD(mask_u16, FWCMD_H2C_H2CPKT_SCH_TX_PAUSE_MASK) |
+			    (band ? FWCMD_H2C_H2CPKT_SCH_TX_PAUSE_BAND : 0));
+
+	ret = h2c_pkt_set_hdr(adapter, h2cb,
+			      FWCMD_TYPE_H2C, FWCMD_H2C_CAT_MAC,
+			      FWCMD_H2C_CL_FW_OFLD, FWCMD_H2C_FUNC_SCH_TX_EN_PKT,
+			      0, 1);
+	if (ret)
+		goto end;
+
+	ret = h2c_pkt_build_txd(adapter, h2cb);
+	if (ret)
+		goto end;
+
+	#if MAC_AX_PHL_H2C
+	ret = PLTFM_TX(h2cb);
+	#else
+	ret = PLTFM_TX(h2cb->data, h2cb->len);
+	#endif
+	if (ret) {
+		PLTFM_MSG_ERR("[ERR]platform tx\n");
+		goto end;
+	}
+end:
+	h2cb_free(adapter, h2cb);
+	return ret;
 }
 
 u32 hw_sch_tx_en(struct mac_ax_adapter *adapter, u8 band,
 		 u16 tx_en_u16, u16 mask_u16)
 {
 #define RETRY_WAIT_US 1
-	u32 ret;
+#define RETRY_WAIT_PKT_US 50
+	u32 ret, cnt;
 	struct mac_ax_h2creg_info h2c = {0};
 	struct mac_ax_c2hreg_poll c2h = {0};
+
+	if (adapter->drv_stats.rx_ok) {
+		ret = hw_sch_tx_en_h2c_pkt(adapter, band, tx_en_u16, mask_u16);
+		if (ret) {
+			PLTFM_MSG_ERR("[ERR]SchTxEn PKT %d\n", ret);
+			return ret;
+		}
+		/* Wait for C2H */
+		cnt = TX_PAUSE_WAIT_PKT_CNT;
+
+		while (--cnt) {
+			if (adapter->sm.sch_tx_en_ofld == MAC_AX_OFLD_H2C_DONE)
+				break;
+			PLTFM_SLEEP_US(RETRY_WAIT_PKT_US);
+		}
+		adapter->sm.sch_tx_en_ofld = MAC_AX_OFLD_H2C_IDLE;
+		if (!cnt) {
+			PLTFM_MSG_ERR("[ERR]SchTxEn DONE ACK timeout\n");
+			return MACPROCERR;
+		}
+		return MACSUCCESS;
+	}
 
 	h2c.id = FWCMD_H2CREG_FUNC_SCH_TX_EN;
 	h2c.content_len = sizeof(struct sch_tx_en_h2creg);
@@ -673,10 +749,11 @@ u32 get_hw_sch_tx_en(struct mac_ax_adapter *adapter,
 		     struct mac_ax_sch_tx_en_cfg *cfg)
 {
 	u8 band;
-	u32 ret;
+	u32 ret, val32;
 	u16 val16;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	struct mac_ax_sch_tx_en tx_en;
+	u8 chip_id = adapter->hw_info->chip_id;
 
 	band = cfg->band;
 
@@ -684,9 +761,23 @@ u32 get_hw_sch_tx_en(struct mac_ax_adapter *adapter,
 	if (ret != MACSUCCESS)
 		return ret;
 
-	val16 = MAC_REG_R16(band ? R_AX_CTN_TXEN_C1 : R_AX_CTN_TXEN);
-	u16_2_sch(adapter, &tx_en, val16);
-	cfg->tx_en = tx_en;
+	if (chip_id == MAC_AX_CHIP_ID_8852A ||
+	    chip_id == MAC_AX_CHIP_ID_8852B ||
+	    chip_id == MAC_AX_CHIP_ID_8851B) {
+		val16 = MAC_REG_R16(band ? R_AX_CTN_TXEN_C1 : R_AX_CTN_TXEN);
+		u16_2_sch(adapter, &tx_en, val16);
+		cfg->tx_en = tx_en;
+	} else if (chip_id == MAC_AX_CHIP_ID_8852C ||
+		   chip_id == MAC_AX_CHIP_ID_8192XB ||
+		   chip_id == MAC_AX_CHIP_ID_8851E ||
+		   chip_id == MAC_AX_CHIP_ID_8852D) {
+		val32 = MAC_REG_R32(band ? R_AX_CTN_DRV_TXEN_C1 :
+				    R_AX_CTN_DRV_TXEN);
+		u32_2_sch(adapter, &tx_en, val32);
+		cfg->tx_en = tx_en;
+	} else {
+		return MACNOITEM;
+	}
 
 	return MACSUCCESS;
 }
@@ -808,56 +899,35 @@ u32 get_hw_lifetime_cfg(struct mac_ax_adapter *adapter,
 	return MACSUCCESS;
 }
 
-u32 stop_sch_tx(struct mac_ax_adapter *adapter, enum sch_tx_sel sel,
-		struct mac_ax_sch_tx_en_cfg *bak)
+/* this function is only for WFA Tx TB PPDU SIFS timing workaround*/
+u32 set_hw_sifs_r2t_t2t(struct mac_ax_adapter *adapter,
+			struct mac_ax_sifs_r2t_t2t_ctrl *ctrl)
 {
-	struct mac_ax_sch_tx_en_cfg cfg;
-	u32 ret;
+	u32 reg, val32, ret, mactxen;
+	u8 band;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
-	ret = get_hw_sch_tx_en(adapter, bak);
+	band = ctrl->band;
+	mactxen = ctrl->mactxen;
+
+	PLTFM_MSG_ERR("[WARN] %s is only for ", __func__);
+	PLTFM_MSG_ERR("WFA Tx TB PPDU SIFS timing workaround\n");
+
+	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
 	if (ret != MACSUCCESS)
 		return ret;
 
-	cfg.band = bak->band;
-	u16_2_sch(adapter, &cfg.tx_en_mask, 0);
-	u16_2_sch(adapter, &cfg.tx_en, 0);
-
-	switch (sel) {
-	case SCH_TX_SEL_ALL:
-		u16_2_sch(adapter, &cfg.tx_en, 0);
-		u16_2_sch(adapter, &cfg.tx_en_mask, 0xFFFF);
-		ret = set_hw_sch_tx_en(adapter, &cfg);
-		if (ret != MACSUCCESS)
-			return ret;
-		break;
-	case SCH_TX_SEL_HIQ:
-		cfg.tx_en.hi = 0;
-		cfg.tx_en_mask.hi = 1;
-		ret = set_hw_sch_tx_en(adapter, &cfg);
-		if (ret != MACSUCCESS)
-			return ret;
-		break;
-	case SCH_TX_SEL_MG0:
-		cfg.tx_en.mg0 = 0;
-		cfg.tx_en_mask.mg0 = 1;
-		ret = set_hw_sch_tx_en(adapter, &cfg);
-		if (ret != MACSUCCESS)
-			return ret;
-		break;
-	case SCH_TX_SEL_MACID:
-		u16_2_sch(adapter, &cfg.tx_en, 0);
-		u16_2_sch(adapter, &cfg.tx_en_mask, 0xFFFF);
-		cfg.tx_en_mask.mg1 = 0;
-		cfg.tx_en_mask.mg2 = 0;
-		cfg.tx_en_mask.hi = 0;
-		cfg.tx_en_mask.bcn = 0;
-		ret = set_hw_sch_tx_en(adapter, &cfg);
-		if (ret != MACSUCCESS)
-			return ret;
-		break;
-	default:
-		return MACNOITEM;
+	if (mactxen > MACTXEN_MAX || mactxen < MACTXEN_MIN) {
+		PLTFM_MSG_ALWAYS("[ERR] sifs_r2t_t2t mactxen violation %d ",
+				 mactxen);
+		PLTFM_MSG_ALWAYS("must be %d ~ %d\n", MACTXEN_MIN, MACTXEN_MAX);
+		return MACFUNCINPUT;
 	}
+
+	reg = band == MAC_AX_BAND_1 ? R_AX_PREBKF_CFG_1_C1 : R_AX_PREBKF_CFG_1;
+	val32 = MAC_REG_R32(reg);
+	val32 = SET_CLR_WORD(val32, ctrl->mactxen, B_AX_SIFS_MACTXEN_T1);
+	MAC_REG_W32(reg, val32);
 
 	return MACSUCCESS;
 }
@@ -936,14 +1006,13 @@ u32 resume_macid_tx(struct mac_ax_adapter *adapter, struct mac_role_tbl *role,
 u32 tx_idle_poll_macid(struct mac_ax_adapter *adapter,
 		       struct mac_role_tbl *role)
 {
-	return macid_idle_ck(adapter, role);
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+
+	return p_ops->macid_idle_ck(adapter, role);
 }
 
-u32 tx_idle_poll_band(struct mac_ax_adapter *adapter, u8 band, u8 txop_aware)
+u32 tx_idle_poll_band(struct mac_ax_adapter *adapter, u8 band)
 {
-	if (txop_aware)
-		return tx_idle_ck(adapter, band);
-
 	return band_idle_ck(adapter, band);
 }
 
@@ -1057,21 +1126,28 @@ u32 get_edca_addr(struct mac_ax_adapter *adapter,
 			band ? R_AX_EDCA_VO_PARAM_1_C1 : R_AX_EDCA_VO_PARAM_1;
 		break;
 	case MAC_AX_CMAC_PATH_SEL_MG0_1:
-	case MAC_AX_CMAC_PATH_SEL_MG2:
 		*reg_edca =
 			band ? R_AX_EDCA_MGQ_PARAM_C1 : R_AX_EDCA_MGQ_PARAM;
 		break;
+	case MAC_AX_CMAC_PATH_SEL_MG2:
+		*reg_edca =
+			band ? (R_AX_EDCA_MGQ_PARAM_C1 + 2) :
+			(R_AX_EDCA_MGQ_PARAM + 2);
+		break;
 	case MAC_AX_CMAC_PATH_SEL_BCN:
 		*reg_edca =
-			band ? R_AX_EDCA_BCNQ_PARAM_C1 : R_AX_EDCA_BCNQ_PARAM;
+			band ? (R_AX_EDCA_BCNQ_PARAM_C1 + 2) :
+			(R_AX_EDCA_BCNQ_PARAM + 2);
 		break;
 	case MAC_AX_CMAC_PATH_SEL_TF:
 		*reg_edca = R_AX_EDCA_ULQ_PARAM;
 		break;
 	case MAC_AX_CMAC_PATH_SEL_TWT0:
+	case MAC_AX_CMAC_PATH_SEL_TWT2:
 		*reg_edca = R_AX_EDCA_TWT_PARAM_0;
 		break;
 	case MAC_AX_CMAC_PATH_SEL_TWT1:
+	case MAC_AX_CMAC_PATH_SEL_TWT3:
 		*reg_edca = R_AX_EDCA_TWT_PARAM_1;
 		break;
 	default:
@@ -1124,6 +1200,17 @@ u32 get_muedca_param_addr(struct mac_ax_adapter *adapter,
 	return MACSUCCESS;
 }
 
+void tx_on_dly(struct mac_ax_adapter *adapter, u8 band)
+{
+	u32 val32;
+	u32 drop_dly_max;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	val32 = MAC_REG_R32(band ? R_AX_TX_CTRL_C1 : R_AX_TX_CTRL);
+	drop_dly_max = GET_FIELD(val32, B_AX_DROP_CHK_MAX_NUM) >> 2;
+	PLTFM_DELAY_US((drop_dly_max > TX_DLY_MAX) ? drop_dly_max : TX_DLY_MAX);
+}
+
 /* for sw mode Tx, need to stop sch */
 /* (for "F2PCMD.disable_sleep_chk"), soar 20200225*/
 static u32 stop_macid_ctn(struct mac_ax_adapter *adapter,
@@ -1155,101 +1242,6 @@ static u32 stop_macid_ctn(struct mac_ax_adapter *adapter,
 	ret = set_hw_sch_tx_en(adapter, &cfg);
 	if (ret != MACSUCCESS)
 		return ret;
-
-	return MACSUCCESS;
-}
-
-static u32 tx_idle_ck(struct mac_ax_adapter *adapter, u8 band)
-{
-	u32 cnt;
-	u8 val8;
-	u32 ret;
-	u32 poll_addr;
-	u32 i;
-	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-
-	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
-	if (ret != MACSUCCESS)
-		return ret;
-
-	poll_addr = band ? R_AX_PTCL_TX_CTN_SEL_C1 : R_AX_PTCL_TX_CTN_SEL;
-
-	cnt = PTCL_IDLE_POLL_CNT;
-	while (--cnt) {
-		val8 = MAC_REG_R8(poll_addr);
-		if (val8 & B_AX_PTCL_TX_ON_STAT) {
-			PLTFM_DELAY_US(SW_CVR_DUR_US);
-		} else {
-			for (i = 0; i < SW_CVR_CNT; i++) {
-				val8 = MAC_REG_R8(poll_addr);
-				if (val8 & B_AX_PTCL_TX_ON_STAT)
-					break;
-				PLTFM_DELAY_US(SW_CVR_DUR_US);
-			}
-			if (i >= SW_CVR_CNT)
-				break;
-		}
-	}
-	if (!cnt)
-		return MACPOLLTXIDLE;
-
-	return MACSUCCESS;
-}
-
-static u32 tx_idle_sel_ck(struct mac_ax_adapter *adapter, enum ptcl_tx_sel sel,
-			  u8 band)
-{
-	u32 cnt;
-	u8 val8;
-	u32 ret;
-	u32 poll_addr;
-	u32 i;
-	u8 ptcl_tx_qid;
-	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-
-	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
-	if (ret != MACSUCCESS)
-		return ret;
-
-	poll_addr = band ? R_AX_PTCL_TX_CTN_SEL_C1 : R_AX_PTCL_TX_CTN_SEL;
-
-	switch (sel) {
-	case PTCL_TX_SEL_HIQ:
-		ptcl_tx_qid = PTCL_TXQ_HIQ;
-		break;
-	case PTCL_TX_SEL_MG0:
-		ptcl_tx_qid = PTCL_TXQ_MG0;
-		break;
-	default:
-		return MACNOITEM;
-	}
-
-	cnt = PTCL_IDLE_POLL_CNT;
-	while (--cnt) {
-		val8 = MAC_REG_R8(poll_addr);
-		if (val8 & B_AX_PTCL_TX_ON_STAT) {
-			if (GET_FIELD(val8, B_AX_PTCL_TX_QUEUE_IDX) ==
-			    ptcl_tx_qid)
-				PLTFM_DELAY_US(SW_CVR_DUR_US);
-			else
-				break;
-		} else {
-			for (i = 0; i < SW_CVR_CNT; i++) {
-				val8 = MAC_REG_R8(poll_addr);
-				if (val8 & B_AX_PTCL_TX_ON_STAT)
-					break;
-				PLTFM_DELAY_US(SW_CVR_DUR_US);
-			}
-			if ((val8 & B_AX_PTCL_TX_ON_STAT) &&
-			    GET_FIELD(val8, B_AX_PTCL_TX_QUEUE_IDX) !=
-			    ptcl_tx_qid)
-				break;
-			if (i >= SW_CVR_CNT)
-				break;
-		}
-	}
-	if (!cnt)
-		return MACPOLLTXIDLE;
 
 	return MACSUCCESS;
 }
@@ -1299,65 +1291,7 @@ static u32 tx_idle_sel_ck_b(struct mac_ax_adapter *adapter,
 		else
 			break;
 	}
-	if (!cnt)
-		return MACPOLLTXIDLE;
-
-	return MACSUCCESS;
-}
-
-static u32 macid_idle_ck(struct mac_ax_adapter *adapter,
-			 struct mac_role_tbl *role)
-{
-	u32 cnt;
-	u8 val8;
-	u32 ret;
-	u8 band;
-	u32 val32;
-	u8 macid;
-	u8 txq;
-	u32 poll_addr;
-	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-
-	band = role->info.band;
-	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
-	if (ret != MACSUCCESS)
-		return ret;
-
-	poll_addr = band ? R_AX_PTCL_TX_CTN_SEL_C1 : R_AX_PTCL_TX_CTN_SEL;
-
-	val8 = MAC_REG_R8(poll_addr);
-	if (val8 & B_AX_PTCL_TX_ON_STAT)
-		tx_on_dly(adapter, band);
-	else
-		return MACSUCCESS;
-
-	macid = role->macid;
-
-	cnt = PTCL_IDLE_POLL_CNT;
-	while (--cnt) {
-		val8 = MAC_REG_R8(poll_addr);
-		txq = GET_FIELD(val8, B_AX_PTCL_TX_QUEUE_IDX);
-		if ((val8 & B_AX_PTCL_TX_ON_STAT) && (val8 & B_AX_PTCL_DROP)) {
-			PLTFM_DELAY_US(SW_CVR_DUR_US);
-		} else if ((val8 & B_AX_PTCL_TX_ON_STAT) &&
-			   txq != PTCL_TXQ_HIQ && txq != PTCL_TXQ_BCNQ &&
-			   txq != PTCL_TXQ_MG0 && txq != PTCL_TXQ_MG1 &&
-			   txq != PTCL_TXQ_MG2 && txq != PTCL_TXQ_TB) {
-			PLTFM_DELAY_US(SW_CVR_DUR_US);
-			/* need to modify for 8852C, soar */
-			val32 = MAC_REG_R32(band ? R_AX_PTCL_TX_MACID_0_C1 :
-					    R_AX_PTCL_TX_MACID_0);
-			if (macid == GET_FIELD(val32, B_AX_TX_MACID_0) ||
-			    macid == GET_FIELD(val32, B_AX_TX_MACID_1) ||
-			    macid == GET_FIELD(val32, B_AX_TX_MACID_2) ||
-			    macid == GET_FIELD(val32, B_AX_TX_MACID_3))
-				PLTFM_DELAY_US(SW_CVR_DUR_US);
-			else
-				break;
-		} else {
-			break;
-		}
-	}
+	PLTFM_MSG_ALWAYS("%s: cnt %d, band %d, 0x%x\n", __func__, cnt, band, val8);
 	if (!cnt)
 		return MACPOLLTXIDLE;
 
@@ -1386,21 +1320,11 @@ static u32 band_idle_ck(struct mac_ax_adapter *adapter, u8 band)
 		else
 			break;
 	}
+	PLTFM_MSG_ALWAYS("%s: cnt %d, band %d, 0x%x\n", __func__, cnt, band, val8);
 	if (!cnt)
 		return MACPOLLTXIDLE;
 
 	return MACSUCCESS;
-}
-
-static void tx_on_dly(struct mac_ax_adapter *adapter, u8 band)
-{
-	u32 val32;
-	u32 drop_dly_max;
-	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-
-	val32 = MAC_REG_R32(band ? R_AX_TX_CTRL_C1 : R_AX_TX_CTRL);
-	drop_dly_max = GET_FIELD(val32, B_AX_DROP_CHK_MAX_NUM) >> 2;
-	PLTFM_DELAY_US((drop_dly_max > TX_DLY_MAX) ? drop_dly_max : TX_DLY_MAX);
 }
 
 static void sch_2_u16(struct mac_ax_adapter *adapter,
@@ -1424,8 +1348,31 @@ static void sch_2_u16(struct mac_ax_adapter *adapter,
 		(tx_en->twt1 ? B_AX_CTN_TXEN_TWT_1 : 0);
 }
 
-static void u16_2_sch(struct mac_ax_adapter *adapter,
-		      struct mac_ax_sch_tx_en *tx_en, u16 val16)
+static void sch_2_u32(struct mac_ax_adapter *adapter,
+		      struct mac_ax_sch_tx_en *tx_en, u32 *val32)
+{
+	*val32 = (tx_en->be0 ? B_AX_CTN_TXEN_BE_0 : 0) |
+		(tx_en->bk0 ? B_AX_CTN_TXEN_BK_0 : 0) |
+		(tx_en->vi0 ? B_AX_CTN_TXEN_VI_0 : 0) |
+		(tx_en->vo0 ? B_AX_CTN_TXEN_VO_0 : 0) |
+		(tx_en->be1 ? B_AX_CTN_TXEN_BE_1 : 0) |
+		(tx_en->bk1 ? B_AX_CTN_TXEN_BK_1 : 0) |
+		(tx_en->vi1 ? B_AX_CTN_TXEN_VI_1 : 0) |
+		(tx_en->vo1 ? B_AX_CTN_TXEN_VO_1 : 0) |
+		(tx_en->mg0 ? B_AX_CTN_TXEN_MGQ : 0) |
+		(tx_en->mg1 ? B_AX_CTN_TXEN_MGQ1 : 0) |
+		(tx_en->mg2 ? B_AX_CTN_TXEN_CPUMGQ : 0) |
+		(tx_en->hi ? B_AX_CTN_TXEN_HGQ : 0) |
+		(tx_en->bcn ? B_AX_CTN_TXEN_BCNQ : 0) |
+		(tx_en->ul ? B_AX_CTN_TXEN_ULQ : 0) |
+		(tx_en->twt0 ? B_AX_CTN_TXEN_TWT_0 : 0) |
+		(tx_en->twt1 ? B_AX_CTN_TXEN_TWT_1 : 0) |
+		(tx_en->twt2 ? B_AX_CTN_TXEN_TWT_2 : 0) |
+		(tx_en->twt3 ? B_AX_CTN_TXEN_TWT_3 : 0);
+}
+
+void u16_2_sch(struct mac_ax_adapter *adapter,
+	       struct mac_ax_sch_tx_en *tx_en, u16 val16)
 {
 	tx_en->be0 = val16 & B_AX_CTN_TXEN_BE_0 ? 1 : 0;
 	tx_en->bk0 = val16 & B_AX_CTN_TXEN_BK_0 ? 1 : 0;
@@ -1443,6 +1390,29 @@ static void u16_2_sch(struct mac_ax_adapter *adapter,
 	tx_en->ul = val16 & B_AX_CTN_TXEN_ULQ ? 1 : 0;
 	tx_en->twt0 = val16 & B_AX_CTN_TXEN_TWT_0 ? 1 : 0;
 	tx_en->twt1 = val16 & B_AX_CTN_TXEN_TWT_1 ? 1 : 0;
+}
+
+void u32_2_sch(struct mac_ax_adapter *adapter,
+	       struct mac_ax_sch_tx_en *tx_en, u32 val32)
+{
+	tx_en->be0 = val32 & B_AX_CTN_TXEN_BE_0 ? 1 : 0;
+	tx_en->bk0 = val32 & B_AX_CTN_TXEN_BK_0 ? 1 : 0;
+	tx_en->vi0 = val32 & B_AX_CTN_TXEN_VI_0 ? 1 : 0;
+	tx_en->vo0 = val32 & B_AX_CTN_TXEN_VO_0 ? 1 : 0;
+	tx_en->be1 = val32 & B_AX_CTN_TXEN_BE_1 ? 1 : 0;
+	tx_en->bk1 = val32 & B_AX_CTN_TXEN_BK_1 ? 1 : 0;
+	tx_en->vi1 = val32 & B_AX_CTN_TXEN_VI_1 ? 1 : 0;
+	tx_en->vo1 = val32 & B_AX_CTN_TXEN_VO_1 ? 1 : 0;
+	tx_en->mg0 = val32 & B_AX_CTN_TXEN_MGQ ? 1 : 0;
+	tx_en->mg1 = val32 & B_AX_CTN_TXEN_MGQ1 ? 1 : 0;
+	tx_en->mg2 = val32 & B_AX_CTN_TXEN_CPUMGQ ? 1 : 0;
+	tx_en->hi = val32 & B_AX_CTN_TXEN_HGQ ? 1 : 0;
+	tx_en->bcn = val32 & B_AX_CTN_TXEN_BCNQ ? 1 : 0;
+	tx_en->ul = val32 & B_AX_CTN_TXEN_ULQ ? 1 : 0;
+	tx_en->twt0 = val32 & B_AX_CTN_TXEN_TWT_0 ? 1 : 0;
+	tx_en->twt1 = val32 & B_AX_CTN_TXEN_TWT_1 ? 1 : 0;
+	tx_en->twt2 = val32 & B_AX_CTN_TXEN_TWT_2 ? 1 : 0;
+	tx_en->twt3 = val32 & B_AX_CTN_TXEN_TWT_3 ? 1 : 0;
 }
 
 static u32 h2c_usr_edca(struct mac_ax_adapter *adapter,
@@ -1593,6 +1563,7 @@ u32 mac_set_cctl_max_tx_time(struct mac_ax_adapter *adapter,
 			     struct mac_ax_max_tx_time *tx_time)
 {
 #define MAC_AX_DFLT_TX_TIME 5280
+	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	struct rtw_hal_mac_ax_cctl_info info, msk = {0};
 	u32 ret = MACSUCCESS;
@@ -1615,7 +1586,7 @@ u32 mac_set_cctl_max_tx_time(struct mac_ax_adapter *adapter,
 		info.ampdu_time_sel = 1;
 		msk.ampdu_max_time = FWCMD_H2C_CCTRL_AMPDU_MAX_TIME_MSK;
 		info.ampdu_max_time = (max_tx_time - 512) >> 9;
-		ret = mac_upd_cctl_info(adapter, &info, &msk, tx_time->macid, 1);
+		ret = mops->upd_cctl_info(adapter, &info, &msk, tx_time->macid, 1);
 	} else {
 		band = role->info.wmm < 2 ? 0 : 1;
 		offset = band == 0 ? R_AX_AMPDU_AGG_LIMIT + 3 :
@@ -1743,7 +1714,7 @@ u32 mac_tx_idle_poll(struct mac_ax_adapter *adapter,
 {
 	switch (poll_cfg->sel) {
 	case MAC_AX_TX_IDLE_POLL_SEL_BAND:
-		return tx_idle_poll_band(adapter, poll_cfg->band, 1);
+		return tx_idle_poll_band(adapter, poll_cfg->band);
 	default:
 		return MACNOITEM;
 	}
@@ -1780,6 +1751,52 @@ u32 mac_set_tx_ru26_tb(struct mac_ax_adapter *adapter,
 	return MACSUCCESS;
 }
 
+u32 set_cts2self(struct mac_ax_adapter *adapter,
+		 struct mac_ax_cts2self_cfg *cfg)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 reg;
+	u32 val32;
+
+	if (!cfg) {
+		PLTFM_MSG_ERR("[ERR]: the parameter is NULL in %s\n", __func__);
+		return MACNPTR;
+	}
+
+	reg = cfg->band_sel == MAC_AX_BAND_1 ?
+	      R_AX_SIFS_SETTING_C1 : R_AX_SIFS_SETTING;
+	val32 = MAC_REG_R32(reg);
+
+	if (cfg->threshold_sel == MAC_AX_CTS2SELF_DISABLE) {
+		val32 &= ~B_AX_HW_CTS2SELF_EN;
+		MAC_REG_W32(reg, val32);
+		return MACSUCCESS;
+	} else {
+		val32 |= B_AX_HW_CTS2SELF_EN;
+	}
+	if (cfg->threshold_sel == MAC_AX_CTS2SELF_NON_SEC_THRESHOLD ||
+	    cfg->threshold_sel == MAC_AX_CTS2SELF_BOTH_THRESHOLD) {
+		if (cfg->non_sec_threshold & ~B_AX_HW_CTS2SELF_PKT_LEN_TH_MSK) {
+			PLTFM_MSG_ERR("[ERR]: value out of range in %s\n", __func__);
+			return MACHWNOSUP;
+		}
+		val32 = SET_CLR_WORD(val32, cfg->non_sec_threshold,
+				     B_AX_HW_CTS2SELF_PKT_LEN_TH);
+	}
+	if (cfg->threshold_sel == MAC_AX_CTS2SELF_SEC_THRESHOLD ||
+	    cfg->threshold_sel == MAC_AX_CTS2SELF_BOTH_THRESHOLD) {
+		if (cfg->sec_threshold & ~B_AX_HW_CTS2SELF_PKT_LEN_TH_TWW_MSK) {
+			PLTFM_MSG_ERR("[ERR]: value out of range in %s\n", __func__);
+			return MACHWNOSUP;
+		}
+		val32 = SET_CLR_WORD(val32, cfg->sec_threshold,
+				     B_AX_HW_CTS2SELF_PKT_LEN_TH_TWW);
+	}
+
+	MAC_REG_W32(reg, val32);
+	return MACSUCCESS;
+}
+
 u32 mac_tx_duty(struct mac_ax_adapter *adapter,
 		u16 pause_intvl, u16 tx_intvl)
 {
@@ -1810,11 +1827,11 @@ u32 tx_duty_h2c(struct mac_ax_adapter *adapter,
 		u16 pause_intvl, u16 tx_intvl)
 {
 	u32 ret, size;
-#if MAC_AX_PHL_H2C
+	#if MAC_AX_PHL_H2C
 	struct rtw_h2c_pkt *h2cb;
-#else
+	#else
 	struct h2c_buf *h2cb;
-#endif
+	#endif
 	u8 *buf;
 	struct fwcmd_tx_duty cfg;
 
@@ -1856,11 +1873,11 @@ u32 tx_duty_h2c(struct mac_ax_adapter *adapter,
 		return ret;
 	}
 
-#if MAC_AX_PHL_H2C
+	#if MAC_AX_PHL_H2C
 	ret = PLTFM_TX(h2cb);
-#else
+	#else
 	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
+	#endif
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("[ERR]platform tx\n");
 		h2cb_free(adapter, h2cb);

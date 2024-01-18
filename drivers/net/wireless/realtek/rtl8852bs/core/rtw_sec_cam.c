@@ -680,32 +680,39 @@ void rtw_clean_hw_dk_cam(_adapter *adapter)
 
 void flush_all_cam_entry(struct _ADAPTER *a, enum phl_cmd_type cmd_type, u32 cmd_timeout)
 {
-	struct mlme_ext_info *pmlmeinfo = &a->mlmeextpriv.mlmext_info;
 	struct sta_priv	*stapriv = &a->stapriv;
 	u8 *mac;
 	struct sta_info	*sta;
+	struct _ADAPTER_LINK *alink;
+	u8 lidx;
 
 
 	if (MLME_IS_STA(a)) {
-		mac = pmlmeinfo->network.MacAddress;
-		sta = rtw_get_stainfo(stapriv, mac);
-		if (sta) {
-			if (sta->state & WIFI_AP_STATE)
-				/*clear cam when ap free per sta_info*/
-				RTW_INFO("%s: sta->state(0x%x) is AP, "
-					 "do nothing\n",
-					 __func__, sta->state);
-			else
-				rtw_hw_del_all_key(a, sta, cmd_type, cmd_timeout);
-		} else {
-			RTW_WARN("%s: cann't find sta for %pM\n", __func__, mac);
-			rtw_warn_on(1);
+		for (lidx = 0; lidx < a->adapter_link_num; lidx++) {
+			alink = GET_LINK(a, lidx);
+			mac = alink->mlmeextpriv.mlmext_info.network.MacAddress;
+			sta = rtw_get_stainfo(stapriv, mac);
+			if (sta) {
+				if (sta->state & WIFI_AP_STATE)
+					/*clear cam when ap free per sta_info*/
+					RTW_INFO("%s: sta->state(0x%x) is AP, "
+					 	"do nothing\n",
+						 __func__, sta->state);
+				else
+					rtw_hw_del_all_key(a, sta, cmd_type, cmd_timeout);
+			} else {
+				RTW_WARN("%s: cann't find sta for %pM\n", __func__, mac);
+				rtw_warn_on(1);
+			}
 		}
 	} else if (MLME_IS_AP(a) || MLME_IS_MESH(a)) {
-		mac = adapter_mac_addr(a);
-		sta = rtw_get_stainfo(stapriv, mac);
-		if (sta)
-			rtw_hw_del_all_key(a, sta, cmd_type, cmd_timeout);
+		for (lidx = 0; lidx < a->adapter_link_num; lidx++) {
+			alink = GET_LINK(a, lidx);
+			mac = alink->mac_addr;
+			sta = rtw_get_stainfo(stapriv, mac);
+			if (sta)
+				rtw_hw_del_all_key(a, sta, cmd_type, cmd_timeout);
+		}
 	}
 }
 

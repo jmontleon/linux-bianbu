@@ -44,9 +44,20 @@ struct bb_rssi_su_avg_info { /*all in U(8,1)*/
 	u8 rssi_t[HALBB_MAX_PATH];  /*HT, VHT, HE*/
 };
 
+struct bb_physts_avg_info {
+	u8 evm_1ss; /*U(8,2) 0~63*/
+	u8 evm_min; /*U(8,2) 0~63*/
+	u8 evm_max; /*U(8,2) 0~63*/
+	u8 snr_avg; /*U(6,0) 0~63*/
+	u8 snr_per_path_avg[HALBB_MAX_PATH]; /*U(6,0)*/
+	u8 cn_avg;  /*U(7,1) 0~63*/
+	s16 cfo_avg; /*U(16,2) 0~512*/
+};
+
 struct bb_pkt_cnt_mu_info {
 	/*====[Phy rate counter]=============================================*/
 	u16		pkt_cnt_all; /*VHT, HE = pkt_cnt_1ss + pkt_cnt_2ss*/
+	u16		gi_ltf_cnt[RTW_GILTF_MAX];
 	u16		pkt_cnt_1ss; /*VHT, HE*/
 	u16		pkt_cnt_2ss; /*VHT, HE*/
 	u16		pkt_cnt_sc20[LOW_BW_RATE_NUM]; /*@20M SC*/
@@ -56,6 +67,8 @@ struct bb_pkt_cnt_mu_info {
 	u16		pkt_cnt_sc40[LOW_BW_RATE_NUM]; /*@40M SC*/
 	bool		vht_pkt_not_zero;
 	bool		sc40_occur;
+	u16		pkt_cnt_sc80[LOW_BW_RATE_NUM];
+	bool		sc80_occur;
 	/*HE*/
 	u16		pkt_cnt_he[HE_RATE_NUM];
 	bool		he_pkt_not_zero;
@@ -70,6 +83,7 @@ struct bb_pkt_cnt_su_store_info {
 struct bb_pkt_cnt_su_info {
 	/*====[Phy rate counter]=============================================*/
 	u16		pkt_cnt_all; /*CCK + OFDM + HT, VHT, HE*/
+	u16		gi_ltf_cnt[RTW_GILTF_MAX];
 	u16		pkt_cnt_cck;
 	u16		pkt_cnt_ofdm; /*L-OFDM*/
 	u16		pkt_cnt_t; /*HT, VHT, HE = pkt_cnt_1ss + pkt_cnt_2ss*/
@@ -92,6 +106,9 @@ struct bb_pkt_cnt_su_info {
 	u16		pkt_cnt_sc80[LOW_BW_RATE_NUM]; /*@80M SC*/
 	bool		he_pkt_not_zero;
 	bool		sc80_occur;
+	/*EHT*/
+	u16		pkt_cnt_eht[EHT_RATE_NUM];
+	bool		eht_pkt_not_zero;
 	/*non_data packet*/
 	u16		pkt_cnt_legacy_non_data[LEGACY_RATE_NUM];
 	u16		pkt_cnt_else_non_data;
@@ -99,6 +116,6 @@ struct bb_pkt_cnt_su_info {
 
 struct bb_info;
 /*@--------------------------[Prptotype]-------------------------------------*/
-void halbb_get_rx_pkt_cnt_rpt_su(struct bb_info *bb, struct bb_pkt_cnt_su_info *pkt_cnt_rpt);
+void halbb_get_rx_pkt_cnt_rpt_su(struct bb_info *bb, struct bb_pkt_cnt_su_info *pkt_cnt_rpt, enum phl_phy_idx phy_idx);
 
 #endif

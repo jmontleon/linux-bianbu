@@ -21,6 +21,7 @@
 #include "../phl_config.h"
 #include "../phl_types.h"
 #include "../phl_util.h"
+#include "mac/mac_exp_def.h"
 #include "../phl_def.h"
 #include "../phl_debug.h"
 #include "../phl_trx_def.h"
@@ -32,6 +33,7 @@
 #include "../phl_regulation_def.h"
 #include "../phl_led_def.h"
 #include "../phl_acs_def.h"
+#include "../phl_ext_tx_pwr_lmt_def.h"
 #include "../custom/phl_custom_def.h"
 #include "../custom/phl_custom_api.h"
 
@@ -47,12 +49,17 @@
 
 #include "hal_general_def.h"
 #include "hal_config.h"
+#include "phy/bb/halbb_bb_wrapper_outsrc.h"
 #include "hal_def.h"
-#include "mac/mac_exp_def.h"
+#include "phy/bb/halbb_outsrc_def.h"
 #include "mac/mac_outsrc_def.h"
 #include "../phl_api_drv.h"
 #include "hal_struct.h"
 #include "hal_io.h"
+
+#ifdef CONFIG_PCI_HCI
+#include "hal_pci.h"
+#endif
 
 #include "hal_api_mac.h"
 #include "hal_api_bb.h"
@@ -64,6 +71,7 @@
 #include "hal_tx.h"
 #include "hal_rx.h"
 #include "hal_sta.h"
+#include "hal_cap.h"
 #include "hal_chan.h"
 #ifdef CONFIG_PHL_CHANNEL_INFO
 #include "hal_chan_info.h"
@@ -85,6 +93,9 @@
 #include "hal_txpwr.h"
 #include "hal_com_i.h"
 #include "hal_dfs.h"
+#ifdef CONFIG_DBCC_SUPPORT
+#include "hal_dbcc.h"
+#endif
 
 #define hal_to_drvpriv(_halinfo) (_halinfo->hal_com->drv_priv)
 

@@ -38,9 +38,10 @@ struct halbb_pmac_info {
 	u8 mode:3; /*1: Packet TX 3:Continuous TX */
 	u8 rsvd:3;
 	u16 tx_cnt;
-	u16 period; // us
+	u16 period; // unit=50ns
 	u16 tx_time; // us
 	u8 duty_cycle; // for fw trig. tx used
+	bool cck_lbk_en;
 };
 
 struct bb_h2c_fw_tx_setting {
@@ -73,6 +74,10 @@ bool halbb_cfg_lbk(struct bb_info *bb, bool lbk_en, bool is_dgt_lbk,
 		   enum rf_path tx_path, enum rf_path rx_path,
 		   enum channel_width bw, enum phl_phy_idx phy_idx);
 
+bool halbb_cfg_lbk_cck(struct bb_info *bb, bool lbk_en, bool is_dgt_lbk,
+		       enum rf_path tx_path, enum rf_path rx_path,
+		       enum channel_width bw, enum phl_phy_idx phy_idx);
+
 bool halbb_set_txpwr_dbm(struct bb_info *bb, s16 pwr_dbm,
 			 enum phl_phy_idx phy_idx);
 
@@ -86,7 +91,8 @@ bool halbb_set_cck_txpwr_idx(struct bb_info *bb, u16 pwr_idx,
 u16 halbb_get_cck_txpwr_idx(struct bb_info *bb, enum rf_path tx_path);
 
 s16 halbb_get_cck_ref_dbm(struct bb_info *bb, enum rf_path tx_path);
-
+bool halbb_set_vht_mu_user_idx(struct bb_info *bb, bool en, u8 idx,
+			       enum phl_phy_idx phy_idx);
 bool halbb_set_ofdm_txpwr_idx(struct bb_info *bb, u16 pwr_idx,
 			      enum rf_path tx_path);
 
@@ -103,7 +109,11 @@ void halbb_backup_info(struct bb_info *bb, enum phl_phy_idx phy_idx);
 
 void halbb_restore_info(struct bb_info *bb, enum phl_phy_idx phy_idx);
 
-bool halbb_set_txsc(struct bb_info *bb, u8 txsc, enum phl_phy_idx phy_idx);
+enum rtw_hal_status halbb_set_txsc(struct bb_info *bb, u8 txsc,
+				   enum phl_phy_idx phy_idx);
+
+enum rtw_hal_status halbb_set_txsb(struct bb_info *bb, u8 txsb,
+				   enum phl_phy_idx phy_idx);
 
 bool halbb_set_bss_color(struct bb_info *bb, u8 bss_color, 
 			 enum phl_phy_idx phy_idx);

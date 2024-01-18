@@ -67,7 +67,7 @@ static void _get_6ghz_ch_info(const struct chdef_6ghz *chdef,
 	}
 }
 
-static void _convert_ch6g(u8 unii_6g, struct rtw_regulation *rg,
+void regu_convert_ch6g(u8 unii_6g, struct rtw_regulation *rg,
 			u32 *ch_cnt, struct rtw_regulation_channel *rch,
 			u32 ch, u32 passive, u8 max_num, u8 ch_start)
 {
@@ -107,8 +107,7 @@ static void _convert_ch6g(u8 unii_6g, struct rtw_regulation *rg,
 static void _update_psc_group(struct rtw_regulation *rg)
 {
 	u8 group = FREQ_GROUP_6GHZ_UNII5;
-	struct rtw_regulation_chplan_group *plan =
-		&rg->chplan[FREQ_GROUP_6GHZ_PSC];
+	struct rtw_regulation_chplan_group *plan = &rg->psc_6g;
 	struct rtw_regulation_chplan_group *src = NULL;
 	u32 i = 0, j = 0;
 
@@ -164,19 +163,20 @@ static bool _chnlplan_update_6g(struct rtw_regulation *rg,
 		plan->cnt = 0;
 		_get_6ghz_ch_info(chdef, group,
 			&ch, &passive, &max_num, &ch_start);
-		_convert_ch6g((u8)(i + 5), rg, &plan->cnt, plan->ch,
+		regu_convert_ch6g((u8)(i + 5), rg, &plan->cnt, plan->ch,
 			ch, passive, max_num, ch_start);
 		total += plan->cnt;
 	}
 
 	_update_psc_group(rg);
 
-	PHL_INFO("[REGU], 6 GHz, total channel = %d\n", total);
+	PHL_INFO("[REGU], 6 GHz, total channel = %d, regulation = %d\n",
+					total, rg->regulation_6g);
 
 	return true;
 }
 
-static u8 _domain_index_6g(u16 domain)
+static u8 _domain_index_6g(u8 domain)
 {
 	u8 i = 0;
 
@@ -190,7 +190,7 @@ static u8 _domain_index_6g(u16 domain)
 }
 
 static bool _regulatory_domain_update_6g(struct rtw_regulation *rg,
-			u16 domain, enum regulation_rsn reason)
+			u8 domain, enum regulation_rsn reason)
 {
 	u8 regulation = REGULATION_NA;
 	u8 ch_idx = 0, did = 0;
@@ -228,15 +228,6 @@ static void _get_group_chplan_6g(struct rtw_regulation *rg,
 	}
 }
 
-static void _history_log_6g(struct rtw_regulation *rg, u16 domain, u8 reason)
-{
-	rg->history_6g[rg->history_cnt_6g].code = domain;
-	rg->history_6g[rg->history_cnt_6g].reason = reason;
-	rg->history_cnt_6g++;
-	if (rg->history_cnt_6g >= MAX_HISTORY_NUM)
-		rg->history_cnt_6g = 0;
-}
-
 void regu_get_chnlplan_6g(struct rtw_regulation *rg,
 				enum rtw_regulation_query type,
 				struct rtw_regulation_chplan *plan)
@@ -246,39 +237,34 @@ void regu_get_chnlplan_6g(struct rtw_regulation *rg,
 	/* 6ghz */
 	if (rg->capability & CAPABILITY_6GHZ) {
 		/* unii5 */
-		if (type == REGULQ_CHPLAN_6GHZ ||
-			type == REGULQ_CHPLAN_6GHZ_UNII5) {
+		if (type & REGULQ_CHPLAN_6GHZ_UNII5) {
 			group = &rg->chplan[FREQ_GROUP_6GHZ_UNII5];
 			_get_group_chplan_6g(rg, group, plan);
 		}
 		/* unii6 */
-		if (type == REGULQ_CHPLAN_6GHZ ||
-			type == REGULQ_CHPLAN_6GHZ_UNII6) {
+		if (type & REGULQ_CHPLAN_6GHZ_UNII6) {
 			group = &rg->chplan[FREQ_GROUP_6GHZ_UNII6];
 			_get_group_chplan_6g(rg, group, plan);
 		}
 		/* unii7 */
-		if (type == REGULQ_CHPLAN_6GHZ ||
-			type == REGULQ_CHPLAN_6GHZ_UNII7) {
+		if (type & REGULQ_CHPLAN_6GHZ_UNII7) {
 			group = &rg->chplan[FREQ_GROUP_6GHZ_UNII7];
 			_get_group_chplan_6g(rg, group, plan);
 		}
 		/* unii8 */
-		if (type == REGULQ_CHPLAN_6GHZ ||
-			type == REGULQ_CHPLAN_6GHZ_UNII8) {
+		if (type & REGULQ_CHPLAN_6GHZ_UNII8) {
 			group = &rg->chplan[FREQ_GROUP_6GHZ_UNII8];
 			_get_group_chplan_6g(rg, group, plan);
 		}
 		/* psc */
-		if (type == REGULQ_CHPLAN_FULL ||
-			type == REGULQ_CHPLAN_6GHZ_PSC) {
-			group = &rg->chplan[FREQ_GROUP_6GHZ_PSC];
+		if (type & REGULQ_CHPLAN_6GHZ_PSC) {
+			group = &rg->psc_6g;
 			_get_group_chplan_6g(rg, group, plan);
 		}
 	}
 }
 
-bool regu_valid_domain_6g(u16 domain)
+bool regu_valid_domain_6g(u8 domain)
 {
 	if (domain == RSVD_DOMAIN)
 		return true;
@@ -289,12 +275,16 @@ bool regu_valid_domain_6g(u16 domain)
 	return true;
 }
 
-bool regu_set_domain_6g(void *phl, u16 domain,
+/*
+ * [Desc]: Set 6 ghz domain code
+ *
+ * [NOTE]: rg->lock need to be acquired before this function is called,
+ */
+bool regu_set_domain_6g(void *phl, u8 domain,
 				       	enum regulation_rsn reason)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	struct rtw_regulation *rg = NULL;
-	void *d = NULL;
 
 	PHL_INFO("[REGU], set 6 ghz domain code = 0x%x, reason = 0x%x\n",
 			domain, reason);
@@ -309,23 +299,103 @@ bool regu_set_domain_6g(void *phl, u16 domain,
 	if (!regu_valid_domain_6g(domain))
 		return false;
 
-	d = phl_to_drvpriv(phl_info);
-
-	_os_spinlock(d, &rg->lock, _bh, NULL);
-
-	_history_log_6g(rg, domain, reason);
-
 	if (_regulatory_domain_update_6g(rg, domain, reason))
 		rg->valid_6g = true;
-	else {
+	else
 		rg->valid_6g = false;
-		rg->invalid_cnt_6g++;
-	}
-	_os_spinunlock(d, &rg->lock, _bh, NULL);
 
 	PHL_INFO("[REGU], 6 ghz domain code valid = %d\n", rg->valid_6g);
 
 	return rg->valid_6g;
+}
+
+static bool _query_regu_ch6g(u8 did, enum rtw_regulation_freq_group freq_gid,
+	u8 ch, enum ch_property *prop)
+{
+	u8 idx6g = rdmap6[did].ch_idx;
+	const struct chdef_6ghz *chdef6 = NULL;
+	u16 i;
+	u32 shift;
+
+	for (i = 0; i < MAX_CHDEF_6GHZ; i++) {
+		if (idx6g == chdef6g[i].idx) {
+			chdef6 = &chdef6g[i];
+			break;
+		}
+	}
+
+	if (chdef6) {
+		u32 ch_bmp, passive_bmp;
+		u8 max_num, ch_start;
+
+		_get_6ghz_ch_info(chdef6, freq_gid, &ch_bmp, &passive_bmp,
+			&max_num, &ch_start);
+
+		if (ch_bmp) {
+			for (i = 0; i < max_num; i++) {
+				shift = (1 << i);
+				if ((ch_bmp & shift) && ch == ch_start + i * 4) {
+					if (prop)
+						*prop = (passive_bmp & shift) ? CH_PASSIVE : 0;
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+
+/*
+ * @ Function description
+ *	Use the domain code, band, ch  to query the corresponding
+ *	regulation channel  and property
+ *
+ * @ parameter
+ * 	domain : the specified domain code
+ *    band : the specified band
+ *    ch : the specified channel
+ *	prop : if the regulation channel exist, the resulting property will
+ *              be filled
+ *
+ * @ return :
+ *	true : the queried regulation channel exist
+ *	false : not exist
+ *
+ */
+bool regu_query_domain_6g_channel(u8 domain, enum band_type band, u8 ch,
+			enum ch_property *prop)
+{
+	enum rtw_regulation_freq_group freq_gid;
+	u8 did;
+
+	if (band != BAND_ON_6G)
+		return false;
+
+	freq_gid = phl_get_regu_freq_group(band, ch);
+	if (freq_gid < FREQ_GROUP_6GHZ_UNII5 || freq_gid > FREQ_GROUP_6GHZ_UNII8)
+		return false;
+
+	did = _domain_index_6g(domain);
+	if (did >= MAX_RD_MAP_NUM_6GHZ)
+		return false;
+
+	return _query_regu_ch6g(did, freq_gid, ch, prop);
+}
+
+u8 regu_get_domain_regulation_6g(u8 domain)
+{
+	u8 did = MAX_RD_MAP_NUM_6GHZ;
+
+	if (!regu_valid_domain_6g(domain))
+		return REGULATION_MAX;
+
+	did = _domain_index_6g(domain);
+	if (did >= MAX_RD_MAP_NUM_6GHZ)
+		return REGULATION_MAX;
+
+	return rdmap6[did].regulation;
 }
 
 

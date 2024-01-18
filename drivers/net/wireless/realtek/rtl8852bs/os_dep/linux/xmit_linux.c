@@ -533,9 +533,6 @@ int rtw_xmit_entry(struct sk_buff *pkt, _nic_hdl pnetdev)
 			}
 #endif
 			rtw_mstat_update(MSTAT_TYPE_SKB, MSTAT_ALLOC_SUCCESS, pkt->truesize);
-#ifdef CONFIG_TX_SKB_ORPHAN
-			skb_orphan(pkt);
-#endif
 			ret = rtw_os_tx(pkt, pnetdev);
 		}
 
@@ -605,6 +602,11 @@ int rtw_os_tx(struct sk_buff *pkt, _nic_hdl pnetdev)
 #endif
 	)
 		goto drop_packet;
+
+	if (adapter_to_pwrctl(padapter)->bInSuspend == _TRUE) {
+		RTW_INFO("[%s] Stop TX because bInSuspend has been carried! \n", __func__);
+		goto drop_packet;
+	}
 
 	PHLTX_LOG;
 

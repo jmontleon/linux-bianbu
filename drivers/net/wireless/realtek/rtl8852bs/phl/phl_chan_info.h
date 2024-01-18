@@ -16,6 +16,10 @@
 #define _PHL_CHAN_INFO_H_
 
 #ifdef CONFIG_PHL_CHANNEL_INFO
+enum rtw_phl_status rtw_phl_cmd_cfg_chinfo(void *phl,
+					   struct rtw_chinfo_action_parm *act_parm,
+					   enum phl_cmd_type cmd_type,
+					   u32 cmd_timeout);
 enum rtw_phl_status phl_chaninfo_init(struct phl_info_t *phl_info);
 void phl_chaninfo_deinit(struct phl_info_t *phl_info);
 

@@ -30,6 +30,18 @@
 #if MAC_AX_8852C_SUPPORT
 #include "../fw_ax/rtl8852c/hal8852c_fw_log.h"
 #endif
+#if MAC_AX_8192XB_SUPPORT
+#include "../fw_ax/rtl8192xb/hal8192xb_fw_log.h"
+#endif
+#if MAC_AX_8851B_SUPPORT
+#include "../fw_ax/rtl8851b/hal8851b_fw_log.h"
+#endif
+#if MAC_AX_8851E_SUPPORT
+#include "../fw_ax/rtl8851e/hal8851e_fw_log.h"
+#endif
+#if MAC_AX_8852D_SUPPORT
+#include "../fw_ax/rtl8852d/hal8852d_fw_log.h"
+#endif
 
 #define FWDGB_CFG_OP_SET 0
 #define FWDGB_CFG_OP_CLR 1
@@ -46,7 +58,10 @@
 #define LEN_LENGTH 4
 #define FWSTATUS_OPCODE_MASK 0xFFFF
 
-#define FW_CURTCB_8852A	0x18e0f5fc
+#define FW_CURTCB_AX	0xf5fc
+#define FW_CURTCB_BE	0xf5fc
+#define FW_TCB_ADDR_MASK_AX	0x3FFFF
+#define FW_TCB_ADDR_MASK_BE	0x3FFFF
 #define FW_CURTCB_SP_START_OFFSET 0x30
 #define FW_CURTCB_TASK_NAME_OFFSET 0x34
 #define FW_MAX_TASK_NAME_LEN 16
@@ -61,6 +76,9 @@
 
 #define FWQC_SLOW_HEAP_TH 0
 #define FWQC_FAST_HEAP_TH 0
+
+#define FWCISR_OFFSET 0x08
+#define PORT_CFG_OFFSET 0x40
 
 #define GET_FIELD_OPCODE(opcode) ((opcode) & (FWSTATUS_OPCODE_MASK))
 #define	MAC_DBG_MSG(max_buff_len, used_len, buff_addr, remain_len, fmt, ...)\
@@ -102,9 +120,38 @@ enum mac_hal_cmd_id {
 	MAC_MAC_FW_LOG,
 	MAC_MAC_FW_CURTCB,
 	MAC_MAC_FW_INFO,
+	MAC_MAC_DBG_TX,
+	MAC_MAC_DBG_RX,
+	MAC_MAC_DBG_DMAC,
+	MAC_MAC_DBG_CMAC,
+	MAC_MAC_DBG_BDSTS,
+	MAC_MAC_DBG_BCN,
+	MAC_MAC_DBG_TX_CNT,
+	MAC_MAC_DBG_RX_CNT,
+	MAC_MAC_ERROR_DUMP,
+	MAC_MAC_SER_CNT_DUMP,
+	MAC_MAC_SET_SER_LVL,
+	MAC_MAC_GET_SER_LVL,
 	MAC_MAC_DL_SYM,
 	MAC_MAC_QC_START,
 	MAC_MAC_QC_END,
+	MAC_MAC_REQ_PWR_ST,
+	MAC_MAC_REQ_PWR_LVL,
+	MAC_MAC_CHSW,
+	MAC_MAC_CHSW_RET,
+	MAC_MAC_TBTT_TUNING,
+	MAC_MAC_DBG_READ,
+	MAC_MAC_DBG_WRITE,
+	MAC_MAC_TRX_INFO_MACID,
+	MAC_MAC_TRX_INFO_GLOBAL,
+	MAC_MAC_DL_RESULT,
+	MAC_MAC_CURR_WD_CNT,
+	MAC_MAC_PKT_CAL,
+	MAC_MAC_RPT_QUEUE_STS,
+	MAC_MAC_TRG_SER_L0,
+	MAC_MAC_TRG_SER_L1,
+	MAC_MAC_SET_SER_L0_DBG,
+	MAC_MAC_SET_SER_L1_DBG
 };
 
 /**
@@ -273,6 +320,7 @@ struct mac_hal_cmd_info {
 	u16 id;
 	u32 (*handler)(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
 		       u32 input_num, char *output, u32 out_len, u32 *used);
+	char description[256];
 };
 
 /**
@@ -633,6 +681,90 @@ u32 cmd_mac_dl_sym(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
 		   u32 input_num, char *output, u32 out_len, u32 *used);
 
 /**
+ * @brief cmd_mac_error_dump
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_error_dump(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		       char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_dbg_tx_dump
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_tx_dump(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV],
+			u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_dbg_rx_dump
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_rx_dump(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV],
+			u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_dbg_dmac
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_dmac(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV], u32 input_num,
+		     char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_dbg_cmac
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_cmac(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV], u32 input_num,
+		     char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_dbg_bcn
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_bcn(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV], u32 input_num,
+		    char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_ser_cnt_dump
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_ser_cnt_dump(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV], u32 input_num,
+			 char *output, u32 out_len, u32 *used);
+
+/**
  * @brief cmd_mac_qc_start
  *
  * @param *adapter
@@ -659,6 +791,35 @@ u32 cmd_mac_qc_end(struct mac_ax_adapter *adapter,
 		   char input[][MAC_MAX_ARGV],
 		   u32 input_num,
 		   char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_req_pwr_st
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+
+u32 cmd_mac_req_pwr_st(struct mac_ax_adapter *adapter,
+		       char input[][MAC_MAX_ARGV],
+		       u32 input_num,
+		       char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_req_pwr_lvl
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_req_pwr_lvl(struct mac_ax_adapter *adapter,
+			char input[][MAC_MAX_ARGV],
+			u32 input_num,
+			char *output, u32 out_len, u32 *used);
 
 /**
  * @brief fw_log_int_dump
@@ -759,4 +920,190 @@ u32 mac_fw_log_set_array(struct mac_ax_adapter *adapter, void *symbol_ptr, u32 f
  */
 u32 mac_fw_log_unset_array(struct mac_ax_adapter *adapter);
 
+/**
+ * @brief cmd_mac_ser_level_set
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_ser_level_set(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV],
+			  u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_ser_level_dump
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_ser_level_dump(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV],
+			   u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_fw_chsw
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_fw_chsw(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		    char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_fw_chsw_ret
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_fw_chsw_ret(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+			char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_bcn_stats
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_bcn_stats(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		      char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_bd_status
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_bd_status(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		      char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_tbtt_tuning
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_tbtt_tuning(struct mac_ax_adapter *adapter,
+			char input[][MAC_MAX_ARGV],
+			u32 input_num,
+			char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_tx_cnt
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_tx_cnt(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		   char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_rx_cnt
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_rx_cnt(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		   char *output, u32 out_len, u32 *used);
+
+u32 cmd_mac_trx_info_macid(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			   u32 input_num, char *output, u32 out_len, u32 *used);
+
+u32 cmd_mac_trx_info_global(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			    u32 input_num, char *output, u32 out_len, u32 *used);
+
+u32 cmd_mac_dl_result(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		      char *output, u32 out_len, u32 *used);
+
+u32 cmd_mac_curr_wd_cnt(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+			char *output, u32 out_len, u32 *used);
+
+u32 cmd_mac_pkt_cal(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		    char *output, u32 out_len, u32 *used);
+
+u32 cmd_mac_rpt_queue_sts(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+			  char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief mac_bdinfo_dump
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_bdinfo_dump(struct mac_ax_adapter *adapter);
+
+/**
+ * @brief cmd_mac_dbg_read
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_read(struct mac_ax_adapter *adapter,
+		     char input[][MAC_MAX_ARGV],
+		     u32 input_num,
+		     char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_dbg_write
+ *
+ * @param *adapter
+ * @param *input
+ * @param *input_num
+ * @return Please Place Description here.
+ * @retval void
+ */
+u32 cmd_mac_dbg_write(struct mac_ax_adapter *adapter,
+		      char input[][MAC_MAX_ARGV],
+		      u32 input_num,
+		      char *output, u32 out_len, u32 *used);
+/**
+ * @brief cmd_mac_trigger_l0_err
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_trigger_l0_err(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			   u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_trigger_l1_err
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_trigger_l1_err(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			   u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_set_l0_dbg_mode
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_set_l0_dbg_mode(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			    u32 input_num, char *output, u32 out_len, u32 *used);
+
+/**
+ * @brief cmd_mac_set_l0_dbg_mode
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 cmd_mac_set_l1_dbg_mode(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			    u32 input_num, char *output, u32 out_len, u32 *used);
 #endif
+

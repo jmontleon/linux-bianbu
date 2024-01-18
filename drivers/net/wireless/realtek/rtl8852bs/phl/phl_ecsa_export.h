@@ -41,6 +41,8 @@ enum phl_ecsa_start_reason{
 #ifdef CONFIG_PHL_ECSA_EXTEND_OPTION
 enum phl_ecsa_extend_option{
 	ECSA_EX_OPTION_FORCE_BW20 = BIT0,
+	ECSA_EX_OPTION_USE_AP_CHANDEF = BIT1,
+	ECSA_EX_OPTION_NONE
 };
 #endif
 
@@ -66,10 +68,15 @@ struct rtw_phl_ecsa_param{
  */
 struct rtw_phl_ecsa_ops{
 	void *priv;
-	void (*update_beacon)(void *priv, struct rtw_wifi_role_t *role);
+	void (*update_beacon)(void *priv,
+	                      struct rtw_wifi_role_t *role,
+	                      struct rtw_wifi_role_link_t *rlink);
+
 	void (*update_chan_info)(void *priv,
-				 struct rtw_wifi_role_t *role,
-				 struct rtw_chan_def chan_def);
+	                         struct rtw_wifi_role_t *role,
+	                         struct rtw_wifi_role_link_t *rlink,
+	                         struct rtw_chan_def chan_def);
+
 	bool (*check_ecsa_allow)(void *priv,
 				 struct rtw_wifi_role_t *role,
 				 struct rtw_chan_def chan_def,
@@ -90,17 +97,15 @@ rtw_phl_ecsa_init_ops(
 	);
 
 enum rtw_phl_status
-rtw_phl_ecsa_cmd_request(
-	void *phl,
-	struct rtw_wifi_role_t *role
-	);
+rtw_phl_ecsa_cmd_request(void *phl,
+                         struct rtw_wifi_role_t *role
+);
 
 enum rtw_phl_status
-rtw_phl_ecsa_start(
-	void *phl,
-	struct rtw_wifi_role_t *role,
-	struct rtw_phl_ecsa_param *param
-	);
+rtw_phl_ecsa_start(void *phl,
+                   struct rtw_wifi_role_t *role,
+                   struct rtw_wifi_role_link_t *rlink,
+                   struct rtw_phl_ecsa_param *param);
 
 enum rtw_phl_status
 rtw_phl_ecsa_cancel(
@@ -118,6 +123,7 @@ rtw_phl_ecsa_get_param(
 void
 rtw_phl_ecsa_extend_option_hdlr(
 	u32 extend_option,
+	struct rtw_wifi_role_link_t *ap_rlink,
 	struct rtw_phl_ecsa_param *param
 	);
 #endif
@@ -136,15 +142,17 @@ rtw_phl_ecsa_check_allow(
 #else
 #define rtw_phl_ecsa_init_ops(_phl, _ops) RTW_PHL_STATUS_SUCCESS
 #define rtw_phl_ecsa_cmd_request(_phl, _role) RTW_PHL_STATUS_SUCCESS
-#define rtw_phl_ecsa_start(_phl, _role, _param) RTW_PHL_STATUS_SUCCESS
+#define rtw_phl_ecsa_start(_phl, _role, _rlink, _param) RTW_PHL_STATUS_SUCCESS
 #define rtw_phl_ecsa_cancel(_phl, _role) RTW_PHL_STATUS_SUCCESS
 #define rtw_phl_ecsa_get_param(_phl, _param) RTW_PHL_STATUS_SUCCESS
+
 #ifdef CONFIG_PHL_ECSA_EXTEND_OPTION
-#define rtw_phl_ecsa_extend_option_hdlr(_extend_option, _param)
+#define rtw_phl_ecsa_extend_option_hdlr(_extend_option, ap_rlink, _param)
 #define rtw_phl_ecsa_check_allow(_phl, _role, _chan_def, _reason, _extend_option, _delay_start_ms) false
 #else
 #define rtw_phl_ecsa_check_allow(_phl, _role, _chan_def, _reason, _delay_start_ms) false
 #endif
+
 #endif
 
 #endif /*_PHL_ECSA_EXPORT_H_*/

@@ -65,6 +65,9 @@ struct efuse_t {
 	u32 mask_size;
 	u32 limit_efuse_size;
 	u32 limit_mask_size;
+	u8 efuse_a_die_size;
+	u32 hci_to_a_die_offset;
+	u32 a_die_start_offset;
 	u8 version_len;
 	u8 status;
 	u8 is_map_valid;

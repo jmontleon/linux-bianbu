@@ -30,6 +30,7 @@ enum rtw_phl_status {
 	RTW_PHL_STATUS_CMD_SUCCESS, /* 11 */
 	RTW_PHL_STATUS_UNEXPECTED_ERROR, /* 12 */
 	RTW_PHL_STATUS_CANNOT_IO, /* 13 */
+	RTW_PHL_STATUS_SH_TASK, /* 14 */
 };
 
 #define is_cmd_failure(psts)	((psts == RTW_PHL_STATUS_CMD_TIMEOUT) || \

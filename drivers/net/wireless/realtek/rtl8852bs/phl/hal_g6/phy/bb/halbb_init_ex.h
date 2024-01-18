@@ -22,7 +22,11 @@
  /*@--------------------------[Structure]-------------------------------------*/
  
  /*@--------------------------[Prptotype]-------------------------------------*/
+void halbb_bb_pre_init(struct bb_info *bb, enum phl_phy_idx phy_idx);
+void halbb_bb_post_init(struct bb_info *bb, enum phl_phy_idx phy_idx);
 void halbb_dm_deinit(struct rtw_phl_com_t *phl_com, void *bb_phy_0);
+void halbb_dbcc_dm_init_phy1(struct bb_info *bb_0);
+void halbb_dbcc_dm_init_phy0(struct bb_info *bb_0);
 enum rtw_hal_status halbb_dm_init(struct bb_info *bb, enum phl_phy_idx phy_idx);
 
 void halbb_buffer_deinit(struct rtw_phl_com_t *phl_com,

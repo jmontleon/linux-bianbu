@@ -28,30 +28,30 @@
 /*@--------------------------[Define] ---------------------------------------*/
 /*[IO Reg]*/
 
-#define BB_OFST 0x10000
-
 #define HALBB_SET_CR_CMN(bb, cr, val, phy_idx) halbb_set_reg_cmn(bb, cr, cr##_M, val, phy_idx);
 #define HALBB_SET_CR(bb, cr, val) halbb_set_reg(bb, cr, cr##_M, val);
 
 #define HALBB_GET_CR_CMN(bb, cr, val, phy_idx) halbb_get_reg_cmn(bb, cr, cr##_M, phy_idx);
 #define HALBB_GET_CR(bb, cr) halbb_get_reg(bb, cr, cr##_M);
 
-#define halbb_get_32(bb, addr) hal_read32((bb)->hal_com, (addr | BB_OFST))
-#define halbb_get_16(bb, addr) hal_read16((bb)->hal_com, (addr | BB_OFST))
-#define halbb_get_8(bb, addr) hal_read8((bb)->hal_com, (addr | BB_OFST))
-#define halbb_set_32(bb, addr, val) hal_write32((bb)->hal_com, (addr | BB_OFST), val)
-#define halbb_set_16(bb, addr, val) hal_write16((bb)->hal_com, (addr | BB_OFST), val)
-#define halbb_set_8(bb, addr, val) hal_write8((bb)->hal_com, (addr | BB_OFST), val)
+#if 1
+#define halbb_get_32(bb, addr) hal_read32((bb)->hal_com, addr)
+//#define halbb_get_16(bb, addr) hal_read16((bb)->hal_com, addr)
+//#define halbb_get_8(bb, addr) hal_read8((bb)->hal_com, addr)
+#define halbb_set_32(bb, addr, val) hal_write32((bb)->hal_com, addr, val)
+//#define halbb_set_16(bb, addr, val) hal_write16((bb)->hal_com, addr, val)
+//#define halbb_set_8(bb, addr, val) hal_write8((bb)->hal_com, addr, val)
+#endif
 
 #define halbb_read_mem(bb, addr, cnt, pmem) hal_read_mem((bb)->hal_com, addr, cnt, pmem)
 
 /*[Delay]*/
 #define halbb_delay_ms(bb, ms) _os_delay_ms(bb->hal_com->drv_priv, ms)
-#define halbb_delay_us(bb, us) _os_delay_us(bb->hal_com->drv_priv, us)
+//#define halbb_delay_us(bb, us) _os_delay_us(bb->hal_com->drv_priv, us)
 
 /*[Memory Access]*/
-#define halbb_mem_alloc(bb, buf_sz) _os_mem_alloc(bb->hal_com->drv_priv, buf_sz)
-#define halbb_mem_free(bb, buf, buf_sz) _os_mem_free(bb->hal_com->drv_priv, (void *)buf, buf_sz)
+#define halbb_mem_alloc(bb, buf_sz) hal_mem_alloc(bb->hal_com, buf_sz)
+#define halbb_mem_free(bb, buf, buf_sz) hal_mem_free(bb->hal_com, (void *)buf, buf_sz)
 #define halbb_mem_set(bb, buf, value, size) _os_mem_set(bb->hal_com->drv_priv, (void *)buf, value, size)
 #define halbb_mem_cpy(bb, dest, src, size) _os_mem_cpy(bb->hal_com->drv_priv, (void *)dest, (void *)src, size)
 #define halbb_mem_cmp(bb, dest, src, size) _os_mem_cmp(bb->hal_com->drv_priv, (void *)dest, (void *)src, size)
@@ -103,6 +103,8 @@ enum halbb_h2c_ra_cmdid {
 	RA_H2C_RA_ADJUST	= 0x3,
 	RA_H2C_ADJUST_RA_MASK		= 0x4,
 	RA_H2C_RA_D_O_TIMER	= 0x5,
+	RA_H2C_RA_CLS		= 0x6,
+	RA_H2C_RA_SHIFT_DARF_TC	= 0x7,
 	RA_H2C_MUCFG		= 0x10,
 	RA_MAX_H2CCMD
 };
@@ -117,6 +119,10 @@ enum halbb_h2c_rua_cmdid {
 	RUA_H2C_BBINFO		= 0x6,
 	RUA_H2C_SEN_TBL		= 0x7,
 	RUA_H2C_PWR_TBL		= 0x8,
+	RUA_H2C_DBG			= 0x9,
+	RUA_H2C_DBG_W		= 0x10,
+	RUA_H2C_MACID_INIT	= 0x11,
+	RUA_H2C_RA_MASK		= 0x12,
 	RUA_MAX_H2CCMD
 };
 
@@ -130,11 +136,14 @@ enum halbb_h2c_classid {
 enum halbb_h2c_dm_cmdid {
 	DM_H2C_FWTRACE		= 0x0,
 	DM_H2C_FW_TRIG_TX	= 0x1,
-	DM_H2C_FW_HE_SIGB	= 0x2,
-	DM_H2C_FW_H2C_TEST	= 0x3,
+	DM_H2C_FW_H2C_TEST	= 0x2,
+	DM_H2C_FW_EHTSIG_SIGB	= 0x3,
 	DM_H2C_FW_EDCCA		= 0x4,
 	DM_H2C_FW_CMW		= 0x5,
 	DM_H2C_FW_MCC		= 0x6,
+	DM_H2C_FW_L6M_WA	= 0x7,
+	DM_H2C_FW_ENV_MNTR	= 0x8,
+	DM_H2C_FW_LPS_INFO	= 0x9,
 	DM_MAX_H2CCMD
 };
 
@@ -152,12 +161,19 @@ enum halbb_c2h_ra_cmdid {
 	HALBB_MAX_C2HRACMD
 };
 
+enum halbb_c2h_rua_cmdid {
+	HALBB_C2HRUA_DBG		= 0x0,
+	HALBB_MAX_C2HRUACMD
+};
+
+
 enum halbb_c2h_dm_cmdid {
 	DM_C2H_FW_TEST			= 0x0,
 	DM_C2H_FW_TRIG_TX_RPT		= 0x1,
 	DM_C2H_SIGB			= 0x2,
 	DM_C2H_LOWRT_RTY		= 0x3,
 	DM_C2H_MCC_DIG			= 0x4,
+	DM_C2H_FW_ENV_MNTR		= 0x5,
 	HALBB_MAX_C2HDMCMD
 };
 
@@ -186,22 +202,24 @@ struct halbb_timer_info {
 	enum halbb_timer_state_t timer_state;
 };
 
-
 struct halbb_pwr_by_rate_tbl {
 	u8 pwr_by_rate[PWR_TBL_NUM*2];
 };
- 
+
 /*@--------------------------[Prptotype]-------------------------------------*/
 struct bb_info;
+
 void halbb_cfg_timers(struct bb_info *bb, enum bb_timer_cfg_t cfg,
 		      struct halbb_timer_info *timer);
 u32 halbb_get_sys_time(struct bb_info *bb);
-u32 halbb_phy0_to_phy1_ofst(struct bb_info *bb, u32 addr);
-void halbb_set_reg_cmn(struct bb_info *bb, u32 addr, u32 mask, u32 val,
-		       enum phl_phy_idx phy_idx);
+u32 halbb_phy0_to_phy1_ofst(struct bb_info *bb, u32 addr, enum phl_phy_idx phy_idx);
+void halbb_delay_us(struct bb_info *bb, u32 us);
+void halbb_set_bb_wrap_reg_cmn(struct bb_info* bb, enum phl_phy_idx bb_phy_idx, u32 addr, u32 val);
+void halbb_set_cr(struct bb_info *bb, u32 addr, u32 val);
+u32 halbb_get_cr(struct bb_info *bb, u32 addr);
+void halbb_set_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask, u32 val);
 void halbb_set_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 val);
-u32 halbb_get_reg_cmn(struct bb_info *bb, u32 addr, u32 mask,
-		      enum phl_phy_idx phy_idx);
+u32 halbb_get_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask);
 u32 halbb_get_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 *val_1);
 bool halbb_fill_h2c_cmd(struct bb_info *bb, u16 cmdlen, u8 cmdid,
 			u8 classid, u32 *pval);
@@ -213,5 +231,13 @@ bool halbb_fw_set_reg_cmn(struct bb_info *bb, u32 addr, u32 mask, u32 val,
 			            enum phl_phy_idx phy_idx, u8 lst_cmd);
 bool halbb_fw_set_rf_reg(struct bb_info *bb, enum rf_path path,
 			      u32 reg_addr, u32 bit_mask, u32 data);
+enum rtw_hal_status
+halbb_config_cmac_tbl_ax(struct bb_info *bb, struct rtw_phl_stainfo_t *phl_sta_i,
+			void *cmac_ctrl,
+			void *cmac_ctrl_mask);
+enum rtw_hal_status
+halbb_config_cmac_tbl_be(struct bb_info *bb, struct rtw_phl_stainfo_t *phl_sta_i,
+			void *cmac_ctrl,
+			void *cmac_ctrl_mask);
 
 #endif

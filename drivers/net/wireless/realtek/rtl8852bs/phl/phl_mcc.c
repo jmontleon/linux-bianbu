@@ -78,9 +78,11 @@ void _mcc_dump_role_info(struct rtw_phl_mcc_role *mrole)
 	u8 i = 0;
 
 	policy = &mrole->policy;
-	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> _mcc_dump_role_info(): wrole id(%d), type(%d), macid(%d), bcn_intvl(%d)\n",
-		mrole->wrole->id, mrole->wrole->type, mrole->macid,
+
+	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> _mcc_dump_role_info(): wrole id(%d), rlink id(%d) type(%d), macid(%d), bcn_intvl(%d)\n",
+		mrole->wrole->id, mrole->rlink->id, mrole->wrole->type, mrole->macid,
 		mrole->bcn_intvl);
+
 	for (i = 0; i < PHL_MACID_MAX_ARRAY_NUM; i++) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_dump_role_info(): macid_map[%d]= 0x%08X\n",
 			i, mrole->used_macid.bitmap[i]);
@@ -123,8 +125,10 @@ void _mcc_dump_ref_role_info(struct rtw_phl_mcc_en_info *info)
 	struct rtw_phl_mcc_role *ref_role = NULL;
 
 	ref_role = get_ref_role(info);
-	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_dump_ref_role_info(): mrole idx(%d), wrole id(%d), macid(%d) chan(%d), bw(%d), offset(%d)\n",
-		info->ref_role_idx, ref_role->wrole->id, ref_role->macid,
+
+	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_dump_ref_role_info(): mrole idx(%d), wrole id(%d), rlink id(%d), macid(%d) chan(%d), bw(%d), offset(%d)\n",
+		info->ref_role_idx, ref_role->wrole->id, ref_role->rlink->id,
+		ref_role->macid,
 		ref_role->chandef->chan, ref_role->chandef->bw,
 		ref_role->chandef->offset);
 }
@@ -175,24 +179,6 @@ void _mcc_set_state(struct phl_mcc_info *minfo, enum rtw_phl_mcc_state state)
 		minfo->state, state);
 	minfo->state = state;
 	_mcc_dump_state(&minfo->state);
-}
-
-bool _mcc_is_ap_category(struct rtw_wifi_role_t *wrole)
-{
-	bool ret = false;
-
-	if (wrole->type == PHL_RTYPE_AP || wrole->type == PHL_RTYPE_P2P_GO)
-		ret = true;
-	return ret;
-}
-
-bool _mcc_is_client_category(struct rtw_wifi_role_t *wrole)
-{
-	bool ret = false;
-
-	if (wrole->type == PHL_RTYPE_STATION || wrole->type == PHL_RTYPE_P2P_GC || wrole->type == PHL_RTYPE_TDLS)
-		ret = true;
-	return ret;
 }
 
 struct rtw_phl_mcc_role *
@@ -252,10 +238,10 @@ _mcc_get_mrole_by_category(struct rtw_phl_mcc_en_info *en_info,
 			continue;
 		m_role = &en_info->mcc_role[midx];
 		if (MCC_ROLE_AP_CAT == category) {
-			if (_mcc_is_ap_category(m_role->wrole))
+			if (rtw_phl_role_is_ap_category(m_role->wrole))
 				return m_role;
 		} else if (MCC_ROLE_CLIENT_CAT == category) {
-			if (_mcc_is_client_category(m_role->wrole))
+			if (rtw_phl_role_is_client_category(m_role->wrole))
 				return m_role;
 		} else {
 			PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "_mcc_get_mrole_by_category(): Undefined category(%d)\n",
@@ -276,15 +262,15 @@ enum rtw_phl_status _mcc_transfer_mode(struct phl_info_t *phl,
 	for (ridx = 0; ridx < MAX_WIFI_ROLE_NUMBER; ridx++) {
 		if (!(role_map & BIT(ridx)))
 			continue;
-		wrole = rtw_phl_get_wrole_by_ridx(phl->phl_com, ridx);
+		wrole = phl_get_wrole_by_ridx(phl, ridx);
 		if (wrole == NULL) {
 			PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_transfer_mode(): get wrole fail, role_idx(%d)\n",
 				ridx);
 			goto exit;
 		}
-		if (_mcc_is_client_category(wrole)) {
+		if (rtw_phl_role_is_client_category(wrole)) {
 			client_num++;
-		} else if (_mcc_is_ap_category(wrole)) {
+		} else if (rtw_phl_role_is_ap_category(wrole)) {
 			ap_num++;
 		} else {
 			PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_transfer_mode(): undefined category, role->type(%d), ridx(%d), shall check code flow\n",
@@ -323,11 +309,11 @@ enum rtw_phl_status _mcc_get_role_map(struct phl_info_t *phl,
 	_os_list *chan_ctx_list = &band_ctrl->chan_ctx_queue.queue;
 
 	*role_map = 0;
-	_os_spinlock(drv, &band_ctrl->chan_ctx_queue.lock, _ps, NULL);
+	_os_spinlock(drv, &band_ctrl->chan_ctx_queue.lock, _bh, NULL);
 	phl_list_for_loop(chanctx, struct rtw_chan_ctx, chan_ctx_list, list) {
 		*role_map |= chanctx->role_map;
 	}
-	_os_spinunlock(drv, &band_ctrl->chan_ctx_queue.lock, _ps, NULL);
+	_os_spinunlock(drv, &band_ctrl->chan_ctx_queue.lock, _bh, NULL);
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_get_role_map(): role_map(%d)\n",
 		*role_map);
 	status = RTW_PHL_STATUS_SUCCESS;
@@ -354,7 +340,8 @@ void _mcc_up_fw_log_setting(struct phl_info_t *phl, struct phl_mcc_info *minfo)
 	struct phl_mcc_fw_log_info *fw_log_i = &minfo->fw_log_i;
 
 	if (fw_log_i->update) {
-		rtw_hal_cfg_fw_mcc_log(phl->hal, fw_log_i->en_fw_mcc_log);
+		rtw_hal_en_fw_log(phl->hal, FL_COMP_MCC,
+					fw_log_i->en_fw_mcc_log);
 		fw_log_i->update = false;
 	}
 }
@@ -431,29 +418,38 @@ void _mcc_fill_default_policy(struct phl_info_t *phl,
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_fill_default_policy(): set mcc policy by default setting\n");
 	policy->c2h_rpt = RTW_MCC_RPT_ALL;
 	policy->tx_null_early = 3;
-	policy->dis_tx_null = _mcc_is_client_category(mrole->wrole) ? 0 : 1;
+	policy->dis_tx_null = rtw_phl_role_is_client_category(mrole->wrole) ? 0 : 1;
 	policy->in_curr_ch = 0;
 	policy->dis_sw_retry = 1;
 	policy->sw_retry_count = 0;
-	policy->dur_info.dur = _mcc_is_client_category(mrole->wrole) ?
+	policy->dur_info.dur = rtw_phl_role_is_client_category(mrole->wrole) ?
 					DEFAULT_CLIENT_DUR : DEFAULT_AP_DUR;
-	phl_mr_mcc_query_role_time_slot_lim(phl, mrole->wrole, &dur_req);
+
+	phl_mr_coex_query_role_time_slot_lim(phl, mrole->wrole, mrole->rlink, &dur_req);
 	_mcc_fill_dur_lim_info(phl, mrole, &dur_req);
-	policy->rfk_chk = rtw_hal_check_ch_rfk(phl->hal, &mrole->wrole->chandef);
+
+	policy->rfk_chk = rtw_hal_check_ch_rfk(phl->hal, &mrole->rlink->chandef);
 	if (false == policy->rfk_chk) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "_mcc_fill_default_policy(): No rfk, it will degrade perormance, please check code\n");
 	}
 }
 
 void _mcc_fill_mcc_role_policy_info(struct phl_info_t *phl,
-		struct rtw_wifi_role_t *wrole, struct rtw_phl_mcc_role *mrole)
+                                    struct rtw_wifi_role_t *wrole,
+                                    struct rtw_wifi_role_link_t *rlink,
+                                    struct rtw_phl_mcc_role *mrole)
 {
 	struct phl_com_mcc_info *com_info = phl_to_com_mcc_info(phl);
 	struct rtw_phl_mcc_policy_info *policy = &mrole->policy;
 	struct rtw_phl_mcc_setting_info param = {0};
-	struct phl_mcc_info *minfo = get_mcc_info(phl, wrole->hw_band);
+	struct phl_mcc_info *minfo = NULL;
+	u8 hw_band = 0;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, ">>> _mcc_fill_mcc_role_policy_info()\n");
+
+	hw_band = rlink->hw_band;
+	minfo = get_mcc_info(phl, hw_band);
+
 	_mcc_fill_default_policy(phl, mrole);
 	if (NULL == com_info->ops.mcc_get_setting)
 		goto exit;
@@ -475,7 +471,7 @@ void _mcc_fill_mcc_role_policy_info(struct phl_info_t *phl,
 			policy->dur_info.dur, param.dur);
 		policy->dur_info.dur = param.dur;
 	}
-	_mcc_set_fw_log_info(phl, wrole->hw_band, param.en_fw_mcc_log,
+	_mcc_set_fw_log_info(phl, hw_band, param.en_fw_mcc_log,
 				param.fw_mcc_log_lv);
 exit:
 	return;
@@ -503,11 +499,14 @@ void _mcc_fill_macid_bitmap_by_role(struct phl_info_t *phl,
 		used_macid->len, max_map_idx);
 }
 
-enum rtw_phl_status _mcc_fill_mcc_role_basic_info(struct phl_info_t *phl,
-		struct rtw_wifi_role_t *wrole, struct rtw_phl_mcc_role *mrole)
+enum rtw_phl_status
+_mcc_fill_mcc_role_basic_info(struct phl_info_t *phl,
+                              struct rtw_wifi_role_t *wrole,
+                              struct rtw_wifi_role_link_t *rlink,
+                              struct rtw_phl_mcc_role *mrole)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
-	struct rtw_phl_stainfo_t *sta = rtw_phl_get_stainfo_self(phl, wrole);
+	struct rtw_phl_stainfo_t *sta = rtw_phl_get_stainfo_self(phl, rlink);
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> _mcc_fill_mcc_role_basic_info()\n");
 	if (sta == NULL) {
@@ -516,68 +515,83 @@ enum rtw_phl_status _mcc_fill_mcc_role_basic_info(struct phl_info_t *phl,
 	}
 	mrole->wrole = wrole;
 	mrole->macid = sta->macid;
-#ifdef RTW_PHL_BCN
-	if (_mcc_is_ap_category(wrole))
-		mrole->bcn_intvl = (u16)wrole->bcn_cmn.bcn_interval;
-	else
-#endif
-		mrole->bcn_intvl = sta->asoc_cap.bcn_interval;
+	mrole->rlink = rlink;
+
+	mrole->bcn_intvl = phl_role_get_bcn_intvl(phl, wrole, rlink);
 	if (mrole->bcn_intvl == 0) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_fill_mcc_role_basic_info(): mrole->bcn_intvl ==0, please check code of core layer.\n");
 		goto exit;
 	}
-	mrole->chandef = &wrole->chandef;
+
+	mrole->chandef = &rlink->chandef;
+
 	_mcc_fill_macid_bitmap_by_role(phl, mrole);
 	status = RTW_PHL_STATUS_SUCCESS;
 exit:
 	return status;
 }
 
-enum rtw_phl_status _mcc_fill_ref_role_info(struct phl_info_t *phl,
-			struct rtw_phl_mcc_en_info *en_info,
-			struct rtw_wifi_role_t *wrole)
+enum rtw_phl_status
+_mcc_fill_ref_role_info(struct phl_info_t *phl,
+                        struct rtw_phl_mcc_en_info *en_info,
+                        struct rtw_wifi_role_t *wrole,
+                        struct rtw_wifi_role_link_t *rlink
+)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_mcc_role *mrole = NULL;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> _mcc_fill_ref_role_info()\n");
 	mrole = &en_info->mcc_role[REF_ROLE_IDX];
-	status = _mcc_fill_mcc_role_basic_info(phl, wrole, mrole);
+
+	status = _mcc_fill_mcc_role_basic_info(phl, wrole,rlink, mrole);
 	if (RTW_PHL_STATUS_SUCCESS != status) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_fill_ref_role_info(): set basic info failed\n");
 		goto exit;
 	}
-	_mcc_fill_mcc_role_policy_info(phl, wrole, mrole);
+
+	_mcc_fill_mcc_role_policy_info(phl, wrole, rlink, mrole);
+
 	en_info->mrole_map |= BIT(REF_ROLE_IDX);
 	en_info->mrole_num++;
 	status = RTW_PHL_STATUS_SUCCESS;
 exit:
-	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_fill_ref_role_info(): status(%d), wrole id(%d), wrole->type(%d), Fill mrole(%d) Info\n",
-			status, wrole->id, wrole->type, REF_ROLE_IDX);
+	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_fill_ref_role_info(): status(%d), wrole id(%d), wrole->type(%d), rlink id (%d) Fill mrole(%d) Info\n",
+			status, wrole->id, wrole->type, rlink->id, REF_ROLE_IDX);
+
 	return status;
 }
 
-enum rtw_phl_status _mcc_fill_role_info(struct phl_info_t *phl,
-			struct rtw_phl_mcc_en_info *en_info, u8 role_map,
-			struct rtw_wifi_role_t *cur_role)
+enum rtw_phl_status
+_mcc_fill_role_info(struct phl_info_t *phl,
+                    struct rtw_phl_mcc_en_info *en_info,
+                    u8 role_map,
+                    struct rtw_wifi_role_t *cur_role,
+                    struct rtw_wifi_role_link_t *cur_rlink
+)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct rtw_wifi_role_t *wrole = NULL;
+	struct rtw_wifi_role_link_t *rlink = NULL;
 	struct rtw_phl_mcc_role *mrole = NULL;
 	u8 ridx = 0, mcc_idx = 0;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> _mcc_fill_role_info()\n");
-	if (RTW_PHL_STATUS_SUCCESS != _mcc_fill_ref_role_info(phl, en_info,
-								cur_role)) {
+
+	if (RTW_PHL_STATUS_SUCCESS != _mcc_fill_ref_role_info(phl,
+	                                                      en_info,
+	                                                      cur_role,
+	                                                      cur_rlink)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_fill_role_info(): set ref role info failed\n");
 		goto exit;
 	}
+
 	mcc_idx = en_info->mrole_num;
 	role_map &= ~(BIT(cur_role->id));
 	for (ridx = 0; ridx < MAX_WIFI_ROLE_NUMBER; ridx++) {
 		if (!(role_map & BIT(ridx)))
 			continue;
-		wrole = rtw_phl_get_wrole_by_ridx(phl->phl_com, ridx);
+		wrole = phl_get_wrole_by_ridx(phl, ridx);
 		if (wrole == NULL) {
 			PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_fill_role_info(): get wrole fail, role_idx(%d)\n",
 				ridx);
@@ -591,12 +605,15 @@ enum rtw_phl_status _mcc_fill_role_info(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_fill_role_info(): wrole(%d), wrole->type(%d), Fill mrole(%d) Info\n",
 			ridx, wrole->type, mcc_idx);
 		mrole = &en_info->mcc_role[mcc_idx];
-		status = _mcc_fill_mcc_role_basic_info(phl, wrole, mrole);
+
+		rlink = phl_get_rlink_by_hw_band(wrole, cur_rlink->hw_band);
+		status = _mcc_fill_mcc_role_basic_info(phl, wrole, rlink, mrole);
 		if (RTW_PHL_STATUS_SUCCESS != status) {
 			PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_fill_role_info(): set basic info failed\n");
 			goto exit;
 		}
-		_mcc_fill_mcc_role_policy_info(phl, wrole, mrole);
+		_mcc_fill_mcc_role_policy_info(phl, wrole, rlink, mrole);
+
 		en_info->mrole_map |= BIT(mcc_idx);
 		en_info->mrole_num++;
 		mcc_idx ++;
@@ -617,9 +634,10 @@ void _mcc_fill_coex_mode(struct phl_info_t *phl, struct phl_mcc_info *minfo)
 		minfo->coex_mode);
 }
 
-void _mcc_fill_bt_dur(struct phl_info_t *phl, struct phl_mcc_info *minfo)
+void _mcc_fill_bt_dur(struct phl_info_t *phl, enum phl_band_idx band_idx,
+			struct phl_mcc_info *minfo)
 {
-	minfo->bt_info.bt_dur = (u16)rtw_hal_get_btc_req_slot(phl->hal);
+	minfo->bt_info.bt_dur = (u16)rtw_hal_get_btc_req_slot(phl->hal, band_idx);
 	minfo->bt_info.bt_seg_num = 1;
 	minfo->bt_info.bt_seg[0] = minfo->bt_info.bt_dur;
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_fill_bt_dur(): minfo->bt_info.bt_dur(%d)\n",
@@ -705,6 +723,8 @@ void _mcc_clean_noa(struct phl_info_t *phl, struct rtw_phl_mcc_en_info *en_info)
 			goto exit;
 		}
 		param.wrole = ap_role->wrole;
+		param.rlink = ap_role->rlink;
+
 		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_clean_noa()\n");
 		com_info->ops.mcc_update_noa(com_info->ops.priv, &param);
 	}
@@ -729,11 +749,12 @@ bool _tdmra_calc_noa_2wrole(struct phl_info_t *phl, struct phl_mcc_info *minfo,
 	mcc_start = en_info->tsf_high;
 	mcc_start = mcc_start << 32;
 	mcc_start |= en_info->tsf_low;
-	if (_mcc_is_ap_category(role_ref->wrole)){
+	if (rtw_phl_role_is_ap_category(role_ref->wrole)){
 		/*calculate end time of GO*/
 		noa_start = mcc_start + (d_r * TU);
 		param->dur = en_info->mcc_intvl - d_r;
 		param->wrole = role_ref->wrole;
+		param->rlink = role_ref->rlink;
 	} else {
 		u32 tsf_ref_h = 0, tsf_ref_l = 0, tsf_ano_h = 0, tsf_ano_l = 0;
 		u64 tsf_ref = 0, tsf_ano = 0;
@@ -771,13 +792,14 @@ bool _tdmra_calc_noa_2wrole(struct phl_info_t *phl, struct phl_mcc_info *minfo,
 		noa_start = noa_start - tsf_ref + tsf_ano;
 		param->dur = en_info->mcc_intvl - d_a;
 		param->wrole = role_ano->wrole;
+		param->rlink = role_ano->rlink;
 	}
 	param->start_t_h = noa_start >> 32;
 	param->start_t_l = (u32)noa_start;
 	param->cnt = 255;
 	param->interval = en_info->mcc_intvl;
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_tdmra_calc_noa_2wrole(): IsGORef(%d), mcc_start(0x%08x %08x)\n",
-		_mcc_is_ap_category(role_ref->wrole),
+		rtw_phl_role_is_ap_category(role_ref->wrole),
 		(u32)(mcc_start >> 32), (u32)mcc_start);
 	ret = true;
 exit:
@@ -800,12 +822,13 @@ bool _tdmra_calc_noa_1wrole(struct phl_info_t *phl, struct phl_mcc_info *minfo,
 	noa_start = mcc_start + (d_r * TU);
 	param->dur = en_info->mcc_intvl - d_r;
 	param->wrole = role_ref->wrole;
+	param->rlink = role_ref->rlink;
 	param->start_t_h = noa_start >> 32;
 	param->start_t_l = (u32)noa_start;
 	param->cnt = 255;
 	param->interval = en_info->mcc_intvl;
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_tdmra_calc_noa_1wrole(): IsGORef(%d), mcc_start(0x%08x %08x)\n",
-		_mcc_is_ap_category(role_ref->wrole),
+		rtw_phl_role_is_ap_category(role_ref->wrole),
 		(u32)(mcc_start >> 32), (u32)mcc_start);
 	ret = true;
 	return ret;
@@ -856,9 +879,9 @@ bool _mcc_adjust_dur_for_2g_mcc_2role_bt(struct phl_mcc_info *minfo)
 		m_role1->policy.dur_info.dur_limit.max_dur : en_info->mcc_intvl;
 	u16 d2_max = (m_role2->policy.dur_info.dur_limit.enable) ?
 		m_role2->policy.dur_info.dur_limit.max_dur : en_info->mcc_intvl;
-	u16 d1_min = _mcc_is_ap_category(m_role1->wrole) ?
+	u16 d1_min = rtw_phl_role_is_ap_category(m_role1->wrole) ?
 					MIN_AP_DUR : MIN_CLIENT_DUR;
-	u16 d2_min = _mcc_is_ap_category(m_role2->wrole) ?
+	u16 d2_min = rtw_phl_role_is_ap_category(m_role2->wrole) ?
 					MIN_AP_DUR : MIN_CLIENT_DUR;
 	u16 wifi_dur = 0, bt_dur = bt_info->bt_dur;
 	u16 i = 0;
@@ -1091,30 +1114,44 @@ exit:
 	return add_extra_bt_role;
 }
 
-enum rtw_phl_status _mcc_calculate_start_tsf(struct phl_info_t *phl,
-					struct rtw_phl_mcc_en_info *en_info
-)
+enum rtw_phl_status
+_mcc_calculate_start_tsf(struct phl_info_t *phl,
+                         struct rtw_phl_mcc_en_info *en_info)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_mcc_role *ref_role = get_ref_role(en_info);
+	struct mr_coex_info *mrcx_i = get_mr_coex_i(phl, ref_role->rlink->hw_band);
 	u32 tsf_h = 0, tsf_l = 0;
 	u64 tsf = 0, start_tsf = 0;
 	u8 i = 0, max_loop = 10, calc_done = 0;
 	u16 offset = 0;
+	u64 min_trig_t = LONG_TRIGGER_MCC_TIME;
 
+	if (MR_COEX_TRIG_BY_LINKING == mrcx_i->coex_trig) {
+		if (rtw_phl_role_is_ap_category(ref_role->wrole))
+			min_trig_t = SHORT_TRIGGER_MCC_TIME;
+	} else if (MR_COEX_TRIG_BY_BT == mrcx_i->coex_trig) {
+		min_trig_t = SHORT_TRIGGER_MCC_TIME;
+	}
 	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_get_tsf(phl->hal,
-				ref_role->wrole->hw_port, &tsf_h, &tsf_l)) {
+	                                              ref_role->rlink->hw_band,
+	                                              ref_role->rlink->hw_port,
+	                                              &tsf_h,
+	                                              &tsf_l)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_WARNING_, "_mcc_calculate_start_tsf(): Get tsf fail\n");
 		goto exit;
 	}
+
 	tsf = tsf_h;
 	tsf = tsf << 32;
 	tsf |= tsf_l;
 	/*calculate the value between current TSF and TBTT*/
-	phl_calc_offset_from_tbtt(phl, ref_role->wrole, tsf, &offset);
-	start_tsf = tsf - ((offset + en_info->m_pattern.tob_r) * TU);
+	phl_calc_offset_from_tbtt(phl, ref_role->wrole, ref_role->rlink, tsf, &offset);
+
+	start_tsf = tsf + (ref_role->bcn_intvl * TU);
+	start_tsf = start_tsf - ((offset + en_info->m_pattern.tob_r) * TU);
 	for (i = 0; i < max_loop; i++) {
-		if (start_tsf < (tsf + (MIN_TRIGGER_MCC_TIME * TU))) {
+		if (start_tsf < (tsf + (min_trig_t * TU))) {
 			start_tsf += (ref_role->bcn_intvl * TU);
 		} else {
 			calc_done = 1;
@@ -1991,13 +2028,13 @@ enum rtw_phl_status _mcc_calculate_2_wrole_pattern_v2(
 	s16 tob_r_cand = 0, toa_r_cand = 0, tob_a_cand = 0, toa_a_cand = 0;
 	s16 d_r = ref_dur->dur, d_a = ano_dur->dur, bcns_offset = offset;
 	s16 sum = 0, sum_last = 0;
-	s16 tob_r_min = _mcc_is_ap_category(m_pattern->role_ref->wrole) ?
+	s16 tob_r_min = rtw_phl_role_is_ap_category(m_pattern->role_ref->wrole) ?
 			EARLY_TX_BCN_T : EARLY_RX_BCN_T;
-	s16 toa_r_min = _mcc_is_ap_category(m_pattern->role_ref->wrole) ?
+	s16 toa_r_min = rtw_phl_role_is_ap_category(m_pattern->role_ref->wrole) ?
 			MIN_TX_BCN_T : MIN_RX_BCN_T;
-	s16 tob_a_min = _mcc_is_ap_category(m_pattern->role_ano->wrole) ?
+	s16 tob_a_min = rtw_phl_role_is_ap_category(m_pattern->role_ano->wrole) ?
 			EARLY_TX_BCN_T : EARLY_RX_BCN_T;
-	s16 toa_a_min = _mcc_is_ap_category(m_pattern->role_ano->wrole) ?
+	s16 toa_a_min = rtw_phl_role_is_ap_category(m_pattern->role_ano->wrole) ?
 			MIN_TX_BCN_T : MIN_RX_BCN_T;
 	s16 min_bcns_offset = toa_r_min + tob_a_min;
 	s16 i = 0, cnt = 0;
@@ -2579,9 +2616,11 @@ enum rtw_phl_status _mcc_get_2_clients_bcn_offset(struct phl_info_t *phl,
 	tsf_ano |= tsf_ano_l;
 	/*calculate the value between current TSF and TBTT*/
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_get_2_clients_bcn_offset(): role_ref calc_offset_from_tbtt\n");
-	phl_calc_offset_from_tbtt(phl, role_ref->wrole, tsf_ref, &ofst_r);
+	phl_calc_offset_from_tbtt(phl, role_ref->wrole, role_ref->rlink, tsf_ref, &ofst_r);
+
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_get_2_clients_bcn_offset(): role_ano calc_offset_from_tbtt\n");
-	phl_calc_offset_from_tbtt(phl, role_ano->wrole, tsf_ano, &ofst_a);
+	phl_calc_offset_from_tbtt(phl, role_ano->wrole, role_ano->rlink, tsf_ano, &ofst_a);
+
 	if (ofst_r < ofst_a)
 		ofst_r += role_ref->bcn_intvl;
 	*offset = ofst_r - ofst_a;
@@ -2772,6 +2811,7 @@ enum rtw_phl_status _mcc_fill_info_for_ap_client_mode(
 	_mcc_set_dur_for_ap_client_mode(&ap_role->policy.dur_info.dur,
 					&client_role->policy.dur_info.dur,
 					en_info->mcc_intvl);
+	// TODO: Random offset should be used here.
 	if (_mcc_discision_duration_for_2role_bt(minfo)) {
 		en_info->m_pattern.bcns_offset = AP_CLIENT_OFFSET;
 		_mcc_fill_2_wrole_bt_pattern(minfo, role_ref, role_ano);
@@ -2779,13 +2819,19 @@ enum rtw_phl_status _mcc_fill_info_for_ap_client_mode(
 		_mcc_set_ap_client_default_pattern(minfo,
 					&en_info->m_pattern.bcns_offset);
 	}
+
 	if (RTW_PHL_STATUS_SUCCESS != rtw_phl_tbtt_sync(phl,
-					client_role->wrole, ap_role->wrole,
-					en_info->m_pattern.bcns_offset, true,
-					&sync_info->offset)) {
+	                                                client_role->wrole,
+	                                                client_role->rlink,
+	                                                ap_role->wrole,
+	                                                ap_role->rlink,
+	                                                en_info->m_pattern.bcns_offset,
+	                                                true,
+	                                                &sync_info->offset)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_fill_info_for_ap_client_mode(): Sync tsf fail\n");
 		goto exit;
 	}
+
 	sync_info->source = client_role->macid;
 	sync_info->target = ap_role->macid;
 	sync_info->sync_en = true;
@@ -2855,9 +2901,8 @@ enum rtw_phl_status _mcc_pkt_offload_for_client(struct phl_info_t *phl, u8 macid
 		MAC_ADDRESS_LENGTH);
 	_os_mem_cpy(d, &(null_info.a3[0]), &(phl_sta->mac_addr[0]),
 		MAC_ADDRESS_LENGTH);
-	if (RTW_PHL_STATUS_SUCCESS != phl_pkt_ofld_request(phl, macid,
-						PKT_TYPE_NULL_DATA, &null_token,
-						__func__, &null_info)) {
+	if (RTW_PHL_STATUS_SUCCESS != rtw_phl_pkt_ofld_request(phl, macid,
+						PKT_TYPE_NULL_DATA, &null_token, &null_info, __func__)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_pkt_offload_for_client(): Pkt offload fail, macid(%d)\n",
 			macid);
 		goto exit;
@@ -2881,7 +2926,7 @@ enum rtw_phl_status _mcc_pkt_offload(struct phl_info_t *phl,
 		if (!(info->mrole_map & BIT(midx)))
 			continue;
 		mcc_role = &info->mcc_role[midx];
-		if (_mcc_is_client_category(mcc_role->wrole)) {
+		if (rtw_phl_role_is_client_category(mcc_role->wrole)) {
 			if (RTW_PHL_STATUS_SUCCESS !=
 				_mcc_pkt_offload_for_client(phl,
 							(u8)mcc_role->macid)) {
@@ -3084,10 +3129,12 @@ decision:
 	_mcc_reset_minfo(phl, &new_minfo, MINFO_RESET_BT_INFO |
 						MINFO_RESET_PATTERN_INFO);
 	/*fill original bt slot*/
-	_mcc_fill_bt_dur(phl, &new_minfo);
+	_mcc_fill_bt_dur(phl, role_ref->rlink->hw_band, &new_minfo);
+
 	/*get original wifi time slot*/
-	_mcc_fill_mcc_role_policy_info(phl, role_ref->wrole, role_ref);
-	_mcc_fill_mcc_role_policy_info(phl, role_ano->wrole, role_ano);
+	_mcc_fill_mcc_role_policy_info(phl, role_ref->wrole, role_ref->rlink, role_ref);
+	_mcc_fill_mcc_role_policy_info(phl, role_ano->wrole, role_ano->rlink, role_ano);
+
 	if (RTW_PHL_STATUS_SUCCESS != _mcc_update_2_clients_pattern(phl,
 							minfo, &new_minfo)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "_mcc_2_clients_tracking(): update 2clients fail\n");
@@ -3104,13 +3151,19 @@ exit:
 	return;
 }
 
-enum rtw_phl_status rtw_phl_mcc_ap_bt_coex_enable(struct phl_info_t *phl,
-				struct rtw_wifi_role_t *cur_role)
+enum rtw_phl_status
+rtw_phl_mcc_ap_bt_coex_enable(struct phl_info_t *phl,
+                              struct rtw_wifi_role_t *cur_role,
+                              struct rtw_wifi_role_link_t *cur_rlink)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_en_info *en_info = NULL;
-	struct hw_band_ctl_t *band_ctrl = get_band_ctrl(phl, cur_role->hw_band);
+	struct hw_band_ctl_t *band_ctrl = NULL;
+	u8 hw_band = 0;
+
+	hw_band = cur_rlink->hw_band;
+	band_ctrl = get_band_ctrl(phl, hw_band);
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_mcc_ap_bt_coex_enable(): cur_role->type(%d)\n",
 		cur_role->type);
@@ -3118,7 +3171,7 @@ enum rtw_phl_status rtw_phl_mcc_ap_bt_coex_enable(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_ap_bt_coex_enable(): mcc is not init, please check code\n");
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, cur_role->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	en_info = &minfo->en_info;
 	if (MCC_NONE != minfo->state && MCC_STOP != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_ap_bt_coex_enable(): (MCC_NONE != minfo->state || MCC_STOP != minfo->state(%d)), please check code flow\n",
@@ -3145,13 +3198,18 @@ enum rtw_phl_status rtw_phl_mcc_ap_bt_coex_enable(struct phl_info_t *phl,
 		_mcc_dump_mode(&minfo->mcc_mode);
 		goto _cfg_info_fail;
 	}
-	if (RTW_PHL_STATUS_SUCCESS != _mcc_fill_role_info(phl, en_info,
-						minfo->role_map, cur_role)) {
+
+	if (RTW_PHL_STATUS_SUCCESS != _mcc_fill_role_info(phl,
+	                                                  en_info,
+	                                                  minfo->role_map,
+	                                                  cur_role,
+	                                                  cur_rlink)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_ap_bt_coex_enable(): fill role info failed\n");
 		goto _cfg_info_fail;
 	}
+
 	_mcc_fill_coex_mode(phl, minfo);
-	_mcc_fill_bt_dur(phl, minfo);
+	_mcc_fill_bt_dur(phl, cur_rlink->hw_band, minfo);
 	if (RTW_PHL_STATUS_SUCCESS != _mcc_get_mrole_idx_by_wrole(minfo,
 					cur_role, &en_info->ref_role_idx)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_ap_bt_coex_enable(): fill ref_role idx failed\n");
@@ -3163,8 +3221,7 @@ enum rtw_phl_status rtw_phl_mcc_ap_bt_coex_enable(struct phl_info_t *phl,
 	}
 	_mcc_set_state(minfo, MCC_TRIGGER_FW_EN);
 	if (rtw_hal_mcc_enable(phl->hal, en_info, &minfo->bt_info,
-				minfo->mcc_mode,
-				&minfo->mcc_dbg_i) != RTW_HAL_STATUS_SUCCESS) {
+				minfo->mcc_mode) != RTW_HAL_STATUS_SUCCESS) {
 		_mcc_set_state(minfo, MCC_FW_EN_FAIL);
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_ap_bt_coex_enable(): Enable FW mcc Fail\n");
 		goto exit;
@@ -3191,12 +3248,20 @@ enum rtw_phl_status rtw_phl_mcc_go_bt_coex_disable(struct phl_info_t *phl,
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_en_info *en_info = NULL;
 	struct rtw_phl_mcc_role *m_role = NULL;
+	u8 hw_band = 0;
+
+	if (spec_role->rlink_num > 1) {
+		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "%s: MLD not support\n", __func__);
+		goto exit;
+	}
+
+	hw_band = spec_role->rlink[spec_role->rlink_num-1].hw_band;
 
 	if (!is_mcc_init(phl)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_go_bt_coex_disable(): mcc is not init, please check code\n");
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, spec_role->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	en_info = &minfo->en_info;
 	if (MCC_RUNING != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_go_bt_coex_disable(): MCC_RUNING != m_info->state, please check code flow\n");
@@ -3216,7 +3281,9 @@ enum rtw_phl_status rtw_phl_mcc_go_bt_coex_disable(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_,"rtw_phl_mcc_go_bt_coex_disable(): Disable FW mcc Fail\n");
 		goto exit;
 	}
-	rtw_hal_sync_cur_ch(phl->hal, spec_role->hw_band, spec_role->chandef);
+
+	rtw_hal_sync_cur_ch(phl->hal, hw_band, spec_role->rlink[spec_role->rlink_num-1].chandef);
+
 	_mcc_set_state(minfo, MCC_STOP);
 	PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_go_bt_coex_disable(): Disable FW mcc ok\n");
 	_mcc_clean_noa(phl, en_info);
@@ -3250,9 +3317,9 @@ enum rtw_phl_status rtw_phl_mcc_duration_change(struct phl_info_t *phl,
 			struct phl_tdmra_dur_change_info *info)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
-	struct phl_mcc_info *minfo = get_mcc_info(phl, info->hw_band);
 	struct phl_mcc_info new_minfo = {0};
 	struct rtw_phl_mcc_role *spec_mrole = NULL;
+	struct phl_mcc_info *minfo = get_mcc_info(phl, info->hw_band);
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_mcc_duration_change\n");
 	_os_mem_cpy(phl_to_drvpriv(phl), &new_minfo, minfo,
@@ -3302,13 +3369,15 @@ enum rtw_phl_status rtw_phl_mcc_bt_duration_change(struct phl_info_t *phl,
 	en_info = &new_minfo.en_info;
 	_mcc_reset_minfo(phl, &new_minfo, MINFO_RESET_BT_INFO |
 						MINFO_RESET_PATTERN_INFO);
-	_mcc_fill_bt_dur(phl, &new_minfo);
+	_mcc_fill_bt_dur(phl, info->hw_band, &new_minfo);
 	/*fill original wifi time slot*/
 	for (midx = 0; midx < en_info->mrole_num; midx++) {
 		if (!(en_info->mrole_map & BIT(midx)))
 			continue;
+
 		mrole = &en_info->mcc_role[midx];
-		_mcc_fill_mcc_role_policy_info(phl, mrole->wrole, mrole);
+		_mcc_fill_mcc_role_policy_info(phl, mrole->wrole, mrole->rlink, mrole);
+
 		if (mrole->chandef->band == BAND_ON_24G)
 			exist_2g = true;
 	}
@@ -3341,7 +3410,14 @@ enum rtw_phl_status rtw_phl_mcc_dur_lim_change(struct phl_info_t *phl,
 	struct rtw_phl_mcc_en_info *en_info = NULL;
 	struct rtw_phl_mcc_role *spec_mrole = NULL;
 	struct rtw_phl_mcc_role *mrole = NULL;
-	u8 midx = 0;
+	u8 midx = 0, hw_band = 0;
+
+	if (wrole->rlink_num > 1) {
+		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "%s: MLD not support\n", __func__);
+		goto exit;
+	}
+
+	hw_band = wrole->rlink[wrole->rlink_num-1].hw_band;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_mcc_dur_lim_change()\n");
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "_mcc_fill_dur_lim_info(): dur_req: tag(%d), enable(%d), start_t_h(0x%08x), start_t_l(0x%08x), dur(%d), intvl(%d)\n",
@@ -3352,7 +3428,7 @@ enum rtw_phl_status rtw_phl_mcc_dur_lim_change(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_dur_lim_change(): mcc is not init, please check code\n");
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, wrole->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	if (MCC_RUNING != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_dur_lim_change(): MCC_RUNING != minfo->state, , please check code flow\n");
 		_mcc_dump_state(&minfo->state);
@@ -3370,13 +3446,14 @@ enum rtw_phl_status rtw_phl_mcc_dur_lim_change(struct phl_info_t *phl,
 	/*fill original bt slot*/
 	_mcc_reset_minfo(phl, &new_minfo, MINFO_RESET_BT_INFO |
 						MINFO_RESET_PATTERN_INFO);
-	_mcc_fill_bt_dur(phl, &new_minfo);
+	_mcc_fill_bt_dur(phl, hw_band, &new_minfo);
 	/*fill original wifi time slot*/
 	for (midx = 0; midx < en_info->mrole_num; midx++) {
 		if (!(en_info->mrole_map & BIT(midx)))
 			continue;
+
 		mrole = &en_info->mcc_role[midx];
-		_mcc_fill_mcc_role_policy_info(phl, mrole->wrole, mrole);
+		_mcc_fill_mcc_role_policy_info(phl, mrole->wrole, mrole->rlink, mrole);
 	}
 	_mcc_fill_dur_lim_info(phl, spec_mrole, lim_req);
 	if (RTW_PHL_STATUS_SUCCESS != _mcc_duration_change(phl, minfo,
@@ -3395,16 +3472,24 @@ void rtw_phl_mcc_sta_entry_change(struct phl_info_t *phl,
 {
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_role *mrole = NULL;
+	u8 hw_band = 0;
+
+	if (wrole->rlink_num > 1) {
+		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "%s: MLD not support\n", __func__);
+		goto exit;
+	}
+
+	hw_band = wrole->rlink[wrole->rlink_num-1].hw_band;
 
 	if (!is_mcc_init(phl)) {
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, wrole->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	if (MCC_RUNING != minfo->state) {
 		goto exit;
 	}
 	PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, ">>> rtw_phl_mcc_sta_entry_change\n");
-	minfo = get_mcc_info(phl, wrole->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	if (NULL == (mrole = _mcc_get_mrole_by_wrole(minfo, wrole))) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_sta_entry_change(): Can't get mrole, wrole id(%d), please check code flow\n",
 			wrole->id);
@@ -3428,21 +3513,29 @@ exit:
 	return;
 }
 
-void phl_mcc_client_link_notify_for_ap(struct phl_info_t *phl,
-			struct rtw_wifi_role_t *wrole, enum role_state state)
+void phl_mcc_ap_client_notify(struct phl_info_t *phl,
+			struct rtw_wifi_role_t *wrole, enum link_state state)
 {
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_role *mrole = NULL;
+	u8 hw_band = 0;
 
-	if (state != PHL_ROLE_MSTS_STA_CONN_START &&
-		state != PHL_ROLE_MSTS_STA_DIS_CONN)
+	if (wrole->rlink_num > 1) {
+		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "%s: MLD not support\n", __func__);
+		goto exit;
+	}
+
+	hw_band = wrole->rlink[wrole->rlink_num-1].hw_band;
+
+	if (state != PHL_ClIENT_JOINING &&
+		state != PHL_ClIENT_LEFT)
 		goto exit;
 	if (!is_mcc_init(phl)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "%s(): mcc is not init, please check code\n",
 			__func__);
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, wrole->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	if (MCC_RUNING != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "%s(): MCC_RUNING != minfo->state\n",
 			__func__);
@@ -3465,7 +3558,8 @@ void phl_mcc_client_link_notify_for_ap(struct phl_info_t *phl,
 	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_notify_mcc_macid(phl->hal,
 	                                                       mrole,
 	                                                       minfo->mcc_mode)) {
-		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_client_link_notify_for_ap(): Notify macid map fail\n");
+		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "%s(): Notify macid map fail\n",
+			__func__);
 	}
 	PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "%s(): Update macid map ok\n",
 		__func__);
@@ -3493,41 +3587,24 @@ exit:
 	return ret;
 }
 
-static bool _is_mcc_sts_err(struct phl_info_t *phl, u8 band_idx)
+static bool _is_mcc_sts_err(struct phl_mcc_info *minfo)
 {
 	bool ret = false;
-	struct phl_mcc_info *minfo = NULL;
 
-	if (!is_mcc_init(phl)) {
-		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_,
-			"%s(): mcc is not init, please check code\n",
-			__func__);
-		goto exit;
-	}
-	minfo = get_mcc_info(phl, band_idx);
 	if (MCC_FW_DIS_FAIL == minfo->state ||
 		MCC_FW_EN_FAIL == minfo->state) {
 		ret = true;
 	}
-exit:
 	return ret;
 }
 
-enum rtw_phl_status rtw_phl_mcc_reset(struct phl_info_t *phl,
-					u8 band_idx)
+static enum rtw_phl_status _mcc_reset(struct phl_info_t *phl,
+					struct phl_mcc_info *minfo)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_mcc_en_info *en_info = NULL;
-	struct phl_mcc_info *minfo = NULL;
 
 	FUNCIN();
-	if (!is_mcc_init(phl)) {
-		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_,
-			"%s(): mcc is not init, please check code\n",
-			__func__);
-		goto exit;
-	}
-	minfo = get_mcc_info(phl, band_idx);
 	en_info = &minfo->en_info;
 
 	/* Reset mcc */
@@ -3542,20 +3619,19 @@ enum rtw_phl_status rtw_phl_mcc_reset(struct phl_info_t *phl,
 		minfo->mcc_mode == RTW_PHL_TDMRA_AP_WMODE)
 		_mcc_clean_noa(phl, en_info);
 	status = RTW_PHL_STATUS_SUCCESS;
-exit:
 	return status;
 }
 
-enum rtw_phl_status rtw_phl_mcc_recovery(struct phl_info_t *phl,
-					u8 band_idx)
+static enum rtw_phl_status _mcc_recovery(struct phl_info_t *phl,
+					struct phl_mcc_info *minfo)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_SUCCESS;
 
-	if (_is_mcc_sts_err(phl, band_idx)) {
+	if (_is_mcc_sts_err(minfo)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_,
 			"%s: err status detected, try to reset mcc.\n",
 			__func__);
-		rtw_phl_mcc_reset(phl, band_idx);
+		_mcc_reset(phl, minfo);
 	}
 
 	return status;
@@ -3564,14 +3640,20 @@ enum rtw_phl_status rtw_phl_mcc_recovery(struct phl_info_t *phl,
 /* Enable Fw MCC
  * @cur_role: the role in the current ch.
  */
-enum rtw_phl_status rtw_phl_mcc_enable(struct phl_info_t *phl,
-					struct rtw_wifi_role_t *cur_role)
+enum rtw_phl_status
+rtw_phl_mcc_enable(struct phl_info_t *phl,
+                   struct rtw_wifi_role_t *cur_role,
+                   struct rtw_wifi_role_link_t *cur_rlink
+)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_en_info *en_info = NULL;
-	struct hw_band_ctl_t *band_ctrl = get_band_ctrl(phl, cur_role->hw_band);
+	struct hw_band_ctl_t *band_ctrl = NULL;
 	u8 role_map = 0;
+	u8 hw_band = 0;
+
+	hw_band = cur_rlink->hw_band;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_mcc_enable(): cur_role->type(%d)\n",
 		cur_role->type);
@@ -3579,7 +3661,8 @@ enum rtw_phl_status rtw_phl_mcc_enable(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_enable(): mcc is not init, please check code\n");
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, cur_role->hw_band);
+	band_ctrl = get_band_ctrl(phl, hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	en_info = &minfo->en_info;
 	if (MCC_NONE != minfo->state && MCC_STOP != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_enable(): (MCC_NONE != minfo->state || MCC_STOP != minfo->state(%d)), please check code flow\n",
@@ -3602,13 +3685,18 @@ enum rtw_phl_status rtw_phl_mcc_enable(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_enable(): transfer mcc mode failed\n");
 		goto _cfg_info_fail;
 	}
-	if (RTW_PHL_STATUS_SUCCESS != _mcc_fill_role_info(phl, en_info,
-							role_map, cur_role)) {
+
+	if (RTW_PHL_STATUS_SUCCESS != _mcc_fill_role_info(phl,
+	                                                  en_info,
+	                                                  role_map,
+	                                                  cur_role,
+	                                                  cur_rlink)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_enable(): fill role info failed\n");
 		goto _cfg_info_fail;
 	}
+
 	_mcc_fill_coex_mode(phl, minfo);
-	_mcc_fill_bt_dur(phl, minfo);
+	_mcc_fill_bt_dur(phl, cur_rlink->hw_band, minfo);
 	if (RTW_PHL_STATUS_SUCCESS != _mcc_get_mrole_idx_by_wrole(minfo,
 					cur_role, &en_info->ref_role_idx)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_enable(): fill ref_role idx failed\n");
@@ -3638,8 +3726,7 @@ enum rtw_phl_status rtw_phl_mcc_enable(struct phl_info_t *phl,
 	}
 	_mcc_set_state(minfo, MCC_TRIGGER_FW_EN);
 	if (rtw_hal_mcc_enable(phl->hal, en_info, &minfo->bt_info,
-				minfo->mcc_mode,
-				&minfo->mcc_dbg_i) != RTW_HAL_STATUS_SUCCESS) {
+				minfo->mcc_mode) != RTW_HAL_STATUS_SUCCESS) {
 		_mcc_set_state(minfo, MCC_FW_EN_FAIL);
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_enable(): Enable FW mcc Fail\n");
 		goto exit;
@@ -3664,20 +3751,26 @@ exit:
  * Stop fw mcc
  * @ spec_role: You want to fw switch ch to the specific ch of the role when fw stop mcc
  */
-enum rtw_phl_status rtw_phl_mcc_disable(struct phl_info_t *phl,
-					struct rtw_wifi_role_t *spec_role)
+enum rtw_phl_status
+rtw_phl_mcc_disable(struct phl_info_t *phl,
+                    struct rtw_wifi_role_t *spec_role,
+                    struct rtw_wifi_role_link_t *spec_rlink
+)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_en_info *en_info = NULL;
 	struct rtw_phl_mcc_role *m_role = NULL;
+	u8 hw_band = 0;
+
+	hw_band = spec_rlink->hw_band;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_mcc_disable()\n");
 	if (!is_mcc_init(phl)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_disable(): mcc is not init, please check code\n");
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, spec_role->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	en_info = &minfo->en_info;
 	if (MCC_RUNING != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_disable(): MCC_RUNING != m_info->state, please check code flow\n");
@@ -3697,7 +3790,9 @@ enum rtw_phl_status rtw_phl_mcc_disable(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_,"rtw_phl_mcc_disable(): Disable FW mcc Fail\n");
 		goto exit;
 	}
-	rtw_hal_sync_cur_ch(phl->hal, spec_role->hw_band, spec_role->chandef);
+
+	rtw_hal_sync_cur_ch(phl->hal, hw_band, spec_rlink->chandef);
+
 	_mcc_set_state(minfo, MCC_STOP);
 	PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_mcc_disable(): Disable FW mcc ok\n");
 	if (minfo->mcc_mode == RTW_PHL_TDMRA_AP_CLIENT_WMODE)
@@ -3738,22 +3833,30 @@ exit:
 	return status;
 }
 
-enum rtw_phl_status rtw_phl_tdmra_enable(struct phl_info_t *phl,
-				struct rtw_wifi_role_t *cur_role)
+enum rtw_phl_status
+rtw_phl_tdmra_enable(struct phl_info_t *phl,
+                     struct rtw_wifi_role_t *cur_role,
+                     struct rtw_wifi_role_link_t *cur_rlink
+)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
-	struct hw_band_ctl_t *band_ctrl = get_band_ctrl(phl, cur_role->hw_band);
-	struct mr_info *cur_info = &band_ctrl->cur_info;
+	struct hw_band_ctl_t *band_ctrl = NULL;
+	struct mr_info *cur_info = NULL;
 	u8 chanctx_num = 0;
+	u8 hw_band = 0;
+
+	hw_band = cur_rlink->hw_band;
+	band_ctrl = get_band_ctrl(phl, hw_band);
+	cur_info = &band_ctrl->cur_info;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_tdmra_enable\n");
 	chanctx_num = (u8)phl_mr_get_chanctx_num(phl, band_ctrl);
 	if (2 == chanctx_num) {
-		status = rtw_phl_mcc_enable(phl, cur_role);
+		status = rtw_phl_mcc_enable(phl, cur_role, cur_rlink);
 	} else if (1 == chanctx_num) {
 		if ((1 == cur_info->ap_num || 1 == cur_info->p2p_go_num) &&
 		   (cur_info->ld_sta_num == 0 || cur_info->lg_sta_num == 0)) {
-			status = rtw_phl_mcc_ap_bt_coex_enable(phl, cur_role);
+			status = rtw_phl_mcc_ap_bt_coex_enable(phl, cur_role, cur_rlink);
 		} else {
 			PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_tdmra_enable(): Not support this type\n");
 			PHL_DUMP_MR_EX(phl);
@@ -3771,20 +3874,26 @@ enum rtw_phl_status rtw_phl_tdmra_enable(struct phl_info_t *phl,
  * Stop tdmra
  * @ spec_role: You want to fw switch ch to the specific ch of the role when fw stop tdma
  */
-enum rtw_phl_status rtw_phl_tdmra_disable(struct phl_info_t *phl,
-				struct rtw_wifi_role_t *spec_role)
+enum rtw_phl_status
+rtw_phl_tdmra_disable(struct phl_info_t *phl,
+                      struct rtw_wifi_role_t *spec_role,
+                      struct rtw_wifi_role_link_t *spec_rlink
+)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct phl_mcc_info *minfo = NULL;
 	struct rtw_phl_mcc_en_info *en_info = NULL;
 	struct rtw_phl_mcc_role *m_role = NULL;
+	u8 hw_band = 0;
+
+	hw_band = spec_rlink->hw_band;
 
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, ">>> rtw_phl_tdmra_disable()\n");
 	if (!is_mcc_init(phl)) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_tdmra_disable(): mcc is not init, please check code\n");
 		goto exit;
 	}
-	minfo = get_mcc_info(phl, spec_role->hw_band);
+	minfo = get_mcc_info(phl, hw_band);
 	en_info = &minfo->en_info;
 	if (MCC_RUNING != minfo->state) {
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_tdmra_disable(): MCC_RUNING != m_info->state, please check code flow\n");
@@ -3816,7 +3925,7 @@ enum rtw_phl_status rtw_phl_tdmra_disable(struct phl_info_t *phl,
 		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_,"rtw_phl_tdmra_disable(): Disable FW mcc Fail\n");
 		goto exit;
 	}
-	rtw_hal_sync_cur_ch(phl->hal, m_role->wrole->hw_band, *m_role->chandef);
+	rtw_hal_sync_cur_ch(phl->hal, hw_band, *m_role->chandef);
 	_mcc_set_state(minfo, MCC_STOP);
 	PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_phl_tdmra_disable(): Disable FW mcc ok\n");
 	if (minfo->mcc_mode == RTW_PHL_TDMRA_AP_CLIENT_WMODE ||
@@ -3827,6 +3936,31 @@ exit:
 	PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "<<< rtw_phl_tdmra_disable(): status(%d)\n",
 		status);
 	return status;
+}
+
+enum rtw_phl_status rtw_phl_tdmra_recovery(struct phl_info_t *phl,
+					u8 band_idx)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_SUCCESS;
+	struct phl_mcc_info *minfo = NULL;
+
+	if (!is_mcc_init(phl)) {
+		goto _exit;
+	}
+	minfo = get_mcc_info(phl, band_idx);
+	if (minfo->state == MCC_RUNING) {
+		struct rtw_phl_mcc_en_info *en_info = &minfo->en_info;
+		struct rtw_phl_mcc_role *role_ref = get_ref_role(en_info);
+
+		sts = rtw_phl_tdmra_disable(phl, role_ref->wrole, role_ref->rlink);
+		if (sts != RTW_PHL_STATUS_SUCCESS)
+			goto _exit;
+		sts = rtw_phl_tdmra_enable(phl, role_ref->wrole, role_ref->rlink);
+	} else {
+		sts = _mcc_recovery(phl, minfo);
+	}
+_exit:
+	return sts;
 }
 
 enum rtw_phl_status rtw_phl_mcc_init_ops(struct phl_info_t *phl, struct rtw_phl_mcc_ops *ops)
@@ -3953,25 +4087,5 @@ exit:
 	return get_ok;
 }
 
-bool phl_mcc_set_dbg_info(struct phl_info_t *phl,
-				struct rtw_phl_mcc_dbg_info *mcc_dbg_i)
-{
-	struct phl_mcc_info *minfo = NULL;
-	u8 i = 0;
 
-	if (!is_mcc_init(phl)) {
-		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "%s(): mcc is not init, please check code\n",
-			__FUNCTION__);
-		return false;
-	}
-	for(i = 0; i < HW_BAND_MAX; i++) {
-		minfo = get_mcc_info(phl, i);
-		_os_mem_cpy(phl_to_drvpriv(phl), &minfo->mcc_dbg_i, mcc_dbg_i,
-				sizeof(struct rtw_phl_mcc_dbg_info));
-		PHL_TRACE(COMP_PHL_MCC, _PHL_INFO_, "%s(): band_idx(%d), ntfy_cnt(%d), ntfy_rx(%d)\n",
-			__FUNCTION__, i, minfo->mcc_dbg_i.ntfy_cnt,
-			minfo->mcc_dbg_i.ntfy_rx);
-	}
-	return true;
-}
 #endif /* CONFIG_MCC_SUPPORT */

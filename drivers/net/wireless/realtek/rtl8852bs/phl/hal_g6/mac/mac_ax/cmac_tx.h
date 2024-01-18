@@ -40,9 +40,17 @@
 #define PTCL_TXQ_UL		13
 #define PTCL_TXQ_TWT0		14
 #define PTCL_TXQ_TWT1		15
-#define PTCL_TXQ_TB		16
 
 #define TX_PAUSE_WAIT_CNT	5000
+#define TX_PAUSE_WAIT_PKT_CNT 20000
+
+#define PTCL_IDLE_POLL_CNT	2200
+#define SW_CVR_DUR_US	30
+#define SW_CVR_CNT	8
+#define TX_DLY_MAX	9
+
+#define MACTXEN_MAX	81
+#define MACTXEN_MIN	56
 
 /*--------------------Define Enum------------------------------------*/
 
@@ -133,6 +141,22 @@ struct sch_tx_en_h2creg {
 
 /*--------------------Export global variable----------------------------*/
 /*--------------------Function declaration-----------------------------*/
+
+/**
+ * @addtogroup Basic_TRX
+ * @{
+ * @addtogroup TX_Config
+ * @{
+ */
+/**
+ * @brief tx_on_dly
+ *
+ * @param *adapter
+ * @param band
+ * @void.
+ * @retval N/A
+ */
+void tx_on_dly(struct mac_ax_adapter *adapter, u8 band);
 
 /**
  * @addtogroup Basic_TRX
@@ -447,26 +471,26 @@ u32 get_hw_lifetime_cfg(struct mac_ax_adapter *adapter,
  */
 
 /**
+ * @brief set_hw_sifs_r2t_t2t
+ *
+ * @param *adapter
+ * @param *ctrl
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 set_hw_sifs_r2t_t2t(struct mac_ax_adapter *adapter,
+			struct mac_ax_sifs_r2t_t2t_ctrl *ctrl);
+
+/**
+ * @}
+ * @}
+ */
+
+/**
  * @addtogroup Basic_TRX
  * @{
  * @addtogroup TX_Config
  * @{
- */
-
-/**
- * @brief stop_sch_tx
- *
- * @param *adapter
- * @param sel
- * @param *bak
- * @return Please Place Description here.
- * @retval u32
- */
-u32 stop_sch_tx(struct mac_ax_adapter *adapter, enum sch_tx_sel sel,
-		struct mac_ax_sch_tx_en_cfg *bak);
-/**
- * @}
- * @}
  */
 
 /**
@@ -572,11 +596,10 @@ u32 tx_idle_poll_macid(struct mac_ax_adapter *adapter,
  *
  * @param *adapter
  * @param band: 0/1 for band 0/1
- * @param txop_aware: 1: polling until end of TXOP; 0: polling until end of Tx sequence
  * @return MACSUCCESS
  * @retval u32
  */
-u32 tx_idle_poll_band(struct mac_ax_adapter *adapter, u8 band, u8 txop_aware);
+u32 tx_idle_poll_band(struct mac_ax_adapter *adapter, u8 band);
 /**
  * @}
  * @}
@@ -747,6 +770,28 @@ u32 mac_set_tx_ru26_tb(struct mac_ax_adapter *adapter,
  */
 
 /**
+ * @brief set_cts2self_ax
+ *
+ * @param *adapter
+ * @param *cfg
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 set_cts2self(struct mac_ax_adapter *adapter,
+		 struct mac_ax_cts2self_cfg *cfg);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Basic_TRX
+ * @{
+ * @addtogroup TX_Config
+ * @{
+ */
+
+/**
  * @brief mac_tx_duty
  *
  * @param *adapter
@@ -783,5 +828,10 @@ u32 mac_tx_duty_stop(struct mac_ax_adapter *adapter);
  * @}
  * @}
  */
+
+void u16_2_sch(struct mac_ax_adapter *adapter,
+	       struct mac_ax_sch_tx_en *tx_en, u16 val16);
+void u32_2_sch(struct mac_ax_adapter *adapter,
+	       struct mac_ax_sch_tx_en *tx_en, u32 val32);
 
 #endif

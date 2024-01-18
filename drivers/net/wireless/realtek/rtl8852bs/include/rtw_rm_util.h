@@ -26,10 +26,9 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
-u8 rm_get_oper_class_via_ch(u8 ch);
-u8 rm_get_ch_set( struct rtw_ieee80211_channel *pch_set, u8 op_class, u8 ch_num);
-u8 rm_get_ch_set_from_bcn_req_opt( struct rtw_ieee80211_channel *pch_set,
-	struct bcn_req_opt *opt);
+u8 rm_get_ch_set(u8 op_class, struct rtw_ieee80211_channel *pch_set, u8 ch_num);
+u8 rm_get_ch_set_from_bcn_req_opt(struct bcn_req_opt *opt,
+	struct rtw_ieee80211_channel *pch_set, u8 pch_num);
 u8 rm_get_bcn_rsni(struct rm_obj *prm, struct wlan_network *pnetwork);
 u8 rm_get_bcn_rcpi(struct rm_obj *prm, struct wlan_network *pnetwork);
 u8 rm_get_frame_rsni(struct rm_obj *prm, union recv_frame *pframe);

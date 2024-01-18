@@ -32,15 +32,16 @@ void rtw_add_bcn_ie(_adapter *padapter, WLAN_BSSID_EX *pnetwork, u8 index, u8 *d
 void rtw_remove_bcn_ie(_adapter *padapter, WLAN_BSSID_EX *pnetwork, u8 index);
 void rtw_add_bcn_ie_ex(_adapter *padapter, WLAN_BSSID_EX *pnetwork, u8 eid_ex, u8 *data, u8 len);
 void rtw_remove_bcn_ie_ex(_adapter *padapter, WLAN_BSSID_EX *pnetwork, u8 index, u8* pindex_ex, u8 index_ex_len);
-void _update_beacon(_adapter *padapter, u8 ie_id, u8 *oui, u8 tx, u8 flags, const char *tag);
-#define rtw_update_beacon(adapter, ie_id, oui, tx, flags) _update_beacon((adapter), (ie_id), (oui), (tx), (flags), __func__)
-/*rtw_update_beacon - (flags) can set to normal enqueue (0) and RTW_CMDF_WAIT_ACK enqueue. 
+void _update_beacon(_adapter *padapter,struct _ADAPTER_LINK *padapter_link,
+		u8 ie_id, u8 *oui, u8 tx, u8 flags, const char *tag);
+#define rtw_update_beacon(adapter, adapter_link, ie_id, oui, tx, flags) _update_beacon((adapter), (adapter_link), (ie_id), (oui), (tx), (flags), __func__)
+/*rtw_update_beacon - (flags) can set to normal enqueue (0) and RTW_CMDF_WAIT_ACK enqueue.
  (flags) = RTW_CMDF_DIRECTLY  is not currently implemented, it will do normal enqueue.*/
 
 void expire_timeout_chk(_adapter *padapter);
 void update_sta_info_apmode(_adapter *padapter, struct sta_info *psta);
-void rtw_start_bss_hdl_after_chbw_decided(_adapter *adapter);
-void start_bss_network(_adapter *padapter, struct createbss_parm *parm);
+void rtw_start_bss_hdl_after_chbw_decided(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
+void rtw_core_ap_prepare(_adapter *padapter, struct createbss_parm *parm);
 int rtw_check_beacon_data(_adapter *padapter, u8 *pbuf,  int len);
 void rtw_ap_restore_network(_adapter *padapter);
 
@@ -55,8 +56,10 @@ int rtw_acl_remove_sta(_adapter *adapter, u8 period, const u8 *addr);
 
 u8 rtw_ap_set_sta_key(_adapter *adapter, const u8 *addr, u8 alg, const u8 *key, u8 keyid, u8 gk);
 u8 rtw_ap_set_pairwise_key(_adapter *padapter, struct sta_info *psta);
-int rtw_ap_set_group_key(_adapter *padapter, u8 *key, u8 alg, int keyid);
-int rtw_ap_set_wep_key(_adapter *padapter, u8 *key, u8 keylen, int keyid, u8 set_tx);
+int rtw_ap_set_group_key(_adapter *padapter,struct _ADAPTER_LINK *padapter_link,
+			u8 *key, u8 alg, int keyid);
+int rtw_ap_set_wep_key(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			u8 *key, u8 keylen, int keyid, u8 set_tx);
 
 #ifdef CONFIG_NATIVEAP_MLME
 void associated_clients_update(_adapter *padapter, u8 updated, u32 sta_info_type);
@@ -65,14 +68,14 @@ u8 bss_cap_update_on_sta_leave(_adapter *padapter, struct sta_info *psta);
 void sta_info_update(_adapter *padapter, struct sta_info *psta);
 u8 ap_free_sta(_adapter *padapter, struct sta_info *psta, bool active, u16 reason, bool enqueue, u8 disassoc);
 int rtw_sta_flush(_adapter *padapter, bool enqueue);
-int rtw_ap_inform_ch_switch(_adapter *padapter, u8 new_ch, u8 ch_offset);
 void start_ap_mode(_adapter *padapter);
 void stop_ap_mode(_adapter *padapter);
 #endif
 
 void rtw_ap_update_clients_rainfo(struct _ADAPTER *a, enum phl_cmd_type flag);
-void rtw_ap_update_bss_chbw(_adapter *adapter, WLAN_BSSID_EX *bss, u8 ch, u8 bw, u8 offset);
-u8 rtw_ap_chbw_decision(_adapter *adapter, u8 ifbmp, u8 excl_ifbmp
+void rtw_ap_update_bss_bchbw(_adapter *adapter, struct _ADAPTER_LINK *adapter_link,
+				WLAN_BSSID_EX *bss, struct rtw_chan_def *chandef);
+u8 rtw_ap_bchbw_decision(_adapter *adapter, u8 ifbmp, u8 excl_ifbmp, s8 req_band
 	, s16 req_ch, s8 req_bw, s8 req_offset, struct rtw_chan_def *chdef);
 
 #ifdef CONFIG_AUTO_AP_MODE
@@ -128,7 +131,7 @@ void rtw_update_bmc_sta_tx_rate(_adapter *adapter);
 void rtw_process_ht_action_smps(_adapter *padapter, u8 *ta, u8 ctrl_field);
 void rtw_process_public_act_bsscoex(_adapter *padapter, u8 *pframe, uint frame_len);
 #ifdef CONFIG_80211N_HT
-int rtw_ht_operation_update(_adapter *padapter);
+int rtw_ht_operation_update(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
 #endif /* CONFIG_80211N_HT */
 u8 rtw_ap_sta_states_check(_adapter *adapter);
 
@@ -138,7 +141,7 @@ void rtw_ap_set_sta_wmode(_adapter *padapter, struct sta_info *sta);
 void rtw_acs_start(_adapter *padapter);
 void rtw_acs_stop(_adapter *padapter);
 #endif /* defined(CONFIG_RTW_ACS) && defined(WKARD_ACS) */
-void rtw_ap_set_edca(_adapter *padapter, enum rtw_ac ac, u32 param);
+void rtw_ap_set_edca(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, enum rtw_ac ac, u32 param);
 
 #ifdef CONFIG_AP_CMD_DISPR
 
@@ -148,7 +151,13 @@ void rtw_ap_set_edca(_adapter *padapter, enum rtw_ac ac, u32 param);
 
 enum rtw_phl_status rtw_ap_start_cmd(struct cmd_obj *p);
 enum rtw_phl_status rtw_ap_stop_cmd(struct cmd_obj *p);
+enum rtw_phl_status rtw_ap_add_del_sta_cmd(struct _ADAPTER *padapter);
 enum rtw_phl_status rtw_free_bcn_entry(struct _ADAPTER *padapter);
+
+bool rtw_add_del_sta_cmd_check(struct _ADAPTER *padapter, unsigned char *MacAddr, bool add_sta);
+void rtw_cmd_ap_add_del_sta_req_init(struct _ADAPTER *padapter);
+void rtw_cmd_ap_add_del_sta_req_free(struct _ADAPTER *padapter);
+void rtw_update_probe_rsp_basic_rate_and_ext(struct xmit_frame *xframe);
 
 #endif
 #endif /* end of CONFIG_AP_MODE */

@@ -46,6 +46,7 @@ void _print_txreq_mdata(struct rtw_t_meta_data *mdata, const char *func)
 		RTW_PRINT("usb_txagg_num: %d\n", mdata->usb_txagg_num);
 		RTW_PRINT("pktlen: %d\n", mdata->pktlen);
 		RTW_PRINT("tid: %d\n", mdata->tid);
+		RTW_PRINT("cat: %d\n", mdata->cat);
 		RTW_PRINT("macid: %d\n", mdata->macid);
 		RTW_PRINT("sw_seq: %d\n", mdata->sw_seq);
 		RTW_PRINT("ampdu_en: %d\n", mdata->ampdu_en);
@@ -254,7 +255,7 @@ void txsc_recycle_txreq_phyaddr(_adapter *padapter, struct rtw_xmit_req *txreq)
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 	phy_addr |= ((u64)pkt_list->phy_addr_h << 32);
 #endif
-	pci_unmap_bus_addr(pdev, &phy_addr, pkt_list->length, PCI_DMA_TODEVICE);
+	pci_unmap_bus_addr(pdev, &phy_addr, pkt_list->length, DMA_TO_DEVICE);
 }
 
 void txsc_fill_txreq_phyaddr(_adapter *padapter, struct rtw_pkt_buf_list *pkt_list)
@@ -263,7 +264,7 @@ void txsc_fill_txreq_phyaddr(_adapter *padapter, struct rtw_pkt_buf_list *pkt_li
 	struct pci_dev *pdev = pci_data->ppcidev;
 	dma_addr_t phy_addr = 0;
 
-	pci_get_bus_addr(pdev, pkt_list->vir_addr, &phy_addr, pkt_list->length, PCI_DMA_TODEVICE);
+	pci_get_bus_addr(pdev, pkt_list->vir_addr, &phy_addr, pkt_list->length, DMA_TO_DEVICE);
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 	pkt_list->phy_addr_h =  phy_addr >> 32;
 #else
@@ -636,6 +637,7 @@ u8 txsc_apply_sc_cached_entry(_adapter *padapter, struct txsc_pkt_entry *txsc_pk
 	/* priority = *(xmit_skb[0]->data + ETH_HLEN + 1); */
 	/*txreq->mdata.tid = tos_to_up(priority); */
 	priority = txreq->mdata.tid = txsc_pkt->priority;
+	txreq->mdata.cat = rtw_phl_cvt_tid_to_cat(priority);
 
 	/* SW shortcut --- */
 	/* rtw_core_wlan_fill_head */
@@ -894,19 +896,21 @@ void txsc_issue_addbareq_cmd(_adapter *padapter, u8 priority, struct sta_info *p
 {
 	u8 issued;
 	struct ht_priv	*phtpriv;
+	struct ampdu_priv *ampdu_priv;
 
 	if (txsc_issue_addbareq_check(padapter, issue_when_busy) == _FALSE)
 		return;
 
 	phtpriv = &psta->htpriv;
+	ampdu_priv = &psta->ampdu_priv;
 
-	if ((phtpriv->ht_option == _TRUE) && (phtpriv->ampdu_enable == _TRUE)) {
-		issued = (phtpriv->agg_enable_bitmap >> priority) & 0x1;
-		issued |= (phtpriv->candidate_tid_bitmap >> priority) & 0x1;
+	if ((phtpriv->ht_option == _TRUE) && (ampdu_priv->ampdu_enable == _TRUE)) {
+		issued = (ampdu_priv->agg_enable_bitmap >> priority) & 0x1;
+		issued |= (ampdu_priv->candidate_tid_bitmap >> priority) & 0x1;
 
 		if (issued == 0) {
 			RTW_INFO("rtw_issue_addbareq_cmd, p=%d\n", priority);
-			psta->htpriv.candidate_tid_bitmap |= BIT((u8)priority);
+			psta->ampdu_priv.candidate_tid_bitmap |= BIT((u8)priority);
 			rtw_addbareq_cmd(padapter, (u8) priority, psta->phl_sta->mac_addr);
 		}
 	}

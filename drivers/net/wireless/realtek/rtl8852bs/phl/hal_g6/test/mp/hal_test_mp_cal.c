@@ -21,13 +21,15 @@ enum rtw_hal_status rtw_hal_mp_cal_trigger(
 	struct mp_context *mp, struct mp_cal_arg *arg)
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
 
 	PHL_INFO("%s: cal_type = %d. \n",__FUNCTION__, arg->cal_type);
 
 	switch(arg->cal_type){
 	case MP_CAL_CHL_RFK:
 		PHL_INFO("MP_CAL_CHL_RFK: cur_phy_idx = %d.\n", mp->cur_phy);
-		hal_status = rtw_hal_rf_chl_rfk_trigger(mp->hal, mp->cur_phy, false);
+		hal_status = rtw_hal_rf_chl_rfk_trigger(hal_com, mp->cur_phy, RFK_TYPE_FORCE_DO);
 		break;
 	case MP_CAL_DACK:
 		PHL_INFO("MP_CAL_DACK: . \n");
@@ -279,6 +281,52 @@ enum rtw_hal_status rtw_hal_mp_psd_query(
 
 	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
 
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_mp_event_trigger(
+	struct mp_context *mp, struct mp_cal_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+
+	PHL_INFO("%s\n", __FUNCTION__);
+
+	rtw_hal_rf_test_event_trigger(mp->hal, mp->cur_phy,
+						arg->event,
+						arg->func,
+						&arg->buf);
+
+	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
+
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_mp_trigger_watchdog_cal(
+	struct mp_context *mp)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+
+	PHL_INFO("%s\n", __FUNCTION__);
+
+	hal_status = rtw_hal_bb_watchdog(hal_info, false);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_bb_watchdog fail (%x)\n", __FUNCTION__, hal_status);
+		goto exit;
+	}
+
+	hal_status = rtw_hal_rf_watchdog(hal_info);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_rf_watchdog fail (%x)\n", __FUNCTION__, hal_status);
+		goto exit;
+	}
+
+	hal_status = rtw_hal_mac_watchdog(hal_info, mp->phl_com);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_mac_watchdog fail (%x)\n", __FUNCTION__, hal_status);
+		goto exit;
+	}
+exit:
 	return hal_status;
 }
 

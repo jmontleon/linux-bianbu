@@ -662,7 +662,7 @@ hal_bf_cfg_swbf_entry(struct rtw_phl_stainfo_t *sta, bool swap)
 
 	bf_entry->macid = sta->macid;
 	bf_entry->aid12 = sta->aid;
-	bf_entry->band = sta->wrole->hw_band; //TODO: :BSOD in snd_test whole = NULL
+	bf_entry->band = sta->rlink->hw_band;
 	bf_entry->csi_buf = sta->hal_sta->bf_csi_buf;
 	if (swap) {
 		bf_entry->en_swap = true;
@@ -705,14 +705,14 @@ enum rtw_hal_status hal_bf_set_entry_hwcfg(
 		else
 			csi_buf = bf_entry->csi_buf_swap&CSI_BUF_IDX_HW_MSK;
 
-		rtw_hal_mac_ax_set_bf_entry(
+		status = rtw_hal_mac_ax_set_bf_entry(
 				hal_info->mac, bf_entry->band,
 				(u8)(bf_entry->macid&0xFF), bfee_idx,
 				bf_entry->bf_idx, csi_buf);
 
 		bf_entry->couter++;
 	} else {
-		rtw_hal_mac_ax_set_bf_entry(
+		status = rtw_hal_mac_ax_set_bf_entry(
 				hal_info->mac, bf_entry->band,
 				(u8)(bf_entry->macid&0xFF), bfee_idx,
 				bf_entry->bf_idx,
@@ -920,7 +920,7 @@ enum rtw_hal_status hal_bf_set_bfee_csi_para(struct hal_info_t *hal_info,
 		/* Initialize CSI rate RA parameters */
 		sta->hal_sta->ra_info.fixed_csi_rate_en = false;
 		sta->hal_sta->ra_info.ra_csi_rate_en = true;
-		sta->hal_sta->ra_info.band_num = sta->wrole->hw_band;
+		sta->hal_sta->ra_info.band_num = sta->rlink->hw_band;
 		if (sta->chandef.bw >= CHANNEL_WIDTH_80)
 			sta->hal_sta->ra_info.csi_rate.bw = HAL_RATE_BW_80;
 		else if (sta->chandef.bw == CHANNEL_WIDTH_40)
@@ -949,7 +949,9 @@ enum rtw_hal_status hal_bf_set_bfee_csi_para(struct hal_info_t *hal_info,
 		}
 		/* Initialize mac rrsc function */
 		rtw_hal_mac_ax_bfee_set_csi_rrsc(hal_info->mac,
-			sta->wrole->hw_band, rrsc);
+		                                 sta->rlink->hw_band,
+		                                 rrsc);
+
 		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, " set bfee csi rrsc =  0x%x\n", rrsc);
 	}
 

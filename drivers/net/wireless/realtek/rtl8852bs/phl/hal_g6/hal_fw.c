@@ -85,9 +85,12 @@ static void _hal_fw_log_info(struct rtw_hal_fw_log_cfg *fl_cfg)
 			fl_cfg->comp_ext);
 }
 
-enum rtw_hal_status rtw_hal_fw_log_cfg(void *hal, u8 op, u8 type, u32 value)
+/*
+ * Only export for hal_submodule
+*/
+enum rtw_hal_status rtw_hal_fw_log_cfg(void *halcom, u8 op, u8 type, u32 value)
 {
-	struct rtw_hal_com_t *hal_com = (struct rtw_hal_com_t *)hal;
+	struct rtw_hal_com_t *hal_com = (struct rtw_hal_com_t *)halcom;
 	static struct rtw_hal_fw_log_cfg fl_cfg = {0};
 
 	switch(op) {
@@ -117,31 +120,18 @@ void hal_fw_en_basic_log(struct rtw_hal_com_t *hal_com)
 				FL_COMP_TASK);
 }
 
-enum rtw_hal_status rtw_hal_cfg_fw_ps_log(void *hal, u8 en)
-{
-	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-
-	if(en)
-		return rtw_hal_fw_log_cfg(hal_info->hal_com, FL_CFG_OP_SET,
-						FL_CFG_TYPE_COMP, FL_COMP_PS);
-	else
-		return rtw_hal_fw_log_cfg(hal_info->hal_com, FL_CFG_OP_CLR,
-						FL_CFG_TYPE_COMP, FL_COMP_PS);
-}
-
-enum rtw_hal_status rtw_hal_cfg_fw_mcc_log(void *hal, u8 en)
+enum rtw_hal_status rtw_hal_en_fw_log(void *hal, u32 comp, bool en)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
 
-	if(en)
+	if (en)
 		status = rtw_hal_fw_log_cfg(hal_info->hal_com, FL_CFG_OP_SET,
-					FL_CFG_TYPE_COMP, MAC_AX_FL_COMP_MCC);
+						FL_CFG_TYPE_COMP, comp);
 	else
 		status = rtw_hal_fw_log_cfg(hal_info->hal_com, FL_CFG_OP_CLR,
-					FL_CFG_TYPE_COMP, MAC_AX_FL_COMP_MCC);
-
-	PHL_INFO("rtw_hal_cfg_fw_mcc_log(): status(%d), en(%d)\n", status, en);
+						FL_CFG_TYPE_COMP, comp);
+	PHL_INFO("rtw_hal_en_fw_log(): status(%d), en(%d)\n", status, en);
 	return status;
 }
 
@@ -212,50 +202,40 @@ rtw_hal_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
 			PHL_ERR("enable cpu fail!\n");
 			return hal_status;
 		}
-	}
 
-	if (fw_info->dlram_en) {
-		if(fw_info->fw_src == RTW_FW_SRC_EXTNAL) {
-			hal_status = rtw_hal_mac_fwdl(hal_info, fw_info->ram_buff,
-						 				  fw_info->ram_size);
-		} else {
-			hal_status = rtw_hal_mac_enable_fw(hal_info, fw_info->fw_type);
+		hal_status = rtw_hal_mac_fwdl(hal_info, fw_info->ram_buff,
+					      fw_info->ram_size);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("rtw_hal_mac_fwdl fail!\n");
+			return hal_status;
 		}
 	}
 
-	rtw_phl_pkt_ofld_reset_all_entry(phl_com);
-	rtw_hal_rf_config_radio_to_fw(hal_info);
-
-	_hal_send_fwdl_hub_msg(phl_com, (!hal_status) ? true : false);
-
-	FUNCOUT_WSTS(hal_status);
-
-	return hal_status;
-}
-
-enum rtw_hal_status
-rtw_hal_pg_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
-{
-	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
-	struct rtw_fw_info_t *fw_info = &phl_com->fw_info;
-	u8 *fw_buff = NULL;
-	u32 fw_size = 0;
-
-	FUNCIN_WSTS(hal_status);
-
-	if (fw_info->fw_src == RTW_FW_SRC_EXTNAL) {
-		fw_buff = fw_info->ram_buff;
-		fw_size = fw_info->ram_size;
-	} else {
-		hal_status = rtw_hal_mac_query_fw_buff(hal_info,
-						fw_info->fw_type,
-						&fw_buff, &fw_size);
-		if (hal_status != RTW_HAL_STATUS_SUCCESS)
-			return RTW_HAL_STATUS_FAILURE;
+	if (fw_info->dlram_en && fw_info->fw_src != RTW_FW_SRC_EXTNAL) {
+		hal_status = rtw_hal_mac_enable_fw(hal_info, fw_info->fw_type);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("rtw_hal_mac_enable_fw fail!\n");
+			return hal_status;
+		}
 	}
 
-	hal_status = rtw_hal_mac_fwredl(hal_info, fw_buff, fw_size);
+	if (rtw_hal_mac_get_wcpu_cap(phl_com, hal_info) != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s : can't get fw capability.\n", __func__);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	rtw_hal_rf_config_radio_to_fw(hal_info);
+
+	/**
+	 * Should reset packet offload related information
+	 * 1. phl packet offload module
+	 * 2. halmac packet offload module
+	 */
+	rtw_phl_pkt_ofld_del_all_entry_req(phl_com);
+	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_mac_reset_pkt_ofld_state(hal_info))
+		PHL_ERR("%s: reset pkt ofld state fail!\n", __func__);
+
+	_hal_send_fwdl_hub_msg(phl_com, (!hal_status) ? true : false);
 
 	FUNCOUT_WSTS(hal_status);
 
@@ -272,26 +252,6 @@ void rtw_hal_fw_dbg_dump(void *hal)
 enum rtw_fw_status rtw_hal_get_fw_status(void *h)
 {
 	struct hal_info_t *hal = (struct hal_info_t *)h;
-	struct mac_ax_adapter *mac = hal_to_mac(hal);
-	struct mac_ax_ops *hal_mac_ops = mac->ops;
-	u32 mac_fw_sts;
 
-	mac_fw_sts = hal_mac_ops->get_fw_status(mac);
-
-	switch (mac_fw_sts) {
-	case MACSUCCESS:
-		return RTW_FW_STATUS_OK;
-	case MACNOFW:
-		return RTW_FW_STATUS_NOFW;
-	case MACFWASSERT:
-		return RTW_FW_STATUS_ASSERT;
-	case MACFWEXCEP:
-		return RTW_FW_STATUS_EXCEP;
-	case MACFWRXI300:
-		return RTW_FW_STATUS_RXI300;
-	case MACFWPCHANG:
-		return RTW_FW_STATUS_HANG;
-	default:
-		return RTW_FW_STATUS_OK;
-	}
+	return rtw_hal_mac_get_fw_status(hal);
 }

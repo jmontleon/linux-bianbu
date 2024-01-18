@@ -48,7 +48,8 @@ u32 mac_fast_ch_sw(struct mac_ax_adapter *adapter, struct mac_ax_fast_ch_sw_para
 					   FWCMD_H2C_FCS_CON_STA_NUM) |
 				  (fast_ch_sw_param->band ? FWCMD_H2C_FCS_BAND : 0) |
 				  SET_WORD(fast_ch_sw_param->bandwidth,
-					   FWCMD_H2C_FCS_BANDWIDTH));
+					   FWCMD_H2C_FCS_BANDWIDTH) |
+				  SET_WORD(fast_ch_sw_param->ch_band, FWCMD_H2C_FCS_CH_BAND));
 	pkt->dword1 = cpu_to_le32(SET_WORD(fast_ch_sw_param->pri_ch,
 					   FWCMD_H2C_FCS_PRI_CH) |
 				  SET_WORD(fast_ch_sw_param->central_ch,

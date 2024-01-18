@@ -50,6 +50,13 @@ struct dfs_rd_ctl_param {
 	s16 sp_ch;
 	enum channel_width sp_bw;
 	enum chan_offset sp_offset;
+
+	/*
+	* configuration for specific radar detect range in freqency, valid when sp_ch < 0
+	* 0: not set (keep original)
+	*/
+	u32 sp_freq_hi;
+	u32 sp_freq_lo;
 };
 
 static bool phl_radar_detect_range_specified(struct rtw_dfs_t *dfs_info)
@@ -111,16 +118,16 @@ phl_radar_detect_switch(struct phl_info_t *phl_info, u8 band_idx, bool enable)
 	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
 	struct rtw_dfs_t *dfs_info = &phl_com->dfs_info;
 
-	if (rtw_hal_radar_detect_cfg(phl_info->hal, enable) == RTW_HAL_STATUS_SUCCESS) {
+	if (rtw_hal_radar_detect_cfg(phl_info->hal, band_idx, enable) == RTW_HAL_STATUS_SUCCESS) {
 		dfs_info->radar_detect_enabled = enable;
 		return RTW_PHL_STATUS_SUCCESS;
 	}
 	return RTW_PHL_STATUS_FAILURE;
 }
 
-bool phl_is_radar_detect_enabled(struct phl_info_t *phl_info, u8 band_idx)
+bool rtw_phl_is_radar_detect_enabled(struct rtw_phl_com_t *phl_com, u8 band_idx)
 {
-	return phl_info->phl_com->dfs_info.radar_detect_enabled;
+	return phl_com->dfs_info.radar_detect_enabled;
 }
 
 static void phl_set_under_cac(struct phl_info_t *phl_info, u8 band_idx, bool under)
@@ -131,9 +138,9 @@ static void phl_set_under_cac(struct phl_info_t *phl_info, u8 band_idx, bool und
 		CLEAR_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_IN_DFS_CAC_PERIOD);
 }
 
-bool phl_is_under_cac(struct phl_info_t *phl_info, u8 band_idx)
+bool rtw_phl_is_under_cac(struct rtw_phl_com_t *phl_com, u8 band_idx)
 {
-	return TEST_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_IN_DFS_CAC_PERIOD);
+	return TEST_STATUS_FLAG(phl_com->dev_state, RTW_DEV_IN_DFS_CAC_PERIOD);
 }
 
 static enum rtw_phl_status
@@ -157,12 +164,14 @@ bool phl_is_cac_tx_paused(struct phl_info_t *phl_info, u8 band_idx)
 void phl_dfs_rd_setting_before_ch_switch(struct phl_info_t *phl_info, u8 band_idx
 	, enum band_type band, u8 ch, enum channel_width bw, enum chan_offset offset, struct dfs_rd_ch_switch_ctx *ctx)
 {
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+
 	ctx->should_rd_en_on_new_ch = phl_should_radar_detect_enable_by_ch(phl_info
 		, band_idx, band, ch, bw, offset);
-	ctx->under_cac = phl_is_under_cac(phl_info, band_idx);
+	ctx->under_cac = rtw_phl_is_under_cac(phl_com, band_idx);
 	ctx->cac_tx_paused = phl_is_cac_tx_paused(phl_info, band_idx);
 
-	ctx->rd_enabled = phl_is_radar_detect_enabled(phl_info, band_idx);
+	ctx->rd_enabled = rtw_phl_is_radar_detect_enabled(phl_com, band_idx);
 
 	if (!ctx->should_rd_en_on_new_ch && ctx->rd_enabled) {
 		/* turn off radar detect before channel setting (ex: leaving detection range) */
@@ -172,7 +181,7 @@ void phl_dfs_rd_setting_before_ch_switch(struct phl_info_t *phl_info, u8 band_id
 			, "[DFS] new ch=%d,%u,%d,%d disable radar detect%s\n"
 			, band, ch, bw, offset, rst != RTW_PHL_STATUS_SUCCESS ? " failed" : "");
 
-		ctx->rd_enabled = phl_is_radar_detect_enabled(phl_info, band_idx);
+		ctx->rd_enabled = rtw_phl_is_radar_detect_enabled(phl_com, band_idx);
 	}
 
 	if (ctx->should_rd_en_on_new_ch && ctx->under_cac && !ctx->cac_tx_paused) {
@@ -226,7 +235,7 @@ phl_radar_detect_confs_apply(struct phl_info_t *phl_info, u8 band_idx)
 
 	should_rd_enable = phl_should_radar_detect_enable_by_ch(phl_info, band_idx
 		, chdef.band, chdef.chan, chdef.bw, chdef.offset);
-	under_cac = phl_is_under_cac(phl_info, band_idx);
+	under_cac = rtw_phl_is_under_cac(phl_com, band_idx);
 	cac_tx_paused = phl_is_cac_tx_paused(phl_info, band_idx);
 
 	if (!dfs_info->radar_detect_enabled) {
@@ -302,12 +311,12 @@ _phl_dfs_rd_ctl_hdl(void *phl, u8 *param)
 			dfs_info->enable = true;
 		}
 		if (rd_ctl_param->cac == 1) {
-			if (!phl_is_under_cac(phl_info, band_idx)) {
+			if (!rtw_phl_is_under_cac(phl_com, band_idx)) {
 				PHL_INFO("%s under CAC\n", __func__);
 				phl_set_under_cac(phl_info, band_idx, true);
 			}
 		} else if (rd_ctl_param->cac == 0) {
-			if (phl_is_under_cac(phl_info, band_idx)) {
+			if (rtw_phl_is_under_cac(phl_com, band_idx)) {
 				PHL_INFO("%s CAC done\n", __func__);
 				phl_set_under_cac(phl_info, band_idx, false);
 			}
@@ -328,18 +337,36 @@ _phl_dfs_rd_ctl_hdl(void *phl, u8 *param)
 				, rd_ctl_param->sp_ch, rd_ctl_param->sp_bw, rd_ctl_param->sp_offset
 				, &hi, &lo)
 		) {
-			PHL_INFO("%s sp_ch:%u,%d,%d is set\n", __func__
-				, rd_ctl_param->sp_ch, rd_ctl_param->sp_bw, rd_ctl_param->sp_offset);
-			dfs_info->sp_detect_range_hi = hi;
-			dfs_info->sp_detect_range_lo = lo;
+			if (dfs_info->sp_detect_range_hi != hi || dfs_info->sp_detect_range_lo != lo) {
+				PHL_INFO("%s sp_ch:%u,%d,%d is set\n", __func__
+					, rd_ctl_param->sp_ch, rd_ctl_param->sp_bw, rd_ctl_param->sp_offset);
+				dfs_info->sp_detect_range_hi = hi;
+				dfs_info->sp_detect_range_lo = lo;
+			}
 		} else {
 			PHL_WARN("%s sp_ch:%u,%d,%d to freq range fail, all range applied\n", __func__
 				, rd_ctl_param->sp_ch, rd_ctl_param->sp_bw, rd_ctl_param->sp_offset);
 			dfs_info->sp_detect_range_hi = 0;
 		}
 	} else if (rd_ctl_param->sp_ch == 0) {
-		PHL_INFO("%s all range applied\n", __func__);
-		dfs_info->sp_detect_range_hi = 0;
+		if (dfs_info->sp_detect_range_hi != 0) {
+			PHL_INFO("%s all range applied\n", __func__);
+			dfs_info->sp_detect_range_hi = 0;
+		}
+	} else if (rd_ctl_param->sp_freq_hi) {
+		if (rd_ctl_param->sp_freq_hi <= rd_ctl_param->sp_freq_lo) {
+			PHL_WARN("%s sp_freq_hi:%u <= sp_freq_lo:%u, all range applied\n", __func__
+				, rd_ctl_param->sp_freq_hi, rd_ctl_param->sp_freq_lo);
+		} else {
+			if (dfs_info->sp_detect_range_hi != rd_ctl_param->sp_freq_hi
+				|| dfs_info->sp_detect_range_lo != rd_ctl_param->sp_freq_lo
+			) {
+				PHL_INFO("%s sp_freq %u to %u is set\n", __func__
+					, rd_ctl_param->sp_freq_lo, rd_ctl_param->sp_freq_hi);
+				dfs_info->sp_detect_range_hi = rd_ctl_param->sp_freq_hi;
+				dfs_info->sp_detect_range_lo = rd_ctl_param->sp_freq_lo;
+			}
+		}
 	}
 
 apply:
@@ -365,6 +392,7 @@ static void _phl_dfs_rd_ctl_done(void *drv_priv, u8 *cmd, u32 cmd_len, enum rtw_
 static enum rtw_phl_status
 _rtw_phl_cmd_dfs_rd_ctl(struct phl_info_t *phl_info, enum phl_band_idx hw_band
 	, enum dfs_regd_t domain, bool enable, s8 cac, s16 sp_ch, enum channel_width sp_bw, enum chan_offset sp_offset
+	, u32 sp_freq_hi, u32 sp_freq_lo
 	, enum phl_cmd_type cmd_type, u32 cmd_timeout)
 {
 #ifdef CONFIG_CMD_DISP
@@ -386,6 +414,8 @@ _rtw_phl_cmd_dfs_rd_ctl(struct phl_info_t *phl_info, enum phl_band_idx hw_band
 	param->sp_ch = sp_ch;
 	param->sp_bw = sp_bw;
 	param->sp_offset = sp_offset;
+	param->sp_freq_hi = sp_freq_hi;
+	param->sp_freq_lo = sp_freq_lo;
 
 	if (cmd_type == PHL_CMD_DIRECTLY) {
 		psts = phl_cmd_dfs_rd_ctl_hdl(phl_info, (u8 *)param);
@@ -429,7 +459,7 @@ rtw_phl_cmd_dfs_change_domain(void *phl_info, enum phl_band_idx hw_band
 
 	return _rtw_phl_cmd_dfs_rd_ctl(phl_info, hw_band
 		, domain /* change domain, other parameters will be ignored */
-		, false, 0, -1, 0, 0
+		, false, 0, -1, 0, 0, 0, 0
 		, cmd_type, cmd_timeout);
 }
 
@@ -440,7 +470,7 @@ rtw_phl_cmd_dfs_rd_enable_all_range(void *phl_info, enum phl_band_idx hw_band
 	return _rtw_phl_cmd_dfs_rd_ctl(phl_info, hw_band
 		, DFS_REGD_NUM
 		, true, -1 /* enable radar detect w/o changing CAC status */
-		, 0, 0, 0
+		, 0, 0, 0, 0, 0
 		, cmd_type, cmd_timeout);
 }
 
@@ -451,7 +481,18 @@ rtw_phl_cmd_dfs_rd_enable_with_sp_chbw(void *phl_info, enum phl_band_idx hw_band
 {
 	return _rtw_phl_cmd_dfs_rd_ctl(phl_info, hw_band
 		, DFS_REGD_NUM
-		, true, cac ? 1 : 0, sp_ch, sp_bw, sp_offset
+		, true, cac ? 1 : 0, sp_ch, sp_bw, sp_offset, 0, 0
+		, cmd_type, cmd_timeout);
+}
+
+enum rtw_phl_status
+rtw_phl_cmd_dfs_rd_enable_with_sp_freq_range(void *phl_info, enum phl_band_idx hw_band
+	, bool cac, u32 sp_freq_hi, u32 sp_freq_lo
+	, enum phl_cmd_type cmd_type, u32 cmd_timeout)
+{
+	return _rtw_phl_cmd_dfs_rd_ctl(phl_info, hw_band
+		, DFS_REGD_NUM
+		, true, cac ? 1 : 0, -1, 0, 0, sp_freq_hi, sp_freq_lo
 		, cmd_type, cmd_timeout);
 }
 
@@ -462,7 +503,7 @@ rtw_phl_cmd_dfs_rd_set_cac_status(void *phl_info, enum phl_band_idx hw_band
 	return _rtw_phl_cmd_dfs_rd_ctl(phl_info, hw_band
 		, DFS_REGD_NUM
 		, true /* CAC status only valid when radar detect enable */
-		, cac ? 1 : 0, -1, 0, 0
+		, cac ? 1 : 0, -1, 0, 0, 0, 0
 		, cmd_type, cmd_timeout);
 }
 
@@ -472,7 +513,7 @@ rtw_phl_cmd_dfs_rd_disable(void *phl_info, enum phl_band_idx hw_band
 {
 	return _rtw_phl_cmd_dfs_rd_ctl(phl_info, hw_band
 		, DFS_REGD_NUM
-		, false, 0, -1, 0, 0
+		, false, 0, -1, 0, 0, 0, 0
 		, cmd_type, cmd_timeout);
 }
 #endif

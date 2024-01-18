@@ -29,20 +29,116 @@ bool halbb_check_fw_ofld(struct bb_info *bb)
 {
 	bool ret = bb->phl_com->dev_cap.fw_cap.offload_cap & BIT0;
 
-	BB_DBG(bb, DBG_FW_INFO, "FW ofld ret = %d\n", (u8)ret);
+	BB_DBG(bb, DBG_FW_INFO, "[Offload_cap CHK] FW ofld ret = %d\n", (u8)ret);
 	return ret;
+}
+
+
+bool halbb_dbcc_check_fw_ofld(struct bb_info *bb)
+{
+	bool dbcc_fw_ofld_en = false;
+
+#ifdef HALBB_FW_DBCC_OFLD_SUPPORT
+	dbcc_fw_ofld_en = true;
+#endif
+
+	BB_DBG(bb, DBG_FW_INFO, "[DBCC Flag CHK]bb_fwofld_sup_bitmap=0x%x, dbcc_fw_ofld_en = %d\n",
+	       bb->bb_cmn_hooker->bb_fwofld_sup_bitmap, dbcc_fw_ofld_en);
+
+	return dbcc_fw_ofld_en;
+}
+
+void halbb_fwofld_bitmap_en(struct bb_info *bb, bool en, enum fw_ofld_type app)
+{
+	u32 bb_fwofld_end_time = 0, bb_fwofld_time = 0;
+	bool ret = true;
+
+	BB_DBG(bb, DBG_FW_INFO, "[%s] en_opt=%d, app= BIT(%d)\n", __func__, en, app);
+	bb->bb_cmn_hooker->is_io_ofld_success = false;
+	if (!en && bb->bb_cmn_hooker->bb_fwofld_in_progress) {
+
+		ret = halbb_fw_set_reg(bb, 0x1a24, 0xff, 0, 1);
+		bb->bb_cmn_hooker->bb_fwofld_in_progress = false;
+		if (ret == true) {
+			bb->bb_cmn_hooker->is_io_ofld_success = true;
+		} else {
+			bb->bb_cmn_hooker->is_io_ofld_success = false;	
+		}
+		BB_DBG(bb, DBG_FW_INFO, "[en:0]fwofld_in_progress= %d\n",
+		       bb->bb_cmn_hooker->bb_fwofld_in_progress);
+
+		bb_fwofld_end_time = _os_get_cur_time_ms();
+
+		bb_fwofld_time = DIFF_2(bb_fwofld_end_time, bb->bb_cmn_hooker->bb_fwofld_start_time);
+
+		BB_DBG(bb, DBG_FW_INFO, "[Duration time] %d ms = %d(start) -%d(end)\n",
+		       bb_fwofld_time, bb->bb_cmn_hooker->bb_fwofld_start_time, bb_fwofld_end_time);
+		return;
+	}
+
+	/*=== HALBB Support CHK ==============================================*/
+	if (!(BIT(app) & bb->bb_cmn_hooker->bb_fwofld_sup_bitmap)){
+		bb->bb_cmn_hooker->bb_fwofld_in_progress = false;
+		BB_DBG(bb, DBG_FW_INFO, "NOT Support, Curr_bitmap=%d\n",
+		       bb->bb_cmn_hooker->bb_fwofld_sup_bitmap);
+		return;
+	}
+#if 0
+	/*=== PHL support CHK ================================================*/
+	if (app == FW_OFLD_PHY_0_CR_INIT || app == FW_OFLD_BB_API || app == FW_OFLD_DM_INIT) {
+		if (halbb_check_fw_ofld(bb))
+			fw_ofld_en = true;
+		else
+			fw_ofld_en = false;
+			
+	} else if (app == FW_OFLD_PHY_1_CR_INIT || app == FW_OFLD_PHY_1_DM_INIT || app == FW_OFLD_DBCC_API) {
+		if (halbb_dbcc_check_fw_ofld(bb))
+			fw_ofld_en = true;
+		else
+			fw_ofld_en = false;
+	}
+#endif
+	bb->bb_cmn_hooker->bb_fwofld_start_time = _os_get_cur_time_ms();
+	BB_DBG(bb, DBG_FW_INFO, "Start time: %d\n",
+	       bb->bb_cmn_hooker->bb_fwofld_start_time);
+
+	bb->bb_cmn_hooker->bb_fwofld_in_progress = true;
+
+	BB_DBG(bb, DBG_FW_INFO, "[en:1]fwofld_in_progress= %d\n",
+	       bb->bb_cmn_hooker->bb_fwofld_in_progress);
+}
+
+void halbb_fwofld_bitmap_init(struct bb_info *bb)
+{
+	bb->bb_cmn_hooker->bb_fwofld_sup_bitmap =
+					#ifdef HALBB_FW_NORMAL_OFLD_SUPPORT
+						  BIT(FW_OFLD_PHY_0_CR_INIT) |
+						  BIT(FW_OFLD_DM_INIT) |
+						  BIT(FW_OFLD_BB_API) |
+					#endif
+					#ifdef HALBB_FW_DBCC_OFLD_SUPPORT
+						  BIT(FW_OFLD_PHY_1_CR_INIT) |
+						  BIT(FW_OFLD_PHY_1_DM_INIT) |
+						  BIT(FW_OFLD_DBCC_API) |
+					#endif
+						  0;
+
+	BB_DBG(bb, DBG_FW_INFO, "[%s] bb_fwofld_sup_bitmap = 0x%x\n", __func__,
+	       bb->bb_cmn_hooker->bb_fwofld_sup_bitmap);
 }
 
 bool halbb_fw_delay(struct bb_info *bb, u32 val)
 {
 /* halbb_set_reg */
 	struct rtw_mac_cmd cmd;
-	u32 ret;
+	u32 ret = false;
 
 	cmd.type = RTW_MAC_DELAY_OFLD;
 	cmd.lc = 0;
 	cmd.value = val; /*delay us*/
+
 	ret = rtw_hal_mac_add_cmd_ofld(bb->hal_com, &cmd);
+
 	BB_DBG(bb, DBG_FW_INFO, "FW ofld delay:%x\n", val);
 	if (ret) {
 		BB_WARNING("IO offload fail: %d\n", ret);
@@ -55,12 +151,35 @@ bool halbb_fw_delay(struct bb_info *bb, u32 val)
 
 bool halbb_fw_set_reg(struct bb_info *bb, u32 addr, u32 mask, u32 val, u8 lc)
 {
-/* halbb_set_reg */
 	struct rtw_mac_cmd cmd;
-	u32 ret;
+	u32 ret = false;
 
 	cmd.src = RTW_MAC_BB_CMD_OFLD;
 	cmd.type = RTW_MAC_WRITE_OFLD;
+	cmd.lc = lc;
+	cmd.offset = (u16)addr;
+	cmd.value = val;
+	cmd.mask = mask;
+
+	ret = rtw_hal_mac_add_cmd_ofld(bb->hal_com, &cmd);
+	BB_DBG(bb, DBG_FW_INFO, "FW ofld addr:%x, val:%x, msk:%x\n", addr, val, mask);
+
+	if (ret) {
+		BB_WARNING("[%s] IO offload fail: %d\n", __func__, ret);
+		return false;
+	}
+	return true;
+}
+
+bool halbb_fw_set_rfreg(struct bb_info *bb, enum rtw_mac_rf_path rf_path, u32 addr, u32 mask, u32 val, u8 lc)
+{
+/* halbb_set_rf_reg */
+	struct rtw_mac_cmd cmd;
+	u32 ret;
+
+	cmd.src = RTW_MAC_RF_CMD_OFLD;
+	cmd.type = RTW_MAC_WRITE_OFLD;
+	cmd.rf_path = rf_path;
 	cmd.lc = lc;
 	cmd.offset = (u16)addr;
 	cmd.value = val;
@@ -83,10 +202,7 @@ bool halbb_fw_set_reg_cmn(struct bb_info *bb, u32 addr,
 	bool ret = true;
 	u32 val_mod = val;
 
-	#ifdef HALBB_DBCC_SUPPORT
-	if (bb->hal_com->dbcc_en && phy_idx == HW_PHY_1)
-		addr += halbb_phy0_to_phy1_ofst(bb, addr);
-	#endif
+	addr += halbb_phy0_to_phy1_ofst(bb, addr, phy_idx);
 
 	ret = halbb_fw_set_reg(bb, addr, mask, val_mod, lc);
 	return ret;
@@ -95,6 +211,7 @@ bool halbb_fw_set_reg_cmn(struct bb_info *bb, u32 addr,
 void halbb_fwofld_cfgcr_start(struct bb_info *bb)
 {
 	bb->bb_cmn_hooker->bbcr_fwofld_state = 1;
+	bb->bb_cmn_hooker->is_io_ofld_success = false;
 }
 
 void halbb_fwofld_cfgcr_end(struct bb_info *bb)
@@ -104,7 +221,13 @@ void halbb_fwofld_cfgcr_end(struct bb_info *bb)
 	bb->bb_cmn_hooker->bbcr_fwofld_state = 0;
 
 	ret = halbb_fw_set_reg(bb, 0x1a24, 0xff, 0, 1);
+	if (ret == true) {
+		bb->bb_cmn_hooker->is_io_ofld_success = true;
+	} else {
+		bb->bb_cmn_hooker->is_io_ofld_success = false;	
+	}
 }
+
 #ifdef BB_8852A_2_SUPPORT
 bool halbb_fwcfg_bb_phy_8852a_2(struct bb_info *bb, u32 addr, u32 data,
 			    enum phl_phy_idx phy_idx)
@@ -136,7 +259,7 @@ bool halbb_fwcfg_bb_phy_8852a_2(struct bb_info *bb, u32 addr, u32 data,
 		#ifdef HALBB_DBCC_SUPPORT
 		if ((bb->hal_com->dbcc_en || bb->bb_dbg_i.cr_dbg_mode_en) &&
 		    phy_idx == HW_PHY_1) {
-			ofst = halbb_phy0_to_phy1_ofst(bb, addr);
+			ofst = halbb_phy0_to_phy1_ofst(bb, addr, phy_idx);
 			if (ofst == 0)
 				return true;
 			addr += ofst;
@@ -173,7 +296,7 @@ bool halbb_fwofld_cck_en_8852a_2(struct bb_info *bb, bool cck_en,
 	} else {
 		ret &= halbb_fw_set_reg(bb, 0x2344, BIT(31), 1, 0);
 	}
-	BB_DBG(bb, DBG_PHY_CONFIG, "[CCK Enable for PHY%d]\n", phy_idx);
+	BB_DBG(bb, DBG_FW_INFO, "[%s]cck_en=%d PHY%d\n", __func__, cck_en, phy_idx);
 	return ret;
 }
 
@@ -295,6 +418,34 @@ bool halbb_fw_set_rf_reg_8852a_2(struct bb_info *bb, enum rf_path path,
 
 	return ret;
 }
+
+bool halbb_fw_ofld_rf_reg_8852a_2(struct bb_info *bb, enum rf_path path,
+			      u32 reg_addr, u32 bit_mask, u32 data, u8 lc)
+{
+/* halbb_write_rf_reg_8852a_2 */
+	bool ret = true;
+
+	/*==== Error handling ====*/
+	if (path > RF_PATH_B) {
+		BB_WARNING("[%s] Unsupported path (%d)\n", __func__, path);
+		return false;
+	}
+
+	/*==== Calculate offset ====*/
+
+	/*==== RF register only has 20bits ====*/
+	bit_mask &= RFREGOFFSETMASK;
+	halbb_fw_delay(bb, 1);
+	/*==== Write RF register directly ====*/
+	ret = halbb_fw_set_rfreg(bb, path, reg_addr, bit_mask, data, lc);
+	halbb_fw_delay(bb, 1);
+
+	BB_DBG(bb, DBG_FW_INFO, "FW OFLD RF-%d 0x%x = 0x%x , bit mask = 0x%x, ret = %d\n",
+	       path, reg_addr, data, bit_mask, (u8)ret);
+
+	return ret;
+}
+
 bool halbb_fw_set_efuse_8852a_2(struct bb_info *bb, u8 central_ch, enum rf_path path, enum phl_phy_idx phy_idx)
 {
 	u8 band;
@@ -341,6 +492,7 @@ bool halbb_fw_set_efuse_8852a_2(struct bb_info *bb, u8 central_ch, enum rf_path 
 
 	// === [Set normal efuse] === //
 	if (bb->bb_efuse_i.normal_efuse_check) {
+		BB_DBG(bb, DBG_DBCC, "[%s] bb->rx_path=%d , phy_idx=%d, dbcc_en=%d\n", __func__, bb->rx_path, phy_idx, bb->hal_com->dbcc_en);
 		if ((bb->rx_path == RF_PATH_A) || (bb->rx_path == RF_PATH_AB)) {
 			normal_efuse = bb->bb_efuse_i.gain_offset[RF_PATH_A][band + 1];
 			normal_efuse_cck = bb->bb_efuse_i.gain_offset[RF_PATH_A][0];
@@ -353,7 +505,7 @@ bool halbb_fw_set_efuse_8852a_2(struct bb_info *bb, u8 central_ch, enum rf_path 
 
 		// OFDM normal efuse
 		if (normal_efuse > 3) {
-			tmp = (normal_efuse << 4) + (bb->bb_efuse_i.efuse_ofst << 2) - upper_bound;
+			tmp = (normal_efuse << 4) + (bb->bb_efuse_i.efuse_ofst[HW_PHY_0] << 2) - upper_bound;
 			ret &= halbb_fw_set_reg_cmn(bb, 0x494c, 0xf8000000, ((tmp >> 2) & 0x1f), phy_idx, 0);
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0xfe00000, (tmp & 0x7f), phy_idx, 0);
 			// Set efuse
@@ -361,7 +513,7 @@ bool halbb_fw_set_efuse_8852a_2(struct bb_info *bb, u8 central_ch, enum rf_path 
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0x7f, (upper_bound & 0x7f), phy_idx, 0);
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0x3f80, (upper_bound & 0x7f), phy_idx, 0);
 		} else if (normal_efuse < -4) {
-			tmp = (normal_efuse << 4) + (bb->bb_efuse_i.efuse_ofst << 2) + lower_bound;
+			tmp = (normal_efuse << 4) + (bb->bb_efuse_i.efuse_ofst[HW_PHY_0] << 2) + lower_bound;
 			// r_1_rpl_bias_comp
 			ret &= halbb_fw_set_reg_cmn(bb, 0x494c, 0xf8000000, ((tmp >> 2) & 0x1f), phy_idx, 0);
 			// r_tb_rssi_bias_comp
@@ -371,8 +523,8 @@ bool halbb_fw_set_efuse_8852a_2(struct bb_info *bb, u8 central_ch, enum rf_path 
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0x7f, (lower_bound & 0x7f), phy_idx, 0);
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0x3f80, (lower_bound & 0x7f), phy_idx, 0);
 		} else {
-			ret &= halbb_fw_set_reg_cmn(bb, 0x494c, 0xf8000000, (bb->bb_efuse_i.efuse_ofst & 0x1f), phy_idx, 0);
-			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0xfe00000, (bb->bb_efuse_i.efuse_ofst_tb & 0x7f), phy_idx, 0);
+			ret &= halbb_fw_set_reg_cmn(bb, 0x494c, 0xf8000000, (bb->bb_efuse_i.efuse_ofst[HW_PHY_0] & 0x1f), phy_idx, 0);
+			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0xfe00000, (bb->bb_efuse_i.efuse_ofst_tb[HW_PHY_0] & 0x7f), phy_idx, 0);
 			// Set efuse
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4960, 0xfe00000, ((normal_efuse << 4) & 0x7f), phy_idx, 0);
 			ret &= halbb_fw_set_reg_cmn(bb, 0x4964, 0x7f, ((normal_efuse << 4) & 0x7f), phy_idx, 0);
@@ -615,14 +767,12 @@ bool halbb_fwofld_ch_8852a_2(struct bb_info *bb, u8 central_ch,
 		ret &= halbb_fw_set_reg(bb, 0x2318, 0xffffff, 0xfe5fcc, 0);
 		ret &= halbb_fw_set_reg(bb, 0x231c, 0xffffff, 0xffdff5, 0);
 	}
-	if (bb->bb_phl_evt == MSG_EVT_SCAN_START) {
-		BB_WARNING("Skip gain error setting in scan status");
-	} else {
-		/* === Set Gain Error === */
-		ret &= halbb_fw_set_gain_error_8852a_2(bb, central_ch);
-		/* === Set Efuse === */
-		ret &= halbb_fw_set_efuse_8852a_2(bb, central_ch, bb->rx_path, phy_idx);
-	}
+	/* === Set Gain Error === */
+	ret &= halbb_fw_set_gain_error_8852a_2(bb, central_ch);
+	/* === Set Efuse === */
+	BB_DBG(bb, DBG_DBCC, "[%s] bb->rx_path=%d , phy_idx=%d, dbcc_en=%d\n", __func__, bb->rx_path, phy_idx, bb->hal_com->dbcc_en);
+	ret &= halbb_fw_set_efuse_8852a_2(bb, central_ch, bb->rx_path, phy_idx);
+
 	/* === Set Ch idx report in phy-sts === */
 	/* write for last cmd*/
 	ret &= halbb_fw_set_reg_cmn(bb, 0x0734, 0x0ff0000, central_ch, phy_idx, 0);
@@ -844,6 +994,7 @@ bool halbb_fwofld_bw_ch_8852a_2(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 		cck_en = false;
 		is_2g_ch = false;
 	}
+	#if 0
 	if (!bb->hal_com->dbcc_en) {
 		/*============== [Path A] ==============*/
 		path0_rf18 = halbb_read_rf_reg_8852a_2(bb, RF_PATH_A, 0x18, RFREGOFFSETMASK);
@@ -859,6 +1010,11 @@ bool halbb_fwofld_bw_ch_8852a_2(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 			path1_rf18 = halbb_read_rf_reg_8852a_2(bb, RF_PATH_B, 0x18, RFREGOFFSETMASK);
 		}
 	}
+	#else
+	/* ignore rf read flow and use rf io offload with bit 0~11, 16~17 mask for RF write */
+	path0_rf18 = 0;
+	path1_rf18 = 0;
+	#endif
 	/*BB_WARNING("RF a/b = %x , %x", path0_rf18, path1_rf18);*/
 	/*==== [Switch BW] ====*/
 	rpt &= halbb_fwofld_bw_8852a_2(bb, pri_ch_idx, bw, phy_idx, &path0_rf18, &path1_rf18);
@@ -866,6 +1022,7 @@ bool halbb_fwofld_bw_ch_8852a_2(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 	/*==== [Switch CH] ====*/
 	rpt &= halbb_fwofld_ch_8852a_2(bb, central_ch, phy_idx, &path0_rf18, &path1_rf18);
 	/*BB_WARNING("SwCH : RF a/b = %x , %x", path0_rf18, path1_rf18);*/
+	#if 0
 	if (!bb->hal_com->dbcc_en) {
 		/*============== [Path A] ==============*/
 		rpt &= halbb_fw_set_rf_reg_8852a_2(bb, RF_PATH_A, 0x18, RFREGOFFSETMASK, path0_rf18, 0);
@@ -880,6 +1037,22 @@ bool halbb_fwofld_bw_ch_8852a_2(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 			rpt &= halbb_fw_set_rf_reg_8852a_2(bb, RF_PATH_B, 0x18, RFREGOFFSETMASK, path1_rf18, 0);
 		}
 	}
+	#else
+	if (!bb->hal_com->dbcc_en) {
+		/*============== [Path A] ==============*/
+		rpt &= halbb_fw_ofld_rf_reg_8852a_2(bb, RF_PATH_A, 0x18, RF18REGMASK, path0_rf18, 0);
+		/*============== [Path B] ==============*/
+		rpt &= halbb_fw_ofld_rf_reg_8852a_2(bb, RF_PATH_B, 0x18, RF18REGMASK, path1_rf18, 0);
+	} else {
+		if (phy_idx == HW_PHY_0) {
+			/*============== [Path A] ==============*/
+			rpt &= halbb_fw_ofld_rf_reg_8852a_2(bb, RF_PATH_A, 0x18, RF18REGMASK, path0_rf18, 0);
+		} else {
+			/*============== [Path B] ==============*/
+			rpt &= halbb_fw_ofld_rf_reg_8852a_2(bb, RF_PATH_B, 0x18, RF18REGMASK, path1_rf18, 0);
+		}
+	}
+	#endif
 	/*==== [CCK Enable / Disable] ====*/
 	rpt &= halbb_fwofld_cck_en_8852a_2(bb, cck_en, phy_idx);
 	/*==== [Spur elimination] ====*/
@@ -910,6 +1083,7 @@ bool halbb_fwofld_bw_ch_8852a_2(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 		rpt &= halbb_fw_set_reg(bb, 0x42c4, BIT(23), 0x0, 0);
 	}
 
+	BB_DBG(bb, DBG_DBCC, "[%s] bb->rx_path=%d , phy_idx=%d, dbcc_en=%d\n", __func__, bb->rx_path, phy_idx, bb->hal_com->dbcc_en);
 	if (is_2g_ch && ((bb->rx_path == RF_PATH_B) || (bb->rx_path == RF_PATH_AB)))
 		rpt &=halbb_fwofld_btg_8852a_2(bb, true);
 	else
@@ -925,16 +1099,16 @@ bool halbb_fwofld_bw_ch_8852a_2(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 		rpt &= halbb_fw_set_reg(bb, 0x58dc, BIT(31) | BIT(30), 0x3, 0);
 		// Path B
 		rpt &= halbb_fw_set_reg(bb, 0x78dc, BIT(31) | BIT(30), 0x1, 0);
-		rpt &= halbb_fw_set_reg(bb, 0x78dc, BIT(31) | BIT(30), 0x3, 1);
+		rpt &= halbb_fw_set_reg(bb, 0x78dc, BIT(31) | BIT(30), 0x3, 0);
 	} else {
 		if (phy_idx == HW_PHY_0) {
 			// Path A
 			rpt &= halbb_fw_set_reg(bb, 0x58dc, BIT(31) | BIT(30), 0x1, 0);
-			rpt &= halbb_fw_set_reg(bb, 0x58dc, BIT(31) | BIT(30), 0x3, 1);
+			rpt &= halbb_fw_set_reg(bb, 0x58dc, BIT(31) | BIT(30), 0x3, 0);
 		} else {
 			// Path B
 			rpt &= halbb_fw_set_reg(bb, 0x78dc, BIT(31) | BIT(30), 0x1, 0);
-			rpt &= halbb_fw_set_reg(bb, 0x78dc, BIT(31) | BIT(30), 0x3, 1);
+			rpt &= halbb_fw_set_reg(bb, 0x78dc, BIT(31) | BIT(30), 0x3, 0);
 		}
 	}
 
@@ -1038,4 +1212,46 @@ void halbb_fwofld_set_pmac_tx_8852a_2(struct bb_info *bb, struct halbb_pmac_info
 		       tx_info->period, phy_idx);
 }
 #endif
+void halbb_fw_ofld_dbg(struct bb_info *bb, char input[][16], u32 *_used,
+		       char *output, u32 *_out_len)
+{
+	u32 val[10] = {0};
+	u8 i, cmd_size;
+
+	if (_os_strcmp(input[1], "-h") == 0) {
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "show\n");
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "bitmap {val(hex)}\n");
+		return;
+	}
+
+
+	if (_os_strcmp(input[1], "show") == 0) {
+
+		cmd_size = sizeof(halbb_fw_ofld_info_i) / sizeof(struct fw_cmd_info);
+		
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			 "BB FW OFLD cmd ==>\n");
+
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "FW_OFLD_bitmap=0x%x\n",
+			    bb->bb_cmn_hooker->bb_fwofld_sup_bitmap);
+
+		for (i = 0; i < cmd_size; i++)
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				    "  %-5d: (%s) BIT(%02d) %s \n", i,
+				    ((BIT(halbb_fw_ofld_info_i[i].id) & bb->bb_cmn_hooker->bb_fwofld_sup_bitmap) ? "V" : "."),
+				    halbb_fw_ofld_info_i[i].id, halbb_fw_ofld_info_i[i].name);
+
+	}
+
+	if (_os_strcmp(input[1], "bitmap") == 0) {
+		HALBB_SCAN(input[2], DCMD_HEX, &val[0]);
+		bb->bb_cmn_hooker->bb_fwofld_sup_bitmap = val[0];
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "FW_OFLD_bitmap=0x%x\n",
+			    bb->bb_cmn_hooker->bb_fwofld_sup_bitmap);
+	}
+}
 #endif

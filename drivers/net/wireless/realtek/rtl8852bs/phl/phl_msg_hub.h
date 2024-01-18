@@ -27,13 +27,11 @@ phl_msg_hub_register_recver(void *phl, struct phl_msg_receiver *ctx,
 			    enum phl_msg_recver_layer layer);
 enum rtw_phl_status
 phl_msg_hub_update_recver_mask(void *phl, enum phl_msg_recver_layer layer,
-			       u8 *mdl_id, u32 len, u8 clr);
+			       u8 *mdl_id, u8 len, u8 clr);
 enum rtw_phl_status
 phl_msg_hub_deregister_recver(void *phl, enum phl_msg_recver_layer layer);
 
 void phl_msg_hub_phy_mgnt_evt_hdlr(struct phl_info_t *phl, u16 evt_id);
 void phl_msg_hub_rx_evt_hdlr(struct phl_info_t *phl, u16 evt_id, u8 *buf,
-			     u32 len);
-void phl_msg_hub_tx_evt_hdlr(struct phl_info_t *phl, u16 evt_id, u8 *buf,
 			     u32 len);
 #endif

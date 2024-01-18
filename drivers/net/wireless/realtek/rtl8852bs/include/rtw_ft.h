@@ -16,8 +16,6 @@
 #ifndef __RTW_FT_H_
 #define __RTW_FT_H_
 
-#include <net/cfg80211.h>
-
 enum rtw_ieee80211_ft_actioncode {
 	RTW_WLAN_ACTION_FT_RESV,
 	RTW_WLAN_ACTION_FT_REQ,
@@ -161,12 +159,12 @@ ssize_t rtw_ft_proc_flags_set(struct file *file, const char __user *buffer,
 u8 rtw_ft_chk_roaming_candidate(
 	_adapter *padapter, struct wlan_network *competitor);
 
-void rtw_ft_update_stainfo(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
+void rtw_ft_update_stainfo(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork);
 
 void rtw_ft_reassoc_event_callback(_adapter *padapter, u8 *pbuf);
 
 void rtw_ft_validate_akm_type(_adapter  *padapter,
-	struct wlan_network *pnetwork);
+	WLAN_BSSID_EX *network);
 
 void rtw_ft_update_bcn(_adapter *padapter, union recv_frame *precv_frame);
 

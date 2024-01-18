@@ -31,7 +31,30 @@
 #define CONF_OFLD_RESTORE 0
 #define CONF_OFLD_BACKUP 1
 
+#if MAC_AX_8852A_SUPPORT
+#include "mac_8852a/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8852B_SUPPORT
+#include "mac_8852b/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8852C_SUPPORT
+#include "mac_8852c/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8192XB_SUPPORT
+#include "mac_8192xb/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8851B_SUPPORT
+#include "mac_8851b/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8851E_SUPPORT
+#include "mac_8851e/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8852D_SUPPORT
+#include "mac_8852d/mac_txccxrpt.h"
+#endif
+
 #define CMD_OFLD_SIZE sizeof(struct fwcmd_cmd_ofld)
+#define CMD_OFLD_V1_SIZE sizeof(struct fwcmd_cmd_ofld_v1)
 
 /* Generate 8-bit mask for a 4-byte alignment offset */
 #define GET_W8_MSK(offset) \
@@ -263,6 +286,29 @@ struct scan_chinfo_list {
 	struct scanofld_chinfo_node *tail;
 	u8 size;
 };
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+/**
+ * @brief mac_get_wlanfw_cap
+ *
+ * @param *adapter
+ * @param size
+ * @param buf
+ * @param mac_cap
+ * @param outsrc_cap
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_get_wlanfw_cap(struct mac_ax_adapter *adapter, struct rtw_wcpu_cap_t *wcpu_cap);
+/**
+ * @}
+ * @}
+ */
 
 /**
  * @addtogroup Firmware
@@ -533,12 +579,12 @@ u32 mac_pkt_ofld_packet(struct mac_ax_adapter *adapter,
  *
  * @param *adapter
  * @param efuse_size
- * @param is_hidden
+ * @param type
  * @return Please Place Description here.
  * @retval u32
  */
 u32 mac_dump_efuse_ofld(struct mac_ax_adapter *adapter, u32 efuse_size,
-			bool is_hidden);
+			u8 type);
 /**
  * @}
  * @}
@@ -733,6 +779,32 @@ u32 mac_add_cmd_ofld(struct mac_ax_adapter *adapter, struct rtw_mac_cmd *cmd);
  */
 
 /**
+ * @brief mac_add_cmd_ofld_v1
+ *
+ * This is the function for FW IO offload.
+ * Users could call the function to add write/move BB/RF/MAC REG command.
+ * When the aggregated commands are full or the command is last,
+ * FW would receive a H2C containing aggreated IO command.
+ *
+ * @param *adapter
+ * @param *cmd
+ * @return 0 for success. Others are fail.
+ * @retval u32
+ */
+u32 mac_add_cmd_ofld_v1(struct mac_ax_adapter *adapter, struct rtw_mac_cmd_v1 *cmd);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
  * @brief mac_get_fw_cap
  *
  * @param *adapter
@@ -753,7 +825,103 @@ u32 write_mac_reg_ofld(struct mac_ax_adapter *adapter,
 u32 poll_mac_reg_ofld(struct mac_ax_adapter *adapter,
 		      u16 offset, u32 mask, u32 val, u8 lc);
 
-u32 delay_ofld(struct mac_ax_adapter *adapter, u32 val);
+u32 delay_ofld(struct mac_ax_adapter *adapter, u32 val, u8 lc);
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief write_mac_reg_ofld_v1
+ *
+ * @param *adapter
+ * @param offset
+ * @param mask
+ * @param val
+ * @param lc
+ * @return fail while FW is NOT ready
+ * @retval u32
+ */
+u32 write_mac_reg_ofld_v1(struct mac_ax_adapter *adapter,
+			  u16 offset, u32 mask, u32 val, u8 lc);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief poll_mac_reg_ofld_v1
+ *
+ * @param *adapter
+ * @param offset
+ * @param mask
+ * @param val
+ * @param lc
+ * @return fail while FW is NOT ready
+ * @retval u32
+ */
+u32 poll_mac_reg_ofld_v1(struct mac_ax_adapter *adapter,
+			 u16 offset, u32 mask, u32 val, u8 lc);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief delay_ofld_v1
+ *
+ * @param *adapter
+ * @param val
+ * @return fail while FW is NOT ready
+ * @retval u32
+ */
+u32 delay_ofld_v1(struct mac_ax_adapter *adapter, u32 val);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief move_mac_reg_ofld
+ *
+ * @param *adapter
+ * @param offset0
+ * @param offset1
+ * @param mask0
+ * @param mask1
+ * @param lc
+ * @return fail while FW is NOT ready
+ * @retval u32
+ */
+u32 move_mac_reg_ofld(struct mac_ax_adapter *adapter,
+		      u16 offset0, u16 offset1, u32 mask0, u32 mask1, u8 lc);
+/**
+ * @}
+ * @}
+ */
 /**
  * @brief mac_ccxrpt_parsing
  *
@@ -765,25 +933,12 @@ u32 delay_ofld(struct mac_ax_adapter *adapter, u32 val);
  */
 u32 mac_ccxrpt_parsing(struct mac_ax_adapter *adapter,
 		       u8 *buf, struct mac_ax_ccxrpt *info);
-
-u32 get_ccxrpt_event(struct mac_ax_adapter *adapter,
-		     struct rtw_c2h_info *c2h,
-		     enum phl_msg_evt_id *id, u8 *c2h_info);
-
 /**
  * @addtogroup Firmware
  * @{
  * @addtogroup FW_Offload
  * @{
  */
-
-u32 get_ftmrpt_event(struct mac_ax_adapter *adapter,
-		     struct rtw_c2h_info *c2h,
-		     enum phl_msg_evt_id *id, u8 *c2h_info);
-
-u32 get_ftmackrpt_event(struct mac_ax_adapter *adapter,
-			struct rtw_c2h_info *c2h,
-			enum phl_msg_evt_id *id, u8 *c2h_info);
 
 /**
  * @brief mac_scanofld_ch_list_clear
@@ -821,11 +976,12 @@ void mac_scanofld_ch_list_clear(struct mac_ax_adapter *adapter,
  * @param *chinfo
  * @param send_h2C send scanlist to fw after adding or not
  * @param clear_after_send clear halmac scanlist after sending or not(available when sendH2C is set)
+ * @param band
  * @return 0 for success. Others are fail.
  * @retval u32
  */
 u32 mac_add_scanofld_ch(struct mac_ax_adapter *adapter, struct mac_ax_scanofld_chinfo *chinfo,
-			u8 send_h2C, u8 clear_after_send);
+			u8 send_h2C, u8 clear_after_send, u8 band);
 /**
  * @}
  * @}
@@ -892,10 +1048,11 @@ u32 mac_scanofld(struct mac_ax_adapter *adapter, struct mac_ax_scanofld_param *s
  * Check whether FW is scanning or not
  *
  * @param *adapter
+ * @param band
  * @return 0 for idle. Others are busy.
  * @retval u32
  */
-u32 mac_scanofld_fw_busy(struct mac_ax_adapter *adapter);
+u32 mac_scanofld_fw_busy(struct mac_ax_adapter *adapter, u8 band);
 
 /**
  * @}
@@ -915,15 +1072,22 @@ u32 mac_scanofld_fw_busy(struct mac_ax_adapter *adapter);
  * check whether halmac chlist or fw chlist are busy or not
  *
  * @param *adapter
+ * @param band
  * @return 0 for idle. Others are busy.
  * @retval u32
  */
-u32 mac_scanofld_chlist_busy(struct mac_ax_adapter *adapter);
+u32 mac_scanofld_chlist_busy(struct mac_ax_adapter *adapter, u8 band);
 /**
  * @}
  * @}
  */
 
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
 /**
  * @brief mac_scanofld_hst_ctrl
  *
@@ -933,11 +1097,61 @@ u32 mac_scanofld_chlist_busy(struct mac_ax_adapter *adapter);
  * @param pri_ch
  * @param ch_band
  * @param op
+ * @param band
  * @return 0 for idle. Others are busy.
  * @retval u32
  */
 u32 mac_scanofld_hst_ctrl(struct mac_ax_adapter *adapter, u8 pri_ch, u8 ch_band,
-			  enum mac_ax_scanofld_ctrl op);
+			  enum mac_ax_scanofld_ctrl op, u8 band);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief get_ccxrpt_event
+ *
+ * ccxrpt event from fw to PHL notify
+ *
+ * @param *adapter
+ * @param *rtw_c2h_info
+ * @param *phl_msg_evt_id
+ * @param *c2h_info
+ * @return 0 for success.
+ * @retval c2h_info for c2hrpt buff
+ */
+u32 get_ccxrpt_event(struct mac_ax_adapter *adapter,
+		     struct rtw_c2h_info *c2h,
+		     enum phl_msg_evt_id *id, u8 *c2h_info);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief pktofld_self_test
+ *
+ * ccxrpt event from fw to PHL notify
+ *
+ * @param *adapter
+ * @return 0 for success.
+ * @retval self test result
+ */
+u32 pktofld_self_test(struct mac_ax_adapter *adapter);
 /**
  * @}
  * @}
@@ -1018,6 +1232,30 @@ u32 mac_cfg_bcn_filter(struct mac_ax_adapter *adapter, struct mac_ax_bcn_fltr cf
  * @addtogroup FW_Offload
  * @{
  */
+/**
+ * @brief mac_cfg_bcn_early_rpt
+ *
+ * get channel switch offload report
+ *
+ * @param *adapter
+ * @param band
+ * @param port
+ * @param en
+ * @return 0 for success.
+ * @retval
+ */
+u32 mac_cfg_bcn_early_rpt(struct mac_ax_adapter *adapter, u8 band, u8 port, u8 en);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
 
 /**
  * @brief mac_bcn_filter_rssi
@@ -1061,4 +1299,109 @@ u32 mac_bcn_filter_tp(struct mac_ax_adapter *adapter, u8 macid, u16 tx, u16 rx);
  * @}
  * @}
  */
+
+/**
+ * @addtogroup Firmware
+ * @{
+ * @addtogroup FW_Offload
+ * @{
+ */
+
+/**
+ * @brief mac_host_efuse_rec
+ *
+ * Check whether FW is scanning or not
+ *
+ * @param *adapter
+ * @param macid
+ * @param tx
+ * @return 0 for success
+ * @retval u32
+ */
+
+u32 mac_host_efuse_rec(struct mac_ax_adapter *adapter, u32 host_id, u32 efuse_val);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_cfg_sensing_csi
+ *
+ * Offload WiFi sensing CSI to FW
+ *
+ * @param *adapter
+ * @param rtw_hal_mac_sensing_csi_param
+ * @return 0 for success.
+ * @retval
+ */
+u32 mac_cfg_sensing_csi(struct mac_ax_adapter *adapter,
+			struct rtw_hal_mac_sensing_csi_param *param);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_chk_sensing_csi_done
+ *
+ * Check WiFi sensing CSI status
+ *
+ * @param *adapter
+ * @param chk_state
+ * @return 0 for success.
+ * @retval
+ */
+u32 mac_chk_sensing_csi_done(struct mac_ax_adapter *adapter, u8 chk_state);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief get_sensing_csi_event
+ *
+ * sensing csi event from fw to PHL notify
+ *
+ * @param *adapter
+ * @param *rtw_c2h_info
+ * @param *phl_msg_evt_id
+ * @param *c2h_info
+ * @return 0 for success.
+ * @retval c2h_info for c2hrpt buff
+ */
+u32 get_sensing_csi_event(struct mac_ax_adapter *adapter,
+			  struct rtw_c2h_info *c2h,
+			  enum phl_msg_evt_id *id, u8 *c2h_info);
+/**
+ * @}
+ * @}
+ */
+
+u32 mac_fwcpumgenq_test(struct mac_ax_adapter *adapter, u8 macid, u16 len, u8 *pkt);
+
+/**
+ * @brief get_bcn_erly_event
+ *
+ * get channel switch offload report
+ *
+ * @param *adapter
+ * @param c2h
+ * @param id
+ * @param c2h_info
+ * @return 0 for success.
+ * @retval
+ */
+u32 get_bcn_erly_event(struct mac_ax_adapter *adapter, struct rtw_c2h_info *c2h,
+		       enum phl_msg_evt_id *id, u8 *c2h_info);
+/**
+ * @}
+ * @}
+ */
+
+u32 mac_cfg_sta_csa(struct mac_ax_adapter *adapter,
+		    struct rtw_hal_mac_sta_csa *parm);
+
+u32 mac_check_sta_csa_cfg(struct mac_ax_adapter *adapter, u8 *fw_ret);
+
 #endif

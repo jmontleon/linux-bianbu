@@ -16,6 +16,16 @@
 #define __RTL8852B_BTC_H__
 /* rtl8852b_btc.c */
 
+#define R_BTC_RF_BTG_CTRL 0x2
+#define R_BTC_RF_LUT_EN 0xEF
+#define R_BTC_RF_LUT_WA 0x33
+#define R_BTC_RF_LUT_WD0 0x3f
+#define R_BTC_RF_LUT_WD1 0x3e
+#define R_BTC_RF_LUT_WD2 0x3d
+
+#define R_BTC_BB_ANT_DIV_CTRL 0x1586c
+
+#define R_BTC_CFG 0xDA00
 #define R_BTC_WL_PRI_MSK 0xDA10
 #define R_BTC_BREAK_TABLE 0xDA2C
 #define R_BTC_BT_COEX_MSK_TABLE 0xDA30
@@ -31,13 +41,14 @@
 #define B_BTC_PTA_WL_PRI_MASK_MGQ BIT(4)
 
 extern const struct btc_chip chip_8852b;
+extern const struct btc_chip chip_8852bp;
+extern const struct btc_chip chip_8851b;
 void _8852b_rfe_type(struct btc_t *btc);
 void _8852b_init_cfg(struct btc_t *btc);
-void _8852b_wl_pri (struct btc_t *btc, u8 map, bool state);
 void _8852b_wl_tx_power(struct btc_t *btc, u32 level);
 void _8852b_wl_rx_gain(struct btc_t *btc, u32 level);
-void _8852b_wl_s1_standby(struct btc_t *btc, u32 state);
+void _8852b_wl_btg_standby(struct btc_t *btc, u32 state);
 void _8852b_wl_req_mac(struct btc_t *btc, u8 mac_id);
-void _8852b_update_bt_cnt(struct btc_t *btc);
+void _8852b_get_reg_status(struct btc_t *btc, u8 type, void *status);
 u8 _8852b_bt_rssi(struct btc_t *btc, u8 val);
 #endif /*__RTL8852B_PHY_H__*/

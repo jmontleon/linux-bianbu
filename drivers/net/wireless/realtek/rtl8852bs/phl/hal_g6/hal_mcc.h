@@ -21,5 +21,5 @@ enum rtw_hal_status rtw_hal_mcc_update_macid_bitmap(void *hal, u8 group,
 
 enum rtw_hal_status rtw_hal_mcc_sync_enable(void *hal,
 					struct rtw_phl_mcc_en_info *info);
-#endif /*CONFIG_MCC_SUPPORT*/
+#endif
 #endif /*_HAL_MCC_H_*/

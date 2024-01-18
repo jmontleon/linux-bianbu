@@ -145,6 +145,14 @@ void rtw_phl_stop_rx_ba_session(void *phl, struct rtw_phl_stainfo_t *sta,
 	/* Note that it is safe to free the tid ampdu rx here.  If reorder_timer
 	 * callback is invoked, the tid_rx_lock is held and it does not do
 	 * anything to the entry if it is NULL. */
+#ifdef PHL_RXSC_AMPDU
+	_os_spinlock(drv_priv, &phl_info->phl_com->rxsc_entry.rxsc_lock,
+			_bh, NULL);
+	if (phl_info->phl_com->rxsc_entry.cached_r == r)
+		phl_info->phl_com->rxsc_entry.cached_r = NULL;
+	_os_spinunlock(drv_priv, &phl_info->phl_com->rxsc_entry.rxsc_lock,
+			_bh, NULL);
+#endif
 	phl_tid_ampdu_rx_free(r);
 	_os_spinunlock(drv_priv, &sta->tid_rx_lock, _bh, NULL);
 
@@ -216,8 +224,8 @@ rtw_phl_start_rx_ba_session(void *phl, struct rtw_phl_stainfo_t *sta,
 	void *drv_priv = phl_to_drvpriv(phl_info);
 	struct phl_tid_ampdu_rx *r;
 
-	PHL_INFO("Start rx BA session for sta=0x%p, tid=%u, buf_size=%u, timeout=%u\n",
-	         sta, tid, buf_size, timeout);
+	PHL_INFO("Start rx BA session for sta=0x%p, tid=%u, buf_size=%u, timeout=%u, ssn=0x%03x\n",
+	         sta, tid, buf_size, timeout, start_seq_num);
 
 	if (tid >= ARRAY_SIZE(sta->tid_rx)) {
 		PHL_WARN("tid(%u) index out of range (%u)\n", tid, (u32)ARRAY_SIZE(sta->tid_rx));
@@ -227,8 +235,9 @@ rtw_phl_start_rx_ba_session(void *phl, struct rtw_phl_stainfo_t *sta,
 	if (sta->tid_rx[tid])
 		rtw_hal_stop_ba_session(phl_info->hal, sta, tid);
 
-	hal_sts = rtw_hal_start_ba_session(phl_info->hal, sta, dialog_token,
-	                                   timeout, start_seq_num, ba_policy,
+	hal_sts = rtw_hal_start_ba_session(phl_info->hal, sta,
+	                                   dialog_token, timeout,
+	                                   start_seq_num, ba_policy,
 	                                   tid, buf_size);
 
 	/* TODO: sta status */

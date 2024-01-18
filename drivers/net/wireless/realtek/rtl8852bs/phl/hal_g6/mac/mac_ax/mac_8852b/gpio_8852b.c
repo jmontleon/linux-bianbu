@@ -16,6 +16,7 @@
 #include "../gpio.h"
 #include "../../mac_reg.h"
 #include "gpio_8852b.h"
+#if MAC_AX_8852B_SUPPORT
 
 /* GPIO0 definition */
 #define GPIO0_BT_GPIO0_8852B	\
@@ -1933,3 +1934,17 @@ u32 mac_set_gpio_func_8852b(struct mac_ax_adapter *adapter,
 
 	return MACSUCCESS;
 }
+
+u32 mac_get_gpio_status_8852b(struct mac_ax_adapter *adapter,
+			      enum rtw_mac_gfunc *func, u8 gpio)
+{
+	if (gpio > RTW_MAC_GPIO_MAX) {
+		PLTFM_MSG_ERR("The GPIO number is wrong: %d", gpio);
+		return MACGPIONUM;
+	}
+
+	*func = mac_get_gpio_status(adapter, PIN_LIST_8852B[gpio]);
+
+	return MACSUCCESS;
+}
+#endif /* #if MAC_AX_8852B_SUPPORT */

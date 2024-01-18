@@ -32,10 +32,17 @@ struct rf_info;
 void halrf_watchdog(void *rf_void);
 enum rtw_hal_status halrf_chl_rfk_trigger(void *rf_void,
 			   enum phl_phy_idx phy_idx,
-			   bool force);
+			   enum rfk_tri_type rfk_tri_typ);
+enum rtw_hal_status halrf_chl_rfk_trigger_traditional(void *rf_void,
+			   enum phl_phy_idx phy_idx,
+			   enum rfk_tri_type rfk_tri_typ);
 enum rtw_hal_status halrf_dack_trigger(void *rf_void, bool force);
 enum rtw_hal_status halrf_rx_dck_trigger(void *rf_void,
 				enum phl_phy_idx phy_idx, bool is_afe);
+enum rtw_hal_status halrf_thermal_rx_dck_trigger(void *rf_void,
+				enum phl_phy_idx phy_idx, bool is_afe);
+enum rtw_hal_status halrf_scan_rx_dck_trigger(void *rf_void, enum phl_phy_idx phy_idx,
+				enum rfk_tri_type tri_type);
 enum rtw_hal_status halrf_iqk_trigger(void *rf_void,
 		       enum phl_phy_idx phy_idx,
 		       bool force);
@@ -43,11 +50,22 @@ void halrf_lck_trigger(void *rf_void);
 enum rtw_hal_status halrf_dpk_trigger(void *rf_void,
 		       enum phl_phy_idx phy_idx,
 		       bool force);
-enum rtw_hal_status halrf_tssi_trigger(void *rf_void, enum phl_phy_idx phy_idx);
+enum rtw_hal_status halrf_tssi_trigger(void *rf_void, enum phl_phy_idx phy_idx, bool hwtx_en);
 void halrf_do_tssi_scan(void *rf_void, enum phl_phy_idx phy_idx);
 void halrf_tssi_enable(void *rf_void, enum phl_phy_idx phy_idx);
 void halrf_tssi_disable(void *rf_void, enum phl_phy_idx phy_idx);
 void halrf_tssi_init(void *rf_void);
+void halrf_tssi_slope_onoff(void *rf_void, u8 tssi_slope_type);
+void halrf_tssi_do_slope(void *rf_void);
+u32 halrf_tssi_get_cw(void *rf_void, enum rf_path path);
+void halrf_tssi_slope_apply(void *rf_void,
+	u32 gain_first, u32 gain_second,
+	u32 cw_first, u32 cw_second, enum rf_path path,
+	u32* gain_diff, u32* cw_diff);
+void halrf_tssi_current_slope_apply(void *rf_void,
+	u32 gain_diff, u32 cw_diff, enum rf_path path);
+void halrf_tssi_finish_slope(void *rf_void);
+u32 halrf_tssi_get_current_power(void *rf_void, enum rf_path path);
 enum rtw_hal_status halrf_gapk_trigger(void *rf_void,
 			enum phl_phy_idx phy_idx, bool force);
 enum rtw_hal_status halrf_gapk_enable(void *rf_void,
@@ -61,19 +79,29 @@ void halrf_dpk_track_onoff(void *rf_void, bool is_enable);
 void halrf_dpk_switch(void *rf_void, bool is_enable);
 void halrf_dpk_init(void *rf_void);
 void halrf_rx_dck_onoff(void *rf_void, bool is_enable);
-void halrf_gapk_onoff(void *rf_void, bool is_enable);
+void halrf_rx_dck_track_onoff(void *rf_void, bool is_enable);
+void halrf_rx_dck_init(void *rf_void);
+//void halrf_gapk_onoff(void *rf_void, bool is_enable);
 void halrf_dack_onoff(void *rf_void, bool is_enable);
 void halrf_tssi_onoff(void *rf_void, bool is_enable);
 bool halrf_get_iqk_onoff(void *rf_void);
 bool halrf_get_dpk_onoff(void *rf_void);
 bool halrf_get_dpk_track_onoff(void *rf_void);
-bool halrf_get_gapk_onoff(void *rf_void);
+//bool halrf_get_gapk_onoff(void *rf_void);
 bool halrf_get_dack_onoff(void *rf_void);
 bool halrf_get_tssi_onoff(void *rf_void);
 void halrf_lo_test(void *rf_void, bool is_on, enum rf_path path);
 int halrf_get_predefined_pw_lmt_regu_type_from_str(const char *str);
 const char * const *halrf_get_predefined_pw_lmt_regu_type_str_array(u8 *num);
 const char *halrf_get_pw_lmt_regu_type_str(struct rf_info *rf, u8 band);
+u8 halrf_get_regulation_info(struct rf_info *rf, u8 band);
+bool halrf_reg_tbl_exist(struct rf_info *rf, u8 band, u8 reg);
+void halrf_force_regulation(struct rf_info *rf, bool enable,
+	u8 reg_2g[], u8 reg_2g_len, u8 reg_5g[], u8 reg_5g_len, u8 reg_6g[], u8 reg_6g_len);
+#ifndef RF_8730A_SUPPORT
+u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country, int *aidx_match);
+#endif
+u8 halrf_get_tx_tbl_to_tx_pwr_times(struct rf_info *rf);
 s8 halrf_get_power_by_rate(struct rf_info *rf,
 	enum phl_phy_idx phy,
 	u8 rf_path, u16 rate, u8 dcm, u8 offset);
@@ -82,10 +110,19 @@ s8 halrf_get_power_by_rate_band(struct rf_info *rf,
 s8 halrf_get_power_limit(struct rf_info *rf,
 	enum phl_phy_idx phy, u8 rf_path, u16 rate, u8 bandwidth,
 	u8 beamforming, u8 tx_num, u8 channel);
+s8 halrf_get_power_limit_option(struct rf_info *rf,
+	enum phl_phy_idx phy, u8 rf_path, u16 rate, u8 bandwidth,
+	u8 beamforming, u8 tx_num, u8 channel, u32 band, u8 reg);
 s8 halrf_get_power_limit_ru(struct rf_info *rf,
 	enum phl_phy_idx phy, u8 rf_path, u16 rate, u8 bandwidth,
 	u8 tx_num, u8 channel);
+s8 halrf_get_power_limit_ru_option(struct rf_info *rf,
+	enum phl_phy_idx phy, u8 rf_path, u16 rate, u8 bandwidth,
+	u8 tx_num, u8 channel, u32 band, u8 reg);
 s16 halrf_get_power(void *rf_void,
+	u8 rf_path, u16 rate, u8 dcm, u8 offset, u8 bandwidth,
+	u8 beamforming, u8 channel);
+s16 halrf_get_band_power(void *rf_void, enum phl_phy_idx phy,
 	u8 rf_path, u16 rate, u8 dcm, u8 offset, u8 bandwidth,
 	u8 beamforming, u8 channel);
 u8 halrf_get_thermal(void *rf_void, u8 rf_path);
@@ -99,10 +136,12 @@ void halrf_set_rx_gain_offset_for_rx_verify(void *rf_void, enum phl_phy_idx phy,
 					s8 rx_gain_offset, u8 path);
 void halrf_set_power_track(void *rf_void, enum phl_phy_idx phy_idx, u8 value);
 u8 halrf_get_power_track(void *rf_void);
+u8 halrf_get_power_track_phy(void *rf_void, enum phl_phy_idx phy_idx);
 void halrf_tssi_get_efuse_ex(void *rf_void, enum phl_phy_idx phy_idx);
 bool halrf_tssi_check_efuse_data(void *rf_void, enum phl_phy_idx phy_idx);
 void halrf_set_ref_power_to_struct(void *rf_void, enum phl_phy_idx phy_idx);
 bool halrf_set_power_constraint (void *rf_void, enum phl_phy_idx phy_idx, u16 mb, bool apply_to_hw);
+bool halrf_control_tx_rate_power (void *rf_void, enum phl_phy_idx phy_idx, s32 mb);
 void halrf_bf_config_rf(void *rf_void);
 void halrf_rfk_reg_backup(void *rf_void);
 void halrf_rfc_reg_backup(void *rf_void);
@@ -136,8 +175,11 @@ bool halrf_config_store_power_track(void *rf_void,
 		bool is_form_folder, u32 folder_len, u32 *folder_array);
 bool halrf_config_store_xtal_track(void *rf_void,
 		bool is_form_folder, u32 folder_len, u32 *folder_array);
-void halrf_gapk_save_tx_gain(struct rf_info *rf);
-void halrf_gapk_reload_tx_gain(struct rf_info *rf);
+bool halrf_config_radio(void *rf_void, enum phl_phy_idx phy);
+void halrf_config_rf_parameter(void *rf_void, enum phl_phy_idx phy);
+
+//void halrf_gapk_save_tx_gain(struct rf_info *rf);
+//void halrf_gapk_reload_tx_gain(struct rf_info *rf);
 /*******************************************/
 void halrf_dack_recover(void *rf_void,
 			u8 offset,
@@ -222,8 +264,9 @@ void halrf_set_tx_shape(struct rf_info *rf, u8 tx_shape_idx);
 
 void halrf_disconnect_notify(void *rf_void, struct rtw_chan_def *chandef);
 bool  halrf_check_mcc_ch(void *rf_void, struct rtw_chan_def *chandef );
-void halrf_ctl_bw(void *rf_void, enum channel_width bw);
-void halrf_ctl_ch(void *rf_void, u8 central_ch);
+void halrf_ctl_bw(void *rf_void, enum phl_phy_idx phy, enum channel_width bw);
+void halrf_ctl_ch(void *rf_void, enum phl_phy_idx phy, u8 central_ch, enum band_type band);
+void halrf_ctl_band_ch_bw(void *rf_void, enum phl_phy_idx phy, enum band_type band, u8 central_ch, enum channel_width bw);
 void halrf_rxbb_bw(void *rf_void, enum phl_phy_idx phy, enum channel_width bw);
 void halrf_ctrl_bw_ch(void *rf_void, enum phl_phy_idx phy, u8 central_ch,
 				enum band_type band, enum channel_width bw);
@@ -231,6 +274,9 @@ void  halrf_fw_ntfy(void *rf_void, enum phl_phy_idx phy_idx);
 u32 halrf_get_nctl_reg_ver(struct rf_info *rf);
 u32 halrf_get_radio_reg_ver(struct rf_info *rf);
 u32 halrf_get_radio_ver_from_reg(struct rf_info *rf);
+u32 halrf_get_extra_para_ver_from_reg(struct rf_info *rf);
+u32 halrf_get_rfe_type_ver_from_reg(struct rf_info *rf);
+u32 halrf_get_fem_id_from_reg(struct rf_info *rf);
 void halrf_config_nctl_reg(struct rf_info *rf);
 void halrf_set_gpio(void *rf_void, enum phl_phy_idx phy, u8 band);
 bool halrf_check_efem(void *rf_void, enum phl_phy_idx phy_idx);
@@ -249,6 +295,12 @@ void halrf_tssi_set_efuse_to_de(void *rf_void,
 					enum phl_phy_idx phy_idx);
 
 void halrf_tssi_scan_ch(void *rf_void, enum rf_path path);
+
+void halrf_tssi_scan_setting_ch(void *rf_void,
+	enum phl_phy_idx phy_idx, enum rf_path path);
+
+void halrf_tssi_cck_by_pass(void *rf_void,
+			enum phl_phy_idx phy, bool by_pass_en);
 
 bool halrf_mac_set_pwr_reg(void *rf_void, enum phl_phy_idx phy,
 	u32 addr, u32 mask, u32 val);
@@ -269,10 +321,56 @@ void halrf_set_mp_regulation(void *rf_void, enum phl_phy_idx phy, u8 regulation)
 u32 halrf_tssi_get_final(void *rf_void, enum phl_phy_idx phy_idx, u8 path);
 
 void halrf_tssi_backup_txagc(struct rf_info *rf, enum phl_phy_idx phy, bool enable);
+
+u32 halrf_get_rfk_cap(void *rf_void);
+
+void halrf_syn1_onoff(void *rf_void, enum phl_phy_idx phy, u8 path, bool syn1_turn_on);
+
 void halrf_reload_pwr_limit_tbl_and_set(struct rf_info *rf,
 	enum phl_phy_idx phy, enum phl_pwr_table pwr_table);
+
+void halrf_rfk_reg_reload(void *rf_void);
 
 u32 halrf_test_event_trigger(void *rf_void,
 	enum phl_phy_idx phy, enum halrf_event_idx idx, enum halrf_event_func func);
 void halrf_rfe_ant_num_chk(void *rf_void);
+bool halrf_check_if_dowatchdog(void *rf_void);
+
+void halrf_op5k_init(void *rf_void);
+
+void halrf_op5k_trigger(void *rf_void);
+
+void halrf_op5k_trigger_by_bw(void *rf_void, enum channel_width bw);
+
+void halrf_set_tpe_control(struct rf_info *rf);
+
+void halrf_set_tpe_control_dbcc(struct rf_info *rf, enum phl_phy_idx phy);
+
+u32 halrf_get_iqk_times(void *rf_void);
+
+u32 halrf_get_lck_times(void *rf_void);
+
+void halrf_cfg_radio_b_w_bt_status(void *rf_void, bool bt_connect);
+
+void halrf_adie_pow_ctrl(void *rf_void, bool rf_off, bool others_off);
+
+void halrf_afe_pow_ctrl(void *rf_void, bool adda_off, bool pll_off);
+
+void halrf_set_ant_gain_offset(struct rf_info *rf,
+	enum phl_phy_idx phy, struct rtw_phl_regu_dyn_ant_gain *regu);
+
+void halrf_set_dynamic_ant_gain(struct rf_info *rf,
+	enum phl_phy_idx phy, struct rtw_phl_regu_dyn_ant_gain *regu);
+
+void halrf_set_pwr_lmt_main_or_aux(void *rf_void, u8 ant);
+
+void halrf_set_ext_ant12_pwr_limit_table(void *rf_void, enum phl_phy_idx phy);
+
+void halrf_set_ext_ant12_pwr_limit_ru_table(void *rf_void, enum phl_phy_idx phy);
+
+void halrf_aack_trigger(void *rf_void, enum phl_phy_idx phy_idx);
+
+void halrf_set_ant_main_or_aux(void *rf_void, enum rf_path path, bool main);
+
+u32 halrf_c2h_parsing(struct rf_info *rf, u8 classid, u8 cmdid, u16 len, u8 *c2h);
 #endif

@@ -64,6 +64,7 @@
 #endif
 #ifndef DRV_BB_CFO_TRK_DISABLE
 	#define HALBB_CFO_TRK_SUPPORT
+	#define HALBB_CFO_DAMPING_CHK
 	//#define BB_DYN_CFO_TRK_LOP
 #endif
 #ifndef DRV_BB_DIG_DISABLE
@@ -73,18 +74,29 @@
 	#endif
 	#ifndef DRV_BB_DIG_MCC_DISABLE
 	#define HALBB_DIG_MCC_SUPPORT
-	#define HALBB_DIG_MCC_SUPPORT_IC (BB_RTL8852A | BB_RTL8852B)
+	#define HALBB_DIG_MCC_SUPPORT_IC (BB_RTL8852A | BB_RTL8852B | BB_RTL8851B)
 	#endif
 	#define HALBB_DIG_DAMPING_CHK
 #endif
 #ifndef DRV_BB_LA_MODE_DISABLE
 	#define HALBB_LA_MODE_SUPPORT
+	#ifdef BB_1115_SUPPORT
+	#define HALBB_LA_320M_PATCH /*for RTL1115 320M 3-phase case only*/
+	#endif
 #endif
 #ifndef DRV_BB_PSD_DISABLE
 	#define HALBB_PSD_SUPPORT
 #endif
 #ifndef DRV_BB_PWR_CTRL_DISABLE
 	#define HALBB_PWR_CTRL_SUPPORT
+#endif
+#ifndef DRV_BB_WRAP_DISABLE
+	#ifdef HALBB_COMPILE_BE_SERIES
+	#define HALBB_BB_WRAP_SUPPORT
+	#endif
+#endif
+#ifndef DRV_BB_SR_DISABLE
+	#define HALBB_SR_SUPPORT
 #endif
 #ifndef DRV_BB_RUA_DISABLE
 	#define HALBB_RUA_SUPPORT
@@ -101,40 +113,74 @@
 #ifndef DRV_BB_AUTO_DBG_DISABLE
 	#define HALBB_AUTO_DBG_SUPPORT
 #endif
-#if 0
+#ifndef DRV_BB_ANT_DIV_DISABLE
 	#define HALBB_ANT_DIV_SUPPORT
 #endif
-#ifdef DRV_BB_PATH_DIV_ENABLE
+#ifndef DRV_BB_PATH_DIV_DISABLE
 	#define HALBB_PATH_DIV_SUPPORT
 #endif
 #ifndef DRV_BB_DYN_L2H_DISABLE
 	#define HALBB_DYN_L2H_SUPPORT
 #endif
+#ifndef DRV_BB_PMAC_TX_SETTING_DISABLE
+	#define HALBB_PMAC_TX_SETTING_SUPPORT
+#endif
+
+/*[FW OFFLOAD]*/
+#if ((defined(CONFIG_FW_IO_OFLD_SUPPORT) ||defined(CONFIG_FW_DBCC_OFLD_SUPPORT))  &&  defined(HALBB_COMPILE_IC_FWOFLD))
+#define HALBB_FW_OFLD_SUPPORT
+	#if (defined(CONFIG_FW_IO_OFLD_SUPPORT))
+	#define HALBB_FW_NORMAL_OFLD_SUPPORT
+	#endif
+	#if (defined(CONFIG_FW_DBCC_OFLD_SUPPORT))
+	#define HALBB_FW_DBCC_OFLD_SUPPORT
+	#endif
+#endif
+
 /*[DBCC]*/
-#if (defined(CONFIG_DBCC_SUPPORT) &&  defined(HALBB_COMPILE_IC_DBCC))
+#if (defined(CONFIG_DBCC_SUPPORT) && defined(HALBB_COMPILE_IC_DBCC))
 	#define HALBB_DBCC_SUPPORT
 	#define HALBB_DBCC_DVLP_FLAG
-#endif
-/*[FW OFFLOAD]*/
-#if (defined(CONFIG_FW_IO_OFLD_SUPPORT) &&  defined(HALBB_COMPILE_IC_FWOFLD))
-#define HALBB_FW_OFLD_SUPPORT
 #endif
 
 #define HALBB_TDMA_CR_SUPPORT
 
+/*[POP resolved hang]*/
+#ifdef DRV_RESOLVED_POP_BY_BB
+	#define HALBB_RESOLVED_POP_BY_BB
+#endif
 
 #ifndef DRV_BB_ULOFDMA_CTRL_DISABLE
 	#define HALBB_UL_TB_CTRL_SUPPORT
 #endif
 
-#if (defined(DRV_BB_CNSL_CMN_INFO) || !defined(HALBB_DBG_TRACE_SUPPORT))
+/*[Shared crystal]*/
+#ifdef DRV_BB_CFO_TRK_DISABLE_BY_SHARE_XTAL
+	#define HALBB_SHARE_XSTAL_SUPPORT
+#endif
+
+#define HALBB_DYN_1R_CCA_SUPPORT
+
+#if 1//(defined(DRV_BB_CNSL_CMN_INFO) || !defined(HALBB_DBG_TRACE_SUPPORT))
 	#define HALBB_CNSL_CMN_INFO_SUPPORT
+#endif
+
+#ifndef DRV_BB_SNIF_SUPPORT
+	#define HALBB_SNIF_SUPPORT
 #endif
 
 /*[DTR]*/
 #ifndef DRV_BB_DYN_DTR_DISABLE
 	#define HALBB_DYN_DTR_SUPPORT
 	//#define BB_DYN_DTR
+#endif
+
+#ifdef DRV_BB_DCRA_EN
+	#define HALBB_DCRA_EN
+#endif
+
+#ifdef DRV_BB_INIT_FW_NHM_EN
+	#define HALBB_INIT_FW_NHM_EN
 #endif
 
 #endif

@@ -45,7 +45,7 @@ struct phl_wow_stat {
 	u8 gtk_en;
 	u8 dot11w_en;
 	/* deinit */
-	enum rtw_wow_wake_reason wake_rsn;
+	enum rtw_mac_wow_wake_reason wake_rsn;
 	enum rtw_mac_pwr_st mac_pwr;
 	/* common */
 	struct phl_wow_error err;
@@ -61,6 +61,7 @@ struct phl_wow_info {
 
 	/* general info, should reset */
 	u8 func_en;
+	u8 no_link_mode;
 	struct phl_wow_error err;
 	struct rtw_phl_stainfo_t *sta;
 	enum rtw_wow_op_mode op_mode;
@@ -89,9 +90,10 @@ struct phl_wow_info {
 	struct rtw_wow_wake_info wow_wake_info;
 	struct rtw_pattern_match_info pattern_match_info;
 	struct rtw_wow_gpio_info wow_gpio;
+	struct rtw_periodic_wake_info periodic_wake_info;
 
 	/* info to core */
-	enum rtw_wow_wake_reason wake_rsn;
+	enum rtw_mac_wow_wake_reason wake_rsn;
 	struct rtw_aoac_report aoac_info;
 };
 
@@ -99,6 +101,9 @@ enum rtw_phl_status phl_wow_mdl_init(struct phl_info_t* phl_info);
 void phl_wow_mdl_deinit(struct phl_info_t* phl_info);
 
 #ifdef CONFIG_WOWLAN
+
+u8
+phl_get_wow_excld_susp_role_map(struct phl_info_t *phl_i);
 
 void phl_record_wow_stat(struct phl_wow_info *wow_info);
 
@@ -111,6 +116,10 @@ enum rtw_phl_status phl_wow_init_postcfg(struct phl_wow_info *wow_info);
 enum rtw_phl_status phl_wow_deinit_precfg(struct phl_wow_info *wow_info);
 
 enum rtw_phl_status phl_wow_deinit_postcfg(struct phl_wow_info *wow_info);
+
+enum rtw_phl_status phl_wow_init(struct phl_wow_info *wow_info);
+
+enum rtw_phl_status phl_wow_deinit(struct phl_wow_info *wow_info);
 
 void phl_reset_wow_info(struct phl_wow_info *wow_info);
 

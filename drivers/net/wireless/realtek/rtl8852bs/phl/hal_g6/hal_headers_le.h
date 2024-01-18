@@ -28,12 +28,17 @@
 #include "../phl_txpwr.h"
 /* Exported structure/definition from PHL */
 #include "../phl_util.h"
+#include "mac/mac_exp_def.h"
 #include "../phl_def.h"
 #include "../phl_trx_def.h"
 #include "../phl_wow_def.h"
 #include "../phl_btc_def.h"
 #include "../phl_test_def.h"
 #include "../phl_debug.h"
+#include "../phl_ext_tx_pwr_lmt_def.h"
+#ifdef CONFIG_PHL_CHANNEL_INFO
+#include "../phl_chan_info_def.h"
+#endif /* CONFIG_PHL_CHANNEL_INFO */
 
 #ifdef CONFIG_PCI_HCI
 #include "../hci/phl_trx_def_pcie.h"
@@ -49,8 +54,9 @@
 #include "hal_general_def.h"
 /* Exported structure/definition from HAL */
 #include "hal_config.h"
+#include "phy/bb/halbb_bb_wrapper_outsrc.h"
 #include "hal_def.h"
-#include "mac/mac_exp_def.h"
+#include "phy/bb/halbb_outsrc_def.h"
 #include "mac/mac_outsrc_def.h"
 
 /*
@@ -70,7 +76,7 @@ static inline void hal_mdelay(struct rtw_hal_com_t *h, int ms)
 }
 static inline void hal_udelay(struct rtw_hal_com_t *h, int us)
 {
-	_os_delay_ms(halcom_to_drvpriv(h), us);
+	_os_delay_us(halcom_to_drvpriv(h), us);
 }
 
 static inline void hal_msleep(struct rtw_hal_com_t *h, int ms)
@@ -112,13 +118,13 @@ static inline void hal_mem_set(struct rtw_hal_com_t *h, void *buf, s8 value, u32
 }
 
 static inline void hal_mem_cpy(struct rtw_hal_com_t *h, void *dest,
-						void *src, u32 size)
+						const void *src, u32 size)
 {
 	_os_mem_cpy(halcom_to_drvpriv(h), dest, src, size);
 }
 
-static inline int hal_mem_cmp(struct rtw_hal_com_t *h, void *dest,
-						void *src, u32 size)
+static inline int hal_mem_cmp(struct rtw_hal_com_t *h, const void *dest,
+						const void *src, u32 size)
 {
 	return _os_mem_cmp(halcom_to_drvpriv(h), dest, src, size);
 }
@@ -291,7 +297,7 @@ static inline u8 hal_sdio_read_cia_r8(struct rtw_hal_com_t *h, u32 addr)
 #else
 /*please refer to hal_pltfm_ops.h*/
 #define hal_mdelay(h, ms)	_os_delay_ms(halcom_to_drvpriv(h), ms)
-#define hal_udelay(h, us)	_os_delay_ms(halcom_to_drvpriv(h), us)
+#define hal_udelay(h, us)	_os_delay_us(halcom_to_drvpriv(h), us)
 #define hal_msleep(h, ms)	_os_sleep_ms(halcom_to_drvpriv(h),ms)
 #define hal_usleep(h, us)	_os_sleep_us(halcom_to_drvpriv(h), us)
 

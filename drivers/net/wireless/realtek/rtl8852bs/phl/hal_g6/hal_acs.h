@@ -15,7 +15,8 @@
 #ifndef _HAL_ACS_H_
 #define _HAL_ACS_H_
 
-void rtw_hal_acs_mntr_trigger(void *hal, struct acs_mntr_parm *parm);
-enum rtw_hal_status rtw_hal_acs_mntr_result(void *hal, struct acs_mntr_rpt *rpt);
+void rtw_hal_acs_mntr_trigger(void *hal, enum phl_band_idx band_idx, struct acs_mntr_parm *parm);
+enum rtw_hal_status rtw_hal_acs_mntr_result(void *hal,
+					enum phl_band_idx band_idx, struct acs_mntr_rpt *rpt);
 
 #endif

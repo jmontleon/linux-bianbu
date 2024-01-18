@@ -37,6 +37,7 @@ struct phl_led_timer_args_t {
 struct phl_led_info_t {
 	enum rtw_led_ctrl_mode ctrl_mode;
 	enum rtw_led_ctrl_mode reg_ctrl_mode;
+	bool manual_mode_on;
 	enum rtw_led_opt curr_opt;
 	const struct rtw_led_toggle_args_t *toggle_args;
 	struct phl_led_timer_args_t *toggle_timer_args;
@@ -313,6 +314,10 @@ _phl_led_ctrl_action_hdlr(struct phl_info_t *phl_info, enum rtw_led_id led_id,
 		  "%s: led_id == %d, action == 0X%X\n", __func__, led_id,
 		  action);
 
+	if (led_info->reg_ctrl_mode != RTW_LED_CTRL_SW_PP_MODE &&
+	    led_info->reg_ctrl_mode != RTW_LED_CTRL_SW_OD_MODE)
+		return status;
+
 	/* Set ctrl mode*/
 	switch (action) {
 	case RTW_LED_ACTION_LOW:
@@ -339,11 +344,8 @@ _phl_led_ctrl_action_hdlr(struct phl_info_t *phl_info, enum rtw_led_id led_id,
 	/* Sw action */
 	switch (action) {
 	case RTW_LED_ACTION_LOW:
-		if(led_info->ctrl_mode != RTW_LED_CTRL_SW_PP_MODE &&
-	    	   led_info->ctrl_mode != RTW_LED_CTRL_SW_OD_MODE)
-		       break;
-
 		_phl_led_remove_from_timer(led_info, led_id);
+
 		if (RTW_PHL_STATUS_SUCCESS !=
 		    _phl_led_ctrl_write_opt(phl_info->hal, led_id,
 					    &(led_info->curr_opt),
@@ -353,11 +355,8 @@ _phl_led_ctrl_action_hdlr(struct phl_info_t *phl_info, enum rtw_led_id led_id,
 		break;
 
 	case RTW_LED_ACTION_HIGH:
-		if(led_info->ctrl_mode != RTW_LED_CTRL_SW_PP_MODE &&
-	    	   led_info->ctrl_mode != RTW_LED_CTRL_SW_OD_MODE)
-		       break;
-
 		_phl_led_remove_from_timer(led_info, led_id);
+
 		if (RTW_PHL_STATUS_SUCCESS !=
 		    _phl_led_ctrl_write_opt(phl_info->hal, led_id,
 					    &(led_info->curr_opt),
@@ -371,10 +370,6 @@ _phl_led_ctrl_action_hdlr(struct phl_info_t *phl_info, enum rtw_led_id led_id,
 		break;
 
 	case RTW_LED_ACTION_TOGGLE:
-		if(led_info->ctrl_mode != RTW_LED_CTRL_SW_PP_MODE &&
-	    	   led_info->ctrl_mode != RTW_LED_CTRL_SW_OD_MODE)
-		       break;
-
 		_phl_led_remove_from_timer(led_info, led_id);
 
 		led_info->toggle_args = toggle_args;
@@ -459,6 +454,18 @@ static enum rtw_phl_status _phl_led_ctrl_event_hdlr(struct phl_info_t *phl_info,
 		led_ctrl->state &= ~RTW_LED_STATE_SW_RF_ON;
 		break;
 
+	case RTW_LED_EVENT_IDLE_SLEEP_START:
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: idle sleep start\n",
+		          __func__);
+		led_ctrl->state &= ~RTW_LED_STATE_NOT_IDLE_SLEEP;
+		break;
+
+	case RTW_LED_EVENT_IDLE_SLEEP_END:
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: idle sleep end\n",
+		          __func__);
+		led_ctrl->state |= RTW_LED_STATE_NOT_IDLE_SLEEP;
+		break;
+
 	default:
 		break;
 	}
@@ -479,6 +486,10 @@ static enum rtw_phl_status _phl_led_ctrl_event_hdlr(struct phl_info_t *phl_info,
 			action_args = &(event_args->action_args_arr[args_idx]);
 			led_id = action_args->led_id;
 			led_info = &(led_ctrl->led_info_arr[led_id]);
+
+			if (led_info->manual_mode_on)
+				continue;
+
 			if (RTW_PHL_STATUS_SUCCESS !=
 			    _phl_led_ctrl_action_hdlr(
 				phl_info, led_id, action_args->led_action,
@@ -499,6 +510,50 @@ static enum rtw_phl_status _phl_led_ctrl_event_hdlr(struct phl_info_t *phl_info,
 	}
 
 	return status;
+}
+
+static enum rtw_phl_status
+_phl_led_ctrl_manual_hdlr(struct phl_info_t *phl_info,
+			  struct rtw_led_action_args_t *action_args)
+{
+	struct phl_led_ctrl_t *led_ctrl =
+	    (struct phl_led_ctrl_t *)(phl_info->led_ctrl);
+	struct phl_led_info_t *led_info =
+	    &(led_ctrl->led_info_arr[action_args->led_id]);
+
+	PHL_TRACE(COMP_PHL_LED, _PHL_INFO_,
+		  "%s: led_id == %d, action == 0X%X, manual_mode_on == %d\n",
+		  __func__, action_args->led_id, action_args->led_action,
+		  led_info->manual_mode_on);
+
+	if (action_args->led_action != RTW_LED_ACTION_LOW &&
+	    action_args->led_action != RTW_LED_ACTION_HIGH) {
+
+		PHL_ERR("%s: manual mode only supports to send the action of "
+			"RTW_LED_ACTION_LOW or RTW_LED_ACTION_HIGH, "
+			"led_id == %d, action == 0X%X\n",
+			__func__, action_args->led_id, action_args->led_action);
+
+		return RTW_PHL_STATUS_FAILURE;
+	}
+
+	if (!led_info->manual_mode_on) {
+
+		PHL_ERR("%s: the manual ctrl event should not be sent if "
+			"manual mode is not on, led_id == %d\n",
+			__func__, action_args->led_id);
+
+		return RTW_PHL_STATUS_FAILURE;
+	}
+
+	if (RTW_PHL_STATUS_SUCCESS !=
+	    _phl_led_ctrl_action_hdlr(phl_info, action_args->led_id,
+				      action_args->led_action, NULL, NULL)) {
+
+		return RTW_PHL_STATUS_FAILURE;
+	}
+
+	return RTW_PHL_STATUS_SUCCESS;
 }
 
 static enum phl_mdl_ret_code _phl_led_module_init(void *phl, void *dispr,
@@ -532,13 +587,14 @@ static enum phl_mdl_ret_code _phl_led_module_init(void *phl, void *dispr,
 	phl_info->led_ctrl = led_ctrl;
 
 	/* set default value in led_ctrl */
-	led_ctrl->state = 0;
+	led_ctrl->state = RTW_LED_STATE_NOT_IDLE_SLEEP;
 
 	for (led_id = 0; led_id < RTW_LED_ID_LENGTH; led_id++) {
 		led_info = &(led_ctrl->led_info_arr[led_id]);
 
 		led_info->ctrl_mode = RTW_LED_CTRL_NOT_SUPPORT;
 		led_info->reg_ctrl_mode = RTW_LED_CTRL_NOT_SUPPORT;
+		led_info->manual_mode_on = false;
 		led_info->curr_opt = RTW_LED_OPT_UNKNOWN;
 		led_info->toggle_interval_counter = 0;
 		led_info->toggle_start_delay_counter = 0;
@@ -686,8 +742,11 @@ static enum phl_mdl_ret_code _phl_led_module_start(void *dispr, void *priv)
 		if (RTW_HAL_STATUS_SUCCESS !=
 		    rtw_hal_led_set_ctrl_mode(
 			phl_info->hal, led_id,
-			led_ctrl->led_info_arr[led_id].ctrl_mode))
+			led_ctrl->led_info_arr[led_id].reg_ctrl_mode))
 			ret = MDL_RET_FAIL;
+
+		led_ctrl->led_info_arr[led_id].ctrl_mode =
+		    led_ctrl->led_info_arr[led_id].reg_ctrl_mode;
 	}
 
 	if (RTW_PHL_STATUS_SUCCESS !=
@@ -763,25 +822,38 @@ static enum phl_mdl_ret_code _phl_led_module_msg_hdlr(void *dispr, void *priv,
 		return MDL_RET_FAIL;
 	}
 
-	if(msg_evt_id < MSG_EVT_LED_EVT_START || msg_evt_id > MSG_EVT_LED_EVT_END){
-		if (msg_evt_id == MSG_EVT_LED_TICK) {
-			PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: MSG_EVT_LED_TICK\n",
-				  __func__);
-			timer_args = (struct phl_led_timer_args_t *)(msg->inbuf);
+	if (msg_evt_id == MSG_EVT_LED_TICK) {
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: MSG_EVT_LED_TICK\n",
+			  __func__);
+		timer_args = (struct phl_led_timer_args_t *)(msg->inbuf);
 
-			if (!timer_args->timer_alive)
-				return MDL_RET_SUCCESS;
-
-			if (RTW_PHL_STATUS_SUCCESS !=
-		    	    _phl_led_ctrl_toggle_hdlr(timer_args))
-				return MDL_RET_FAIL;
-
+		if (!timer_args->timer_alive) {
 			return MDL_RET_SUCCESS;
 		}
-	}
-	else {
+
 		if (RTW_PHL_STATUS_SUCCESS !=
-		    _phl_led_ctrl_event_hdlr(phl_info, msg_evt_id - MSG_EVT_LED_EVT_START))
+		    _phl_led_ctrl_toggle_hdlr(timer_args))
+			return MDL_RET_FAIL;
+
+		return MDL_RET_SUCCESS;
+	}
+
+	if (msg_evt_id == MSG_EVT_LED_MANUAL_CTRL) {
+
+		if (RTW_PHL_STATUS_SUCCESS !=
+		    _phl_led_ctrl_manual_hdlr(
+			phl_info, (struct rtw_led_action_args_t *)(msg->inbuf)))
+			return MDL_RET_FAIL;
+
+		return MDL_RET_SUCCESS;
+	}
+
+	if (msg_evt_id >= MSG_EVT_LED_EVT_START &&
+	    msg_evt_id <= MSG_EVT_LED_EVT_END) {
+
+		if (RTW_PHL_STATUS_SUCCESS !=
+		    _phl_led_ctrl_event_hdlr(
+			phl_info, msg_evt_id - MSG_EVT_LED_EVT_START))
 			return MDL_RET_FAIL;
 	}
 
@@ -851,7 +923,6 @@ void rtw_phl_led_set_ctrl_mode(void *phl, enum rtw_led_id led_id,
 		  "%s: led_id == %d, ctrl_mode == %d\n", __func__, led_id,
 		  ctrl_mode);
 
-	led_ctrl->led_info_arr[led_id].ctrl_mode = ctrl_mode;
 	led_ctrl->led_info_arr[led_id].reg_ctrl_mode = ctrl_mode;
 }
 
@@ -999,26 +1070,9 @@ void phl_led_control(struct phl_info_t *phl_info, enum rtw_led_event led_event)
 	struct phl_msg msg = {0};
 	struct phl_msg_attribute attr = {0};
 
-	PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "===> rtw_phl_led_control()\n");
+	PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "===> %s()\n", __func__);
 
 	SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_MDL_LED);
-
-	/*
-	 * led_event here is passed via the msg_evt_id field instead of
-	 * msg_evt_id due to the following reason:
-	 *
-	 * (a) led_event is used for mapping LED events with LED actions, and
-	 *     the mapping can be configured in core layer according to the
-	 *     customized LED table.
-	 *
-	 * (b) LED module inside uses led_event as the index of led action
-	 *     arrays, and hence it would be inappropriate to directly replace
-	 *     led_event with msg_evt_id which is not continuous and does not
-	 *     start from zero.
-	 *
-	 * (c) It is not worth it to use inbuf with the overhead of dynamic
-	 *     allocation and completion callback only for a number.
-	 */
 	SET_MSG_EVT_ID_FIELD(msg.msg_id, led_event + MSG_EVT_LED_EVT_START);
 	msg.band_idx = HW_BAND_0;
 	phl_disp_eng_send_msg(phl_info, &msg, &attr, NULL);
@@ -1027,7 +1081,109 @@ void phl_led_control(struct phl_info_t *phl_info, enum rtw_led_event led_event)
 #endif
 }
 
+static void _phl_led_manual_control_completion(void *priv, struct phl_msg *msg)
+{
+	_os_mem_free(priv, msg->inbuf, sizeof(struct rtw_led_action_args_t));
+}
+
+void rtw_phl_led_manual_control(void *phl, enum rtw_led_id led_id,
+				enum rtw_led_opt opt)
+{
+#ifdef CONFIG_CMD_DISP
+	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	void *drv_priv = phl_to_drvpriv(phl_info);
+
+	struct phl_led_ctrl_t *led_ctrl =
+	    (struct phl_led_ctrl_t *)phl_info->led_ctrl;
+	struct phl_led_info_t *led_info = NULL;
+	struct rtw_led_action_args_t *action_args = NULL;
+	enum rtw_led_action led_action;
+
+	struct phl_msg msg = {0};
+	struct phl_msg_attribute attr = {0};
+
+	PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "===> %s()\n", __func__);
+
+	if (led_ctrl == NULL) {
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: led_ctrl == NULL\n",
+			  __func__);
+		return;
+	}
+
+	led_info = &(led_ctrl->led_info_arr[led_id]);
+
+	if (!led_info->manual_mode_on)
+		return;
+
+	if (opt == RTW_LED_OPT_LOW)
+		led_action = RTW_LED_ACTION_LOW;
+	else if (opt == RTW_LED_OPT_HIGH)
+		led_action = RTW_LED_ACTION_HIGH;
+	else {
+		PHL_ERR("%s: unknown opt: %d\n", __func__, opt);
+		return;
+	}
+
+	if (NULL == (action_args = _os_mem_alloc(
+			 drv_priv, sizeof(struct rtw_led_action_args_t)))) {
+
+		PHL_ERR("%s: alloc buffer failed!\n", __func__);
+		return;
+	}
+
+	action_args->led_id = led_id;
+	action_args->led_action = led_action;
+	_os_mem_set(drv_priv, &(action_args->toggle_args), 0,
+		    +sizeof(struct rtw_led_toggle_args_t));
+
+	SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_MDL_LED);
+	SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_LED_MANUAL_CTRL);
+	msg.band_idx = HW_BAND_0;
+	msg.inbuf = (u8 *)action_args;
+	msg.inlen = sizeof(struct rtw_led_action_args_t);
+
+	attr.completion.completion = _phl_led_manual_control_completion;
+	attr.completion.priv = drv_priv;
+
+	if (RTW_PHL_STATUS_SUCCESS ==
+	    (status = phl_disp_eng_send_msg(phl_info, &msg, &attr, NULL)))
+		return;
+
+	_phl_led_manual_control_completion(attr.completion.priv, &msg);
+
+	if (status == RTW_PHL_STATUS_UNEXPECTED_ERROR)
+		/* cmd dispatcher is not started */
+		_phl_led_ctrl_write_opt(phl_info->hal, led_id,
+					&(led_info->curr_opt), opt);
+
+#else
+	PHL_ERR("phl_fsm not support %s\n", __func__);
+#endif
+}
+
 void rtw_phl_led_control(void *phl, enum rtw_led_event led_event)
 {
 	phl_led_control((struct phl_info_t *)phl, led_event);
+}
+
+void rtw_phl_led_manual_mode_switch(void *phl, enum rtw_led_id led_id,
+				    bool manual_mode_on)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct phl_led_ctrl_t *led_ctrl =
+	    (struct phl_led_ctrl_t *)phl_info->led_ctrl;
+	struct phl_led_info_t *led_info = NULL;
+
+	PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "===> %s()\n", __func__);
+
+	if (led_ctrl == NULL) {
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: led_ctrl == NULL\n",
+			  __func__);
+		return;
+	}
+
+	led_info = &(led_ctrl->led_info_arr[led_id]);
+
+	led_info->manual_mode_on = manual_mode_on;
 }

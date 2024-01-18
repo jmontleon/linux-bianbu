@@ -1,49 +1,76 @@
-/******************************************************************************
+/*
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- * Copyright(c) 2007 - 2020  Realtek Corporation.
+ * Copyright (c) 2021, Realtek Semiconductor Corp. All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ *   * Redistributions of source code must retain the above copyright notice, this
+ *     list of conditions and the following disclaimer.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called LICENSE.
+ *   * Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
  *
- * Contact Information:
- * wlanfae <wlanfae@realtek.com>
- * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
- * Hsinchu 300, Taiwan.
+ *   * Neither the name of the Realtek nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
+ *     specific prior written permission.
  *
- * Larry Finger <Larry.Finger@lwfinger.net>
  *
- *****************************************************************************/
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #ifndef __HALBB_IC_HW_INFO_H__
 #define __HALBB_IC_HW_INFO_H__
 
+#include "halbb_cfg_ic.h"
+
+
 enum bb_ic_t {
-	BB_RTL8852AA	=	BIT(0), /*8852A Acut*/
+	/*AC IC*/
 	BB_RTL8852A	=	BIT(1), /*8852A > Bcut*/
 	BB_RTL8852B	=	BIT(2),
 	BB_RTL8852C	=	BIT(3),
 	BB_RTL8834A	=	BIT(4),
-	BB_RTL8192XB	=	BIT(5)
+	BB_RTL8192XB	=	BIT(5),
+	BB_RTL8851B	=	BIT(6),
+	/*BE IC*/
+	BB_RLE1115	=	BIT(16),
+	BB_RTL8922A	=	BIT(17)
 };
 
 enum bb_ic_sub_t {
 	BB_IC_SUB_TYPE_8852B_8852B	=	20,
-	BB_IC_SUB_TYPE_8852B_8852BVS,
+	BB_IC_SUB_TYPE_8852B_8852BP,
+
+	BB_IC_SUB_TYPE_8852C_8852C	=	30,
+	BB_IC_SUB_TYPE_8852C_8852D,
+
+	BB_IC_SUB_TYPE_8192XB_8192XB	=	50,
+	BB_IC_SUB_TYPE_8192XB_8832BR,
+	BB_IC_SUB_TYPE_8192XB_8832BR_VT
 };
 
 enum bb_cr_t {
-	BB_52AA		=	0,
 	BB_AP		=	1,
 	BB_AP2		=	2,
-	BB_CLIENT	=	3
+	BB_CLIENT	=	3,
+	BB_BE0		=	4
+};
+
+enum bb_80211spec_t {
+	BB_AX_IC	=	1,
+	BB_BE_IC	=	2
 };
 
 #define BB_IC_N_1SS		0
@@ -56,16 +83,22 @@ enum bb_cr_t {
 #define BB_IC_AC_3SS		0
 #define BB_IC_AC_4SS		0
 
-#define BB_IC_AX_1SS		0
-#define BB_IC_AX_2SS		(BB_RTL8852AA | BB_RTL8852A | BB_RTL8852B | BB_RTL8852C)
+#define BB_IC_AX_1SS		BB_RTL8851B
+#define BB_IC_AX_2SS		(BB_RTL8852A | BB_RTL8852B | BB_RTL8852C |\
+				 BB_RTL8192XB)
 #define BB_IC_AX_3SS		0
 #define BB_IC_AX_4SS		(BB_RTL8834A)
 
+#define BB_IC_BE_1SS		0
+#define BB_IC_BE_2SS		(BB_RLE1115 | BB_RTL8922A)
+#define BB_IC_BE_3SS		0
+#define BB_IC_BE_4SS		0
+
 /*@====the following macro DO NOT need to update when adding a new IC======= */
-#define BB_IC_1SS		(BB_IC_N_1SS | BB_IC_AC_1SS | BB_IC_AX_1SS)
-#define BB_IC_2SS		(BB_IC_N_2SS | BB_IC_AC_2SS | BB_IC_AX_2SS)
-#define BB_IC_3SS		(BB_IC_N_3SS | BB_IC_AC_3SS | BB_IC_AX_3SS)
-#define BB_IC_4SS		(BB_IC_N_4SS | BB_IC_AC_4SS | BB_IC_AX_4SS)
+#define BB_IC_1SS		(BB_IC_N_1SS | BB_IC_AC_1SS | BB_IC_AX_1SS | BB_IC_BE_1SS)
+#define BB_IC_2SS		(BB_IC_N_2SS | BB_IC_AC_2SS | BB_IC_AX_2SS | BB_IC_BE_2SS)
+#define BB_IC_3SS		(BB_IC_N_3SS | BB_IC_AC_3SS | BB_IC_AX_3SS | BB_IC_BE_3SS)
+#define BB_IC_4SS		(BB_IC_N_4SS | BB_IC_AC_4SS | BB_IC_AX_4SS | BB_IC_BE_4SS)
 
 #define BB_IC_ABOVE_1SS		(BB_IC_1SS | BB_IC_2SS | BB_IC_3SS |\
 				BB_IC_4SS)
@@ -79,32 +112,62 @@ enum bb_cr_t {
 				 BB_IC_AC_3SS | BB_IC_AC_4SS)
 #define BB_IC_AX_SERIES		(BB_IC_AX_1SS | BB_IC_AX_2SS |\
 				 BB_IC_AX_3SS | BB_IC_AX_4SS)
+#define BB_IC_BE_SERIES		(BB_IC_BE_1SS | BB_IC_BE_2SS |\
+				 BB_IC_BE_3SS | BB_IC_BE_4SS)
 /*@==========================================================================*/
 
-#define BB_IC_AX_AP		(BB_RTL8852AA | BB_RTL8852A | BB_RTL8852C | BB_RTL8834A)
+#define BB_IC_AX_AP		(BB_RTL8852A | BB_RTL8834A)
 #define BB_IC_AX_AP2		(BB_RTL8852C | BB_RTL8192XB)
-#define BB_IC_AX_CLIENT		(BB_RTL8852B)
+#define BB_IC_AX_CLIENT		(BB_RTL8852B | BB_RTL8851B)
+#define BB_IC_BE_0		(BB_RLE1115)
+#define BB_IC_BE_1		(BB_RTL8922A)
 
 /*@==========================================================================*/
 
-#define BB_IC_MAX_BW_80		(BB_RTL8852AA | BB_RTL8852A | BB_RTL8852B)
+#define BB_IC_FW_CONTROL_STBC		(BB_RTL8852A | BB_RTL8852B | BB_RTL8851B)
+
+/*@==========================================================================*/
+
+#define BB_IC_MAX_BW_80		(BB_RTL8852A | BB_RTL8852B | BB_RTL8192XB |\
+				 BB_RTL8851B)
 #define BB_IC_MAX_BW_160	(BB_RTL8852C | BB_RTL8834A)
+/*@==========================================================================*/
+
+#define BB_IC_DBCC_LEGACY	(BB_RTL8852A | BB_RTL8852C)
+#define BB_IC_DBCC_MLO		(BB_RLE1115)
+#define BB_IC_DBCC_LITTLE_R	(BB_RTL8922A)
 
 /*@==========================================================================*/
-#if defined(BB_8852A_CAV_SUPPORT) || defined(BB_8852A_2_SUPPORT)
+#if defined(BB_8852A_2_SUPPORT) || defined(BB_8852C_SUPPORT)
+	#define HALBB_COMPILE_IC_DBCC_LEGACY
+#endif
+
+#if defined(BB_8922A_SUPPORT) || defined(BB_1115_SUPPORT)
+	#define HALBB_COMPILE_IC_DBCC_MLO
+#endif
+
+#if defined(HALBB_COMPILE_IC_DBCC_LEGACY) || defined(HALBB_COMPILE_IC_DBCC_MLO)
 	#define HALBB_COMPILE_IC_DBCC
 #endif
 
-#if defined(BB_8852A_CAV_SUPPORT) || defined(BB_8852A_2_SUPPORT) || defined(BB_8852B_SUPPORT)
+#if defined(BB_8922A_SUPPORT)
+	#define HALBB_COMPILE_IC_DBCC_LITTLE_R
+#endif
+
+/*@==========================================================================*/
+
+
+#if defined(BB_8852A_2_SUPPORT) || defined(BB_8852B_SUPPORT) || defined(BB_8852C_SUPPORT) || defined(BB_8851B_SUPPORT)
 	/* FW OFFLOAD will be used in non-AP-only ICs*/
 	#define HALBB_COMPILE_IC_FWOFLD
 #endif
 
-#if defined(RTL8851A_SUPPORT)
+#if defined(BB_8851B_SUPPORT)
 	#define HALBB_COMPILE_IC_1SS
 #endif
 
-#if (defined(BB_8852A_CAV_SUPPORT) || defined(BB_8852A_2_SUPPORT) || defined(BB_8852B_SUPPORT)  || defined(BB_8852C_SUPPORT))
+#if (defined(BB_8852A_2_SUPPORT) || defined(BB_8852B_SUPPORT) ||\
+     defined(BB_8852C_SUPPORT) || defined(BB_8192XB_SUPPORT) || defined(BB_1115_SUPPORT) || defined(BB_8922A_SUPPORT))
 	#define HALBB_COMPILE_IC_2SS
 #endif
 
@@ -125,11 +188,11 @@ enum bb_cr_t {
 	#define HALBB_COMPILE_ABOVE_3SS
 #endif
 
-#if (defined(HALBB_COMPILE_IC_2SS) || defined(HALBB_COMPILE_ABOVE_3SS))
+#if (defined(HALBB_COMPILE_IC_2SS) || defined(HALBB_COMPILE_ABOVE_3SS) || defined(HALBB_COMPILE_ABOVE_4SS))
 	#define HALBB_COMPILE_ABOVE_2SS
 #endif
 
-#if (defined(HALBB_COMPILE_IC_1SS) || defined(HALBB_COMPILE_ABOVE_2SS))
+#if (defined(HALBB_COMPILE_IC_1SS) || defined(HALBB_COMPILE_ABOVE_2SS) || defined(HALBB_COMPILE_ABOVE_3SS) || defined(HALBB_COMPILE_ABOVE_4SS))
 	#define HALBB_COMPILE_ABOVE_1SS
 #endif
 
@@ -140,14 +203,11 @@ enum bb_cr_t {
 #elif (defined(HALBB_COMPILE_ABOVE_2SS))
 	#define HALBB_MAX_PATH	2
 #else
-	#define HALBB_MAX_PATH	1
+	#define HALBB_MAX_PATH	2
 #endif
 /*@==========================================================================*/
-#if (defined(BB_8852A_CAV_SUPPORT))
-	#define HALBB_52AA_SERIES
-#endif
 
-#if (defined(BB_8852A_2_SUPPORT) || defined(BB_8852C_SUPPORT) || defined(BB_8834A_SUPPORT))
+#if (defined(BB_8852A_2_SUPPORT))
 	#define HALBB_COMPILE_AP_SERIES
 #endif
 
@@ -155,8 +215,32 @@ enum bb_cr_t {
 	#define HALBB_COMPILE_AP2_SERIES
 #endif
 
-#if (defined(BB_8852B_SUPPORT))
+#if (defined(BB_8852B_SUPPORT) || defined(BB_8851B_SUPPORT))
 	#define HALBB_COMPILE_CLIENT_SERIES
+#endif
+
+#if (defined(BB_1115_SUPPORT))
+	#define HALBB_COMPILE_BE0_SERIES
+#endif
+
+#if (defined(BB_8922A_SUPPORT))
+	#define HALBB_COMPILE_BE1_SERIES
+#endif
+
+/*@==========================================================================*/
+
+#if (defined(HALBB_COMPILE_AP_SERIES)||defined(HALBB_COMPILE_AP2_SERIES)||defined(HALBB_COMPILE_CLIENT_SERIES))
+	#define HALBB_COMPILE_AX_SERIOUS
+#endif
+
+#if (defined(HALBB_COMPILE_BE0_SERIES)||defined(HALBB_COMPILE_BE1_SERIES))
+	#define HALBB_COMPILE_BE_SERIES
+#endif
+
+/*@==========================================================================*/
+
+#if (defined(BB_8852C_SUPPORT))
+#define HALBB_TW_DFS_SERIES
 #endif
 
 /*@==========================================================================*/
@@ -201,6 +285,46 @@ enum halbb_rate_table {
 	BB_HE_8SS_MCS0		= 496	
 };
 
+enum halbb_rate_table_be {
+	BE_BB_01M			= 0,
+	BE_BB_02M			= 1,
+	BE_BB_05M			= 2,
+	BE_BB_11M			= 3,
+	BE_BB_06M			= 4,
+	BE_BB_09M			= 5,
+	BE_BB_12M			= 6,
+	BE_BB_18M			= 7,
+	BE_BB_24M			= 8,
+	BE_BB_36M			= 9,
+	BE_BB_48M			= 10,
+	BE_BB_54M			= 11,
+	BE_BB_HT_MCS0		= 256,	/*0x100*/
+	BE_BB_VHT_1SS_MCS0	= 512,	/*0x200*/
+	BE_BB_VHT_2SS_MCS0	= 544,
+	BE_BB_VHT_3SS_MCS0	= 576,
+	BE_BB_VHT_4SS_MCS0	= 608,
+	BE_BB_VHT_5SS_MCS0	= 640,
+	BE_BB_VHT_6SS_MCS0	= 672,
+	BE_BB_VHT_7SS_MCS0	= 704,
+	BE_BB_VHT_8SS_MCS0	= 736,
+	BE_BB_HE_1SS_MCS0		= 768,	/*0x300*/
+	BE_BB_HE_2SS_MCS0		= 800,
+	BE_BB_HE_3SS_MCS0		= 832,
+	BE_BB_HE_4SS_MCS0		= 864,
+	BE_BB_HE_5SS_MCS0		= 896,
+	BE_BB_HE_6SS_MCS0		= 928,
+	BE_BB_HE_7SS_MCS0		= 950,
+	BE_BB_HE_8SS_MCS0		= 982,
+	BE_BB_EHT_1SS_MCS0		= 1024,	/*0x400*/
+	BE_BB_EHT_2SS_MCS0		= 1056,
+	BE_BB_EHT_3SS_MCS0		= 1088,
+	BE_BB_EHT_4SS_MCS0		= 1120,
+	BE_BB_EHT_5SS_MCS0		= 1152,
+	BE_BB_EHT_6SS_MCS0		= 1184,
+	BE_BB_EHT_7SS_MCS0		= 1216,
+	BE_BB_EHT_8SS_MCS0		= 1248
+};
+
 enum halbb_legacy_spec_rate {
 	BB_SPEC_RATE_6M		= 0xb,
 	BB_SPEC_RATE_9M		= 0xf,
@@ -233,50 +357,78 @@ enum halbb_legacy_spec_rate {
 #define BB_HE_6SS_MCS(x)	(BB_HE_6SS_MCS0 + x)
 #define BB_HE_7SS_MCS(x)	(BB_HE_7SS_MCS0 + x)
 #define BB_HE_8SS_MCS(x)	(BB_HE_8SS_MCS0 + x)
+#define BB_EHT_1SS_MCS(x)	(BE_BB_EHT_1SS_MCS0 + x)
+#define BB_EHT_2SS_MCS(x)	(BE_BB_EHT_2SS_MCS0 + x)
+#define BB_EHT_3SS_MCS(x)	(BE_BB_EHT_3SS_MCS0 + x)
+#define BB_EHT_4SS_MCS(x)	(BE_BB_EHT_4SS_MCS0 + x)
+#define BB_EHT_5SS_MCS(x)	(BE_BB_EHT_5SS_MCS0 + x)
+#define BB_EHT_6SS_MCS(x)	(BE_BB_EHT_6SS_MCS0 + x)
+#define BB_EHT_7SS_MCS(x)	(BE_BB_EHT_7SS_MCS0 + x)
+#define BB_EHT_8SS_MCS(x)	(BE_BB_EHT_8SS_MCS0 + x)
 
+/*For RTK AX ICs*/
+#define BB_HT_MCS(x)		(BB_HT_MCS0 + x)
 #define BB_VHT_MCS(SS, x)	(BB_VHT_1SS_MCS0 + ((SS - 1) * 16 ) + x)
 #define BB_HE_MCS(SS, x)	(BB_HE_1SS_MCS0 + ((SS - 1) * 16 ) + x)
+/*For RTK > BE ICs*/
+#define BB_BE_HT_MCS(x)		(BE_BB_HT_MCS0 + x)
+#define BB_BE_VHT_MCS(SS, x)	(BE_BB_VHT_1SS_MCS0 + ((SS - 1) << 5) + x)
+#define BB_BE_HE_MCS(SS, x)	(BE_BB_HE_1SS_MCS0 + ((SS - 1) << 5) + x)
+#define BB_BE_EHT_MCS(SS, x)	(BE_BB_EHT_1SS_MCS0 + ((SS - 1) << 5) + x)
 
 /*[Rate Number]*/
 #define	HT_NUM_MCS		8
 #define	HE_VHT_NUM_MCS		12
+#define	EHT_NUM_MCS		16
 #define	LEGACY_RATE_NUM		12
 
 #define	HT_RATE_NUM_4SS		(HT_NUM_MCS * 4)
 #define	VHT_RATE_NUM_4SS	(HE_VHT_NUM_MCS * 4)
 #define	HE_RATE_NUM_4SS		(HE_VHT_NUM_MCS * 4)
+#define	EHT_RATE_NUM_4SS	(EHT_NUM_MCS * 4)
 
 #define	HT_RATE_NUM_3SS		(HT_NUM_MCS * 3)
 #define	VHT_RATE_NUM_3SS	(HE_VHT_NUM_MCS * 3)
 #define	HE_RATE_NUM_3SS		(HE_VHT_NUM_MCS * 3)
+#define	EHT_RATE_NUM_3SS	(EHT_NUM_MCS * 3)
 
 #define	HT_RATE_NUM_2SS		(HT_NUM_MCS * 2)
 #define	VHT_RATE_NUM_2SS	(HE_VHT_NUM_MCS * 2)
 #define	HE_RATE_NUM_2SS		(HE_VHT_NUM_MCS * 2)
+#define	EHT_RATE_NUM_2SS	(EHT_NUM_MCS * 2)
 
 #define	HT_RATE_NUM_1SS		HT_NUM_MCS
 #define	VHT_RATE_NUM_1SS	HE_VHT_NUM_MCS
 #define	HE_RATE_NUM_1SS		HE_VHT_NUM_MCS
+#define	EHT_RATE_NUM_1SS	EHT_NUM_MCS
 
 #if (defined(HALBB_COMPILE_ABOVE_4SS))
 	#define	HT_RATE_NUM	HT_RATE_NUM_4SS
 	#define	VHT_RATE_NUM	VHT_RATE_NUM_4SS
 	#define	HE_RATE_NUM	HE_RATE_NUM_4SS
+	#define	EHT_RATE_NUM	EHT_RATE_NUM_4SS
 #elif (defined(HALBB_COMPILE_ABOVE_3SS))
 	#define	HT_RATE_NUM	HT_RATE_NUM_3SS
 	#define	VHT_RATE_NUM	VHT_RATE_NUM_3SS
 	#define	HE_RATE_NUM	HE_RATE_NUM_3SS
+	#define	EHT_RATE_NUM	EHT_RATE_NUM_3SS
 #elif (defined(HALBB_COMPILE_ABOVE_2SS))
 	#define	HT_RATE_NUM	HT_RATE_NUM_2SS
 	#define	VHT_RATE_NUM	VHT_RATE_NUM_2SS
 	#define	HE_RATE_NUM	HE_RATE_NUM_2SS
+	#define	EHT_RATE_NUM	EHT_RATE_NUM_2SS
 #else
 	#define	HT_RATE_NUM	HT_RATE_NUM_1SS
 	#define	VHT_RATE_NUM	VHT_RATE_NUM_1SS
 	#define	HE_RATE_NUM	HE_RATE_NUM_1SS
+	#define	EHT_RATE_NUM	EHT_RATE_NUM_1SS
 #endif
 
-#define	LOW_BW_RATE_NUM		HE_RATE_NUM
+#ifdef HALBB_COMPILE_BE_SERIES
+	#define	LOW_BW_RATE_NUM		EHT_RATE_NUM
+#else
+	#define	LOW_BW_RATE_NUM		HE_RATE_NUM
+#endif
 
 /*@==========================================================================*/
 
@@ -296,11 +448,12 @@ enum bb_qam_type {
 	BB_QAM_1024QAM	= 6
 };
 
-enum bb_mode_type { /*@Fast antenna training*/
+enum bb_mode_type {
 	BB_LEGACY_MODE	= 0,
 	BB_HT_MODE	= 1,
 	BB_VHT_MODE	= 2,
-	BB_HE_MODE	= 3
+	BB_HE_MODE	= 3,
+	BB_EHT_MODE	= 4
 };
 
 

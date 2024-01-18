@@ -25,22 +25,50 @@
 #ifndef __HALBB_CFG_IC_H__
 #define __HALBB_CFG_IC_H__
 
+#include "halbb_ic_sw_info.h"
+
+
 #ifdef CONFIG_RTL8852A
 	//#define BB_8852A_CAV_SUPPORT /*CAV*/
 	#define BB_8852A_2_SUPPORT /*> CBV*/
 #endif
 
-#if defined(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BVS)
+#if defined(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BP)
 	#define BB_8852B_SUPPORT
 #endif
 
-#ifdef CONFIG_RTL8852C
+#if defined(CONFIG_RTL8852C) || defined(CONFIG_RTL8852D)
 	#define BB_8852C_SUPPORT
+	#ifdef CONFIG_RTL8852D
+	#define BB_8852D_SUPPORT
+	#endif
 #endif
 
-#ifdef CONFIG_RTL8192XB
+#if defined(CONFIG_RTL8192XB) || defined(CONFIG_RTL8832BR)
 	#define BB_8192XB_SUPPORT
 #endif
+
+#ifdef CONFIG_RTL8851B
+	#define BB_8851B_SUPPORT
+	#define HALBB_DUAL_SAR_LMT_TB_8851B
+#endif
+
+#if (HLABB_CODE_BASE_NUM == 32) //will be removed when (022+032) branch phase out
+	#ifdef CONFIG_RTL8922A
+	#define BB_1115_SUPPORT
+	#define BB_1115_DVLP_SPF
+	#define BB_1115_DVLP_SPF_2
+
+	#define BB_8922_DVLP_SPF
+	#define BB_8922_DVLP_SPF_2
+	#endif
+#else
+#ifdef CONFIG_RTL8922A
+	//#define BB_8922A_SUPPORT
+#endif
+	#define BB_8922A_DVLP_SPF_2
+#endif
+
 
 #endif
 

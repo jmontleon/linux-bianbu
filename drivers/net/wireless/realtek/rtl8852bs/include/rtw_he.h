@@ -709,6 +709,22 @@
 #define SET_HE_OP_BASIC_MCS_8SS(_pEleStart, _val) \
 	SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 6, 2, _val)
 
+#define SET_HE_OP_INFO_PRIMARY_CHAN(_pEleStart, _val) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart), 0, 8, _val)
+#define SET_HE_OP_INFO_CHAN_WIDTH(_pEleStart, _val) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 0, 2, _val)
+#define SET_HE_OP_INFO_DUPL_BCN(_pEleStart) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 2, 1, _val)
+#define SET_HE_OP_INFO_REGULATORY_INFO(_pEleStart) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 3, 3, _val)
+
+#define SET_HE_OP_INFO_CENTER_FREQ_0(_pEleStart, _val) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart)+ 2, 0, 8, _val)
+#define SET_HE_OP_INFO_CENTER_FREQ_1(_pEleStart, _val) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart)+ 3, 0, 8, _val)
+#define SET_HE_OP_INFO_MIN_RATE(_pEleStart, _val) \
+	SET_BITS_TO_LE_1BYTE((_pEleStart)+ 4, 0, 8, _val)
+
 /* Values in HE spec */
 #define TXOP_DUR_RTS_TH_DISABLED	1023
 
@@ -754,6 +770,21 @@
 #define GET_HE_OP_BASIC_MCS_8SS(_pEleStart) \
 	LE_BITS_TO_1BYTE((_pEleStart) + 1, 6, 2)
 
+#define GET_HE_OP_INFO_PRIMARY_CHAN(_pEleStart) \
+	LE_BITS_TO_1BYTE(_pEleStart, 0, 8)
+#define GET_HE_OP_INFO_CHAN_WIDTH(_pEleStart) \
+	LE_BITS_TO_1BYTE((_pEleStart) + 1, 0, 2)
+#define GET_HE_OP_INFO_DUPL_BCN(_pEleStart) \
+	LE_BITS_TO_1BYTE((_pEleStart) + 1, 2, 1)
+#define GET_HE_OP_INFO_REG_INFO(_pEleStart) \
+	LE_BITS_TO_1BYTE((_pEleStart) + 1, 3, 3)
+#define GET_HE_OP_INFO_CHAN_CTR_FREQ_SEG0(_pEleStart) \
+	LE_BITS_TO_1BYTE((_pEleStart) + 2, 0, 8)
+#define GET_HE_OP_INFO_CHAN_CTR_FREQ_SEG1(_pEleStart) \
+	LE_BITS_TO_1BYTE((_pEleStart) + 3, 0, 8)
+#define GET_HE_OP_INFO_MIN_RATE(_pEleStart) \
+	LE_BITS_TO_1BYTE((_pEleStart) + 4, 0, 8)
+
 /* Get MU EDCA Parameter Set element */
 #define GET_HE_MU_EDCA_QOS_INFO(_pEleStart) \
 	LE_BITS_TO_1BYTE(_pEleStart, 0, 8)
@@ -792,6 +823,35 @@
 #define GET_HE_MU_EDCA_VO_TIMER(_pEleStart) \
 	LE_BITS_TO_1BYTE((_pEleStart) + 12, 0, 8)
 
+#define GET_HE_6G_BAND_CAP_MIN_MPDU_SPACING(_pEleStart) \
+	LE_BITS_TO_1BYTE(_pEleStart, 0, 3)
+#define GET_HE_6G_BAND_CAP_MAX_AMPDU_LEN_EXP(_pEleStart) \
+	LE_BITS_TO_1BYTE(_pEleStart, 3, 3)
+#define GET_HE_6G_BAND_CAP_MAX_MPDU_LEN(_pEleStart) \
+        LE_BITS_TO_1BYTE(_pEleStart, 6, 2)
+#define GET_HE_6G_BAND_CAP_SM_PS(_pEleStart) \
+        LE_BITS_TO_1BYTE((_pEleStart) + 1, 1, 2)
+#define GET_HE_6G_BAND_CAP_RD_RESP(_pEleStart) \
+        LE_BITS_TO_1BYTE((_pEleStart) + 1, 3, 1)
+#define GET_HE_6G_BAND_CAP_RX_ANT_PATTERN(_pEleStart) \
+        LE_BITS_TO_1BYTE((_pEleStart) + 1, 4, 1)
+#define GET_HE_6G_BAND_CAP_TX_ANT_PATTERN(_pEleStart) \
+        LE_BITS_TO_1BYTE((_pEleStart) + 1, 5, 1)
+
+#define SET_HE_6G_BAND_CAP_MIN_MPDU_SPACING(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE(_pEleStart, 0, 3, _val)
+#define SET_HE_6G_BAND_CAP_MAX_AMPDU_LEN_EXP(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE(_pEleStart, 3, 3, _val)
+#define SET_HE_6G_BAND_CAP_MAX_MPDU_LEN(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE(_pEleStart, 6, 2, _val)
+#define SET_HE_6G_BAND_CAP_SM_PS(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 1, 2, _val)
+#define SET_HE_6G_BAND_CAP_RD_RESP(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 3, 1, _val)
+#define SET_HE_6G_BAND_CAP_RX_ANT_PATTERN(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 4, 1, _val)
+#define SET_HE_6G_BAND_CAP_TX_ANT_PATTERN(_pEleStart, _val) \
+        SET_BITS_TO_LE_1BYTE((_pEleStart) + 1, 5, 1, _val)
 
 /* HE variant HT Control */
 #define HE_VAR_HTC	3
@@ -906,6 +966,9 @@
 #define HE_OPER_BASIC_MCS_OFFSET 4
 */
 
+#define HE_6G_BAND_CAP_INFO_LEN		2
+#define HE_6G_BAND_CAP_MAX_LEN	(1 + HE_6G_BAND_CAP_INFO_LEN)
+
 #define MAX_HE_GI_TYPE 3
 #define MAX_HE_MCS_INDEX 12 * 2 /* 1SS + 2SS */
 
@@ -942,9 +1005,11 @@ struct he_priv {
 	u8	he_option;
 	u8 	he_cap[HE_CAP_ELE_MAX_LEN];
 	u8	he_op[HE_OPER_ELE_MAX_LEN];
+	u8 	he_6g_band_cap[HE_6G_BAND_CAP_MAX_LEN];
 	u8 	op_present;
 	u8	he_highest_rate;
 	u8	pre_he_muedca_cnt;
+	u8	mpdu_min_spacing;
 	struct rtw_he_actrl_om om_info;
 };
 
@@ -981,29 +1046,50 @@ enum rtw_he_trigger_frame_type {
 };
 
 u16 rtw_he_mcs_to_data_rate(u8 bw, u8 gi, u8 he_mcs_rate);
-void	rtw_he_use_default_setting(_adapter *padapter);
+void	rtw_he_use_default_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
 void	update_sta_he_info_apmode(_adapter *padapter, void *sta);
+#if CONFIG_IEEE80211_BAND_6GHZ
+void update_sta_6ghz_info_apmode(_adapter *padapter, void *sta);
+#endif
 void	update_hw_he_param(_adapter *padapter);
-void HE_caps_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
-void HE_operation_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
-void HE_mu_edca_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE, u8 first);
-u32 rtw_build_he_cap_ie(_adapter *padapter, u8 *pbuf);
+void HE_caps_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			PNDIS_802_11_VARIABLE_IEs pIE);
+struct rtw_phl_stainfo_t;
+void HE_mac_caps_handler(_adapter *padapter, struct rtw_phl_stainfo_t *phl_sta, u8 *ele_start);
+void HE_phy_caps_handler(_adapter *padapter, struct rtw_phl_stainfo_t *phl_sta, u8 *ele_start, u8 *supp_mcs_len);
+void HE_supp_mcs_handler(_adapter *padapter, struct rtw_phl_stainfo_t *phl_sta, u8 *ele_start, u8 supp_mcs_len);
+void HE_ppe_thre_handler(_adapter *padapter, struct rtw_phl_stainfo_t *phl_sta, u8 *ele_start);
+void rtw_he_set_asoc_cap_supp_mcs(_adapter *padapter, struct rtw_phl_stainfo_t *phl_sta, u8 *ele_start, u8 supp_mcs_len);
+u8 rtw_he_get_highest_rate(u8 *he_mcs_map);
+void HE_operation_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+				PNDIS_802_11_VARIABLE_IEs pIE);
+void HE_mu_edca_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			PNDIS_802_11_VARIABLE_IEs pIE, u8 first);
+void HE_6g_bandcap_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			PNDIS_802_11_VARIABLE_IEs pIE);
+u32 rtw_build_he_cap_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf, enum band_type band);
+u32 rtw_build_he_operation_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf, struct rtw_chan_def *chandef);
 
 struct protocol_cap_t;
 struct phy_cap_t;
 u32 rtw_get_dft_he_cap_ie(_adapter *padapter, struct phy_cap_t *phy_cap,
+		struct protocol_cap_t *proto_cap, u8 *pbuf, enum band_type band);
+u32 rtw_build_he_6g_band_cap_ie_by_proto(_adapter *padapter, enum role_type role_type,
 		struct protocol_cap_t *proto_cap, u8 *pbuf);
 
-u32 rtw_restructure_he_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, struct country_chplan *req_chplan);
+u32 rtw_restructure_he_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+				u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, enum band_type band);
 void HEOnAssocRsp(_adapter *padapter);
-void rtw_he_ies_attach(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
-void rtw_he_ies_detach(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
+void rtw_he_ies_attach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork, enum band_type band);
+void rtw_he_ies_detach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork);
 u8 rtw_he_htc_en(_adapter *padapter, struct sta_info *psta);
 void rtw_he_fill_htc(_adapter *padapter, struct pkt_attrib *pattrib, u32 *phtc_buf);
-void rtw_he_set_om_info(_adapter *padapter, u8 om_mask, struct rtw_he_actrl_om *om_info);
-void rtw_he_init_om_info(_adapter *padapter);
+void rtw_he_set_om_info(_adapter *padapter, struct _ADAPTER_LINK *alink, u8 om_mask, struct rtw_he_actrl_om *om_info);
+void rtw_he_init_om_info(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
+void rtw_update_he_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork, struct rtw_chan_def *chandef);
+void rtw_update_probe_rsp_he_cap_and_op(struct _ADAPTER *a, u8 *ies, sint *ies_len, enum band_type band);
+void rtw_he_om_ctrl_trx_ss(_adapter *adapter, struct _ADAPTER_LINK *alink,
+							struct sta_info *sta, u8 chg_ss, bool need_update_ra);
 void rtw_process_he_triggerframe(_adapter *padapter,union recv_frame *precv_frame);
-void rtw_update_he_ies(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
-void rtw_update_probe_rsp_he_cap_and_op(struct _ADAPTER *a, u8 *ies, sint *ies_len);
 #endif /* _RTW_HE_H_ */
 

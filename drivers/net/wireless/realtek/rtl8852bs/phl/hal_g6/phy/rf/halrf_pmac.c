@@ -33,7 +33,7 @@ void halrf_set_pseudo_cw(struct rf_info *rf, enum rf_path path,
 		       "[RFK] Set S%d Pseudo_CW off!!\n", path);
 }
 
-void halrf_set_plcp_usr_info(struct rf_info *rf, struct rf_plcp_param_t *plcp,
+void halrf_set_plcp_usr_info(struct rf_info *rf, struct halbb_plcp_info *plcp,
 				struct rf_pmac_tx_info *tx_info)
 {
 	plcp->usr[0].mcs = tx_info->mcs;
@@ -55,7 +55,7 @@ void halrf_set_plcp_usr_info(struct rf_info *rf, struct rf_plcp_param_t *plcp,
 	       tx_info->mcs, tx_info->length, tx_info->nss);
 }
 
-void halrf_set_plcp_para_info(struct rf_info *rf, struct rf_plcp_param_t *plcp,
+void halrf_set_plcp_para_info(struct rf_info *rf, struct halbb_plcp_info *plcp,
 				struct rf_pmac_tx_info *tx_info)
 {
 	plcp->dbw = tx_info->bw; /*0:BW20, 1:BW40, 2:BW80, 3:BW160/BW80+80*/
@@ -102,7 +102,7 @@ void halrf_set_plcp_para_info(struct rf_info *rf, struct rf_plcp_param_t *plcp,
 	plcp->n_user = 1;
 	plcp->tb_rsvd = 0; /*def*/
 
-	/*halrf_mem_cpy(rf, plcp->usr, rf->usr, 4*sizeof(struct rf_usr_plcp_gen_in));*/
+	/*halrf_mem_cpy(rf, plcp->usr, rf->usr, 4*sizeof(struct usr_plcp_gen_in));*/
 
 	RF_DBG(rf, DBG_RF_RFK,
 	       "[RFK] Set PLCP para (BW:%d, long_preamble:%d, GI:%d, PPDU:%d)\n",
@@ -112,14 +112,14 @@ void halrf_set_plcp_para_info(struct rf_info *rf, struct rf_plcp_param_t *plcp,
 void halrf_set_pmac_plcp_gen(struct rf_info *rf, enum phl_phy_idx phy_idx,
 			struct rf_pmac_tx_info *tx_info)
 {
-	struct rf_plcp_param_t plcp = {0};
+	struct halbb_plcp_info plcp = {0};
 	u8 sts = 0;
 
 	halrf_set_plcp_usr_info(rf, &plcp, tx_info);
 
 	halrf_set_plcp_para_info(rf, &plcp, tx_info);
 
-	halrf_set_pmac_plcp_tx(rf, (void*)&plcp, (void*)&plcp.usr, phy_idx, &sts);
+	rtw_hal_bb_set_plcp_tx((rf)->hal_com, (void*)&plcp, (void*)&plcp.usr, phy_idx, &sts);
 }
 
 void halrf_set_pmac_tx(struct rf_info *rf, enum phl_phy_idx phy_idx,
@@ -128,25 +128,29 @@ void halrf_set_pmac_tx(struct rf_info *rf, enum phl_phy_idx phy_idx,
 {
 	if (enable) {
 		RF_DBG(rf, DBG_RF_RFK,
-		       "[RFK] Set S%d PMAC Tx (PHY%d)\n", path, phy_idx);
+			"[RFK] Set S%d PMAC Tx (PHY%d)\n", path, phy_idx);
 
 		halrf_set_pmac_plcp_gen(rf, phy_idx, tx);
-		halrf_cfg_tx_path(rf, path);
-		halrf_cfg_rx_path(rf, path);
+
+		if (path != RF_PATH_ABCD) {
+			rtw_hal_bb_cfg_tx_path((rf)->hal_com, path, phy_idx);
+			rtw_hal_bb_cfg_rx_path((rf)->hal_com, path, phy_idx);
+		}
+
 		if (by_cw)
 			halrf_set_pseudo_cw(rf, path, tx->txagc_cw, true);
 		else
-			halrf_set_pmac_power(rf, tx->dbm, phy_idx);
+			rtw_hal_bb_set_power((rf)->hal_com, tx->dbm, phy_idx);
 	} else
 		RF_DBG(rf, DBG_RF_RFK, "[RFK] Disable PMAC Tx!!\n");
 
-	halrf_set_pmac_packet_tx(rf, enable, tx->is_cck, tx->cnt,
-				 tx->period, tx->time, phy_idx);
+	rtw_hal_bb_set_pmac_packet_tx((rf)->hal_com, enable, tx->is_cck, tx->cnt,
+				 tx->period, tx->time, false, phy_idx);
 }
 
 #if 0
 void halrf_set_pmac_tx(struct rf_info *rf, enum phl_phy_idx phy_idx,
-			enum rf_path path, enum rf_ppdu_type ppdu_type, u8 case_id,
+			enum rf_path path, enum packet_format_t ppdu_type, u8 case_id,
 			s16 dbm, u8 enable, u8 is_cck, u16 cnt ,u16 time, u16 period)
 {
 #if 1

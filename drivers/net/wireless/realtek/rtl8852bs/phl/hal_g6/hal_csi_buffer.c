@@ -113,10 +113,32 @@ u8 __query_avl_buf_idx_40(struct hal_csi_buf *csi_buf)
 u8 __query_avl_buf_idx_80(struct hal_csi_buf *csi_buf)
 {
 	u8 sub_idx = CSI_BUF_SUB_IDX_NON;
+
 	if (csi_buf->sub_idx == CSI_BUF_STS_IDLE) {
-		sub_idx = CSI_BUF_SUB_IDX_80;
+		sub_idx = CSI_BUF_SUB_IDX_FULL_BW;
 		csi_buf->sub_idx = 0xF;
 	}
+
+	return sub_idx;
+}
+
+/**
+ * __query_avl_buf_idx_160
+ * 	Get available 160MHz csi buffer
+ * input :
+ * @csi_buf: (struct hal_csi_buf *) 160MHz hal csi buffer for checking avaible
+ * return
+ * @sub_idx: (u8) csi buffer sub index
+ **/
+u8 __query_avl_buf_idx_160(struct hal_csi_buf *csi_buf)
+{
+	u8 sub_idx = CSI_BUF_SUB_IDX_NON;
+
+	if (csi_buf->sub_idx == CSI_BUF_STS_IDLE) {
+		sub_idx = CSI_BUF_SUB_IDX_FULL_BW;
+		csi_buf->sub_idx = 0xF;
+	}
+
 	return sub_idx;
 }
 
@@ -165,6 +187,15 @@ struct hal_csi_buf *_query_csi_buf_su(
 	case HAL_CSI_BUF_SIZE_80:
 		for (i = 0; i < e_idx_su; i++) {
 			*sub_id = __query_avl_buf_idx_80(&csi_obj->csi_buf[i]);
+			if(*sub_id != CSI_BUF_SUB_IDX_NON) {
+				csi_buf = &csi_obj->csi_buf[i];
+				break;
+			}
+		}
+	break;
+	case HAL_CSI_BUF_SIZE_160:
+		for (i = 0; i < e_idx_su; i++) {
+			*sub_id = __query_avl_buf_idx_160(&csi_obj->csi_buf[i]);
 			if(*sub_id != CSI_BUF_SUB_IDX_NON) {
 				csi_buf = &csi_obj->csi_buf[i];
 				break;
@@ -232,6 +263,15 @@ struct hal_csi_buf *_query_csi_buf_mu(
 			}
 		}
 	break;
+	case HAL_CSI_BUF_SIZE_160:
+		for (i = s_idx_mu; i < e_idx_mu; i++) {
+			*sub_id = __query_avl_buf_idx_160(&csi_obj->csi_buf[i]);
+			if(*sub_id != CSI_BUF_SUB_IDX_NON) {
+				csi_buf = &csi_obj->csi_buf[i];
+				break;
+			}
+		}
+	break;
 	default:
 	break;
 	}
@@ -263,6 +303,9 @@ _bw2csi(enum channel_width bw)
 	break;
 	case CHANNEL_WIDTH_80:
 		ret = HAL_CSI_BUF_SIZE_80;
+	break;
+	case CHANNEL_WIDTH_160:
+		ret = HAL_CSI_BUF_SIZE_160;
 	break;
 	default:
 	break;
@@ -439,6 +482,10 @@ enum rtw_hal_status hal_csi_query_idle_csi_buf(
 		csi_buf->idx = tmp_csi_buf->idx;
 		csi_buf->sub_idx = sub_idx;
 		csi_buf->type = type;
+		if (bw == CHANNEL_WIDTH_160)
+			csi_buf->b160mhz = 1;
+		else
+			csi_buf->b160mhz = 0;
 		status = RTW_HAL_STATUS_SUCCESS;
 	}
 
@@ -474,7 +521,7 @@ enum rtw_hal_status hal_csi_release_csi_buf(
 		_os_spinlock(drv_priv, &csi_obj->csi_lock, _ps, NULL);
 
 		switch (csi_buf->sub_idx) {
-		case CSI_BUF_SUB_IDX_80:
+		case CSI_BUF_SUB_IDX_FULL_BW:
 			tmp_csi_buf->sub_idx = 0;
 		break;
 		case CSI_BUF_SUB_IDX_40_U:
@@ -546,8 +593,11 @@ rtw_hal_get_csi_buf_bw(void *buf)
 	struct hal_csi_buf *csi_buf = (struct hal_csi_buf *)buf;
 	enum channel_width bw = CHANNEL_WIDTH_20;
 	switch (csi_buf->sub_idx) {
-	case CSI_BUF_SUB_IDX_80:
-		bw = CHANNEL_WIDTH_80;
+	case CSI_BUF_SUB_IDX_FULL_BW:
+		if (csi_buf->b160mhz)
+			bw = CHANNEL_WIDTH_160;
+		else
+			bw = CHANNEL_WIDTH_80;
 	break;
 	case CSI_BUF_SUB_IDX_40_U:
 	case CSI_BUF_SUB_IDX_40_L:

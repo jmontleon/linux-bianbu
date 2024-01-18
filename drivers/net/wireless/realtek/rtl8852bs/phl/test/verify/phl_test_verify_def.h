@@ -41,6 +41,10 @@ struct s_handler {
 	enum rtw_phl_status(*callback)(void *priv);
 };
 
+struct ext_role_t {
+	struct rtw_wifi_role_t* wrole;
+	u8 role_idx;
+};
 struct verify_context {
 	u8 status;
 	u8 cur_phy; // need ??
@@ -55,6 +59,8 @@ struct verify_context {
 	struct rtw_phl_com_t *phl_com;
 	void *hal;
 	struct s_handler *handler;
+	u32 max_para;
+	struct ext_role_t ext_wrole;
 };
 #endif /* CONFIG_PHL_TEST_VERIFY */
 #endif /* _PHL_TEST_VERIFY_DEF_H_ */

@@ -15,17 +15,17 @@
 #ifndef _PHL_COUNTRY_H_
 #define _PHL_COUNTRY_H_
 
-#define REGULATION_COUNTRY_VERSION 32
+#define REGULATION_COUNTRY_VERSION 39
 
 #define MAX_COUNTRY_NUM 238
-enum TP_OVERWRITE { 
+enum TP_OVERWRITE {
     TPO_CHILE = 0,
     TPO_UK = 1,
     TPO_QATAR = 2,
     TPO_UKRAINE = 3,
     TPO_CN = 4,
     TPO_NA = 5
-}; 
+};
 
 #define COUNTRY_CODE_LEN 2
 struct country_domain_mapping {
@@ -41,6 +41,14 @@ struct country_domain_mapping {
      * bit3: accept 11ax
      */
     u8 support;
+    u8 country_property;
+
+    /*
+     * bit0: support LPI
+     * bit1: support SP
+     * bit2: support VLP
+     */
+    u8 category_6g;
 };
 
 

@@ -22,7 +22,7 @@ void rtw_update_txpwr_level(struct dvobj_priv *dvobj, enum phl_band_idx band_idx
 
 	rtw_txpwr_hal_update_pwr(dvobj, band_idx);
 
-	rtw_rfctl_update_op_mode(rfctl, 0, 0);
+	rtw_rfctl_update_op_mode(rfctl, 0, 0, 0);
 }
 
 void rtw_update_txpwr_level_all_hwband(struct dvobj_priv *dvobj)

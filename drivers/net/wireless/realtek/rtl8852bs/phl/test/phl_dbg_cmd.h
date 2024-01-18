@@ -26,6 +26,23 @@
 			*used_len_tmp += _os_snprintf(buff_addr, remain_len, fmt, ##__VA_ARGS__);\
 	} while (0)
 
+#define	PHL_DBG_MON_DUMP(out, used, buf, remain, prefix, data, len)				\
+	do {											\
+		int i;										\
+		const u8 *ptr = (u8 *) data;							\
+												\
+		PHL_DBG_MON_INFO(out, used, buf, remain, "%s\n", prefix);			\
+		for (i = 0; i < len; i++) {							\
+			if (i % 16 == 0) {							\
+				if (i)								\
+					PHL_DBG_MON_INFO(out, used, buf, remain, "\n");		\
+				PHL_DBG_MON_INFO(out, used, buf, remain, "%.8x:", i / 16);	\
+			}									\
+			PHL_DBG_MON_INFO(out, used, buf, remain, " %02X", ptr[i]);		\
+		}										\
+		PHL_DBG_MON_INFO(out, used, buf, remain, "\n");					\
+	} while (0)
+
 struct phl_dbg_cmd_info {
 	char name[16];
 	u8 id;
@@ -43,6 +60,9 @@ enum PHL_DBG_CMD_ID {
 	PHL_DBG_DUMP_WROLE,
 	PHL_DBG_SET_CH_BW,
 	PHL_DBG_SHOW_RX_RATE,
+#ifdef DEBUG_PHL_RX
+	PHL_DBG_PHL_RX,
+#endif
 	PHL_DBG_ASOC_STA,
 	PHL_DBG_SOUND,
 	#ifdef CONFIG_FSM
@@ -58,8 +78,20 @@ enum PHL_DBG_CMD_ID {
 	PHL_DBG_ECSA,
 	PHL_DBG_MCC,
 	PHL_DBG_LTR,
+	PHL_DBG_PHY_STATS,
+	PHL_DBG_BCN,
+	PHL_DBG_MR,
+	PHL_DBG_LA_ENABLE,
 	PHL_DBG_CFG_TX_DUTY,
-	PHL_DBG_SET_LEVEL
+#ifdef CONFIG_PHL_CHANNEL_INFO_DBG
+	PHL_DBG_CHAN_INFO,
+#endif
+	PHL_DBG_SET_LEVEL,
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+	PHL_DBG_SNIFFER,
+#endif
+	PHL_DBG_CCCR_DUMP,
+	PHL_DBG_MAX
 };
 
 static const struct phl_dbg_cmd_info phl_dbg_cmd_i[] = {
@@ -69,6 +101,9 @@ static const struct phl_dbg_cmd_info phl_dbg_cmd_i[] = {
 	{"role", PHL_DBG_DUMP_WROLE},
 	{"set_ch", PHL_DBG_SET_CH_BW},
 	{"rxrate", PHL_DBG_SHOW_RX_RATE},
+#ifdef DEBUG_PHL_RX
+	{"phl_rx", PHL_DBG_PHL_RX},
+#endif
 	{"asoc_sta", PHL_DBG_ASOC_STA},
 	{"sound", PHL_DBG_SOUND},
 	#ifdef CONFIG_FSM
@@ -82,11 +117,33 @@ static const struct phl_dbg_cmd_info phl_dbg_cmd_i[] = {
 	{"ps", PHL_DBG_PS},
 #endif
 	{"ecsa", PHL_DBG_ECSA},
+	{"bcn", PHL_DBG_BCN},
 	{"mcc", PHL_DBG_MCC},
 	{"ltr", PHL_DBG_LTR},
+	{"phy_stats", PHL_DBG_PHY_STATS},
+	{"mr_info", PHL_DBG_MR},
+	{"lamode", PHL_DBG_LA_ENABLE},
 	{"tx_duty", PHL_DBG_CFG_TX_DUTY},
-	{"dbglevel", PHL_DBG_SET_LEVEL}
+#ifdef CONFIG_PHL_CHANNEL_INFO_DBG
+	{"set_chan_info", PHL_DBG_CHAN_INFO},
+#endif
+	{"dbglevel", PHL_DBG_SET_LEVEL},
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+	{"sniffer", PHL_DBG_SNIFFER},
+#endif
+	{"cccr_reg_dump", PHL_DBG_CCCR_DUMP},
 };
+
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+enum PHL_DBG_SNIFFER_CMD_ID {
+	PHL_DBG_SNIFFER_HELP,
+	PHL_DBG_SNIFFER_PSTS_MODE,
+};
+static const struct phl_dbg_cmd_info phl_dbg_sniffer_cmd_i[] = {
+	{"help", PHL_DBG_SNIFFER_HELP},
+	{"pmode", PHL_DBG_SNIFFER_PSTS_MODE},
+};
+#endif
 
 enum rtw_hal_status
 rtw_phl_dbg_proc_cmd(struct phl_info_t *phl_info,

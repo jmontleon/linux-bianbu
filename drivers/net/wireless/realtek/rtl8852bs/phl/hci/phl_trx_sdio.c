@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2021 Realtek Corporation.
+ * Copyright(c) 2019 - 2022 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -101,12 +101,13 @@ static struct rtw_tx_buf *dequeue_txbuf(struct phl_info_t *phl_info,
 }
 
 static struct rtw_tx_buf* alloc_txbuf(struct phl_info_t *phl_info,
-				      struct rtw_tx_buf_ring *pool, u8 tid)
+				      struct rtw_tx_buf_ring *pool,
+                                      enum rtw_phl_ring_cat cat)
 {
 	struct rtw_tx_buf *txbuf = NULL;
 
 
-	if (tid == RTW_PHL_RING_CAT_MGNT) {
+	if (cat == RTW_PHL_RING_CAT_MGNT) {
 		txbuf = dequeue_txbuf(phl_info, &pool->mgnt_idle_list);
 		if (txbuf)
 			return txbuf;
@@ -116,7 +117,7 @@ static struct rtw_tx_buf* alloc_txbuf(struct phl_info_t *phl_info,
 	if (!txbuf)
 		return NULL;
 
-	if (tid == RTW_PHL_RING_CAT_MGNT)
+	if (cat == RTW_PHL_RING_CAT_MGNT)
 		txbuf->mgnt_pkt = true;
 
 	return txbuf;
@@ -135,6 +136,7 @@ static void enqueue_busy_txbuf(struct phl_info_t *phl_info,
 	else
 		enqueue_txbuf(phl_info, &pool->busy_list, txbuf, _tail);
 
+	_os_atomic_set(phl_to_drvpriv(phl_info), &phl_info->phl_sw_tx_more, 1);
 	phl_tx_sdio_wake_thrd(phl_info);
 }
 
@@ -150,19 +152,22 @@ static void enqueue_busy_txbuf_to_head(struct phl_info_t *phl_info,
 		enqueue_txbuf(phl_info, &pool->mgnt_busy_list, txbuf, _first);
 	else
 		enqueue_txbuf(phl_info, &pool->busy_list, txbuf, _first);
+
+	_os_atomic_set(phl_to_drvpriv(phl_info), &phl_info->phl_sw_tx_more, 1);
 }
 
 static struct rtw_tx_buf* dequeue_busy_txbuf(struct phl_info_t *phl_info,
 					     struct rtw_tx_buf_ring *pool)
 {
-	struct rtw_tx_buf *txbuf = NULL;
-
+	struct rtw_tx_buf *txbuf;
 
 	txbuf = dequeue_txbuf(phl_info, &pool->mgnt_busy_list);
-	if (txbuf)
-		return txbuf;
-
-	return dequeue_txbuf(phl_info, &pool->busy_list);
+	if (!txbuf) {
+		txbuf = dequeue_txbuf(phl_info, &pool->busy_list);
+		if (!txbuf)
+			_os_atomic_set(phl_to_drvpriv(phl_info), &phl_info->phl_sw_tx_more, 0);
+	}
+	return txbuf;
 }
 
 static void free_txbuf(struct phl_info_t *phl_info,
@@ -304,8 +309,8 @@ static enum rtw_phl_status _phl_prepare_tx_sdio(struct phl_info_t *phl_info,
 		if (txbuf->agg_cnt)
 			return RTW_PHL_STATUS_RESOURCE;
 
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
-			  "%s: unexpected tx size(%d + %d)!!\n",
+		PHL_ERR(
+				"%s: unexpected tx size(%d + %d)!!\n",
 			  __FUNCTION__, tx_req->total_len, wd_len);
 		/* drop, skip this packet */
 		goto recycle;
@@ -313,9 +318,9 @@ static enum rtw_phl_status _phl_prepare_tx_sdio(struct phl_info_t *phl_info,
 
 	tx_buf_data = txbuf->buffer + used_len;	/* align start address */
 
-	hstatus = rtw_hal_fill_txdesc(phl_info->hal, tx_req, tx_buf_data, &wd_len);
+	hstatus = rtw_hal_fill_wd(phl_info->hal, tx_req, tx_buf_data, &wd_len);
 	if (hstatus != RTW_HAL_STATUS_SUCCESS) {
-		PHL_TRACE(COMP_PHL_DBG|COMP_PHL_XMIT, _PHL_ERR_,
+		PHL_ERR(
 			  "%s: Fail to fill txdesc!(0x%x)\n",
 			  __FUNCTION__, hstatus);
 		/* drop, skip this packet */
@@ -348,7 +353,7 @@ recycle:
 		if (ops->tx_test_recycle) {
 			pstatus = ops->tx_test_recycle(phl_info, tx_req);
 			if (pstatus != RTW_PHL_STATUS_SUCCESS) {
-				PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
+				PHL_ERR(
 					  "%s: tx_test_recycle fail!! (%d)\n",
 					  __FUNCTION__, pstatus);
 			}
@@ -358,7 +363,7 @@ recycle:
 		if (ops->tx_recycle) {
 			pstatus = ops->tx_recycle(drv_priv, tx_req);
 			if (pstatus != RTW_PHL_STATUS_SUCCESS)
-				PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
+				PHL_ERR(
 					  "%s: tx recycle fail!! (%d)\n",
 					  __FUNCTION__, pstatus);
 		}
@@ -395,24 +400,22 @@ static enum rtw_phl_status phl_handle_xmit_ring_sdio(
 
 		tx_req = (struct rtw_xmit_req *)tring->entry[rptr];
 		if (!tx_req) {
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
+			PHL_ERR(
 				  "%s: tx_req is NULL!\n", __FUNCTION__);
 			pstatus = RTW_PHL_STATUS_FAILURE;
 			break;
 		}
-		tx_req->mdata.macid = ring_sts->macid;
 		tx_req->mdata.band = ring_sts->band;
 		tx_req->mdata.wmm = ring_sts->wmm;
 		tx_req->mdata.hal_port = ring_sts->port;
 		/*tx_req->mdata.mbssid = ring_sts->mbssid;*/
-		tx_req->mdata.tid = tring->tid;
 		tx_req->mdata.dma_ch = tring->dma_ch;
 		tx_req->mdata.pktlen = (u16)tx_req->total_len;
 
 #ifdef SDIO_TX_THREAD
 get_txbuf:
 		if (!txbuf) {
-			txbuf = alloc_txbuf(phl_info, tx_pool, tring->tid);
+			txbuf = alloc_txbuf(phl_info, tx_pool, tring->cat);
 			if (!txbuf) {
 				pstatus = RTW_PHL_STATUS_RESOURCE;
 				break;
@@ -429,7 +432,7 @@ get_txbuf:
 		}
 		if (pstatus != RTW_PHL_STATUS_SUCCESS) {
 			/* impossible case, never entered for now */
-			PHL_TRACE(COMP_PHL_DBG|COMP_PHL_XMIT, _PHL_ERR_,
+			PHL_ERR(
 				  "%s: prepare tx fail!(%d)\n",
 				  __FUNCTION__, pstatus);
 			break;
@@ -439,7 +442,7 @@ get_txbuf:
 			if (pstatus == RTW_PHL_STATUS_RESOURCE) {
 				pstatus = RTW_PHL_STATUS_SUCCESS;
 			} else {
-				PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
+				PHL_ERR(
 					  "%s: prepare tx fail!(%d)\n",
 					  __FUNCTION__, pstatus);
 			}
@@ -477,10 +480,8 @@ static int phl_tx_sdio_thrd_hdl(void *context)
 	struct rtw_tx_buf_ring *tx_pool;
 	struct rtw_tx_buf *txbuf = NULL;
 	void *drv = phl_to_drvpriv(phl);
-	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl->hal);
-	struct bus_cap_t *bus_cap = &hal_com->bus_cap;
 	enum rtw_hal_status hstatus;
-	u16 retry_time = bus_cap->tx_buf_retry_lmt ? bus_cap->tx_buf_retry_lmt : XMIT_BUFFER_RETRY_LIMIT;
+	enum phl_tx_status tx_status;
 
 	#ifdef RTW_XMIT_THREAD_HIGH_PRIORITY
 	#ifdef PLATFORM_LINUX
@@ -495,7 +496,8 @@ static int phl_tx_sdio_thrd_hdl(void *context)
 	#endif /*RTW_XMIT_THREAD_HIGH_PRIORITY*/
 
 
-	PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "SDIO: tx thread start retry_time=%d\n" ,retry_time);
+
+	PHL_INFO("SDIO: tx thread start\n");
 
 	tx_pool = (struct rtw_tx_buf_ring *)hci->txbuf_pool;
 	while (1) {
@@ -505,10 +507,19 @@ check_stop:
 		if (_os_thread_check_stop(drv, &hci->tx_thrd))
 			break;
 
+		tx_status = _os_atomic_read(drv, &phl->phl_sw_tx_sts);
+		if (tx_status == PHL_TX_STATUS_STOP_INPROGRESS){
+			_os_atomic_set(drv, &phl->phl_sw_tx_sts, PHL_TX_STATUS_SW_PAUSE);
+			continue;
+		}
+
+		if (phl_datapath_chk_trx_pause(phl, PHL_CTRL_TX))
+			continue;
+
 		txbuf = dequeue_busy_txbuf(phl, tx_pool);
 		if (!txbuf)
 			continue;
-		_os_atomic_set(drv, &phl->phl_sw_tx_more, 0);
+
 		hstatus = rtw_hal_sdio_tx(phl->hal, txbuf->dma_ch, txbuf->buffer,
 					  txbuf->used_len, txbuf->agg_cnt,
 					  txbuf->pkt_len, txbuf->wp_offset);
@@ -516,7 +527,7 @@ check_stop:
 			bool overflow;
 
 			if ((hstatus == RTW_HAL_STATUS_RESOURCE)
-			    && (txbuf->retry < retry_time)) {
+			    && (txbuf->retry < XMIT_BUFFER_RETRY_LIMIT)) {
 				txbuf->retry++;
 				enqueue_busy_txbuf_to_head(phl, tx_pool, txbuf);
 				/* Todo: What to do when TX FIFO not ready? */
@@ -531,7 +542,7 @@ check_stop:
 
 			/* Show msg on 2^n times */
 			if (!(hci->tx_drop_cnt & (hci->tx_drop_cnt - 1))) {
-				PHL_TRACE(COMP_PHL_DBG|COMP_PHL_XMIT, _PHL_ERR_,
+				PHL_ERR(
 					  "%s: drop!(%d) type=%u mgnt=%u len=%u "
 					  "agg_cnt=%u drop_cnt=%u%s\n",
 					  __FUNCTION__, hstatus, txbuf->tag, txbuf->mgnt_pkt,
@@ -555,7 +566,7 @@ check_stop:
 	}
 
 	_os_thread_wait_stop(drv, &hci->tx_thrd);
-	PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "SDIO: tx thread down\n");
+	PHL_INFO("SDIO: tx thread down\n");
 
 	return 0;
 }
@@ -582,14 +593,24 @@ static enum rtw_phl_status _phl_tx_sdio(struct phl_info_t *phl_info)
 }
 #endif /* !SDIO_TX_THREAD */
 
-static void phl_tx_stop_sdio(struct phl_info_t *phl)
+static enum rtw_phl_status phl_tx_check_status_sdio(struct phl_info_t *phl_info)
 {
-	void *drv = phl_to_drvpriv(phl);
+	void *drv = phl_to_drvpriv(phl_info);
+	enum rtw_phl_status pstatus = RTW_PHL_STATUS_SUCCESS;
+	enum phl_tx_status tx_status = _os_atomic_read(drv, &phl_info->phl_sw_tx_sts);
 
-	_os_atomic_set(drv, &phl->phl_sw_tx_sts, PHL_TX_STATUS_SW_PAUSE);
+	if (tx_status == PHL_TX_STATUS_STOP_INPROGRESS) {
+		#ifdef SDIO_TX_THREAD
+		phl_tx_sdio_wake_thrd(phl_info);
+		#else
+		_os_atomic_set(drv, &phl_info->phl_sw_tx_sts, PHL_TX_STATUS_SW_PAUSE);
+		#endif
+		pstatus = RTW_PHL_STATUS_FAILURE;
+	}
+	return pstatus;
 }
 
-static void _phl_tx_callback_sdio(void *context)
+static void phl_tx_callback_sdio(void *context)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_handler *phl_handler;
@@ -601,6 +622,17 @@ static void _phl_tx_callback_sdio(void *context)
 	bool rsrc;
 #endif /* SDIO_TX_THREAD */
 
+	#ifdef RTW_XMIT_THREAD_CB_HIGH_PRIORITY
+	#ifdef PLATFORM_LINUX
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
+	sched_set_fifo_low(current);
+	#else
+		struct sched_param param = { .sched_priority = 1 };
+
+		sched_setscheduler(current, SCHED_FIFO, &param);
+	#endif
+	#endif /* PLATFORM_LINUX */
+	#endif /* RTW_XMIT_THREAD_CB_HIGH_PRIORITY */
 
 	phl_handler = (struct rtw_phl_handler *)phl_container_of(context,
 						     struct rtw_phl_handler,
@@ -608,6 +640,10 @@ static void _phl_tx_callback_sdio(void *context)
 	phl_info = (struct phl_info_t *)phl_handler->context;
 
 	INIT_LIST_HEAD(&sta_list);
+
+	pstatus = phl_tx_check_status_sdio(phl_info);
+	if (pstatus == RTW_PHL_STATUS_FAILURE)
+		goto end;
 
 	/* check datapath sw state */
 	tx_pause = phl_datapath_chk_trx_pause(phl_info, PHL_CTRL_TX);
@@ -618,7 +654,7 @@ static void _phl_tx_callback_sdio(void *context)
 	/* check ps state when tx is not paused */
 	if (false == phl_ps_is_datapath_allowed(phl_info)) {
 		PHL_WARN("%s(): datapath is not allowed now... may in low power.\n", __func__);
-		goto chk_stop;
+		goto end;
 	}
 #endif
 	do {
@@ -652,7 +688,7 @@ static void _phl_tx_callback_sdio(void *context)
 				drop = phl_info->hci->tx_drop_cnt;
 				/* Show msg on 2^n times */
 				if (!(drop & (drop - 1))) {
-					PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
+					PHL_ERR(
 						  "%s: phl_tx fail!(%d) drop cnt=%u%s\n",
 						  __FUNCTION__, pstatus,
 						  drop & ~BIT31,
@@ -661,6 +697,12 @@ static void _phl_tx_callback_sdio(void *context)
 			}
 #endif /* !SDIO_TX_THREAD */
 		}
+
+		pstatus = phl_tx_check_status_sdio(phl_info);
+		if (pstatus == RTW_PHL_STATUS_FAILURE)
+			break;
+
+		phl_free_deferred_tx_ring(phl_info);
 
 #ifdef SDIO_TX_THREAD
 		/*
@@ -681,63 +723,9 @@ static void _phl_tx_callback_sdio(void *context)
 #endif /* SDIO_TX_THREAD */
 	} while (1);
 
-#ifdef CONFIG_POWER_SAVE
-chk_stop:
-#endif
-	if (PHL_TX_STATUS_STOP_INPROGRESS ==
-	    _os_atomic_read(phl_to_drvpriv(phl_info), &phl_info->phl_sw_tx_sts))
-		phl_tx_stop_sdio(phl_info);
-
 end:
 	phl_free_deferred_tx_ring(phl_info);
 }
-
-#ifdef CONFIG_PHL_SDIO_TX_CB_THREAD
-static void phl_tx_callback_sdio(void *context)
-{
-	struct rtw_phl_handler *phl_handler;
-	struct phl_info_t *phl_info;
-	void *d;
-
-	#ifdef RTW_XMIT_THREAD_CB_HIGH_PRIORITY
-	#ifdef PLATFORM_LINUX
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
-	sched_set_fifo_low(current);
-	#else
-		struct sched_param param = { .sched_priority = 1 };
-
-		sched_setscheduler(current, SCHED_FIFO, &param);
-	#endif
-	#endif /* PLATFORM_LINUX */
-	#endif /* RTW_XMIT_THREAD_CB_HIGH_PRIORITY */
-
-	phl_handler = (struct rtw_phl_handler *)phl_container_of(context,
-							struct rtw_phl_handler,
-							os_handler);
-	phl_info = (struct phl_info_t *)phl_handler->context;
-	d = phl_to_drvpriv(phl_info);
-
-	PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "SDIO: %s start\n",
-		  phl_handler->cb_name);
-
-	while (1) {
-		_os_sema_down(d, &phl_handler->os_handler.hdlr_sema);
-
-		if (_os_thread_check_stop(d, (_os_thread*)context))
-			break;
-
-		_phl_tx_callback_sdio(context);
-	}
-
-	_os_thread_wait_stop(d, (_os_thread*)context);
-	_os_sema_free(d, &(phl_handler->os_handler.hdlr_sema));
-
-	PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "SDIO: %s down\n",
-		  phl_handler->cb_name);
-}
-#else /* !CONFIG_PHL_SDIO_TX_CB_THREAD */
-#define phl_tx_callback_sdio	_phl_tx_callback_sdio
-#endif /* !CONFIG_PHL_SDIO_TX_CB_THREAD */
 
 static enum rtw_phl_status phl_prepare_tx_sdio(struct phl_info_t *phl_info,
 					       struct rtw_xmit_req *tx_req)
@@ -820,8 +808,10 @@ static enum rtw_phl_status phl_rx_sdio(struct phl_info_t *phl)
 	u32 len;
 	bool flag = true;
 	u8 i;
+#ifdef CONFIG_PHL_SDIO_RX_NETBUF_ALLOC_IN_PHL
 	u8 mfrag = 0, frag_num = 0;
 	u16 netbuf_len = 0;
+#endif
 
 
 	do {
@@ -908,6 +898,12 @@ static enum rtw_phl_status phl_rx_sdio(struct phl_info_t *phl)
 					  phl_rx->type, len);
 			}
 
+#ifdef CONFIG_PHL_DUMP_TRX_STATUS
+			if (phl->phl_com->check_rx_int == 1)
+				PHL_TRACE(COMP_PHL_RECV, _PHL_ALWAYS_,
+					  "%s type(0x%x)\n", __func__, phl_rx->type);
+#endif /*CONFIG_PHL_DUMP_TRX_STATUS*/
+
 			switch (phl_rx->type) {
 			case RTW_RX_TYPE_WIFI:
 
@@ -986,7 +982,12 @@ static enum rtw_phl_status phl_rx_sdio(struct phl_info_t *phl)
 				phl_rx_proc_phy_sts(phl, phl_rx);
 #endif
 				break;
-
+#ifdef CONFIG_PHL_RELEASE_RPT_ENABLE
+			case RTW_RX_TYPE_TX_WP_RELEASE_HOST:
+				PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_,
+					  "%s: RTW_RX_TYPE_TX_WP_RELEASE_HOST not support!\n", __FUNCTION__);
+				break;
+#endif
 			default:
 				break;
 			}
@@ -1014,6 +1015,14 @@ static enum rtw_phl_status phl_rx_sdio(struct phl_info_t *phl)
 				_phl_indic_new_rxpkt(phl);
 #endif
 		}
+#ifdef CONFIG_PHL_SDIO_READ_RXFF_IN_INT
+		/** When defining CONFIG_PHL_SDIO_READ_RXFF_IN_INT,
+		* checking in function::phl_recv_rxfifo_sdio.
+		*/
+#else
+		if (rtw_hal_sdio_lps_flg(phl->hal) == RTW_HAL_LPS_FLG_STATE_LPS)
+			break;
+#endif
 	} while (flag);
 
 	return pstatus;
@@ -1026,12 +1035,24 @@ static void phl_rx_stop_sdio(struct phl_info_t *phl)
 	_os_atomic_set(drv, &phl->phl_sw_rx_sts, PHL_RX_STATUS_SW_PAUSE);
 }
 
-static void _phl_rx_callback_sdio(void *context)
+static void phl_rx_callback_sdio(void *context)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_handler *phl_handler;
 	struct phl_info_t *phl_info;
 	bool rx_pause = false;
+
+	#ifdef RTW_RECV_THREAD_HIGH_PRIORITY
+	#ifdef PLATFORM_LINUX
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
+	sched_set_fifo_low(current);
+	#else
+	struct sched_param param = { .sched_priority = 1 };
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
+	#endif
+	#endif /* PLATFORM_LINUX */
+	#endif /*RTW_RECV_THREAD_HIGH_PRIORITY*/
 
 	phl_handler = (struct rtw_phl_handler *)phl_container_of(context,
 						     struct rtw_phl_handler,
@@ -1064,47 +1085,6 @@ end:
 	rtw_hal_config_interrupt(phl_info->hal , RTW_PHL_RESUME_RX_INT);
 }
 
-static void phl_rx_callback_sdio(void *context)
-{
-#ifdef CONFIG_PHL_SDIO_RX_CB_THREAD
-#ifdef RTW_RECV_THREAD_HIGH_PRIORITY
-#ifdef PLATFORM_LINUX
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
-	sched_set_fifo_low(current);
-#else
-	struct sched_param param = { .sched_priority = 1 };
-
-	sched_setscheduler(current, SCHED_FIFO, &param);
-#endif
-#endif /* PLATFORM_LINUX */
-#endif /*RTW_RECV_THREAD_HIGH_PRIORITY*/
-	struct rtw_phl_handler *phl_handler;
-	struct phl_info_t *phl_info;
-	void *d;
-
-	phl_handler = (struct rtw_phl_handler *)phl_container_of(context,
-						     struct rtw_phl_handler,
-						     os_handler);
-	phl_info = (struct phl_info_t *)phl_handler->context;
-	d = phl_to_drvpriv(phl_info);
-
-	while (1) {
-		_os_sema_down(d, &(phl_handler->os_handler.hdlr_sema));
-
-		if (_os_thread_check_stop(d, (_os_thread*)context))
-			break;
-
-		_phl_rx_callback_sdio(context);
-	}
-
-	_os_thread_wait_stop(d, (_os_thread*)context);
-	_os_sema_free(d, &(phl_handler->os_handler.hdlr_sema));
-	return;
-#else
-	_phl_rx_callback_sdio(context);
-#endif
-}
-
 static enum rtw_phl_status phl_register_trx_hdlr_sdio(struct phl_info_t *phl)
 {
 	struct rtw_phl_handler *tx_handler = &phl->phl_tx_handler;
@@ -1126,6 +1106,10 @@ static enum rtw_phl_status phl_register_trx_hdlr_sdio(struct phl_info_t *phl)
 	_os_strncpy(tx_handler->cb_name, tx_hdl_cb_name,
 		    (_os_strlen((u8*)tx_hdl_cb_name) > RTW_PHL_HANDLER_CB_NAME_LEN) ?
 			RTW_PHL_HANDLER_CB_NAME_LEN : _os_strlen((u8*)tx_hdl_cb_name));
+	#ifdef CONFIG_PHL_CPU_BALANCE_THREAD
+	tx_handler->os_handler.u.thread.en_assign_cpuid = _TRUE;
+	tx_handler->os_handler.u.thread.cpu_id = CPU_ID_TX_CB;
+	#endif /*CONFIG_PHL_CPU_BALANCE_THREAD*/
 #else
 	tx_handler->type = RTW_PHL_HANDLER_PRIO_LOW;
 #endif
@@ -1141,6 +1125,10 @@ static enum rtw_phl_status phl_register_trx_hdlr_sdio(struct phl_info_t *phl)
 	_os_strncpy(rx_handler->cb_name, rx_hdl_cb_name,
 		   (_os_strlen((u8*)rx_hdl_cb_name) > RTW_PHL_HANDLER_CB_NAME_LEN) ?
 			RTW_PHL_HANDLER_CB_NAME_LEN : _os_strlen((u8*)rx_hdl_cb_name));
+	#ifdef CONFIG_PHL_CPU_BALANCE_THREAD
+	rx_handler->os_handler.u.thread.en_assign_cpuid= _TRUE;
+	rx_handler->os_handler.u.thread.cpu_id = CPU_ID_RX_CB;
+	#endif /*CONFIG_PHL_CPU_BALANCE_THREAD*/
 #else
 	rx_handler->type = RTW_PHL_HANDLER_PRIO_LOW;
 #endif
@@ -1178,6 +1166,9 @@ static enum rtw_phl_status phl_recv_rxfifo_sdio(struct phl_info_t *phl)
 
 		enqueue_rxbuf(phl, &rx_pool->busy_rxbuf_list, rxbuf);
 		rtw_phl_start_rx_process(phl);
+
+		if (rtw_hal_sdio_lps_flg(phl->hal) == RTW_HAL_LPS_FLG_STATE_LPS)
+			break;
 	} while (1);
 
 	return pstatus;
@@ -1283,7 +1274,7 @@ static void phl_trx_deinit_sdio(struct phl_info_t *phl_info)
 	}
 #endif /* !SDIO_TX_THREAD */
 	if (hci->tx_drop_cnt) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_,
+		PHL_WARN(
 			  "%s: tx_drop_cnt=%u%s\n", __FUNCTION__,
 			  hci->tx_drop_cnt & ~BIT31,
 			  hci->tx_drop_cnt & BIT31 ? "(overflow)" : "");
@@ -1302,6 +1293,9 @@ static enum rtw_phl_status phl_trx_init_sdio(struct phl_info_t *phl_info)
 	void *drv = phl_to_drvpriv(phl_info);
 #ifdef SDIO_TX_THREAD
 	struct rtw_tx_buf_ring *tx_pool;
+#ifdef CONFIG_PHL_CPU_BALANCE_THREAD
+	_os_thread *pthread = &hci->tx_thrd;
+#endif /*CONFIG_PHL_CPU_BALANCE_THREAD*/
 #endif
 	struct rtw_tx_buf *txbuf;
 	struct rtw_rx_buf_ring *rx_pool;
@@ -1310,17 +1304,17 @@ static enum rtw_phl_status phl_trx_init_sdio(struct phl_info_t *phl_info)
 
 
 	FUNCIN_WSTS(pstatus);
-	PHL_TRACE(COMP_PHL_XMIT|COMP_PHL_DBG, _PHL_DEBUG_,
+	PHL_DBG(
 		  "%s: tx_buf_num(%u)\n", __FUNCTION__, bus_cap->tx_buf_num);
-	PHL_TRACE(COMP_PHL_XMIT|COMP_PHL_DBG, _PHL_DEBUG_,
+	PHL_DBG(
 		  "%s: tx_buf_size(%u)\n", __FUNCTION__, bus_cap->tx_buf_size);
-	PHL_TRACE(COMP_PHL_XMIT|COMP_PHL_DBG, _PHL_DEBUG_,
+	PHL_DBG(
 		  "%s: mgnt_buf_num(%u)\n", __FUNCTION__, bus_cap->tx_mgnt_buf_num);
-	PHL_TRACE(COMP_PHL_XMIT|COMP_PHL_DBG, _PHL_DEBUG_,
+	PHL_DBG(
 		  "%s: mgnt_buf_size(%u)\n", __FUNCTION__, bus_cap->tx_mgnt_buf_size);
-	PHL_TRACE(COMP_PHL_RECV|COMP_PHL_DBG, _PHL_DEBUG_,
+	PHL_DBG(
 		  "%s: rx_buf_num(%u)\n", __FUNCTION__, bus_cap->rx_buf_num);
-	PHL_TRACE(COMP_PHL_RECV|COMP_PHL_DBG, _PHL_DEBUG_,
+	PHL_DBG(
 		  "%s: rx_buf_size(%u)\n", __FUNCTION__, bus_cap->rx_buf_size);
 
 	do {
@@ -1419,8 +1413,15 @@ static enum rtw_phl_status phl_trx_init_sdio(struct phl_info_t *phl_info)
 
 #ifdef SDIO_TX_THREAD
 		_os_sema_init(drv, &hci->tx_thrd_sema, 0);
-		_os_thread_init(drv, &hci->tx_thrd, phl_tx_sdio_thrd_hdl,
-				phl_info, "rtw_sdio_tx");
+#ifdef CONFIG_PHL_CPU_BALANCE_THREAD
+		pthread->en_assign_cpuid = _TRUE;
+		pthread->cpu_id = CPU_ID_TX;
+#endif /*CONFIG_PHL_CPU_BALANCE_THREAD*/
+		if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(drv, &hci->tx_thrd, phl_tx_sdio_thrd_hdl,
+				phl_info, "rtw_sdio_tx")) {
+			PHL_ERR("thread init rtw_sdio_tx fail.\n");
+			break;
+		}
 		_os_thread_schedule(drv, &hci->tx_thrd);
 #endif
 	} while (false);
@@ -1486,7 +1487,7 @@ static enum rtw_phl_status phl_pltfm_tx_sdio(struct phl_info_t *phl, void *pkt)
 			if (phl_get_passing_time_ms(start) < _PLTFM_TX_TIMEOUT)
 				continue;
 
-			PHL_TRACE(COMP_PHL_XMIT|COMP_PHL_DBG, _PHL_ERR_,
+			PHL_ERR(
 				  "%s: pltfm_tx timeout(> %u ms)!\n",
 				  __FUNCTION__, _PLTFM_TX_TIMEOUT);
 		}
@@ -1497,7 +1498,7 @@ static enum rtw_phl_status phl_pltfm_tx_sdio(struct phl_info_t *phl, void *pkt)
 	if (res == RTW_HAL_STATUS_SUCCESS)
 		return RTW_PHL_STATUS_SUCCESS;
 
-	PHL_TRACE(COMP_PHL_XMIT|COMP_PHL_DBG, _PHL_ERR_,
+	PHL_ERR(
 		  "%s: pltfm_tx fail!(0x%x)\n", __FUNCTION__, res);
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1545,6 +1546,10 @@ static void phl_trx_reset_sdio(struct phl_info_t *phl, u8 type)
 	}
 }
 
+static void phl_tx_reset_hwband_sdio(struct phl_info_t *phl_info, enum phl_band_idx band_idx)
+{
+}
+
 static void phl_tx_resume_sdio(struct phl_info_t *phl_info)
 {
 	void *drv = phl_to_drvpriv(phl_info);
@@ -1588,11 +1593,9 @@ static bool phl_is_tx_pause_sdio(struct phl_info_t *phl)
 {
 	void *drvpriv = phl_to_drvpriv(phl);
 
-	if (PHL_TX_STATUS_SW_PAUSE == _os_atomic_read(drvpriv,
-		&phl->phl_sw_tx_sts))
-		return true;
-	else
-	return false;
+	if (PHL_TX_STATUS_SW_PAUSE != _os_atomic_read(drvpriv, &phl->phl_sw_tx_sts))
+		return false;
+	return true;
 }
 
 static bool phl_is_rx_pause_sdio(struct phl_info_t *phl)
@@ -1623,7 +1626,6 @@ static void *phl_get_rxbd_buf_sdio(struct phl_info_t *phl)
 void phl_recycle_rx_pkt_sdio(struct phl_info_t *phl_info,
 				struct rtw_phl_rx_pkt *phl_rx)
 {
-
 	if (phl_rx->r.os_priv)
 		_os_free_netbuf(phl_to_drvpriv(phl_info),
 			phl_rx->r.pkt_list[0].vir_addr,
@@ -1654,6 +1656,7 @@ static struct phl_hci_trx_ops ops_sdio = {
  	.alloc_h2c_pkt_buf = phl_alloc_h2c_pkt_buf_sdio,
 	.trx_reset = phl_trx_reset_sdio,
 	.trx_resume = phl_trx_resume_sdio,
+	.tx_reset_hwband = phl_tx_reset_hwband_sdio,
 	.req_tx_stop = phl_req_tx_stop_sdio,
 	.req_rx_stop = phl_req_rx_stop_sdio,
 	.is_tx_pause = phl_is_tx_pause_sdio,
@@ -1661,7 +1664,6 @@ static struct phl_hci_trx_ops ops_sdio = {
 	.get_txbd_buf = phl_get_txbd_buf_sdio,
 	.get_rxbd_buf = phl_get_rxbd_buf_sdio,
 	.recycle_rx_pkt = phl_recycle_rx_pkt_sdio,
-	.register_trx_hdlr = phl_register_trx_hdlr_sdio,
 	.rx_handle_normal = phl_rx_handle_normal,
 	.tx_watchdog = phl_tx_watchdog_sdio,
 #ifdef CONFIG_PHL_SDIO_READ_RXFF_IN_INT

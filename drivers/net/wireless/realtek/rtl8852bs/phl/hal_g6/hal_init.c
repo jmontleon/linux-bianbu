@@ -122,29 +122,9 @@ void rtw_hal_write_rfreg(void *h,
 void rtw_hal_mac_reg_dump(void *sel, void *h)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)h;
-	struct rtw_hal_com_t *hal = hal_info->hal_com;
-	int i, j = 1;
-
-	RTW_PRINT_SEL(sel, "======= MAC REG =======\n");
-
-	for (i = 0x0; i < 0x800; i += 4) {
-		if (j % 4 == 1)
-			RTW_PRINT_SEL(sel, "0x%04x", i);
-		_RTW_PRINT_SEL(sel, " 0x%08x ", hal_read32(hal, i));
-		if ((j++) % 4 == 0)
-			_RTW_PRINT_SEL(sel, "\n");
-	}
-
-#if 1
-	for (i = 0x1000; i < 0xF000; i += 4) {
-		if (j % 4 == 1)
-			RTW_PRINT_SEL(sel, "0x%04x", i);
-		_RTW_PRINT_SEL(sel, " 0x%08x ", hal_read32(hal, i));
-		if ((j++) % 4 == 0)
-			_RTW_PRINT_SEL(sel, "\n");
-	}
-#endif
+	rtw_hal_notification(hal_info, MSG_EVT_DBG_FULL_REG_DUMP, HW_BAND_MAX);
 }
+
 
 void rtw_hal_bb_reg_dump(void *sel, void *h)
 {
@@ -317,6 +297,16 @@ rtw_hal_get_addr_cam(void *h, u16 num, u8 *buf, u16 size)
 	return ret;
 }
 
+void rtw_hal_init_int_default_value(struct rtw_phl_com_t *phl_com, void *h,
+					enum rtw_hal_int_set_opt opt)
+{
+	struct hal_info_t *hal = (struct hal_info_t *)h;
+	struct hal_ops_t *hal_ops = hal_get_ops(hal);
+
+	if (hal_ops->init_int_default_value)
+		hal_ops->init_int_default_value(hal, opt);
+}
+
 void rtw_hal_enable_interrupt(struct rtw_phl_com_t *phl_com, void *h)
 {
 	struct hal_info_t *hal = (struct hal_info_t *)h;
@@ -324,6 +314,15 @@ void rtw_hal_enable_interrupt(struct rtw_phl_com_t *phl_com, void *h)
 
 	if (hal_ops->enable_interrupt)
 		hal_ops->enable_interrupt(hal);
+}
+
+void rtw_hal_disable_interrupt_isr(struct rtw_phl_com_t *phl_com, void *h)
+{
+	struct hal_info_t *hal = (struct hal_info_t *)h;
+	struct hal_ops_t *hal_ops = hal_get_ops(hal);
+
+	if (hal_ops->disable_interrupt_isr)
+		hal_ops->disable_interrupt_isr(hal);
 }
 
 void rtw_hal_disable_interrupt(struct rtw_phl_com_t *phl_com, void *h)
@@ -413,6 +412,23 @@ void rtw_hal_restore_rx_interrupt(void *h)
 		PHL_DBG("hal_ops->restore_rx_interrupt is NULL\n");
 }
 
+#ifdef PHL_RXSC_ISR
+u16 rtw_hal_rpq_isr_check(void *h, u8 dma_ch)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)h;
+	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
+	u32 ret = RTW_HAL_STATUS_FAILURE;
+
+	if (hal_ops->check_rpq_isr)
+		ret = hal_ops->check_rpq_isr(dma_ch, hal_info->hal_com->rx_int_array);
+
+	if(ret == RTW_HAL_STATUS_SUCCESS)
+		return false;
+	else
+		return true;
+}
+#endif
+
 static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 {
 	enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
@@ -474,6 +490,10 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 		hal_error_msg("init_default_value");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
+	if (!ops->init_int_default_value) {
+		hal_error_msg("init_int_default_value");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
 	if (!ops->hal_hci_configure) {
 		hal_error_msg("hal_hci_configure");
 		status = RTW_HAL_STATUS_FAILURE;
@@ -502,6 +522,13 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 		hal_error_msg("write_rfreg");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
+
+#if defined(CONFIG_PCI_HCI)
+	if (!ops->disable_interrupt_isr) {
+		hal_error_msg("disable_interrupt_isr");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
+#endif
 
 #if defined(CONFIG_PCI_HCI) || defined(CONFIG_SDIO_HCI)
 	if (!ops->enable_interrupt) {
@@ -538,6 +565,12 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 		hal_error_msg("restore_interrupt");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
+#ifdef PHL_RXSC_ISR
+	if (!ops->check_rpq_isr) {
+		hal_error_msg("check_rpq_isr");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
+#endif
 #endif /*defined(CONFIG_PCI_HCI) || defined(CONFIG_SDIO_HCI)*/
 
 
@@ -567,6 +600,14 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 		hal_error_msg("trx query_rx_res");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
+	if (!trx_ops->get_rxbd_num) {
+		hal_error_msg("trx get_rxbd_num");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
+	if (!trx_ops->get_rxbuf_num) {
+		hal_error_msg("trx get_rxbuf_num");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
 	if (!trx_ops->cfg_wow_txdma) {
 		hal_error_msg("trx cfg_wow_txdma");
 		status = RTW_HAL_STATUS_FAILURE;
@@ -579,7 +620,14 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 		hal_error_msg("trx qsel_to_tid");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
-
+	if (!trx_ops->query_txch_hwband) {
+		hal_error_msg("trx query_txch_hwband");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
+	if (!trx_ops->query_txch_map) {
+		hal_error_msg("trx query_txch_map");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
 	if (!trx_ops->query_txch_num) {
 		hal_error_msg("trx query_txch_num");
 		status = RTW_HAL_STATUS_FAILURE;
@@ -628,6 +676,10 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 #endif /*CONFIG_PCIE_HCI*/
 
 #ifdef CONFIG_USB_HCI
+	if (!trx_ops->hal_get_wd_len) {
+		hal_error_msg("trx hal_get_wd_len");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
 	if (!trx_ops->hal_fill_wd) {
 		hal_error_msg("trx hal_fill_wd");
 		status = RTW_HAL_STATUS_FAILURE;
@@ -698,7 +750,7 @@ enum rtw_hal_status hal_bcn_deinit(struct hal_info_t *hal_info)
 	struct bcn_entry_pool *bcn_pool = &hal_info->hal_com->bcn_pool;
 	struct rtw_bcn_entry *tmp_entry, *type = NULL;
 
-	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	phl_list_for_loop_safe(tmp_entry, type,
 		struct rtw_bcn_entry, &bcn_pool->bcn_list, list)
@@ -707,7 +759,7 @@ enum rtw_hal_status hal_bcn_deinit(struct hal_info_t *hal_info)
 		_os_mem_free(drv_priv, tmp_entry, sizeof(struct rtw_bcn_entry));
 	}
 
-	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -722,12 +774,12 @@ enum rtw_hal_status hal_alloc_bcn_entry(struct rtw_phl_com_t *phl_com, struct ha
 	if(new_entry == NULL)
 		return RTW_HAL_STATUS_FAILURE;
 
-	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	list_add_tail(&new_entry->list, &bcn_pool->bcn_list);
 	bcn_pool->bcn_num ++;
 
-	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	*bcn_entry = new_entry;
 
@@ -742,7 +794,7 @@ enum rtw_hal_status hal_free_bcn_entry(struct rtw_phl_com_t *phl_com, struct hal
 	struct rtw_bcn_entry *tmp_entry, *type = NULL;
 	u8 is_found = 0;
 
-	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	phl_list_for_loop_safe(tmp_entry, type,
 		struct rtw_bcn_entry, &bcn_pool->bcn_list, list)
@@ -753,7 +805,7 @@ enum rtw_hal_status hal_free_bcn_entry(struct rtw_phl_com_t *phl_com, struct hal
 		}
 	}
 
-	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	if(is_found){
 		list_del(&tmp_entry->list);
@@ -773,7 +825,7 @@ enum rtw_hal_status hal_get_bcn_entry(struct rtw_phl_com_t *phl_com, struct hal_
 	struct rtw_bcn_entry *tmp_entry, *type = NULL;
 	u8 is_found = 0;
 
-	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	phl_list_for_loop_safe(tmp_entry, type,
 		struct rtw_bcn_entry, &bcn_pool->bcn_list, list)
@@ -784,7 +836,7 @@ enum rtw_hal_status hal_get_bcn_entry(struct rtw_phl_com_t *phl_com, struct hal_
 		}
 	}
 
-	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _ps, NULL);
+	_os_spinunlock(drv_priv, &bcn_pool->bcn_lock, _bh, NULL);
 
 	if(is_found){
 		*bcn_entry = tmp_entry;
@@ -794,17 +846,36 @@ enum rtw_hal_status hal_get_bcn_entry(struct rtw_phl_com_t *phl_com, struct hal_
 		return RTW_HAL_STATUS_FAILURE;
 }
 
-enum rtw_hal_status hal_update_bcn_entry(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info,
-		struct rtw_bcn_entry *bcn_entry, struct rtw_bcn_info_cmn *bcn_cmn)
+enum rtw_hal_status hal_update_bcn_entry(struct rtw_phl_com_t *phl_com,
+                                         struct hal_info_t *hal_info,
+                                         struct rtw_bcn_entry *bcn_entry,
+                                         struct rtw_bcn_info_cmn *bcn_cmn)
 {
-	struct rtw_wifi_role_t *wrole = &phl_com->wifi_roles[bcn_cmn->role_idx];
-	struct rtw_phl_stainfo_t *phl_sta = rtw_phl_get_stainfo_self(phl_com->phl_priv, wrole);
+	struct rtw_phl_stainfo_t *phl_sta = NULL;
+	struct rtw_wifi_role_t *wrole = NULL;
+	struct rtw_wifi_role_link_t *rlink = NULL;
+	u8 ridx = 0;
+	u8 lidx = 0;
 
-	bcn_entry->bcn_cmn = bcn_cmn;
+	if (bcn_cmn != NULL) {
+		bcn_entry->bcn_cmn = bcn_cmn;
+		ridx = bcn_cmn->role_idx;
+		lidx = bcn_cmn->lidx;
 
-	bcn_entry->bcn_hw.band = wrole->hw_band;
-	bcn_entry->bcn_hw.port = wrole->hw_port;
-	bcn_entry->bcn_hw.mbssid = wrole->hw_mbssid;
+	} else {
+		ridx = bcn_entry->bcn_cmn->role_idx;
+		lidx = bcn_entry->bcn_cmn->lidx;
+	}
+
+	wrole = &phl_com->wifi_roles[ridx];
+	rlink = rtw_phl_get_rlink(wrole, lidx);
+	phl_sta = rtw_phl_get_stainfo_self(phl_com->phl_priv, rlink);
+
+	bcn_entry->bcn_hw.band = rlink->hw_band;
+	bcn_entry->bcn_hw.port = rlink->hw_port;
+	bcn_entry->bcn_hw.mbssid = rlink->hw_mbssid;
+	bcn_entry->bcn_hw.hiq_win = rlink->hiq_win;
+	bcn_entry->bcn_hw.bss_color = rlink->protocol_cap.bsscolor;
 	bcn_entry->bcn_hw.mac_id = (u8)phl_sta->macid;
 
 	return RTW_HAL_STATUS_SUCCESS;
@@ -839,11 +910,40 @@ enum rtw_hal_status rtw_hal_update_beacon(struct rtw_phl_com_t *phl_com, void *h
 	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
 	struct rtw_bcn_entry *bcn_entry = NULL;
 
-	if(hal_get_bcn_entry(phl_com, hal_info, &bcn_entry, bcn_id) == RTW_HAL_STATUS_FAILURE)
+	if (hal_get_bcn_entry(phl_com, hal_info, &bcn_entry, bcn_id)
+	    == RTW_HAL_STATUS_FAILURE) {
+		PHL_ERR("No beacon entry %u to config!\n", bcn_id);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	if(hal_update_bcn_entry(phl_com, hal_info, bcn_entry, NULL) == RTW_HAL_STATUS_FAILURE)
 		return RTW_HAL_STATUS_FAILURE;
 
-	if(hal_ops->upt_bcn(phl_com, hal_info, bcn_entry) == RTW_HAL_STATUS_FAILURE)
+	/* Configure beacon in case of beacon timing changed.
+	 * ToDo: Apply only when beacon interval and/or DTIM period
+	 * are changed.
+	 */
+	do {
+		#ifdef CONFIG_RTW_SUPPORT_MBSSID_VAP
+		/* Beacon timing is port-wide setting. Ignore VAP. */
+		struct rtw_wifi_role_t *wrole =
+			&phl_com->wifi_roles[bcn_entry->bcn_cmn->role_idx];
+		if (wrole->type == PHL_RTYPE_VAP)
+			break;
+		#endif /* CONFIG_RTW_SUPPORT_MBSSID_VAP */
+		if (hal_ops->cfg_bcn(phl_com, hal_info, bcn_entry)
+		    == RTW_HAL_STATUS_FAILURE) {
+			PHL_ERR("Failed to configure beacon entry %u!\n",
+				bcn_id);
+			return RTW_HAL_STATUS_FAILURE;
+		}
+	} while (0);
+
+	if (hal_ops->upt_bcn(phl_com, hal_info, bcn_entry)
+	    == RTW_HAL_STATUS_FAILURE) {
+		PHL_ERR("Failed to update beacon entry %u!\n", bcn_id);
 		return RTW_HAL_STATUS_FAILURE;
+	}
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -858,24 +958,40 @@ enum rtw_hal_status rtw_hal_free_beacon(struct rtw_phl_com_t *phl_com, void *hal
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
+#ifdef CONFIG_RTW_DEBUG_BCN_TX
+enum rtw_hal_status rtw_hal_get_beacon_cnt(struct rtw_phl_com_t *phl_com, void *hal,
+			u8 bcn_id, struct rtw_bcn_stats **bcn_stats)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_bcn_entry *bcn_entry = NULL;
+
+	if (RTW_HAL_STATUS_FAILURE ==
+		hal_get_bcn_entry(phl_com, hal_info, &bcn_entry, bcn_id)) {
+		PHL_ERR("Failed to get beacon entry %u!\n", bcn_id);
+		bcn_stats = NULL;
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	*bcn_stats = &bcn_entry->bcn_stats;
+	return RTW_HAL_STATUS_SUCCESS;
+}
+#endif
 #endif
 
 enum rtw_hal_status rtw_hal_pkt_ofld(void *hal, u8 *id, u8 op,
 					u8 *pkt_buf, u16 *pkt_len)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
 
-	return hal_ops->pkt_ofld(hal, id, op, pkt_buf, pkt_len);
+	return rtw_hal_mac_pkt_ofld(hal_info, id, op, pkt_buf, pkt_len);
 }
 
 enum rtw_hal_status rtw_hal_pkt_update_ids(void *hal,
 						struct pkt_ofld_entry *entry)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
 
-	return hal_ops->pkt_update_ids(hal, entry);
+	return rtw_hal_mac_pkt_update_ids(hal_info, entry);
 }
 
 enum rtw_hal_status rtw_hal_get_pwr_state(void *hal, enum rtw_mac_pwr_st *pwr_state)
@@ -900,8 +1016,16 @@ enum rtw_hal_status rtw_hal_init(void *drv_priv,
 		chip_id = CHIP_WIFI6_8834A;
 	else if(ic_id == RTL8852B)
 		chip_id = CHIP_WIFI6_8852B;
+	else if(ic_id == RTL8852BP)
+		chip_id = CHIP_WIFI6_8852BP;
 	else if(ic_id == RTL8852C)
 		chip_id = CHIP_WIFI6_8852C;
+	else if(ic_id == RTL8192XB)
+		chip_id = CHIP_WIFI6_8192XB;
+	else if(ic_id == RTL8832BR)
+		chip_id = CHIP_WIFI6_8832BR;
+	else if (ic_id == RTL8851B)
+		chip_id = CHIP_WIFI6_8851B;
 	else
 		chip_id = CHIP_WIFI6_MAX;
 
@@ -1142,37 +1266,18 @@ static void _hal_reset_chandef(struct rtw_hal_com_t *hal_com)
 	}
 }
 
-void rtw_hal_set_default_var(void *hal, enum rtw_hal_set_def_var_rsn rsn)
+void rtw_hal_set_default_var(void *hal)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
-	struct hal_intr_mask_cfg intr_cfg = {0};
 
-	switch (rsn) {
-	case SET_DEF_RSN_HAL_INIT:
-		intr_cfg.halt_c2h_en = 1;
-		intr_cfg.wdt_en = 1;
-		hal_info->hal_com->assoc_sta_cnt = 0;
-		_hal_reset_chandef(hal_info->hal_com);
-		break;
-	case SET_DEF_RSN_WOW_RESUME_HNDL_RX:
-		intr_cfg.halt_c2h_en = 0;
-		intr_cfg.wdt_en = 1;
-		break;
-	case SET_DEF_RSN_WOW_RESUME_DONE:
-		intr_cfg.halt_c2h_en = 1;
-		intr_cfg.wdt_en = 1;
-		break;
-	default:
-		intr_cfg.halt_c2h_en = 1;
-		intr_cfg.wdt_en = 1;
-		hal_info->hal_com->assoc_sta_cnt = 0;
-		_hal_reset_chandef(hal_info->hal_com);
-		break;
-	}
+	hal_info->hal_com->assoc_sta_cnt = 0;
+	hal_info->hal_com->band[HW_PHY_0].assoc_sta_cnt = 0;
+	hal_info->hal_com->band[HW_PHY_0].assoc_sta_cnt = 0;
 
-	PHL_INFO("%s : rsn %d.\n", __func__, rsn);
-	hal_ops->init_default_value(hal_info, &intr_cfg);
+	_hal_reset_chandef(hal_info->hal_com);
+
+	hal_ops->init_default_value(hal_info);
 }
 
 u32 rtw_hal_var_init(struct rtw_phl_com_t *phl_com, void *hal)
@@ -1182,7 +1287,7 @@ u32 rtw_hal_var_init(struct rtw_phl_com_t *phl_com, void *hal)
 	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
 
 	hal_com->is_hal_init = false;
-	rtw_hal_set_default_var(hal_info, SET_DEF_RSN_HAL_INIT);
+	rtw_hal_set_default_var(hal_info);
 
 	/*csi init shall after read hw chip info*/
 	hal_status = hal_csi_init(
@@ -1214,26 +1319,6 @@ static int
 _hal_parse_macreg(void *drv_priv, u32 *pdest_buf, u8 *psrc_buf, u32 buflen)
 {
 	return 0;
-}
-
-enum rf_path _get_path_from_ant_num(u8 antnum)
-{
-	enum rf_path ret = RF_PATH_B;
-
-	switch (antnum) {
-		default:
-			break;
-		case 1:
-			ret = RF_PATH_B;
-			break;
-		case 2:
-			ret = RF_PATH_AB;
-			break;
-		case 3:
-			ret = RF_PATH_ABC;
-			break;
-	}
-	return ret;
 }
 
 static void _hal_send_hal_init_hub_msg(struct rtw_phl_com_t *phl_com, u8 init_ok)
@@ -1307,18 +1392,18 @@ enum rtw_hal_status rtw_hal_start(struct rtw_phl_com_t *phl_com, void *hal)
 
 	hal_status = RTW_HAL_STATUS_SUCCESS;
 	hal_info->hal_com->is_hal_init = true;
-	rtw_hal_set_default_var(hal_info, SET_DEF_RSN_HAL_INIT);
+	rtw_hal_set_default_var(hal_info);
 
 	rtw_hal_rf_set_power(hal_info, HW_PHY_0, PWR_BY_RATE);
 #ifdef RTW_WKARD_DEF_CMACTBL_CFG
-	tx = _get_path_from_ant_num(phl_com->phy_cap[0].tx_path_num);
-	rx = _get_path_from_ant_num(phl_com->phy_cap[0].rx_path_num);
+	tx = hal_ops->get_path_from_ant_num(phl_com->phy_cap[0].tx_path_num);
+	rx = hal_ops->get_path_from_ant_num(phl_com->phy_cap[0].rx_path_num);
 	rtw_hal_bb_trx_path_cfg(hal_info, tx, phl_com->phy_cap[0].txss,
 		rx, phl_com->phy_cap[0].rxss);
 #endif
 #ifdef RTW_WKARD_SINGLE_PATH_RSSI
 	hal_info->hal_com->cur_rx_rfpath =
-		_get_path_from_ant_num(phl_com->phy_cap[0].rx_path_num);
+		hal_ops->get_path_from_ant_num(phl_com->phy_cap[0].rx_path_num);
 #endif
 	#ifdef CONFIG_BTCOEX
 	rtw_hal_btc_radio_state_ntfy(hal_info, true);
@@ -1386,52 +1471,90 @@ enum rtw_hal_status rtw_hal_hal_deinit(struct rtw_phl_com_t *phl_com, void *hal)
 }
 
 enum rtw_hal_status
-rtw_hal_role_cfg(void *hal, struct rtw_wifi_role_t *wrole)
+rtw_hal_role_deinit(void *hal, struct rtw_wifi_role_link_t *rlink)
+{
+	/* hw port cfg - mac_port_deinit */
+	return rtw_hal_mac_port_deinit(hal, rlink);
+}
+
+enum rtw_hal_status
+rtw_hal_role_cfg(void *hal,
+                 struct rtw_wifi_role_t *wrole,
+                 struct rtw_wifi_role_link_t *rlink)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	#ifdef CONFIG_RTW_SUPPORT_MBSSID_VAP
+	if (wrole->type == PHL_RTYPE_VAP) {
+		u32	param = 1;
+
+		/* Configure port for M-BSSID */
+		PHL_INFO("Config role #%u rlink #%u of type %u. MBSSID: %u.\n",
+	          wrole->id, rlink->id, wrole->type, rlink->hw_mbssid);
+
+		return rtw_hal_mac_port_cfg(hal_info, rlink,
+					    PCFG_MBSSID_EN, &param);
+	}
+	#endif /* CONFIG_RTW_SUPPORT_MBSSID_VAP */
 
 	/*enable & configure mac hw-port*/
-	hal_status = rtw_hal_mac_port_init(hal_info, wrole);
+	hal_status = rtw_hal_mac_port_init(hal_info, wrole, rlink);
 
 	/* init hal mac bfer function if wrole cap if any of bfer cap is true*/
-	if (wrole->proto_role_cap.he_su_bfmr ||
-	    wrole->proto_role_cap.he_mu_bfmr ||
-	    wrole->proto_role_cap.vht_su_bfmr ||
-	    wrole->proto_role_cap.vht_mu_bfmr ||
-	    wrole->proto_role_cap.ht_su_bfmr) {
-		if ((PHL_RTYPE_AP == wrole->type) ||
-		    ((PHL_RTYPE_STATION == wrole->type) &&
-		     (MLME_LINKED == wrole->mstate))) {
+	if (rlink->protocol_cap.he_su_bfmr ||
+	    rlink->protocol_cap.he_mu_bfmr ||
+	    rlink->protocol_cap.vht_su_bfmr ||
+	    rlink->protocol_cap.vht_mu_bfmr ||
+	    rlink->protocol_cap.ht_su_bfmr) {
+		if ((rtw_phl_role_is_ap_category(wrole)) ||
+		    ((rtw_phl_role_is_client_category(wrole)) &&
+		     (MLME_LINKED == rlink->mstate))) {
 			hal_status = hal_bf_hw_mac_init_bfer(hal_info,
-							     wrole->hw_band);
+							     rlink->hw_band);
 		}
 	}
-
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	return hal_status;
 }
 
 enum rtw_hal_status
-rtw_hal_role_cfg_ex(void *hal, struct rtw_wifi_role_t *wrole,
-				enum pcfg_type type, void *param)
+rtw_hal_role_cfg_ex(void *hal,
+                    struct rtw_wifi_role_link_t *rlink,
+                    enum pcfg_type type,
+                    void *param)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
 
-	hal_status = rtw_hal_mac_port_cfg(hal_info, wrole, type, param);
-
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	hal_status = rtw_hal_mac_port_cfg(hal_info, rlink, type, param);
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	return hal_status;
 }
 
 enum rtw_hal_status
-rtw_hal_beacon_stop(void *hal, struct rtw_wifi_role_t *wrole, bool stop)
+rtw_hal_beacon_stop(void *hal,
+                    struct rtw_wifi_role_link_t *rlink,
+                    bool stop)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
 	u32 bcn_en = (stop) ? 0 : 1;
 
-	PHL_INFO("%s wr-%d, bcn_en:%s\n", __func__, wrole->id, (bcn_en) ? "E" : "D");
-	hsts = rtw_hal_mac_port_cfg(hal_info, wrole, PCFG_BCN_EN, &bcn_en);
+	PHL_INFO("%s wr-%d, rlink:%d, bcn_en:%s\n", __func__, rlink->wrole->id, rlink->id, (bcn_en) ? "E" : "D");
+	hsts = rtw_hal_mac_port_cfg(hal_info, rlink, PCFG_BCN_EN, &bcn_en);
 
 	return hsts;
 }
@@ -1554,4 +1677,19 @@ void rtw_hal_dbg_status_dump(void *hal, struct hal_mac_dbg_dump_cfg *cfg)
 
 	rtw_hal_mac_dbg_status_dump(hal_info, cfg);
 }
+
+#ifdef CONFIG_RTW_DEBUG_CCCR
+void rtw_hal_dbg_cccr_dump(struct rtw_hal_com_t *hal_com)
+{
+	u8 reg = 0;
+	int i;
+
+	for (i = 0; i < 17; i++) {
+		reg = _os_sdio_read_cia_r8(hal_com->drv_priv, i);
+		PHL_INFO("cccr (0x%x)= 0x%x  ", i, reg);
+		if ((i%8) == 0)
+			PHL_INFO("\n");
+	}
+}
+#endif /*CONFIG_RTW_DEBUG_CCCR*/
 

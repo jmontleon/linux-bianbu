@@ -24,6 +24,13 @@
  *****************************************************************************/
 #include "../halrf_precomp.h"
 #ifdef RF_8852B_SUPPORT
+void halrf_adc_fifo_rst_8852b(struct rf_info *rf, enum phl_phy_idx phy_idx, u8 path)
+{
+	halrf_wreg(rf, 0x20fc, 0xffff0000, 0x0303);
+	halrf_delay_us(rf, 10);
+	halrf_wreg(rf, 0x20fc, 0xffff0000, 0x3333);
+}
+
 bool halrf_bw_setting_8852b(struct rf_info *rf, enum rf_path path, enum channel_width bw, bool is_dav)
 {
 	u32 rf_reg18 = 0;
@@ -63,6 +70,9 @@ bool halrf_bw_setting_8852b(struct rf_info *rf, enum rf_path path, enum channel_
 	}
 
 	/*==== [Write RF register] ====*/
+	
+	rf_reg18 = (u32)(rf_reg18 & 0xf0fff) | BIT(12);
+
 	halrf_wrf(rf, path, reg_reg18_addr, MASKRF, rf_reg18);
 	RF_DBG(rf, DBG_RF_RFK, "[RFK] set %x at path%d, %x =0x%x\n",bw, path, reg_reg18_addr, halrf_rrf(rf, path, reg_reg18_addr, MASKRF));
 	return true;
@@ -256,11 +266,13 @@ bool halrf_ch_setting_8852b(struct rf_info *rf,   enum rf_path path, u8 central_
 	}
 	*is_2g_ch = (central_ch <= 14) ? true : false;
 	/*==== [Set RF Reg 0x18] ====*/
-	rf_reg18 &= ~0x303ff; /*[17:16],[9:8],[7:0]*/
+	rf_reg18 &= ~0x3e3ff; /*[17:16],[9:8],[7:0]*/
 	rf_reg18 |= central_ch; /* Channel*/
 	/*==== [5G Setting] ====*/
 	if (!*is_2g_ch)
 		rf_reg18 |= (BIT(16) | BIT(8));
+
+	rf_reg18 = (u32)(rf_reg18 & 0xf0fff) | BIT(12);	
 	if ((path == RF_PATH_B) || !(is_dav))
 		halrf_wrf(rf, path, reg_reg18_addr, MASKRF, rf_reg18);
 	else
@@ -929,7 +941,7 @@ void halrf_quick_checkrf_8852b(struct rf_info *rf)
 
 static u32 backup_mac_reg_8852b[] = {0x0};
 static u32 backup_bb_reg_8852b[] = {0x2344};
-static u32 backup_rf_reg_8852b[] = {0xef, 0xde, 0x0, 0x1e, 0x2, 0x85, 0x90, 0x5};
+static u32 backup_rf_reg_8852b[] = {0x00, 0x1e, 0x5};
 
 #if 1
 static struct halrf_iqk_ops iqk_ops= {

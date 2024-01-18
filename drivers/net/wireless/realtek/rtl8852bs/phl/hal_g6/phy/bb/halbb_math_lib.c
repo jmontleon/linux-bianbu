@@ -1,27 +1,35 @@
-/******************************************************************************
+/*
+ * SPDX-License-Identifier: BSD-3-Clause
  *
- * Copyright(c) 2007 - 2020  Realtek Corporation.
+ * Copyright (c) 2021, Realtek Semiconductor Corp. All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of version 2 of the GNU General Public License as
- * published by the Free Software Foundation.
+ * Redistribution and use in source and binary forms, with or without modification,
+ * are permitted provided that the following conditions are met:
  *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
+ *   * Redistributions of source code must retain the above copyright notice, this
+ *     list of conditions and the following disclaimer.
  *
- * The full GNU General Public License is included in this distribution in the
- * file called LICENSE.
+ *   * Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
  *
- * Contact Information:
- * wlanfae <wlanfae@realtek.com>
- * Realtek Corporation, No. 2, Innovation Road II, Hsinchu Science Park,
- * Hsinchu 300, Taiwan.
+ *   * Neither the name of the Realtek nor the names of its contributors may
+ *     be used to endorse or promote products derived from this software without
+ *     specific prior written permission.
  *
- * Larry Finger <Larry.Finger@lwfinger.net>
  *
- *****************************************************************************/
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #include "halbb_precomp.h"
 
 const u32 db_invert_table[12][8] = {
@@ -290,7 +298,10 @@ u64 halbb_gen_mask(u8 up_num, u8 low_num)
 
 u32 halbb_cal_bit_shift(u32 bit_mask)
 {
-	u32 i;
+	u32 i = 0;
+
+	if (bit_mask == 0)
+		return 0;
 
 	for (i = 0; i <= 31; i++) {
 		if ((bit_mask >> i) & BIT0)
@@ -424,3 +435,31 @@ void halbb_print_buff_32(struct bb_info *bb, u8 *addr, u16 length) /*unit: Byte*
 	}
 }
 
+void halbb_math_dbg(struct bb_info *bb, char input[][16], u32 *_used,
+		    char *output, u32 *_out_len)
+{
+	s32 var[5] = {0};
+	s32 tmp_32 = 0;
+	u64 tmp_64 = 0;
+
+	if (_os_strcmp(input[1], "-h") == 0) {
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "div {a(hex)} {b{hex}}\n");
+		return;
+	}
+	HALBB_SCAN(input[1], DCMD_DECIMAL, &var[0]);
+
+	if (_os_strcmp(input[1], "div") == 0) {
+		HALBB_SCAN(input[2], DCMD_HEX, &var[0]);
+		HALBB_SCAN(input[3], DCMD_HEX, &var[1]);
+
+		tmp_32 = HALBB_DIV(var[0], var[1]);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "(%d/%d) = %d\n", var[0], var[1], tmp_32);
+
+		tmp_64 = HALBB_DIV_U64(var[0], var[1]);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "u64 (%d/%d) = %llx\n", var[0], var[1], tmp_64);
+
+	}
+}

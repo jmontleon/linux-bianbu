@@ -52,15 +52,27 @@
 #define WDE_QEMPTY_NUM_8852B 5
 #define WDE_QEMPTY_NUM_8852C 19
 #define WDE_QEMPTY_NUM_8192XB 18
+#define WDE_QEMPTY_NUM_8851B 5
+#define WDE_QEMPTY_NUM_8851E 19
+#define WDE_QEMPTY_NUM_8852D 19
+#define WDE_QEMPTY_NUM_1115E 36
 #define PLE_QEMPTY_NUM 2
 #define WDE_QEMPTY_ACQ_NUM_8852A 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_ACQ_NUM_8852B 4 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_ACQ_NUM_8852C 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_ACQ_NUM_8192XB 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
+#define WDE_QEMPTY_ACQ_NUM_8851B 4 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
+#define WDE_QEMPTY_ACQ_NUM_8851E 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
+#define WDE_QEMPTY_ACQ_NUM_8852D 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
+#define WDE_QEMPTY_ACQ_NUM_1115E 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_MGQ_SEL_8852A 16
 #define WDE_QEMPTY_MGQ_SEL_8852B 4
 #define WDE_QEMPTY_MGQ_SEL_8852C 16
 #define WDE_QEMPTY_MGQ_SEL_8192XB 16
+#define WDE_QEMPTY_MGQ_SEL_8851B 4
+#define WDE_QEMPTY_MGQ_SEL_8851E 16
+#define WDE_QEMPTY_MGQ_SEL_8852D 16
+#define WDE_QEMPTY_MGQ_SEL_1115E 16
 #define QEMP_ACQ_GRP_MACID_NUM 8
 #define QEMP_ACQ_GRP_QSEL_SH 4
 #define QEMP_ACQ_GRP_QSEL_MASK 0xF
@@ -74,8 +86,6 @@
 
 #define DLE_BOUND_UNIT (8 * 1024)
 
-#define WDE_MGN_INI_RDY (B_AX_WDE_Q_MGN_INI_RDY | B_AX_WDE_BUF_MGN_INI_RDY)
-#define PLE_MGN_INI_RDY (B_AX_PLE_Q_MGN_INI_RDY | B_AX_PLE_BUF_MGN_INI_RDY)
 #define DLE_QUEUE_NONEMPTY	0
 #define DLE_QUEUE_EMPTY		1
 
@@ -86,17 +96,23 @@
 #define B_CMAC1_MGQ_NO_PWRSAV	BIT11
 #define B_CMAC1_CPUMGQ		BIT12
 
-#define DLE_LAMODE_SIZE_8852A (256 * 1024)
-#define DLE_LAMODE_SIZE_8852B (128 * 1024)
-#define DLE_LAMODE_SIZE_8852C (192 * 1024)
-#define DLE_LAMODE_SIZE_8192XB (192 * 1024)
+#define DLE_LAMODE_SIZE_8852A 262144 // (256 * 1024)
+#define DLE_LAMODE_SIZE_8852B 131072 // (128 * 1024)
+#define DLE_LAMODE_SIZE_8852C 262144 // (256 * 1024)
+#define DLE_LAMODE_SIZE_8192XB 262144 // (256 * 1024)
+#define DLE_LAMODE_SIZE_8851B 131072 // (128 * 1024)
+#define DLE_LAMODE_SIZE_8851E 262144 // (256 * 1024)
+#define DLE_LAMODE_SIZE_8852D 262144 // (256 * 1024)
 
 #define DLE_SCC_RSVD_SIZE_8852B 98304 // (96 * 1024)
+#define DLE_SCC_RSVD_SIZE_8851B 98304 // (96 * 1024)
 
 #define WDE_QTA_NUM 5
 #define PLE_QTA_NUM_8852AB 11
 #define PLE_QTA_NUM_8852C 12
 #define PLE_QTA_NUM_8192XB 12
+#define PLE_QTA_NUM_8851E 12
+#define PLE_QTA_NUM_8852D 12
 
 #define PLE_QTA_PG128B_12KB 96
 
@@ -267,24 +283,6 @@ enum DLE_RSVD_INFO {
 /*--------------------Define Struct-----------------------------------*/
 
 /**
- * @struct dle_dfi_ctrl_t
- * @brief dle_dfi_ctrl_t
- *
- * @var dle_dfi_ctrl_t::ctrl_type
- * Please Place Description here.
- * @var dle_dfi_ctrl_t::dfi_ctrl
- * Please Place Description here.
- * @var dle_dfi_ctrl_t::dfi_data
- * Please Place Description here.
- */
-struct dle_dfi_ctrl_t {
-	enum DLE_CTRL_TYPE type;
-	u32 target;
-	u32 addr;
-	u32 out_data;
-};
-
-/**
  * @struct dle_dfi_freepg_t
  * @brief dle_dfi_freepg_t
  *
@@ -348,6 +346,29 @@ struct dle_dfi_qempty_t {
 };
 
 /**
+ * @struct dle_dfi_ctrl_t
+ * @brief dle_dfi_ctrl_t
+ *
+ * @var dle_dfi_ctrl_t::ctrl_type
+ * Please Place Description here.
+ * @var dle_dfi_ctrl_t::dfi_ctrl
+ * Please Place Description here.
+ * @var dle_dfi_ctrl_t::dfi_data
+ * Please Place Description here.
+ */
+struct dle_dfi_ctrl_t {
+	enum DLE_CTRL_TYPE type;
+	u32 target;
+	u32 addr;
+	u32 out_data;
+	union {
+		struct dle_dfi_freepg_t freepg;
+		struct dle_dfi_quota_t quota;
+		struct dle_dfi_qempty_t qempty;
+	} u;
+};
+
+/**
  * @struct dle_size_t
  * @brief dle_size_t
  *
@@ -372,6 +393,8 @@ struct dle_size_t {
  * Please Place Description here.
  * @var wde_quota_t::wcpu
  * Please Place Description here.
+ * @var wde_quota_t::dcpu
+ * Please Place Description here.
  * @var wde_quota_t::pkt_in
  * Please Place Description here.
  * @var wde_quota_t::cpu_io
@@ -380,6 +403,7 @@ struct dle_size_t {
 struct wde_quota_t {
 	u16 hif;
 	u16 wcpu;
+	u16 dcpu;
 	u16 pkt_in;
 	u16 cpu_io;
 };
@@ -412,6 +436,8 @@ struct wde_quota_t {
  * Please Place Description here.
  * @var ple_quota_t::tx_rpt
  * Please Place Description here.
+ * @var ple_quota_t::h2d
+ * Please Place Description here.
  */
 struct ple_quota_t {
 	u16 cma0_tx;
@@ -426,6 +452,7 @@ struct ple_quota_t {
 	u16 wd_rel;
 	u16 cpu_io;
 	u16 tx_rpt;
+	u16 h2d;
 };
 
 /**
@@ -460,7 +487,6 @@ struct dle_mem_t {
 /*--------------------Export global variable----------------------------*/
 
 /*--------------------Function declaration-----------------------------*/
-u32 dle_dfi_ctrl(struct mac_ax_adapter *adapter, struct dle_dfi_ctrl_t *ctrl_p);
 
 /**
  * @addtogroup Common
@@ -605,96 +631,6 @@ u32 dle_init(struct mac_ax_adapter *adapter, enum mac_ax_qta_mode mode,
  */
 
 /**
- * @brief dle_is_txq_empty
- *
- * @param *adapter
- * @param *val
- * @return Please Place Description here.
- * @retval u32
- */
-
-u32 dle_is_txq_empty(struct mac_ax_adapter *adapter, u8 *val);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup Common
- * @{
- * @addtogroup DLE
- * @{
- */
-
-/**
- * @brief dle_is_rxq_empty
- *
- * @param *adapter
- * @param *val
- * @return Please Place Description here.
- * @retval u32
- */
-
-u32 dle_is_rxq_empty(struct mac_ax_adapter *adapter, u8 *val);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup Common
- * @{
- * @addtogroup DLE
- * @{
- */
-
-/**
- * @brief mac_is_txq_empty
- *
- * @param *adapter
- * @param *val
- * @return Please Place Description here.
- * @retval u32
- */
-
-u32 mac_is_txq_empty(struct mac_ax_adapter *adapter,
-		     struct mac_ax_tx_queue_empty *val);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup Common
- * @{
- * @addtogroup DLE
- * @{
- */
-
-/**
- * @brief mac_is_rxq_empty
- *
- * @param *adapter
- * @param *val
- * @return Please Place Description here.
- * @retval u32
- */
-
-u32 mac_is_rxq_empty(struct mac_ax_adapter *adapter,
-		     struct mac_ax_rx_queue_empty *val);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup Common
- * @{
- * @addtogroup DLE
- * @{
- */
-
-/**
  * @brief is_qta_dbcc
  *
  * @param *adapter
@@ -737,8 +673,56 @@ u32 is_qta_poh(struct mac_ax_adapter *adapter, enum mac_ax_qta_mode mode,
  * @}
  */
 
-u32 _patch_redu_rx_qta(struct mac_ax_adapter *adapter);
-u32 _patch_restr_rx_qta(struct mac_ax_adapter *adapter);
+u32 redu_wowlan_rx_qta(struct mac_ax_adapter *adapter);
+u32 restr_wowlan_rx_qta(struct mac_ax_adapter *adapter);
+
+/**
+ * @addtogroup Common
+ * @{
+ * @addtogroup DLE
+ * @{
+ */
+
+/**
+ * @brief mac_preload_cfg
+ *
+ * @param *adapter
+ * @param band
+ * @param *cfg
+ * @return Please Place Description here.
+ * @retval u32
+ */
+
+u32 mac_preload_cfg(struct mac_ax_adapter *adapter, enum mac_ax_band band,
+		    struct mac_ax_preld_cfg *cfg);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Common
+ * @{
+ * @addtogroup DLE
+ * @{
+ */
+
+/**
+ * @brief preload_init
+ *
+ * @param *adapter
+ * @param band
+ * @param mode
+ * @return Please Place Description here.
+ * @retval u32
+ */
+
+u32 preload_init(struct mac_ax_adapter *adapter, enum mac_ax_band band,
+		 enum mac_ax_qta_mode mode);
+/**
+ * @}
+ * @}
+ */
 
 /**
  * @addtogroup Common

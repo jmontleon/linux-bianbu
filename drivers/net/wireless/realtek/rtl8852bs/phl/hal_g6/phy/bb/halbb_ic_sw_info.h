@@ -25,8 +25,9 @@
 #ifndef __HALBB_IC_SW_INFO_H__
 #define __HALBB_IC_SW_INFO_H__
 
-#define HLABB_CODE_BASE			"HALBB_025"
-#define HALBB_RELEASE_DATE		"20220503"
+
+#define HLABB_CODE_BASE			"HALBB_029C"
+#define HLABB_CODE_BASE_NUM		29
 
 /*HALBB API status*/
 #define	HALBB_SET_FAIL			0
@@ -43,10 +44,17 @@
  * 1 ============================================================
  ***************************************************************/
 
+enum halbb_drv_type {
+	BB_NIC_DRV		= 0,
+	BB_AP_DRV		= 1
+};
+
+#if 0
 enum halbb_api_host {
 	RUN_IN_FW		= 0,
 	RUN_IN_DRIVER		= 1
 };
+#endif
 
 enum halbb_backup_type {
 	HALBB_BACKUP	= 1,

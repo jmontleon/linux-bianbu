@@ -25,22 +25,22 @@
 #define SOUNDING_STS_MAX_IDX		0x15
 #define CSI_RRSC_BMAP			0x29292911
 #define BFRP_RX_STANDBY_TIMER		0x0
+#define BFRP_RX_STANDBY_TIMER_V1	0x0
 #define NDP_RX_STANDBY_TIMER		0xFF
 #define PATCH_NDP_RX_STANDBY_TIMER	0x0
 #define CSI_INIT_RATE_HE		0x0
 #define CSI_INIT_RATE_VHT		0x0
 #define CSI_INIT_RATE_HT		0x0
-#define HW_SND_RELEASE			0xFFFF
-#define HW_SND_PAUSE			0x0
 #define HT_PAYLOAD_OFFSET		0x10
-#define VHT_PAYLOAD_OFFSET		0x11
-#define HE_PAYLOAD_OFFSET		0x13
+#define VHT_PAYLOAD_OFFSET		0xd
+#define HE_PAYLOAD_OFFSET		0xf
 #define CSI_SH				0x4
 #define SND_SH				0x2
 #define SND_MEE_CFG	 (B_AX_BFMEE_BFPARAM_SEL | B_AX_BFMEE_USE_NSTS | \
 			 B_AX_BFMEE_CSI_FORCE_RETE_EN | B_AX_BFMEE_BFINF0_NR | \
 			 B_AX_BFMEE_BFINFO0_NC)
 #define MAX_SNDTXCMDINFO_NUM		0x4
+#define MAX_FWCMD_SND_LEN 600
 
 enum FrameExchangeType {
 	FRAME_EXCHANGE_SND_AC_SU = 31,
@@ -57,6 +57,11 @@ enum SND_F2P_TYPE {
 	SNDF2P_ONCE = 0,
 	SNDF2P_ADD = 1,
 	SNDF2P_DEL = 2
+};
+
+enum SND_NDPA_MODE {
+	SND_NDPA_NORM = 0,
+	SND_NDPA_PATCH_STA = 1
 };
 
 /**
@@ -245,22 +250,6 @@ u32 mac_set_mu_table(struct mac_ax_adapter *adapter,
  */
 
 /**
- * @addtogroup Sounding
- * @{
- */
-
-/**
- * @brief mac_set_snd_para
- *
- * @param *adapter
- * @param *snd_info
- * @return Please Place Description here.
- * @retval u32
- */
-
-u32 mac_set_snd_para(struct mac_ax_adapter *adapter,
-		     struct mac_ax_fwcmd_snd *snd_info);
-/**
  * @}
  */
 
@@ -393,6 +382,26 @@ u32 mac_snd_sup(struct mac_ax_adapter *adapter, struct mac_bf_sup *bf_sup);
  * @retval u32
  */
 u32 mac_gidpos(struct mac_ax_adapter *adapter, struct mac_gid_pos *mu_gid);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup Sounding
+ * @{
+ */
+
+/**
+ * @brief mac_set_snd_para_v1
+ *
+ * @param *adapter
+ * @param *snd_info
+ * @return Please Place Description here.
+ * @retval u32
+ */
+
+u32 mac_set_snd_para(struct mac_ax_adapter *adapter,
+		     struct mac_ax_fwcmd_snd *snd_info);
 /**
  * @}
  */

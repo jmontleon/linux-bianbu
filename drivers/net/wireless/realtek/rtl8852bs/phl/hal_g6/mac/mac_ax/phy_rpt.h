@@ -21,6 +21,9 @@
 #include "role.h"
 #include "trxcfg.h"
 
+#define MAC_MAX_4_USR	4
+#define MAC_MAX_8_USR	8
+
 /**
  * @addtogroup Common
  * @{
@@ -113,6 +116,27 @@ u32 mac_parse_dfs(struct mac_ax_adapter *adapter,
 
 u32 mac_get_phy_rpt_cfg(struct mac_ax_adapter *adapter,
 			struct mac_ax_phy_rpt_cfg *rpt);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Common
+ * @{
+ * @addtogroup BB_Related
+ * @{
+ */
+
+/**
+ * @brief mac_rst_drv_info
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+
+u32 mac_rst_drv_info(struct mac_ax_adapter *adapter);
 /**
  * @}
  * @}

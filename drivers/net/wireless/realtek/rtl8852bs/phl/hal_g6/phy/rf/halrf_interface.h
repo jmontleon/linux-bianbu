@@ -29,6 +29,10 @@
 #define HALRF_CONFIG_FW_IO_OFLD_SUPPORT
 #endif
 
+#ifdef CONFIG_FW_DBCC_OFLD_SUPPORT
+#define HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+#endif
+
 #ifdef CONFIG_HAL_THERMAL_PROTECT
 #define HALRF_THERMAL_PROTECT_SUPPORT
 #endif
@@ -45,21 +49,15 @@
 #define halrf_w32(rf, addr, val) hal_write32((rf)->hal_com, (addr | RF_OFST), val)
 #define halrf_w16(rf, addr, val) hal_write16((rf)->hal_com, (addr | RF_OFST), val)
 #define halrf_w8(rf, addr, val) hal_write8((rf)->hal_com, (addr | RF_OFST), val)
-/*#define halrf_rrf(rf, path, addr, mask) rtw_hal_read_rf_reg((rf)->hal_com, path, addr, mask)*/
+//#define halrf_rrf(rf, path, addr, mask) rtw_hal_read_rf_reg((rf)->hal_com, path, addr, mask)
 /*#define halrf_wrf(rf, path, addr, mask, val) rtw_hal_write_rf_reg((rf)->hal_com, path, addr, mask, val)*/
 /*#define halrf_wmac32(rf, addr, val) hal_write32((rf)->hal_com, addr, val)*/
-#define halrf_rmac32(rf, addr) hal_read32((rf)->hal_com, addr)
-
+//#define halrf_rmac32(rf, addr) hal_read32((rf)->hal_com, addr)
+#define halrf_wmac32(rf, addr, val) hal_write32((rf)->hal_com, addr, val)
 #define halrf_read_mem(rf, addr, cnt, pmem) hal_read_mem((rf)->hal_com, addr, cnt, pmem)
 
 /*[TX]*/
 #define halrf_tx_pause(rf, band_idx, tx_pause, rson) rtw_hal_tx_pause((rf)->hal_com, band_idx, tx_pause, rson)
-#define halrf_set_pmac_pattern(rf, ppdu_type, case_id, phy_idx) rtw_hal_bb_set_plcp_pattern((rf)->hal_com, ppdu_type, case_id, phy_idx)
-#define halrf_set_pmac_plcp_tx(rf, plcp, usr, phy_idx, sts) rtw_hal_bb_set_plcp_tx((rf)->hal_com, plcp, usr, phy_idx, sts)
-#define halrf_set_pmac_packet_tx(rf, enable, is_cck, cnt, period, time, phy_idx) rtw_hal_bb_set_pmac_packet_tx((rf)->hal_com, enable, is_cck, cnt, period, time, phy_idx)
-#define halrf_set_pmac_power(rf, dbm, phy_idx) rtw_hal_bb_set_power((rf)->hal_com, dbm, phy_idx)
-#define halrf_cfg_tx_path(rf, path) rtw_hal_bb_cfg_tx_path((rf)->hal_com, path)
-#define halrf_cfg_rx_path(rf, path) rtw_hal_bb_cfg_rx_path((rf)->hal_com, path)
 #define halrf_tx_mode_switch(rf, phy_idx, mode) rtw_hal_bb_tx_mode_switch((rf)->hal_com, phy_idx, mode)
 #define halrf_query_regulation_info(rf, info) rtw_hal_query_regulation((rf)->phl_com->phl_priv, info)
 #define halrf_hal_bb_backup_info(rf, phy_idx) rtw_hal_bb_backup_info((rf)->hal_com, phy_idx)
@@ -70,11 +68,12 @@
 #define halrf_os_delay_us(rf, us) _os_delay_us(rf->hal_com->drv_priv, us)
 
 /*[Memory Access]*/
-#define halrf_mem_alloc(rf, buf_sz) _os_mem_alloc(rf->hal_com->drv_priv, buf_sz)
-#define halrf_mem_free(rf, buf, buf_sz) _os_mem_free(rf->hal_com->drv_priv, (void *)buf, buf_sz)
 #define halrf_mem_set(rf, buf, value, size) _os_mem_set(rf->hal_com->drv_priv, (void *)buf, value, size)
 #define halrf_mem_cpy(rf, dest, src, size) _os_mem_cpy(rf->hal_com->drv_priv, (void *)dest, (void *)src, size)
 #define halrf_mem_cmp(rf, dest, src, size) _os_mem_cmp(rf->hal_com->drv_priv, (void *)dest, (void *)src, size)
+#define halrf_mem_alloc(rf, buf_sz) hal_mem_alloc(rf->hal_com, buf_sz)
+#define halrf_mem_free(rf, buf, buf_sz) hal_mem_free(rf->hal_com, (void *)buf, buf_sz)
+
 
 /*[Timer]*/
 #define halrf_init_timer(rf, timer, call_back_func, context, sz_id) _os_init_timer(rf->hal_com->drv_priv, timer, call_back_func, context, sz_id)
@@ -91,11 +90,11 @@
 #define halrf_phy_efuse_get_info(rf, addr, size, value) rtw_hal_mac_read_phy_efuse((rf)->hal_com, addr, size, value)
 
 /*GPIO*/
-#ifndef RF_8852B_SUPPORT
+/*#ifndef RF_8852B_SUPPORT*/
 #define halrf_gpio_setting_all(rf, rfe_idx) rtw_hal_bb_gpio_setting_all((rf)->hal_com, rfe_idx)
 #define halrf_gpio_setting(rf, gpio_idx, path, inv, src) rtw_hal_bb_gpio_setting((rf)->hal_com, gpio_idx, path, inv, src)
 #define halrf_set_gpio_func(rf, func, gpio_cfg) rtw_hal_mac_set_gpio_func((rf)->hal_com, func, gpio_cfg)
-#endif
+/*#endif*/
 
 /*Set power by rate, power limit, power */
 #define halrf_mac_write_pwr_limit_rua_reg(rf, band) rtw_hal_mac_write_pwr_limit_rua_reg((rf)->hal_com, band)
@@ -107,13 +106,30 @@
 #define halrf_mac_write_pwr_limit_en(rf, phy_idx) rtw_hal_mac_write_pwr_limit_en((rf)->hal_com, phy_idx)
 #define halrf_bb_set_pow_patten_sharp(rf, channel, is_cck, sharp_id, phy_idx) rtw_hal_bb_set_pow_patten_sharp((rf)->hal_com, channel, is_cck, sharp_id, phy_idx)
 
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 /*FW offload*/
 #define halrf_mac_add_cmd_ofld(rf, cmd) rtw_hal_mac_add_cmd_ofld((rf)->hal_com, cmd)
 #endif
 
 /*BB related*/
 #define halrf_bb_ctrl_rx_cca(rf, cca_en, phy_idx) rtw_hal_bb_ctrl_rx_cca((rf)->hal_com, cca_en, phy_idx)
+#define halrf_bb_ctrl_cck_en(rf, cck_en, phy_idx) rtw_hal_bb_ctrl_cck_en((rf)->hal_com, cck_en, phy_idx)
+#define halrf_bb_query_cck_en(rf, phy_idx) rtw_hal_bb_query_cck_en((rf)->hal_com, phy_idx)
+#define halrf_bb_adc_cfg(rf, bw, path, phy_idx) rtw_hal_bb_adc_cfg((rf)->hal_com, bw, path, phy_idx)
+
+#define halrf_mutex_init(rf, mutex) hal_mutex_init((rf)->hal_com, mutex)
+#define halrf_mutex_deinit(rf, mutex) hal_mutex_deinit((rf)->hal_com, mutex)
+#define halrf_mutex_lock(rf, mutex) hal_mutex_lock((rf)->hal_com, mutex)
+#define halrf_mutex_unlock(rf, mutex) hal_mutex_unlock((rf)->hal_com, mutex)
+
+/*SER control*/
+#define halrf_mac_ctrl_ser(rf, rsn, en) rtw_hal_mac_ctrl_ser((rf)->hal_com, rsn, en)
+
+#ifdef CONFIG_PHL_DFS
+/*BB DFS*/
+#define halrf_is_radar_detect_enabled(rf, phy_idx) rtw_hal_is_radar_detect_enabled((rf)->hal_com, phy_idx)
+#define halrf_bb_dfs_rpt_cfg(rf, phy_idx, dfs_en) rtw_hal_bb_dfs_rpt_cfg((rf)->hal_com, phy_idx, dfs_en)
+#endif
 
 /*@--------------------------[Enum]------------------------------------------*/
 
@@ -127,7 +143,7 @@ u32 halrf_cal_bit_shift(u32 bit_mask);
 
 u32 halrf_get_sys_time(struct rf_info *rf);
 
-void halrf_wmac32(struct rf_info *rf, u32 addr, u32 val);
+void halrf_wmac(struct rf_info *rf, u32 addr, u32 mask, u32 val);
 
 void halrf_wreg(struct rf_info *rf, u32 addr, u32 bit_mask, u32 val);
 
@@ -143,5 +159,8 @@ u32 halrf_rrf(struct rf_info *rf, enum rf_path path, u32 addr, u32 mask);
 
 void halrf_fill_h2c_cmd(struct rf_info *rf, u16 cmdlen, u8 cmdid,
 			u8 classid, u32 cmdtype, u32 *pval);
+			
 void halrf_delay_us(struct rf_info *rf, u32 count);
+
+u32 halrf_rmac32(struct rf_info *rf, u32 addr);
 #endif

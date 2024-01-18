@@ -16,11 +16,16 @@
 #include "phl_headers.h"
 #ifdef CONFIG_CMD_DISP
 
+enum disp_eng_status {
+	DISPR_ENG_INIT = BIT0,
+	DISPR_ENG_STARTED = BIT1,
+};
+
 enum rtw_phl_status phl_disp_eng_bk_module_deinit(struct phl_info_t *phl);
 enum rtw_phl_status _disp_eng_get_dispr_by_idx(struct phl_info_t *phl,
                                                u8 band_idx,
                                                void **dispr);
-
+#if !defined(CONFIG_CMD_DISP_SOLO_MODE)
 int share_thread_hdl(void *param)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)param;
@@ -50,7 +55,7 @@ int share_thread_hdl(void *param)
 	PHL_INFO("%s down\n", __FUNCTION__);
 	return 0;
 }
-
+#endif
 enum rtw_phl_status
 phl_disp_eng_init(struct phl_info_t *phl, u8 phy_num)
 {
@@ -65,7 +70,6 @@ phl_disp_eng_init(struct phl_info_t *phl, u8 phy_num)
 	}
 
 	disp_eng->phl_info = phl;
-	disp_eng->phy_num = phy_num;
 #ifdef CONFIG_CMD_DISP_SOLO_MODE
 	disp_eng->thread_mode = SOLO_THREAD_MODE;
 #else
@@ -85,12 +89,23 @@ phl_disp_eng_init(struct phl_info_t *phl, u8 phy_num)
 		status = dispr_init(phl, &(disp_eng->dispatcher[i]), i);
 		if(status != RTW_PHL_STATUS_SUCCESS)
 			break;
+		disp_eng->phy_num++;
 	}
 
-	if (status != RTW_PHL_STATUS_SUCCESS)
-		phl_disp_eng_deinit(phl);
+	if (status != RTW_PHL_STATUS_SUCCESS) {
+		for (i = 0 ; i < disp_eng->phy_num; i++)
+			dispr_deinit(phl, disp_eng->dispatcher[i]);
+#ifdef CONFIG_CMD_DISP_SOLO_MODE
+		_os_sema_free(d, &(disp_eng->dispr_ctrl_sema));
+#endif
+		_os_mem_free(d, disp_eng->dispatcher, sizeof(void *) * phy_num);
+		disp_eng->dispatcher = NULL;
+		disp_eng->phy_num = 0;
+	}
+	else
+		SET_STATUS_FLAG(disp_eng->status, DISPR_ENG_INIT);
 
-	return RTW_PHL_STATUS_SUCCESS;
+	return status;
 }
 
 enum rtw_phl_status
@@ -102,6 +117,11 @@ phl_disp_eng_deinit(struct phl_info_t *phl)
 
 	if (disp_eng->dispatcher == NULL)
 		return RTW_PHL_STATUS_FAILURE;
+
+	if (!TEST_STATUS_FLAG(disp_eng->status, DISPR_ENG_INIT))
+		return RTW_PHL_STATUS_SUCCESS;
+
+	CLEAR_STATUS_FLAG(disp_eng->status, DISPR_ENG_INIT);
 
 	phl_disp_eng_bk_module_deinit(phl);
 
@@ -146,18 +166,30 @@ phl_disp_eng_start(struct phl_info_t *phl)
 	struct phl_cmd_dispatch_engine *disp_eng = &(phl->disp_eng);
 	void *d = phl_to_drvpriv(phl);
 
+	if (TEST_STATUS_FLAG(disp_eng->status, DISPR_ENG_STARTED))
+		return RTW_PHL_STATUS_UNEXPECTED_ERROR;
+
+	#if !defined(CONFIG_CMD_DISP_SOLO_MODE)
 	_os_sema_init(d, &(disp_eng->msg_q_sema), 0);
 	if (!disp_eng_is_solo_thread_mode(phl)) {
-		_os_thread_init(d, &(disp_eng->share_thread), share_thread_hdl, phl,
-				"disp_eng_share_thread");
+		if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, &(disp_eng->share_thread), share_thread_hdl, phl,
+				"disp_eng_share_thread")) {
+			PHL_ERR("thread init disp_eng_share_thread fail. \n");
+			return RTW_PHL_STATUS_FAILURE;
+		}
 		_os_thread_schedule(d, &(disp_eng->share_thread));
 	}
+	#endif
 	for (i = 0 ; i < disp_eng->phy_num; i++){
 		if(disp_eng->dispatcher[i] == NULL)
 			continue;
 		dispr_start(disp_eng->dispatcher[i]);
 		dispr_module_start(disp_eng->dispatcher[i]);
 	}
+	SET_STATUS_FLAG(disp_eng->status, DISPR_ENG_STARTED);
+
+	if(disp_eng->phy_num == 1)
+		dispr_exclusive_ready(disp_eng->dispatcher[0], false);
 
 	return RTW_PHL_STATUS_SUCCESS;
 }
@@ -175,17 +207,25 @@ phl_disp_eng_stop(struct phl_info_t *phl)
 		return RTW_PHL_STATUS_SUCCESS;
 	}
 
+	if (!TEST_STATUS_FLAG(disp_eng->status, DISPR_ENG_STARTED))
+		return RTW_PHL_STATUS_UNEXPECTED_ERROR;
+
+	CLEAR_STATUS_FLAG(disp_eng->status, DISPR_ENG_STARTED);
 	for (i = 0 ; i < disp_eng->phy_num; i++) {
 		if(disp_eng->dispatcher[i] == NULL)
 			continue;
 		dispr_module_stop(disp_eng->dispatcher[i]);
+		#ifdef CONFIG_CMD_DISP_SOLO_MODE
 		if (solo_mode == true)
 			dispr_stop(disp_eng->dispatcher[i]);
-		else
-			dispr_share_thread_stop_prior_hdl(disp_eng->dispatcher[i]);
+		#endif
 	}
 
+	#if !defined(CONFIG_CMD_DISP_SOLO_MODE)
 	if (solo_mode == false) {
+		for (i = 0 ; i < disp_eng->phy_num; i++)
+			dispr_share_thread_stop_prior_hdl(disp_eng->dispatcher[i]);
+
 		_os_thread_stop(d, &(disp_eng->share_thread));
 		_os_sema_up(d, &(disp_eng->msg_q_sema));
 		_os_thread_deinit(d, &(disp_eng->share_thread));
@@ -194,6 +234,7 @@ phl_disp_eng_stop(struct phl_info_t *phl)
 			dispr_share_thread_stop_post_hdl(disp_eng->dispatcher[i]);
 	}
 	_os_sema_free(d, &(disp_eng->msg_q_sema));
+	#endif /*!defined(CONFIG_CMD_DISP_SOLO_MODE)*/
 	return RTW_PHL_STATUS_SUCCESS;
 }
 
@@ -297,6 +338,156 @@ rtw_phl_set_msg_disp_seq(void *phl,
 {
 	return phl_disp_eng_set_msg_disp_seq(phl, attr, seq);
 }
+static const char *_get_evt_str(u32 evt)
+{
+	switch (evt) {
+	case MSG_EVT_SCAN_START:
+		return "MSG_EVT_SCAN_START";
+	case MSG_EVT_SCAN_END:
+		return "MSG_EVT_SCAN_END";
+	case MSG_EVT_CONNECT_START:
+		return "MSG_EVT_CONNECT_START";
+	case MSG_EVT_CONNECT_LINKED:
+		return "MSG_EVT_CONNECT_LINKED";
+	case MSG_EVT_CONNECT_END:
+		return "MSG_EVT_CONNECT_END";
+	case MSG_EVT_SER_L1:
+		return "MSG_EVT_SER_L1";
+	case MSG_EVT_SER_L2:
+		return "MSG_EVT_SER_L2";
+	case MSG_EVT_ROLE_NTFY:
+		return "MSG_EVT_ROLE_NTFY";
+	case MSG_EVT_SWCH_START:
+		return "MSG_EVT_SWCH_START";
+	case MSG_EVT_SWCH_DONE:
+		return "MSG_EVT_SWCH_DONE";
+	case MSG_EVT_DISCONNECT_PREPARE:
+		return "MSG_EVT_DISCONNECT_PREPARE";
+	case MSG_EVT_DISCONNECT:
+		return "MSG_EVT_DISCONNECT";
+	case MSG_EVT_DISCONNECT_END:
+		return "MSG_EVT_DISCONNECT_END";
+	case MSG_EVT_TSF_SYNC_DONE:
+		return "MSG_EVT_TSF_SYNC_DONE";
+	case MSG_EVT_AP_START_PREPARE:
+		return "MSG_EVT_AP_START_PREPARE";
+	case MSG_EVT_AP_START:
+		return "MSG_EVT_AP_START";
+	case MSG_EVT_AP_START_END:
+		return "MSG_EVT_AP_START_END";
+	case MSG_EVT_AP_STOP_PREPARE:
+		return "MSG_EVT_AP_STOP_PREPARE";
+	case MSG_EVT_AP_STOP:
+		return "MSG_EVT_AP_STOP";
+	case MSG_EVT_AP_STOP_END:
+		return "MSG_EVT_AP_STOP_END";
+	case MSG_EVT_BTC_REQ_BT_SLOT:
+		return "MSG_EVT_BTC_REQ_BT_SLOT";
+	case MSG_EVT_SER_L0_RESET:
+		return "MSG_EVT_SER_L0_RESET";
+	case MSG_EVT_SER_M1_PAUSE_TRX:
+		return "MSG_EVT_SER_M1_PAUSE_TRX";
+	case MSG_EVT_SER_IO_TIMER_EXPIRE:
+		return "MSG_EVT_SER_IO_TIMER_EXPIRE";
+	case MSG_EVT_SER_FW_TIMER_EXPIRE:
+		return "MSG_EVT_SER_FW_TIMER_EXPIRE";
+	case MSG_EVT_SER_M3_DO_RECOV:
+		return "MSG_EVT_SER_M3_DO_RECOV";
+	case MSG_EVT_SER_M5_READY:
+		return "MSG_EVT_SER_M5_READY";
+	case MSG_EVT_SER_M9_L2_RESET:
+		return "MSG_EVT_SER_M9_L2_RESET";
+	case MSG_EVT_SER_EVENT_CHK:
+		return "MSG_EVT_SER_EVENT_CHK";
+	case MSG_EVT_SER_POLLING_CHK:
+		return "MSG_EVT_SER_POLLING_CHK";
+	case MSG_EVT_ECSA_START:
+		return "MSG_EVT_ECSA_START";
+	case MSG_EVT_ECSA_UPDATE_FIRST_BCN_DONE:
+		return "MSG_EVT_ECSA_UPDATE_FIRST_BCN_DONE";
+	case MSG_EVT_ECSA_COUNT_DOWN:
+		return "MSG_EVT_ECSA_COUNT_DOWN";
+	case MSG_EVT_ECSA_SWITCH_START:
+		return "MSG_EVT_ECSA_SWITCH_START";
+	case MSG_EVT_ECSA_SWITCH_DONE:
+		return "MSG_EVT_ECSA_SWITCH_DONE";
+	case MSG_EVT_ECSA_CHECK_TX_RESUME:
+		return "MSG_EVT_ECSA_CHECK_TX_RESUME";
+	case MSG_EVT_ECSA_DONE:
+		return "MSG_EVT_ECSA_DONE";
+	case MSG_EVT_DBCC_PROTOCOL_HDL:
+		return "MSG_EVT_DBCC_PROTOCOL_HDL";
+	case MSG_EVT_DBCC_ENABLE:
+		return "MSG_EVT_DBCC_ENABLE";
+	case MSG_EVT_DBCC_DISABLE:
+		return "MSG_EVT_DBCC_DISABLE";
+	case MSG_EVT_CHG_OP_CH_DEF_START:
+		return "MSG_EVT_CHG_OP_CH_DEF_START";
+	case MSG_EVT_CHG_OP_CH_DEF_END:
+		return "MSG_EVT_CHG_OP_CH_DEF_END";
+	case MSG_EVT_SET_MACID_PAUSE:
+		return "MSG_EVT_SET_MACID_PAUSE";
+	case MSG_EVT_SET_MACID_PAUSE_AC:
+		return "MSG_EVT_SET_MACID_PAUSE_AC";
+	case MSG_EVT_SET_MACID_PKT_DROP:
+		return "MSG_EVT_SET_MACID_PKT_DROP";
+	case MSG_EVT_DBG_SIP_REG_DUMP:
+		return "MSG_EVT_DBG_SIP_REG_DUMP";
+	case MSG_EVT_DBG_FULL_REG_DUMP:
+		return "MSG_EVT_DBG_FULL_REG_DUMP";
+	case MSG_EVT_DBG_L2_DIAGNOSE:
+		return "MSG_EVT_DBG_L2_DIAGNOSE";
+	case MSG_EVT_DBG_RX_DUMP:
+		return "MSG_EVT_DBG_RX_DUMP";
+	case MSG_EVT_DBG_TX_DUMP:
+		return "MSG_EVT_DBG_TX_DUMP";
+	default:
+		return "Unknown";
+	}
+}
+
+static const char *_get_mdl_str(u32 mdl)
+{
+	switch (mdl) {
+	case PHL_MDL_MRC:
+		return "PHL_MDL_MRC";
+	case PHL_MDL_POWER_MGNT:
+		return "PHL_MDL_POWER_MGNT";
+	case PHL_MDL_SER:
+		return "PHL_MDL_SER";
+	case PHL_MDL_MR_COEX:
+		return "PHL_MDL_MR_COEX";
+	case PHL_MDL_BTC:
+		return "PHL_MDL_BTC";
+	case PHL_FG_MDL_SCAN:
+		return "PHL_FG_MDL_SCAN";
+	case PHL_FG_MDL_CONNECT:
+		return "PHL_FG_MDL_CONNECT";
+	case PHL_FG_MDL_DISCONNECT:
+		return "PHL_FG_MDL_DISCONNECT";
+	case PHL_FG_MDL_AP_START:
+		return "PHL_FG_MDL_AP_START";
+	case PHL_FG_MDL_AP_STOP:
+		return "PHL_FG_MDL_AP_STOP";
+	case PHL_FG_MDL_ECSA:
+		return "PHL_FG_MDL_ECSA";
+	case PHL_FG_MDL_AP_ADD_DEL_STA:
+		return "PHL_FG_MDL_AP_ADD_DEL_STA";
+	default:
+		return "Unknown";
+	}
+}
+
+void rtw_phl_dump_mdl(struct phl_msg *msg, const char *caller)
+{
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s: HW_Band(%d), MDL(%s,%d), EVT(%s,%d)\n",
+		caller, msg->band_idx,
+		_get_mdl_str(MSG_MDL_ID_FIELD(msg->msg_id)),
+		MSG_MDL_ID_FIELD(msg->msg_id),
+		_get_evt_str(MSG_EVT_ID_FIELD(msg->msg_id)),
+		MSG_EVT_ID_FIELD(msg->msg_id));
+}
+
 
 enum rtw_phl_status
 _disp_eng_get_dispr_by_idx(struct phl_info_t *phl, u8 band_idx, void **dispr)
@@ -344,6 +535,7 @@ phl_disp_eng_deregister_module(struct phl_info_t *phl,
 	return dispr_deregister_module(disp_eng->dispatcher[idx], id);
 }
 
+#if !defined(CONFIG_CMD_DISP_SOLO_MODE)
 void disp_eng_notify_share_thread(struct phl_info_t *phl, void *dispr)
 {
 	void *d = phl_to_drvpriv(phl);
@@ -351,6 +543,7 @@ void disp_eng_notify_share_thread(struct phl_info_t *phl, void *dispr)
 
 	_os_sema_up(d, &(disp_eng->msg_q_sema));
 }
+#endif
 
 u8 phl_disp_eng_is_dispr_busy(struct phl_info_t *phl, u8 band_idx)
 {
@@ -516,7 +709,7 @@ phl_disp_eng_add_token_req(struct phl_info_t *phl,
                            u32 *req_hdl)
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
-	void* dispr = NULL;
+	void *dispr = NULL;
 
 	status = _disp_eng_get_dispr_by_idx(phl, band_idx, &dispr);
 	if (RTW_PHL_STATUS_SUCCESS != status)
@@ -549,6 +742,48 @@ phl_disp_eng_free_token(struct phl_info_t *phl, u8 band_idx, u32 *req_hdl)
 		return status;
 
 	return dispr_free_token(dispr, req_hdl);
+}
+
+enum rtw_phl_status
+phl_disp_eng_clearance_acquire(struct phl_info_t *phl, u8 band_idx)
+{
+	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
+	void* dispr = NULL;
+
+	status = _disp_eng_get_dispr_by_idx(phl, band_idx, &dispr);
+	if (RTW_PHL_STATUS_SUCCESS != status)
+		return status;
+
+	dispr_clearance_acquire(dispr);
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
+enum rtw_phl_status
+phl_disp_eng_clearance_release(struct phl_info_t *phl, u8 band_idx)
+{
+	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
+	void* dispr = NULL;
+
+	status = _disp_eng_get_dispr_by_idx(phl, band_idx, &dispr);
+	if (RTW_PHL_STATUS_SUCCESS != status)
+		return status;
+
+	dispr_clearance_release(dispr);
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
+enum rtw_phl_status
+phl_disp_eng_exclusive_ready(struct phl_info_t *phl, u8 band_idx)
+{
+	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
+	void* dispr = NULL;
+
+	status = _disp_eng_get_dispr_by_idx(phl, band_idx, &dispr);
+	if (RTW_PHL_STATUS_SUCCESS != status)
+		return status;
+
+	dispr_exclusive_ready(dispr, true);
+	return RTW_PHL_STATUS_SUCCESS;
 }
 
 enum rtw_phl_status
@@ -740,6 +975,18 @@ enum rtw_phl_status phl_disp_eng_cancel_token_req(struct phl_info_t *phl, u8 ban
 	return RTW_PHL_STATUS_FAILURE;
 }
 enum rtw_phl_status phl_disp_eng_free_token(struct phl_info_t *phl, u8 band_idx, u32 *req_hdl)
+{
+	return RTW_PHL_STATUS_FAILURE;
+}
+enum rtw_phl_status phl_disp_eng_clearance_acquire(struct phl_info_t *phl, u8 band_idx)
+{
+	return RTW_PHL_STATUS_FAILURE;
+}
+enum rtw_phl_status phl_disp_eng_clearance_release(struct phl_info_t *phl, u8 band_idx)
+{
+	return RTW_PHL_STATUS_FAILURE;
+}
+enum rtw_phl_status phl_disp_eng_exclusive_ready(struct phl_info_t *phl, u8 band_idx)
 {
 	return RTW_PHL_STATUS_FAILURE;
 }

@@ -38,7 +38,8 @@
 #define CLIENTS_WORSECASE_SMALL_DUR 60
 #define CLIENTS_WORSECASE_LARGE_DUR 90
 #define WORSECASE_INTVL 150
-#define MIN_TRIGGER_MCC_TIME 300/*TU*/
+#define LONG_TRIGGER_MCC_TIME 300/*TU*/
+#define SHORT_TRIGGER_MCC_TIME 100/*TU*/
 #define CLIENTS_TRACKING_TH 3
 #define CLIENTS_TRACKING_WORSECASE_TH 3
 #define CLIENTS_TRACKING_COURTESY_TH 3
@@ -80,7 +81,6 @@ struct phl_mcc_info {
 	enum rtw_phl_mcc_coex_mode coex_mode;
 	struct rtw_phl_mcc_bt_info bt_info;
 	struct phl_mcc_fw_log_info fw_log_i;
-	struct rtw_phl_mcc_dbg_info mcc_dbg_i;
 };
 
 

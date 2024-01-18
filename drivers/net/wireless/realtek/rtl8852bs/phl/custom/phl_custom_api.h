@@ -15,5 +15,18 @@
 #ifndef _PHL_CUSTOM_API_H_
 #define _PHL_CUSTOM_API_H_
 
+enum rtw_phl_status
+rtw_phl_custom_prepare_set_info_evt(u32 evt_id,
+                                    u32 customer_id,
+                                    struct rtw_custom_decrpt *inbuf,
+                                    struct phl_module_op_info *op_info,
+                                    u32 data_len);
+
+enum rtw_phl_status
+rtw_phl_custom_prepare_query_info_evt(u32 evt_id,
+                                      u32 customer_id,
+                                      struct rtw_custom_decrpt *inbuf,
+                                      struct phl_module_op_info *op_info,
+                                      u32 data_len);
 
 #endif /*_PHL_CUSTOM_API_H_*/

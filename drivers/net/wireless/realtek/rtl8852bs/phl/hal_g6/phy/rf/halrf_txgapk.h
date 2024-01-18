@@ -28,15 +28,10 @@ enum txgapk_id {
 struct halrf_gapk_info {
 
 	bool is_gapk_init;
-	u32 gapk_rf3f_bp[5][12][NUM]; /* band(2Gcck/2GOFDM/5GL/5GM/5GH)/idx/path */
-	bool gapk_bp_done;
-	s8 offset[12][NUM];
-	s8 fianl_offset[12][NUM];
-	u8 read_txgain;
 	bool is_gapk_enable;
-	u8 band[NUM];
+//	u8 band[NUM];
 	u8 ch[NUM];
-	u8 bw[NUM];	
+//	u8 bw[NUM];	
 	s32 track_d[2][17];
 	s32 track_ta[2][17];
 	s32 power_d[2][17];
@@ -44,6 +39,7 @@ struct halrf_gapk_info {
 	u32 txgapk_time;
 
 	bool	is_txgapk_ok;
+//	u32		failcode;
 	u32     r0x8010[2]; /* before and after txgapk */
 	u32     txgapk_chk_cnt[2][3][2]; /* path */ /* track pwr iqkbk*/ /* 0xbff8 0x80fc*/
 
@@ -51,6 +47,8 @@ struct halrf_gapk_info {
 	/* u8 txgapk_table_idx[NUM]; */
 	u8 txgapk_mcc_ch[2]; /* channel */
 	u8 txgapk_table_idx;
+
+	bool d_bnd_ok;
 };
 
 #endif

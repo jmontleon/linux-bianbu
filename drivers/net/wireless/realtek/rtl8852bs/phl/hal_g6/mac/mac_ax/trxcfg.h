@@ -38,7 +38,11 @@
 #define TRXCFG_MPDU_PROC_CUT_CTRL	0x010E05F0
 
 /* RMAC timeout control */
+#if (MAC_AX_8852C_SUPPORT) && defined(PHL_FEATURE_AP)
+#define TRXCFG_RMAC_CCA_TO	128
+#else
 #define TRXCFG_RMAC_CCA_TO	32
+#endif
 #define TRXCFG_RMAC_DATA_TO	15
 
 #define S_AX_TXSC_20M_0		0
@@ -54,6 +58,7 @@
 #define WMAC_SPEC_SIFS_OFDM_52A 0x15
 #define WMAC_SPEC_SIFS_OFDM_52B 0x11
 #define WMAC_SPEC_SIFS_OFDM_52C 0x11
+#define WMAC_SPEC_SIFS_OFDM_51B 0x11
 #define WMAC_SPEC_SIFS_CCK	 0xA
 
 /* RRSR disable 5.5M CCK*/
@@ -88,7 +93,8 @@
 #define SCH_PREBKF_16US 0x10
 
 #define BCN_IFS_25US 0x19
-#define SIFS_MACTXEN_T1 0x47
+#define SIFS_MACTXEN_T1_V0 0x47
+#define SIFS_MACTXEN_T1_V1 0x41
 
 #define SDIO_DRV_INFO_SIZE 2
 
@@ -105,8 +111,40 @@
 #define FWD_TO_DATACPU 2
 
 #define AMPDU_MAX_LEN_VHT_262K 0x3FF80
+#define SS2F_PATH_WLCPU 0x0A
+
+#define NAV_UPPER_DEFAULT 0
+
+#define TCR_UDF_THSD          0x6
+#define TXDFIFO_HIGH_MCS_THRE 0x7
+#define TXDFIFO_LOW_MCS_THRE  0x7
+
+#define B_AX_TX_TO  0x2
+#define DRVINFO_PATCH_SIZE  0x5
+
+/* response reference rate */
+#define REF2RXRATEANDCCTBL	0
+#define REF2RXRATEONLY		1
+
+/*The number of STA in UL SS2FRPT*/
+#define MAX_ULSS2F_SU_STA_NUM 0x3
+#define MAX_ULSS2F_TWT_STA_NUM 0x3
+#define MAX_ULSS2F_RU_STA_NUM 0x3
+
+/*The number of STA in DL SS2FRPT*/
+#define MAX_DLSS2F_SU_STA_NUM 0xF
+#define MAX_DLSS2F_MU_STA_NUM 0xF
+#define MAX_DLSS2F_RU_STA_NUM 0xF
+
+/*The bsr len threshold of UL SS2FRPT*/
+#define UL_NORMAL_SS2FWRPT_BSR_THRES 0x50
+#define UL_LATCY_SS2FWRPT_BSR_THRES 0x1
 
 /*--------------------Define MACRO--------------------------------------*/
+#define RX_FULL_MODE (B_AX_RU0_PTR_FULL_MODE | B_AX_RU1_PTR_FULL_MODE | \
+		      B_AX_RU2_PTR_FULL_MODE | B_AX_RU3_PTR_FULL_MODE | \
+		      B_AX_CSI_PTR_FULL_MODE | B_AX_RXSTS_PTR_FULL_MODE)
+
 /*--------------------Define Enum---------------------------------------*/
 /*--------------------Define Struct-------------------------------------*/
 
@@ -128,6 +166,10 @@
  */
 u32 mac_enable_imr(struct mac_ax_adapter *adapter, u8 band,
 		   enum mac_ax_hwmod_sel sel);
+
+u32 ser_imr_config(struct mac_ax_adapter *adapter, u8 band,
+		   enum mac_ax_hwmod_sel sel);
+
 /**
  * @}
  * @}
@@ -263,19 +305,57 @@ u32 mac_two_nav_cfg(struct mac_ax_adapter *adapter,
 /**
  * @}
  * @}
-
+ *
  *//**
  * @brief mac_sifs_chk_edcca_en
  *
  * @param *adapter
  * @param *band
- * @return Please Place Description here.
+ * @param *en
+ * @return check cca in sifs enable/disable
  * @retval u32
  */
-u32 mac_sifs_chk_cca_en(struct mac_ax_adapter *adapter, u8 band);
+u32 mac_sifs_chk_cca_en(struct mac_ax_adapter *adapter, u8 band, u8 en);
 /**
  * @}
  * @}
  */
+
+/**
+ * @}
+ * @}
+ *
+ *//**
+ * @brief _patch_rsp_ack
+ *
+ * @param *adapter
+ * @param *band
+ * @param *en
+ * @return check cca in sifs enable/disable
+ * @retval u32
+ */
+u32 _patch_rsp_ack(struct mac_ax_adapter *adapter,
+		   struct mac_ax_resp_chk_cca *cfg);
+/**
+ * @}
+ * @}
+ */
+/**
+ * @brief chk_patch_ss2f_path
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval bool
+ */
+bool chk_patch_ss2f_path(struct mac_ax_adapter *adapter);
+
+/**
+ * @brief mac_feat_init
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval bool
+ */
+u32 mac_feat_init(struct mac_ax_adapter *adapter, struct mac_ax_trx_info *info);
 
 #endif

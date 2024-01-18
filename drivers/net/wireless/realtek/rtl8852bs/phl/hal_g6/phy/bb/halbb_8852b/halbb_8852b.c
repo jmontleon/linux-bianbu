@@ -48,6 +48,42 @@ bool halbb_chk_pkg_valid_8852b(struct bb_info *bb, u8 bb_ver, u8 rf_ver)
 	return valid;
 }
 
+bool halbb_chk_tx_idle_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx)
+{
+	u8 tx_state = 0;
+	bool idle = false;
+	u32 dbg_port = 0x30002;
+
+	BB_DBG(bb, DBG_PHY_CONFIG, "<====== %s ======>\n", __func__);
+
+	if (phy_idx == HW_PHY_1)
+		return false;
+
+	if (halbb_bb_dbg_port_racing(bb, DBGPORT_PRI_3)) {
+		halbb_dbg_port_sel(bb, (u16)(dbg_port & 0xffff),
+				   (u8)((dbg_port & 0xff0000) >> 16), 0x0, 0x1);
+		BB_DBG(bb, DBG_PHY_CONFIG,
+		       "*Set dbg_port=(0x%x)\n", dbg_port);
+	} else {
+		dbg_port = halbb_get_bb_dbg_port_idx(bb);
+		BB_DBG(bb, DBG_PHY_CONFIG,
+		       "[Set dbg_port fail!] Curr-DbgPort=0x%x\n", dbg_port);
+
+		return false;
+	}
+
+	/* Release DBG port */
+	halbb_release_bb_dbg_port(bb);
+
+	tx_state = (u8)(halbb_get_bb_dbg_port_val(bb) & 0x3f);
+
+	if (tx_state == 0)
+		idle = true;
+	else
+		idle = false;
+
+	return idle;
+}
 
 void halbb_stop_pmac_tx_8852b(struct bb_info *bb,
 			      struct halbb_pmac_info *tx_info,
@@ -176,6 +212,7 @@ void halbb_ic_hw_setting_init_8852b(struct bb_info *bb)
 void halbb_ic_hw_setting_8852b(struct bb_info *bb)
 {
 	bool btg_en;
+	u32 id = bb->phl_com->id.id & 0xFFFF;
 	
 	BB_DBG(bb, DBG_PHY_CONFIG, "<====== %s ======>\n", __func__);
 	
@@ -191,6 +228,12 @@ void halbb_ic_hw_setting_8852b(struct bb_info *bb)
 		BB_DBG(bb, DBG_PHY_CONFIG, "[BT] btg_en=%d, is_linked=%d\n", btg_en, bb->bb_link_i.is_linked);
 		BB_DBG(bb, DBG_PHY_CONFIG, "[BT][RSSI] rssi_min=0x%x\n", bb->bb_ch_i.rssi_min >> 1);
 	}
+
+	// for wrc
+	if ((bb->hal_com->band[0].cur_chandef.band == BAND_ON_5G) && (id == 0x112))
+		halbb_set_reg(bb, 0x4408, BIT(25), 0x1);
+	else
+		halbb_set_reg(bb, 0x4408, BIT(25), 0x0);
 
 }
 
@@ -220,7 +263,7 @@ bool halbb_set_pd_lower_bound_8852b(struct bb_info *bb, u8 bound,
 
 	bb->bb_cmn_backup_i.cur_pd_lower_bound = bound;
 
-	if (bw == CHANNEL_WIDTH_20) {
+	if ((bw == CHANNEL_WIDTH_20) || (bw == CHANNEL_WIDTH_10) || (bw == CHANNEL_WIDTH_5)) {
 		bw_attenuation = 0;
 	} else if (bw == CHANNEL_WIDTH_40) {
 		bw_attenuation = 3;
@@ -282,7 +325,7 @@ bool halbb_set_pd_lower_bound_cck_8852b(struct bb_info *bb, u8 bound,
 		return true;
 	}
 
-	if (bw == CHANNEL_WIDTH_20) {
+	if ((bw == CHANNEL_WIDTH_20) || (bw == CHANNEL_WIDTH_10) || (bw == CHANNEL_WIDTH_5)) {
 		bw_attenuation = 0;
 	}
 	else if (bw == CHANNEL_WIDTH_40) {
@@ -345,4 +388,36 @@ bool halbb_querry_pop_en_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx)
 
 	return en;
 }
+
+void halbb_dyn_mu_bypass_vht_sigb_8852b(struct bb_info *bb)
+{
+	struct bb_cmn_rpt_info	*cmn_rpt = &bb->bb_cmn_rpt_i;
+	struct bb_pkt_cnt_mu_info *pkt_cnt = &cmn_rpt->bb_pkt_cnt_mu_i;
+	u8 offset = 0;
+	u32 vht_mu_pkt_th = 10;
+	u32 vht_mu_pkt = 0;
+
+	for (offset = 0; offset < VHT_RATE_NUM; offset++) {
+		vht_mu_pkt += pkt_cnt->pkt_cnt_vht[offset];
+	}
+	if (vht_mu_pkt > vht_mu_pkt_th) {
+		halbb_set_reg(bb, 0x4414, BIT(5), 1); // loop filter bandwidth selection slicer for 1st step to 2nd step
+		halbb_set_reg(bb, 0x4400, 0x07000000, 0x3); // channel tracking coefficients selection slicer for 1st step to 2nd step
+		halbb_set_reg(bb, 0x4404, 0x000f8000, 0x1f); // data tracking loop filter bandwidth selection for 2nd step
+		halbb_set_reg(bb, 0x4404, 0x0000001f, 0x4); // channel tracking coefficients selection slicer for 2nd step to 3rd step
+		halbb_set_reg(bb, 0x43f8, 0x00fc0000, 0x0); // channel tracking coefficients for 2nd step
+		halbb_set_reg(bb, 0x440c, 0x000f8000, 0x1f); // pilot tracking loop filter bandwidth selection for 2nd step
+		halbb_set_reg(bb, 0x43f8, BIT(30), 0); // enable noise variance tracking
+	} else {
+		halbb_set_reg(bb, 0x4414, BIT(5), 0); // loop filter bandwidth selection slicer for 1st step to 2nd step
+		halbb_set_reg(bb, 0x4400, 0x07000000, 0x4); // channel tracking coefficients selection slicer for 1st step to 2nd step
+		halbb_set_reg(bb, 0x4404, 0x000f8000, 0x1); // data tracking loop filter bandwidth selection for 2nd step
+		halbb_set_reg(bb, 0x4404, 0x0000001f, 0x8); // channel tracking coefficients selection slicer for 2nd step to 3rd step
+		halbb_set_reg(bb, 0x43f8, 0x00fc0000, 0x4); // channel tracking coefficients for 2nd step
+		halbb_set_reg(bb, 0x440c, 0x000f8000, 0x1); // pilot tracking loop filter bandwidth selection for 2nd step
+		halbb_set_reg(bb, 0x43fc, BIT(30), 1); // enable noise variance tracking
+	}
+}
+
+
 #endif

@@ -14,6 +14,7 @@
  ******************************************************************************/
 
 #include "ser.h"
+#include "mac_priv.h"
 
 #define DBG_SENARIO_SH 28
 
@@ -31,9 +32,94 @@ enum mac_ax_l0_to_l1_event {
 	MAC_AX_L0_TO_L1_EVENT_MAX = 15,
 };
 
+enum mac_ax_halt_h2c_info {
+	MAC_AX_L0_DBG_MODE = 0x10,
+	MAC_AX_L1_DBG_MODE = 0x17,
+};
+
 static void dump_err_status_dispatcher(struct mac_ax_adapter *adapter);
 static void dump_err_status_dmac(struct mac_ax_adapter *adapter);
 static void dump_err_status_cmac(struct mac_ax_adapter *adapter, u8 band);
+static void dump_cmac_cr(struct mac_ax_adapter *adapter, u8 band);
+static void dump_dmac_cr(struct mac_ax_adapter *adapter);
+
+u32 mac_dbg_log_dump(struct mac_ax_adapter *adapter)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	struct mac_ax_dbgpkg dbg_val;
+	struct mac_ax_dbgpkg_en dbg_en;
+	u32 error = 0, dbg_port_dump_en = 0, val32, mem_size;
+
+	error = (enum mac_ax_err_info)MAC_REG_R32(R_AX_HALT_C2H);
+
+	switch (error) {
+	case MAC_AX_ERR_L1_ERR_DMAC:
+	case MAC_AX_ERR_L0_PROMOTE_TO_L1:
+		PLTFM_MEMSET(&dbg_en, 0, sizeof(struct mac_ax_dbgpkg_en));
+		if (adapter->ser_info.dbg_lvl.dmac_dbg_dump) {
+			dbg_en.dmac_dbg = 1;
+			dbg_port_dump_en = 1;
+		}
+		if (adapter->ser_info.dbg_lvl.cmac_dbg_dump) {
+			dbg_en.cmac_dbg = 1;
+			dbg_port_dump_en = 1;
+		}
+		if (adapter->ser_info.dbg_lvl.txflow_dbg_dump) {
+			dbg_en.tx_flow_dbg = 1;
+			dbg_port_dump_en = 1;
+		}
+		if (adapter->ser_info.dbg_lvl.dbgprt_dump) {
+			dbg_en.mac_dbg_port = 1;
+			dbg_en.dle_dbg = 1;
+			dbg_port_dump_en = 1;
+		}
+
+		if (dbg_port_dump_en) {
+			// for debug port log would cause fw wdt
+			val32 = MAC_REG_R32(R_AX_HIMR0);
+			val32 &= ~B_AX_WDT_TIMEOUT_INT_EN;
+			MAC_REG_W32(R_AX_HIMR0, val32);
+			mac_dbg_status_dump(adapter, &dbg_val, &dbg_en);
+			val32 = MAC_REG_R32(R_AX_HIMR0);
+			val32 |= B_AX_WDT_TIMEOUT_INT_EN;
+			MAC_REG_W32(R_AX_HIMR0, val32);
+		}
+		if (adapter->ser_info.dbg_lvl.share_mem_dump) {
+			mem_size = mac_get_mem_size(adapter, MAC_AX_MEM_SHARED_BUF);
+			val32 = MAC_REG_R32(R_AX_HIMR0);
+			val32 &= ~B_AX_WDT_TIMEOUT_INT_EN;
+			MAC_REG_W32(R_AX_HIMR0, val32);
+			mac_mem_dump(adapter, MAC_AX_MEM_SHARED_BUF, 0x0, NULL, mem_size, 0);
+			val32 = MAC_REG_R32(R_AX_HIMR0);
+			val32 |= B_AX_WDT_TIMEOUT_INT_EN;
+			MAC_REG_W32(R_AX_HIMR0, val32);
+		}
+
+		if (adapter->ser_info.dbg_lvl.mac_reg_dump)
+			mac_reg_dump(adapter, MAC_AX_REG_MAC);
+		break;
+	case MAC_AX_ERR_L1_RESET_DISABLE_DMAC_DONE:
+		break;
+	case MAC_AX_ERR_L1_RESET_RECOVERY_DONE:
+		break;
+	default:
+		break;
+	}
+
+	return MACSUCCESS;
+}
+
+u32 mac_dbg_log_lvl_adjust(struct mac_ax_adapter *adapter, struct mac_debug_log_lvl *lvl)
+{
+	adapter->ser_info.dbg_lvl.dbgprt_dump = lvl->dbgprt_dump;
+	adapter->ser_info.dbg_lvl.share_mem_dump = lvl->share_mem_dump;
+	adapter->ser_info.dbg_lvl.cmac_dbg_dump = lvl->cmac_dbg_dump;
+	adapter->ser_info.dbg_lvl.dmac_dbg_dump = lvl->dmac_dbg_dump;
+	adapter->ser_info.dbg_lvl.txflow_dbg_dump = lvl->txflow_dbg_dump;
+	adapter->ser_info.dbg_lvl.mac_reg_dump = lvl->mac_reg_dump;
+
+	return MACSUCCESS;
+}
 
 u32 mac_trigger_cmac_err(struct mac_ax_adapter *adapter)
 {
@@ -117,6 +203,7 @@ u32 mac_dump_qta_lost(struct mac_ax_adapter *adapter)
 	struct dle_dfi_qempty_t qempty;
 	struct dle_dfi_quota_t quota;
 	struct dle_dfi_ctrl_t ctrl;
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u32 ret, val, not_empty, i;
 
@@ -137,7 +224,7 @@ u32 mac_dump_qta_lost(struct mac_ax_adapter *adapter)
 		ctrl.addr = (QLNKTBL_ADDR_INFO_SEL_0 ?
 			     QLNKTBL_ADDR_INFO_SEL : 0) |
 			SET_WORD(i, QLNKTBL_ADDR_TBL_IDX);
-		ret = dle_dfi_ctrl(adapter, &ctrl);
+		ret = p_ops->dle_dfi_ctrl(adapter, &ctrl);
 		if (ret == MACSUCCESS)
 			PLTFM_MSG_ALWAYS("qidx%d pktcnt = %d\n", i,
 					 GET_FIELD(ctrl.out_data,
@@ -254,27 +341,93 @@ u32 mac_dump_err_status(struct mac_ax_adapter *adapter,
 			enum mac_ax_err_info err)
 {
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	struct mac_ax_dbgpkg dbg_val;
+	struct mac_ax_dbgpkg_en dbg_en;
+	u32 cmac_err, dmac_err;
+	u8 val8;
+	u32 ret, i, mem_size;
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 
 	PLTFM_MSG_ERR("--->\n err=0x%x\n", err);
 	if (err == MAC_AX_ERR_L1_ERR_DMAC ||
 	    err == MAC_AX_ERR_L0_PROMOTE_TO_L1 ||
 	    err == MAC_AX_ERR_L0_ERR_CMAC0 ||
-	    err == MAC_AX_ERR_L0_ERR_CMAC1) {
+	    err == MAC_AX_ERR_L0_ERR_CMAC1 ||
+	    err == HALT_C2H_L1_DBG_MODE ||
+	    err == MAC_AX_ERR_L0_PROMOTE_TO_L1_DBG) {
 		PLTFM_MSG_ERR("R_AX_SER_DBG_INFO =0x%08x\n",
 			      MAC_REG_R32(R_AX_SER_DBG_INFO));
+		PLTFM_MSG_ERR("DBG Counter 1 (0x1C0)=0x%08x\n",
+			      MAC_REG_R32(0x1C0));
+		PLTFM_MSG_ERR("DBG Counter 2 (0x1C4)=0x%08x\n",
+			      MAC_REG_R32(0x1C4));
 
 		dump_err_status_dmac(adapter);
 		dump_err_status_cmac(adapter, MAC_AX_BAND_0);
 		dump_err_status_cmac(adapter, MAC_AX_BAND_1);
 
 		if (adapter->hw_info->intf == MAC_AX_INTF_PCIE) {
-			PLTFM_MSG_ERR("R_AX_DBG_ERR_FLAG=0x%08x\n",
-				      MAC_REG_R32(R_AX_DBG_ERR_FLAG));
-			PLTFM_MSG_ERR("R_AX_LBC_WATCHDOG=0x%08x\n",
-				      MAC_REG_R32(R_AX_LBC_WATCHDOG));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+			if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+			    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+			    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+				PLTFM_MSG_ERR("R_AX_DBG_ERR_FLAG=0x%08x\n",
+					      MAC_REG_R32(R_AX_DBG_ERR_FLAG));
+				PLTFM_MSG_ERR("R_AX_LBC_WATCHDOG=0x%08x\n",
+					      MAC_REG_R32(R_AX_LBC_WATCHDOG));
+			}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+			if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+			    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+			    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+			    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+				PLTFM_MSG_ERR("R_AX_DBG_ERR_FLAG=0x%08x\n",
+					      MAC_REG_R32(R_AX_DBG_ERR_FLAG_V1));
+				PLTFM_MSG_ERR("R_AX_LBC_WATCHDOG=0x%08x\n",
+					      MAC_REG_R32(R_AX_LBC_WATCHDOG_V1));
+			}
+#endif
 		}
-		if (err == MAC_AX_ERR_L0_PROMOTE_TO_L1)
+		if (err == MAC_AX_ERR_L0_PROMOTE_TO_L1 ||
+		    err == MAC_AX_ERR_L0_PROMOTE_TO_L1_DBG)
 			mac_dump_l0_to_l1(adapter, err);
+	}
+	if (err == MAC_AX_ERR_L0_ERR_CMAC0 ||
+	    err == MAC_AX_ERR_L0_ERR_CMAC1 ||
+	    err == HALT_C2H_L1_DBG_MODE ||
+	    err == MAC_AX_ERR_CPU_EXCEPTION ||
+	    err == MAC_AX_ERR_ASSERTION ||
+	    err == MAC_AX_ERR_RXI300 ||
+	    err == MAC_AX_ERR_L0_PROMOTE_TO_L1_DBG) {
+		cmac_err = MAC_REG_R32(R_AX_CMAC_ERR_ISR);
+		dmac_err = MAC_REG_R32(R_AX_DMAC_ERR_ISR);
+		dump_dmac_cr(adapter);
+		dump_cmac_cr(adapter, MAC_AX_BAND_0);
+		dump_cmac_cr(adapter, MAC_AX_BAND_1);
+		// dump DLE TBL & STA SCH
+		PLTFM_MEMSET(&dbg_en, 0, sizeof(struct mac_ax_dbgpkg_en));
+		dbg_en.ss_dbg = 1;
+		dbg_en.dle_dbg = 1;
+		mac_dbg_status_dump(adapter, &dbg_val, &dbg_en);
+		// dump debug port
+		for (i = MAC_AX_DBG_PORT_SEL_PTCL_C0; i < MAC_AX_DBG_PORT_SEL_LAST; i++) {
+			if (p_ops->is_dbg_port_not_valid(adapter, i))
+				continue;
+			ret = dbg_port_dump(adapter, i);
+			if (ret == MACDBGPORTSEL) {
+				PLTFM_MSG_WARN("no dbg port sel %d\n", i);
+				continue;
+			} else if (ret != MACSUCCESS) {
+				PLTFM_MSG_ERR("dbg port %d dump %d\n", i, ret);
+				break;
+			}
+		}
+
+		mem_size = mac_get_mem_size(adapter, MAC_AX_MEM_SHARED_BUF);
+		mac_mem_dump(adapter, MAC_AX_MEM_SHARED_BUF, 0x0, NULL, mem_size, 0);
+		val8 = MAC_REG_R8(0x1FC) | BIT0;
+		MAC_REG_W8(0x1FC, val8);
 	}
 	PLTFM_MSG_ERR("<---\n");
 
@@ -323,7 +476,7 @@ u32 mac_get_err_status(struct mac_ax_adapter *adapter,
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u32 cnt = MAC_SET_ERR_DLY_CNT;
 	u32 ret = MACSUCCESS;
-	u32 error_senario = 0;
+	u32 error_scenario = 0;
 
 	PLTFM_MUTEX_LOCK(&adapter->hw_info->err_get_lock);
 	adapter->sm.l2_st = MAC_AX_L2_DIS;
@@ -357,19 +510,17 @@ u32 mac_get_err_status(struct mac_ax_adapter *adapter,
 	}
 
 	/* Decode the error status from halc2h */
-	error_senario = (*err) >> DBG_SENARIO_SH;
-	if (!(MAC_REG_R32(R_AX_UDM0) & (1 << B_AX_UDM0_DBG_MODE_SH))) {
-		if (error_senario == CPU_EXCEPTION)
+	error_scenario = (*err) >> DBG_SENARIO_SH;
+	if (!(MAC_REG_R32(R_AX_UDM0) & B_AX_UDM0_DBG_MODE_CTRL)) {
+		if (error_scenario == CPU_EXCEPTION)
 			*err = MAC_AX_ERR_CPU_EXCEPTION;
-		else if (error_senario == ASSERTION)
+		else if (error_scenario == ASSERTION)
 			*err = MAC_AX_ERR_ASSERTION;
+		else if (error_scenario == RXI300_ERROR)
+			*err = MAC_AX_ERR_RXI300;
 	}
 
 	//3  3. Execute Recode Normal Debug Register
-	if (*err == MAC_AX_ERR_L0_ERR_CMAC0 ||
-	    *err == MAC_AX_ERR_L0_ERR_CMAC1) {
-		pltfm_dbg_dump(adapter);
-	}
 	fw_st_dbg_dump(adapter);
 	mac_dump_err_status(adapter, *err);
 	if (*err == MAC_AX_ERR_L0_ERR_CMAC0 ||
@@ -378,13 +529,16 @@ u32 mac_get_err_status(struct mac_ax_adapter *adapter,
 	}
 
 	//3 4. Execute Recode Share memory debug information
-	if (MAC_REG_R32(R_AX_UDM0) & (1 << B_AX_UDM0_DBG_MODE_SH)) {
+	if (MAC_REG_R32(R_AX_UDM0) & B_AX_UDM0_DBG_MODE_CTRL) {
 		/* if debug mode =1 , dump share buffer */
-		if (error_senario) {
+		if (error_scenario) {
 			*err = (enum mac_ax_err_info)MAC_AX_DUMP_SHAREBUFF_INDICATOR;
 			//notify phl to print share buffer
 		}
 	}
+
+	//3 5.  dump detailed log for further debug usage.
+	mac_dbg_log_dump(adapter);
 end:
 	adapter->sm.l2_st = MAC_AX_L2_EN;
 	PLTFM_MUTEX_UNLOCK(&adapter->hw_info->err_get_lock);
@@ -405,6 +559,9 @@ u32 mac_lv1_rcvy(struct mac_ax_adapter *adapter, enum mac_ax_lv1_rcvy_step step)
 			return MACPROCERR;
 		}
 #if MAC_AX_PCIE_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
 		if (adapter->hw_info->intf == MAC_AX_INTF_PCIE) {
 			val8 = 0;
 			ret = lv1rst_stop_dma_pcie(adapter, val8);
@@ -413,6 +570,9 @@ u32 mac_lv1_rcvy(struct mac_ax_adapter *adapter, enum mac_ax_lv1_rcvy_step step)
 				return ret;
 			}
 		}
+	} else {
+		// 52C PCIE Stop flow made in FW
+	}
 #endif
 
 #if MAC_AX_USB_SUPPORT
@@ -433,13 +593,19 @@ u32 mac_lv1_rcvy(struct mac_ax_adapter *adapter, enum mac_ax_lv1_rcvy_step step)
 			return MACPROCERR;
 		}
 #if MAC_AX_PCIE_SUPPORT
-		if (adapter->hw_info->intf == MAC_AX_INTF_PCIE) {
-			val8 = 0;
-			ret = lv1rst_start_dma_pcie(adapter, val8);
-			if (ret) {
-				PLTFM_MSG_ERR("lv1 rcvy pcie start dma fail\n");
-				return ret;
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			if (adapter->hw_info->intf == MAC_AX_INTF_PCIE) {
+				val8 = 0;
+				ret = lv1rst_start_dma_pcie(adapter, val8);
+				if (ret) {
+					PLTFM_MSG_ERR("lv1 rcvy pcie start dma fail\n");
+					return ret;
+				}
 			}
+		} else {
+			// 52C PCIE Stop flow made in FW
 		}
 #endif
 
@@ -539,6 +705,8 @@ static void dump_err_status_dmac(struct mac_ax_adapter *adapter)
 
 	dmac_err = MAC_REG_R32(R_AX_DMAC_ERR_ISR);
 	PLTFM_MSG_ERR("R_AX_DMAC_ERR_ISR =0x%08x\n", dmac_err);
+	PLTFM_MSG_ALWAYS("R_AX_DMAC_ERR_IMR=0x%x\n",
+			 MAC_REG_R32(R_AX_DMAC_ERR_IMR));
 
 	PLTFM_MSG_ERR("R_AX_DMAC_FUNC_EN =0x%08x\n",
 		      MAC_REG_R32(R_AX_DMAC_FUNC_EN));
@@ -547,9 +715,21 @@ static void dump_err_status_dmac(struct mac_ax_adapter *adapter)
 
 	if (dmac_err) {
 		PLTFM_MSG_ERR("R_AX_WDE_ERR_FLAG_CFG =0x%08x\n",
-			      MAC_REG_R32(R_AX_WDE_ERR_FLAG_CFG));
+			      MAC_REG_R32(R_AX_WDE_ERR_FLAG_CFG_NUM1));
 		PLTFM_MSG_ERR("R_AX_PLE_ERR_FLAG_CFG =0x%08x\n",
-			      MAC_REG_R32(R_AX_PLE_ERR_FLAG_CFG));
+			      MAC_REG_R32(R_AX_PLE_ERR_FLAG_CFG_NUM1));
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		PLTFM_MSG_ERR("R_AX_PLE_ERRFLAG_MSG =0x%08x\n",
+			      MAC_REG_R32(R_AX_PLE_ERRFLAG_MSG));
+		PLTFM_MSG_ERR("R_AX_PLE_ERRFLAG_MSG 0x9030 Reg dump =0x%08x\n",
+			      MAC_REG_R32(R_AX_PLE_ERRFLAG_MSG));
+		PLTFM_MSG_ERR("R_AX_WDE_ERRFLAG_MSG 0x8C30 Reg dump =0x%08x\n",
+			      MAC_REG_R32(R_AX_WDE_ERRFLAG_MSG));
+		PLTFM_MSG_ERR("R_AX_PLE_DBGERR_LOCKEN 0x9020 Reg dump =0x%08x\n",
+			      MAC_REG_R32(R_AX_PLE_DBGERR_LOCKEN));
+		PLTFM_MSG_ERR("R_AX_PLE_DBGERR_STS 0x9024 Reg dump =0x%08x\n",
+			      MAC_REG_R32(R_AX_PLE_DBGERR_STS));
+#endif
 	}
 
 	if (dmac_err & B_AX_WDRLS_ERR_FLAG) {
@@ -557,31 +737,98 @@ static void dump_err_status_dmac(struct mac_ax_adapter *adapter)
 			      MAC_REG_R32(R_AX_WDRLS_ERR_IMR));
 		PLTFM_MSG_ERR("R_AX_WDRLS_ERR_ISR =0x%08x\n",
 			      MAC_REG_R32(R_AX_WDRLS_ERR_ISR));
-		PLTFM_MSG_ERR("R_AX_RPQ_RXBD_IDX =0x%08x\n",
-			      MAC_REG_R32(R_AX_RPQ_RXBD_IDX));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_RPQ_RXBD_IDX =0x%08x\n",
+				      MAC_REG_R32(R_AX_RPQ_RXBD_IDX));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_RPQ_RXBD_IDX =0x%08x\n",
+				      MAC_REG_R32(R_AX_RPQ_RXBD_IDX_V1));
+		}
+#endif
 	}
 
 	if (dmac_err & B_AX_WSEC_ERR_FLAG) {
-		PLTFM_MSG_ERR("R_AX_SEC_ERR_IMR_ISR =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_DEBUG));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D00 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_ENG_CTRL));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D04 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_MPDU_PROC));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D10 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_CAM_ACCESS));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D14 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_CAM_RDATA));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D18 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_CAM_WDATA));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D20 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_TX_DEBUG));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D24 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_RX_DEBUG));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D28 =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_TRX_PKT_CNT));
-		PLTFM_MSG_ERR("SEC_local_Register 0x9D2C =0x%08x\n",
-			      MAC_REG_R32(R_AX_SEC_TRX_BLK_CNT));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_SEC_ERR_IMR_ISR =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_DEBUG));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D00 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_ENG_CTRL));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D04 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_MPDU_PROC));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D10 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_CAM_ACCESS));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D14 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_CAM_RDATA));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D18 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_CAM_WDATA));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D20 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_TX_DEBUG));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D24 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_RX_DEBUG));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D28 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_TRX_PKT_CNT));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D2C =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_TRX_BLK_CNT));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		u32 val32 = 0, i = 0;
+
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_SEC_ERR_IMR =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_ERROR_FLAG_IMR));
+			PLTFM_MSG_ERR("R_AX_SEC_ERR_ISR =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_ERROR_FLAG));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D00 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_ENG_CTRL));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D04 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_MPDU_PROC));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D10 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_CAM_ACCESS));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D14 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_CAM_RDATA));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D1C =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_DEBUG1));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D20 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_TX_DEBUG));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D24 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_RX_DEBUG));
+			PLTFM_MSG_ERR("SEC_local_Register 0x9D28 =0x%08x\n",
+				      MAC_REG_R32(R_AX_SEC_DEBUG2));
+
+			val32 = MAC_REG_R32(R_AX_DBG_CTRL);
+			val32 = SET_CLR_WORD(val32, SEC_DBG_SEL, B_AX_DBG_SEL0);
+			val32 = SET_CLR_WORD(val32, SEC_DBG_SEL, B_AX_DBG_SEL1);
+			MAC_REG_W32(R_AX_DBG_CTRL, val32);
+
+			val32 = MAC_REG_R32(R_AX_SYS_STATUS1);
+			val32 = SET_CLR_WORD(val32, MAC_DBG_SEL, B_AX_SEL_0XC0);
+			MAC_REG_W32(R_AX_SYS_STATUS1, val32);
+			PLTFM_MSG_ALWAYS("SECURITY ENGINE DEBUG PORT DUMP\n");
+			for (i = 0; i < SEC_DBG_PORT_NUM; i++) {
+				val32 = MAC_REG_R32(R_AX_SEC_ENG_CTRL);
+				val32 = SET_CLR_WORD(val32, i, SEC_DBG_PORT_FIELD);
+				MAC_REG_W32(R_AX_SEC_ENG_CTRL, val32);
+				PLTFM_MSG_ERR("debug sel = %x, 0x9D28 =0x%08x\n",
+					      i, MAC_REG_R32(R_AX_SEC_DEBUG2));
+			}
+		}
+#endif
 	}
 
 	if (dmac_err & B_AX_MPDU_ERR_FLAG) {
@@ -614,10 +861,31 @@ static void dump_err_status_dmac(struct mac_ax_adapter *adapter)
 	}
 
 	if (dmac_err & B_AX_TXPKTCTRL_ERR_FLAG) {
-		PLTFM_MSG_ERR("R_AX_TXPKTCTL_ERR_IMR_ISR=0x%08x\n",
-			      MAC_REG_R32(R_AX_TXPKTCTL_ERR_IMR_ISR));
-		PLTFM_MSG_ERR("R_AX_TXPKTCTL_ERR_IMR_ISR_B1=0x%08x\n",
-			      MAC_REG_R32(R_AX_TXPKTCTL_ERR_IMR_ISR_B1));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_TXPKTCTL_ERR_IMR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_TXPKTCTL_ERR_IMR_ISR));
+			PLTFM_MSG_ERR("R_AX_TXPKTCTL_ERR_IMR_ISR_B1=0x%08x\n",
+				      MAC_REG_R32(R_AX_TXPKTCTL_ERR_IMR_ISR_B1));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_TXPKTCTL_B0_ERRFLAG_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_TXPKTCTL_B0_ERRFLAG_IMR));
+			PLTFM_MSG_ERR("R_AX_TXPKTCTL_B0_ERRFLAG_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_TXPKTCTL_B0_ERRFLAG_ISR));
+			PLTFM_MSG_ERR("R_AX_TXPKTCTL_B1_ERRFLAG_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_TXPKTCTL_B1_ERRFLAG_IMR));
+			PLTFM_MSG_ERR("R_AX_TXPKTCTL_B1_ERRFLAG_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_TXPKTCTL_B1_ERRFLAG_ISR));
+		}
+#endif
 	}
 
 	if (dmac_err & B_AX_PLE_DLE_ERR_FLAG) {
@@ -645,12 +913,31 @@ static void dump_err_status_dmac(struct mac_ax_adapter *adapter)
 			      MAC_REG_R32(R_AX_PL_CPUQ_OP_2));
 		PLTFM_MSG_ERR("R_AX_PL_CPUQ_OP_STATUS=0x%08x\n",
 			      MAC_REG_R32(R_AX_PL_CPUQ_OP_STATUS));
-		PLTFM_MSG_ERR("R_AX_RXDMA_PKT_INFO_0=0x%08x\n",
-			      MAC_REG_R32(R_AX_RXDMA_PKT_INFO_0));
-		PLTFM_MSG_ERR("R_AX_RXDMA_PKT_INFO_1=0x%08x\n",
-			      MAC_REG_R32(R_AX_RXDMA_PKT_INFO_1));
-		PLTFM_MSG_ERR("R_AX_RXDMA_PKT_INFO_2=0x%08x\n",
-			      MAC_REG_R32(R_AX_RXDMA_PKT_INFO_2));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_RXDMA_PKT_INFO_0=0x%08x\n",
+				      MAC_REG_R32(R_AX_RXDMA_PKT_INFO_0));
+			PLTFM_MSG_ERR("R_AX_RXDMA_PKT_INFO_1=0x%08x\n",
+				      MAC_REG_R32(R_AX_RXDMA_PKT_INFO_1));
+			PLTFM_MSG_ERR("R_AX_RXDMA_PKT_INFO_2=0x%08x\n",
+				      MAC_REG_R32(R_AX_RXDMA_PKT_INFO_2));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_RX_CTRL0=0x%08x\n",
+				      MAC_REG_R32(R_AX_RX_CTRL0));
+			PLTFM_MSG_ERR("R_AX_RX_CTRL1=0x%08x\n",
+				      MAC_REG_R32(R_AX_RX_CTRL1));
+			PLTFM_MSG_ERR("R_AX_RX_CTRL2=0x%08x\n",
+				      MAC_REG_R32(R_AX_RX_CTRL2));
+		}
+#endif
 		dump_err_status_dispatcher(adapter);
 	}
 
@@ -675,9 +962,56 @@ static void dump_err_status_dmac(struct mac_ax_adapter *adapter)
 			      MAC_REG_R32(R_AX_CPUIO_ERR_ISR));
 	}
 
-	if (dmac_err & BIT(11)) {
-		PLTFM_MSG_ERR("R_AX_BBRPT_COM_ERR_IMR_ISR=0x%08x\n",
-			      MAC_REG_R32(R_AX_BBRPT_COM_ERR_IMR_ISR));
+	if (dmac_err & B_AX_BBRPT_ERR_FLAG) {
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_BBRPT_COM_ERR_IMR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_COM_ERR_IMR_ISR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_CHINFO_ERR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_CHINFO_ERR_ISR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_CHINFO_ERR_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_CHINFO_ERR_IMR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_DFS_ERR_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_DFS_ERR_IMR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_DFS_ERR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_DFS_ERR_ISR));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_BBRPT_COM_ERR_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_COM_ERR_IMR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_COM_ERR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_COM_ERR_ISR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_CHINFO_ERR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_CHINFO_ERR_ISR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_CHINFO_ERR_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_CHINFO_ERR_IMR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_DFS_ERR_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_DFS_ERR_IMR));
+			PLTFM_MSG_ERR("R_AX_BBRPT_DFS_ERR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_BBRPT_DFS_ERR_ISR));
+		}
+#endif
+	}
+
+	if (dmac_err & B_AX_HAXIDMA_ERR_FLAG) {
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_HAXIDMA_ERR_IMR=0x%08x\n",
+				      MAC_REG_R32(R_AX_HAXI_IDCT_MSK));
+			PLTFM_MSG_ERR("R_AX_HAXIDMA_ERR_ISR=0x%08x\n",
+				      MAC_REG_R32(R_AX_HAXI_IDCT));
+		}
+#endif
 	}
 }
 
@@ -723,15 +1057,65 @@ static void dump_err_status_cmac(struct mac_ax_adapter *adapter, u8 band)
 	}
 
 	if (cmac_err & B_AX_DMA_TOP_ERR_IND) {
-		PLTFM_MSG_ERR("R_AX_DLE_CTRL=0x%08x\n",
-			      MAC_REG_R32(band == MAC_AX_BAND_0 ?
-			      R_AX_DLE_CTRL : R_AX_DLE_CTRL_C1));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_DLE_CTRL (0xC800)=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_DLE_CTRL : R_AX_DLE_CTRL_C1));
+			PLTFM_MSG_ERR("0xC828=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_RX_INFO_RXSTS : R_AX_RX_INFO_RXSTS_C1));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_RX_ERR_FLAG (0xC800)=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_RX_ERR_FLAG : R_AX_RX_ERR_FLAG_C1));
+			PLTFM_MSG_ERR("R_AX_RX_ERR_FLAG_IMR (0xC804)=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_RX_ERR_FLAG_IMR : R_AX_RX_ERR_FLAG_IMR_C1));
+			PLTFM_MSG_ERR("R_AX_RX_ERR_FLAG (0xC86C)=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_TX_ERR_FLAG : R_AX_TX_ERR_FLAG_C1));
+			PLTFM_MSG_ERR("R_AX_RX_ERR_FLAG_IMR (0xC870)=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_TX_ERR_FLAG_IMR : R_AX_TX_ERR_FLAG_IMR_C1));
+		}
+#endif
 	}
 
 	if (cmac_err & B_AX_PHYINTF_ERR_IND) {
-		PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_ISR_IMR=0x%04x\n",
-			      MAC_REG_R32(band == MAC_AX_BAND_0 ?
-			      R_AX_PHYINFO_ERR_ISR_IMR : R_AX_PHYINFO_ERR_ISR_IMR_C1));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_IMR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_PHYINFO_ERR_IMR :
+				      R_AX_PHYINFO_ERR_IMR_C1));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_ISR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_PHYINFO_ERR_ISR :
+				      R_AX_PHYINFO_ERR_ISR_C1));
+			PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_IMR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_PHYINFO_ERR_IMR_V1 :
+				      R_AX_PHYINFO_ERR_IMR_V1_C1));
+		}
+#endif
 	}
 
 	if (cmac_err & B_AX_TXPWR_CTRL_ERR_IND) {
@@ -747,19 +1131,79 @@ static void dump_err_status_cmac(struct mac_ax_adapter *adapter, u8 band)
 		PLTFM_MSG_ERR("R_AX_DBGSEL_TRXPTCL=0x%08x\n",
 			      MAC_REG_R32(band == MAC_AX_BAND_0 ?
 			      R_AX_DBGSEL_TRXPTCL : R_AX_DBGSEL_TRXPTCL_C1));
-		PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_ISR_IMR=0x%08x\n",
-			      MAC_REG_R32(band == MAC_AX_BAND_0 ?
-			      R_AX_PHYINFO_ERR_ISR_IMR : R_AX_PHYINFO_ERR_ISR_IMR_C1));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_IMR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_PHYINFO_ERR_IMR :
+				      R_AX_PHYINFO_ERR_IMR_C1));
+			PLTFM_MSG_ERR("R_AX_RMAC_ERR_ISR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_RMAC_ERR_ISR :
+				      R_AX_RMAC_ERR_ISR_C1));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_ISR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_PHYINFO_ERR_ISR :
+				      R_AX_PHYINFO_ERR_ISR_C1));
+			PLTFM_MSG_ERR("R_AX_PHYINFO_ERR_IMR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_PHYINFO_ERR_IMR_V1 :
+				      R_AX_PHYINFO_ERR_IMR_V1_C1));
+			PLTFM_MSG_ERR("R_AX_RX_ERR_ISR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_RX_ERR_ISR :
+				      R_AX_RX_ERR_ISR_C1));
+			PLTFM_MSG_ERR("R_AX_RX_ERR_IMR=0x%04x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_RX_ERR_IMR :
+				      R_AX_RX_ERR_IMR_C1));
+		}
+#endif
 	}
 
 	if (cmac_err & B_AX_WMAC_TX_ERR_IND) {
-		PLTFM_MSG_ERR("R_AX_TMAC_ERR_IMR_ISR=0x%08x\n",
-			      MAC_REG_R32(band == MAC_AX_BAND_0 ?
-			      R_AX_TMAC_ERR_IMR_ISR : R_AX_TMAC_ERR_IMR_ISR_C1));
+#if (MAC_AX_8852A_SUPPORT) || (MAC_AX_8852B_SUPPORT) || (MAC_AX_8851B_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			PLTFM_MSG_ERR("R_AX_TMAC_ERR_IMR_ISR=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_TMAC_ERR_IMR_ISR :
+				      R_AX_TMAC_ERR_IMR_ISR_C1));
+		}
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			PLTFM_MSG_ERR("R_AX_TRXPTCL_ERROR_INDICA=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_TRXPTCL_ERROR_INDICA :
+				      R_AX_TRXPTCL_ERROR_INDICA_C1));
+			PLTFM_MSG_ERR("R_AX_TRXPTCL_ERROR_INDICA_MASK=0x%08x\n",
+				      MAC_REG_R32(band == MAC_AX_BAND_0 ?
+				      R_AX_TRXPTCL_ERROR_INDICA_MASK :
+				      R_AX_TRXPTCL_ERROR_INDICA_MASK_C1));
+		}
+#endif
 		PLTFM_MSG_ERR("R_AX_DBGSEL_TRXPTCL=0x%08x\n",
 			      MAC_REG_R32(band == MAC_AX_BAND_0 ?
 			      R_AX_DBGSEL_TRXPTCL : R_AX_DBGSEL_TRXPTCL_C1));
 	}
+
+	cmac_err = MAC_REG_R32(band == MAC_AX_BAND_1 ? R_AX_CMAC_ERR_IMR_C1 :
+			       R_AX_CMAC_ERR_IMR);
+	PLTFM_MSG_ALWAYS("B%d R_AX_CMAC_ERR_IMR=0x%x\n", band, cmac_err);
 }
 
 u32 mac_ser_ctrl(struct mac_ax_adapter *adapter, enum mac_ax_func_sw sw)
@@ -768,16 +1212,17 @@ u32 mac_ser_ctrl(struct mac_ax_adapter *adapter, enum mac_ax_func_sw sw)
 	enum mac_ax_err_info err_info;
 	u32 val32, ret, cnt;
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) && is_cv(adapter, CAV)) {
-		PLTFM_MSG_WARN("[WARN]SER ctrl not support\n");
-		return MACSUCCESS;
-	}
-
 	if (sw == MAC_AX_FUNC_EN) {
 		err_info = MAC_AX_ERR_L1_RCVY_START_REQ;
 		adapter->sm.ser_ctrl_st = MAC_AX_SER_CTRL_SRT;
 	} else if (sw == MAC_AX_FUNC_DIS) {
 		err_info = MAC_AX_ERR_L1_RCVY_STOP_REQ;
+		adapter->sm.ser_ctrl_st = MAC_AX_SER_CTRL_STOP;
+	} else if (sw == MAC_AX_FUNC_WO_RECVY_DIS) {
+		err_info = MAC_AX_ERR_L1_RCVY_STOP_WO_RECVY_REQ;
+		adapter->sm.ser_ctrl_st = MAC_AX_SER_CTRL_SRT;
+	} else if (sw == MAC_AX_FUNC_WO_RECVY_EN) {
+		err_info = MAC_AX_ERR_L1_RCVY_START_WO_RECVY_REQ;
 		adapter->sm.ser_ctrl_st = MAC_AX_SER_CTRL_STOP;
 	} else {
 		adapter->sm.ser_ctrl_st = MAC_AX_SER_CTRL_ERR;
@@ -808,7 +1253,8 @@ u32 mac_ser_ctrl(struct mac_ax_adapter *adapter, enum mac_ax_func_sw sw)
 		return ret;
 	}
 
-	if (sw == MAC_AX_FUNC_EN)
+	if (sw == MAC_AX_FUNC_EN || sw == MAC_AX_FUNC_WO_RECVY_DIS ||
+	    sw == MAC_AX_FUNC_WO_RECVY_EN)
 		return MACSUCCESS;
 
 	cnt = MAC_SER_STOP_DLY_CNT;
@@ -828,4 +1274,268 @@ u32 mac_ser_ctrl(struct mac_ax_adapter *adapter, enum mac_ax_func_sw sw)
 	}
 
 	return ret;
+}
+
+u32 mac_chk_err_status(struct mac_ax_adapter *adapter, u8 *ser_status)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 cnt = MAC_SET_ERR_DLY_CNT;
+	u32 ret = MACSUCCESS;
+	enum mac_ax_err_info err;
+
+	PLTFM_MUTEX_LOCK(&adapter->hw_info->err_get_lock);
+	adapter->sm.l2_st = MAC_AX_L2_DIS;
+
+	while (--cnt) {
+		if (MAC_REG_R32(R_AX_HALT_C2H_CTRL))
+			break;
+		PLTFM_DELAY_US(MAC_SET_ERR_DLY_US);
+	}
+	if (!cnt) {
+		PLTFM_MSG_ERR("Polling FW err status fail\n");
+		ret = MACPOLLTO;
+		goto end;
+	}
+
+	err = (enum mac_ax_err_info)MAC_REG_R32(R_AX_HALT_C2H);
+
+	switch (err) {
+	case MAC_AX_ERR_L1_ERR_DMAC:
+	case MAC_AX_ERR_L0_PROMOTE_TO_L1:
+		*ser_status = MAC_AX_L1_TRUE;
+		break;
+	default:
+		*ser_status = MAC_AX_L1_FALSE;
+		break;
+	}
+
+end:
+	adapter->sm.l2_st = MAC_AX_L2_EN;
+	PLTFM_MUTEX_UNLOCK(&adapter->hw_info->err_get_lock);
+	return ret;
+}
+
+u32 mac_set_l0_dbg_mode(struct mac_ax_adapter *adapter)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 ret;
+	u32 val32;
+	u32 cnt = MAC_SET_ERR_DLY_CNT;
+
+	MAC_REG_W32(R_AX_HALT_H2C, MAC_AX_L0_DBG_MODE);
+	val32 = MAC_REG_R32(R_AX_HALT_H2C_CTRL) | B_AX_HALT_H2C_TRIGGER;
+	MAC_REG_W32(R_AX_HALT_H2C_CTRL, val32);
+	while (--cnt) {
+		if (!(MAC_REG_R32(R_AX_HALT_H2C_CTRL)))
+			break;
+		PLTFM_DELAY_US(MAC_SET_ERR_DLY_US);
+	}
+	if (!cnt) {
+		PLTFM_MSG_ERR("Polling FW err status fail\n");
+		ret = MACPOLLTO;
+		return ret;
+	}
+
+	return MACSUCCESS;
+}
+
+u32 mac_set_l1_dbg_mode(struct mac_ax_adapter *adapter)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 ret;
+	u32 val32;
+	u32 cnt = MAC_SET_ERR_DLY_CNT;
+
+	MAC_REG_W32(R_AX_HALT_H2C, MAC_AX_L1_DBG_MODE);
+	val32 = MAC_REG_R32(R_AX_HALT_H2C_CTRL) | B_AX_HALT_H2C_TRIGGER;
+	MAC_REG_W32(R_AX_HALT_H2C_CTRL, val32);
+	while (--cnt) {
+		if (!(MAC_REG_R32(R_AX_HALT_H2C_CTRL)))
+			break;
+		PLTFM_DELAY_US(MAC_SET_ERR_DLY_US);
+	}
+	if (!cnt) {
+		PLTFM_MSG_ERR("Polling FW err status fail\n");
+		ret = MACPOLLTO;
+		return ret;
+	}
+
+	return MACSUCCESS;
+}
+
+u32 mac_dump_ser_cnt(struct mac_ax_adapter *adapter, struct mac_ser_status *status)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 val32;
+
+	val32 = MAC_REG_R32(R_AX_SER_DBG_INFO);
+	status->l0_cnt = GET_FIELD(val32, B_AX_SER_L0_COUNTER);
+	status->l1_cnt = GET_FIELD(val32, B_AX_SER_L1_COUNTER);
+	status->l0_pro_event = GET_FIELD(val32, B_AX_SER_L0_PROMOTE_L1_EVENT);
+	status->rmac_ppdu_hang_cnt = GET_FIELD(val32, B_AX_RMAC_PPDU_HANG_CNT);
+
+	return MACSUCCESS;
+}
+
+static void dump_cmac_cr(struct mac_ax_adapter *adapter, u8 band)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 base_addr, max_addr, i;
+	u32 ret;
+
+	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
+	if (ret != MACSUCCESS)
+		return;
+
+	PLTFM_MSG_ERR("Dump CMAC band %d\n", band);
+	PLTFM_MSG_ERR("CMAC common\n");
+	base_addr = (band == 0) ? CMAC_AX_COMMON_BASE_ADDR : CMAC_AX_COMMON_BASE_ADDR_C1;
+	max_addr = CMAC_AX_COMMON_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("Scheduler\n");
+	base_addr = (band == 0) ? CMAC_AX_SCH_BASE_ADDR : CMAC_AX_SCH_BASE_ADDR_C1;
+	max_addr = CMAC_AX_SCH_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("PTCL\n");
+	base_addr = (band == 0) ? CMAC_AX_PTCL_BASE_ADDR : CMAC_AX_PTCL_BASE_ADDR_C1;
+	max_addr = CMAC_AX_PTCL_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("CDMA\n");
+	base_addr = (band == 0) ? CMAC_AX_CDMA_BASE_ADDR : CMAC_AX_CDMA_BASE_ADDR_C1;
+	max_addr = CMAC_AX_CDMA_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("TMAC\n");
+	base_addr = (band == 0) ? CMAC_AX_TMAC_BASE_ADDR : CMAC_AX_TMAC_BASE_ADDR_C1;
+	max_addr = CMAC_AX_TMAC_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("TRXPTCL\n");
+	base_addr = (band == 0) ? CMAC_AX_TRXPTCL_BASE_ADDR : CMAC_AX_TRXPTCL_BASE_ADDR_C1;
+	max_addr = CMAC_AX_TRXPTCL_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("RMAC\n");
+	base_addr = (band == 0) ? CMAC_AX_RMAC_BASE_ADDR : CMAC_AX_RMAC_BASE_ADDR_C1;
+	max_addr = CMAC_AX_RMAC_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("PWR\n");
+	base_addr = (band == 0) ? CMAC_AX_PWR_BASE_ADDR : CMAC_AX_PWR_BASE_ADDR_C1;
+	max_addr = CMAC_AX_PWR_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("BTCOEX\n");
+	base_addr = (band == 0) ? CMAC_AX_BTCOEX_BASE_ADDR : CMAC_AX_BTCOEX_BASE_ADDR_C1;
+	max_addr = CMAC_AX_BTCOEX_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x186%05x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+}
+
+static void dump_dmac_cr(struct mac_ax_adapter *adapter)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 base_addr, max_addr, i;
+
+	PLTFM_MSG_ERR("Dump DMAC\n");
+	PLTFM_MSG_ERR("TOP_OFF\n");
+	base_addr = DMAC_AX_TOP_OFF_BASE_ADDR;
+	max_addr = DMAC_AX_TOP_OFF_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("WL_PON\n");
+	base_addr = DMAC_AX_WL_PON_BASE_ADDR;
+	max_addr = DMAC_AX_WL_PON_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("Common\n");
+	base_addr = DMAC_AX_COMMON_BASE_ADDR;
+	max_addr = DMAC_AX_COMMON_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("Dispatcher\n");
+	base_addr = DMAC_AX_DISPATCHER_BASE_ADDR;
+	max_addr = DMAC_AX_DISPATCHER_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("WDE\n");
+	base_addr = DMAC_AX_WDE_BASE_ADDR;
+	max_addr = DMAC_AX_WDE_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("PLE\n");
+	base_addr = DMAC_AX_PLE_BASE_ADDR;
+	max_addr = DMAC_AX_PLE_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("WDRLS\n");
+	base_addr = DMAC_AX_WDRLS_BASE_ADDR;
+	max_addr = DMAC_AX_WDRLS_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("BBRPT\n");
+	base_addr = DMAC_AX_BBRPT_BASE_ADDR;
+	max_addr = DMAC_AX_BBRPT_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("CPUIO\n");
+	base_addr = DMAC_AX_CPUIO_BASE_ADDR;
+	max_addr = DMAC_AX_CPUIO_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("PLTIN\n");
+	base_addr = DMAC_AX_PKTIN_BASE_ADDR;
+	max_addr = DMAC_AX_PKTIN_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("MPDU Processor\n");
+	base_addr = DMAC_AX_MPDU_BASE_ADDR;
+	max_addr = DMAC_AX_MPDU_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("SEC ENG\n");
+	base_addr = DMAC_AX_SEC_BASE_ADDR;
+	max_addr = DMAC_AX_SEC_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("STA scheduler\n");
+	base_addr = DMAC_AX_SS_BASE_ADDR;
+	max_addr = DMAC_AX_SS_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("Tx packet control\n");
+	base_addr = DMAC_AX_TXPKTCTL_BASE_ADDR;
+	max_addr = DMAC_AX_TXPKTCTL_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
+
+	PLTFM_MSG_ERR("HCI Common\n");
+	base_addr = DMAC_AX_HCI_BASE_ADDR;
+	max_addr = DMAC_AX_HCI_MAX_ADDR;
+	for (i = 0x0; i <= max_addr; i += 4)
+		PLTFM_MSG_ERR("0x1860%04x = 0x%08x\n", base_addr + i, MAC_REG_R32(base_addr + i));
 }

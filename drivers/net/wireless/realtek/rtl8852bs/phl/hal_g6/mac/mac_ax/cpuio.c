@@ -13,6 +13,7 @@
  *
  ******************************************************************************/
 #include "cpuio.h"
+#include "mac_priv.h"
 
 #define MAX_MACID_NUM		256
 
@@ -44,7 +45,16 @@ static u32 set_hiq_drop(struct mac_ax_adapter *adapter,
 static u32 rel_hiq_drop(struct mac_ax_adapter *adapter,
 			struct mac_ax_pkt_drop_info *info);
 static void ss_hw_len_udn_clr(struct mac_ax_adapter *adapter);
-static u32 hiq_link_drop(struct mac_ax_adapter *adapter, u8 band);
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+static u32 _hiq_drop_v0(struct mac_ax_adapter *adapter,
+			struct mac_ax_pkt_drop_info *info);
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+static u32 _hiq_drop_v1(struct mac_ax_adapter *adapter,
+			struct mac_ax_pkt_drop_info *info);
+#endif
+static u32 hiq_link_drop(struct mac_ax_adapter *adapter,
+			 struct mac_ax_pkt_drop_info *info);
 static u32 mg0_link_drop(struct mac_ax_adapter *adapter, u8 band);
 
 u32 mac_dle_buf_req_wd(struct mac_ax_adapter *adapter,
@@ -252,11 +262,11 @@ u32 mac_wde_pkt_drop(struct mac_ax_adapter *adapter,
 		case MAC_AX_PKT_DROP_SEL_MACID_VI_ONCE:
 		case MAC_AX_PKT_DROP_SEL_MACID_VO_ONCE:
 		case MAC_AX_PKT_DROP_SEL_MACID_ALL:
+			role = mac_role_srch(adapter, info->macid);
 			if (info->sel == MAC_AX_PKT_DROP_SEL_MACID_ALL) {
 				set_dmac_macid_drop(adapter, info->macid);
 				set_cmac_macid_drop(adapter, info->macid);
 			}
-			role = mac_role_srch(adapter, info->macid);
 			ret = h2c_pkt_drop(adapter, info, role, NULL);
 			if (ret != MACSUCCESS)
 				return ret;
@@ -382,12 +392,12 @@ static u32 band_pkt_drop(struct mac_ax_adapter *adapter,
 	u8 macid_grp;
 	u8 macid_sh;
 	u16 macid_num = adapter->hw_info->macid_num;
-	u8 dmac_macid_drop = 0;
 	struct mac_role_tbl *role;
 	struct deq_enq_info q_info;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	struct mac_ax_sch_tx_en_cfg sch_backup;
 	struct mac_ax_tb_ppdu_ctrl ac_dis_bak;
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 
 	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
 	if (ret != MACSUCCESS)
@@ -404,6 +414,25 @@ static u32 band_pkt_drop(struct mac_ax_adapter *adapter,
 				macid_band_sel[macid_grp] |= BIT(macid_sh);
 			else
 				macid_band_sel[macid_grp] &= ~(BIT(macid_sh));
+		}
+	}
+
+	if (once == 0) {
+		if (chk_patch_dmac_macid_drop_issue(adapter) == PATCH_ENABLE) {
+			PLTFM_MSG_TRACE("[TRACE]:do not support DMAC drop\n");
+		} else {
+			MAC_REG_W32(R_AX_DMAC_MACID_DROP_0,
+				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_0) |
+				    macid_ctrl_sel[0]);
+			MAC_REG_W32(R_AX_DMAC_MACID_DROP_1,
+				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_1) |
+				    macid_ctrl_sel[1]);
+			MAC_REG_W32(R_AX_DMAC_MACID_DROP_2,
+				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_2) |
+				    macid_ctrl_sel[2]);
+			MAC_REG_W32(R_AX_DMAC_MACID_DROP_3,
+				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_3) |
+				    macid_ctrl_sel[3]);
 		}
 	}
 
@@ -444,7 +473,7 @@ static u32 band_pkt_drop(struct mac_ax_adapter *adapter,
 				macid_ctrl_sel[3]);
 
 		sch_backup.band = band;
-		ret = stop_sch_tx(adapter, SCH_TX_SEL_ALL, &sch_backup);
+		ret = p_ops->stop_sch_tx(adapter, SCH_TX_SEL_ALL, &sch_backup);
 		if (ret != MACSUCCESS)
 			return ret;
 
@@ -453,33 +482,7 @@ static u32 band_pkt_drop(struct mac_ax_adapter *adapter,
 		if (ret != MACSUCCESS)
 			return ret;
 
-		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
-			if (is_cv(adapter, CBV)) {
-				PLTFM_MSG_TRACE("[TRACE]:do not support DMAC drop\n");
-				dmac_macid_drop = 0;
-			} else {
-				dmac_macid_drop = 1;
-			}
-		} else {
-			dmac_macid_drop = 1;
-		}
-
-		if (once == 0 && dmac_macid_drop == 1) {
-			MAC_REG_W32(R_AX_DMAC_MACID_DROP_0,
-				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_0) |
-				    macid_ctrl_sel[0]);
-			MAC_REG_W32(R_AX_DMAC_MACID_DROP_1,
-				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_1) |
-				    macid_ctrl_sel[1]);
-			MAC_REG_W32(R_AX_DMAC_MACID_DROP_2,
-				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_2) |
-				    macid_ctrl_sel[2]);
-			MAC_REG_W32(R_AX_DMAC_MACID_DROP_3,
-				    MAC_REG_R32(R_AX_DMAC_MACID_DROP_3) |
-				    macid_ctrl_sel[3]);
-		}
-
-		ret = tx_idle_poll_band(adapter, band, 0);
+		ret = tx_idle_poll_band(adapter, band);
 		if (ret != MACSUCCESS)
 			return ret;
 
@@ -488,12 +491,11 @@ static u32 band_pkt_drop(struct mac_ax_adapter *adapter,
 		q_info.src_pid =
 			(band == MAC_AX_BAND_1) ? WDE_DLE_PID_C1 : WDE_DLE_PID_C0;
 
-		/* need to modify for 8852C, soar */
 		if (band == MAC_AX_BAND_1) {
 			for (qid = WDE_DLE_QID_BCN_C1; qid <= WDE_DLE_QID_MG2_C1;
 					qid++) {
 				if (qid == WDE_DLE_QID_HI_C1) {
-					ret = hiq_link_drop(adapter, band);
+					ret = hiq_link_drop(adapter, info);
 					if (ret != MACSUCCESS)
 						return ret;
 				} else {
@@ -507,7 +509,7 @@ static u32 band_pkt_drop(struct mac_ax_adapter *adapter,
 			for (qid = WDE_DLE_QID_BCN_C0; qid <= WDE_DLE_QID_MG2_C0;
 					qid++) {
 				if (qid == WDE_DLE_QID_HI_C0) {
-					ret = hiq_link_drop(adapter, band);
+					ret = hiq_link_drop(adapter, info);
 					if (ret != MACSUCCESS)
 						return ret;
 				} else {
@@ -571,6 +573,7 @@ static u32 hw_link_drop(struct mac_ax_adapter *adapter,
 	struct mac_ax_sch_tx_en_cfg sch_backup;
 	enum ptcl_tx_sel ptcl_sel;
 	enum sch_tx_sel sch_sel;
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 
 	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
 	if (ret != MACSUCCESS)
@@ -590,7 +593,7 @@ static u32 hw_link_drop(struct mac_ax_adapter *adapter,
 	}
 
 	sch_backup.band = band;
-	ret = stop_sch_tx(adapter, sch_sel, &sch_backup);
+	ret = p_ops->stop_sch_tx(adapter, sch_sel, &sch_backup);
 	if (ret != MACSUCCESS)
 		return ret;
 
@@ -605,7 +608,7 @@ static u32 hw_link_drop(struct mac_ax_adapter *adapter,
 			return ret;
 		break;
 	case MAC_AX_PKT_DROP_SEL_HIQ_ONCE:
-		ret = hiq_link_drop(adapter, band);
+		ret = hiq_link_drop(adapter, info);
 		if (ret != MACSUCCESS)
 			return ret;
 		break;
@@ -926,20 +929,13 @@ static void set_dmac_macid_drop(struct mac_ax_adapter *adapter, u8 macid)
 	u8 macid_grp = macid >> 5;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
-		if (is_cv(adapter, CBV)) {
-			PLTFM_MSG_TRACE("hw do not support dmac drop!\n");
-			return;
-		} else {
-			if (MAC_REG_R32(R_AX_SS_DBG_3) &
-			    B_AX_SS_HW_DECR_LEN_UDN)
-				PLTFM_MSG_WARN("STA len underflow bef drop\n");
-		}
-	} else {
-		if (MAC_REG_R32(R_AX_SS_DBG_3) &
-		    B_AX_SS_HW_DECR_LEN_UDN)
-			PLTFM_MSG_WARN("STA len underflow bef drop\n");
+	if (chk_patch_dmac_macid_drop_issue(adapter) == PATCH_ENABLE) {
+		PLTFM_MSG_TRACE("hw do not support dmac drop!\n");
+		return;
 	}
+
+	if (MAC_REG_R32(R_AX_SS_DBG_3) & B_AX_SS_HW_DECR_LEN_UDN)
+		PLTFM_MSG_WARN("STA len underflow bef drop\n");
 
 	switch (macid_grp) {
 	case 0:
@@ -1061,6 +1057,11 @@ static u32 hiq_drop_ctrl(struct mac_ax_adapter *adapter,
 	u16 mbssid_sh;
 	u8 port_sh;
 
+	if (chk_patch_cmac_hiq_drop(adapter) == PATCH_ENABLE) {
+		PLTFM_MSG_TRACE("hw do not support cmac hiq drop!\n");
+		return MACSUCCESS;
+	}
+
 	ret = check_mac_en(adapter, info->band, MAC_AX_CMAC_SEL);
 	if (ret != MACSUCCESS)
 		return ret;
@@ -1096,13 +1097,47 @@ static u32 hiq_drop_ctrl(struct mac_ax_adapter *adapter,
 static u32 set_hiq_drop(struct mac_ax_adapter *adapter,
 			struct mac_ax_pkt_drop_info *info)
 {
-	return hiq_drop_ctrl(adapter, info, MAC_AX_FUNC_EN);
+	u32 ret;
+	u8 band = info->band;
+	enum ptcl_tx_sel ptcl_sel;
+	enum sch_tx_sel sch_sel;
+	struct mac_ax_sch_tx_en_cfg sch_backup;
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+
+	ret = hiq_drop_ctrl(adapter, info, MAC_AX_FUNC_EN);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	ptcl_sel = PTCL_TX_SEL_HIQ;
+	sch_sel = SCH_TX_SEL_HIQ;
+
+	sch_backup.band = band;
+	ret = p_ops->stop_sch_tx(adapter, sch_sel, &sch_backup);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	ret = tx_idle_poll_sel(adapter, ptcl_sel, band);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	ret = hiq_link_drop(adapter, info);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	ret = resume_sch_tx(adapter, &sch_backup);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	return MACSUCCESS;
 }
 
 static u32 rel_hiq_drop(struct mac_ax_adapter *adapter,
 			struct mac_ax_pkt_drop_info *info)
 {
-	return hiq_drop_ctrl(adapter, info, MAC_AX_FUNC_DIS);
+	u32 ret;
+
+	ret = hiq_drop_ctrl(adapter, info, MAC_AX_FUNC_DIS);
+	return ret;
 }
 
 static void ss_hw_len_udn_clr(struct mac_ax_adapter *adapter)
@@ -1119,11 +1154,16 @@ static void ss_hw_len_udn_clr(struct mac_ax_adapter *adapter)
 	}
 }
 
-static u32 hiq_link_drop(struct mac_ax_adapter *adapter, u8 band)
+#if MAC_AX_8852A_SUPPORT ||  MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+static u32 _hiq_drop_v0(struct mac_ax_adapter *adapter,
+			struct mac_ax_pkt_drop_info *info)
 {
-	u32 ret;
-	u8 mbid, port;
+	u32 ret, indrct_offset, wdi_dword0, wdi_port;
+	u16 tmp_pktid;
+	u8 band = info->band;
 	struct deq_enq_info q_info;
+	struct first_pid_info f_info;
+	struct next_pid_info n_info;
 
 	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
 	if (ret != MACSUCCESS)
@@ -1140,33 +1180,154 @@ static u32 hiq_link_drop(struct mac_ax_adapter *adapter, u8 band)
 		q_info.src_pid = WDE_DLE_PID_C0;
 		q_info.src_qid = WDE_DLE_QID_HI_C0;
 	}
+	switch (info->sel) {
+	case MAC_AX_PKT_DROP_SEL_HIQ_PORT:
+		f_info.src_pid = q_info.src_pid;
+		n_info.src_pid = q_info.src_pid;
+		f_info.src_qid = q_info.src_qid;
+		n_info.src_qid = q_info.src_qid;
+		f_info.macid = 0;
+		n_info.macid = 0;
+		ret = get_1st_pktid(adapter, &f_info);
+		if (ret != MACSUCCESS || f_info.pktid == 0xFFF)
+			return ret;
+		tmp_pktid = f_info.pktid;
+		do {
+			n_info.start_pktid = tmp_pktid;
+			ret = get_next_pktid(adapter, &n_info);
+			if (ret != MACSUCCESS)
+				return ret;
+			indrct_offset = ((u32)tmp_pktid << 15) + (u32)WD_BODY_LEN;
+			wdi_dword0 = mac_sram_dbg_read(adapter, indrct_offset,
+						       WD_PAGE_SEL);
+			wdi_port = GET_FIELD(le32_to_cpu(wdi_dword0),
+					     AX_TXD_MULTIPORT_ID);
+			if (info->port == wdi_port) {
+				q_info.pktid = tmp_pktid;
+				ret = deq_enq_to_tail(adapter, &q_info);
+				if (ret != MACSUCCESS)
+					return ret;
+			}
+			tmp_pktid = n_info.pktid;
+		} while (n_info.pktid != 0xFFF);
+		break;
+	case MAC_AX_PKT_DROP_SEL_HIQ_MBSSID:
+		break;
+	case MAC_AX_PKT_DROP_SEL_HIQ_ONCE:
+	case MAC_AX_PKT_DROP_SEL_BAND:
+	case MAC_AX_PKT_DROP_SEL_BAND_ONCE:
+		ret = deq_enq_all(adapter, &q_info);
+		if (ret != MACSUCCESS)
+			return ret;
+		break;
+	default:
+		return MACNOTSUP;
+	}
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
+	return MACSUCCESS;
+}
+#endif
+
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+static u32 _hiq_drop_v1(struct mac_ax_adapter *adapter,
+			struct mac_ax_pkt_drop_info *info)
+{
+	u32 ret;
+	u8 mbid, port, mbssid_num, port_num;
+	u8 band = info->band;
+	struct deq_enq_info q_info;
+
+	ret = check_mac_en(adapter, band, MAC_AX_CMAC_SEL);
+	if (ret != MACSUCCESS)
+		return ret;
+
+	mbssid_num = adapter->hw_info->mbssid_num;
+	port_num = adapter->hw_info->port_num;
+
+	PLTFM_MEMSET(&q_info, 0, sizeof(struct deq_enq_info));
+
+	q_info.dst_pid = WDE_DLE_PID_WDRLS;
+	q_info.dst_qid = WDE_DLE_QID_WDRLS_DROP;
+	if (band == MAC_AX_BAND_1) {
+		q_info.src_pid = WDE_DLE_PID_C1;
+		q_info.src_qid = WDE_DLE_QID_HI_C1;
+	} else {
+		q_info.src_pid = WDE_DLE_PID_C0;
+		q_info.src_qid = WDE_DLE_QID_HI_C0;
+	}
+	switch (info->sel) {
+	case MAC_AX_PKT_DROP_SEL_HIQ_PORT:
+		if (info->port == 0) {
+			for (mbid = 0; mbid < mbssid_num; mbid++) {
+				q_info.macid = mbid;
+				ret = deq_enq_all(adapter, &q_info);
+				if (ret != MACSUCCESS)
+					return ret;
+			}
+		} else {
+			q_info.macid = info->port <<
+					WDE_DLE_SUBQID_PORT_SH;
+			ret = deq_enq_all(adapter, &q_info);
+			if (ret != MACSUCCESS)
+				return ret;
+		}
+		break;
+	case MAC_AX_PKT_DROP_SEL_HIQ_MBSSID:
+		q_info.macid = info->mbssid;
 		ret = deq_enq_all(adapter, &q_info);
 		if (ret != MACSUCCESS)
 			return ret;
-	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
-		ret = deq_enq_all(adapter, &q_info);
-		if (ret != MACSUCCESS)
-			return ret;
-	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
-		   is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB)) {
-		for (mbid = 0; mbid < adapter->hw_info->mbssid_num; mbid++) {
+		break;
+	case MAC_AX_PKT_DROP_SEL_HIQ_ONCE:
+	case MAC_AX_PKT_DROP_SEL_BAND:
+	case MAC_AX_PKT_DROP_SEL_BAND_ONCE:
+		for (mbid = 0; mbid < mbssid_num; mbid++) {
 			q_info.macid = mbid;
 			ret = deq_enq_all(adapter, &q_info);
 			if (ret != MACSUCCESS)
 				return ret;
 		}
-		for (port = 1; port < adapter->hw_info->port_num; port++) {
+		for (port = 1; port < port_num; port++) {
 			q_info.macid = port << WDE_DLE_SUBQID_PORT_SH;
 			ret = deq_enq_all(adapter, &q_info);
 			if (ret != MACSUCCESS)
 				return ret;
 		}
-	} else {
-		return MACNOITEM;
+		break;
+	default:
+		return MACNOTSUP;
 	}
 
+	return MACSUCCESS;
+}
+#endif
+
+static u32 hiq_link_drop(struct mac_ax_adapter *adapter,
+			 struct mac_ax_pkt_drop_info *info)
+{
+	struct mac_ax_hw_info *hw_info = adapter->hw_info;
+	u32 ret;
+
+	switch (hw_info->chip_id) {
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+	case MAC_AX_CHIP_ID_8852A:
+	case MAC_AX_CHIP_ID_8852B:
+	case MAC_AX_CHIP_ID_8851B:
+		ret = _hiq_drop_v0(adapter, info);
+		break;
+#endif
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT
+	case MAC_AX_CHIP_ID_8852C:
+	case MAC_AX_CHIP_ID_8192XB:
+	case MAC_AX_CHIP_ID_8851E:
+	case MAC_AX_CHIP_ID_8852D:
+		ret = _hiq_drop_v1(adapter, info);
+		break;
+#endif
+	default:
+		ret = MACNOTSUP;
+		break;
+	}
 	return ret;
 }
 

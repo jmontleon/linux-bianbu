@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -16,78 +16,12 @@
 
 #include <drv_types.h>
 
-void rtw_mi_update_union_chan_inf(_adapter *adapter, u8 ch, u8 offset , u8 bw)
-{
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	struct mi_state *iface_state = &dvobj->iface_state;
-
-	iface_state->union_ch = ch;
-	iface_state->union_bw = bw;
-	iface_state->union_offset = offset;
-}
-
-u8 rtw_mi_stayin_union_ch_chk(_adapter *adapter)
-{
-	u8 rst = _TRUE;
-	u8 u_ch, u_bw, u_offset;
-	u8 o_ch, o_bw, o_offset;
-
-	u_ch = rtw_mi_get_union_chan(adapter);
-	u_bw = rtw_mi_get_union_bw(adapter);
-	u_offset = rtw_mi_get_union_offset(adapter);
-
-	o_ch = rtw_get_oper_ch(adapter);
-	o_bw = rtw_get_oper_bw(adapter);
-	o_offset = rtw_get_oper_choffset(adapter);
-
-	if ((u_ch != o_ch) || (u_bw != o_bw) || (u_offset != o_offset))
-		rst = _FALSE;
-
-	#ifdef DBG_IFACE_STATUS
-	if (rst == _FALSE) {
-		RTW_ERR("%s Not stay in union channel\n", __func__);
-		if (GET_PHL_COM(adapter_to_dvobj(adapter))->bScanInProcess == _TRUE)
-			RTW_ERR("ScanInProcess\n");
-		#ifdef CONFIG_IOCTL_CFG80211
-		if (rtw_cfg80211_get_is_roch(adapter))
-			RTW_ERR("Doing remain on channel\n");
-		#endif
-		RTW_ERR("union ch, bw, offset: %u,%u,%u\n", u_ch, u_bw, u_offset);
-		RTW_ERR("oper ch, bw, offset: %u,%u,%u\n", o_ch, o_bw, o_offset);
-		RTW_ERR("=========================\n");
-	}
-	#endif
-	return rst;
-}
-
-u8 rtw_mi_stayin_union_band_chk(_adapter *adapter)
-{
-	u8 rst = _TRUE;
-	u8 u_ch, o_ch;
-	u8 u_band, o_band;
-
-	u_ch = rtw_mi_get_union_chan(adapter);
-	o_ch = rtw_get_oper_ch(adapter);
-	u_band = (u_ch > 14) ? BAND_ON_5G : BAND_ON_24G;
-	o_band = (o_ch > 14) ? BAND_ON_5G : BAND_ON_24G;
-
-	if (u_ch != o_ch)
-		if(u_band != o_band)
-			rst = _FALSE;
-
-	#ifdef DBG_IFACE_STATUS
-	if (rst == _FALSE)
-		RTW_ERR("%s Not stay in union band\n", __func__);
-	#endif
-
-	return rst;
-}
-
 /* Find union about ch, bw, ch_offset of all linked/linking interfaces */
-static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
+static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, _adapter *adapter, u8 band_idx, u8 ifbmp, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
 {
 	_adapter *iface;
-	struct mlme_ext_priv *mlmeext;
+	struct _ADAPTER_LINK *iface_link;
+	struct link_mlme_ext_priv *mlmeext;
 	int i;
 	enum band_type band_ret = BAND_MAX;
 	u8 ch_ret = 0;
@@ -95,6 +29,8 @@ static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, u8 band_idx, u
 	u8 offset_ret = CHAN_OFFSET_NO_EXT;
 	int num = 0;
 
+	if (band)
+		*band = 0;
 	if (ch)
 		*ch = 0;
 	if (bw)
@@ -107,12 +43,17 @@ static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, u8 band_idx, u
 		if (!iface || !(ifbmp & BIT(iface->iface_id)))
 			continue;
 
-		if (band_idx < HW_BAND_MAX) {
+		if (adapter) {
+			if (!rtw_iface_at_same_hwband(adapter, iface))
+				continue;
+		} else if (band_idx < HW_BAND_MAX){
 			if (!rtw_iface_is_operate_at_hwband(iface, band_idx))
 				continue;
 		}
 
-		mlmeext = &iface->mlmeextpriv;
+		/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+		iface_link = GET_PRIMARY_LINK(iface);
+		mlmeext = &iface_link->mlmeextpriv;
 
 		if (!check_fwstate(&iface->mlmepriv, WIFI_ASOC_STATE | WIFI_UNDER_LINKING))
 			continue;
@@ -121,7 +62,7 @@ static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, u8 band_idx, u
 			continue;
 
 		if (num == 0) {
-			band_ret = rtw_is_2g_ch(mlmeext->chandef.chan) ? BAND_ON_24G : BAND_ON_5G;
+			band_ret = mlmeext->chandef.band;
 			ch_ret = mlmeext->chandef.chan;
 			bw_ret = mlmeext->chandef.bw;
 			offset_ret = mlmeext->chandef.offset;
@@ -129,7 +70,7 @@ static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, u8 band_idx, u
 			continue;
 		}
 
-		if (band_ret != (rtw_is_2g_ch(mlmeext->chandef.chan) ? BAND_ON_24G : BAND_ON_5G) || ch_ret != mlmeext->chandef.chan) {
+		if (band_ret != mlmeext->chandef.band || ch_ret != mlmeext->chandef.chan) {
 			num = 0;
 			break;
 		}
@@ -159,35 +100,34 @@ static int _rtw_mi_get_ch_setting_union(struct dvobj_priv *dvobj, u8 band_idx, u
 	return num;
 }
 
-int rtw_mi_get_ch_setting_union_by_ifbmp(struct dvobj_priv *dvobj, u8 ifbmp, u8 *ch, u8 *bw, u8 *offset)
+int rtw_mi_get_ch_setting_union_by_ifbmp(_adapter *adapter, u8 ifbmp, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
 {
-	return _rtw_mi_get_ch_setting_union(dvobj, HW_BAND_MAX, ifbmp, NULL, ch, bw, offset);
+	return _rtw_mi_get_ch_setting_union(adapter_to_dvobj(adapter), adapter, HW_BAND_MAX, ifbmp, band, ch, bw, offset);
 }
 
-inline int rtw_mi_get_ch_setting_union(_adapter *adapter, u8 *ch, u8 *bw, u8 *offset)
+inline int rtw_mi_get_ch_setting_union(_adapter *adapter, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
 {
-	return rtw_mi_get_ch_setting_union_by_ifbmp(adapter_to_dvobj(adapter), 0xFF, ch, bw, offset);
+	return rtw_mi_get_ch_setting_union_by_ifbmp(adapter, 0xFF, band, ch, bw, offset);
 }
 
-inline int rtw_mi_get_ch_setting_union_no_self(_adapter *adapter, u8 *ch, u8 *bw, u8 *offset)
+inline int rtw_mi_get_ch_setting_union_no_self(_adapter *adapter, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
 {
-	return rtw_mi_get_ch_setting_union_by_ifbmp(adapter_to_dvobj(adapter), 0xFF & ~BIT(adapter->iface_id), ch, bw, offset);
+	return rtw_mi_get_ch_setting_union_by_ifbmp(adapter, 0xFF & ~BIT(adapter->iface_id), band, ch, bw, offset);
 }
 
 int rtw_mi_get_bch_setting_union_by_hwband(struct dvobj_priv *dvobj, u8 band_idx
 	, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
 {
-	return _rtw_mi_get_ch_setting_union(dvobj, band_idx, 0xFF, band, ch, bw, offset);
+	return _rtw_mi_get_ch_setting_union(dvobj, NULL, band_idx, 0xFF, band, ch, bw, offset);
 }
 
 int rtw_mi_get_bch_setting_union_by_hwband_ifbmp(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp
 	, enum band_type *band, u8 *ch, u8 *bw, u8 *offset)
 {
-	return _rtw_mi_get_ch_setting_union(dvobj, band_idx, ifbmp, band, ch, bw, offset);
+	return _rtw_mi_get_ch_setting_union(dvobj, NULL, band_idx, ifbmp, band, ch, bw, offset);
 }
 
-/* For now, not return union_ch/bw/offset */
-static void _rtw_mi_status(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp, struct mi_state *mstate)
+static void _rtw_mi_status(struct dvobj_priv *dvobj, _adapter *adapter, u8 band_idx, u8 ifbmp, struct mi_state *mstate)
 {
 	_adapter *iface;
 	int i;
@@ -199,7 +139,10 @@ static void _rtw_mi_status(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp, stru
 		if (!iface || !(ifbmp & BIT(iface->iface_id)))
 			continue;
 
-		if (band_idx < HW_BAND_MAX) {
+		if (adapter) {
+			if (!rtw_iface_at_same_hwband(adapter, iface))
+				continue;
+		} else if (band_idx < HW_BAND_MAX){
 			if (!rtw_iface_is_operate_at_hwband(iface, band_idx))
 				continue;
 		}
@@ -279,34 +222,34 @@ static void _rtw_mi_status(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp, stru
 	}
 }
 
-void rtw_mi_status_by_ifbmp(struct dvobj_priv *dvobj, u8 ifbmp, struct mi_state *mstate)
+void rtw_mi_status_by_ifbmp(_adapter *adapter, u8 ifbmp, struct mi_state *mstate)
 {
-	_rtw_mi_status(dvobj, HW_BAND_MAX, ifbmp, mstate);
+	_rtw_mi_status(adapter_to_dvobj(adapter), adapter, HW_BAND_MAX, ifbmp, mstate);
 }
 
 inline void rtw_mi_status(_adapter *adapter, struct mi_state *mstate)
 {
-	rtw_mi_status_by_ifbmp(adapter_to_dvobj(adapter), 0xFF, mstate);
+	rtw_mi_status_by_ifbmp(adapter, 0xFF, mstate);
 }
 
 inline void rtw_mi_status_no_self(_adapter *adapter, struct mi_state *mstate)
 {
-	rtw_mi_status_by_ifbmp(adapter_to_dvobj(adapter), 0xFF & ~BIT(adapter->iface_id), mstate);
+	rtw_mi_status_by_ifbmp(adapter, 0xFF & ~BIT(adapter->iface_id), mstate);
 }
 
 inline void rtw_mi_status_no_others(_adapter *adapter, struct mi_state *mstate)
 {
-	rtw_mi_status_by_ifbmp(adapter_to_dvobj(adapter), BIT(adapter->iface_id), mstate);
+	rtw_mi_status_by_ifbmp(adapter, BIT(adapter->iface_id), mstate);
 }
 
 void rtw_mi_status_by_hwband(struct dvobj_priv *dvobj, u8 band_idx, struct mi_state *mstate)
 {
-	_rtw_mi_status(dvobj, band_idx, 0xFF, mstate);
+	_rtw_mi_status(dvobj, NULL, band_idx, 0xFF, mstate);
 }
 
 void rtw_mi_status_by_hwband_ifbmp(struct dvobj_priv *dvobj, u8 band_idx, u8 ifbmp, struct mi_state *mstate)
 {
-	_rtw_mi_status(dvobj, band_idx, ifbmp, mstate);
+	_rtw_mi_status(dvobj, NULL, band_idx, ifbmp, mstate);
 }
 
 /* For now, not handle union_ch/bw/offset */
@@ -341,40 +284,45 @@ inline void rtw_mi_status_merge(struct mi_state *d, struct mi_state *a)
 
 void dump_mi_status(void *sel, struct dvobj_priv *dvobj)
 {
+	u8 i;
+	struct mi_state *iface_state;
+
 	RTW_PRINT_SEL(sel, "== dvobj-iface_state ==\n");
-	RTW_PRINT_SEL(sel, "sta_num:%d\n", DEV_STA_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "linking_sta_num:%d\n", DEV_STA_LG_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "linked_sta_num:%d\n", DEV_STA_LD_NUM(dvobj));
+
+	for (i = 0; i < MAX_BAND_NUM; i++) {
+		RTW_PRINT_SEL(sel, "== Band-%d iface_state ==\n", i);
+		iface_state = &dvobj->iface_state[i];
+		RTW_PRINT_SEL(sel, "sta_num:%d\n", MSTATE_STA_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "linking_sta_num:%d\n", MSTATE_STA_LG_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "linked_sta_num:%d\n", MSTATE_STA_LD_NUM(iface_state));
 #ifdef CONFIG_TDLS
-	RTW_PRINT_SEL(sel, "linked_tdls_num:%d\n", DEV_TDLS_LD_NUM(dvobj));
+		RTW_PRINT_SEL(sel, "linked_tdls_num:%d\n", MSTATE_TDLS_LD_NUM(iface_state));
 #endif
 #ifdef CONFIG_AP_MODE
-	RTW_PRINT_SEL(sel, "ap_num:%d\n", DEV_AP_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "starting_ap_num:%d\n", DEV_AP_STARTING_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "linked_ap_num:%d\n", DEV_AP_LD_NUM(dvobj));
+		RTW_PRINT_SEL(sel, "ap_num:%d\n", MSTATE_AP_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "starting_ap_num:%d\n", MSTATE_AP_STARTING_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "linked_ap_num:%d\n", MSTATE_AP_LD_NUM(iface_state));
 #endif
-	RTW_PRINT_SEL(sel, "adhoc_num:%d\n", DEV_ADHOC_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "linked_adhoc_num:%d\n", DEV_ADHOC_LD_NUM(dvobj));
+		RTW_PRINT_SEL(sel, "adhoc_num:%d\n", MSTATE_ADHOC_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "linked_adhoc_num:%d\n", MSTATE_ADHOC_LD_NUM(iface_state));
 #ifdef CONFIG_RTW_MESH
-	RTW_PRINT_SEL(sel, "mesh_num:%d\n", DEV_MESH_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "linked_mesh_num:%d\n", DEV_MESH_LD_NUM(dvobj));
+		RTW_PRINT_SEL(sel, "mesh_num:%d\n", MSTATE_MESH_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "linked_mesh_num:%d\n", MSTATE_MESH_LD_NUM(iface_state));
 #endif
 #ifdef CONFIG_P2P
-	RTW_PRINT_SEL(sel, "p2p_device_num:%d\n", DEV_P2P_DV_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "p2p_gc_num:%d\n", DEV_P2P_GC_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "p2p_go_num:%d\n", DEV_P2P_GO_NUM(dvobj));
+		RTW_PRINT_SEL(sel, "p2p_device_num:%d\n", MSTATE_P2P_DV_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "p2p_gc_num:%d\n", MSTATE_P2P_GC_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "p2p_go_num:%d\n", MSTATE_P2P_GO_NUM(iface_state));
 #endif
-	RTW_PRINT_SEL(sel, "scan_num:%d\n", DEV_SCAN_NUM(dvobj));
-	RTW_PRINT_SEL(sel, "under_wps_num:%d\n", DEV_WPS_NUM(dvobj));
+		RTW_PRINT_SEL(sel, "scan_num:%d\n", MSTATE_SCAN_NUM(iface_state));
+		RTW_PRINT_SEL(sel, "under_wps_num:%d\n", MSTATE_WPS_NUM(iface_state));
 #if defined(CONFIG_IOCTL_CFG80211)
-	#if defined(CONFIG_P2P)
-	RTW_PRINT_SEL(sel, "roch_num:%d\n", DEV_ROCH_NUM(dvobj));
-	#endif
-	RTW_PRINT_SEL(sel, "mgmt_tx_num:%d\n", DEV_MGMT_TX_NUM(dvobj));
+		#if defined(CONFIG_P2P)
+		RTW_PRINT_SEL(sel, "roch_num:%d\n", MSTATE_ROCH_NUM(iface_state));
+		#endif
+		RTW_PRINT_SEL(sel, "mgmt_tx_num:%d\n", MSTATE_MGMT_TX_NUM(iface_state));
 #endif
-	RTW_PRINT_SEL(sel, "union_ch:%d\n", DEV_U_CH(dvobj));
-	RTW_PRINT_SEL(sel, "union_bw:%d\n", DEV_U_BW(dvobj));
-	RTW_PRINT_SEL(sel, "union_offset:%d\n", DEV_U_OFFSET(dvobj));
+	}
 	RTW_PRINT_SEL(sel, "================\n\n");
 }
 
@@ -388,9 +336,11 @@ inline void rtw_mi_update_iface_status(struct mlme_priv *pmlmepriv, sint state)
 {
 	_adapter *adapter = container_of(pmlmepriv, _adapter, mlmepriv);
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	struct mi_state *iface_state = &dvobj->iface_state;
+	struct mi_state *iface_state = NULL;
 	struct mi_state tmp_mstate;
-	u8 u_ch, u_offset, u_bw;
+	u8 hw_band_idx = 0;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
 
 	if (state == WIFI_MONITOR_STATE
 		|| state == 0xFFFFFFFF
@@ -400,18 +350,13 @@ inline void rtw_mi_update_iface_status(struct mlme_priv *pmlmepriv, sint state)
 	if (0)
 		RTW_INFO("%s => will change or clean state to 0x%08x\n", __func__, state);
 
+	if (rtw_is_adapter_up(adapter))
+		hw_band_idx = adapter_link->wrlink->hw_band;
+
+	iface_state = &dvobj->iface_state[hw_band_idx];
+
 	rtw_mi_status(adapter, &tmp_mstate);
 	_rtw_memcpy(iface_state, &tmp_mstate, sizeof(struct mi_state));
-
-	if (rtw_mi_get_ch_setting_union(adapter, &u_ch, &u_bw, &u_offset))
-		rtw_mi_update_union_chan_inf(adapter , u_ch, u_offset , u_bw);
-	else {
-		if (0) {
-			dump_adapters_status(RTW_DBGDUMP , dvobj);
-			RTW_INFO("%s-[ERROR] cannot get union channel\n", __func__);
-			rtw_warn_on(1);
-		}
-	}
 
 #ifdef DBG_IFACE_STATUS
 	DBG_IFACE_STATUS_DUMP(adapter);
@@ -420,34 +365,66 @@ inline void rtw_mi_update_iface_status(struct mlme_priv *pmlmepriv, sint state)
 u8 rtw_mi_check_status(_adapter *adapter, u8 type)
 {
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	struct mi_state *iface_state = &dvobj->iface_state;
+	struct mi_state *iface_state;
 	u8 ret = _FALSE;
+	struct mr_query_info info = {0};
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
 
+	if (!rtw_is_adapter_up(adapter)) {
+		RTW_ERR("%s-"ADPT_FMT" !rtw_is_adapter_up\n", __func__, ADPT_ARG(adapter));
+		return ret;
+	}
 #ifdef DBG_IFACE_STATUS
 	DBG_IFACE_STATUS_DUMP(adapter);
 	RTW_INFO("%s-"ADPT_FMT" check type:%d\n", __func__, ADPT_ARG(adapter), type);
 #endif
-
+	iface_state = &dvobj->iface_state[adapter_link->wrlink->hw_band];
+	rtw_phl_mr_query_info(dvobj->phl, adapter->phl_role, adapter_link->wrlink, &info);
+#if 0
+	if (info.cur_info.ld_sta_num != MSTATE_STA_LD_NUM(iface_state))
+		RTW_ERR("ld_sta_num (%d:%d)\n", info.cur_info.ld_sta_num, MSTATE_STA_LD_NUM(iface_state));
+	if (info.cur_info.ap_num != MSTATE_AP_NUM(iface_state))
+		RTW_ERR("ap_num (%d:%d)\n", info.cur_info.ap_num, MSTATE_AP_NUM(iface_state));
+	if (info.cur_info.ld_ap_num != MSTATE_AP_LD_NUM(iface_state))
+		RTW_ERR("ld_ap_num (%d:%d)\n", info.cur_info.ld_ap_num, MSTATE_AP_LD_NUM(iface_state));
+#endif
 	switch (type) {
 	case MI_LINKED:
-		if (MSTATE_STA_LD_NUM(iface_state) || MSTATE_AP_NUM(iface_state) || MSTATE_ADHOC_NUM(iface_state) || MSTATE_MESH_NUM(iface_state)) /*check_fwstate(&iface->mlmepriv, WIFI_ASOC_STATE)*/
+		/*if (MSTATE_STA_LD_NUM(iface_state) || MSTATE_AP_NUM(iface_state) || MSTATE_ADHOC_NUM(iface_state) || MSTATE_MESH_NUM(iface_state))*/ /*check_fwstate(&iface->mlmepriv, WIFI_ASOC_STATE)*/
+		if (info.cur_info.ld_sta_num || info.cur_info.ap_num) /*info.cur_info.adhoc_num || info.cur_info.mesh_num*/
 			ret = _TRUE;
 		break;
 	case MI_ASSOC:
-		if (MSTATE_STA_LD_NUM(iface_state) || MSTATE_AP_LD_NUM(iface_state) || MSTATE_ADHOC_LD_NUM(iface_state) || MSTATE_MESH_LD_NUM(iface_state))
-			ret = _TRUE;
+		/*if (MSTATE_STA_LD_NUM(iface_state) || MSTATE_AP_LD_NUM(iface_state) || MSTATE_ADHOC_LD_NUM(iface_state) || MSTATE_MESH_LD_NUM(iface_state))*/
+		if (info.cur_info.ld_sta_num || info.cur_info.ld_ap_num) /*info.cur_info.ld_adhoc_num || info.cur_info.ld_mesh_num*/
+
+		ret = _TRUE;
 		break;
-	case MI_UNDER_WPS:
-		if (MSTATE_WPS_NUM(iface_state))
+	case MI_AP_MODE:
+		/*if (MSTATE_AP_NUM(iface_state))*/
+		if (info.cur_info.ap_num)
 			ret = _TRUE;
 		break;
 
-	case MI_AP_MODE:
-		if (MSTATE_AP_NUM(iface_state))
+	case MI_AP_ASSOC:
+		/*if (MSTATE_AP_LD_NUM(iface_state))*/
+		if (info.cur_info.ld_ap_num)
 			ret = _TRUE;
 		break;
-	case MI_AP_ASSOC:
-		if (MSTATE_AP_LD_NUM(iface_state))
+	case MI_STA_LINKED:
+		/*if (MSTATE_STA_LD_NUM(iface_state))*/
+		if (info.cur_info.ld_sta_num)
+			ret = _TRUE;
+		break;
+	case MI_STA_LINKING:
+		/*if (MSTATE_STA_LG_NUM(iface_state))*/
+		if (info.cur_info.lg_sta_num)
+			ret = _TRUE;
+		break;
+#if 0
+	case MI_UNDER_WPS:
+		if (MSTATE_WPS_NUM(iface_state))
 			ret = _TRUE;
 		break;
 
@@ -460,7 +437,7 @@ u8 rtw_mi_check_status(_adapter *adapter, u8 type)
 			ret = _TRUE;
 		break;
 
-#ifdef CONFIG_RTW_MESH
+	#ifdef CONFIG_RTW_MESH
 	case MI_MESH:
 		if (MSTATE_MESH_NUM(iface_state))
 			ret = _TRUE;
@@ -469,21 +446,13 @@ u8 rtw_mi_check_status(_adapter *adapter, u8 type)
 		if (MSTATE_MESH_LD_NUM(iface_state))
 			ret = _TRUE;
 		break;
-#endif
+	#endif
 
 	case MI_STA_NOLINK: /* this is misleading, but not used now */
 		if (MSTATE_STA_NUM(iface_state) && (!(MSTATE_STA_LD_NUM(iface_state) || MSTATE_STA_LG_NUM(iface_state))))
 			ret = _TRUE;
 		break;
-	case MI_STA_LINKED:
-		if (MSTATE_STA_LD_NUM(iface_state))
-			ret = _TRUE;
-		break;
-	case MI_STA_LINKING:
-		if (MSTATE_STA_LG_NUM(iface_state))
-			ret = _TRUE;
-		break;
-
+#endif
 	default:
 		break;
 	}
@@ -511,6 +480,9 @@ static u8 _rtw_mi_process(_adapter *padapter, bool exclude_self,
 			if ((exclude_self) && (iface == padapter))
 				continue;
 
+			if (!rtw_iface_at_same_hwband(padapter, iface))
+				continue;
+
 			if (ops_func)
 				if (_TRUE == ops_func(iface, data))
 					ret++;
@@ -520,7 +492,7 @@ static u8 _rtw_mi_process(_adapter *padapter, bool exclude_self,
 }
 
 static u8 _rtw_mi_process_by_hwband_ifbmp(struct dvobj_priv *dvobj
-	, u8 band_idx, u8 ifbmp
+	, _adapter *adapter, u8 band_idx, u8 ifbmp
 	, void *data, u8(*ops_func)(_adapter *adapter, void *data))
 {
 	int i;
@@ -529,16 +501,20 @@ static u8 _rtw_mi_process_by_hwband_ifbmp(struct dvobj_priv *dvobj
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
-		if (!iface || !rtw_is_adapter_up(iface) || !(ifbmp & BIT(iface->iface_id))) {
-			if (band_idx < HW_BAND_MAX) {
-				if (!rtw_iface_is_operate_at_hwband(iface, band_idx))
-					continue;
-			}
+		if (!iface || !rtw_is_adapter_up(iface) || !(ifbmp & BIT(iface->iface_id)))
+			continue;
 
-			if (ops_func)
-				if (_TRUE == ops_func(iface, data))
-					ret++;
+		if (adapter) {
+			if (!rtw_iface_at_same_hwband(adapter, iface))
+				continue;
+		} else if (band_idx < HW_BAND_MAX){
+			if (!rtw_iface_is_operate_at_hwband(iface, band_idx))
+				continue;
 		}
+
+		if (ops_func)
+			if (_TRUE == ops_func(iface, data))
+				ret++;
 	}
 	return ret;
 }
@@ -586,33 +562,31 @@ u8 rtw_mi_buddy_netif_caroff_qstop(_adapter *padapter)
 static u8 _rtw_mi_disconnect(_adapter *adapter, void *data)
 {
 	struct mlme_priv *mlme = &adapter->mlmepriv;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
+	struct link_mlme_ext_priv *lmlmeext = &adapter_link->mlmeextpriv;
 	struct mlme_ext_priv *mlmeext = &adapter->mlmeextpriv;
 	struct mlme_ext_info *mlmeinfo = &(mlmeext->mlmext_info);
-	Disconnect_type disc_code = DISCONNECTION_NOT_YET_OCCUR;
-
-	if (data)
-		disc_code = *(int *)data;
 
 	if ((MLME_IS_AP(adapter) || MLME_IS_MESH(adapter))
 			&& check_fwstate(mlme, WIFI_ASOC_STATE)) {
-		#ifdef CONFIG_SPCT_CH_SWITCH
-		if (1)
-		rtw_ap_inform_ch_switch(adapter, mlmeext->chandef.chan, mlmeext->chandef.offset);
-		else
-		#endif
 		#ifdef CONFIG_STA_CMD_DISPR
-			rtw_phl_cmd_stop_beacon(adapter_to_dvobj(adapter)->phl, adapter->phl_role, _TRUE, PHL_CMD_NO_WAIT, 0);
+		rtw_phl_cmd_stop_beacon(adapter_to_dvobj(adapter)->phl, adapter_link->wrlink, _TRUE, PHL_CMD_NO_WAIT, 0);
 		#else
-			rtw_phl_cmd_stop_beacon(adapter_to_dvobj(adapter)->phl, adapter->phl_role, _TRUE, PHL_CMD_DIRECTLY, 0);
+		rtw_phl_cmd_stop_beacon(adapter_to_dvobj(adapter)->phl, adapter->phl_role, _TRUE, PHL_CMD_DIRECTLY, 0);
 		#endif
-		rtw_sta_flush(adapter, _FALSE);
+		rtw_sta_flush(adapter, _TRUE);
 
-		rtw_hal_set_hwreg(adapter, HW_VAR_CHECK_TXBUF, 0);
 		set_fwstate(mlme, WIFI_OP_CH_SWITCHING);
-		rtw_phl_chanctx_del(adapter_to_dvobj(adapter)->phl, adapter->phl_role, NULL);
+		rtw_phl_chanctx_del(adapter_to_dvobj(adapter)->phl, adapter->phl_role, adapter_link->wrlink, NULL);
 
 	} else if (MLME_IS_STA(adapter)
 			&& check_fwstate(mlme, WIFI_ASOC_STATE)) {
+		Disconnect_type disc_code = DISCONNECTION_NOT_YET_OCCUR;
+
+		if (data)
+			disc_code = *(int *)data;
+
 		rtw_disassoc_cmd(adapter, 500, RTW_CMDF_DIRECTLY);
 #ifndef CONFIG_STA_CMD_DISPR
 		rtw_free_assoc_resources(adapter, _TRUE);
@@ -636,7 +610,29 @@ u8 rtw_mi_buddy_disconnect(_adapter *adapter, Disconnect_type disc_code)
 {
 	return _rtw_mi_process(adapter, _TRUE, (void *)&disc_code,
 			       _rtw_mi_disconnect);
+	/*_phl_mr_process_by_band(phl_info, wifi_role, _TRUE, NULL, _rtw_mi_disconnect);*/
 }
+
+#ifdef	PHL_MR_PROC_CMD
+static u8 _rtw_dump_mac_addr(void *drv_priv, u8 wr_idx, void *data)
+{
+	_adapter *adapter;
+	struct dvobj_priv *dvobj = (struct dvobj_priv *)drv_priv;
+
+	adapter = dvobj->padapters[wr_idx];
+	if (rtw_is_adapter_up(adapter))
+		RTW_INFO("if%d mac_addr : "MAC_FMT"\n", wr_idx, MAC_ARG(adapter_mac_addr(adapter)));
+	return _SUCCESS;
+}
+
+u8 rtw_mi_dump_mac_addr(_adapter *adapter)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+
+	return rtw_phl_mr_process_by_band(dvobj->phl, HW_BAND_0, NULL,
+							_rtw_dump_mac_addr);
+}
+#endif
 
 static u8 _rtw_mi_netif_caron_qstart(_adapter *padapter, void *data)
 {
@@ -747,61 +743,6 @@ void rtw_mi_buddy_scan_abort(_adapter *adapter, bool bwait)
 	_rtw_mi_process(adapter, _TRUE, &in_data, _rtw_mi_scan_abort);
 }
 
-#if 0 /*#ifdef CONFIG_CORE_CMD_THREAD*/
-static u32 _rtw_mi_start_drv_threads(_adapter *adapter, bool exclude_self)
-{
-	int i;
-	_adapter *iface = NULL;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	u32 _status = _SUCCESS;
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if (iface) {
-			if ((exclude_self) && (iface == adapter))
-				continue;
-			if (rtw_start_drv_threads(iface) == _FAIL) {
-				_status = _FAIL;
-				break;
-			}
-		}
-	}
-	return _status;
-}
-u32 rtw_mi_start_drv_threads(_adapter *adapter)
-{
-	return _rtw_mi_start_drv_threads(adapter, _FALSE);
-}
-u32 rtw_mi_buddy_start_drv_threads(_adapter *adapter)
-{
-	return _rtw_mi_start_drv_threads(adapter, _TRUE);
-}
-
-static void _rtw_mi_stop_drv_threads(_adapter *adapter, bool exclude_self)
-{
-	int i;
-	_adapter *iface = NULL;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if (iface) {
-			if ((exclude_self) && (iface == adapter))
-				continue;
-			rtw_stop_drv_threads(iface);
-		}
-	}
-}
-void rtw_mi_stop_drv_threads(_adapter *adapter)
-{
-	_rtw_mi_stop_drv_threads(adapter, _FALSE);
-}
-void rtw_mi_buddy_stop_drv_threads(_adapter *adapter)
-{
-	_rtw_mi_stop_drv_threads(adapter, _TRUE);
-}
-#endif
-
 static u8 _rtw_mi_cancel_all_timer(_adapter *adapter, void *data)
 {
 	rtw_cancel_all_timer(adapter);
@@ -901,10 +842,13 @@ void rtw_mi_buddy_set_scan_deny(_adapter *adapter, u32 ms)
 
 static u8 _rtw_mi_beacon_update(_adapter *padapter, void *data)
 {
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
 	if (!MLME_IS_STA(padapter)
 	    && check_fwstate(&padapter->mlmepriv, WIFI_ASOC_STATE) == _TRUE) {
 		RTW_INFO(ADPT_FMT" - update_beacon\n", ADPT_ARG(padapter));
-		rtw_update_beacon(padapter, 0xFF, NULL, _TRUE, 0);
+		rtw_update_beacon(padapter, padapter_link,
+				0xFF, NULL, _TRUE, 0);
 	}
 	return _TRUE;
 }
@@ -1026,7 +970,7 @@ u8 rtw_mi_check_fwstate_by_hwband(struct dvobj_priv *dvobj, u8 band_idx, sint st
 {
 	sint in_data = state;
 
-	return _rtw_mi_process_by_hwband_ifbmp(dvobj, band_idx, 0xFF, &in_data, _rtw_mi_check_fwstate);
+	return _rtw_mi_process_by_hwband_ifbmp(dvobj, NULL, band_idx, 0xFF, &in_data, _rtw_mi_check_fwstate);
 }
 
 static u8 _rtw_mi_traffic_statistics(_adapter *padapter , void *data)
@@ -1075,36 +1019,6 @@ u8 rtw_mi_buddy_check_pending_xmitbuf(_adapter *padapter)
 }
 #endif
 
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-#include <rtw_trx_sdio.h>
-static u8 _rtw_mi_dequeue_xmit(_adapter *padapter , bool exclude_self)
-{
-	int i;
-	u8	queue_empty = _TRUE;
-	_adapter *iface;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if ((iface) && rtw_is_adapter_up(iface)) {
-
-			if ((exclude_self) && (iface == padapter))
-				continue;
-
-			queue_empty &= sdio_dequeue_xmit(iface);
-		}
-	}
-	return queue_empty;
-}
-u8 rtw_mi_sdio_dequeue_xmit(_adapter *padapter)
-{
-	return _rtw_mi_dequeue_xmit(padapter, _FALSE);
-}
-u8 rtw_mi_sdio_buddy_dequeue_xmit(_adapter *padapter)
-{
-	return _rtw_mi_dequeue_xmit(padapter, _TRUE);
-}
-#endif
 static void _rtw_mi_adapter_reset(_adapter *padapter , u8 exclude_self)
 {
 	int i;
@@ -1247,10 +1161,12 @@ u8 rtw_mi_buddy_sreset_adapter_hdl(_adapter *padapter, u8 bstart)
 }
 static u8 _rtw_mi_tx_beacon_hdl(_adapter *adapter, void *data)
 {
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
 	if ((MLME_IS_AP(adapter) || MLME_IS_MESH(adapter))
 		&& check_fwstate(&adapter->mlmepriv, WIFI_ASOC_STATE) == _TRUE
 	) {
-		adapter->mlmepriv.update_bcn = _TRUE;
+		adapter_link->mlmepriv.update_bcn = _TRUE;
 #ifndef CONFIG_INTERRUPT_BASED_TXBCN
 #if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI) || defined(CONFIG_PCI_BCN_POLLING)
 		tx_beacon_hdl(adapter, NULL);
@@ -1270,11 +1186,13 @@ u8 rtw_mi_buddy_tx_beacon_hdl(_adapter *padapter)
 
 static u8 _rtw_mi_set_tx_beacon_cmd(_adapter *adapter, void *data)
 {
-	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
+	struct link_mlme_priv *pmlmepriv = &adapter_link->mlmepriv;
 
 	if (MLME_IS_AP(adapter) || MLME_IS_MESH(adapter)) {
 		if (pmlmepriv->update_bcn == _TRUE)
-			set_tx_beacon_cmd(adapter, 0);
+			set_tx_beacon_cmd(adapter, adapter_link, 0);
 	}
 	return _TRUE;
 }
@@ -1328,6 +1246,10 @@ _adapter *rtw_get_iface_by_macddr(_adapter *padapter, const u8 *mac_addr)
 	_adapter *iface = NULL;
 	u8 bmatch = _FALSE;
 	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+	#if defined(CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI) || defined(CONFIG_RTW_SCAN_RAND)
+	struct rtw_wdev_priv *pwdev_priv = adapter_wdev_data(padapter);
+	#endif
+	u8 *iface_mac_addr;
 
 #ifdef RTW_PHL_TEST_FPGA
 	return dvobj->padapters[0];
@@ -1335,7 +1257,18 @@ _adapter *rtw_get_iface_by_macddr(_adapter *padapter, const u8 *mac_addr)
 
 	for (i = 0; i < dvobj->iface_nums; i++) {
 		iface = dvobj->padapters[i];
-		if ((iface) && (_rtw_memcmp(mac_addr, adapter_mac_addr(iface), ETH_ALEN))) {
+		if (!iface)
+			continue;
+
+#if defined(CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI) || defined(CONFIG_RTW_SCAN_RAND)
+		if (pwdev_priv->random_mac_enabled) {
+			iface_mac_addr = adapter_pno_mac_addr(iface);
+		} else
+#endif /* CONFIG_RTW_SCAN_RAND */
+			iface_mac_addr = adapter_mac_addr(iface);
+
+		if (rtw_match_self_addr(iface, mac_addr))
+		{
 			bmatch = _TRUE;
 			break;
 		}
@@ -1346,25 +1279,6 @@ _adapter *rtw_get_iface_by_macddr(_adapter *padapter, const u8 *mac_addr)
 		return NULL;
 }
 
-_adapter *rtw_get_iface_by_hwport(_adapter *padapter, u8 hw_port)
-{
-	int i;
-	_adapter *iface = NULL;
-	u8 bmatch = _FALSE;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if ((iface) && (hw_port == iface->hw_port)) {
-			bmatch = _TRUE;
-			break;
-		}
-	}
-	if (bmatch)
-		return iface;
-	else
-		return NULL;
-}
 
 /*#define CONFIG_SKB_ALLOCATED*/
 #define DBG_SKB_PROCESS
@@ -1426,6 +1340,8 @@ static s32 _rtw_mi_buddy_clone_bcmc_packet(_adapter *adapter,
 
 	if (pcloneframe) {
 		pcloneframe->u.hdr.adapter = adapter;
+		/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+		pcloneframe->u.hdr.adapter_link = GET_PRIMARY_LINK(adapter);
 
 		_rtw_init_listhead(&pcloneframe->u.hdr.list);
 		pcloneframe->u.hdr.precvbuf = NULL;	/*can't access the precvbuf for new arch.*/
@@ -1477,6 +1393,11 @@ void rtw_mi_buddy_clone_bcmc_packet(_adapter *padapter,
 			continue;
 		if (rtw_is_adapter_up(iface) == _FALSE || iface->registered == 0)
 			continue;
+		#if 0
+		if (!rtw_iface_at_same_hwband(padapter, iface))
+			continue;
+		#endif
+
 		if (type == WIFI_DATA_TYPE && !adapter_allow_bmc_data_rx(iface))
 			continue;
 
@@ -1493,28 +1414,6 @@ void rtw_mi_buddy_clone_bcmc_packet(_adapter *padapter,
 		}
 	}
 }
-
-#ifdef CONFIG_PCI_HCI
-/*API be created temporary for MI, caller is interrupt-handler, PCIE's interrupt handler cannot apply to multi-AP*/
-_adapter *rtw_mi_get_ap_adapter(_adapter *padapter)
-{
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-	int i;
-	_adapter *iface = NULL;
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		iface = dvobj->padapters[i];
-		if (!iface)
-			continue;
-
-		if (check_fwstate(&iface->mlmepriv, WIFI_AP_STATE) == _TRUE
-		    && check_fwstate(&iface->mlmepriv, WIFI_ASOC_STATE) == _TRUE)
-			break;
-
-	}
-	return iface;
-}
-#endif
 
 u8 rtw_mi_get_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
 {
@@ -1549,7 +1448,7 @@ _adapter *rtw_mi_get_iface_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
 	return NULL;
 }
 
-static u8 _rtw_mi_get_ld_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
+static u8 _rtw_mi_get_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, _adapter *adapter, u8 band_idx, u32 mlme_sbmp)
 {
 	int i;
 	_adapter *iface;
@@ -1559,12 +1458,15 @@ static u8 _rtw_mi_get_ld_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_i
 		iface = dvobj->padapters[i];
 		if (!iface)
 			continue;
-		if (band_idx < HW_BAND_MAX) {
+		if (adapter) {
+			if (!rtw_iface_at_same_hwband(adapter, iface))
+				continue;
+		} else if (band_idx < HW_BAND_MAX){
 			if (!rtw_iface_is_operate_at_hwband(iface, band_idx))
 				continue;
 		}
 
-		if (MLME_IS_STA(iface) && MLME_IS_ASOC(iface))
+		if (MLME_IS_STA(iface) && (!mlme_sbmp || CHK_MLME_STATE(iface, mlme_sbmp)))
 			ifbmp |= BIT(i);
 	}
 
@@ -1573,15 +1475,29 @@ static u8 _rtw_mi_get_ld_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_i
 
 u8 rtw_mi_get_ld_sta_ifbmp(_adapter *adapter)
 {
-	return _rtw_mi_get_ld_sta_ifbmp_by_hwband(adapter_to_dvobj(adapter), HW_BAND_MAX);
+	return _rtw_mi_get_sta_ifbmp_by_hwband(adapter_to_dvobj(adapter), adapter, HW_BAND_MAX
+		, WIFI_ASOC_STATE);
 }
 
 u8 rtw_mi_get_ld_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
 {
-	return _rtw_mi_get_ld_sta_ifbmp_by_hwband(dvobj, band_idx);
+	return _rtw_mi_get_sta_ifbmp_by_hwband(dvobj, NULL, band_idx
+		, WIFI_ASOC_STATE);
 }
 
-static u8 _rtw_mi_get_ap_mesh_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
+u8 rtw_mi_get_lgd_sta_ifbmp(_adapter *adapter)
+{
+	return _rtw_mi_get_sta_ifbmp_by_hwband(adapter_to_dvobj(adapter), adapter, HW_BAND_MAX
+		, WIFI_UNDER_LINKING | WIFI_ASOC_STATE);
+}
+
+u8 rtw_mi_get_lgd_sta_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
+{
+	return _rtw_mi_get_sta_ifbmp_by_hwband(dvobj, NULL, band_idx
+		, WIFI_UNDER_LINKING | WIFI_ASOC_STATE);
+}
+
+static u8 _rtw_mi_get_ap_mesh_ifbmp_by_hwband(struct dvobj_priv *dvobj, _adapter *adapter, u8 band_idx)
 {
 	int i;
 	_adapter *iface;
@@ -1591,7 +1507,10 @@ static u8 _rtw_mi_get_ap_mesh_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_
 		iface = dvobj->padapters[i];
 		if (!iface)
 			continue;
-		if (band_idx < HW_BAND_MAX) {
+		if (adapter) {
+			if (!rtw_iface_at_same_hwband(adapter, iface))
+				continue;
+		} else if (band_idx < HW_BAND_MAX){
 			if (!rtw_iface_is_operate_at_hwband(iface, band_idx))
 				continue;
 		}
@@ -1606,12 +1525,12 @@ static u8 _rtw_mi_get_ap_mesh_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_
 
 u8 rtw_mi_get_ap_mesh_ifbmp(_adapter *adapter)
 {
-	return _rtw_mi_get_ap_mesh_ifbmp_by_hwband(adapter_to_dvobj(adapter), HW_BAND_MAX);
+	return _rtw_mi_get_ap_mesh_ifbmp_by_hwband(adapter_to_dvobj(adapter), adapter, HW_BAND_MAX);
 }
 
 u8 rtw_mi_get_ap_mesh_ifbmp_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
 {
-	return _rtw_mi_get_ap_mesh_ifbmp_by_hwband(dvobj, band_idx);
+	return _rtw_mi_get_ap_mesh_ifbmp_by_hwband(dvobj, NULL, band_idx);
 }
 
 _adapter *rtw_mi_get_ap_mesh_iface_by_hwband(struct dvobj_priv *dvobj, u8 band_idx)
@@ -1631,22 +1550,64 @@ _adapter *rtw_mi_get_ap_mesh_iface_by_hwband(struct dvobj_priv *dvobj, u8 band_i
 
 bool rtw_iface_is_operate_at_hwband(_adapter *adapter, u8 band_idx)
 {
-	return rtw_is_adapter_up(adapter) && adapter->phl_role->hw_band == band_idx;
-}
+	struct _ADAPTER_LINK *alink;
+	u8 lidx;
 
-u8 rtw_mi_get_assoc_if_num(_adapter *adapter)
-{
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	u8 n_assoc_iface = 0;
-#if 1
-	u8 i;
-
-	for (i = 0; i < dvobj->iface_nums; i++) {
-		if (check_fwstate(&(dvobj->padapters[i]->mlmepriv), WIFI_ASOC_STATE))
-			n_assoc_iface++;
+	if (rtw_is_adapter_up(adapter)) {
+		for (lidx = 0; lidx < adapter->adapter_link_num; lidx++) {
+			alink = GET_LINK(adapter, lidx);
+			if (alink->wrlink->hw_band == band_idx)
+				return true;
+		}
 	}
-#else
-	n_assoc_iface = DEV_STA_LD_NUM(dvobj) + DEV_AP_NUM(dvobj) + DEV_ADHOC_NUM(dvobj) + DEV_MESH_NUM(dvobj);
-#endif
-	return n_assoc_iface;
+
+	return false;
 }
+
+bool rtw_iface_at_same_hwband(_adapter *adapter, _adapter *iface)
+{
+	bool rst = _TRUE;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
+	struct _ADAPTER_LINK *iface_link = GET_PRIMARY_LINK(iface);
+
+	#ifdef CONFIG_DBCC_SUPPORT
+	if (rtw_is_adapter_up(adapter) && rtw_is_adapter_up(iface))
+		rst = (adapter_link->wrlink->hw_band == iface_link->wrlink->hw_band) ? _TRUE : _FALSE;
+	#endif
+	return rst;
+}
+
+u8 rtw_mi_get_hw_port(_adapter *adapter, struct _ADAPTER_LINK *adapter_link)
+{
+	if (rtw_is_adapter_up(adapter))
+		return adapter_link->wrlink->hw_port;
+	return 0xFF;
+}
+
+u32 ifbmp_to_iflbmp(u8 ifbmp)
+{
+	u8 i, j;
+	u32 iflbmp = 0;
+
+	for (i = 0; i < CONFIG_IFACE_NUMBER; i++) {
+		for (j = 0; j < RTW_RLINK_MAX; j++) {
+			iflbmp |= (ifbmp & BIT(i)) << (j * CONFIG_IFACE_NUMBER);
+		}
+	}
+	return iflbmp;
+}
+
+u8 iflbmp_to_ifbmp(u32 iflbmp)
+{
+	u8 i, j;
+	u8 ifbmp = 0;
+
+	for (i = 0; i < CONFIG_IFACE_NUMBER; i++) {
+		for (j = 0; j < RTW_RLINK_MAX; j++) {
+			ifbmp |= (iflbmp >> (j * CONFIG_IFACE_NUMBER)) & BIT(i);
+		}
+	}
+	return ifbmp;
+}
+

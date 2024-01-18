@@ -34,6 +34,7 @@
 
 struct bb_info;
 /*@--------------------------[Prptotype]-------------------------------------*/
+
 bool halbb_check_fw_ofld(struct bb_info *bb);
 bool halbb_fw_set_reg(struct bb_info *bb, u32 addr, u32 mask, u32 val, u8 lc);
 bool halbb_fw_delay(struct bb_info *bb, u32 val);

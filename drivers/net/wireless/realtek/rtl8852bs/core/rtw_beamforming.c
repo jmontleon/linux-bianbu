@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -24,10 +24,13 @@ void rtw_core_bf_watchdog(_adapter *padapter)
 	struct registry_priv *pregpriv = &padapter->registrypriv;
 	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
 	struct rtw_phl_com_t *phl_com = GET_PHL_COM(dvobj);
-        struct rtw_wifi_role_t *wrole = NULL;
-        struct rtw_phl_stainfo_t *psta = NULL;
-        struct rtw_stats *phl_stats = NULL;
-        bool enable_bfee = false;
+	struct rtw_wifi_role_t *wrole = NULL;
+	struct rtw_phl_stainfo_t *psta = NULL;
+	struct rtw_stats *phl_stats = NULL;
+	bool enable_bfee = false;
+	struct protocol_cap_t *proto_cap;
+	struct _ADAPTER_LINK *padapter_link;
+	u8 lidx;
 
 	do {
 		if (padapter == NULL)
@@ -43,46 +46,51 @@ void rtw_core_bf_watchdog(_adapter *padapter)
 		if (wrole == NULL)
 			break;
 
-		psta = rtw_phl_get_stainfo_self(adapter_to_dvobj(padapter)->phl, wrole);
-
-		if (psta == NULL)
-			break;
-
-		if (PHL_RTYPE_STATION != wrole->type)
+		if (PHL_RTYPE_STATION != wrole->type || PHL_RTYPE_TDLS != wrole->type)
 			break;
 
 		if (MLME_NO_LINK == wrole->mstate)
 			break;
 
-		if ((wrole->proto_role_cap.he_su_bfme ||
-			wrole->proto_role_cap.he_mu_bfme) &&
-			(psta->asoc_cap.he_su_bfmr || psta->asoc_cap.he_mu_bfmr)) {
-			enable_bfee = true;
+		for (lidx = 0; lidx < padapter->adapter_link_num; lidx++) {
+			padapter_link = GET_LINK(padapter, lidx);
+
+			if (MLME_NO_LINK == padapter_link->wrlink->mstate)
+				break;
+
+			psta = rtw_phl_get_stainfo_self(adapter_to_dvobj(padapter)->phl, padapter_link->wrlink);
+			proto_cap = &(padapter_link->wrlink->protocol_cap);
+
+			if (psta == NULL)
+				break;
+
+			if ((proto_cap->he_su_bfme ||
+				proto_cap->he_mu_bfme) &&
+				(psta->asoc_cap.he_su_bfmr || psta->asoc_cap.he_mu_bfmr))
+				enable_bfee = true;
+
+			if ((proto_cap->vht_su_bfme ||
+				proto_cap->vht_mu_bfme) &&
+				(psta->asoc_cap.vht_su_bfmr ||
+				psta->asoc_cap.vht_mu_bfmr))
+				enable_bfee = true;
+
+			if (proto_cap->ht_su_bfme &&
+				psta->asoc_cap.ht_su_bfmr)
+				enable_bfee = true;
+
+			if (enable_bfee == false)
+				break;
+
+			phl_stats = &(phl_com->phl_stats);
+			if ((phl_stats->tx_traffic.lvl > phl_stats->rx_traffic.lvl) &&
+				(phl_stats->tx_traffic.lvl >= RTW_TFC_HIGH))
+				enable_bfee = false;
+
+			/*Per wrole->hw_band to control bfee, not per hw_port*/
+			rtw_phl_bfee_ctrl(GET_PHL_INFO(dvobj), wrole, enable_bfee);
+			/*RTW_INFO("[WKARD] Enable/Disable BFee function : BFee %d\n", enable_bfee);*/
 		}
-
-		if ((wrole->proto_role_cap.vht_su_bfme ||
-			wrole->proto_role_cap.vht_mu_bfme) &&
-			(psta->asoc_cap.vht_su_bfmr ||
-			psta->asoc_cap.vht_mu_bfmr)) {
-			enable_bfee = true;
-		}
-
-		if (wrole->proto_role_cap.ht_su_bfme &&
-			psta->asoc_cap.ht_su_bfmr)
-			enable_bfee = true;
-
-		if (enable_bfee == false)
-			break;
-
-		phl_stats = &(phl_com->phl_stats);
-		if ((phl_stats->tx_traffic.lvl > phl_stats->rx_traffic.lvl) &&
-			(phl_stats->tx_traffic.lvl >= RTW_TFC_HIGH)) {
-			enable_bfee = false;
-		}
-
-		/*Per wrole->hw_band to control bfee, not per hw_port*/
-		rtw_phl_bfee_ctrl(GET_PHL_INFO(dvobj), wrole, enable_bfee);
-		/*RTW_INFO("[WKARD] Enable/Disable BFee function : BFee %d\n", enable_bfee);*/
 	} while (0);
 }
 #endif /*RTW_WKARD_TX_DISABLE_BFEE*/
@@ -853,9 +861,6 @@ static void _sounding_handler(_adapter *adapter)
 			info->sounding_running--;
 			return;
 		}
-
-		rtw_ps_deny(adapter, PS_DENY_BEAMFORMING);
-		LeaveAllPowerSaveModeDirect(adapter);
 	}
 
 	/* Get non-sound SU BFee index */
@@ -933,7 +938,6 @@ static void _sounding_handler(_adapter *adapter)
 	info->sounding_running--;
 	sounding->state = SOUNDING_STATE_INIT;
 	RTW_INFO("%s: Sounding finished!\n", __FUNCTION__);
-	rtw_ps_deny_cancel(adapter, PS_DENY_BEAMFORMING);
 }
 
 static void _sounding_force_stop(_adapter *adapter)
@@ -955,7 +959,6 @@ static void _sounding_force_stop(_adapter *adapter)
 	info->sounding_running--;
 	sounding->state = SOUNDING_STATE_INIT;
 	RTW_INFO("%s: Sounding finished!\n", __FUNCTION__);
-	rtw_ps_deny_cancel(adapter, PS_DENY_BEAMFORMING);
 }
 
 static void _sounding_timer_handler(void *FunctionContext)
@@ -2084,6 +2087,52 @@ void rtw_bf_update_traffic(_adapter *adapter)
 			_set_timer(&info->sounding_timer, 0);
 		}
 	}
+}
+#else
+/*
+ * rtw_bf_get_vht_gid_mgnt_packet() - Set VHT GID for MU beamformee
+ * @a:		struct _ADAPTER*
+ * @rframe:	union recv_frame*
+ *
+ * Return 0 for success, otherwise fail.
+ *
+ */
+int rtw_bf_get_vht_gid_mgnt_packet(struct _ADAPTER *a, union recv_frame *rframe)
+{
+	struct rtw_phl_gid_pos_tbl tbl = {0};
+	u8 *data, *gid, *pos;
+	enum rtw_phl_status status;
+	int err = 0;
+
+
+	data = rframe->u.hdr.rx_data;
+	RTW_DBG(FUNC_ADPT_FMT ": GID setting for " MAC_FMT "\n",
+		FUNC_ADPT_ARG(a), MAC_ARG(get_addr2_ptr(data)));
+	/* Move to data start */
+	data += 26;
+
+	/* Membership Status Array */
+	gid = data;
+	_rtw_memcpy(tbl.gid_vld, gid, RTW_VHT_GID_MGNT_FRAME_GID_SZ);
+	RTW_DBG_DUMP("Membership Status Array: ", tbl.gid_vld, RTW_VHT_GID_MGNT_FRAME_GID_SZ);
+	/* User Position Array */
+	pos= data + RTW_VHT_GID_MGNT_FRAME_GID_SZ;
+	_rtw_memcpy(tbl.pos, pos, RTW_VHT_GID_MGNT_FRAME_POS_SZ);
+	RTW_DBG_DUMP("User Position Array: ", tbl.pos, RTW_VHT_GID_MGNT_FRAME_POS_SZ);
+
+	/* Config HW GID table */
+	status = rtw_phl_snd_cmd_set_vht_gid(GET_PHL_INFO(adapter_to_dvobj(a)),
+					      a->phl_role, &tbl);
+	if (status == RTW_PHL_STATUS_SUCCESS) {
+		RTW_DBG(FUNC_ADPT_FMT ": Add VHT GID Success\n",
+			FUNC_ADPT_ARG(a));
+	} else {
+		RTW_ERR(FUNC_ADPT_FMT ": Add VHT GID FAIL!(0x%x)\n",
+			FUNC_ADPT_ARG(a), status);
+		err = -1;
+	}
+
+	return err;
 }
 #endif
 #endif /* CONFIG_BEAMFORMING */

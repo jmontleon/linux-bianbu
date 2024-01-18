@@ -88,6 +88,17 @@
 #define RTW_ROCH_BACK_OP
 #endif
 
+#if defined(CONFIG_DFS_MASTER) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0))
+#ifndef CONFIG_RTW_CFG80211_CAC_EVENT
+#define CONFIG_RTW_CFG80211_CAC_EVENT 0
+#endif
+#else
+#ifdef CONFIG_RTW_CFG80211_CAC_EVENT
+#undef CONFIG_RTW_CFG80211_CAC_EVENT
+#endif
+#define CONFIG_RTW_CFG80211_CAC_EVENT 0
+#endif
+
 #if !defined(CONFIG_P2P) && RTW_P2P_GROUP_INTERFACE
 	#error "RTW_P2P_GROUP_INTERFACE can't be enabled when CONFIG_P2P is disabled\n"
 #endif
@@ -215,7 +226,8 @@ struct rtw_wdev_priv {
 
 	_mutex roch_mutex;
 
-#ifdef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
+#if defined(CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI) || defined(CONFIG_RTW_SCAN_RAND)
+	bool random_mac_enabled;
 	u8 pno_mac_addr[ETH_ALEN];
 	u16 pno_scan_seq_num;
 #endif
@@ -274,6 +286,16 @@ struct rtw_wiphy_data {
 	_list async_regd_change_list;
 	_mutex async_regd_change_mutex;
 	_workitem async_regd_change_work;
+
+#if CONFIG_RTW_CFG80211_CAC_EVENT
+	_list async_cac_change_list;
+	_mutex async_cac_change_mutex;
+	_workitem async_cac_change_work;
+
+	/* for DFS channel state sync */
+	struct wireless_dev *du_wdev;
+	struct cfg80211_chan_def du_chdef;
+#endif
 };
 
 #define rtw_wiphy_priv(wiphy) ((struct rtw_wiphy_data *)wiphy_priv(wiphy))
@@ -434,6 +456,10 @@ void rtw_cfg80211_deinit_rfkill(struct wiphy *wiphy);
 #endif
 #endif
 
+#if CONFIG_IEEE80211_BAND_6GHZ && LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
+#error "CONFIG_IEEE80211_BAND_6GHZ supported only on kernel versions 5.4.0 or newer"
+#endif
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 0, 0))
 #define rtw_cfg80211_notify_new_peer_candidate(wdev, addr, ie, ie_len, sig_dbm, gfp) cfg80211_notify_new_peer_candidate(wdev_to_ndev(wdev), addr, ie, ie_len, sig_dbm, gfp)
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
@@ -441,29 +467,16 @@ void rtw_cfg80211_deinit_rfkill(struct wiphy *wiphy);
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
-u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, u8 ch, u8 bw, u8 offset, u8 ht, bool started);
+u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chdef, u8 ht, bool started);
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)) && (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 31))
-#define IEEE80211_CHAN_NO_HT40PLUS IEEE80211_CHAN_NO_FAT_ABOVE
-#define IEEE80211_CHAN_NO_HT40MINUS IEEE80211_CHAN_NO_FAT_BELOW
+#if CONFIG_IEEE80211_BAND_6GHZ
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
+int rtw_cfg80211_split_scan_6ghz(_adapter *padapter);
+#endif
 #endif
 
-#if !defined(CPTCFG_VERSION) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 26)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0))
-#define NL80211_BAND_2GHZ IEEE80211_BAND_2GHZ
-#define NL80211_BAND_5GHZ IEEE80211_BAND_5GHZ
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0))
-#define NL80211_BAND_60GHZ IEEE80211_BAND_60GHZ
-#endif
-#define NUM_NL80211_BANDS IEEE80211_NUM_BANDS
-#endif
-
-extern enum nl80211_band _rtw_band_to_nl80211_band[];
-#define rtw_band_to_nl80211_band(band) (((band) < BAND_MAX) ? _rtw_band_to_nl80211_band[(band)] : NUM_NL80211_BANDS)
-
-extern enum band_type _nl80211_band_to_rtw_band[];
-#define nl80211_band_to_rtw_band(band) (((band) < NUM_NL80211_BANDS) ? _nl80211_band_to_rtw_band[(band)] : BAND_MAX)
-
+#include "os_ch_utils.h"
 #include "wifi_regd.h"
 #include "rtw_cfgvendor.h"
 

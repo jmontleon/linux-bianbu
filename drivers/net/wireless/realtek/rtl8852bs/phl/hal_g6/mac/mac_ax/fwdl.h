@@ -30,22 +30,48 @@
 #include "_pcie.h"
 #endif
 
-#if MAC_AX_8852A_SUPPORT
+#ifdef MAC_8852A_SUPPORT
 #include "../fw_ax/rtl8852a/hal8852a_fw.h"
 #endif
-#if MAC_AX_8852B_SUPPORT
-#include "../fw_ax/rtl8852b/hal8852b_fw_u1.h"
+#ifdef MAC_8852B_SUPPORT
 #include "../fw_ax/rtl8852b/hal8852b_fw.h"
 #endif
+#ifdef MAC_8852C_SUPPORT
+#include "../fw_ax/rtl8852c/hal8852c_fw.h"
+#endif
+#ifdef MAC_8192XB_SUPPORT
+#include "../fw_ax/rtl8192xb/hal8192xb_fw.h"
+#endif
+#ifdef MAC_8851B_SUPPORT
+#include "../fw_ax/rtl8851b/hal8851b_fw.h"
+#endif
+#ifdef MAC_8851E_SUPPORT
+#include "../fw_ax/rtl8851e/hal8851e_fw.h"
+#endif
+#ifdef MAC_8852D_SUPPORT
+#include "../fw_ax/rtl8852d/hal8852d_fw.h"
+#endif
 
-#if MAC_AX_8852A_SUPPORT
+#ifdef MAC_8852A_SUPPORT
 #define FWDL_PLE_BASE_ADDR_8852A 0xB8760000
 #endif
-#if MAC_AX_8852B_SUPPORT
+#ifdef MAC_8852B_SUPPORT
 #define FWDL_PLE_BASE_ADDR_8852B 0xB8718000
 #endif
-#if MAC_AX_8852C_SUPPORT
+#ifdef MAC_8852C_SUPPORT
 #define FWDL_PLE_BASE_ADDR_8852C 0xB8760000
+#endif
+#ifdef MAC_8192XB_SUPPORT
+#define FWDL_PLE_BASE_ADDR_8192XB 0xB8760000
+#endif
+#ifdef MAC_8851B_SUPPORT
+#define FWDL_PLE_BASE_ADDR_8851B 0xB8718000
+#endif
+#ifdef MAC_8851E_SUPPORT
+#define FWDL_PLE_BASE_ADDR_8851E 0xB8760000
+#endif
+#ifdef MAC_8852D_SUPPORT
+#define FWDL_PLE_BASE_ADDR_8852D 0xB8760000
 #endif
 
 #define FWHDR_HDR_LEN (sizeof(struct fwhdr_hdr_t))
@@ -60,12 +86,18 @@
 #define RTL8852A_ID 0x50
 #define RTL8852B_ID 0x51
 #define RTL8852C_ID 0x52
-#define RTL8834A_ID 0x53
+#define RTL8192XB_ID 0x53
+#define RTL8851B_ID 0x54
+#define RTL8851E_ID 0x55
+#define RTL8852D_ID 0x56
 
 #define RTL8852A_ROM_ADDR 0x18900000
 #define RTL8852B_ROM_ADDR 0x18900000
 #define RTL8852C_ROM_ADDR 0x20000000
 #define RTL8192XB_ROM_ADDR 0x20000000
+#define RTL8851B_ROM_ADDR 0x18900000
+#define RTL8851E_ROM_ADDR 0x20000000
+#define RTL8852D_ROM_ADDR 0x20000000
 #define FWDL_WAIT_CNT 400000
 #define FWDL_SECTION_MAX_NUM 6
 #define FWDL_SECURITY_SECTION_CONSTANT (64 + (FWDL_SECTION_MAX_NUM * 32 * 2))
@@ -74,6 +106,8 @@
 #define FWDL_SECTION_CHKSUM_LEN	8
 #define FWDL_SECTION_PER_PKT_LEN 2020
 #define FWDL_TRY_CNT 3
+
+#define WDT_CTRL_ALL_DIS 0
 
 struct fwhdr_section_info {
 	u8 redl;
@@ -89,6 +123,8 @@ struct fw_bin_info {
 	u32 hdr_len;
 	u32 git_idx;
 	u32 is_fw_use_ple;
+	u8 dynamic_hdr_en;
+	u32 dynamic_hdr_len;
 	struct fwhdr_section_info section_info[FWDL_SECTION_MAX_NUM];
 };
 
@@ -224,6 +260,24 @@ enum fw_dl_cv {
 	FWDL_CIV,
 };
 
+/**
+ * @enum fwdl_dynamic_hdr_type
+ *
+ * @brief fwdl_dynamic_hdr_type
+ *
+ * @var fwdl_dynamic_hdr_type::FWDL_DYNAMIC_HDR_NOUSE
+ * Please Place Description here.
+ * @var fwdl_dynamic_hdr_type::FWDL_DYNAMIC_HDR_FWCAP
+ * Please Place Description here.
+ * @var fwdl_dynamic_hdr_type::FWDL_DYNAMIC_HDR_MAX
+ * Please Place Description here.
+ */
+enum fwdl_dynamic_hdr_type {
+	FWDL_DYNAMIC_HDR_NOUSE = 0,
+	FWDL_DYNAMIC_HDR_FWCAP = 1,
+	FWDL_DYNAMIC_HDR_MAX
+};
+
 /* === FW header === */
 /* dword0 */
 #define FWHDR_CUTID_SH 0
@@ -286,6 +340,8 @@ enum fw_dl_cv {
 /* dword7 */
 #define FWHDR_FW_PART_SZ_SH 0
 #define FWHDR_FW_PART_SZ_MSK 0xffff
+#define FWHDR_FW_DYN_HDR_SH 16
+#define FWHDR_FW_DYN_HDR_MSK 0x1
 #define FWHDR_CMD_VER_SH 24
 #define FWHDR_CMD_VER_MSK 0xff
 
@@ -301,27 +357,6 @@ enum fw_dl_cv {
 #define SECTION_INFO_SECTIONTYPE_MSK 0xf
 #define SECTION_INFO_CHECKSUM BIT(28)
 #define SECTION_INFO_REDL BIT(29)
-
-/**
- * @addtogroup Firmware
- * @{
- * @addtogroup FW_Download
- * @{
- */
-/**
- * @brief disable_fw_watchdog
- *
- * @param *adapter
- * @param *fw
- * @param len
- * @return Please Place Description here.
- * @retval u32
- */
-u32 disable_fw_watchdog(struct mac_ax_adapter *adapter);
-/**
- * @}
- * @}
- */
 
 /**
  * @addtogroup Firmware
@@ -484,8 +519,21 @@ u32 mac_enable_fw(struct mac_ax_adapter *adapter, enum rtw_fw_type cat);
  * @return Please Place Description here.
  * @retval u32
  */
-u32
-mac_query_fw_buff(struct mac_ax_adapter *adapter, enum rtw_fw_type cat, u8 **fw, u32 *fw_len);
+u32 mac_query_fw_buff(struct mac_ax_adapter *adapter, enum rtw_fw_type cat, u8 **fw, u32 *fw_len);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_get_dynamic_hdr_ax
+ *
+ * @param *adapter
+ * @param *fw
+ * @param fw_len
+ * @retval u32
+ */
+u32 mac_get_dynamic_hdr_ax(struct mac_ax_adapter *adapter, u8 *fw, u32 fw_len);
 /**
  * @}
  * @}

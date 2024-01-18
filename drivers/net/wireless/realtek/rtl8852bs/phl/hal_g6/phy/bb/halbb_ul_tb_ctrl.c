@@ -93,9 +93,14 @@ void halbb_ul_tb_ctrl(struct bb_info *bb)
 		return;
 	}
 
-	if (!bb_link->is_linked || bb_link->first_disconnect) {
-		BB_DBG(bb, DBG_UL_TB_CTRL, "is_linked = %d, first_disconnect = %d\n", bb_link->is_linked, bb_link->first_disconnect);
+	if (bb_link->first_disconnect) {
+		BB_DBG(bb, DBG_UL_TB_CTRL, "first_disconnect = %d\n", bb_link->first_disconnect);
 		halbb_ul_tb_reset(bb);
+		return;
+	}
+
+	if (!bb_link->is_linked) {
+		BB_DBG(bb, DBG_UL_TB_CTRL, "is_linked = %d\n", bb_link->is_linked);
 		return;
 	}
 
@@ -237,8 +242,17 @@ void halbb_cr_cfg_ul_tb_init(struct bb_info *bb)
 	#endif
 
 	default:
+		BB_WARNING("[%s] BBCR Hook FAIL!\n", __func__);
+		if (bb->bb_dbg_i.cr_fake_init_hook_en) {
+			BB_TRACE("[%s] BBCR fake init\n", __func__);
+			halbb_cr_hook_fake_init(bb, (u32 *)cr, (sizeof(struct bb_ul_tb_cr_info) >> 2));
+		}
 		break;
 	}
 
+	if (bb->bb_dbg_i.cr_init_hook_recorder_en) {
+		BB_TRACE("[%s] BBCR Hook dump\n", __func__);
+		halbb_cr_hook_init_dump(bb, (u32 *)cr, (sizeof(struct bb_ul_tb_cr_info) >> 2));
+	}
 }
 #endif

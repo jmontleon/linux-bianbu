@@ -15,6 +15,10 @@
 #ifndef _HAL_NOTIFY_H_
 #define _HAL_NOTIFY_H_
 
+
+void rtw_hal_notification_ex(void *hal, enum phl_msg_evt_id event,
+			     bool to_bb, bool to_mac, bool to_rf, u8 hw_idx);
+
 void rtw_hal_notification(void *hal, enum phl_msg_evt_id event, u8 hw_idx);
 
 

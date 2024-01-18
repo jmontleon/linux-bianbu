@@ -39,6 +39,10 @@ enum TEST_BP_INFO_TYPE{
 	BP_INFO_TYPE_MP_RX_PHYSTS = 0xA,
 	BP_INFO_TYPE_TX_4_WAY = 0xB,
 	BP_INFO_TYPE_RX_4_WAY = 0xC,
+	BP_INFO_TYPE_FPGA_CMD_EVENT = 0xD,
+	BP_INFO_TYPE_CORE_CB = 0xE,
+	BP_INFO_TYPE_MLO_ON_SAME_BAND = 0xF, /* For 8852A simulation only, remove later */
+	BP_INFO_TYPE_MLO_REPLACE_TX = 0x10,
 	BP_INFO_TYPE_MAX
 };
 
@@ -76,6 +80,7 @@ struct test_bp_info{
 	enum TEST_BP_INFO_TYPE type;
 	u32 len;
 	void* ptr;
+	void (*core_cb)(void *core_priv, void *ptr, u32 len);
 };
 
 /**

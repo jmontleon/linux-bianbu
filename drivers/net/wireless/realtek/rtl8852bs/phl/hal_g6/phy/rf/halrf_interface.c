@@ -40,58 +40,77 @@ u32 halrf_cal_bit_shift(u32 bit_mask)
 	return i;
 }
 
-void halrf_wmac32(struct rf_info *rf, u32 addr, u32 val)
+void halrf_wmac(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 {
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	u32 ori_val, bit_shift;
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	struct halrf_fw_offload *fwofld_info = &rf->fwofld;
 	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
 	u32 rtn;
 
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	fw_ofld = 1;
+#endif
+
+
+
 	if (fw_ofld == true && rf->fw_ofld_enable == true) {
+		rf->fw_ofld_start = true;
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] MAC   addr=0x%08x   val=0x%08x\n",
 			addr, val);
-
-		hal_mem_set(rf->hal_com, fwofld_info, 0, sizeof(*fwofld_info));
 
 		cmd.src = RTW_MAC_MAC_CMD_OFLD;
 		cmd.type = RTW_MAC_WRITE_OFLD;
 		cmd.lc = 0;
 		cmd.offset = (u16)addr;
 		cmd.value = val;
-		cmd.mask = 0xffffffff;
-
-		fwofld_info->src = RTW_MAC_MAC_CMD_OFLD;
-		fwofld_info->type = RTW_MAC_WRITE_OFLD;
-		fwofld_info->lc = 1;
-		fwofld_info->offset = (u16)addr;
-		fwofld_info->value = val;
-		fwofld_info->mask = 0xffffffff;
+		cmd.mask = mask;
 
 		rtn = halrf_mac_add_cmd_ofld(rf, &cmd);
 		if (rtn) {
 			RF_WARNING("======>%s return fail error code = %d !!!\n",
 				__func__, rtn);
 		}
+		rf->fw_w_count++;
 	}
 	else
 #endif
 	{
-		hal_write32((rf)->hal_com, addr, val);
+		if (mask != MASKDWORD) {
+			ori_val = halrf_rmac32(rf, addr);
+			bit_shift = halrf_cal_bit_shift(mask);
+			val = ((ori_val) & (~mask)) |( ((val << bit_shift)) & mask);
+		}
+		halrf_wmac32(rf, addr, val);
 	}
+	rf->w_count++;
 }
 
+u32 halrf_rmac32(struct rf_info *rf, u32 addr)
+{
+	u32 reg_val = 0;
+	
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
+	if (rf->fw_ofld_start == true)
+		halrf_write_fwofld_end(rf);
+#endif
+	rf->r_count++;
+	reg_val = hal_read32((rf)->hal_com, addr);
+	return reg_val;
+}
 void halrf_wreg(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 {
 	u32 ori_val, bit_shift;
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	struct halrf_fw_offload *fwofld_info = &rf->fwofld;
 	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
 	u32 rtn;
 #endif
 
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	fw_ofld = 1;
+#endif
 //	u32 page_temp;
 //	u32 offset_temp;	
 //	u32 temp = 0;
@@ -103,14 +122,12 @@ void halrf_wreg(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 //		if (offset_temp <= 0x9c)
 //			temp = halrf_r32(rf, offset_temp | 0x4c00);
 //	}
-
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	if (fw_ofld == true && rf->fw_ofld_enable == true) {
+		rf->fw_ofld_start = true;
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] BB   addr=0x%08x   mask=0x%08x   val=0x%08x\n",
 			addr, mask, val);
-
-		hal_mem_set(rf->hal_com, fwofld_info, 0, sizeof(*fwofld_info));
 
 		cmd.src = RTW_MAC_BB_CMD_OFLD;
 		cmd.type = RTW_MAC_WRITE_OFLD;
@@ -119,18 +136,13 @@ void halrf_wreg(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 		cmd.value = val;
 		cmd.mask = mask;
 
-		fwofld_info->src = RTW_MAC_BB_CMD_OFLD;
-		fwofld_info->type = RTW_MAC_WRITE_OFLD;
-		fwofld_info->lc = 1;
-		fwofld_info->offset = (u16)addr;
-		fwofld_info->value = val;
-		fwofld_info->mask = mask;
-
 		rtn = halrf_mac_add_cmd_ofld(rf, &cmd);
 		if (rtn) {
 			RF_WARNING("======>%s return fail error code = %d !!!\n",
 				__func__, rtn);
 		}
+
+		rf->fw_w_count++;
 	}
 	else
 #endif
@@ -142,7 +154,7 @@ void halrf_wreg(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 		}
 		halrf_w32(rf, addr, val);
 	}
-
+	rf->w_count++;
 //	if ((page_temp != 0x4c00) && (page_temp != 0x4d00)) {
 //		if (offset_temp <= 0x9c)
 //			halrf_w32(rf, offset_temp | 0x4c00, temp);
@@ -153,10 +165,15 @@ u32 halrf_rreg(struct rf_info *rf, u32 addr, u32 mask)
 {
 	u32 reg_val = 0, ori_val, bit_shift;
 
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
+	if (rf->fw_ofld_start == true)
+		halrf_write_fwofld_trigger(rf);
+
+#endif
 	ori_val = halrf_r32(rf, addr);
 	bit_shift = halrf_cal_bit_shift(mask);
 	reg_val = (ori_val & mask) >> bit_shift;
-
+	rf->r_count++;
 	return reg_val;
 }
 
@@ -168,53 +185,63 @@ u32 halrf_rrf(struct rf_info *rf, enum rf_path path, u32 addr, u32 mask)
 	if (_os_atomic_inc_return(rf->hal_com->drv_priv, (void*)&operate2) > 1) {
 		RF_WARNING("RF read race %x %x %x!!!!!!!!!!!!!!", path, addr, mask);
 	}
+
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
+	if (rf->fw_ofld_start == true)
+		halrf_write_fwofld_trigger(rf);
+#endif
+
 	val = rtw_hal_read_rf_reg((rf)->hal_com, path, addr, mask);
 	_os_atomic_dec(rf->hal_com->drv_priv, (void*)&operate2);
-
+	rf->r_count++;
 	return val;
 }
 
 void halrf_wrf(struct rf_info *rf, enum rf_path path, u32 addr, u32 mask, u32 val)
 {
 	static u32 operate2 = 0;
+	
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
+	struct rtw_mac_cmd cmd = {0};
+	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	u32 rtn;
+	u32 direct_addr, offset_write_rf[2] = {0xe000, 0xf000};
+
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	fw_ofld = 1;
+#endif
 
 	if (_os_atomic_inc_return(rf->hal_com->drv_priv, (void*)&operate2) > 1) {
 		RF_WARNING("RF write race %x %x %x %x!!!!!!!!!!!!!!", path, addr, mask, val);
-	}	
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	struct rtw_mac_cmd cmd = {0};
-	struct halrf_fw_offload *fwofld_info = &rf->fwofld;
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
-	u32 rtn;
+	}
+
 
 	if (fw_ofld == true && rf->fw_ofld_enable == true) {
+		rf->fw_ofld_start = true;
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] RF   addr=0x%08x   mask=0x%08x   val=0x%08x   path=%d\n",
 			addr, mask, val, path);
 
-		hal_mem_set(rf->hal_com, fwofld_info, 0, sizeof(*fwofld_info));
+		if (addr & BIT(16)) {	/*RF D-die*/
+			/*==== Calculate offset ====*/
+			addr &= 0xff;
+			direct_addr = offset_write_rf[path] + (addr << 2);
 
-		if (addr & BIT(16)) {
-			cmd.src = RTW_MAC_RF_DDIE_CMD_OFLD;
-			fwofld_info->src = RTW_MAC_RF_DDIE_CMD_OFLD;
+			cmd.src = RTW_MAC_BB_CMD_OFLD;
+			cmd.type = RTW_MAC_WRITE_OFLD;
+			cmd.lc = 0;
+			cmd.offset = (u16)direct_addr;
+			cmd.value = val;
+			cmd.mask = mask;
 		} else {
 			cmd.src = RTW_MAC_RF_CMD_OFLD;
-			fwofld_info->src = RTW_MAC_RF_CMD_OFLD;
+			cmd.type = RTW_MAC_WRITE_OFLD;
+			cmd.lc = 0;
+			cmd.rf_path = path;
+			cmd.offset = (u16)addr;
+			cmd.value = val;
+			cmd.mask = mask;
 		}
-
-		cmd.type = RTW_MAC_WRITE_OFLD;
-		cmd.lc = 0;
-		cmd.rf_path = path;
-		cmd.offset = (u16)addr;
-		cmd.value = val;
-		cmd.mask = mask;
-
-		fwofld_info->type = RTW_MAC_WRITE_OFLD;
-		fwofld_info->lc = 1;
-		fwofld_info->rf_path = path;
-		fwofld_info->offset = (u16)addr;
-		fwofld_info->value = val;
-		fwofld_info->mask = mask;
 
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] cmd.src=0x%x   addr=0x%x\n", cmd.src, addr);
@@ -224,23 +251,30 @@ void halrf_wrf(struct rf_info *rf, enum rf_path path, u32 addr, u32 mask, u32 va
 			RF_WARNING("======>%s return fail error code = %d !!!\n",
 				__func__, rtn);
 		}
+
+		rf->fw_w_count++;
 	} else
 #endif
 		rtw_hal_write_rf_reg((rf)->hal_com, path, addr, mask, val);
 
 	_os_atomic_dec(rf->hal_com->drv_priv, (void*)&operate2);
+	rf->w_count++;
 }
 
 bool halrf_polling_bb(struct rf_info *rf, u32 addr, u32 mask, u32 val, u32 count)
 {
 	bool result = true;
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	struct halrf_fw_offload *fwofld_info = &rf->fwofld;
 	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
 	u32 rtn;
 
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	fw_ofld = 1;
+#endif
+
 	if (fw_ofld == true && rf->fw_ofld_enable == true) {
+		rf->fw_ofld_start = true;
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] Polling BB addr=0x%08x   mask=0x%08x   val=0x%08x\n",
 			addr, mask, val);
@@ -251,13 +285,6 @@ bool halrf_polling_bb(struct rf_info *rf, u32 addr, u32 mask, u32 val, u32 count
 		cmd.offset = (u16)addr;
 		cmd.value = val;
 		cmd.mask = mask;
-
-		fwofld_info->src = RTW_MAC_BB_CMD_OFLD;
-		fwofld_info->type = RTW_MAC_COMPARE_OFLD;
-		fwofld_info->lc = 1;
-		fwofld_info->offset = (u16)addr;
-		fwofld_info->value = val;
-		fwofld_info->mask = mask;
 
 		rtn = halrf_mac_add_cmd_ofld(rf, &cmd);
 		if (rtn) {
@@ -289,24 +316,26 @@ bool halrf_polling_bb(struct rf_info *rf, u32 addr, u32 mask, u32 val, u32 count
 bool halrf_polling_rf(struct rf_info *rf, u32 path, u32 addr, u32 mask, u32 val, u32 count)
 {
 	bool result = true;
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	struct halrf_fw_offload *fwofld_info = &rf->fwofld;
 	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
 	u32 rtn;
 
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	fw_ofld = 1;
+#endif
+
 	if (fw_ofld == true && rf->fw_ofld_enable == true) {
+		rf->fw_ofld_start = true;
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] Polling RF path=%d   addr=0x%08x   mask=0x%08x   val=0x%08x\n",
 			path, addr, mask, val);
 
-		if (addr & BIT(16)) {
+		if (addr & BIT(16))
 			cmd.src = RTW_MAC_RF_DDIE_CMD_OFLD;
-			fwofld_info->src = RTW_MAC_RF_DDIE_CMD_OFLD;
-		} else {
+		else
 			cmd.src = RTW_MAC_RF_CMD_OFLD;
-			fwofld_info->src = RTW_MAC_RF_CMD_OFLD;
-		}
+
 
 		cmd.type = RTW_MAC_COMPARE_OFLD;
 		cmd.lc = 0;
@@ -314,13 +343,6 @@ bool halrf_polling_rf(struct rf_info *rf, u32 path, u32 addr, u32 mask, u32 val,
 		cmd.offset = (u16)addr;
 		cmd.value = val;
 		cmd.mask = mask;
-
-		fwofld_info->type = RTW_MAC_COMPARE_OFLD;
-		fwofld_info->lc = 1;
-		fwofld_info->rf_path = path;
-		fwofld_info->offset = (u16)addr;
-		fwofld_info->value = val;
-		fwofld_info->mask = mask;
 
 		rtn = halrf_mac_add_cmd_ofld(rf, &cmd);
 		if (rtn) {
@@ -352,18 +374,20 @@ bool halrf_polling_rf(struct rf_info *rf, u32 path, u32 addr, u32 mask, u32 val,
 
 void halrf_delay_us(struct rf_info *rf, u32 count)
 {
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	struct halrf_fw_offload *fwofld_info = &rf->fwofld;
 	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
 	u32 rtn;
 
+#ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
+	fw_ofld = 1;
+#endif
+
 	if (fw_ofld == true && rf->fw_ofld_enable == true) {
+		rf->fw_ofld_start= true;
 		RF_DBG(rf, DBG_RF_FW,
 			"[FW_Ofld] ======>%s count=%d\n",
 			__func__, count);
-
-		hal_mem_set(rf->hal_com, fwofld_info, 0, sizeof(*fwofld_info));
 
 		cmd.type = RTW_MAC_DELAY_OFLD;
 		cmd.lc = 0;
@@ -374,6 +398,8 @@ void halrf_delay_us(struct rf_info *rf, u32 count)
 			RF_WARNING("======>%s return fail error code = %d !!!\n",
 				__func__, rtn);
 		}
+
+		rf->fw_delay_us_count = rf->fw_delay_us_count + count;
 	}
 	else
 #endif

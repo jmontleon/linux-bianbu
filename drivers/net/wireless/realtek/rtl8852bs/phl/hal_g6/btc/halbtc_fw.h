@@ -56,6 +56,8 @@ enum btf_set {
 	SET_BT_IGNORE_WLAN_ACT,
 	SET_BT_TX_PWR,
 	SET_BT_LNA_CONSTRAIN,
+	SET_BT_QUERY_DEV_LIST,
+	SET_BT_QUERY_DEV_INFO,
 	SET_BT_GOLDEN_RX_RANGE,
 	SET_BT_PSD_REPORT,
 	SET_H2C_TEST,
@@ -69,12 +71,11 @@ enum btf_set_report_en {
 	RPT_EN_MREG = BIT2,
 	RPT_EN_BT_VER_INFO = BIT3, /* FW, Coex, Feature*/
 	RPT_EN_BT_SCAN_INFO = BIT4,  /* BT scan parameter */
-	RPT_EN_BT_AFH_MAP = BIT5, /* AFH map H/M/L */
-	RPT_EN_BT_DEVICE_INFO = BIT6, /* vendor id, device name, flush-val*/
-	RPT_EN_FW_STEP_INFO = BIT7,
-	RPT_EN_WL_ALL = 0x7,
-	RPT_EN_BT_ALL = 0x78,
-	RPT_EN_ALL = 0x7f
+	RPT_EN_BT_DEVICE_INFO = BIT5, /* vendor id, device name, flush-val*/
+	RPT_EN_BT_AFH_MAP = BIT6, /* AFH map H/M/L */
+	RPT_EN_BT_AFH_MAP_LE = BIT7, /* AFH map L/M */
+	RPT_EN_FW_STEP_INFO = BIT8,
+	RPT_EN_ALL = 0x1ff
 };
 
 /* SET_SLOT_TABLE function 0x1 -> sub-function */
@@ -106,14 +107,14 @@ enum btf_set_cx_policy {
 };
 
 /* SET_GPIO_DBG function 0x4 -> TLV sub-function */
-enum {
+enum btc_gpio_dbg_type {
 	CXDGPIO_EN_MAP = 0x0,
 	CXDGPIO_MUX_MAP = 0x1,
 	CXDGPIO_MAX
 };
 
 /* SET_DRV_INFO function 0x5 -> TLV sub-function */
-enum {
+enum btc_drv_info_type {
 	CXDRVINFO_INIT = 0, /* wl_only, dbcc_en...*/
 	CXDRVINFO_ROLE, /* Role */
 	CXDRVINFO_DBCC, /* DBCC */
@@ -122,11 +123,14 @@ enum {
 	CXDRVINFO_RUN,  /* wl run reason */
 	CXDRVINFO_CTRL, /* ctrl info */
 	CXDRVINFO_SCAN, /* scan info */
+	CXDRVINFO_TRX,  /* WL traffic to WL fw */
+	CXDRVINFO_TXPWR, /* Set WL tx pwr in WL fw */
+	CXDRVINFO_FDDT, /* FDD train info  */
 	CXDRVINFO_MAX
 };
 
 /* SET_DRV_EVENT function 0x6 -> TLV sub-function */
-enum {
+enum btc_drv_event_type {
 	CXDRVEVNT_1 = 0x0,
 	CXDRVEVNT_2 = 0x1,
 	CXDRVEVNT_MAX
@@ -150,6 +154,7 @@ enum btf_fw_event {
 	BTF_EVNT_BT_REG = 3,
 	BTF_EVNT_CX_RUNINFO = 4,
 	BTF_EVNT_BT_PSD = 5,
+	BTF_EVNT_BT_DEV_INFO = 6,
 	BTF_EVNT_BUF_OVERFLOW,
 	BTF_EVNT_C2H_LOOPBACK,
 	BTF_EVNT_MAX
@@ -177,7 +182,7 @@ enum btf_fw_event_report {
 	BTC_RPT_TYPE_BT_AFH,
 	BTC_RPT_TYPE_BT_DEVICE,
 	BTC_RPT_TYPE_TEST,
-	BTC_RPT_TYPE_MAX = 31
+	BTC_RPT_TYPE_MAX
 };
 
 struct btc_rpt_cmn_info {
@@ -251,7 +256,7 @@ struct btc_fbtc_btdev {
 	struct fbtc_btdevinfo finfo; /* info from fw */
 };
 
-enum {
+enum btc_fbtc_invlaid_input {
 	BTFRE_INVALID_INPUT = 0x0, /* invalid input parameters */
 	BTFRE_UNDEF_TYPE,
 	BTFRE_EXCEPTION,

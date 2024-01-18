@@ -30,6 +30,20 @@ enum halrf_ic {
 	RF_RTL8852B	=	BIT(1),
 	RF_RTL8834A	=	BIT(2),
 	RF_RTL8852C	=	BIT(3),
+	RF_RTL8832BR	=	BIT(4),
+	RF_RTL8192XB	=	BIT(5),
+	RF_RTL8852BP	=	BIT(6),
+	RF_RTL8730A	=	BIT(7),
+	RF_RTL8720E	=	BIT(8),
+	RF_RTL8851B	=	BIT(9),
+	RF_RTL8922A	=	BIT(10),
+	RF_RTL8832CR_VU	=	BIT(11),	
+	RF_RTL8832BR_VT	=	BIT(12),
+};
+
+enum halrf_subdid {
+	RF_SUBDID_RTL8832CRVU = 0xc832,
+	RF_SUBDID_RTL8832BRVT = 0xb83b,
 };
 
 #define RF_N_1SS		0
@@ -42,8 +56,9 @@ enum halrf_ic {
 #define RF_AC_3SS		0
 #define RF_AC_4SS		0
 
-#define RF_AX_1SS		0
-#define RF_AX_2SS		(RF_RTL8852A | RF_RTL8852B | RF_RTL8852C)
+#define RF_AX_1SS		(RF_RTL8851B)
+#define RF_AX_2SS		(RF_RTL8852A | RF_RTL8852B | RF_RTL8852C |\
+				 RF_RTL8832BR | RF_RTL8192XB | RF_RTL8852BP)
 #define RF_AX_3SS		0
 #define RF_AX_4SS		(RTL8834A)
 
@@ -61,6 +76,23 @@ enum halrf_ic {
 #define RF_AX_SERIES	(RF_AX_1SS | RF_AX_2SS |\
 				 RF_AX_3SS | RF_AX_4SS)
 /*@==========================================================================*/
+#if defined (RF_8852C_SUPPORT)
+#define KIP_REG 3136
+#elif defined (RF_8852B_SUPPORT)
+#define KIP_REG 2048
+#else
+#define KIP_REG 2048
+#endif
+
+#if defined(RF_8834A_SUPPORT)
+#define KPATH 4
+#elif (defined(RF_8852A_SUPPORT) || defined(RF_8852B_SUPPORT) ||\
+       defined(RF_8852C_SUPPORT) || defined(RF_8832BR_SUPPORT) ||\
+       defined(RF_8192XB_SUPPORT) || defined(RF_8852BP_SUPPORT))
+#define KPATH 2
+#else
+#define KPATH 1
+#endif
 
 /*@==========================================================================*/
 

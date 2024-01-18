@@ -264,6 +264,8 @@ u32 fill_bssid_cam_info(struct mac_ax_adapter *adapter,
 			struct fwcmd_addrcam_info *fw_addrcam)
 {
 	struct mac_ax_bssid_cam_info b_info = role_info->b_info;
+	u8 msk = role_info->mask_sel == MAC_AX_BSSID_MSK ?
+		 role_info->addr_mask : MAC_AX_MSK_NONE;
 
 	fw_addrcam->dword12 =
 	  cpu_to_le32(SET_WORD(b_info.bssid_cam_idx,
@@ -273,6 +275,7 @@ u32 fill_bssid_cam_info(struct mac_ax_adapter *adapter,
 
 	fw_addrcam->dword13 =
 	  cpu_to_le32(((b_info.valid) ? FWCMD_H2C_ADDRCAM_INFO_B_VALID : 0) |
+	   SET_WORD(msk, FWCMD_H2C_ADDRCAM_INFO_B_MSK) |
 	   ((b_info.bb_sel) ? FWCMD_H2C_ADDRCAM_INFO_B_BB_SEL : 0) |
 	   SET_WORD(b_info.bss_color, FWCMD_H2C_ADDRCAM_INFO_BSS_COLOR) |
 	   SET_WORD(b_info.bssid[0], FWCMD_H2C_ADDRCAM_INFO_BSSID0) |
@@ -321,8 +324,8 @@ u32 mac_upd_addr_cam(struct mac_ax_adapter *adapter,
 			ret = init_addr_cam_info(adapter, info, fwcmd_tbl);
 		if (ret)
 			goto FWOFLD_END;
-
 		// dword 0
+
 		ret = h2c_pkt_set_hdr(adapter,
 				      h2cb,
 				      FWCMD_TYPE_H2C,
@@ -334,8 +337,8 @@ u32 mac_upd_addr_cam(struct mac_ax_adapter *adapter,
 		if (ret)
 			goto FWOFLD_END;
 
-		// return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
-		// H2C shall be sent by mac_h2c_agg_tx.
+		// Return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
+		// The H2C shall be sent by mac_h2c_agg_tx.
 		ret = h2c_agg_enqueue(adapter, h2cb);
 		if (ret == MACSUCCESS)
 			return MACSUCCESS;
@@ -382,10 +385,13 @@ FWOFLD_END:
 	// Indirect write cmac table addr cam idx
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A))
 		ctlinfo_aidx_off = 0x18;
-	else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B))
+	else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		 is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))
 		ctlinfo_aidx_off = 0x18;
 	else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
-		 is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB))
+		 is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		 is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+		 is_chip_id(adapter, MAC_AX_CHIP_ID_8852D))
 		ctlinfo_aidx_off = 0x17;
 	else
 		ctlinfo_aidx_off = 0xFF;
@@ -764,7 +770,8 @@ u32 get_mac_resp_ack(struct mac_ax_adapter *adapter, u32 *ack)
 u8 get_addr_cam_size(struct mac_ax_adapter *adapter)
 {
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B))
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))
 		return ADDR_CAM_ENT_LONG_SIZE;
 	else
 		return ADDR_CAM_ENT_SHORT_SIZE;

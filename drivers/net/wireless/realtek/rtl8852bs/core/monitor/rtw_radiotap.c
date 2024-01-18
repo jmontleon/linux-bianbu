@@ -285,8 +285,8 @@ static inline void _rtw_radiotap_fill_flags(struct rx_pkt_attrib *a, u8 *flags)
 
 }
 
-sint rtw_fill_radiotap_hdr(_adapter *padapter,
-	struct rx_pkt_attrib *a, struct rtw_recv_pkt *rx_req, u8 *buf)
+sint rtw_fill_radiotap_hdr(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+		struct rx_pkt_attrib *a, struct rtw_recv_pkt *rx_req, u8 *buf)
 {
 #define RTAP_HDR_MAX 64
 
@@ -373,13 +373,13 @@ sint rtw_fill_radiotap_hdr(_adapter *padapter,
 		rtap_hdr->it_present |= BIT(IEEE80211_RADIOTAP_CHANNEL);
 		rt_len += (rt_len % 2); /* Alignment */
 
-		tmp_16bit = CHAN2FREQ(rtw_get_oper_ch(padapter));
+		tmp_16bit = CHAN2FREQ(rtw_get_oper_ch(padapter, padapter_link));
 		_rtw_memcpy(&hdr_buf[rt_len], &tmp_16bit, 2);
 		rt_len += 2;
 
 		/* channel flags */
 		tmp_16bit = 0;
-		if (WIFI_ROLE_IS_ON_24G(padapter))
+		if (WIFI_ROLE_LINK_IS_ON_24G(padapter_link))
 			tmp_16bit |= cpu_to_le16(IEEE80211_CHAN_2GHZ);
 		else
 			tmp_16bit |= cpu_to_le16(IEEE80211_CHAN_5GHZ);
@@ -392,12 +392,12 @@ sint rtw_fill_radiotap_hdr(_adapter *padapter,
 			tmp_16bit |= cpu_to_le16(IEEE80211_CHAN_OFDM);
 		}
 
-		if (rtw_get_oper_bw(padapter) == CHANNEL_WIDTH_10) {
+		if (rtw_get_oper_bw(padapter, padapter_link) == CHANNEL_WIDTH_10) {
 			/* 10Mhz Channel Width */
 			tmp_16bit |= cpu_to_le16(IEEE80211_CHAN_HALF);
 		}
 
-		if (rtw_get_oper_bw(padapter) == CHANNEL_WIDTH_5) {
+		if (rtw_get_oper_bw(padapter, padapter_link) == CHANNEL_WIDTH_5) {
 			/* 5Mhz Channel Width */
 			tmp_16bit |= cpu_to_le16(IEEE80211_CHAN_QUARTER);
 		}

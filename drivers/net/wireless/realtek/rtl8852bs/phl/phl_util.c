@@ -225,3 +225,18 @@ u32 phl_get_passing_time_ms(u32 start)
 
 	return pass;
 }
+
+#ifdef DBG_MONITOR_TIME
+void phl_fun_monitor_start(u32 *start_t, bool show_caller, const char *caller)
+{
+	*start_t = _os_get_cur_time_us();
+	if (show_caller)
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, ">> %s:\n", caller);
+}
+
+void phl_fun_monitor_end(u32 *start_t, const char *caller)
+{
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "<< %s: Process time(us): %d\n",
+		caller, phl_get_passing_time_us(*start_t));
+}
+#endif /* DBG_MONITOR_TIME */

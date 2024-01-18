@@ -14,6 +14,7 @@
  ******************************************************************************/
 
 #include "dbcc.h"
+#include "mac_priv.h"
 #include "cpuio.h"
 
 u32 dbcc_info_init(struct mac_ax_adapter *adapter)
@@ -71,6 +72,8 @@ u32 rst_dbcc_info(struct mac_ax_adapter *adapter)
 		PLTFM_MEMSET(&dbcc_info->chinfo_bkp, 0,
 			     sizeof(struct mac_ax_phy_rpt_cfg));
 	}
+
+	dbcc_info->notify_fw_flag = 0;
 
 	return MACSUCCESS;
 }
@@ -228,9 +231,10 @@ static u32 band1_enable(struct mac_ax_adapter *adapter,
 			struct mac_ax_trx_info *info)
 {
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 	u32 ret;
 
-	ret = tx_idle_poll_band(adapter, 0, 0);
+	ret = tx_idle_poll_band(adapter, 0);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("[ERR]tx idle poll %d\n", ret);
 		return ret;
@@ -242,13 +246,19 @@ static u32 band1_enable(struct mac_ax_adapter *adapter,
 		return ret;
 	}
 
-	ret = cmac_func_en(adapter, MAC_AX_BAND_1, MAC_AX_FUNC_EN);
+	ret = preload_init(adapter, MAC_AX_BAND_1, info->qta_mode);
+	if (ret != MACSUCCESS) {
+		PLTFM_MSG_ERR("[ERR]preload init B1 %d\n", ret);
+		return ret;
+	}
+
+	ret = p_ops->cmac_func_en(adapter, MAC_AX_BAND_1, MAC_AX_FUNC_EN);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("[ERR]CMAC%d func en %d\n", MAC_AX_BAND_1, ret);
 		return ret;
 	}
 
-	ret = cmac_init(adapter, info, MAC_AX_BAND_1);
+	ret = p_ops->cmac_init(adapter, info, MAC_AX_BAND_1);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("[ERR]CMAC%d init %d\n", MAC_AX_BAND_1, ret);
 		return ret;
@@ -274,12 +284,13 @@ static u32 band1_disable(struct mac_ax_adapter *adapter,
 {
 	u32 ret;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 
 	MAC_REG_W32(R_AX_SYS_ISO_CTRL_EXTEND,
 		    MAC_REG_R32(R_AX_SYS_ISO_CTRL_EXTEND) &
 		    ~B_AX_R_SYM_FEN_WLBBFUN_1);
 
-	ret = cmac_func_en(adapter, MAC_AX_BAND_1, MAC_AX_FUNC_DIS);
+	ret = p_ops->cmac_func_en(adapter, MAC_AX_BAND_1, MAC_AX_FUNC_DIS);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("[ERR]CMAC%d func dis %d\n", MAC_AX_BAND_1, ret);
 		return ret;
@@ -298,6 +309,25 @@ static u32 band1_disable(struct mac_ax_adapter *adapter,
 	}
 
 	return 0;
+}
+
+static u32 dbcc_chk_notify_done(struct mac_ax_adapter *adapter)
+{
+	struct mac_ax_dbcc_info *dbcc_info = adapter->dbcc_info;
+	u32 cnt = DBCC_CHK_NTFY_CNT;
+
+	while (cnt) {
+		if (!dbcc_info->notify_fw_flag)
+			break;
+		PLTFM_SLEEP_US(DBCC_CHK_NTFY_DLY);
+		cnt--;
+	}
+
+	if (!cnt)
+		return MACPOLLTO;
+
+	PLTFM_MSG_ALWAYS("[TRACE]DBCC check notify cnt %d\n", DBCC_CHK_NTFY_CNT - cnt);
+	return MACSUCCESS;
 }
 
 u32 dbcc_trx_ctrl_bkp(struct mac_ax_adapter *adapter, enum mac_ax_band band)
@@ -434,18 +464,26 @@ u32 mac_dbcc_enable(struct mac_ax_adapter *adapter,
 			PLTFM_MSG_ERR("[ERR] band1_enable %d\n", ret);
 			return ret;
 		}
-		ret = mac_notify_fw_dbcc(adapter, 1);
-		if (ret != MACSUCCESS) {
-			PLTFM_MSG_ERR("%s: [ERR] notfify dbcc fail %d\n",
-				      __func__, ret);
-			return ret;
+		if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
+			ret = mac_notify_fw_dbcc(adapter, 1);
+			if (ret != MACSUCCESS) {
+				PLTFM_MSG_ERR("%s:[ERR]notfify dbcc1 fail %d\n",
+					      __func__, ret);
+				return ret;
+			}
+		} else {
+			PLTFM_MSG_WARN("%s fw not ready\n", __func__);
 		}
 	} else {
-		ret = mac_notify_fw_dbcc(adapter, 0);
-		if (ret != MACSUCCESS) {
-			PLTFM_MSG_ERR("%s: [ERR] notfify dbcc fail %d\n",
-				      __func__, ret);
-			return ret;
+		if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
+			ret = mac_notify_fw_dbcc(adapter, 0);
+			if (ret != MACSUCCESS) {
+				PLTFM_MSG_ERR("%s:[ERR]notfify dbcc0 fail %d\n",
+					      __func__, ret);
+				return ret;
+			}
+		} else {
+			PLTFM_MSG_WARN("%s fw not ready\n", __func__);
 		}
 		ret = band1_disable(adapter, info);
 		if (ret != MACSUCCESS) {
@@ -457,11 +495,99 @@ u32 mac_dbcc_enable(struct mac_ax_adapter *adapter,
 	return MACSUCCESS;
 }
 
+u32 mac_dbcc_pre_cfg(struct mac_ax_adapter *adapter, struct mac_dbcc_cfg_info *info)
+{
+	struct mac_ax_dbcc_info *dbcc_info = adapter->dbcc_info;
+	struct mac_ax_trx_info trx_info;
+	u32 ret = MACSUCCESS;
+	u8 notify_en;
+
+	trx_info.trx_mode = info->trx_mode;
+	trx_info.qta_mode = info->qta_mode;
+	trx_info.rpr_cfg = NULL;
+
+	if (info->dbcc_en) {
+		notify_en = 1;
+		ret = band1_enable(adapter, &trx_info);
+		if (ret != MACSUCCESS) {
+			PLTFM_MSG_ERR("[ERR] band1_enable %d\n", ret);
+			return ret;
+		}
+		if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
+			if (dbcc_info->notify_fw_flag) {
+				PLTFM_MSG_WARN("[WARN]Notify FW dbcc %d flag already set\n",
+					       notify_en);
+			}
+			dbcc_info->notify_fw_flag = 1;
+			ret = mac_notify_fw_dbcc(adapter, notify_en);
+			if (ret != MACSUCCESS) {
+				PLTFM_MSG_ERR("%s:[ERR]Notify dbcc %d fail %d\n",
+					      __func__, notify_en, ret);
+				return ret;
+			}
+		} else {
+			PLTFM_MSG_WARN("%s en %d fw not ready\n", __func__, info->dbcc_en);
+		}
+	} else {
+		notify_en = 0;
+		if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
+			if (dbcc_info->notify_fw_flag) {
+				PLTFM_MSG_WARN("[WARN]Notify FW dbcc %d flag already set\n",
+					       notify_en);
+			}
+			dbcc_info->notify_fw_flag = 1;
+			ret = mac_notify_fw_dbcc(adapter, notify_en);
+			if (ret != MACSUCCESS) {
+				PLTFM_MSG_ERR("%s:[ERR]Notify dbcc %d fail %d\n",
+					      __func__, notify_en, ret);
+				return ret;
+			}
+		} else {
+			PLTFM_MSG_WARN("%s en %d fw not ready\n", __func__, info->dbcc_en);
+		}
+	}
+
+	return ret;
+}
+
+u32 mac_dbcc_cfg(struct mac_ax_adapter *adapter, struct mac_dbcc_cfg_info *info)
+{
+	struct mac_ax_trx_info trx_info;
+	u32 ret = MACSUCCESS;
+
+	trx_info.trx_mode = info->trx_mode;
+	trx_info.qta_mode = info->qta_mode;
+	trx_info.rpr_cfg = NULL;
+
+	if (info->dbcc_en) {
+		ret = dbcc_chk_notify_done(adapter);
+		if (ret != MACSUCCESS) {
+			PLTFM_MSG_ERR("[ERR]Check dbcc notify %d fail %d\n",
+				      info->dbcc_en, ret);
+			return ret;
+		}
+	} else {
+		ret = dbcc_chk_notify_done(adapter);
+		if (ret != MACSUCCESS) {
+			PLTFM_MSG_ERR("[ERR]Check dbcc notify %d fail %d\n",
+				      info->dbcc_en, ret);
+			return ret;
+		}
+
+		ret = band1_disable(adapter, &trx_info);
+		if (ret != MACSUCCESS) {
+			PLTFM_MSG_ERR("[ERR] band1_disable %d\n", ret);
+			return ret;
+		}
+	}
+
+	return ret;
+}
+
 u32 mac_dbcc_move_wmm(struct mac_ax_adapter *adapter,
 		      struct mac_ax_role_info *info)
 {
 	struct mac_ax_dbcc_info *dbcc_info = adapter->dbcc_info;
-	struct deq_enq_info q_info;
 	enum mac_ax_ss_wmm_tbl dst_link;
 	u8 dbcc_wmm;
 	u8 role_cnt;
@@ -504,32 +630,6 @@ u32 mac_dbcc_move_wmm(struct mac_ax_adapter *adapter,
 		PLTFM_MSG_ERR("dbcc en%d move wmm%d sta %d\n",
 			      dbcc_en, dbcc_wmm, ret);
 		return ret;
-	}
-
-	PLTFM_MEMSET(&q_info, 0, sizeof(struct deq_enq_info));
-
-	if (!dbcc_en) {
-		q_info.src_pid = WDE_DLE_PID_C1;
-		q_info.src_qid = WDE_DLE_QID_MG0_C1;
-		q_info.dst_pid = WDE_DLE_PID_C0;
-		q_info.dst_qid = WDE_DLE_QID_MG0_C0;
-
-		ret = deq_enq_all(adapter, &q_info);
-		if (ret != MACSUCCESS) {
-			PLTFM_MSG_ERR("dbcc dis move all mgq %d\n", ret);
-			return ret;
-		}
-
-		q_info.src_pid = WDE_DLE_PID_C1;
-		q_info.src_qid = WDE_DLE_QID_HI_C1;
-		q_info.dst_pid = WDE_DLE_PID_C0;
-		q_info.dst_qid = WDE_DLE_QID_HI_C0;
-
-		ret = deq_enq_all(adapter, &q_info);
-		if (ret != MACSUCCESS) {
-			PLTFM_MSG_ERR("dbcc dis move all hiq %d\n", ret);
-			return ret;
-		}
 	}
 
 	return MACSUCCESS;

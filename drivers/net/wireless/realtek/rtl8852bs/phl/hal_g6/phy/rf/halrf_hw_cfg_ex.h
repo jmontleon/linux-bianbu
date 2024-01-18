@@ -35,4 +35,7 @@
 struct rf_info;
 bool halrf_init_reg_by_hdr(void *rf_void);
 bool halrf_nctl_init_reg_by_hdr(void *rf_void);
+bool halrf_config_power_limit_6g(void *rf_void, enum phl_phy_idx phy);
+bool halrf_config_power_limit_ru_6g(void *rf_void, enum phl_phy_idx phy);
+
 #endif

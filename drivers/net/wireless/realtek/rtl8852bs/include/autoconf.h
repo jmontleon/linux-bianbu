@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2020 Realtek Corporation.
+ * Copyright(c) 2019 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -135,6 +135,7 @@
 	#ifndef CONFIG_NATIVEAP_MLME
 		#define CONFIG_HOSTAPD_MLME
 	#endif
+	/*#define CONFIG_RTW_HOSTAPD_ACS*/
 	/*#define CONFIG_FIND_BEST_CHANNEL*/
 #endif
 
@@ -165,7 +166,7 @@
 	 * however limit it to only work in wifi logo test mode
 	 * but not in normal mode currently
 	 */
-	#define CONFIG_TDLS_CH_SW
+	/* #define CONFIG_TDLS_CH_SW */ /* Not support yet */
 #endif /* CONFIG_TDLS */
 
 
@@ -173,8 +174,6 @@
 
 
 #define CONFIG_HW_RTS
-
-#define CONFIG_NARROWBAND_SUPPORTING
 
 /*
  * Hareware/Firmware Related Config
@@ -185,34 +184,24 @@
 #ifdef CONFIG_RTW_LED
 	/*#define CONFIG_RTW_SW_LED*/
 #endif /* CONFIG_RTW_LED */
-/*#define CONFIG_XMIT_ACK*/
-#ifdef CONFIG_XMIT_ACK
-	#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
-#endif
 
 #define DISABLE_BB_RF		0
 
 #define CONFIG_TCP_CSUM_OFFLOAD_RX
 
 /*
- * Software feature Related Config
- */
-
-/*
  * Interface Related Config
  */
-#define CONFIG_TX_AGGREGATION
-#define CONFIG_XMIT_THREAD_MODE	/* necessary for SDIO */
 /*#define CONFIG_SDIO_TX_ENABLE_AVAL_INT => Related MAC reg must setting => HAL-MAC ?? */
-
-/*#define RTW_XMIT_THREAD_HIGH_PRIORITY*/
-/*#define RTW_XMIT_THREAD_CB_HIGH_PRIORITY*/
-/*#define RTW_RECV_THREAD_HIGH_PRIORITY*/
-
 #define CONFIG_SDIO_RX_COPY
 
 #define CONFIG_SDIO_RX_NETBUF_ALLOC_IN_PHL
 #define CONFIG_SDIO_READ_RXFF_IN_INT
+
+
+/*#define RTW_XMIT_THREAD_HIGH_PRIORITY*/
+/*#define RTW_XMIT_THREAD_CB_HIGH_PRIORITY*/
+/*#define RTW_RECV_THREAD_HIGH_PRIORITY*/
 
 #ifdef CONFIG_RTW_NAPI
 #define CONFIG_RTW_NAPI_DYNAMIC
@@ -224,17 +213,33 @@
 
 #define CONFIG_QUOTA_TURBO_ENABLE
 
-#define CONFIG_REDUCE_TX_CPU_LOADING
-
 #define MAX_XMITBUF_SZ	26624	/* 26 KB */
 #define MAX_RECVBUF_SZ	68608	/* 68 KB*/
 #define MAX_PHL_TX_RING_ENTRY_NUM 512
 #define MAX_PHL_RX_RING_ENTRY_NUM 536
 #define CONFIG_RTW_REDUCE_MEM
+#define CONFIG_SCAN_BACKOP_STA
 #define NR_XMITFRAME	MAX_PHL_TX_RING_ENTRY_NUM
 #define MAX_TX_RING_NUM		MAX_PHL_TX_RING_ENTRY_NUM
 #define RTW_MAX_FRAG_NUM 1
-#define CONFIG_SCAN_BACKOP_STA
+#define NR_XMITFRAME_EXT 120
+#define RTW_MAX_FW_SIZE 0x80000
+
+
+/*fw reduce code size*/
+#define CONFIG_FW_SPECIFY_FROM_CORE
+#ifdef CONFIG_FW_SPECIFY_FROM_CORE
+#ifdef CONFIG_WOWLAN
+#define MAC_FW_CATEGORY_WOWLAN
+#endif /*CONFIG_WOWLAN*/
+#define MAC_FW_8852B_U2
+#define MAC_FW_8852B_U3
+
+#define MAC_FW_CATEGORY_NIC  /*pwr gating*/
+/*#define MAC_FW_CATEGORY_NICCE*/  /*clock gating*/
+/*#define MAC_FW_CATEGORY_NIC_PLE*/
+#endif /*CONFIG_FW_SPECIFY_FROM_CORE*/
+
 /*
  * Others
  */
@@ -258,70 +263,27 @@
 #undef CONFIG_IOCTL_CFG80211
 #undef CONFIG_AP_MODE
 #undef CONFIG_NATIVEAP_MLME
-#undef CONFIG_POWER_SAVING
 #undef CONFIG_ANTENNA_DIVERSITY
 #endif /* CONFIG_MAC_LOOPBACK_DRIVER */
 
 #ifdef CONFIG_MP_INCLUDED
 	#define MP_DRIVER	1
 	/* disable unnecessary functions for MP*/
-	/*#undef CONFIG_POWER_SAVING*/
 	/*#undef CONFIG_ANTENNA_DIVERSITY*/
 #else /* !CONFIG_MP_INCLUDED */
 	#define MP_DRIVER	0
 #endif /* !CONFIG_MP_INCLUDED */
 
-#ifdef CONFIG_POWER_SAVING
-	#define CONFIG_IPS
-	#define CONFIG_LPS
-
-	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
-	#define CONFIG_LPS_LCLK
-	#endif
-
-	#ifdef CONFIG_LPS
-		/*#define CONFIG_CHECK_LEAVE_LPS*/
-		/*#define CONFIG_LPS_CHK_BY_TP*/
-		#ifdef CONFIG_LPS_CHK_BY_TP
-			#define LPS_TX_TP_TH		12 /*Mbps*/
-			#define LPS_RX_TP_TH	12 /*Mbps*/
-			#define LPS_BI_TP_TH		12 /*Mbps*//*TX + RX*/
-			#define LPS_TP_CHK_CNT	5 /*10s*/
-			#define LPS_CHK_PKTS_TX 100
-			#define LPS_CHK_PKTS_RX 100
-		#endif
-	#endif
-
-	#ifdef CONFIG_LPS_LCLK
-	/*#define CONFIG_DETECT_CPWM_BY_POLLING*/
-	#define CONFIG_LPS_RPWM_TIMER
-	#if defined(CONFIG_LPS_RPWM_TIMER) || defined(CONFIG_DETECT_CPWM_BY_POLLING)
-	#define LPS_RPWM_WAIT_MS 300
-	#endif
-	#define CONFIG_LPS_LCLK_WD_TIMER /* Watch Dog timer in LPS LCLK */
-	/*#define CONFIG_LPS_PG*/
-	#endif
-
-	#ifdef CONFIG_IPS
-	#define CONFIG_IPS_CHECK_IN_WD /* Do IPS Check in WatchDog. */
-	/*#define CONFIG_FWLPS_IN_IPS*/ /* issue H2C command to let FW do LPS when entering IPS */
-	#endif
-
-	#ifdef CONFIG_LPS
-		/*#define CONFIG_WMMPS_STA*/
-	#endif /* CONFIG_LPS */
-#endif /* CONFIG_POWER_SAVING */
-
 #ifdef CONFIG_POWER_SAVE
-	/* #define CONFIG_RTW_IPS */
-	/* #define CONFIG_RTW_LPS */
+	#define CONFIG_RTW_IPS
+	#define CONFIG_RTW_LPS
 	#ifdef CONFIG_RTW_IPS
 		#define CONFIG_FWIPS
 	#endif
 	#if defined(CONFIG_RTW_IPS) || defined(CONFIG_RTW_LPS)
 		#define CONFIG_PS_FW_DBG
 	#endif
-#endif
+#endif /* CONFIG_POWER_SAVE */
 
 #ifdef CONFIG_WOWLAN
 	#define CONFIG_GTK_OL
@@ -338,23 +300,34 @@
 #define CONFIG_HW_ANTENNA_DIVERSITY
 #endif /* CONFIG_ANTENNA_DIVERSITY */
 
-#ifdef RTK_129X_PLATFORM
-	#ifdef CONFIG_REDUCE_TX_CPU_LOADING
-	#undef CONFIG_REDUCE_TX_CPU_LOADING
-	#endif
-#endif
+
+#define CONFIG_RTW_DISABLE_PHL_LOG
+#define CONFIG_RTW_DEBUG_CCCR
 
 #define CONFIG_MSG_NUM 100
 #define SCAN_PER_CH_EX_TIME 350
-#define CONFIG_RTW_DISABLE_PHL_LOG
+#define RTW_MAX_SCHEDULE_TIMEOUT 4000 /*unit:ms*/
 
-#define CONFIG_XMIT_ACK
+/*#define CONFIG_XMIT_ACK*/
 #ifdef CONFIG_XMIT_ACK
-/*#define DBG_XMIT_ACK*/
-#define RTW_WKARD_CCX_RPT_LIMIT_CTRL
-#define CONFIG_PHL_DEFAULT_MGNT_Q_RPT_EN
-#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
-#define RTW_MAX_MGMT_TX_MS_GAS 2000
-#endif /*CONFIG_XMIT_ACK*/
-#endif /* _AUTOCONF_H_ */
+	/*#define DBG_XMIT_ACK*/
+	#define CONFIG_XMIT_ACK_BY_CCX_RPT
+	#ifdef CONFIG_XMIT_ACK_BY_CCX_RPT
+		#define RTW_WKARD_CCX_RPT_LIMIT_CTRL
+		#define CONFIG_PHL_DEFAULT_MGNT_Q_RPT_EN
+	#endif
+	#define CONFIG_ACTIVE_KEEP_ALIVE_CHECK
+	#define RTW_WKARD_TX_NULL_WD_RP
+	#define RTW_MAX_MGMT_TX_MS_GAS 2000
+#endif /* CONFIG_XMIT_ACK */
 
+/*#define CONFIG_PHL_CPU_BALANCE_THREAD*/
+#ifdef CONFIG_PHL_CPU_BALANCE_THREAD
+#define CPU_ID_TX 2
+#define CPU_ID_TX_CB 3
+#define CPU_ID_RX_CB 1
+/*#define DBG_THREAD_PID*/
+/*#define DBG_CPU_INFO*/
+#endif /*CONFIG_PHL_CPU_BALANCE_THREAD*/
+
+#endif /* _AUTOCONF_H_ */

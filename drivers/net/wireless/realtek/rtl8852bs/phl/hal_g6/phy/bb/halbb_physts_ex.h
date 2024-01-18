@@ -28,7 +28,7 @@
 
 enum bb_physts_bitmap_t {
 	TD_SEARCH_FAIL	= 0,
-	BRK_BY_TX_PKT	= 1,
+	BRK_BY_TX_PKT	= 1, /*R2T in EHT ICs*/
 	CCA_SPOOF	= 2,
 	OFDM_BRK	= 3,
 	CCK_BRK		= 4,
@@ -43,6 +43,7 @@ enum bb_physts_bitmap_t {
 	HT_PKT		= 13,
 	VHT_PKT		= 14,
 	HE_PKT		= 15,
+	EHT_PKT		= 16, /*EHT ICs only*/
 	PHYSTS_BITMAP_NUM
 };
 
@@ -59,7 +60,7 @@ struct physts_rxd {
 	u8		is_su:1;
 	u8		user_num:2;
 	u8		is_to_self:1;
-	u8		gi_ltf:4;
+	u8		gi_ltf:4; /*enum rtw_gi_ltf*/
 	u16		data_rate;
 	u8		macid_su;
 	//u8		ppdu_cnt;
@@ -73,10 +74,14 @@ struct physts_result {
 	u8			rssi[4];	/* u(8,1) RSSI in 0~100 index */
 	enum bb_physts_bitmap_t ie_map_type;
 	u8			ch_idx;		/* channel number---*/
+	enum band_type		band;
 	enum channel_width	rx_bw;
 	u8			rxsc;		/* sub-channel---*/
+	u8 			n_rx;
+	u8 			n_sts;
 	u8			is_mu_pkt;	/* is MU packet or not---bool*/
 	u8			is_bf;		/* BF packet---bool*/
+	bool			is_pkt_with_data;
 	u8			snr_fd_avg;	/* fd, u(8,0), OFDM,        fd_snr_avg(phy-sts), limited by FD DFIR output wordlength*/
 	u8			snr_fd[4];	/* fd, u(8,0), OFDM,        fd_snr_avg(phy-sts) + td_rssi_diff[i]*/
 	u8			snr_td_avg;	/* td, u(8,0), OFDM + CCK,  td_rssi_avg(phy-sts) - MA(rx_idle_pwer)*/
@@ -84,9 +89,23 @@ struct physts_result {
 	u8			is_su ;
 	u8			is_ldpc;
 	u8			is_stbc;
+	u8			evm_1_sts;
+	u8			evm_2_sts;
+	u8			avg_idle_noise_pwr;
+	bool			is_ch_info_len_valid;
+	s16			cfo;
+	u16			ch_info_len;
+	s16			*ch_info_addr;
+	u8			ie8_modify_rxsc;
+	bool			snif_rpt_valid;
+	struct bb_snif_info	*bb_snif_i;
 };
 
 struct bb_info;
+void halbb_ch_idx_decode(struct bb_info *bb, u8 ch_idx_encoded,
+			 u8 *ch_idx, enum band_type *band);
+u8 halbb_drv_info_rssi_parsing(struct bb_info *bb, u16 rssi_in,
+			       enum channel_width bw);
 
 bool halbb_physts_parsing(struct bb_info *bb,
 			      u8 *addr,

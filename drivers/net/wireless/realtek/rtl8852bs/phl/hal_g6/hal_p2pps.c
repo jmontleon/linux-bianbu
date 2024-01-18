@@ -57,24 +57,32 @@ enum rtw_hal_status rtw_hal_noa_disable(void *hal,
 	return ret;
 }
 
-enum rtw_hal_status rtw_hal_tsf32_tog_enable(void *hal,
-	struct rtw_wifi_role_t *w_role)
+enum rtw_hal_status
+rtw_hal_tsf32_tog_enable(void *hal,
+                         struct rtw_wifi_role_link_t *rlink)
 {
 	enum rtw_hal_status h_stat = RTW_HAL_STATUS_FAILURE;
 	struct hal_info_t *hal_info = hal;
-	h_stat = rtw_hal_mac_tsf32_tog_enable(hal_info, w_role->hw_band,
-						w_role->hw_port,
-						TSF32_TOG_EARLY_T);
+
+	h_stat = rtw_hal_mac_tsf32_tog_enable(hal_info,
+	                                      rlink->hw_band,
+	                                      rlink->hw_port,
+	                                      TSF32_TOG_EARLY_T);
+
 	return h_stat;
 }
 
-enum rtw_hal_status rtw_hal_tsf32_tog_disable(void *hal,
-	struct rtw_wifi_role_t *w_role)
+enum rtw_hal_status
+rtw_hal_tsf32_tog_disable(void *hal,
+                         struct rtw_wifi_role_link_t *rlink)
 {
 	enum rtw_hal_status h_stat = RTW_HAL_STATUS_FAILURE;
 	struct hal_info_t *hal_info = hal;
-	h_stat = rtw_hal_mac_tsf32_tog_disable(hal_info, w_role->hw_band,
-						w_role->hw_port);
+
+	h_stat = rtw_hal_mac_tsf32_tog_disable(hal_info,
+	                                       rlink->hw_band,
+	                                       rlink->hw_port);
+
 	return h_stat;
 }
 
@@ -85,5 +93,13 @@ enum rtw_hal_status rtw_hal_get_tsf32_tog_rpt(void *hal,
 
 	return rtw_hal_mac_get_tsf32_tog_rpt(hal_info, rpt);
 }
+
+enum rtw_hal_status rtw_hal_noa_sta_macid_up(void *hal,
+			u16 wrole_macid, bool join, u8 *bitmap, u32 bitmap_len)
+{
+	return rtw_hal_mac_p2p_macid_ctrl(hal, join, wrole_macid, bitmap,
+						bitmap_len);
+}
+
 #endif
 

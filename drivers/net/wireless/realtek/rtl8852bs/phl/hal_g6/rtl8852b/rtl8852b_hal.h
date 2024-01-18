@@ -46,6 +46,8 @@ enum rtw_hal_status hal_cfg_fw_8852b(struct rtw_phl_com_t *phl_com,
 				     char *ic_name,
 				     enum rtw_fw_type fw_type);
 
+enum rf_path hal_get_path_from_ant_num_8852b(u8 antnum);
+
 /* rtl8852b_ops.c */
 void hal_set_ops_8852b(struct rtw_phl_com_t *phl_com,
 					struct hal_info_t *hal);

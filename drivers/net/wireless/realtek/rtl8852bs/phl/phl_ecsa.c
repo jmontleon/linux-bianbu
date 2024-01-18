@@ -42,14 +42,18 @@ _phl_ecsa_tx_pause(
 	enum rtw_phl_status status = RTW_PHL_STATUS_SUCCESS;
 	struct rtw_phl_com_t *phl_com = ecsa_ctrl->phl_com;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl_com->phl_priv;
-	struct rtw_wifi_role_t *wifi_role = ecsa_ctrl->role;
+	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
+	struct phl_data_ctl_t ctl = {0};
 
-	/* Pause SW Tx */
-	rtw_phl_tx_stop(phl_info);
-	rtw_phl_tx_req_notify(phl_info);
+	/* sw tx pause */
+	ctl.id = PHL_FG_MDL_ECSA;
+	ctl.cmd = PHL_DATA_CTL_SW_TX_PAUSE;
+	status = phl_data_ctrler(phl_info, &ctl, NULL);
+	if (RTW_PHL_STATUS_SUCCESS != status)
+		PHL_ERR("%s(): sw tx pause failure\n", __func__);
 
 	/* Disable hw tx all  */
-	if (rtw_hal_dfs_pause_tx(phl_info->hal, wifi_role->hw_band, true, PAUSE_RSON_DFS) ==
+	if (rtw_hal_dfs_pause_tx(phl_info->hal, rlink->hw_band, true,  PAUSE_RSON_DFS) ==
 	    RTW_HAL_STATUS_SUCCESS) {
 		status = RTW_PHL_STATUS_SUCCESS;
 		PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "[ECSA] hw tx pause OK\n");
@@ -69,10 +73,11 @@ _phl_ecsa_tx_resume(
 	enum rtw_phl_status status = RTW_PHL_STATUS_SUCCESS;
 	struct rtw_phl_com_t *phl_com = ecsa_ctrl->phl_com;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl_com->phl_priv;
-	struct rtw_wifi_role_t *wifi_role = ecsa_ctrl->role;
+	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
+	struct phl_data_ctl_t ctl = {0};
 
 	/* Enable hw tx all  */
-	if (rtw_hal_dfs_pause_tx(phl_info->hal, wifi_role->hw_band, false, PAUSE_RSON_DFS) ==
+	if (rtw_hal_dfs_pause_tx(phl_info->hal, rlink->hw_band, false, PAUSE_RSON_DFS) ==
 	    RTW_HAL_STATUS_SUCCESS) {
 		status = RTW_PHL_STATUS_SUCCESS;
 		PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "[ECSA] hw tx unpause OK\n");
@@ -81,7 +86,12 @@ _phl_ecsa_tx_resume(
 		PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "[ECSA] hw tx unpause fail\n");
 	}
 
-	rtw_phl_tx_resume(phl_info);
+	/* sw tx resume */
+	ctl.id = PHL_FG_MDL_ECSA;
+	ctl.cmd = PHL_DATA_CTL_SW_TX_RESUME;
+	status = phl_data_ctrler(phl_info, &ctl, NULL);
+	if (RTW_PHL_STATUS_SUCCESS != status)
+		PHL_ERR("%s(): sw tx resume failure\n", __func__);
 
 	return status;
 }
@@ -98,11 +108,13 @@ _phl_ecsa_calculate_next_timer_ap(
 	u64 tsf = 0;
 	u32 beacon_period_us = 0, timeslot_us = 0, next_timeslot_us = 0;
 	u32 current_time_ms = _os_get_cur_time_ms();
+	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
 
 	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_get_tsf(phl_info->hal,
-						      ecsa_ctrl->role->hw_port,
-						      &tsf_h,
-						      &tsf_l)) {
+	                                              rlink->hw_band,
+	                                              rlink->hw_port,
+	                                              &tsf_h,
+	                                              &tsf_l)) {
 		PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "_phl_ecsa_timer_callback(): Get tsf fail\n");
 		return 0;
 	}
@@ -110,7 +122,7 @@ _phl_ecsa_calculate_next_timer_ap(
 	tsf = tsf << 32;
 	tsf |= tsf_l;
 
-	bcn_cmn = &ecsa_ctrl->role->bcn_cmn;
+	bcn_cmn = &rlink->bcn_cmn;
 	beacon_period_us = bcn_cmn->bcn_interval * TU;
 
 	timeslot_us = (u32)_os_modular64(tsf, beacon_period_us);
@@ -151,7 +163,7 @@ _phl_ecsa_calculate_next_timer_sta(
 	struct phl_ecsa_ctrl_t *ecsa_ctrl
 )
 {
-	struct rtw_wifi_role_t *wifi_role = ecsa_ctrl->role;
+	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
 	struct rtw_phl_com_t *phl_com = ecsa_ctrl->phl_com;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl_com->phl_priv;
 	struct rtw_phl_stainfo_t *sta = NULL;
@@ -162,7 +174,7 @@ _phl_ecsa_calculate_next_timer_sta(
 	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %d State = %x\n",
 		  __FUNCTION__, current_time_ms, ecsa_ctrl->state);
 
-	sta = rtw_phl_get_stainfo_self(phl_info, wifi_role);
+	sta = rtw_phl_get_stainfo_self(phl_info, rlink);
 	if(sta == NULL){
 		PHL_TRACE(COMP_PHL_ECSA, _PHL_ERR_, "%s: Get sta info fail!\n",
 			  __FUNCTION__);
@@ -256,7 +268,8 @@ void _phl_ecsa_state_change_ap(
 		if(ecsa_ctrl->ecsa_param.count == 1){
 			ecsa_ctrl->state = ECSA_STATE_SWITCH;
 			SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_ECSA_SWITCH_START);
-			msg.rsvd[0] =  (u8*)ecsa_ctrl->role;
+			msg.rsvd[0].ptr = (u8*)ecsa_ctrl->role;
+			msg.rsvd[1].ptr = (u8*)ecsa_ctrl->rlink;
 			status = phl_disp_eng_send_msg(phl_info, &msg, &attr, NULL);
 			if(status != RTW_PHL_STATUS_SUCCESS)
 				PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "%s: Send msg fail!\n", __FUNCTION__);
@@ -313,7 +326,8 @@ void _phl_ecsa_state_change_sta(
 	else if(ecsa_ctrl->state == ECSA_STATE_COUNT_DOWN){
 		ecsa_ctrl->state = ECSA_STATE_SWITCH;
 		SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_ECSA_SWITCH_START);
-		msg.rsvd[0] =  (u8*)ecsa_ctrl->role;
+		msg.rsvd[0].ptr = (u8*)ecsa_ctrl->role;
+		msg.rsvd[1].ptr = (u8*)ecsa_ctrl->rlink;
 		status = phl_disp_eng_send_msg(phl_info, &msg, &attr, NULL);
 		if(status != RTW_PHL_STATUS_SUCCESS)
 			PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "%s: Send msg fail!\n", __FUNCTION__);
@@ -370,7 +384,7 @@ _phl_ecsa_cmd_abort_hdlr(
 				  ECSA_PARAM_FLAG_APPEND_PROBERSP);
 		/* Update Bcn */
 		if(ops->update_beacon)
-			ops->update_beacon(ops->priv, wifi_role);
+			ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
 	}
 
 	/* ECSA STA abort handle */
@@ -441,6 +455,8 @@ _phl_ecsa_cmd_msg_hdlr(
 {
 	struct phl_ecsa_ctrl_t *ecsa_ctrl = (struct phl_ecsa_ctrl_t *)priv;
 	struct rtw_wifi_role_t *wifi_role = ecsa_ctrl->role;
+	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
+	u8 hw_band = rlink->hw_band;
 	struct rtw_phl_com_t *phl_com = wifi_role->phl_com;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl_com->phl_priv;
 	void *d = phlcom_to_drvpriv(phl_com);
@@ -450,7 +466,7 @@ _phl_ecsa_cmd_msg_hdlr(
 	struct phl_msg_attribute attr = {0};
 	struct rtw_phl_ecsa_ops *ops = &ecsa_ctrl->ops;
 	u32 current_time_ms = _os_get_cur_time_ms();
-	struct rtw_bcn_info_cmn *bcn_cmn = &ecsa_ctrl->role->bcn_cmn;
+	struct rtw_bcn_info_cmn *bcn_cmn = &rlink->bcn_cmn;
 	u32 beacon_period_ms = bcn_cmn->bcn_interval * TU / 1000;
 	u8 countdown_n = 1;
 	struct rtw_chan_def chdef_to_switch = {0};
@@ -462,8 +478,8 @@ _phl_ecsa_cmd_msg_hdlr(
 	if(IS_MSG_FAIL(msg->msg_id)) {
 		_phl_ecsa_cmd_abort_hdlr(dispr, priv, false);
 		status = phl_disp_eng_free_token(phl_info,
-						 wifi_role->hw_band,
-						 &ecsa_ctrl->req_hdl);
+		                                 hw_band,
+		                                 &ecsa_ctrl->req_hdl);
 		if(status != RTW_PHL_STATUS_SUCCESS)
 			PHL_WARN("%s: Free token fail!\n", __FUNCTION__);
 		return MDL_RET_SUCCESS;
@@ -480,7 +496,7 @@ _phl_ecsa_cmd_msg_hdlr(
 						ECSA_PARAM_FLAG_APPEND_BCN);
 				/* Update Bcn */
 				if(ops->update_beacon)
-					ops->update_beacon(ops->priv, wifi_role);
+					ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
 			}
 
 			if(IS_ECSA_TYPE_STA(ecsa_ctrl) &&
@@ -526,7 +542,8 @@ _phl_ecsa_cmd_msg_hdlr(
 				ecsa_ctrl->ecsa_param.count -= countdown_n;
 				/* Update Bcn */
 				if(ops->update_beacon)
-					ops->update_beacon(ops->priv, wifi_role);
+					ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
+
 				_phl_ecsa_calculate_next_timer(ecsa_ctrl);
 			}
 			else{
@@ -537,7 +554,9 @@ _phl_ecsa_cmd_msg_hdlr(
 				ecsa_ctrl->ecsa_param.count = 0;
 				ecsa_ctrl->state = ECSA_STATE_SWITCH;
 				SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_ECSA_SWITCH_START);
-				nextmsg.rsvd[0] =  (u8*)ecsa_ctrl->role;
+				nextmsg.rsvd[0].ptr = (u8*)ecsa_ctrl->role;
+				nextmsg.rsvd[1].ptr = (u8*)ecsa_ctrl->rlink;
+
 				status = phl_disp_eng_send_msg(phl_info,
 							       &nextmsg,
 							       &attr,
@@ -553,8 +572,10 @@ _phl_ecsa_cmd_msg_hdlr(
 			/* Update channel info */
 			if(ops->update_chan_info){
 				ops->update_chan_info(ops->priv,
-						      wifi_role,
-						      ecsa_ctrl->ecsa_param.new_chan_def);
+				                      wifi_role,
+				                      ecsa_ctrl->rlink,
+				                      ecsa_ctrl->ecsa_param.new_chan_def);
+
 				PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
 				  "%s: update_chan_info done!\n", __FUNCTION__);
 			}
@@ -571,7 +592,7 @@ _phl_ecsa_cmd_msg_hdlr(
 						  ECSA_PARAM_FLAG_APPEND_PROBERSP);
 				/* Update Bcn */
 				if(ops->update_beacon)
-					ops->update_beacon(ops->priv, wifi_role);
+					ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
 			}
 
 			/*
@@ -579,16 +600,15 @@ _phl_ecsa_cmd_msg_hdlr(
 			 * the bw may not be same as the ECSA operating class
 			 * because of the SCC mode with different bandwidth.
 			 */
-			if(wifi_role->chanctx != NULL){
-				_os_mem_cpy(d, &chdef_to_switch, &(wifi_role->chanctx->chan_def),
-					    sizeof(struct rtw_chan_def));
-				if(wifi_role->chanctx->chan_def.chan !=
+			if (rlink->chanctx != NULL) {
+				_os_mem_cpy(d, &chdef_to_switch, &(rlink->chanctx->chan_def),
+				            sizeof(struct rtw_chan_def));
+				if(rlink->chanctx->chan_def.chan !=
 				   ecsa_ctrl->ecsa_param.new_chan_def.chan)
 					PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_,
-				  		  "%s: channel is not same as ECSA parameter!\n",
-						  __FUNCTION__);
-			}
-			else{
+				                  "%s: channel is not same as ECSA parameter!\n",
+				                  __FUNCTION__);
+			} else {
 				_os_mem_cpy(d, &chdef_to_switch, &(ecsa_ctrl->ecsa_param.new_chan_def),
 					    sizeof(struct rtw_chan_def));
 				PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_,
@@ -597,10 +617,12 @@ _phl_ecsa_cmd_msg_hdlr(
 			}
 
 			/* Switch channel */
-			phl_set_ch_bw(wifi_role, &chdef_to_switch, true);
+			phl_set_ch_bw(phl_info, hw_band, &chdef_to_switch, RFK_TYPE_ECSA);
 
 			SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_ECSA_SWITCH_DONE);
-			nextmsg.rsvd[0] =  (u8*)ecsa_ctrl->role;
+			nextmsg.rsvd[0].ptr =  (u8*)ecsa_ctrl->role;
+			nextmsg.rsvd[1].ptr = (u8*)ecsa_ctrl->rlink;
+
 			status = phl_disp_eng_send_msg(phl_info,
 						       &nextmsg,
 						       &attr,
@@ -675,8 +697,8 @@ _phl_ecsa_cmd_msg_hdlr(
 			}
 
 			status = phl_disp_eng_free_token(phl_info,
-							 wifi_role->hw_band,
-							 &ecsa_ctrl->req_hdl);
+			                                 hw_band,
+			                                 &ecsa_ctrl->req_hdl);
 			if(status != RTW_PHL_STATUS_SUCCESS)
 				PHL_WARN("%s: Free token fail!\n", __FUNCTION__);
 			break;
@@ -713,6 +735,12 @@ _phl_ecsa_cmd_query_info(
 			info->outbuf = (u8*)ecsa_ctrl->role;
 			ret = MDL_RET_SUCCESS;
 			break;
+
+		case FG_REQ_OP_GET_ROLE_LINK:
+			info->outbuf = (u8*)ecsa_ctrl->rlink;
+			ret = MDL_RET_SUCCESS;
+			break;
+
 		default:
 			break;
 	}
@@ -746,8 +774,10 @@ rtw_phl_ecsa_cmd_request(
 	req.set_info = _phl_ecsa_cmd_set_info;
 	req.query_info = _phl_ecsa_cmd_query_info;
 
-	status = phl_disp_eng_add_token_req(phl, role->hw_band, &req,
-					    &ecsa_ctrl->req_hdl);
+	status = phl_disp_eng_add_token_req(phl,
+	                                    ecsa_ctrl->rlink->hw_band,
+	                                    &req,
+	                                    &ecsa_ctrl->req_hdl);
 	if((status != RTW_PHL_STATUS_SUCCESS) &&
 	   (status != RTW_PHL_STATUS_PENDING))
 		goto exit;
@@ -759,11 +789,10 @@ exit:
 }
 
 enum rtw_phl_status
-rtw_phl_ecsa_start(
-	void *phl,
-	struct rtw_wifi_role_t *role,
-	struct rtw_phl_ecsa_param *param
-	)
+rtw_phl_ecsa_start(void *phl,
+                   struct rtw_wifi_role_t *role,
+                   struct rtw_wifi_role_link_t *rlink,
+                   struct rtw_phl_ecsa_param *param)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	void *d = phlcom_to_drvpriv(phl_info->phl_com);
@@ -780,6 +809,8 @@ rtw_phl_ecsa_start(
 	}
 
 	ecsa_ctrl->role = role;
+	ecsa_ctrl->rlink = rlink;
+
 	_os_mem_cpy(d, ecsa_param, param, sizeof(struct rtw_phl_ecsa_param));
 	_phl_ecsa_dump_param(ecsa_param);
 	ecsa_ctrl->state = ECSA_STATE_WAIT_DELAY;
@@ -819,8 +850,8 @@ rtw_phl_ecsa_cancel(
 	_os_spinlock(d, &(ecsa_ctrl->lock), _bh, NULL);
 	if(ecsa_ctrl->state > ECSA_STATE_WAIT_DELAY){
 		status = phl_disp_eng_cancel_token_req(phl_info,
-							role->hw_band,
-							&ecsa_ctrl->req_hdl);
+		                                       ecsa_ctrl->rlink->hw_band,
+		                                       &ecsa_ctrl->req_hdl);
 
 		if(status != RTW_PHL_STATUS_SUCCESS){
 			PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_,
@@ -877,6 +908,7 @@ phl_ecsa_ctrl_init(
 	ecsa_ctrl->state = ECSA_STATE_NONE;
 	ecsa_ctrl->phl_com = phl_info->phl_com;
 	ecsa_ctrl->role = NULL;
+	ecsa_ctrl->rlink = NULL;
 	ecsa_ctrl->expected_tbtt_ms = 0;
 
 	_os_init_timer(drv_priv, &ecsa_ctrl->timer, _phl_ecsa_timer_callback,
@@ -933,6 +965,7 @@ exit:
 void
 rtw_phl_ecsa_extend_option_hdlr(
 	u32 extend_option,
+	struct rtw_wifi_role_link_t *ap_rlink,
 	struct rtw_phl_ecsa_param *param
 )
 {
@@ -942,6 +975,13 @@ rtw_phl_ecsa_extend_option_hdlr(
 		param->new_chan_def.bw = CHANNEL_WIDTH_20;
 		param->new_chan_def.center_ch = param->new_chan_def.chan;
 		param->new_chan_def.offset = CHAN_OFFSET_NO_EXT;
+		param->op_class = rtw_phl_get_operating_class(param->new_chan_def);
+	}
+
+	/* bandwidth and offset of new_chan_def is same as AP mode */
+	if (extend_option & ECSA_EX_OPTION_USE_AP_CHANDEF) {
+		param->new_chan_def.bw = ap_rlink->chandef.bw;
+		param->new_chan_def.offset = ap_rlink->chandef.offset;
 		param->op_class = rtw_phl_get_operating_class(param->new_chan_def);
 	}
 }

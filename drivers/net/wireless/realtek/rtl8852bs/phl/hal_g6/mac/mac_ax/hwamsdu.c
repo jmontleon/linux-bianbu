@@ -31,13 +31,8 @@ u32 mac_enable_cut_hwamsdu(struct mac_ax_adapter *adapter,
 #endif
 	struct mac_ax_en_amsdu_cut *content;
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
-		if (is_cv(adapter, CBV))
-			return MACNOTSUP;
-	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
-		if (is_cv(adapter, CAV))
-			return MACNOTSUP;
-	}
+	if (chk_patch_cut_amsdu_rls_ple_issue(adapter) == (u32)PATCH_ENABLE)
+		return MACNOTSUP;
 
 	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
 	if (!h2cb)
@@ -97,13 +92,8 @@ u32 mac_enable_hwmasdu(struct mac_ax_adapter *adapter,
 #endif
 	struct mac_ax_en_hwamsdu *content;
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
-		if (is_cv(adapter, CBV))
-			return MACNOTSUP;
-	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
-		if (is_cv(adapter, CAV))
-			return MACNOTSUP;
-	}
+	if (chk_patch_txamsdu_rls_wd_issue(adapter) == (u32)PATCH_ENABLE)
+		return MACNOTSUP;
 
 	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
 	if (!h2cb)
@@ -147,45 +137,8 @@ fail:
 	return ret;
 }
 #else
-u32 mac_enable_cut_hwamsdu(struct mac_ax_adapter *adapter,
-			   u8 enable,
-			   u8 low_th,
-			   u16 high_th,
-			   enum mac_ax_ex_shift aligned)
-{
-	//cut AMSDU
-	u32 val;
-	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
-		if (is_cv(adapter, CBV))
-			return MACNOTSUP;
-	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
-		if (is_cv(adapter, CAV))
-			return MACNOTSUP;
-	}
-
-	if (aligned > MAC_AX_BYTE_ALIGNED_8)
-		return MACNOITEM;
-	val = MAC_REG_R32(R_AX_CUT_AMSDU_CTRL);
-	val = SET_CLR_WORD(val, low_th, B_AX_BIT_CUT_AMSDU_CHKLEN_L_TH);
-	val = (SET_CLR_WORD(val, high_th, B_AX_BIT_CUT_AMSDU_CHKLEN_H_TH) |
-	       B_AX_BIT_CUT_AMSDU_CHKLEN_EN |
-	       B_AX_BIT_EN_CUT_AMSDU);
-	if (!enable)
-		val &= ~B_AX_BIT_EN_CUT_AMSDU;
-
-	MAC_REG_W32(R_AX_CUT_AMSDU_CTRL, val);
-
-	//extra shift
-	val = 0;
-	val = (SET_CLR_WORD(val, aligned, B_AX_EXTRA_SHIFT));
-	MAC_REG_W32(R_AX_CUT_AMSDU_CTRL_2, val);
-
-	return MACSUCCESS;
-}
-
-u32 mac_enable_hwmasdu(struct mac_ax_adapter *adapter,
+u32 mac_enable_hwamsdu(struct mac_ax_adapter *adapter,
 		       u8 enable,
 		       enum mac_ax_amsdu_pkt_num max_num,
 		       u8 en_single_amsdu,
@@ -194,13 +147,8 @@ u32 mac_enable_hwmasdu(struct mac_ax_adapter *adapter,
 	u32 val;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
-		if (is_cv(adapter, CBV))
-			return MACNOTSUP;
-	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
-		if (is_cv(adapter, CAV))
-			return MACNOTSUP;
-	}
+	if (chk_patch_txamsdu_rls_wd_issue(adapter) == (u32)PATCH_ENABLE)
+		return MACNOTSUP;
 
 	if (max_num >= MAC_AX_AMSDU_AGG_NUM_MAX)
 		return MACNOITEM;
@@ -224,3 +172,85 @@ u32 mac_enable_hwmasdu(struct mac_ax_adapter *adapter,
 	return MACSUCCESS;
 }
 #endif
+
+u32 mac_hwamsdu_fwd_search_en(struct mac_ax_adapter *adapter, u8 enable)
+{
+	u32 val;
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		val = MAC_REG_R32(R_AX_HWAMSDU_CTRL);
+		if (!enable)
+			val &= ~B_AX_AMSDU_FS_ENABLE;
+		else
+			val |= B_AX_AMSDU_FS_ENABLE;
+
+		MAC_REG_W32(R_AX_HWAMSDU_CTRL, val);
+		return MACSUCCESS;
+	} else {
+		return MACNOTSUP;
+	}
+}
+
+u32 mac_hwamsdu_macid_en(struct mac_ax_adapter *adapter, u8 macid, u8 enable)
+{
+	struct mac_ax_dctl_info info = {0};
+	struct mac_ax_dctl_info mask = {0};
+	struct mac_ax_ops *ops = adapter_to_mac_ops(adapter);
+	u32 ret = 0;
+
+	info.sta_amsdu_en = enable;
+	mask.sta_amsdu_en = HW_AMSDU_MACID_ENABLE;
+	ret = ops->upd_dctl_info(adapter, &info, &mask, macid, 1);
+
+	return ret;
+}
+
+u8 mac_hwamsdu_get_macid_en(struct mac_ax_adapter *adapter, u8 macid)
+{
+	struct mac_ax_dctl_info info = {0};
+	struct mac_ax_dctl_info mask = {0};
+	struct mac_ax_ops *ops = adapter_to_mac_ops(adapter);
+	u32 ret = 0;
+
+	mask.sta_amsdu_en = HW_AMSDU_MACID_ENABLE;
+	ret = ops->upd_dctl_info(adapter, &info, &mask, macid, 0);
+
+	if (ret != MACSUCCESS)
+		return 0;
+	else
+		return (u8)info.sta_amsdu_en;
+}
+
+u32 mac_hwamsdu_max_len(struct mac_ax_adapter *adapter, u8 macid, u8 amsdu_max_len)
+{
+	struct mac_ax_dctl_info info = {0};
+	struct mac_ax_dctl_info mask = {0};
+	struct mac_ax_ops *ops = adapter_to_mac_ops(adapter);
+	u32 ret = 0;
+
+	info.amsdu_max_length = amsdu_max_len;
+	mask.amsdu_max_length = FWCMD_H2C_DCTRL_AMSDU_MAX_LEN_MSK;
+	ret = ops->upd_dctl_info(adapter, &info, &mask, macid, 1);
+
+	return ret;
+}
+
+u8 mac_hwamsdu_get_max_len(struct mac_ax_adapter *adapter, u8 macid)
+{
+	struct mac_ax_dctl_info info = {0};
+	struct mac_ax_dctl_info mask = {0};
+	struct mac_ax_ops *ops = adapter_to_mac_ops(adapter);
+	u32 ret = 0;
+
+	mask.amsdu_max_length = FWCMD_H2C_DCTRL_AMSDU_MAX_LEN_MSK;
+	ret = ops->upd_dctl_info(adapter, &info, &mask, macid, 0);
+
+	if (ret != MACSUCCESS)
+		return 0;
+	else
+		return (u8)info.amsdu_max_length;
+}

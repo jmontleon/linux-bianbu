@@ -93,7 +93,7 @@ fail:
 }
 
 u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
-		       struct mac_ax_ul_fixinfo *info)
+		       struct rtw_phl_ax_ul_fixinfo *info)
 {
 	u32 ret = 0;
 	u8 *buf;
@@ -102,23 +102,27 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 	#else
 	struct h2c_buf *h2cb;
 	#endif
-	struct fwcmd_ul_fixinfo_tblud *tbl;
-	struct mac_ul_macid_info *sta_info;
-	struct mac_ul_macid_info *sta_info_2;
-	struct mac_ax_ulru_out_sta_ent *sta_ent;
+	u32 *dword;
+	u16 h2c_size = (5 + RTW_PHL_MAX_RU_NUM / 2 + 2 + RTW_PHL_MAX_RU_NUM * 2) * sizeof(u32);
+	u8 i;
+
+	struct rtw_phl_ul_macid_info *sta_info;
+	struct rtw_phl_ul_macid_info *sta_info_2;
+	struct rtw_phl_ax_ulru_out_sta_ent *sta_ent;
 
 	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
-	buf = h2cb_put(h2cb, sizeof(struct fwcmd_ul_fixinfo_tblud));
+	buf = h2cb_put(h2cb, h2c_size);
 	if (!buf) {
 		ret = MACNOBUF;
 		goto fail;
 	}
 
-	tbl = (struct fwcmd_ul_fixinfo_tblud *)buf;
-	tbl->dword0 =
+	dword = (u32 *)buf;
+
+	(*dword++) =
 	cpu_to_le32((info->tbl_hdr.rw ? FWCMD_H2C_TBLUD_R_W : 0) |
 		    SET_WORD(info->tbl_hdr.idx, FWCMD_H2C_TBLUD_MACID_GROUP) |
 		    SET_WORD(info->tbl_hdr.offset, FWCMD_H2C_TBLUD_OFFSET) |
@@ -127,7 +131,7 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    SET_WORD(CLASS_UL_FIXINFO,
 			     FWCMD_H2C_TBLUD_TABLE_CLASS));
 
-	tbl->dword1 =
+	(*dword++) =
 	cpu_to_le32(SET_WORD(info->cfg.mode, FWCMD_H2C_UL_FIXINFO_CFG_MODE) |
 		    SET_WORD(info->cfg.interval,
 			     FWCMD_H2C_UL_FIXINFO_CFG_INTERVAL) |
@@ -136,7 +140,7 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    SET_WORD(info->cfg.storemode,
 			     FWCMD_H2C_UL_FIXINFO_CFG_STOREMODE));
 
-	tbl->dword2 =
+	(*dword++) =
 	cpu_to_le32(SET_WORD(info->ndpa_dur,
 			     FWCMD_H2C_UL_FIXINFO_ULINFO_NDPA_DUR) |
 		    SET_WORD(info->tf_type,
@@ -154,7 +158,7 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    SET_WORD(info->gi_ltf,
 			     FWCMD_H2C_UL_FIXINFO_ULINFO_GI_LTF));
 
-	tbl->dword3 =
+	(*dword++) =
 	cpu_to_le32(SET_WORD(info->data_rate,
 			     FWCMD_H2C_UL_FIXINFO_ULINFO_DATART) |
 		    (info->data_er ?
@@ -174,9 +178,11 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    (info->data_bw_er ?
 		     FWCMD_H2C_UL_FIXINFO_ULINFO_DATA_VWER : 0) |
 		    (info->istwt ?
-		     FWCMD_H2C_UL_FIXINFO_ULINFO_ISTWT : 0));
+		     FWCMD_H2C_UL_FIXINFO_ULINFO_ISTWT : 0) |
+		    (info->ul_logo_test ?
+		     FWCMD_H2C_UL_FIXINFO_ULINFO_UL_LOGO_TEST : 0));
 
-	tbl->dword4 =
+	(*dword++) =
 	cpu_to_le32(SET_WORD(info->multiport_id,
 			     FWCMD_H2C_UL_FIXINFO_ULINFO_MULTIPORT) |
 		    SET_WORD(info->mbssid,
@@ -190,31 +196,21 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    SET_WORD(info->store_idx,
 			     FWCMD_H2C_UL_FIXINFO_ULINFO_STORE_IDX));
 
-	sta_info = &info->sta[0];
-	sta_info_2 = &info->sta[1];
-	tbl->dword5 =
-	cpu_to_le32(SET_WORD(sta_info->macid,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_MACID_0) |
-		    SET_WORD(sta_info->pref_AC,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_PREF_AC_0) |
-		    SET_WORD(sta_info_2->macid,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_MACID_1) |
-		    SET_WORD(sta_info_2->pref_AC,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_PREF_AC_1));
+	for (i = 0; i < RTW_PHL_MAX_RU_NUM; i += 2) {
+		sta_info = &info->sta[i];
+		sta_info_2 = &info->sta[i + 1];
+		(*dword++) =
+		cpu_to_le32(SET_WORD(sta_info->macid,
+				     FWCMD_H2C_UL_FIXINFO_STA_INFO_MACID_0) |
+			    SET_WORD(sta_info->pref_AC,
+				     FWCMD_H2C_UL_FIXINFO_STA_INFO_PREF_AC_0) |
+			    SET_WORD(sta_info_2->macid,
+				     FWCMD_H2C_UL_FIXINFO_STA_INFO_MACID_1) |
+			    SET_WORD(sta_info_2->pref_AC,
+				     FWCMD_H2C_UL_FIXINFO_STA_INFO_PREF_AC_1));
+	}
 
-	sta_info = &info->sta[2];
-	sta_info_2 = &info->sta[3];
-	tbl->dword6 =
-	cpu_to_le32(SET_WORD(sta_info->macid,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_MACID_0) |
-		    SET_WORD(sta_info->pref_AC,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_PREF_AC_0) |
-		    SET_WORD(sta_info_2->macid,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_MACID_1) |
-		    SET_WORD(sta_info_2->pref_AC,
-			     FWCMD_H2C_UL_FIXINFO_STA_INFO_PREF_AC_1));
-
-	tbl->dword7 =
+	(*dword++) =
 	cpu_to_le32((info->ulrua.ru2su ?
 		     FWCMD_H2C_UL_FIXINFO_ULRUA_RU2SU : 0) |
 		    SET_WORD(info->ulrua.ppdu_bw,
@@ -236,7 +232,7 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    SET_WORD(info->ulrua.tb_t_pe_nom,
 			     FWCMD_H2C_UL_FIXINFO_ULRUA_TB_NOM));
 
-	tbl->dword8 =
+	(*dword++) =
 	cpu_to_le32((info->ulrua.grp_mode ?
 		     FWCMD_H2C_UL_FIXINFO_ULRUA_GRP_MODE : 0) |
 		    SET_WORD(info->ulrua.grp_id,
@@ -244,127 +240,38 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 		    (info->ulrua.fix_mode ?
 		     FWCMD_H2C_UL_FIXINFO_ULRUA_FIX_MODE : 0));
 
-	sta_ent = &info->ulrua.sta[0];
-	tbl->dword9 =
-	cpu_to_le32((sta_ent->dropping ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DROP : 0) |
-		    SET_WORD(sta_ent->tgt_rssi,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_TGT_RSSI) |
-		    SET_WORD(sta_ent->mac_id,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MAC_ID) |
-		    SET_WORD(sta_ent->ru_pos,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RU_POS) |
-		    (sta_ent->coding ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_CODE : 0) |
-		    (sta_ent->vip_flag ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_VIP : 0));
+	for (i = 0; i < RTW_PHL_MAX_RU_NUM; i++) {
+		sta_ent = &info->ulrua.sta[i];
+		(*dword++) =
+		cpu_to_le32((sta_ent->dropping ?
+			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DROP : 0) |
+			    SET_WORD(sta_ent->tgt_rssi,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_TGT_RSSI) |
+			    SET_WORD(sta_ent->mac_id,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MAC_ID) |
+			    SET_WORD(sta_ent->ru_pos,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RU_POS) |
+			    (sta_ent->coding ?
+			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_CODE : 0) |
+			    (sta_ent->vip_flag ?
+			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_VIP : 0));
 
-	tbl->dword10 =
-	cpu_to_le32(SET_WORD(sta_ent->bsr_length,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_BSRLEN) |
-		    (sta_ent->rate.dcm ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DCM : 0) |
-		    SET_WORD(sta_ent->rate.ss,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_SS) |
-		    SET_WORD(sta_ent->rate.mcs,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MCS) |
-		    SET_WORD(sta_ent->rpt.rt_tblcol,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RT_TBLCOL) |
-		    (sta_ent->rpt.prtl_alloc ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_PRTL_ALLOC : 0) |
-		    (sta_ent->rpt.rate_chg ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RATE_CHG : 0));
-
-	sta_ent = &info->ulrua.sta[1];
-	tbl->dword11 =
-	cpu_to_le32((sta_ent->dropping ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DROP : 0) |
-		    SET_WORD(sta_ent->tgt_rssi,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_TGT_RSSI) |
-		    SET_WORD(sta_ent->mac_id,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MAC_ID) |
-		    SET_WORD(sta_ent->ru_pos,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RU_POS) |
-		    (sta_ent->coding ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_CODE : 0) |
-		    (sta_ent->vip_flag ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_VIP : 0));
-	tbl->dword12 =
-	cpu_to_le32(SET_WORD(sta_ent->bsr_length,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_BSRLEN) |
-		    (sta_ent->rate.dcm ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DCM : 0) |
-		    SET_WORD(sta_ent->rate.ss,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_SS) |
-		    SET_WORD(sta_ent->rate.mcs,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MCS) |
-		    SET_WORD(sta_ent->rpt.rt_tblcol,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RT_TBLCOL) |
-		    (sta_ent->rpt.prtl_alloc ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_PRTL_ALLOC : 0) |
-		    (sta_ent->rpt.rate_chg ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RATE_CHG : 0));
-
-	sta_ent = &info->ulrua.sta[2];
-	tbl->dword13 =
-	cpu_to_le32((sta_ent->dropping ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DROP : 0) |
-		    SET_WORD(sta_ent->tgt_rssi,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_TGT_RSSI) |
-		    SET_WORD(sta_ent->mac_id,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MAC_ID) |
-		    SET_WORD(sta_ent->ru_pos,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RU_POS) |
-		    (sta_ent->coding ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_CODE : 0) |
-		    (sta_ent->vip_flag ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_VIP : 0));
-	tbl->dword14 =
-	cpu_to_le32(SET_WORD(sta_ent->bsr_length,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_BSRLEN) |
-		    (sta_ent->rate.dcm ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DCM : 0) |
-		    SET_WORD(sta_ent->rate.ss,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_SS) |
-		    SET_WORD(sta_ent->rate.mcs,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MCS) |
-		    SET_WORD(sta_ent->rpt.rt_tblcol,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RT_TBLCOL) |
-		    (sta_ent->rpt.prtl_alloc ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_PRTL_ALLOC : 0) |
-		    (sta_ent->rpt.rate_chg ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RATE_CHG : 0));
-
-	sta_ent = &info->ulrua.sta[3];
-	tbl->dword15 =
-	cpu_to_le32((sta_ent->dropping ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DROP : 0) |
-		    SET_WORD(sta_ent->tgt_rssi,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_TGT_RSSI) |
-		    SET_WORD(sta_ent->mac_id,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MAC_ID) |
-		    SET_WORD(sta_ent->ru_pos,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RU_POS) |
-		    (sta_ent->coding ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_CODE : 0) |
-		    (sta_ent->vip_flag ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_VIP : 0));
-
-	tbl->dword16 =
-	cpu_to_le32(SET_WORD(sta_ent->bsr_length,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_BSRLEN) |
-		    (sta_ent->rate.dcm ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DCM : 0) |
-		    SET_WORD(sta_ent->rate.ss,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_SS) |
-		    SET_WORD(sta_ent->rate.mcs,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MCS) |
-		    SET_WORD(sta_ent->rpt.rt_tblcol,
-			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RT_TBLCOL) |
-		    (sta_ent->rpt.prtl_alloc ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_PRTL_ALLOC : 0) |
-		    (sta_ent->rpt.rate_chg ?
-		     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RATE_CHG : 0));
+		(*dword++) =
+		cpu_to_le32(SET_WORD(sta_ent->bsr_length,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_BSRLEN) |
+			    (sta_ent->rate.dcm ?
+			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_DCM : 0) |
+			    SET_WORD(sta_ent->rate.ss,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_SS) |
+			    SET_WORD(sta_ent->rate.mcs,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_MCS) |
+			    SET_WORD(sta_ent->rpt.rt_tblcol,
+				     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RT_TBLCOL) |
+			    (sta_ent->rpt.prtl_alloc ?
+			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_PRTL_ALLOC : 0) |
+			    (sta_ent->rpt.rate_chg ?
+			     FWCMD_H2C_UL_FIXINFO_UL_RUA_STA_ENT_RATE_CHG : 0));
+	}
 
 	ret = h2c_pkt_set_hdr(adapter, h2cb,
 			      FWCMD_TYPE_H2C,
@@ -831,8 +738,8 @@ u32 mac_upd_dctl_info(struct mac_ax_adapter *adapter,
 		if (ret)
 			goto fail;
 
-		// return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
-		// H2C shall be sent by mac_h2c_agg_tx.
+		// Return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
+		// The H2C shall be sent by mac_h2c_agg_tx.
 		ret = h2c_agg_enqueue(adapter, h2cb);
 		if (ret == MACSUCCESS)
 			return MACSUCCESS;
@@ -880,7 +787,9 @@ u32 mac_upd_shcut_mhdr(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_shcut_update *tbl;
 
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C))
+	if (!(is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+	      is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	      is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)))
 		return MACNOTSUP;
 
 	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
@@ -1012,6 +921,8 @@ void _set_role_cctrl(struct mac_ax_adapter *adapter,
 			(cctrl->rts_drop_data_mode &
 			 ~mask->rts_drop_data_mode) |
 			(mask->rts_drop_data_mode & info->rts_drop_data_mode);
+	cctrl->preld_en = (cctrl->preld_en & ~mask->preld_en) |
+			  (mask->preld_en & info->preld_en);
 	cctrl->ampdu_max_len = (cctrl->ampdu_max_len & ~mask->ampdu_max_len) |
 			(mask->ampdu_max_len & info->ampdu_max_len);
 	cctrl->ul_mu_dis = (cctrl->ul_mu_dis & ~mask->ul_mu_dis) |
@@ -1020,8 +931,8 @@ void _set_role_cctrl(struct mac_ax_adapter *adapter,
 				 ~mask->ampdu_max_time) |
 			(mask->ampdu_max_time & info->ampdu_max_time);
 
-	cctrl->max_agg_num = (cctrl->ampdu_max_time & ~mask->max_agg_num) |
-			(mask->ampdu_max_time & info->max_agg_num);
+	cctrl->max_agg_num = (cctrl->max_agg_num & ~mask->max_agg_num) |
+			(mask->max_agg_num & info->max_agg_num);
 	cctrl->ba_bmap = (cctrl->ba_bmap & ~mask->ba_bmap) |
 			(mask->ba_bmap & info->ba_bmap);
 	cctrl->vo_lftime_sel = (cctrl->vo_lftime_sel & ~mask->vo_lftime_sel) |
@@ -1173,12 +1084,13 @@ void mac_upd_role_cctrl(struct mac_ax_adapter *adapter,
 
 u32 mac_tx_path_map_cfg(struct mac_ax_adapter *adapter, struct hal_txmap_cfg *cfg)
 {
+	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
 	struct rtw_hal_mac_ax_cctl_info info;
 	struct rtw_hal_mac_ax_cctl_info mask;
 	u32 ret;
 
-	PLTFM_MEMSET(&mask, 0, sizeof(struct mac_ax_cctl_info));
-	PLTFM_MEMSET(&info, 0, sizeof(struct mac_ax_cctl_info));
+	PLTFM_MEMSET(&mask, 0, sizeof(struct rtw_hal_mac_ax_cctl_info));
+	PLTFM_MEMSET(&info, 0, sizeof(struct rtw_hal_mac_ax_cctl_info));
 
 	info.ntx_path_en = cfg->n_tx_en;
 	info.path_map_a = cfg->map_a;
@@ -1192,7 +1104,7 @@ u32 mac_tx_path_map_cfg(struct mac_ax_adapter *adapter, struct hal_txmap_cfg *cf
 	mask.path_map_c = PATH_MAP_MASK;
 	mask.path_map_d = PATH_MAP_MASK;
 
-	ret = mac_upd_cctl_info(adapter, &info, &mask, (u8)cfg->macid, TBL_WRITE_OP);
+	ret = mops->upd_cctl_info(adapter, &info, &mask, (u8)cfg->macid, TBL_WRITE_OP);
 
 	return MACSUCCESS;
 }
@@ -1241,6 +1153,9 @@ u32 mac_upd_cctl_info(struct mac_ax_adapter *adapter,
 		    (info->tryrate ? FWCMD_H2C_CCTRL_TRYRATE : 0) |
 		    SET_WORD(info->ampdu_density, FWCMD_H2C_CCTRL_AMPDU_DENSITY));
 
+	if (info->rtsrate >= MAC_AX_VHT_NSS1_MCS0) // for Fool-proof mechanism
+		info->rtsrate = MAC_AX_OFDM6;
+
 	tbl->dword2 =
 	cpu_to_le32(SET_WORD(info->data_rty_lowest_rate,
 			     FWCMD_H2C_CCTRL_DATA_RTY_LOWEST_RATE) |
@@ -1265,9 +1180,13 @@ u32 mac_upd_cctl_info(struct mac_ax_adapter *adapter,
 		    (info->hw_rts_en ? FWCMD_H2C_CCTRL_HW_RTS_EN : 0) |
 		    SET_WORD(info->rts_drop_data_mode,
 			     FWCMD_H2C_CCTRL_RTS_DROP_DATA_MODE) |
+		    (info->preld_en ? FWCMD_H2C_CCTRL_PRELD_EN : 0) |
 		    SET_WORD(info->ampdu_max_len, FWCMD_H2C_CCTRL_AMPDU_MAX_LEN) |
 		    (info->ul_mu_dis ? FWCMD_H2C_CCTRL_UL_MU_DIS : 0) |
 		    SET_WORD(info->ampdu_max_time, FWCMD_H2C_CCTRL_AMPDU_MAX_TIME));
+
+	if (info->max_agg_num > 0)
+		info->max_agg_num -= 1;
 
 	tbl->dword4 =
 	cpu_to_le32(SET_WORD(info->max_agg_num, FWCMD_H2C_CCTRL_MAX_AGG_NUM) |
@@ -1381,6 +1300,7 @@ u32 mac_upd_cctl_info(struct mac_ax_adapter *adapter,
 		    (mask->hw_rts_en ? FWCMD_H2C_CCTRL_HW_RTS_EN : 0) |
 		    SET_WORD(mask->rts_drop_data_mode,
 			     FWCMD_H2C_CCTRL_RTS_DROP_DATA_MODE) |
+		    (mask->preld_en ? FWCMD_H2C_CCTRL_PRELD_EN : 0) |
 		    SET_WORD(mask->ampdu_max_len, FWCMD_H2C_CCTRL_AMPDU_MAX_LEN) |
 		    (mask->ul_mu_dis ? FWCMD_H2C_CCTRL_UL_MU_DIS : 0) |
 		    SET_WORD(mask->ampdu_max_time, FWCMD_H2C_CCTRL_AMPDU_MAX_TIME));
@@ -1468,6 +1388,12 @@ u32 mac_upd_cctl_info(struct mac_ax_adapter *adapter,
 				      1);
 		if (ret)
 			goto fail;
+
+		// Return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
+		// The H2C shall be sent by mac_h2c_agg_tx.
+		ret = h2c_agg_enqueue(adapter, h2cb);
+		if (ret == MACSUCCESS)
+			return MACSUCCESS;
 
 		ret = h2c_pkt_build_txd(adapter, h2cb);
 		if (ret)
@@ -1593,6 +1519,12 @@ u32 mac_set_fixmode_mib(struct mac_ax_adapter *adapter,
 		    SET_WORD(info->ulgrpid,
 			     FWCMD_H2C_FIXMODE_PARA_ULGRPID));
 
+	tbl->dword3 =
+	cpu_to_le32((info->fix_txcmdnum_en ?
+		     FWCMD_H2C_FIXMODE_PARA_FIX_TXCMDNUM_EN : 0) |
+		    (info->force_to_one ?
+		    FWCMD_H2C_FIXMODE_PARA_FORCE_TO_ONE : 0));
+
 	ret = h2c_pkt_set_hdr(adapter, h2cb,
 			      FWCMD_TYPE_H2C,
 			      FWCMD_H2C_CAT_MAC,
@@ -1660,6 +1592,169 @@ u32 rst_bacam(struct mac_ax_adapter *adapter, struct rst_bacam_info *info)
 	return MACSUCCESS;
 }
 
+u32 mac_bacam_avl_std_entry_idx(struct mac_ax_adapter *adapter,
+				struct mac_ax_avl_std_bacam_info *info)
+{
+	#ifdef PHL_FEATURE_AP
+		switch (adapter->hw_info->chip_id) {
+		case MAC_AX_CHIP_ID_8851B:
+			info->min_avl_idx = BACAM_MIN_ENTRY_IDX_8851B;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8851B;
+			return MACSUCCESS;
+		case MAC_AX_CHIP_ID_8852B:
+			info->min_avl_idx = BACAM_MIN_ENTRY_IDX_8852B;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8852B;
+			return MACSUCCESS;
+		case MAC_AX_CHIP_ID_8852C:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_AP_8852C;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8852C;
+			break;
+		case MAC_AX_CHIP_ID_8192XB:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_AP_8192XB;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8192XB;
+			break;
+		case MAC_AX_CHIP_ID_8852D:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_AP_8852D;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8852D;
+			break;
+		case MAC_AX_CHIP_ID_8851E: // for Fool-proof mechanism
+			info->min_avl_idx = BACAM_MAX_RU_SUPPORT_B0_NON_AP;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8851E;
+			break;
+		case MAC_BE_CHIP_ID_1115E:// for Fool-proof mechanism
+			info->min_avl_idx = BACAM_MIN_ENTRY_IDX_DEF_1115E;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_DEF_1115E;
+			break;
+		default:
+			PLTFM_MSG_ERR("[ERR] chip not support, idx search fail");
+			return MACNOITEM;
+		}
+		#ifdef PHL_FEATURE_NIC // for Fool-proof mechanism in hvtool
+			info->min_avl_idx = info->min_avl_idx + BACAM_MAX_RU_SUPPORT_B1_STA;
+		#endif
+	#else // for NiC mode setting
+		switch (adapter->hw_info->chip_id) {
+		case MAC_AX_CHIP_ID_8851B:
+			info->min_avl_idx = BACAM_MIN_ENTRY_IDX_8851B;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8851B;
+			break;
+		case MAC_AX_CHIP_ID_8852B:
+			info->min_avl_idx = BACAM_MIN_ENTRY_IDX_8852B;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8852B;
+			break;
+		case MAC_AX_CHIP_ID_8852C:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_STA_8852C;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8852C;
+			break;
+		case MAC_AX_CHIP_ID_8192XB:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_STA_8192XB;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8192XB;
+			break;
+		case MAC_AX_CHIP_ID_8852D:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_STA_8852D;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8852D;
+			break;
+		case MAC_AX_CHIP_ID_8851E:
+			info->min_avl_idx = BACAM_INIT_TMP_ENTRY_NUM_STA_8851E;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_8851E;
+			break;
+		case MAC_BE_CHIP_ID_1115E:// for Fool-proof mechanism
+			info->min_avl_idx = BACAM_MIN_ENTRY_IDX_DEF_1115E;
+			info->max_avl_idx = BACAM_MAX_ENTRY_IDX_DEF_1115E;
+			break;
+		default:
+			PLTFM_MSG_ERR("[ERR] chip not support, idx search fail");
+			return MACNOITEM;
+		}
+	#endif
+	return MACSUCCESS;
+}
+
+u32 mac_bacam_init(struct mac_ax_adapter *adapter)
+{
+	u32 ret = MACSUCCESS;
+	u8 entry_num_b0, entry_num_b1, i;
+	struct mac_ax_bacam_info info = { 0x0 };
+	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
+
+#ifdef PHL_FEATURE_AP
+	switch (adapter->hw_info->chip_id) {
+	case MAC_AX_CHIP_ID_8852C:
+		entry_num_b0 = BACAM_MAX_RU_SUPPORT_B0_AP_8852C;
+		entry_num_b1 = BACAM_MAX_RU_SUPPORT_B1_AP_8852C;
+		break;
+	case MAC_AX_CHIP_ID_8192XB:
+		entry_num_b0 = BACAM_MAX_RU_SUPPORT_B0_AP_8192XB;
+		entry_num_b1 = BACAM_MAX_RU_SUPPORT_B1_AP_8192XB;
+		break;
+	case MAC_AX_CHIP_ID_8852D:
+		entry_num_b0 = BACAM_MAX_RU_SUPPORT_B0_AP_8852D;
+		entry_num_b1 = BACAM_MAX_RU_SUPPORT_B1_AP_8852D;
+		break;
+	case MAC_AX_CHIP_ID_8851E:  // for Fool-proof mechanism
+		entry_num_b0 = BACAM_MAX_RU_SUPPORT_B0_NON_AP;
+		entry_num_b1 = BACAM_MAX_RU_SUPPORT_B1_NON_AP;
+		break;
+	case MAC_AX_CHIP_ID_8852A:
+	case MAC_AX_CHIP_ID_8852B:
+	case MAC_AX_CHIP_ID_8851B:
+	case MAC_BE_CHIP_ID_1115E:
+		return MACSUCCESS;
+	default:
+		PLTFM_MSG_ERR("[ERR] chip not support, bacam init fail");
+		return MACNOITEM;
+	}
+	#ifdef PHL_FEATURE_NIC // for Fool-proof mechanism in hvtool
+		entry_num_b1 = BACAM_MAX_RU_SUPPORT_B1_STA;
+	#endif
+#else // for NiC mode setting
+	switch (adapter->hw_info->chip_id) {
+	case MAC_AX_CHIP_ID_8852C:
+	case MAC_AX_CHIP_ID_8192XB:
+	case MAC_AX_CHIP_ID_8852D:
+	case MAC_AX_CHIP_ID_8851E:
+		entry_num_b0 = BACAM_MAX_RU_SUPPORT_B0_STA;
+		entry_num_b1 = BACAM_MAX_RU_SUPPORT_B1_STA;
+		break;
+	case MAC_AX_CHIP_ID_8852A:
+	case MAC_AX_CHIP_ID_8852B:
+	case MAC_AX_CHIP_ID_8851B:
+	case MAC_BE_CHIP_ID_1115E:
+		return MACSUCCESS;
+	default:
+		PLTFM_MSG_ERR("[ERR] chip not support, bacam init fail");
+		return MACNOITEM;
+	}
+#endif
+	// set band 0 temp entry
+	info.band_sel = 0;
+	for (i = 0; i < entry_num_b0; i++) {
+		info.entry_idx_v1 = i;
+		info.uid_value = i;
+		ret = mops->bacam_info(adapter, &info);
+		if (ret)
+			goto fail;
+	}
+
+#ifdef PHL_FEATURE_NIC
+	// set band 1 temp entry
+	info.band_sel = 1;
+	for (i = 0; i < entry_num_b1; i++) {
+		info.entry_idx_v1 = entry_num_b0 + i;
+		info.uid_value = i;
+		ret = mops->bacam_info(adapter, &info);
+		if (ret)
+			goto fail;
+	}
+#endif
+
+	return ret;
+
+fail:
+	PLTFM_MSG_ERR("[ERR]bacam init fail %d\n", ret);
+	return ret;
+}
+
 u32 mac_bacam_info(struct mac_ax_adapter *adapter,
 		   struct mac_ax_bacam_info *info)
 {
@@ -1671,6 +1766,8 @@ u32 mac_bacam_info(struct mac_ax_adapter *adapter,
 	struct h2c_buf *h2cb;
 	#endif
 	struct fwcmd_ba_cam *tbl;
+	struct mac_ax_avl_std_bacam_info idx_info = {0x0};
+	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
 
 	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
 	if (!h2cb) {
@@ -1688,7 +1785,8 @@ u32 mac_bacam_info(struct mac_ax_adapter *adapter,
 	tbl = (struct fwcmd_ba_cam *)buf;
 
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
 		tbl->dword0 =
 			cpu_to_le32((info->valid ? FWCMD_H2C_BA_CAM_VALID : 0) |
 				    (info->init_req ? FWCMD_H2C_BA_CAM_INIT_REQ : 0) |
@@ -1699,10 +1797,13 @@ u32 mac_bacam_info(struct mac_ax_adapter *adapter,
 				    SET_WORD(info->ssn, FWCMD_H2C_BA_CAM_SSN)
 				    );
 	} else {
-		//8852C
-		if (info->entry_idx) {
-			PLTFM_MSG_ERR("[ERR]entry_idx is replaced by entry_idx_v1 in 52C\n");
-			return MACNOITEM;
+		ret = mops->bacam_avl_std_entry_idx(adapter, &idx_info);
+		if (ret)
+			return ret;
+		if (idx_info.max_avl_idx < info->entry_idx_v1) {
+			ret = MACNOBUF;
+			PLTFM_MSG_ERR("[ERR]out of idx %d\n", ret);
+			goto fail;
 		}
 		tbl->dword0 =
 			cpu_to_le32((info->valid ? FWCMD_H2C_BA_CAM_VALID : 0) |
@@ -1720,33 +1821,55 @@ u32 mac_bacam_info(struct mac_ax_adapter *adapter,
 				    );
 	}
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_BA_CAM,
-			      FWCMD_H2C_FUNC_BA_CAM,
-			      0,
-			      1);
+	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
+		PLTFM_MSG_WARN("%s fw not ready\n", __func__);
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+			ret = mac_sram_dbg_write(adapter, info->entry_idx * BA_CAM_SIZE,
+						 tbl->dword0, BA_CAM_SEL);
+		} else {
+			ret = mac_sram_dbg_write(adapter, info->entry_idx_v1 * BA_CAM_SIZE,
+						 tbl->dword0, BA_CAM_SEL);
+			if (ret != MACSUCCESS) {
+				PLTFM_MSG_ERR("[ERR]mac_sram_dbg_write %d\n", ret);
+				goto fail;
+			}
+			ret = mac_sram_dbg_write(adapter, (info->entry_idx_v1 * BA_CAM_SIZE) + 4,
+						 tbl->dword1, BA_CAM_SEL);
+		}
+		if (ret != MACSUCCESS) {
+			PLTFM_MSG_ERR("[ERR]mac_sram_dbg_write %d\n", ret);
+			goto fail;
+		}
+	} else {
+		ret = h2c_pkt_set_hdr(adapter, h2cb,
+				      FWCMD_TYPE_H2C,
+				      FWCMD_H2C_CAT_MAC,
+				      FWCMD_H2C_CL_BA_CAM,
+				      FWCMD_H2C_FUNC_BA_CAM,
+				      0,
+				      1);
 
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]h2c_pkt_set_hdr %d\n", ret);
-		goto fail;
-	}
+		if (ret) {
+			PLTFM_MSG_ERR("[ERR]h2c_pkt_set_hdr %d\n", ret);
+			goto fail;
+		}
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]h2c_pkt_build_txd %d\n", ret);
-		goto fail;
-	}
-
-	#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-	#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-	#endif
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]PLTFM_TX %d\n", ret);
-		goto fail;
+		ret = h2c_pkt_build_txd(adapter, h2cb);
+		if (ret) {
+			PLTFM_MSG_ERR("[ERR]h2c_pkt_build_txd %d\n", ret);
+			goto fail;
+		}
+		#if MAC_AX_PHL_H2C
+		ret = PLTFM_TX(h2cb);
+		#else
+		ret = PLTFM_TX(h2cb->data, h2cb->len);
+		#endif
+		if (ret) {
+			PLTFM_MSG_ERR("[ERR]PLTFM_TX %d\n", ret);
+			goto fail;
+		}
 	}
 
 	h2cb_free(adapter, h2cb);
@@ -2361,6 +2484,7 @@ u32 mac_fwc2h_ofdma_sts_parse(struct mac_ax_adapter *adapter,
 {
 	u32 val;
 	u8 i;
+	u32 *dl_content = content + sizeof(struct mac_ax_tf_sts) / sizeof(u32);
 
 	if (!fw_c2h_sts || !content) {
 		PLTFM_MSG_ERR("[ERR]fwc2h_sts is null\n");
@@ -2373,7 +2497,7 @@ u32 mac_fwc2h_ofdma_sts_parse(struct mac_ax_adapter *adapter,
 	fw_c2h_sts->tfsts.ru_su_per =
 		GET_FIELD(val, FWCMD_C2H_OFDMA_STS_TFSTS_RU_SU_PER);
 
-	for (i = 0; i < fw_c2h_sts->tfsts.user_num; i++) {
+	for (i = 0; i < UL_PER_STA_DBGINFO_NUM; i++) {
 		val = le32_to_cpu(*(content++));
 		fw_c2h_sts->tfsts.tf_user_sts[i].macid =
 			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_TFSTS_MACID);
@@ -2391,7 +2515,44 @@ u32 mac_fwc2h_ofdma_sts_parse(struct mac_ax_adapter *adapter,
 		fw_c2h_sts->tfsts.tf_user_sts[i].minflag_per =
 			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_TFSTS_MINFLAG_PER);
 		fw_c2h_sts->tfsts.tf_user_sts[i].avg_tb_evm =
+		val = le32_to_cpu(*(content++));
 			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_TFSTS_AVG_TB_EVM);
+		fw_c2h_sts->tfsts.tf_user_sts[i].tf_num =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_TFSTS_TF_NUM);
+		val = le32_to_cpu(*(content++));
+		fw_c2h_sts->tfsts.tf_user_sts[i].bsr_len =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_TFSTS_BSR_LEN);
+	}
+
+	content =  dl_content;
+
+	val = le32_to_cpu(*(content++));
+	fw_c2h_sts->dlrusts.total_su_ru_ratio =
+		GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_TOTAL_SU_RU_RATIO);
+	fw_c2h_sts->dlrusts.total_ru_fail_ratio =
+		GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_TOTAL_RU_FAIL_RATIO);
+	fw_c2h_sts->dlrusts.total_su_fail_ratio =
+		GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_TOTAL_SU_FAIL_RATIO);
+	fw_c2h_sts->dlrusts.user_num =
+		GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_USER_NUM);
+
+	for (i = 0; i < fw_c2h_sts->dlrusts.user_num; i++) {
+		val = le32_to_cpu(*(content++));
+		fw_c2h_sts->dlrusts.user_sts[i].macid =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_MACID);
+		fw_c2h_sts->dlrusts.user_sts[i].su_ru_ratio =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_SU_RU_RATIO);
+		fw_c2h_sts->dlrusts.user_sts[i].su_fail_ratio =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_SU_FAIL);
+		fw_c2h_sts->dlrusts.user_sts[i].ru_fail_ratio =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_RU_FAIL);
+		val = le32_to_cpu(*(content++));
+		fw_c2h_sts->dlrusts.user_sts[i].ru_avg_agg =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_AVG_AGG);
+		fw_c2h_sts->dlrusts.user_sts[i].NSS =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_RU_RATE_NSS);
+		fw_c2h_sts->dlrusts.user_sts[i].MCS =
+			GET_FIELD(val, FWCMD_C2H_OFDMA_STS_DLRUSTS_RU_RATE_MCS);
 	}
 
 	return MACSUCCESS;
@@ -2453,4 +2614,3 @@ fail:
 
 	return ret;
 }
-

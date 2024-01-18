@@ -18,6 +18,9 @@
 
 #define CONFIG_RSSI_PRIORITY
 
+/*temporary defination,this flag will be removed later*/
+#define CONFIG_PHL_WACHDOG_REFINE
+
 /*
  * RTW_BUSY_DENY_SCAN control if scan would be denied by busy traffic.
  * When this defined, BUSY_TRAFFIC_SCAN_DENY_PERIOD would be used to judge if 
@@ -50,9 +53,17 @@
 
 #endif
 
+#if (defined(__ANDROID_COMMON_KERNEL__) && !defined(CONFIG_RTW_ANDROID))
+	#error "Set CONFIG_RTW_ANDROID in Makefile while build with Android Common Kernel!!"
+#endif
+
 #ifdef CONFIG_RTW_ANDROID
 
 	#include <linux/version.h>
+
+	#ifndef CONFIG_PLATFORM_ANDROID
+	#define CONFIG_PLATFORM_ANDROID
+	#endif
 	
 	#ifndef CONFIG_IOCTL_CFG80211
 	#define CONFIG_IOCTL_CFG80211
@@ -78,6 +89,20 @@
 		#endif
 	#endif
 
+	#if (CONFIG_RTW_ANDROID >= 11)
+		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0))
+			#ifndef CONFIG_RTW_ANDROID_GKI
+			#define CONFIG_RTW_ANDROID_GKI
+			#endif
+		#endif
+
+		#ifdef CONFIG_RTW_ANDROID_GKI
+			#ifdef CONFIG_ADAPTOR_INFO_CACHING_FILE
+			#undef CONFIG_ADAPTOR_INFO_CACHING_FILE
+			#endif
+		#endif
+	#endif
+
 	#ifdef CONFIG_RTW_WIFI_HAL
 	#ifndef CONFIG_RTW_WIFI_HAL_DEBUG
 	//#define CONFIG_RTW_WIFI_HAL_DEBUG
@@ -87,9 +112,15 @@
 	#define CONFIG_RTW_CFGVENDOR_LLSTATS
 	#endif
 	#endif
+	#if (CONFIG_RTW_ANDROID < 11)
 	#ifndef CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
 	//#define CONFIG_RTW_CFGVENDOR_RANDOM_MAC_OUI
 	#endif
+	#else /* CONFIG_RTW_ANDROID >= 11 */
+	#ifndef CONFIG_RTW_SCAN_RAND
+	#define CONFIG_RTW_SCAN_RAND
+	#endif
+	#endif /* CONFIG_RTW_ANDROID */
 	#ifndef CONFIG_RTW_CFGVENDOR_RSSIMONITOR
 	#define CONFIG_RTW_CFGVENDOR_RSSIMONITOR
 	#endif
@@ -115,6 +146,12 @@
 
 	/* Android expect dbm as the rx signal strength unit */
 	#define CONFIG_SIGNAL_DISPLAY_DBM
+#else // for Linux
+
+	#ifndef CONFIG_RTW_SCAN_RAND
+	#define CONFIG_RTW_SCAN_RAND
+	#endif
+
 #endif // CONFIG_RTW_ANDROID
 
 /*
@@ -156,9 +193,6 @@
 	#endif
 	#ifndef CONFIG_MONITOR_MODE_XMIT
 		#define CONFIG_MONITOR_MODE_XMIT
-	#endif
-	#ifdef CONFIG_POWER_SAVING
-		#undef CONFIG_POWER_SAVING
 	#endif
 #endif
 
@@ -278,11 +312,27 @@
 #endif
 
 #ifndef CONFIG_RTW_EXCL_CHS
-	#define CONFIG_RTW_EXCL_CHS {0}
+#define CONFIG_RTW_EXCL_CHS {0}
 #endif
 
 #ifndef CONFIG_RTW_EXCL_CHS_6G
-	#define CONFIG_RTW_EXCL_CHS_6G {0}
+#define CONFIG_RTW_EXCL_CHS_6G {0}
+#endif
+
+#ifndef CONFIG_RTW_DIS_CH_FLAGS
+#define CONFIG_RTW_DIS_CH_FLAGS NULL
+#endif
+
+#ifndef CONFIG_RTW_BCN_HINT_VALID_MS
+#define CONFIG_RTW_BCN_HINT_VALID_MS (60 * 1000)
+#endif
+
+#ifndef CONFIG_RTW_COUNTRY_IE_SLAVE_EN_MODE
+#define CONFIG_RTW_COUNTRY_IE_SLAVE_EN_MODE 0 /* 0: disable */
+#endif
+
+#ifndef CONFIG_RTW_COUNTRY_IE_SLAVE_FLAGS
+#define CONFIG_RTW_COUNTRY_IE_SLAVE_FLAGS 0x01 /* BIT0: take intersection when having multiple received IEs */
 #endif
 
 #ifndef CONFIG_RTW_COUNTRY_IE_SLAVE_EN_ROLE
@@ -291,6 +341,10 @@
 
 #ifndef CONFIG_RTW_COUNTRY_IE_SLAVE_EN_IFBMP
 #define CONFIG_RTW_COUNTRY_IE_SLAVE_EN_IFBMP 0xFF /* all iface */
+#endif
+
+#ifndef CONFIG_RTW_COUNTRY_IE_SLAVE_SCAN_INT_MS
+#define CONFIG_RTW_COUNTRY_IE_SLAVE_SCAN_INT_MS (60 * 1000)
 #endif
 
 #define CONFIG_IEEE80211_BAND_5GHZ 1
@@ -307,6 +361,7 @@
 #define CONFIG_ECSA_PHL /* Process ECSA by PHL cmd dispatcher */
 #ifdef CONFIG_ECSA_PHL
 	#define CONFIG_ECSA
+	#define CONFIG_ECSA_EXTEND_OPTION
 #endif
 #endif
 
@@ -333,6 +388,18 @@
 #endif
 #ifndef CONFIG_TXPWR_LIMIT_EN
 #define CONFIG_TXPWR_LIMIT_EN 2 /* by efuse */
+#endif
+
+#ifndef CONFIG_RTW_INIT_REGD_ALWAYS_APPLY
+#define CONFIG_RTW_INIT_REGD_ALWAYS_APPLY 0
+#endif
+
+#ifndef CONFIG_RTW_USER_REGD_ALWAYS_APPLY
+#define CONFIG_RTW_USER_REGD_ALWAYS_APPLY 0
+#endif
+
+#ifndef CONFIG_RTW_COUNTRY_CODE
+#define CONFIG_RTW_COUNTRY_CODE NULL
 #endif
 
 #ifndef CONFIG_RTW_CHPLAN
@@ -381,15 +448,9 @@
 #endif
 
 #ifdef CONFIG_RTW_IPCAM_APPLICATION
-	#undef CONFIG_TXPWR_BY_RATE_EN
-	#define CONFIG_TXPWR_BY_RATE_EN 1
-	#define CONFIG_RTW_CUSTOMIZE_BEEDCA		0x0000431C
-	#define CONFIG_RTW_CUSTOMIZE_BWMODE		0x00
-	#define CONFIG_RTW_CUSTOMIZE_RLSTA		0x7
-#if defined(CONFIG_RTL8822B)
-	#define CONFIG_RTW_TX_NPATH_EN		/*mutually incompatible with STBC_TX & Beamformer	*/
-#endif
-#endif
+	#define CONFIG_RTW_CUSTOMIZE_EDCA_MODE	8
+#endif /*CONFIG_RTW_IPCAM_APPLICATION*/
+
 /* #define CONFIG_RTW_TOKEN_BASED_XMIT */
 #ifdef CONFIG_RTW_TOKEN_BASED_XMIT
 	#define NR_TBTX_SLOT			4
@@ -525,14 +586,6 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 /*Don't release SDIO irq in suspend/resume procedure*/
 #define CONFIG_RTW_SDIO_KEEP_IRQ	0
 
-/*
- * Add by Lucas@2016/02/15
- * For RX Aggregation
- */
-#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_USB_RX_AGGREGATION)
-	#define RTW_RX_AGGREGATION
-#endif /* CONFIG_SDIO_HCI || CONFIG_USB_RX_AGGREGATION */
-
 #ifdef CONFIG_RTW_HOSTAPD_ACS
 	#ifdef CONFIG_FIND_BEST_CHANNEL
 		#undef CONFIG_FIND_BEST_CHANNEL
@@ -540,68 +593,6 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 	#ifndef CONFIG_RTW_ACS
 		#define CONFIG_RTW_ACS
 	#endif
-#endif
-
-
-#ifdef DBG_CONFIG_ERROR_RESET
-#ifndef CONFIG_IPS
-#define CONFIG_IPS
-#endif
-#endif
-
-/* IPS */
-#ifndef RTW_IPS_MODE
-	#if defined(CONFIG_IPS)
-		#define RTW_IPS_MODE 1
-	#else
-		#define RTW_IPS_MODE 0
-	#endif
-#endif /* !RTW_IPS_MODE */
-
-#if (RTW_IPS_MODE > 1 || RTW_IPS_MODE < 0)
-	#error "The CONFIG_IPS_MODE value is wrong. Please follow HowTo_enable_the_power_saving_functionality.pdf.\n"
-#endif
-
-/* LPS */
-#ifndef RTW_LPS_MODE
-	#if defined(CONFIG_LPS_PG)
-		#define RTW_LPS_MODE 3
-	#elif defined(CONFIG_LPS_LCLK)
-		#define RTW_LPS_MODE 2
-	#elif defined(CONFIG_LPS)
-		#define RTW_LPS_MODE 1
-	#else
-		#define RTW_LPS_MODE 0
-	#endif 
-#endif /* !RTW_LPS_MODE */
-
-#if (RTW_LPS_MODE > 3 || RTW_LPS_MODE < 0)
-	#error "The CONFIG_LPS_MODE value is wrong. Please follow HowTo_enable_the_power_saving_functionality.pdf.\n"
-#endif
-
-#ifndef RTW_LPS_1T1R
-#define RTW_LPS_1T1R 0
-#endif
-
-#ifndef RTW_WOW_LPS_1T1R
-#define RTW_WOW_LPS_1T1R 0
-#endif
-
-/* WOW LPS */
-#ifndef RTW_WOW_LPS_MODE
-	#if defined(CONFIG_LPS_PG)
-		#define RTW_WOW_LPS_MODE 3
-	#elif defined(CONFIG_LPS_LCLK)
-		#define RTW_WOW_LPS_MODE 2
-	#elif defined(CONFIG_LPS)
-		#define RTW_WOW_LPS_MODE 1
-	#else
-		#define RTW_WOW_LPS_MODE 0
-	#endif
-#endif /* !RTW_WOW_LPS_MODE */
-
-#if (RTW_WOW_LPS_MODE > 3 || RTW_WOW_LPS_MODE < 0)
-	#error "The RTW_WOW_LPS_MODE value is wrong. Please follow HowTo_enable_the_power_saving_functionality.pdf.\n"
 #endif
 
 #ifdef RTW_REDUCE_SCAN_SWITCH_CH_TIME
@@ -632,7 +623,11 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 #define DBG_CPU_INFO	/* Add CPU info to debug message prefix */
 #endif
 
-#ifdef CONFIG_TX_AMSDU_HW_MODE
+#if defined(CONFIG_RTL8852C)
+#define CONFIG_HW_FORM_SEC_HEADER
+#endif
+
+#if defined(CONFIG_TX_AMSDU_HW_MODE) || defined(CONFIG_HW_FORM_SEC_HEADER)
 #define CONFIG_HW_HDR_CONVERSION
 #elif defined(CONFIG_TX_AMSDU_SW_MODE)
 #else
@@ -655,8 +650,7 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 		#ifdef CONFIG_IOCTL_CFG80211
 		#define CONFIG_PHL_CMD_SCAN_BKOP_TIME
 		#endif
-		/* Scan hidden AP in passive channel */
-		#define RTW_WKARD_CMD_SCAN_EXTEND_ACTIVE_SCAN
+		/* Extra time for scan hidden AP in passive channel */
 		#define RTW_EXTEND_ACTIVE_SCAN_PERIOD	30	/* unit: ms */
 	#endif /* CONFIG_CMD_SCAN */
 
@@ -665,21 +659,35 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 	#define CONFIG_STA_CMD_DISPR
 	#define CONFIG_AP_CMD_DISPR
 	/*#define CONFIG_IBSS_CMD_DISPR*/
-	#define CONFIG_CMD_TSF_SYNC
 #endif
 
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 	#define CONFIG_RELEASE_RPT
-	#define CONFIG_RA_TXSTS_DBG
+	/* #define CONFIG_WAKEUP_GPIO_INPUT_MODE
+	#define CONFIG_RA_TXSTS_DBG */
+	#define CONFIG_SNR_RPT
+	#ifndef CONFIG_ARP_KEEP_ALIVE
+		#define CONFIG_ARP_KEEP_ALIVE
+	#endif
+	/* #define CONFIG_WRC_WOW_MAGIC */
+	#define DBG_RX_DFRAME_RAW_DATA
+	#define DBG_RX_SIGNAL_DISPLAY_RAW_DATA 
 #endif
 
 #ifdef CONFIG_80211AX_HE
 	#define CONFIG_STA_MULTIPLE_BSSID
 #endif
 
-#ifdef CONFIG_NARROWBAND_SUPPORTING
-	#define CONFIG_NB_VALUE		RTW_NB_CONFIG_NONE/*RTW_NB_CONFIG_WIDTH_10 or RTW_NB_CONFIG_WIDTH_5*/
+#ifndef CONFIG_ALLOW_FUNC_2G_5G_ONLY
+#define CONFIG_ALLOW_FUNC_2G_5G_ONLY 1
 #endif
+
+#if !CONFIG_ALLOW_FUNC_2G_5G_ONLY
+#define RTW_FUNC_2G_5G_ONLY __attribute__ ((deprecated("ch utility consider only 2G/5G is not allowed")))
+#else
+#define RTW_FUNC_2G_5G_ONLY /* tag for channel functions/macros consider only 2G/5G, place at the same line with symbol name */
+#endif
+
 /*
  * Work around Config
  */
@@ -693,4 +701,5 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 *RTW_WKARD_TRIGGER_FRAME_PARSER-OFDMA UL TB control
 */
 #define RTW_WKARD_TRIGGER_FRAME_PARSER
+
 #endif /* __DRV_CONF_H__ */

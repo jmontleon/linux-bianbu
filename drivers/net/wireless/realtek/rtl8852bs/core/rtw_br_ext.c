@@ -14,13 +14,13 @@
  *****************************************************************************/
 #define _RTW_BR_EXT_C_
 
-#include <linux/version.h>
 #ifdef __KERNEL__
+	#include <linux/version.h>
 	#include <linux/if_arp.h>
 	#include <net/ip.h>
-	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
-		#include <net/ipx.h>
-	#endif
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+	#include <net/ipx.h>
+#endif
 	#include <linux/atalk.h>
 	#include <linux/udp.h>
 	#include <linux/if_pppox.h>
@@ -889,10 +889,10 @@ int nat25_db_handle(_adapter *priv, struct sk_buff *skb, int method)
 		}
 	}
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 	/*---------------------------------------------------*/
 	/*         Handle IPX and Apple Talk frame          */
 	/*---------------------------------------------------*/
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 	else if ((protocol == __constant_htons(ETH_P_IPX)) ||
 		 (protocol == __constant_htons(ETH_P_ATALK)) ||
 		 (protocol == __constant_htons(ETH_P_AARP))) {

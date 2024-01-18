@@ -14,6 +14,6 @@
  *****************************************************************************/
 #ifndef _HAL_MCC_DEF_H_
 #define _HAL_MCC_DEF_H_
-/* MCC definition for public usage in hal layer */
+/* MCC definition for public usage */
 
 #endif /*_HAL_MCC_DEF_H_*/

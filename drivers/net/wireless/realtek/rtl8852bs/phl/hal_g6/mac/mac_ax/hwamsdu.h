@@ -21,6 +21,7 @@
 #include "../mac_ax.h"
 
 #define MAX_LENGTH_ENUM 7
+#define HW_AMSDU_MACID_ENABLE 0x1
 
 /**
  * @struct mac_ax_en_amsdu_cut
@@ -78,33 +79,6 @@ struct mac_ax_en_hwamsdu {
  */
 
 /**
- * @brief mac_enable_cut_hwamsdu
- *
- * @param *adapter
- * @param enable
- * @param low_th
- * @param high_th
- * @param aligned
- * @return Please Place Description here.
- * @retval u32
- */
-u32 mac_enable_cut_hwamsdu(struct mac_ax_adapter *adapter,
-			   u8 enable,
-			   u8 low_th,
-			   u16 high_th,
-			   enum mac_ax_ex_shift aligned);
-/**
- * @}
- * @}
- */
-/**
- * @addtogroup Basic_TRX
- * @{
- * @addtogroup TX_ShortCut
- * @{
- */
-
-/**
  * @brief mac_enable_hwmasdu
  *
  * @param *adapter
@@ -115,11 +89,80 @@ u32 mac_enable_cut_hwamsdu(struct mac_ax_adapter *adapter,
  * @return Please Place Description here.
  * @retval u32
  */
-u32 mac_enable_hwmasdu(struct mac_ax_adapter *adapter,
+u32 mac_enable_hwamsdu(struct mac_ax_adapter *adapter,
 		       u8 enable,
 		       enum mac_ax_amsdu_pkt_num max_num,
 		       u8 en_single_amsdu,
 		       u8 en_last_amsdu_padding);
+/**
+ * @}
+ * @}
+ */
+/**
+ * @brief mac_hwamsdu_fwd_search_en
+ *
+ * @param *adapter
+ * @param enable
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_hwamsdu_fwd_search_en(struct mac_ax_adapter *adapter, u8 enable);
+/**
+ * @}
+ * @}
+ */
+/**
+ * @brief mac_enable_hwmasdu
+ *
+ * @param *adapter
+ * @param macid
+ * @param enable
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_hwamsdu_macid_en(struct mac_ax_adapter *adapter, u8 macid, u8 enable);
+/**
+ * @}
+ * @}
+ */
+/**
+ * @brief mac_enable_hwmasdu
+ *
+ * @param *adapter
+ * @param macid
+ * @return Please Place Description here.
+ * @retval u8
+ */
+u8 mac_hwamsdu_get_macid_en(struct mac_ax_adapter *adapter, u8 macid);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_enable_hwmasdu
+ *
+ * @param *adapter
+ * @param macid
+ * @param amsdu_max_len
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_hwamsdu_max_len(struct mac_ax_adapter *adapter, u8 macid, u8 amsdu_max_len);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_enable_hwmasdu
+ *
+ * @param *adapter
+ * @param macid
+ * @return Please Place Description here.
+ * @retval u8
+ */
+u8 mac_hwamsdu_get_max_len(struct mac_ax_adapter *adapter, u8 macid);
 /**
  * @}
  * @}

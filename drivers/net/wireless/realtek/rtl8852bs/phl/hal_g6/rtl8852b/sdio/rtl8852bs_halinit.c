@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2021 Realtek Corporation.
+ * Copyright(c) 2019 - 2022 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -13,7 +13,6 @@
  *
  *****************************************************************************/
 #define _RTL8852BS_HALINIT_C_
-#include "../../hal_headers.h"
 #include "../rtl8852b_hal.h"
 #include "rtl8852bs_halinit.h"
 
@@ -29,7 +28,11 @@ static void _hal_pre_init_8852bs(struct rtw_phl_com_t *phl_com,
 		trx_info->trx_mode = MAC_AX_TRX_SW_MODE;
 	else
 		trx_info->trx_mode = MAC_AX_TRX_HW_MODE;
-	trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+
+	if (phl_com->dev_cap.quota_turbo == true)
+		trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+	else
+		trx_info->qta_mode = MAC_AX_QTA_SCC;
 
 	#ifdef RTW_WKARD_LAMODE
 	PHL_INFO("%s : la_mode %d\n", __func__, phl_com->dev_cap.la_mode);
@@ -72,6 +75,8 @@ void init_hal_spec_8852bs(struct rtw_phl_com_t *phl_com,
 	bus_hw->rx_buf_num = 8;
 
 	hal->hal_com->dev_hw_cap.ps_cap.lps_pause_tx = true;
+	phl_com->hal_spec.ser_cfg_int = false;
+	phl_com->hal_spec.ps_cfg_int = false;
 }
 
 enum rtw_hal_status hal_get_efuse_8852bs(struct rtw_phl_com_t *phl_com,
@@ -156,7 +161,12 @@ hal_wow_init_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info,
 		trx_info->trx_mode = MAC_AX_TRX_SW_MODE;
 	else
 		trx_info->trx_mode = MAC_AX_TRX_HW_MODE;
-	trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+
+	if (phl_com->dev_cap.quota_turbo == true)
+		trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+	else
+		trx_info->qta_mode = MAC_AX_QTA_SCC;
+
 	init_52bs.ic_name = "rtl8852bs";
 
 	return hal_wow_init_8852b(phl_com, hal_info, sta, &init_52bs);
@@ -174,40 +184,50 @@ hal_wow_deinit_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info
 		trx_info->trx_mode = MAC_AX_TRX_SW_MODE;
 	else
 		trx_info->trx_mode = MAC_AX_TRX_HW_MODE;
-	trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+
+	if (phl_com->dev_cap.quota_turbo == true)
+		trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+	else
+		trx_info->qta_mode = MAC_AX_QTA_SCC;
+
 	init_52bs.ic_name = "rtl8852bs";
 
 	return hal_wow_deinit_8852b(phl_com, hal_info, sta, &init_52bs);
 }
 #endif /* CONFIG_WOWLAN */
 
-void init_default_value_8852bs(struct hal_info_t *hal, struct hal_intr_mask_cfg *cfg)
+void init_default_value_8852bs(struct hal_info_t *hal)
+{
+	init_default_value_8852b(hal);
+
+	init_int_default_value_8852bs(hal, INT_SET_OPT_HAL_INIT);
+}
+
+void init_int_default_value_8852bs(struct hal_info_t *hal, enum rtw_hal_int_set_opt opt)
 {
 	struct rtw_hal_com_t *hal_com = hal->hal_com;
 
-	init_default_value_8852b(hal);
-
 	hal_com->int_mask_default = (u32)(
 #if 0
-		B_AX_SDIO_HC10ISR_IND_EN |
-		B_AX_SDIO_HC00ISR_IND_EN |
-		B_AX_SDIO_HD1ISR_IND_EN |
-		B_AX_SDIO_HD0ISR_IND_EN |
+		B_AX_HC10ISR_IND_EN |
+		B_AX_HC00ISR_IND_EN |
+		B_AX_HD1ISR_IND_EN |
+		B_AX_HD0ISR_IND_EN |
 #endif
-		B_AX_SDIO_HS0ISR_IND_EN |
+		B_AX_HS0ISR_IND_EN |
 #if 0
-		B_AX_SDIO_BT_INT_EN |
+		B_AX_BT_INT_EN |
 		B_AX_SDIO_AVAL_INT_EN |
 #endif
 		B_AX_RX_REQUEST_INT_EN |
 		0);
 
 	hal_com->intr.halt_c2h_int.val_default = (u32)(
-		(cfg->halt_c2h_en == 1 ? B_AX_HALT_C2H_INT_EN : 0) |
+		B_AX_HALT_C2H_INT_EN |
 		0);
 
 	hal_com->intr.watchdog_timer_int.val_default = (u32)(
-		(cfg->wdt_en == 1 ? B_AX_WDT_PTFM_INT_EN : 0) |
+		B_AX_WDT_PTFM_INT_EN |
 		0);
 
 	hal_com->int_mask = hal_com->int_mask_default;
@@ -218,6 +238,7 @@ void init_default_value_8852bs(struct hal_info_t *hal, struct hal_intr_mask_cfg 
 	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		  "Initialize interrupt mask: 0x%08lX, 0x%08x\n",
 		  hal_com->int_mask, hal_com->intr.halt_c2h_int.val_mask);
+
 }
 
 u32 hal_hci_cfg_8852bs(struct rtw_phl_com_t *phl_com,
@@ -267,7 +288,7 @@ static void _hal_config_int_8852bs(struct hal_info_t *hal, enum rtw_hal_config_i
 #endif
 		break;
 	case RTW_HAL_SER_HANDSHAKE_MODE:
-		hal_write32(hal_com, R_AX_SDIO_HIMR, B_AX_SDIO_HS0ISR_IND_EN);
+		hal_write32(hal_com, R_AX_SDIO_HIMR, B_AX_HS0ISR_IND_EN);
 		hal_write32(hal_com, R_AX_HIMR0, B_AX_HALT_C2H_INT_EN);
 		break;
 	case RTW_HAL_EN_HCI_INT:
@@ -359,7 +380,7 @@ void hal_clear_interrupt_8852bs(struct hal_info_t *hal)
 	hal_write32(hal_com, R_AX_HISR0, g_hisr);
 }
 
-#define R_AX_SDIO_HISR_W1C_MASK	B_AX_SDIO_BT_INT
+#define R_AX_SDIO_HISR_W1C_MASK	B_AX_BT_INT
 
 u32 hal_int_hdler_8852bs(struct hal_info_t *hal)
 {
@@ -385,7 +406,7 @@ u32 hal_int_hdler_8852bs(struct hal_info_t *hal)
 		phl_int |= BIT2;
 
 	/* Check General interrupt */
-	if (hisr & B_AX_SDIO_HS0ISR_IND_EN) {
+	if (hisr & B_AX_HS0ISR_IND_EN) {
 		_hal_config_int_8852bs(hal, RTW_HAL_DIS_HCI_INT);
 		phl_int |= BIT6;
 	}
@@ -435,4 +456,11 @@ hal_mp_deinit_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info)
 	return hal_status;
 }
 
-
+bool
+hal_mp_path_chk_8852bs(struct rtw_phl_com_t *phl_com, u8 ant_tx, u8 cur_phy)
+{
+	if (phl_com->phy_cap[cur_phy].txss == 1 && ant_tx != RF_PATH_B)
+		return false;
+	else
+		return true;
+}

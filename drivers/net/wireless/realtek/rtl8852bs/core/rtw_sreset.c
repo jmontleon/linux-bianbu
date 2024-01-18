@@ -110,7 +110,7 @@ bool sreset_inprogress(_adapter *padapter)
 #endif
 }
 
-void sreset_restore_security_station(_adapter *padapter)
+void sreset_restore_security_station(_adapter *padapter, struct _ADAPTER_LINK *padapter_link)
 {
 	struct mlme_priv *mlmepriv = &padapter->mlmepriv;
 	struct sta_priv *pstapriv = &padapter->stapriv;
@@ -121,24 +121,25 @@ void sreset_restore_security_station(_adapter *padapter)
 
 	if ((padapter->securitypriv.dot11PrivacyAlgrthm == _TKIP_) ||
 	    (padapter->securitypriv.dot11PrivacyAlgrthm == _AES_)) {
-		psta = rtw_get_stainfo(pstapriv, get_bssid(mlmepriv));
+		psta = rtw_get_stainfo(pstapriv, get_link_bssid(&padapter_link->mlmepriv));
 		if (psta == NULL) {
 			/* DEBUG_ERR( ("Set wpa_set_encryption: Obtain Sta_info fail\n")); */
 		} else {
 			/* pairwise key */
 			rtw_setstakey_cmd(padapter, psta, UNICAST_KEY, _FALSE);
 			/* group key */
-			rtw_set_key(padapter, &padapter->securitypriv, padapter->securitypriv.dot118021XGrpKeyid, 0, _FALSE);
+			rtw_set_key(padapter, padapter_link, padapter_link->securitypriv.dot118021XGrpKeyid, 0, _FALSE);
 		}
 	}
 }
 
 void sreset_restore_network_station(_adapter *padapter)
 {
-	struct mlme_priv *mlmepriv = &padapter->mlmepriv;
-	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
-	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-	u8 do_rfk = _FALSE;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_priv *mlmepriv = &padapter_link->mlmepriv;
+	struct link_mlme_ext_priv	*pmlmeext = &padapter_link->mlmeextpriv;
+	struct link_mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 
 	rtw_setopmode_cmd(padapter, Ndis802_11Infrastructure, RTW_CMDF_DIRECTLY);
 
@@ -162,19 +163,18 @@ void sreset_restore_network_station(_adapter *padapter)
 #endif
 	}
 
-	do_rfk = _TRUE;
 	set_channel_bwmode(padapter,
+			padapter_link,
 			pmlmeext->chandef.chan,
 			pmlmeext->chandef.offset,
 			pmlmeext->chandef.bw,
-			do_rfk);
+			RFK_TYPE_FORCE_DO);
 
 	rtw_hal_set_hwreg(padapter, HW_VAR_BSSID, pmlmeinfo->network.MacAddress);
 
 	{
 		u8	join_type = 0;
 
-		rtw_hal_rcr_set_chk_bssid(padapter, MLME_STA_CONNECTING);
 		rtw_hal_set_hwreg(padapter, HW_VAR_MLME_JOIN, (u8 *)(&join_type));
 	}
 
@@ -182,7 +182,7 @@ void sreset_restore_network_station(_adapter *padapter)
 	/* restore Sequence No. */
 	rtw_hal_set_hwreg(padapter, HW_VAR_RESTORE_HW_SEQ, 0);
 
-	sreset_restore_security_station(padapter);
+	sreset_restore_security_station(padapter, padapter_link);
 }
 
 
@@ -272,21 +272,12 @@ void sreset_reset(_adapter *padapter)
 
 	psrtpriv->Wifi_Error_Status = WIFI_STATUS_SUCCESS;
 
-
-#ifdef CONFIG_LPS
-	rtw_set_ps_mode(padapter, PM_PS_MODE_ACTIVE, 0, 0, "SRESET");
-#endif/* #ifdef CONFIG_LPS */
-
 	_enter_pwrlock(&pwrpriv->lock);
 
 	psrtpriv->silent_reset_inprogress = _TRUE;
 	pwrpriv->change_rfpwrstate = rf_off;
 
 	rtw_mi_sreset_adapter_hdl(padapter, _FALSE);/*sreset_stop_adapter*/
-#ifdef CONFIG_IPS
-	_ips_enter(padapter);
-	_ips_leave(padapter);
-#endif
 #ifdef CONFIG_CONCURRENT_MODE
 	rtw_mi_ap_info_restore(padapter);
 #endif

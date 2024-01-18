@@ -164,47 +164,47 @@ static inline u32 _os_div_round_up(u32 x, u32 y)
 }
 
 #ifdef CONFIG_PCI_HCI
-static inline void _os_cache_inv(void *d, _dma *bus_addr_l, _dma *bus_addr_h,
+static inline void _os_cache_inv(void *d, u32 *bus_addr_l, u32 *bus_addr_h,
 					u32 buf_sz, u8 direction)
 {
 }
-static inline void _os_cache_wback(void *d, _dma *bus_addr_l,
-			_dma *bus_addr_h, u32 buf_sz, u8 direction)
+static inline void _os_cache_wback(void *d, u32 *bus_addr_l,
+			u32 *bus_addr_h, u32 buf_sz, u8 direction)
 {
 }
 
 /* txbd, rxbd, wd */
-static inline void *_os_shmem_alloc(void *d, _dma *bus_addr_l,
-				    _dma *bus_addr_h, u32 buf_sz,
+static inline void *_os_shmem_alloc(void *d, u32 *bus_addr_l,
+				    u32 *bus_addr_h, u32 buf_sz,
 				    u8 cache, u8 direction, void **os_rsvd)
 {
 	return NULL;
 }
-static inline void _os_shmem_free(void *d, u8 *vir_addr, _dma *bus_addr_l,
-				  _dma *bus_addr_h, u32 buf_sz,
+static inline void _os_shmem_free(void *d, u8 *vir_addr, u32 *bus_addr_l,
+				  u32 *bus_addr_h, u32 buf_sz,
 				  u8 cache, u8 direction, void *os_rsvd)
 {
 }
 #endif /*CONFIG_PCI_HCI*/
 
-static inline void *_os_pkt_buf_unmap_rx(void *d, _dma bus_addr_l, _dma bus_addr_h, u32 buf_sz)
+static inline void *_os_pkt_buf_unmap_rx(void *d, u32 bus_addr_l, u32 bus_addr_h, u32 buf_sz)
 {
 	return NULL;
 }
 
-static inline void *_os_pkt_buf_map_rx(void *d, _dma *bus_addr_l, _dma *bus_addr_h,
+static inline void *_os_pkt_buf_map_rx(void *d, u32 *bus_addr_l, u32 *bus_addr_h,
 					u32 buf_sz, void *os_priv)
 {
 	return NULL;
 }
 
-static inline void *_os_pkt_buf_alloc_rx(void *d, _dma *bus_addr_l,
-			_dma *bus_addr_h, u32 buf_sz, void **os_priv)
+static inline void *_os_pkt_buf_alloc_rx(void *d, u32 *bus_addr_l,
+			u32 *bus_addr_h, u32 buf_sz, void **os_priv)
 {
 	return NULL;
 }
-static inline u8 *_os_pkt_buf_free_rx(void *d, u8 *vir_addr, _dma bus_addr_l,
-			_dma bus_addr_h, u32 buf_sz, void *os_priv)
+static inline u8 *_os_pkt_buf_free_rx(void *d, u8 *vir_addr, u32 bus_addr_l,
+			u32 bus_addr_h, u32 buf_sz, void *os_priv)
 {
 	return NULL;
 }
@@ -219,6 +219,13 @@ static inline void * _os_alloc_netbuf(void *d, u32 buf_sz, void **os_priv)
 static inline void _os_free_netbuf(void *d, u8 *vir_addr, u32 buf_sz, void *os_priv)
 {
 }
+
+/* Generate an unsigned 32-bit random number */
+static inline u32 _os_random32(void *d)
+{
+	return 0;
+}
+
 static __inline void *_os_mem_alloc(void *h, u32 buf_sz)
 {
 	return NULL;
@@ -240,10 +247,10 @@ static __inline void _os_kmem_free(void *h, void *buf, u32 buf_sz)
 static __inline void _os_mem_set(void *h, void *buf, s8 value, u32 size)
 {
 }
-static __inline void _os_mem_cpy(void *h, void *dest, void *src, u32 size)
+static __inline void _os_mem_cpy(void *h, void *dest, const void *src, u32 size)
 {
 }
-static __inline int _os_mem_cmp(void *h, void *ptr1, void *ptr2, u32 size)
+static __inline int _os_mem_cmp(void *h, const void *ptr1, const void *ptr2, u32 size)
 {
 	return 0;
 }
@@ -485,6 +492,19 @@ static inline enum rtw_phl_status _os_workitem_deinit(void *drv_priv, _os_workit
 	return RTW_PHL_STATUS_SUCCESS;
 }
 
+/* OS handler extension */
+static inline u8 _os_init_handler_ext(void *drv_priv,
+                                      void *phl_handler)
+{
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
+static inline u8 _os_deinit_handler_ext(void *drv_priv,
+                                        void *phl_handler)
+{
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
 /*
  * _os_read_file - phl read file api
  * @path: path of the file to open and read
@@ -498,6 +518,14 @@ static inline u32 _os_read_file(const char *path, u8 *buf, u32 sz)
 	/* OS Dependent API */
 	return 0;
 }
+
+/* Network Function */
+#ifdef CONFIG_RTW_MIRROR_DUMP
+static inline u32 _os_mirror_dump(u8 *hdr, u32 hdr_len, u8 *buf, u32 sz)
+{
+	return 0;
+}
+#endif
 
 #ifdef CONFIG_PCI_HCI
 static __inline u8 _os_read8_pcie(void *h, u32 addr)
@@ -859,5 +887,7 @@ static inline u8 _os_sdio_read_cia_r8(void *d, u32 addr)
 			); \
 		} \
 	} while (0)
+
+#define _os_nvm_get_info(d, info_type, value, size) 	(0)
 
 #endif /*_PLTFM_OPS_NONE_H_*/

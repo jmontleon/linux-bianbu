@@ -14,19 +14,41 @@
  ******************************************************************************/
 #include "pwr.h"
 #include "coex.h"
+#include "mac_priv.h"
 
 static void restore_flr_lps(struct mac_ax_adapter *adapter)
 {
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 val32 = 0;
 
 	MAC_REG_W32(R_AX_WCPU_FW_CTRL, 0);
 
-	MAC_REG_W32(R_AX_AFE_CTRL1, MAC_REG_R32(R_AX_AFE_CTRL1) &
-		    ~B_AX_CMAC_CLK_SEL);
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		MAC_REG_W32(R_AX_AFE_CTRL1, MAC_REG_R32(R_AX_AFE_CTRL1) &
+			    ~B_AX_CMAC_CLK_SEL);
 
-	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN,
-		    MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN) &
-		    ~(B_AX_GPIO8_PULL_LOW_EN | B_AX_LED1_PULL_LOW_EN));
+		val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN);
+		MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN, val32 &
+			    ~(B_AX_GPIO8_PULL_LOW_EN | B_AX_LED1_PULL_LOW_EN));
+	}
+#endif
+
+#if (MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_1115E_SUPPORT)
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+	    is_chip_id(adapter, MAC_BE_CHIP_ID_1115E)) {
+		val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN);
+		MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN, val32 &
+			    ~(B_AX_GPIO8_PULL_LOW_EN |
+			      B_AX_LED1_PULL_LOW_EN_V1));
+	}
+#endif
 }
 
 static void clr_aon_int(struct mac_ax_adapter *adapter)
@@ -46,13 +68,13 @@ static void clr_aon_int(struct mac_ax_adapter *adapter)
 	MAC_REG_W32(R_AX_FWS0ISR, val32);
 }
 
-static u32 _patch_aon_int_leave_lps(struct mac_ax_adapter *adapter)
+static u32 _patch_flr_lps(struct mac_ax_adapter *adapter)
 {
 	struct mac_ax_ops *mac_ops = adapter_to_mac_ops(adapter);
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u32 val32, cnt, ret = MACSUCCESS;
 
-	if (adapter->hw_info->intf != MAC_AX_INTF_PCIE)
+	if (chk_patch_flr_lps(adapter) == PATCH_DISABLE)
 		return MACSUCCESS;
 
 	restore_flr_lps(adapter);
@@ -68,17 +90,41 @@ static u32 _patch_aon_int_leave_lps(struct mac_ax_adapter *adapter)
 		return ret;
 	}
 
+	val32 = MAC_REG_R32(R_AX_GPIO_EXT_CTRL);
+	val32 &= ~BIT18;
+	MAC_REG_W32(R_AX_GPIO_EXT_CTRL, val32);
+
+	val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN);
+	val32 &= ~B_AX_GPIO10_PULL_LOW_EN;
+	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN, val32);
+
 	val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_HIGH_EN);
 	val32 |= B_AX_GPIO10_PULL_HIGH_EN;
 	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_HIGH_EN, val32);
 
+	val32 = MAC_REG_R32(R_AX_GPIO_INTM);
+	val32 |= B_AX_GPIOA_INT_MD;
+	MAC_REG_W32(R_AX_GPIO_INTM, val32);
+
 	val32 = MAC_REG_R32(R_AX_GPIO_EXT_CTRL);
-	val32 |= (BIT10 | BIT18 | BIT26);
+	val32 |= BIT26;
 	MAC_REG_W32(R_AX_GPIO_EXT_CTRL, val32);
-	val32 &= ~BIT10;
-	MAC_REG_W32(R_AX_GPIO_EXT_CTRL, val32);
-	val32 |= BIT10;
-	MAC_REG_W32(R_AX_GPIO_EXT_CTRL, val32);
+
+	val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN);
+	val32 |= B_AX_GPIO10_PULL_LOW_EN;
+	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN, val32);
+
+	val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_HIGH_EN);
+	val32 &= ~B_AX_GPIO10_PULL_HIGH_EN;
+	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_HIGH_EN, val32);
+
+	val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN);
+	val32 &= ~B_AX_GPIO10_PULL_LOW_EN;
+	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_LOW_EN, val32);
+
+	val32 = MAC_REG_R32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_HIGH_EN);
+	val32 |= B_AX_GPIO10_PULL_HIGH_EN;
+	MAC_REG_W32(R_AX_GPIO0_15_EECS_EESK_LED1_PULL_HIGH_EN, val32);
 
 	cnt = LPS_POLL_CNT;
 	while (cnt && (GET_FIELD(MAC_REG_R32(R_AX_IC_PWR_STATE), B_AX_WLMAC_PWR_STE) ==
@@ -195,9 +241,15 @@ u32 pwr_seq_start(struct mac_ax_adapter *adapter,
 	case CEV:
 		cv = PWR_CEV_MSK;
 		break;
+	case CFV:
+		cv = PWR_CFV_MSK;
+		break;
+	case CGV:
+		//fall through
 	default:
 		PLTFM_MSG_ERR("[ERR]cut version\n");
-		return MACNOITEM;
+		cv = PWR_CGV_MSK;
+		break;
 	}
 
 	switch (hw_info->intf) {
@@ -240,9 +292,10 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 	u32 ret_end;
 	struct mac_pwr_cfg **pwr_seq;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-	u32 (*intf_pwr_switch)(void *vadapter, u8 pre_switch, u8 on);
-	u32 (*pwr_func)(void *vadapter);
+	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	u32 (*pwr_func)(struct mac_ax_adapter *adapter);
 	u32 val32;
+	u32 cnt = PWR_POLL_CNT;
 
 	val32 = MAC_REG_R32(R_AX_GPIO_MUXCFG) & B_AX_BOOT_MODE;
 	if (val32 == B_AX_BOOT_MODE) {
@@ -263,9 +316,7 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 		return MACSUCCESS;
 	}
 
-	intf_pwr_switch = adapter->mac_pwr_info.intf_pwr_switch;
-
-	if (!intf_pwr_switch) {
+	if (!p_ops->intf_pwr_switch) {
 		PLTFM_MSG_ERR("interface power switch func is NULL\n");
 		ret = MACNPTR;
 		return ret;
@@ -273,10 +324,10 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 
 	if (on) {
 		pwr_seq = adapter->hw_info->pwr_on_seq;
-		pwr_func = adapter->hw_info->pwr_on;
+		pwr_func = p_ops->pwr_on;
 	} else {
 		pwr_seq = adapter->hw_info->pwr_off_seq;
-		pwr_func = adapter->hw_info->pwr_off;
+		pwr_func = p_ops->pwr_off;
 		adapter->sm.pwr = MAC_AX_PWR_PRE_OFF;
 		adapter->sm.dmac_func = MAC_AX_FUNC_OFF;
 		adapter->sm.cmac0_func = MAC_AX_FUNC_OFF;
@@ -286,21 +337,37 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 		adapter->sm.plat = MAC_AX_PLAT_OFF;
 	}
 
-	ret = intf_pwr_switch(adapter, PWR_PRE_SWITCH, on);
+	ret = p_ops->intf_pwr_switch(adapter, PWR_PRE_SWITCH, on);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("interface pre pwr switch fails %d\n", ret);
 		goto END;
 	}
 
 	if (on) {
-		ret = _patch_aon_int_leave_lps(adapter);
+		ret = mac_ps_pwr_state(adapter, MAC_AX_PWR_STATE_ACT_REQ,
+				       MAC_AX_RPWM_REQ_PWR_STATE_ACTIVE);
 		if (ret != MACSUCCESS) {
-			PLTFM_MSG_ERR("AON interrupt leave LPS fail %X\n", ret);
+			PLTFM_MSG_ERR("MAC_AX_PWR_STATE_ACT_REQ fail %X\n", ret);
 			goto END;
 		}
 
-		val32 = MAC_REG_R32(R_AX_IC_PWR_STATE);
-		val32 = GET_FIELD(val32, B_AX_WLMAC_PWR_STE);
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		MAC_REG_W32(R_AX_AFE_CTRL1, MAC_REG_R32(R_AX_AFE_CTRL1) &
+			    ~B_AX_CMAC_CLK_SEL);
+	}
+#endif
+
+		while (--cnt) {
+			val32 = MAC_REG_R32(R_AX_IC_PWR_STATE);
+			val32 = GET_FIELD(val32, B_AX_WLMAC_PWR_STE);
+			if (val32 != MAC_AX_MAC_LPS)
+				break;
+			PLTFM_DELAY_US(PWR_POLL_DLY_US);
+		}
+
 		if (val32 == MAC_AX_MAC_ON) {
 			PLTFM_MSG_WARN("MAC has already powered on %d\n", val32);
 			ret = MACALRDYON;
@@ -328,7 +395,7 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 		}
 	}
 
-	ret = intf_pwr_switch(adapter, PWR_POST_SWITCH, on);
+	ret = p_ops->intf_pwr_switch(adapter, PWR_POST_SWITCH, on);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("interface post pwr switch fails %d\n", ret);
 		adapter->sm.pwr = MAC_AX_PWR_ERR;
@@ -344,26 +411,18 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 		adapter->sm.fw_rst = MAC_AX_FW_RESET_IDLE;
 		adapter->sm.l2_st = MAC_AX_L2_DIS;
 		adapter->mac_pwr_info.pwr_in_lps = 0;
-		/* patch form BT BG/LDO issue, ONLY FOR 52B CAV */
-		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) &&
-		    is_cv(adapter, CAV))
-			MAC_REG_W32(R_AX_SCOREBOARD,
-				    (u32)(MAC_AX_NOTIFY_TP_MAJOR <<
-					  MAC_AX_NOTIFY_SH));
+		/* patch form BT BG/LDO issue */
+		MAC_REG_W8(R_AX_SCOREBOARD + 3, MAC_AX_NOTIFY_TP_MAJOR);
 	} else {
 		adapter->sm.pwr = MAC_AX_PWR_OFF;
 		adapter->sm.l2_st = MAC_AX_L2_DIS;
-		/* patch form BT BG/LDO issue, ONLY FOR 52B CAV */
-		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) &&
-		    is_cv(adapter, CAV))
-			MAC_REG_W32(R_AX_SCOREBOARD,
-				    (u32)(MAC_AX_NOTIFY_PWR_MAJOR <<
-					  MAC_AX_NOTIFY_SH));
+		/* patch form BT BG/LDO issue */
+		MAC_REG_W8(R_AX_SCOREBOARD + 3, MAC_AX_NOTIFY_PWR_MAJOR);
 	}
 END:
 	if (on)
 		clr_aon_int(adapter);
-	ret_end = intf_pwr_switch(adapter, PWR_END_SWITCH, on);
+	ret_end = p_ops->intf_pwr_switch(adapter, PWR_END_SWITCH, on);
 	if (ret_end != MACSUCCESS) {
 		PLTFM_MSG_ERR("interface end pwr switch fails %d\n", ret_end);
 		adapter->sm.pwr = MAC_AX_PWR_ERR;

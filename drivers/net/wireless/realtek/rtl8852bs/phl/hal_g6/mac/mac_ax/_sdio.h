@@ -60,6 +60,8 @@
 
 #define SDIO_LOCAL_REG_START		0x1000
 #define SDIO_LOCAL_REG_END		0x1F00
+#define SDIO_LOCAL_REG_START_V1		0x4000
+#define SDIO_LOCAL_REG_END_V1		0x4F00
 #define SDIO_LOCAL_REG_END_PATCH	0x2000
 #define SDIO_WLAN_REG_END		0x1FFFF
 #define SDIO_WLAN_REG_END_PATCH		0xFFFF
@@ -67,6 +69,10 @@
 #define SDIO_BYTE_MODE_SIZE_MAX 512
 #define CMAC_CLK_ALLEN 0xFFFFFFFF
 #define SDIO_DEFAULT_AGG_NUM	0x40
+
+#define PWR_IN_LPS_R8	0xAA
+#define PWR_IN_LPS_R16	0xAAAA
+#define PWR_IN_LPS_R32	0xAAAAAAAA
 
 /**
  * @struct mac_sdio_tbl
@@ -148,6 +154,23 @@ enum sdio_tx_byte_cnt {
 	SDIO_TX_AGG_8_BYTE_CNT,
 	SDIO_TX_DUMMY_4_BYTE_CNT,
 };
+
+u32 r_indir_cmd53_sdio(struct mac_ax_adapter *adapter, u32 adr);
+u32 r8_indir_sdio(struct mac_ax_adapter *adapter, u32 adr);
+void w8_indir_sdio(struct mac_ax_adapter *adapter, u32 adr, u32 val);
+void w16_indir_sdio(struct mac_ax_adapter *adapter, u32 adr, u32 val);
+void w32_indir_sdio(struct mac_ax_adapter *adapter, u32 adr, u32 val);
+u8 pwr_state_chk_sdio(struct mac_ax_adapter *adapter);
+u8 reg_chk_sdio(struct mac_ax_adapter *adapter, u32 adr);
+void chk_rqd_pg_num(struct mac_ax_adapter *adapter,
+		    struct mac_ax_sdio_tx_info *tx_info);
+u32 chk_fs_enuf(struct mac_ax_adapter *adapter,
+		struct mac_ax_sdio_tx_info *tx_info);
+u32 get_pg_size_pow(u32 size);
+u32 tx_allow_data_ch(struct mac_ax_adapter *adapter,
+		     struct mac_ax_sdio_tx_info *info);
+u32 tx_allow_fwcmd_ch(struct mac_ax_adapter *adapter,
+		      struct mac_ax_sdio_tx_info *info);
 
 /**
  * @addtogroup HCI
@@ -348,27 +371,6 @@ u32 tx_cmd_addr_sdio(struct mac_ax_adapter *adapter,
  */
 
 /**
- * @brief sdio_pre_init
- *
- * @param *adapter
- * @param *param
- * @return Please Place Description here.
- * @retval u32
- */
-u32 sdio_pre_init(struct mac_ax_adapter *adapter, void *param);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
  * @brief sdio_init
  *
  * @param *adapter
@@ -481,50 +483,6 @@ u32 set_info_sdio(struct mac_ax_adapter *adapter,
  */
 
 /**
- * @brief tx_mode_cfg_sdio
- *
- * @param *adapter
- * @param mode
- * @return Please Place Description here.
- * @retval u32
- */
-u32 tx_mode_cfg_sdio(struct mac_ax_adapter *adapter,
-		     enum mac_ax_sdio_tx_mode mode);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief rx_agg_cfg_sdio
- *
- * @param *adapter
- * @param *cfg
- * @return Please Place Description here.
- * @retval void
- */
-void rx_agg_cfg_sdio(struct mac_ax_adapter *adapter,
-		     struct mac_ax_rx_agg_cfg *cfg);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
  * @brief tx_agg_cfg_sdio
  *
  * @param *adapter
@@ -534,132 +492,6 @@ void rx_agg_cfg_sdio(struct mac_ax_adapter *adapter,
  */
 u32 tx_agg_cfg_sdio(struct mac_ax_adapter *adapter,
 		    struct mac_ax_sdio_txagg_cfg *cfg);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief aval_page_cfg_sdio
- *
- * @param *adapter
- * @param *cfg
- * @return Please Place Description here.
- * @retval void
- */
-void aval_page_cfg_sdio(struct mac_ax_adapter *adapter,
-			struct mac_ax_aval_page_cfg *cfg);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief leave_suspend_sdio
- *
- * @param *adapter
- * @return Please Place Description here.
- * @retval u32
- */
-u32 leave_suspend_sdio(struct mac_ax_adapter *adapter);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief get_int_latency_sdio
- *
- * @param *adapter
- * @return Please Place Description here.
- * @retval u32
- */
-u32 get_int_latency_sdio(struct mac_ax_adapter *adapter);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief get_clk_cnt_sdio
- *
- * @param *adapter
- * @param *cnt
- * @return Please Place Description here.
- * @retval u32
- */
-u32 get_clk_cnt_sdio(struct mac_ax_adapter *adapter, u32 *cnt);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief set_wt_cfg_sdio
- *
- * @param *adapter
- * @param en
- * @return Please Place Description here.
- * @retval u32
- */
-u32 set_wt_cfg_sdio(struct mac_ax_adapter *adapter, u8 en);
-/**
- * @}
- * @}
- */
-
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief set_clk_mon_sdio
- *
- * @param *adapter
- * @param *cfg
- * @return Please Place Description here.
- * @retval u32
- */
-u32 set_clk_mon_sdio(struct mac_ax_adapter *adapter,
-		     struct mac_ax_sdio_clk_mon_cfg *cfg);
 /**
  * @}
  * @}
@@ -706,29 +538,6 @@ u32 sdio_tbl_exit(struct mac_ax_adapter *adapter);
  */
 
 /**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief sdio_pwr_switch
- *
- * @param *vadapter
- * @param pre_switch
- * @param on
- * @return Please Place Description here.
- * @retval u32
- */
-u32 sdio_pwr_switch(void *vadapter,
-		    u8 pre_switch, u8 on);
-/**
- * @}
- * @}
- */
-
-/**
  * @brief sdio_pwr_switch
  *
  * @param *vadapter
@@ -751,6 +560,381 @@ u32 set_sdio_wowlan(struct mac_ax_adapter *adapter, enum mac_ax_wow_ctrl w_c);
  * @retval u32
  */
 u32 sdio_get_txagg_num(struct mac_ax_adapter *adapter, u8 band);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief sdio_get_rx_state
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 sdio_get_rx_state(struct mac_ax_adapter *adapter, u32 *val);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief dbcc_hci_ctrl_sdio
+ *
+ * @param *adapter
+ * @param *info
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 dbcc_hci_ctrl_sdio(struct mac_ax_adapter *adapter,
+		       struct mac_ax_dbcc_hci_ctrl *info);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief ltr_set_sdio
+ *
+ * @param *adapter
+ * @param *param
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 ltr_set_sdio(struct mac_ax_adapter *adapter,
+		 struct mac_ax_pcie_ltr_param *param);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief ctrl_txdma_ch_sdio
+ *
+ * @param *adapter
+ * @param *ch_map
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 ctrl_txdma_ch_sdio(struct mac_ax_adapter *adapter,
+		       struct mac_ax_txdma_ch_map *ch_map);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief clr_idx_all_sdio
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 clr_idx_all_sdio(struct mac_ax_adapter *adapter);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief poll_txdma_ch_idle_sdio
+ *
+ * @param *adapter
+ * @param *ch_map
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 poll_txdma_ch_idle_sdio(struct mac_ax_adapter *adapter,
+			    struct mac_ax_txdma_ch_map *ch_map);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief set_pcie_speed_sdio
+ *
+ * @param *adapter
+ * @param speed
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 set_pcie_speed_sdio(struct mac_ax_adapter *adapter,
+			enum mac_ax_pcie_phy speed);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief get_pcie_speed_sdio
+ *
+ * @param *adapter
+ * @param *speed
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 get_pcie_speed_sdio(struct mac_ax_adapter *adapter,
+			u8 *speed);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief poll_rxdma_ch_idle_sdio
+ *
+ * @param *adapter
+ * @param *ch_map
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 poll_rxdma_ch_idle_sdio(struct mac_ax_adapter *adapter,
+			    struct mac_ax_rxdma_ch_map *ch_map);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief ctrl_txhci_sdio
+ *
+ * @param *adapter
+ * @param en
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 ctrl_txhci_sdio(struct mac_ax_adapter *adapter, enum mac_ax_func_sw en);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief ctrl_rxhci_sdio
+ *
+ * @param *adapter
+ * @param en
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 ctrl_rxhci_sdio(struct mac_ax_adapter *adapter, enum mac_ax_func_sw en);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief ctrl_dma_io_sdio
+ *
+ * @param *adapter
+ * @param en
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 ctrl_dma_io_sdio(struct mac_ax_adapter *adapter, enum mac_ax_func_sw en);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief get_io_stat_sdio
+ *
+ * @param *adapter
+ * @param *out_st
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 get_io_stat_sdio(struct mac_ax_adapter *adapter,
+		     struct mac_ax_io_stat *out_st);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief get_avail_txbd_sdio
+ *
+ * @param *adapter
+ * @param ch_idx
+ * @param *host_idx
+ * @param *hw_idx
+ * @param *avail_txbd
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 get_avail_txbd_sdio(struct mac_ax_adapter *adapter, u8 ch_idx,
+			u16 *host_idx, u16 *hw_idx, u16 *avail_txbd);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief get_avail_rxbd_sdio
+ *
+ * @param *adapter
+ * @param ch_idx
+ * @param *host_idx
+ * @param *hw_idx
+ * @param *avail_rxbd
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 get_avail_rxbd_sdio(struct mac_ax_adapter *adapter, u8 ch_idx,
+			u16 *host_idx, u16 *hw_idx, u16 *avail_rxbd);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief trigger_txdma_sdio
+ *
+ * @param *adapter
+ * @param *txbd_ring
+ * @param ch_idx
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 trigger_txdma_sdio(struct mac_ax_adapter *adapter,
+		       struct tx_base_desc *txbd_ring, u8 ch_idx);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup SDIO
+ * @{
+ */
+
+/**
+ * @brief notify_rxdone_sdio
+ *
+ * @param *adapter
+ * @param *rxbd
+ * @param ch
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 notify_rxdone_sdio(struct mac_ax_adapter *adapter,
+		       struct rx_base_desc *rxbd, u8 ch);
 /**
  * @}
  * @}
@@ -783,26 +967,5 @@ u32 sdio_tp_adjust(struct mac_ax_adapter *adapter, struct mac_ax_tp_param tp);
  * @}
  */
 
-/**
- * @addtogroup HCI
- * @{
- * @addtogroup SDIO
- * @{
- */
-
-/**
- * @brief dbcc_hci_ctrl_sdio
- *
- * @param *adapter
- * @param *info
- * @return Please Place Description here.
- * @retval u32
- */
-u32 dbcc_hci_ctrl_sdio(struct mac_ax_adapter *adapter,
-		       struct mac_ax_dbcc_hci_ctrl *info);
-/**
- * @}
- * @}
- */
 #endif /*MAC_AX_SDIO_SUPPORT*/
 #endif

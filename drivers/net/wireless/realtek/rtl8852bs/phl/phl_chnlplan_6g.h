@@ -79,7 +79,7 @@ struct regulatory_domain_mapping_6g {
 };
 
 #define MAX_CHDEF_6GHZ 7
-#define MAX_RD_MAP_NUM_6GHZ 11
+#define MAX_RD_MAP_NUM_6GHZ 13
 
 
 #endif /* _PHL_CHNLPLAN_6GHZ_H_ */

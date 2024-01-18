@@ -16,7 +16,7 @@
 
 #include <drv_types.h>
 #include <platform_ops.h>
-#include <rtw_trx_sdio.h>
+extern struct rtw_intf_ops sdio_ops;
 
 #ifndef CONFIG_SDIO_HCI
 #error "CONFIG_SDIO_HCI shall be on!\n"
@@ -35,6 +35,12 @@ static const struct sdio_device_id sdio_ids[] = {
 
 #ifdef CONFIG_RTL8852B
 	{SDIO_DEVICE(0x024c, 0xb852), .class = SDIO_CLASS_WLAN, .driver_data = RTL8852B},
+#endif
+#ifdef CONFIG_RTL8852BP
+	{SDIO_DEVICE(0x024c, 0xA85C), .class = SDIO_CLASS_WLAN, .driver_data = RTL8852BP},
+#endif
+#ifdef CONFIG_RTL8851B
+	{SDIO_DEVICE(0x024c, 0xB851), .class = SDIO_CLASS_WLAN, .driver_data = RTL8851B},
 #endif
 
 #if defined(RTW_ENABLE_WIFI_CONTROL_FUNC) /* temporarily add this to accept all sdio wlan id */
@@ -98,7 +104,7 @@ static void sd_sync_int_hdl(struct sdio_func *func)
 
 int rtw_sdio_alloc_irq(struct dvobj_priv *dvobj)
 {
-	PSDIO_DATA psdio_data;
+	struct sdio_data *psdio_data;
 	struct sdio_func *func;
 	int err;
 
@@ -123,7 +129,7 @@ int rtw_sdio_alloc_irq(struct dvobj_priv *dvobj)
 
 void rtw_sdio_free_irq(struct dvobj_priv *dvobj)
 {
-	PSDIO_DATA psdio_data;
+	struct sdio_data *psdio_data;
 	struct sdio_func *func;
 	int err;
 
@@ -248,7 +254,7 @@ static inline unsigned int sdio_max_byte_size(struct sdio_func *func)
 
 void dump_sdio_card_info(void *sel, struct dvobj_priv *dvobj)
 {
-	PSDIO_DATA psdio_data = dvobj_to_sdio(dvobj);
+	struct sdio_data *psdio_data = dvobj_to_sdio(dvobj);
 	struct mmc_card *card = psdio_data->card;
 	int i;
 
@@ -431,7 +437,7 @@ static void sdio_dbg_deinit(struct dvobj_priv *d)
 
 u32 rtw_sdio_init(struct dvobj_priv *dvobj)
 {
-	PSDIO_DATA psdio_data;
+	struct sdio_data *psdio_data;
 	struct sdio_func *func;
 	int err;
 
@@ -620,9 +626,6 @@ _adapter *rtw_sdio_primary_adapter_init(struct dvobj_priv *dvobj)
 	padapter->isprimary = _TRUE;
 	padapter->adapter_type = PRIMARY_ADAPTER;
 
-	padapter->hw_port = HW_PORT0;
-	padapter->adapter_link.adapter = padapter;
-
 	/* 3 7. init driver common data */
 	if (rtw_init_drv_sw(padapter) == _FAIL) {
 		goto free_adapter;
@@ -715,6 +718,9 @@ static int rtw_dev_probe(
 		goto free_if_vir;
 #endif
 
+	if (rtw_adapter_link_init(dvobj) != _SUCCESS)
+		goto free_adapter_link;
+
 	/*init data of dvobj from registary and ic spec*/
 	if (devobj_data_init(dvobj) == _FAIL) {
 		RTW_ERR("devobj_data_init Failed!\n");
@@ -725,6 +731,9 @@ static int rtw_dev_probe(
 	/* dev_alloc_name && register_netdev */
 	if (rtw_os_ndevs_init(dvobj) != _SUCCESS)
 		goto free_dvobj_data;
+
+	/* Update link_mlme_priv's ht/vht/he priv from padapter->mlmepriv */
+	rtw_init_link_capab(dvobj);
 
 #ifdef CONFIG_HOSTAPD_MLME
 	hostapd_mode_init(padapter);
@@ -762,8 +771,11 @@ os_ndevs_deinit:
 free_dvobj_data:
 	devobj_data_deinit(dvobj);
 
+free_adapter_link:
+	rtw_adapter_link_deinit(dvobj);
+
 #ifdef CONFIG_CONCURRENT_MODE
-free_if_vir:	
+free_if_vir:
 	rtw_drv_stop_vir_ifaces(dvobj);
 	rtw_drv_free_vir_ifaces(dvobj);
 #endif
@@ -810,14 +822,6 @@ static void rtw_dev_remove(struct sdio_func *func)
 #if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_ANDROID_POWER)
 	rtw_unregister_early_suspend(pwrctl);
 #endif
-#if 0 /*GEORGIA_TODO_FIXIT*/
-	if (GET_PHL_COM(adapter_to_dvobj(padapter))->fw_ready == _TRUE) {
-		rtw_ps_deny(padapter, PS_DENY_DRV_REMOVE);
-		rtw_pm_set_ips(padapter, IPS_NONE);
-		rtw_pm_set_lps(padapter, PM_PS_MODE_ACTIVE);
-		LeaveAllPowerSaveMode(padapter);
-	}
-#endif
 	dev_set_drv_stopped(adapter_to_dvobj(padapter));	/*for stop thread*/
 #if 0 /*#ifdef CONFIG_CORE_CMD_THREAD*/
 	rtw_stop_cmd_thread(padapter);
@@ -830,6 +834,8 @@ static void rtw_dev_remove(struct sdio_func *func)
 
 	rtw_hw_stop(dvobj);
 	dev_set_surprise_removed(dvobj);
+
+	rtw_adapter_link_deinit(dvobj);
 
 	rtw_sdio_primary_adapter_deinit(padapter);
 
@@ -879,14 +885,18 @@ static int rtw_sdio_suspend(struct device *dev)
 
 	psdpriv = sdio_get_drvdata(func);
 	if (psdpriv == NULL)
-		goto exit;
+		return ret;
 
 	pwrpriv = dvobj_to_pwrctl(psdpriv);
 	padapter = dvobj_get_primary_adapter(psdpriv);
 	pdbgpriv = &psdpriv->drv_dbg;
 	if (dev_is_drv_stopped(adapter_to_dvobj(padapter))) {
 		RTW_INFO("%s bDriverStopped == _TRUE\n", __func__);
-		goto exit;
+		rtw_sdio_deinit(adapter_to_dvobj(padapter));
+		#if !(CONFIG_RTW_SDIO_KEEP_IRQ)
+		rtw_sdio_free_irq(adapter_to_dvobj(padapter));
+		#endif
+		return ret;
 	}
 
 	if (pwrpriv->bInSuspend == _TRUE) {
@@ -929,6 +939,20 @@ static int rtw_resume_process(_adapter *padapter)
 	if (pwrpriv->bInSuspend == _FALSE) {
 		pdbgpriv->dbg_resume_error_cnt++;
 		RTW_INFO("%s bInSuspend = %d\n", __FUNCTION__, pwrpriv->bInSuspend);
+		if (dev_is_drv_stopped(adapter_to_dvobj(padapter))) {
+			/* interface init */
+			if (rtw_sdio_init(psdpriv) != _SUCCESS) {
+				RTW_WARN("%s rtw_sdio_init fail\n", __FUNCTION__);
+				return -1;
+			}
+			#if !(CONFIG_RTW_SDIO_KEEP_IRQ)
+			if (rtw_sdio_alloc_irq(psdpriv) != _SUCCESS) {
+				RTW_WARN("%s rtw_sdio_alloc_irq fail\n", __FUNCTION__);
+				return -1;
+			}
+			#endif/*CONFIG_RTW_SDIO_KEEP_IRQ*/
+			return 0;
+		}
 		return -1;
 	}
 

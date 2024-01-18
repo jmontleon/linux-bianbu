@@ -173,14 +173,13 @@ enum rtw_phl_status _twt_announce_info_enqueue(struct phl_info_t *phl_info,
 				struct _twt_announce_info *twt_annc)
 {
 	void *drv = phl_to_drvpriv(phl_info);
-	_os_spinlockfg sp_flags;
 
 	if (!twt_annc)
 		return RTW_PHL_STATUS_FAILURE;
-	_os_spinlock(drv, &twt_annc_q->lock, _irq, &sp_flags);
+	_os_spinlock(drv, &twt_annc_q->lock, _bh, NULL);
 	list_add_tail(&twt_annc->list, &twt_annc_q->queue);
 	twt_annc_q->cnt++;
-	_os_spinunlock(drv, &twt_annc_q->lock, _irq, &sp_flags);
+	_os_spinunlock(drv, &twt_annc_q->lock, _bh, NULL);
 	return RTW_PHL_STATUS_SUCCESS;
 }
 
@@ -190,9 +189,8 @@ struct _twt_announce_info * _twt_announce_info_dequeue(
 {
 	struct _twt_announce_info *twt_annc = NULL;
 	void *drv = phl_to_drvpriv(phl_info);
-	_os_spinlockfg sp_flags;
 
-	_os_spinlock(drv, &twt_annc_q->lock, _irq, &sp_flags);
+	_os_spinlock(drv, &twt_annc_q->lock, _bh, NULL);
 	if (list_empty(&twt_annc_q->queue)) {
 		twt_annc = NULL;
 	} else {
@@ -201,7 +199,7 @@ struct _twt_announce_info * _twt_announce_info_dequeue(
 		list_del(&twt_annc->list);
 		twt_annc_q->cnt--;
 	}
-	_os_spinunlock(drv, &twt_annc_q->lock, _irq, &sp_flags);
+	_os_spinunlock(drv, &twt_annc_q->lock, _bh, NULL);
 	return twt_annc;
 }
 
@@ -211,14 +209,13 @@ enum rtw_phl_status _twt_sta_announce(struct phl_info_t *phl_info,
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	void *drv = phl_to_drvpriv(phl_info);
-	_os_spinlockfg sp_flags;
 	struct _twt_announce_info *info = NULL;
 	_os_list *annc_list = &annc_queue->queue;
 	u8 offset = 0;
 	u32 macid_map = 0;
 
 	_twt_calc_macid_map_info(macid, &offset, &macid_map);
-	_os_spinlock(drv, &annc_queue->lock, _irq, &sp_flags);
+	_os_spinlock(drv, &annc_queue->lock, _bh, NULL);
 	phl_list_for_loop(info, struct _twt_announce_info, annc_list, list) {
 		if (NULL == info)
 			break;
@@ -238,7 +235,7 @@ enum rtw_phl_status _twt_sta_announce(struct phl_info_t *phl_info,
 		}
 		break;
 	}
-	_os_spinunlock(drv, &annc_queue->lock, _irq, &sp_flags);
+	_os_spinunlock(drv, &annc_queue->lock, _bh, NULL);
 	return pstatus;
 }
 
@@ -248,7 +245,6 @@ enum rtw_phl_status _twt_set_sta_announce_state(struct phl_info_t *phl_info,
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	void *drv = phl_to_drvpriv(phl_info);
-	_os_spinlockfg sp_flags;
 	struct _twt_announce_info *info = NULL;
 	_os_list *annc_list = &annc_q->queue;
 	u8 offset = 0;
@@ -256,17 +252,17 @@ enum rtw_phl_status _twt_set_sta_announce_state(struct phl_info_t *phl_info,
 	u8 bset = false;
 
 	_twt_calc_macid_map_info(macid, &offset, &macid_map);
-	_os_spinlock(drv, &annc_q->lock, _irq, &sp_flags);
+	_os_spinlock(drv, &annc_q->lock, _bh, NULL);
 	phl_list_for_loop(info, struct _twt_announce_info, annc_list, list) {
 		if (NULL == info)
 			break;
 		if (info->map_offset != offset)
 			continue;
-		if (PHL_WAIT_ANNC_ENABLE == type) {
+		if (RTW_PHL_TWT_WAIT_ANNC_ENABLE == type) {
 			info->wait_macid_map |= macid_map;
 			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_set_sta_announce_state(): set macid:%d to wait annc state, map_offset:%d, wait_macid_map:0x%x\n",
 				macid, info->map_offset, info->wait_macid_map);
-		} else if (PHL_WAIT_ANNC_DISABLE == type) {
+		} else if (RTW_PHL_TWT_WAIT_ANNC_DISABLE == type) {
 			info->wait_macid_map &= (~macid_map);
 			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_set_sta_announce_state(): set macid:%d to annc state, map_offset:%d, wait_macid_map:0x%x\n",
 				macid, info->map_offset, info->wait_macid_map);
@@ -279,10 +275,10 @@ enum rtw_phl_status _twt_set_sta_announce_state(struct phl_info_t *phl_info,
 		bset = true;
 		break;
 	}
-	_os_spinunlock(drv, &annc_q->lock, _irq, &sp_flags);
+	_os_spinunlock(drv, &annc_q->lock, _bh, NULL);
 	if (true == bset)
 		goto exit;
-	if (PHL_WAIT_ANNC_ENABLE == type) {
+	if (RTW_PHL_TWT_WAIT_ANNC_ENABLE == type) {
 		info = _os_mem_alloc(drv, sizeof(struct _twt_announce_info));
 		if (NULL == info) {
 			PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "_twt_sta_wait_announce(): Fail to alloc new annc info\n");
@@ -294,7 +290,7 @@ enum rtw_phl_status _twt_set_sta_announce_state(struct phl_info_t *phl_info,
 			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_set_sta_announce_state(): add new Q and set macid:%d to annc state, map_offset:%d, wait_macid_map:0x%x\n",
 				macid, info->map_offset, info->wait_macid_map);
 		}
-	} else if (PHL_WAIT_ANNC_DISABLE == type) {
+	} else if (RTW_PHL_TWT_WAIT_ANNC_DISABLE == type) {
 		PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "_twt_set_sta_announce_state(): macid:%d is not in wait annc state\n",
 				macid);
 	} else {
@@ -304,37 +300,39 @@ exit:
 	return pstatus;
 }
 
-#if 0
-/*
- * Get macid of sta wait for announce form FW
- * @wait_case: C2HTWT_ANNOUNCE_WAIT_DISABLE_MACID = 0, C2HTWT_ANNOUNCE_WAIT_ENABLE_MACID = 1
- * @macid0: macid of sta
- * @macid1: macid of sta
- * @macid2: macid of sta
- */
-enum rtw_phl_status _twt_handle_c2h_wait_annc(struct phl_info_t *phl_info,
-				u8 *content)
+enum rtw_phl_status rtw_phl_twt_handle_c2h_wait_annc(struct phl_info_t *phl,
+				u8 *buf)
 {
+	struct rtw_phl_twt_wait_anno_rpt *wait_anno = NULL;
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
-	struct phl_twt_info *phl_twt_info = get_twt_info(phl_info);
+	struct phl_twt_info *phl_twt_info = get_twt_info(phl);
 	struct phl_queue *annc_q = &phl_twt_info->twt_annc_queue;
-	u8 wait_case = 0, macid = 0;
-	u8 i = 0;
+	u8 i;
 	bool error = false;
 
-	wait_case = (*((u8*)content)) & 0xf; /*BIT0-3*/
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_handle_c2h_wait_annc(): content:0x%X, wait_case:%d, macid0:%d, macid1:%d, macid2:%d\n",
-		*content, wait_case, *((u8*)content + 1), *((u8*)content + 2),
-		*((u8*)content + 3));
-	for (i = 1; i < 4; i++) {
-		macid = *((u8*)content + i);
-		if (IGNORE_MACID == macid)
+	if (buf == NULL) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "rtw_phl_twt_handle_c2h_wait_annc(): buf == NULL!\n");
+		return RTW_PHL_STATUS_FAILURE;
+	}
+
+	wait_anno = (struct rtw_phl_twt_wait_anno_rpt *)buf;
+
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "[%s]wait_case = %d, macid = %d %d %d\n",
+							__func__,
+							wait_anno->wait_case,
+							wait_anno->macid[0],
+							wait_anno->macid[1],
+							wait_anno->macid[2]);
+
+	for (i = 0; i < RTW_PHL_TWT_WAIT_ANNO_STA_NUM; i++) {
+		if (IGNORE_MACID == wait_anno->macid[i])
 			continue;
-		pstatus = _twt_set_sta_announce_state(phl_info, annc_q, macid,
-							wait_case);
+		pstatus = _twt_set_sta_announce_state(phl, annc_q,
+						wait_anno->macid[i],
+						wait_anno->wait_case);
 		if (RTW_PHL_STATUS_SUCCESS != pstatus) {
-			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_handle_c2h_wait_annc(): pstatus:%d, macid: %d, fail to set sta wait announce state\n",
-				pstatus, macid);
+			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "rtw_phl_twt_handle_c2h_wait_annc(): pstatus:%d, macid: %d, fail to set sta wait announce state\n",
+				pstatus, wait_anno->macid[i]);
 			error = true;
 		}
 	}
@@ -342,7 +340,6 @@ enum rtw_phl_status _twt_handle_c2h_wait_annc(struct phl_info_t *phl_info,
 		pstatus = RTW_PHL_STATUS_FAILURE;
 	return pstatus;
 }
-#endif
 
 /*
 struct rtw_twt_sta_info *
@@ -884,15 +881,17 @@ exit:
 	return pstatus;
 }
 
-enum rtw_phl_status _twt_info_update(struct phl_info_t *phl_info,
-				struct phl_twt_config *config,
-				enum phl_twt_action action)
+enum rtw_phl_status
+_twt_info_update(struct phl_info_t *phl_info,
+                 struct phl_twt_config *config,
+                 enum phl_twt_action action)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
 	enum rtw_phl_twt_cfg_action config_action;
 
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> _twt_info_update()\n");
+
 	if (PHL_TWT_ACTION_ENABLE == action) {
 		config_action = TWT_CFG_ADD;
 	} else if (PHL_TWT_ACTION_DISABLE == action) {
@@ -902,8 +901,11 @@ enum rtw_phl_status _twt_info_update(struct phl_info_t *phl_info,
 			action);
 		goto exit;
 	}
-	hstatus = rtw_hal_twt_info_update(phl_info, config->twt_info, config->role,
-						config_action);
+
+	hstatus = rtw_hal_twt_info_update(phl_info,
+	                                  config->twt_info,
+	                                  config->rlink,
+	                                  config_action);
 	if (hstatus == RTW_HAL_STATUS_SUCCESS) {
 		_twt_transfer_config_state(action, &config->state);
 		pstatus = RTW_PHL_STATUS_SUCCESS;
@@ -1095,8 +1097,11 @@ enum rtw_phl_status _twt_accept_indiv_by_sta(struct phl_info_t *phl,
 			}
 		}
 	}
-	pstatus = rtw_phl_twt_alloc_twt_config(phl, phl_sta->wrole, *setup_info,
-						true, &id);
+	pstatus = rtw_phl_twt_alloc_twt_config(phl,
+	                                       phl_sta->rlink,
+	                                       *setup_info,
+	                                       true,
+	                                       &id);
 	if (RTW_PHL_STATUS_SUCCESS == pstatus) {
 		pstatus = rtw_phl_twt_add_sta_info(phl, phl_sta, id,
 							req_type->twt_flow_id);
@@ -1223,10 +1228,12 @@ exit:
  * if benable is equal to false, only allocate twt config entry
  * @id: Output the id of twt confi entry
  */
-enum rtw_phl_status rtw_phl_twt_alloc_twt_config(void *phl,
-				struct rtw_wifi_role_t *role,
-				struct rtw_phl_twt_setup_info setup_info,
-				u8 benable, u8 *id)
+enum rtw_phl_status
+rtw_phl_twt_alloc_twt_config(void *phl,
+                             struct rtw_wifi_role_link_t *rlink,
+                             struct rtw_phl_twt_setup_info setup_info,
+                             u8 benable,
+                             u8 *id)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
@@ -1264,7 +1271,7 @@ enum rtw_phl_status rtw_phl_twt_alloc_twt_config(void *phl,
 	}
 	if (true == alloc) {
 		*id = config->twt_info.twt_id;
-		config->role = role;
+		config->rlink = rlink;
 		_twt_fill_config_info(&config->twt_info, &setup_info);
 		if (benable) {
 			pstatus = _twt_info_update(phl_info->hal, config,
@@ -1581,7 +1588,7 @@ fail:
  *  Remove all twt sta from twt config entry by specific sta entry
  * @phl_sta: sta entry that you wnat to remove
  * @bitmap: Output the bitmap. Indicate the statue that twt sta don't exist in the twt config entry that twt sta removed from it.
- * ex: Bitmap=10: We remove the twt sta from id 1, id 3 and other id of twt config entry, 
+ * ex: Bitmap=10: We remove the twt sta from id 1, id 3 and other id of twt config entry,
  * but after remove, there are no twt sta existing in the twt config entry of id 1 and id 3.
  * ex: Bitmap=0: We remove the twt sta, after remove, there are at least one twt sta existing in the twt config entry that twt sta removed from it.
  */
@@ -1734,54 +1741,61 @@ exit:
 	return pstatus;
 }
 
-/*
- * get target wake time
- * @port: port num of role
- * @id: reference id of twt configuration
- * @offset: unit: ms. An amount of time that you will start TWT from now
- * @tsf_h: return high 4-byte value of target wake time
- * @tsf_l: return low 4-byte value of target wake time
- */
-enum rtw_phl_status rtw_phl_twt_get_target_wake_time(void *phl,
-			u8 port, u8 id, u16 offset, u32 *tsf_h, u32 *tsf_l)
+static void _phl_twt_get_target_wake_time_done(void *priv, u8 *param,
+				u32 param_len, enum rtw_phl_status sts)
+{
+	if (param) {
+		_os_kmem_free(priv, param, param_len);
+		param = NULL;
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s\n", __func__);
+	}
+}
+
+enum rtw_phl_status phl_twt_get_target_wake_time(struct phl_info_t *phl,
+						u8 *param)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
-	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct rtw_phl_twt_get_twt_i *get_twt_i =
+					(struct rtw_phl_twt_get_twt_i *)param;
 	struct phl_twt_info *phl_twt_info = NULL;
 	struct phl_twt_cfg_info *twt_cfg_i = NULL;
 	struct phl_twt_config *config = NULL;
 	u32 c_tsf_l = 0, c_tsf_h = 0, intvl = 0;
 	u64 cur_tsf = 0, tgt_tsf = 0, ref_tsf = 0, dif_tsf = 0;
 
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> rtw_phl_twt_get_target_wake_time()\n");
-	if (false == twt_sup(phl_info)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_get_target_wake_time(): twt_sup == false\n");
+	if (false == twt_sup(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_sup == false\n",
+			__func__);
 		goto exit;
 	}
-	if (false == twt_init(phl_info)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_get_target_wake_time(): twt_init == false\n");
+	if (false == twt_init(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_init == false\n",
+			__func__);
 		goto exit;
 	}
-	phl_twt_info = get_twt_info(phl_info);
+	phl_twt_info = get_twt_info(phl);
 	twt_cfg_i = &phl_twt_info->twt_cfg_info;
-	hstatus = rtw_hal_get_tsf(phl_info->hal, port, &c_tsf_h, &c_tsf_l);
+	hstatus = rtw_hal_get_tsf(phl->hal,
+			get_twt_i->wrole->rlink[RTW_RLINK_PRIMARY].hw_band,
+			get_twt_i->wrole->rlink[RTW_RLINK_PRIMARY].hw_port,
+			&c_tsf_h, &c_tsf_l);
 	if (RTW_HAL_STATUS_FAILURE == hstatus) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "rtw_phl_twt_get_target_wake_time(): Fail to get tsf, hstatus:%d, port:%d\n",
-		hstatus, port);
+		PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "%s: Fail to get tsf, hstatus:%d, port:%d\n",
+			__func__, hstatus, get_twt_i->wrole->rlink[RTW_RLINK_PRIMARY].hw_port);
 		goto exit;
 	}
 	cur_tsf = c_tsf_h;
 	cur_tsf = cur_tsf << 32;
 	cur_tsf |= c_tsf_l;
-	if (IGNORE_CFG_ID == id) {
-		tgt_tsf = _os_add64(cur_tsf, offset * 1000);
+	if (IGNORE_CFG_ID == get_twt_i->id) {
+		tgt_tsf = _os_add64(cur_tsf, get_twt_i->offset * 1000);
 	} else {
 		pstatus = _twt_operate_twt_config(phl, twt_cfg_i,
-					PHL_GET_CONFIG_BY_ID, &id, &config);
+				PHL_GET_CONFIG_BY_ID, &get_twt_i->id, &config);
 		if (RTW_PHL_STATUS_SUCCESS != pstatus) {
-			PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "rtw_phl_twt_get_target_wake_time(): Fail to get twt entry by id, pstatus:%d, id:%d\n",
-				pstatus, id);
+			PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "%s: Fail to get twt entry by id, pstatus:%d, id:%d\n",
+				__func__, pstatus, get_twt_i->id);
 			goto exit;
 		}
 		ref_tsf = config->twt_info.target_wake_time_h;
@@ -1789,18 +1803,82 @@ enum rtw_phl_status rtw_phl_twt_get_target_wake_time(void *phl,
 		ref_tsf |= config->twt_info.target_wake_time_l;
 		intvl = _twt_calc_intvl(config->twt_info.twt_wake_int_exp,
 					config->twt_info.twt_wake_int_mantissa);
-		tgt_tsf = _os_add64(cur_tsf, offset * 1000);
+		tgt_tsf = _os_add64(cur_tsf, get_twt_i->offset * 1000);
 		dif_tsf = _os_minus64(tgt_tsf, ref_tsf);
 		tgt_tsf = _os_minus64(tgt_tsf, _os_modular64(dif_tsf, intvl));
 		tgt_tsf = _os_add64(tgt_tsf, intvl);
 	}
-	*tsf_h = (u32)(tgt_tsf >> 32);
-	*tsf_l = (u32)(tgt_tsf);
+	*(get_twt_i->tsf_h) = (u32)(tgt_tsf >> 32);
+	*(get_twt_i->tsf_l) = (u32)(tgt_tsf);
 	pstatus = RTW_PHL_STATUS_SUCCESS;
 exit:
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== rtw_phl_twt_get_target_wake_time(): pstatus(%d), port:%d, twt_id:%d, offset:0x%08x, tsf_h: 0x%08X, tsf_l: 0x%08X\n",
-		pstatus, port, id, offset, *tsf_h, *tsf_l);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: pstatus(%d), port:%d, twt_id:%d, offset:0x%08x, tsf_h: 0x%08X, tsf_l: 0x%08X\n",
+		__func__, pstatus, get_twt_i->wrole->rlink[RTW_RLINK_PRIMARY].hw_port, get_twt_i->id,
+		get_twt_i->offset, *(get_twt_i->tsf_h), *(get_twt_i->tsf_l));
+
 	return pstatus;
+}
+
+/*
+ * get target wake time, only handle PHL_CMD_DIRECTLY or PHL_CMD_WAIT of cmd_type
+ * @wrole: Specific wrole
+ * @id: reference id of twt configuration
+ * @offset: unit: ms. An amount of time that you will start TWT from now
+ * @tsf_h: return high 4-byte value of target wake time
+ * @tsf_l: return low 4-byte value of target wake time
+ */
+enum rtw_phl_status
+rtw_phl_twt_get_target_wake_time(void *phl,
+			struct rtw_phl_twt_get_twt_i *get_twt_i,
+			enum phl_cmd_type cmd_type, u32 cmd_timeout)
+{
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+	struct phl_info_t *phl_i = (struct phl_info_t *)phl;
+	void *drv_priv = phl_to_drvpriv(phl_i);
+	struct rtw_phl_twt_get_twt_i *para = NULL;
+	u32 para_len = 0;
+
+	if (PHL_CMD_DIRECTLY != cmd_type && PHL_CMD_WAIT != cmd_type) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s error cmd_type(%d) \n",
+			__func__, cmd_type);
+		goto _exit;
+	}
+	para_len = sizeof(struct rtw_phl_twt_get_twt_i);
+	para = _os_kmem_alloc(drv_priv, para_len);
+	if (para == NULL) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s - alloc param failed!\n",
+			__func__);
+		goto _exit;
+	}
+	para->wrole = get_twt_i->wrole;
+	para->id = get_twt_i->id;
+	para->offset = get_twt_i->offset;
+	para->tsf_h = get_twt_i->tsf_h;
+	para->tsf_l = get_twt_i->tsf_l;
+	if (cmd_type == PHL_CMD_DIRECTLY) {
+		psts = phl_twt_get_target_wake_time(phl_i, (u8 *)para);
+		_os_kmem_free(drv_priv, para, para_len);
+		goto _exit;
+	}
+	psts = phl_cmd_enqueue(phl_i,
+				para->wrole->rlink[RTW_RLINK_PRIMARY].hw_band,
+				MSG_EVT_TWT_GET_TWT,
+				(u8 *)para,
+				para_len,
+				_phl_twt_get_target_wake_time_done,
+				cmd_type,
+				cmd_timeout);
+	if (is_cmd_failure(psts)) {
+		/* Send cmd success, but wait cmd fail*/
+		psts = RTW_PHL_STATUS_FAILURE;
+	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		_os_kmem_free(drv_priv, para, para_len);
+		psts = RTW_PHL_STATUS_FAILURE;
+	}
+_exit:
+	PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s psts(%d)\n", __func__, psts);
+	return psts;
 }
 
 /*
@@ -2092,6 +2170,57 @@ enum rtw_phl_status rtw_phl_twt_handle_c2h(void *phl_com, void *c)
 }
 #endif
 
+static void _phl_twt_sta_accept_twt_done(void *priv, u8 *param,
+				u32 param_len, enum rtw_phl_status sts)
+{
+	if (param) {
+		struct rtw_phl_twt_sta_accept_i *accept_i =
+				(struct rtw_phl_twt_sta_accept_i *)param;
+
+		if (accept_i->accept_done) {
+			accept_i->accept_done(priv, accept_i->sta,
+						&accept_i->setup_info, sts);
+		}
+		_os_kmem_free(priv, param, param_len);
+		param = NULL;
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s\n", __func__);
+	}
+}
+
+enum rtw_phl_status phl_twt_accept_for_sta_mode(struct phl_info_t *phl,
+			u8 *param)
+{
+	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_twt_sta_accept_i *accept_i =
+				(struct rtw_phl_twt_sta_accept_i *)param;
+	struct rtw_phl_stainfo_t *sta = accept_i->sta;
+	struct rtw_phl_twt_setup_info *setup_i = &accept_i->setup_info;
+	struct rtw_phl_twt_element *element = &setup_i->twt_element;
+	struct rtw_phl_twt_control *twt_ctrl =&element->twt_ctrl;
+	u8 cfg_id = 0;
+
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> %s()\n",
+		__func__);
+	if (false == twt_sup(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_sup == false\n",
+			__func__);
+		return pstatus;
+	}
+	if (false == twt_init(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_init == false\n",
+			__func__);
+		return pstatus;
+	}
+	if (RTW_PHL_INDIV_TWT == twt_ctrl->nego_type) {
+		pstatus = _twt_accept_indiv_by_sta(phl, setup_i, sta, &cfg_id);
+	} else {
+		pstatus = _twt_accept_bcast_by_sta(phl, setup_i, sta, &cfg_id);
+	}
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: pstatus:%d, config_id:%d\n",
+		__func__, pstatus, cfg_id);
+	return pstatus;
+}
+
 /*
  * Handle sta to config twt when sta accept the twt agreement
  * @phl_sta: sta entry that you wnat to config twt
@@ -2100,58 +2229,84 @@ enum rtw_phl_status rtw_phl_twt_handle_c2h(void *phl_com, void *c)
  * Note: for sta mode
  */
 enum rtw_phl_status rtw_phl_twt_accept_for_sta_mode(void *phl,
-			struct rtw_phl_stainfo_t *phl_sta,
-			struct rtw_phl_twt_setup_info *setup_info, u8 *id)
+				struct rtw_phl_twt_sta_accept_i *accept_i)
 {
-	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
-	struct rtw_phl_twt_element *element = &setup_info->twt_element;
-	struct rtw_phl_twt_control *twt_ctrl =&element->twt_ctrl;
+	void *drv_priv = phl_to_drvpriv(phl_info);
+	struct rtw_phl_twt_sta_accept_i *para = NULL;
+	u32 para_len = 0;
 
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> rtw_phl_twt_accept_for_sta_mode()\n");
-	if (false == twt_sup(phl_info)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_accept_for_sta_mode(): twt_sup == false\n");
-		return pstatus;
+	para_len = sizeof(struct rtw_phl_twt_sta_accept_i);
+	para = _os_kmem_alloc(drv_priv, para_len);
+	if (para == NULL) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s - alloc param failed!\n",
+			__func__);
+		goto _exit;
 	}
-	if (false == twt_init(phl_info)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_accept_for_sta_mode(): twt_init == false\n");
-		return pstatus;
+	para->accept_done = accept_i->accept_done;
+	para->sta = accept_i->sta;
+	_os_mem_cpy(drv_priv, &para->setup_info, &accept_i->setup_info,
+		sizeof(struct rtw_phl_twt_setup_info));
+	psts = phl_cmd_enqueue(phl_info,
+				para->sta->rlink->hw_band,
+				MSG_EVT_TWT_STA_ACCEPT,
+				(u8 *)para,
+				para_len,
+				_phl_twt_sta_accept_twt_done,
+				PHL_CMD_NO_WAIT,
+				0);
+	if (is_cmd_failure(psts)) {
+		/* Send cmd success, but wait cmd fail*/
+		psts = RTW_PHL_STATUS_FAILURE;
+	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		_os_kmem_free(drv_priv, para, para_len);
+		psts = RTW_PHL_STATUS_FAILURE;
 	}
-	if (RTW_PHL_INDIV_TWT == twt_ctrl->nego_type) {
-		pstatus = _twt_accept_indiv_by_sta(phl_info, setup_info, phl_sta, id);
-	} else {
-		pstatus = _twt_accept_bcast_by_sta(phl_info, setup_info, phl_sta, id);
-	}
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== rtw_phl_twt_accept_for_sta_mode(): pstatus:%d, config_id:%d\n",
-		pstatus, *id);
-	return pstatus;
+_exit:
+	return psts;
 }
 
-/*
- * Handle sta to disable twt when sta tx/rx twt teardown frame
- * @phl_sta: sta entry that you wnat to config twt
- * @twt_flow: twt flow field info
- * Note: for sta mode.
- */
-enum rtw_phl_status rtw_phl_twt_teardown_for_sta_mode(void *phl,
-				struct rtw_phl_stainfo_t *phl_sta,
-				struct rtw_phl_twt_flow_field *twt_flow)
+static void _phl_twt_sta_teardown_done(void *priv, u8 *param,
+				u32 param_len, enum rtw_phl_status sts)
+{
+	if (param) {
+		struct rtw_phl_twt_sta_teardown_i *teardown_i =
+				(struct rtw_phl_twt_sta_teardown_i *)param;
+
+		if (teardown_i->teardown_done) {
+			teardown_i->teardown_done(priv, teardown_i->sta, sts);
+		}
+		_os_kmem_free(priv, param, param_len);
+		param = NULL;
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s\n", __func__);
+	}
+}
+
+enum rtw_phl_status phl_twt_teardown_for_sta_mode(struct phl_info_t *phl,
+				u8 *param)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
-	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct rtw_phl_twt_sta_teardown_i *teardown_i =
+				(struct rtw_phl_twt_sta_teardown_i *)param;
 	u8 bitmap =0; /*bitmap of empty config of twt*/
 	u8 i = 0;
 
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> rtw_phl_twt_teardown_for_sta_mode()\n");
-	if (false == twt_sup(phl_info)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_teardown_for_sta_mode(): twt_sup == false\n");
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> %s()\n",
+		__func__);
+	if (false == twt_sup(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_sup == false\n",
+			__func__);
 		goto exit;
 	}
-	if (false == twt_init(phl_info)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_teardown_for_sta_mode(): twt_init == false\n");
+	if (false == twt_init(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_init == false\n",
+			__func__);
 		goto exit;
 	}
-	pstatus = rtw_phl_twt_teardown_sta(phl, phl_sta, twt_flow, &bitmap);
+	pstatus = rtw_phl_twt_teardown_sta(phl, teardown_i->sta,
+						&teardown_i->twt_flow, &bitmap);
 	if (RTW_PHL_STATUS_SUCCESS != pstatus)
 		goto exit;
 	if (bitmap == 0)
@@ -2160,14 +2315,63 @@ enum rtw_phl_status rtw_phl_twt_teardown_for_sta_mode(void *phl,
 	do {
 		if (((bitmap >> i) & BIT0)) {
 			pstatus = rtw_phl_twt_free_twt_config(phl, i);
-			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "rtw_phl_twt_teardown_for_sta_mode():sta Q is empty in twt config entry(%d), we free it, pstatus:%d \n",
-				i, pstatus);
+			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: sta Q is empty in twt config entry(%d), we free it, pstatus:%d \n",
+				__func__, i, pstatus);
 		}
 		i++;
 	} while ((bitmap >> i) != 0);
 exit:
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== rtw_phl_twt_teardown_for_sta_mode(): pstatus(%d)\n",
-		pstatus);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: pstatus(%d)\n",
+		__func__, pstatus);
 	return pstatus;
 }
+
+/*
+ * Handle sta to disable twt when sta tx/rx twt teardown frame
+ * @struct teardown_i:
+ * @phl_sta: sta entry that you wnat to config twt
+ * @twt_flow: twt flow field info
+ * @teardown_done: callback function after process cmd done
+ * Note: for sta mode.
+ */
+enum rtw_phl_status rtw_phl_twt_teardown_for_sta_mode(void *phl,
+			struct rtw_phl_twt_sta_teardown_i *teardown_i)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	void *drv_priv = phl_to_drvpriv(phl_info);
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_twt_sta_teardown_i *para = NULL;
+	u32 para_len = 0;
+
+	para_len = sizeof(struct rtw_phl_twt_sta_teardown_i);
+	para = _os_kmem_alloc(drv_priv, para_len);
+	if (para == NULL) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s - alloc param failed!\n", __func__);
+		goto _exit;
+	}
+	para->teardown_done = teardown_i->teardown_done;
+	para->sta = teardown_i->sta;
+	_os_mem_cpy(drv_priv, &para->twt_flow, &teardown_i->twt_flow,
+			sizeof(struct rtw_phl_twt_flow_field));
+	psts = phl_cmd_enqueue(phl_info,
+				para->sta->rlink->hw_band,
+				MSG_EVT_TWT_STA_TEARDOWN,
+				(u8 *)para,
+				para_len,
+				_phl_twt_sta_teardown_done,
+				PHL_CMD_NO_WAIT,
+				0);
+
+	if (is_cmd_failure(psts)) {
+		/* Send cmd success, but wait cmd fail*/
+		psts = RTW_PHL_STATUS_FAILURE;
+	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		_os_kmem_free(drv_priv, para, para_len);
+		psts = RTW_PHL_STATUS_FAILURE;
+	}
+_exit:
+	return psts;
+}
+
 #endif /* CONFIG_PHL_TWT */

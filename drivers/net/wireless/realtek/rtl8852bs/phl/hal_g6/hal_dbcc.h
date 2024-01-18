@@ -15,6 +15,13 @@
 #ifndef _HAL_DBCC_H_
 #define _HAL_DBCC_H_
 
+enum phl_phy_idx
+hal_dbcc_cck_phyidx_decision(struct hal_info_t *hal_info,
+					     struct rtw_phl_com_t *phl_com,
+					     bool dbcc_en);
+
+void
+hal_dbcc_cfg_phy_map(struct hal_info_t *hal, enum phl_band_idx band_idx);
 
 #endif /* _HAL_DBCC_H_ */
 

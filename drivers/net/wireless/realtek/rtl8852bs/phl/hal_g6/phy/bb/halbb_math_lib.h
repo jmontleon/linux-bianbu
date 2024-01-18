@@ -57,6 +57,9 @@
 #define BIT_2_BYTE(B3, B2, B1, B0)	\
 	(((B3) << 3) | ((B2) << 2) | ((B1) << 1) | (B0))
 
+#define NIBBLE_2_BYTE(B1, B0)	\
+	((((B1) & 0xf) << 4) | ((B0) & 0xf))
+
 #define NIBBLE_2_WORD(B3, B2, B1, B0)	\
 	((((B3) & 0xf) << 12) | (((B2) & 0xf) << 8) |\
 	(((B1) & 0xf) << 4) | ((B0) & 0xf))
@@ -71,13 +74,16 @@
 #define SWAP4BYTE(x) ((u32)(x))
 #else
 #define SWAP4BYTE(x)                                       \
-		((u32)((((u32)(x) & (u32)0x000000ff) << 24) |  \
-		       (((u32)(x) & (u32)0x0000ff00) << 8) |	 \
-		       (((u32)(x) & (u32)0x00ff0000) >> 8) |	 \
-		       (((u32)(x) & (u32)0xff000000) >> 24)))
+	((u32)((((u32)(x) & (u32)0x000000ff) << 24) |  \
+	       (((u32)(x) & (u32)0x0000ff00) << 8) |     \
+	       (((u32)(x) & (u32)0x00ff0000) >> 8) |     \
+	       (((u32)(x) & (u32)0xff000000) >> 24)))
 #endif
 
 #define HALBB_DIV(a, b) ((b) ? ((a) / (b)) : 0)
+#define HALBB_DIV_U64(a, b) ((b) ? (_os_division64((u64)(a), (u64)(b))) : 0)
+
+#define HALBB_DIV_ROUND(a, b) ((b) ? (((a) + (b / 2)) / (b)) : 0)
 #define HALBB_CEIL(a, b) ((b) ? ((a) / (b) + (a > (a / b) * b)) : 0)
 #define ABS_32(X) (((X) & BIT(31)) ? (0 - (X)) : (X))
 #define ABS_16(X) (((X) & BIT(15)) ? (0 - (X)) : (X))
@@ -119,4 +125,6 @@ char *halbb_print_sign_frac_digit2(struct bb_info *bb, u32 val, u8 total_bit_num
 				 u8 frac_bit_num);
 void halbb_print_buff_64(struct bb_info *bb, u8 *addr, u16 length);
 void halbb_print_buff_32(struct bb_info *bb, u8 *addr, u16 length);
+void halbb_math_dbg(struct bb_info *bb, char input[][16], u32 *_used,
+		    char *output, u32 *_out_len);
 #endif

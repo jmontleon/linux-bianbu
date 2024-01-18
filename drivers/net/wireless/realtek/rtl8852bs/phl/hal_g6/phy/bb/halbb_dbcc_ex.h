@@ -28,9 +28,17 @@
 /*@--------------------------[Define] ---------------------------------------*/
 
 /*@--------------------------[Enum]------------------------------------------*/
- 
+
 /*@--------------------------[Structure]-------------------------------------*/
+struct bb_dbcc_cfg_info {
+	bool dbcc_en;
+	enum phl_phy_idx cck_phy_map;
+};
 
 /*@--------------------------[Prptotype]-------------------------------------*/
-
+struct bb_info;
+void halbb_dbcc_band_switch_notify(struct bb_info *bb);
+bool halbb_ctrl_dbcc(struct bb_info *bb, bool dbcc_enable);
+bool halbb_cfg_dbcc_cck_phy_map(struct bb_info *bb, enum phl_phy_idx cck_phy_map);
+bool halbb_cfg_dbcc(struct bb_info *bb, struct bb_dbcc_cfg_info *cfg);
 #endif

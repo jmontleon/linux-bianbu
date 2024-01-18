@@ -30,10 +30,23 @@
 #if MAC_AX_8192XB_SUPPORT
 #include "mac_8192xb/init_8192xb.h"
 #endif
+#if MAC_AX_8851B_SUPPORT
+#include "mac_8851b/init_8851b.h"
+#endif
+#if MAC_AX_8851E_SUPPORT
+#include "mac_8851e/init_8851e.h"
+#endif
+#if MAC_AX_8852D_SUPPORT
+#include "mac_8852d/init_8852d.h"
+#endif
+#if MAC_AX_1115E_SUPPORT
+#include "mac_1115e/init_1115e.h"
+#endif
 
 #include "role.h"
 #include "fwdl.h"
 #include "mport.h"
+#include "phy_rpt.h"
 #if MAC_AX_PCIE_SUPPORT
 #include "_pcie.h"
 #endif

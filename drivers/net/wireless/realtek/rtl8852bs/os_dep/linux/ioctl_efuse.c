@@ -125,7 +125,7 @@ static u8 rtw_efuse_fake2map(_adapter *padapter, u8 efuse_type)
 	return res;
 }
 
-static u8 rtw_efuse_read_map2shadow(_adapter *padapter, u8 efuse_type)
+u8 rtw_efuse_read_map2shadow(_adapter *padapter, u8 efuse_type)
 {
 	struct rtw_efuse_phl_arg *efuse_arg = NULL;
 	u8 res = _SUCCESS;
@@ -216,12 +216,12 @@ static bool rtw_file_efuse_ismasked(_adapter *padapter, u16 offset, u8 *maskbuf)
 }
 
 static u8 rtw_efuse_compare_data(_adapter *padapter,
-				u8 addr, u32 len, u8 *dst, u8 *src, u8 efuse_type)
+				u16 addr, u32 len, u8 *dst, u8 *src, u8 efuse_type)
 {
 	struct rtw_efuse_phl_arg *efuse_arg = NULL;
 	enum rtw_efuse_phl_cmdid cmdid = RTW_EFUSE_CMD_WIFI_GET_MASK_BUF;
 	u8 res = _FAIL;
-	u16 idx = addr;
+	u16 idx = 0;
 
 	efuse_arg = _rtw_malloc(sizeof(struct rtw_efuse_phl_arg));
 
@@ -243,15 +243,17 @@ static u8 rtw_efuse_compare_data(_adapter *padapter,
 			RTW_MAP_DUMP_SEL(RTW_DBGDUMP, "efuse mask buf:",
 				efuse_arg->poutbuf, efuse_arg->buf_len);
 
-			for (; idx <= len; idx++) {
-				if (!rtw_file_efuse_ismasked(padapter, idx, efuse_arg->poutbuf)) {
-					if (_rtw_memcmp((void *)dst+idx , (void *)src+idx, 1)) {
-						RTW_INFO("mask cmp success addr: 0x%x dst: %02x <=> src:%02x\n",
-										idx, dst[idx], src[idx]);
+			for (idx = 0; idx + addr < (addr + len); idx++) {
+					u16 chkaddr = idx + addr;
+
+				if (!rtw_file_efuse_ismasked(padapter, chkaddr, efuse_arg->poutbuf)) {
+					if (_rtw_memcmp((void *)dst + chkaddr , (void *)src + idx, 1)) {
+						RTW_INFO("mask cmp success addr: 0x%x cur dst: %02x <=> PG src:%02x\n",
+										idx, dst[chkaddr], src[idx]);
 						res = _SUCCESS;
 					} else {
-						RTW_INFO("mask cmp Fail addr: 0x%x dst: %02x <=> src:%02x\n",
-										idx, dst[idx], src[idx]);
+						RTW_INFO("mask cmp Fail addr: 0x%x cur dst: %02x <=> PG src:%02x\n",
+										chkaddr, dst[chkaddr], src[idx]);
 						res  = _FAIL;
 						break;
 					}
@@ -448,6 +450,8 @@ static u8 rtw_efuse_mask_file_load(_adapter *padapter, u8 *filepath, u8 efuse_ty
 	if (filepath) {
 		RTW_INFO("efuse file path %s len %zu", filepath, strlen(filepath));
 		efuse_arg = _rtw_malloc(sizeof(struct rtw_efuse_phl_arg));
+		efuse_arg->status == RTW_PHL_STATUS_FAILURE;
+
 		if (efuse_arg) {
 			_rtw_memset((void *)efuse_arg, 0, sizeof(struct rtw_efuse_phl_arg));
 			_rtw_memcpy(efuse_arg->pfile_path, filepath, strlen(filepath));
@@ -949,8 +953,6 @@ int rtw_ioctl_efuse_set(struct net_device *dev,
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
 
-	u8 ips_mode = IPS_NUM; /* init invalid value */
-	u8 lps_mode = PM_PS_MODE_NUM; /* init invalid value */
 	u32 i = 0, j = 0, jj = 0, kk = 0;
 	u8 *setdata = NULL;
 	u8 *shadowmap = NULL;
@@ -977,16 +979,6 @@ int rtw_ioctl_efuse_set(struct net_device *dev,
 		err = -ENOMEM;
 		goto exit;
 	}
-
-#ifdef CONFIG_LPS
-	lps_mode = pwrctrlpriv->power_mgnt;/* keep org value */
-	rtw_pm_set_lps(padapter, PM_PS_MODE_ACTIVE);
-#endif
-
-#ifdef CONFIG_IPS
-	ips_mode = pwrctrlpriv->ips_mode;/* keep org value */
-	rtw_pm_set_ips(padapter, IPS_NONE);
-#endif
 
 	pch = extra;
 	RTW_INFO("%s: in=%s\n", __FUNCTION__, extra);
@@ -1334,16 +1326,6 @@ exit:
 
 	wrqu->length = strlen(extra);
 
-	if (padapter->registrypriv.mp_mode == 0) {
-#ifdef CONFIG_IPS
-		rtw_pm_set_ips(padapter, ips_mode);
-#endif /* CONFIG_IPS */
-
-#ifdef CONFIG_LPS
-		rtw_pm_set_lps(padapter, lps_mode);
-#endif /* CONFIG_LPS */
-	}
-
 	return err;
 }
 
@@ -1436,7 +1418,9 @@ int rtw_ioctl_efuse_bt_file_map_load(struct net_device *dev,
 			sprintf(extra, "BT efuse Map file file_read FAIL\n");
 		}
 	} else {
-		sprintf(extra, "BT efuse file readable FAIL\n");
+		sprintf(extra, "BT efuse file readable FAIL\n"
+				"indicate the file path and directory to CMD next space,\n"
+				"CMD format:rtwpriv wlan0 bt_efuse_file /xx/xx/xx/efuse.map\n");
 		RTW_INFO("%s BT rtw_is_file_readable fail!\n", __func__);
 	}
 
@@ -1468,7 +1452,9 @@ int rtw_ioctl_efuse_bt_file_mask_load(struct net_device *dev,
 			sprintf(extra, "BT efuse Mask file file_read FAIL\n");
 		}
 	} else {
-		sprintf(extra, "BT efuse file readable FAIL\n");
+		sprintf(extra, "BT efuse file readable FAIL\n"
+			"indicate the file path and directory to CMD next space,\n"
+			"CMD format:rtwpriv wlan0 efuse_bt_mask /xx/xx/xx/efuse.mask\n");
 		RTW_INFO("%s BT rtw_is_file_readable fail!\n", __func__);
 	}
 

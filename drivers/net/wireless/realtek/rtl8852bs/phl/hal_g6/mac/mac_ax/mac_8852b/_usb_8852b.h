@@ -19,6 +19,7 @@
 
 #include "../../type.h"
 #include "../_usb.h"
+#if MAC_AX_8852B_SUPPORT
 
 /**
  * @struct wd_body_usb
@@ -481,6 +482,13 @@ u32 set_usb_wowlan_8852b(struct mac_ax_adapter *adapter,
  */
 
 /**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup USB
+ * @{
+ */
+
+/**
  * @brief usb_get_txagg_num_88852b
  *
  * @param *adapter
@@ -492,6 +500,13 @@ u32 usb_get_txagg_num_8852b(struct mac_ax_adapter *adapter, u8 band);
 /**
  * @}
  * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup USB
+ * @{
  */
 
 /**
@@ -519,4 +534,5 @@ u32 usb_ep_cfg_8852b(struct mac_ax_adapter *adapter, struct mac_ax_usb_ep *cfg);
  * @}
  * @}
  */
+#endif /* #if MAC_AX_8852B_SUPPORT */
 #endif

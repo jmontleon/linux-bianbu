@@ -32,6 +32,10 @@ struct phl_watchdog {
 
 	/* I/O, tx behavior, request power, ... */
 	void (*core_hw_wdog)(void *drv_priv);
+#ifdef PHL_WATCHDOG_REFINE
+	/* Only sw statistics or sw behavior, this is will be call before trigger next watchdog */
+	void (*core_post_sw_wdog)(void *drv_priv);
+#endif
 	u16 period;
 };
 void
@@ -40,8 +44,8 @@ enum rtw_phl_status
 phl_watchdog_hw_cmd_hdl(struct phl_info_t *phl_info, enum rtw_phl_status psts);
 enum rtw_phl_status
 phl_watchdog_sw_cmd_hdl(struct phl_info_t *phl_info, enum rtw_phl_status psts);
+void rtw_phl_watchdog_start(void *phl);
 void rtw_phl_watchdog_stop(void *phl);
-
 
 #ifdef CONFIG_FSM
 void rtw_phl_watchdog_callback(void *phl);

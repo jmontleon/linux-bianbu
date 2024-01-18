@@ -443,7 +443,9 @@ static u8 rtw_mbo_current_op_class_get(_adapter *padapter)
 {
 	struct rf_ctl_t *prfctl = adapter_to_rfctl(padapter);
 	struct p2p_channels *pch_list =  &(prfctl->channel_list);
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
 	struct p2p_reg_class *preg_class;
 	int class_idx, ch_idx;
 	u8 cur_op_class = 0;
@@ -626,7 +628,8 @@ exit:
 void rtw_mbo_build_extended_cap(
 	_adapter *padapter, u8 **pframe, struct pkt_attrib *pattrib)
 {
-	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
+	struct _ADAPTER_LINK *padapter_link = pattrib->adapter_link;
+	struct link_mlme_priv *pmlmepriv = &(padapter_link->mlmepriv);
 
 	if (!rtw_mbo_wifi_logo_test(padapter))
 		return;
@@ -910,16 +913,18 @@ static void rtw_mbo_disassoc(_adapter *padapter, u8 *da,
 			u8 reason, u8 wait_ack)
 {
 	struct xmit_frame *pmgntframe;
-        struct pkt_attrib *pattrib;
-        struct rtw_ieee80211_hdr *pwlanhdr;
-        struct xmit_priv *pxmitpriv = &(padapter->xmitpriv);
-        struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-        struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
-        u8 *pframe;
-        u16 *fctrl;
-        int ret = _FAIL;
+	struct pkt_attrib *pattrib;
+	struct rtw_ieee80211_hdr *pwlanhdr;
+	struct xmit_priv *pxmitpriv = &(padapter->xmitpriv);
+	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
+	u8 *pframe;
+	u16 *fctrl;
+	int ret = _FAIL;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_ext_info *pmlmeinfo = &(padapter_link->mlmeextpriv.mlmext_info);
 
-	if (adapter_is_tx_blocked_by_ch_waiting(padapter))
+	if (alink_is_tx_blocked_by_ch_waiting(padapter_link))
 		return;
 
 	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
@@ -928,7 +933,7 @@ static void rtw_mbo_disassoc(_adapter *padapter, u8 *da,
 
 	/* update attribute */
 	pattrib = &pmgntframe->attrib;
-	update_mgntframe_attrib(padapter, pattrib);
+	update_mgntframe_attrib(padapter, padapter_link, pattrib);
 	pattrib->retry_ctrl = _FALSE;
         pattrib->key_type = IEEE80211W_RIGHT_KEY;
 
@@ -940,8 +945,7 @@ static void rtw_mbo_disassoc(_adapter *padapter, u8 *da,
 
 	_rtw_memcpy(pwlanhdr->addr1, da, ETH_ALEN);
 	_rtw_memcpy(pwlanhdr->addr2, adapter_mac_addr(padapter), ETH_ALEN);
-	_rtw_memcpy(pwlanhdr->addr3,
-		get_my_bssid(&(pmlmeinfo->network)), ETH_ALEN);
+	_rtw_memcpy(pwlanhdr->addr3, get_my_bssid(&(pmlmeinfo->network)), ETH_ALEN);
 
 	SetSeqNum(pwlanhdr, pmlmeext->mgnt_seq);
 	pmlmeext->mgnt_seq++;
@@ -1443,8 +1447,9 @@ static void rtw_mbo_build_ap_capability(
 	_adapter *padapter, u8 **pframe,
 	struct pkt_attrib *pattrib)
 {
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct _ADAPTER_LINK *padapter_link = pattrib->adapter_link;
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
+	struct link_mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX *cur_network = &(pmlmeinfo->network);
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct mbo_attr_info *pmbo_attr = &(pmlmepriv->mbo_attr);
@@ -1560,8 +1565,9 @@ void rtw_mbo_build_probe_rsp_ies(
 void rtw_mbo_build_assoc_rsp_ies(
 	_adapter *padapter, u8 **pframe, struct pkt_attrib *pattrib)
 {
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct _ADAPTER_LINK *padapter_link = pattrib->adapter_link;
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
+	struct link_mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX *cur_network = &(pmlmeinfo->network);
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct mbo_attr_info *pmbo_attr = &(pmlmepriv->mbo_attr);
@@ -1596,8 +1602,9 @@ void rtw_mbo_build_assoc_rsp_ies(
 void rtw_mbo_build_wnm_btmreq_reason_ies(
 	_adapter *padapter, u8 **pframe, struct pkt_attrib *pattrib)
 {
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct _ADAPTER_LINK *padapter_link = pattrib->adapter_link;
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
+	struct link_mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX *cur_network = &(pmlmeinfo->network);
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct mbo_attr_info *pmbo_attr = &(pmlmepriv->mbo_attr);

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -14,8 +14,9 @@
  *****************************************************************************/
 #define _RTW_SDIO_C_
 
-#include <drv_types.h>		/* struct dvobj_priv and etc. */
-#include <drv_types_sdio.h>	/* RTW_SDIO_ADDR_CMD52_GEN */
+/*#include "drv_types_sdio.h"*/	/* RTW_SDIO_ADDR_CMD52_GEN */
+#include "drv_types.h"		/* drv_types_sdio.h, struct dvobj_priv and etc. */
+#include "sdio_ops.h"		/* rtw_sdio_raw_read(), rtw_sdio_raw_write() */
 
 /*
  * Description:
@@ -57,9 +58,9 @@ static u8 sdio_io(struct dvobj_priv *d, u32 addr, void *buf, size_t len, u8 writ
 
 	do {
 		if (write)
-			err = d->intf_ops->write(d, addr_drv, buf, len, 0);
+			err = rtw_sdio_raw_write(d, addr_drv, buf, len, 0);
 		else
-			err = d->intf_ops->read(d, addr_drv, buf, len, 0);
+			err = rtw_sdio_raw_read(d, addr_drv, buf, len, 0);
 		if (!err) {
 			if (retry) {
 				RTW_INFO("%s: Retry %s OK! addr=0x%05x %zu bytes, retry=%u,%u\n",
@@ -142,7 +143,7 @@ u8 rtw_sdio_f0_read(struct dvobj_priv *d, u32 addr, void *buf, size_t len)
 	ret = _SUCCESS;
 	addr = RTW_SDIO_ADDR_F0_GEN(addr);
 
-	err = d->intf_ops->read(d, addr, buf, len, 0);
+	err = rtw_sdio_raw_read(d, addr, buf, len, 0);
 	if (err)
 		ret = _FAIL;
 
@@ -172,3 +173,36 @@ size_t rtw_sdio_cmd53_align_size(struct dvobj_priv *d, size_t len)
 
 	return _RND(len, blk_sz);
 }
+
+static s32 sdio_init_xmit_priv(struct _ADAPTER *a)
+{
+#ifdef CONFIG_TX_AMSDU_SW_MODE
+	rtw_tasklet_init(&a->xmitpriv.xmit_tasklet,
+			(void *)core_tx_amsdu_tasklet,
+			(unsigned long)a);
+#endif
+	return _SUCCESS;
+}
+
+static void sdio_free_xmit_priv(_adapter *adapter)
+{
+}
+
+static s32 sdio_init_recv_priv(struct dvobj_priv *dvobj)
+{
+	return _SUCCESS;
+}
+
+static void sdio_free_recv_priv(struct dvobj_priv *dvobj)
+{
+}
+
+struct rtw_intf_ops sdio_ops = {
+	/****************** xmit *********************/
+	.init_xmit_priv = sdio_init_xmit_priv,
+	.free_xmit_priv = sdio_free_xmit_priv,
+
+	/******************  recv *********************/
+	.init_recv_priv = sdio_init_recv_priv,
+	.free_recv_priv = sdio_free_recv_priv,
+};

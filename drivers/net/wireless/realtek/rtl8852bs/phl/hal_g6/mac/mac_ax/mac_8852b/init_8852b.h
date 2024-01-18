@@ -18,6 +18,7 @@
 #define _MAC_AX_INIT_8852B_H_
 
 #include "../../type.h"
+#if MAC_AX_8852B_SUPPORT
 
 #ifdef CONFIG_NEW_HALMAC_INTERFACE
 struct mac_ax_adapter *get_mac_8852b_adapter(enum mac_ax_intf intf,
@@ -29,4 +30,10 @@ struct mac_ax_adapter *get_mac_8852b_adapter(enum mac_ax_intf intf,
 					     u8 cv, void *drv_adapter,
 					     struct mac_ax_pltfm_cb *pltfm_cb);
 #endif
+
+u32 dmac_func_en_8852b(struct mac_ax_adapter *adapter);
+
+u32 dmac_func_pre_en_8852b(struct mac_ax_adapter *adapter);
+
+#endif /* #if MAC_AX_8852B_SUPPORT */
 #endif

@@ -29,17 +29,29 @@ enum rtw_phl_status
 phl_chanctx_free(struct phl_info_t *phl_info, struct hw_band_ctl_t *band_ctl);
 
 enum rtw_phl_status
-phl_set_ch_bw(struct rtw_wifi_role_t *wifi_role,
-		 struct rtw_chan_def *chdef, bool do_rfk);
+phl_set_ch_bw(struct phl_info_t *phl_info, u8 band_idx,
+		 struct rtw_chan_def *chdef, enum rfk_tri_type rt_type);
 
 
-bool rtw_phl_chanctx_add(void *phl, struct rtw_wifi_role_t *wifi_role,
-		u8 *chan, enum channel_width *bw, enum chan_offset *offset);
+bool rtw_phl_chanctx_add(void *phl,
+                         struct rtw_wifi_role_t *wifi_role,
+                         struct rtw_wifi_role_link_t *rlink,
+                         struct rtw_chan_def *new_chdef,
+                         struct rtw_mr_chctx_info *mr_cc_info);
 
-int rtw_phl_chanctx_del(void *phl, struct rtw_wifi_role_t *wifi_role,
-						struct rtw_chan_def *chan_def);
+int rtw_phl_chanctx_del(void *phl,
+                        struct rtw_wifi_role_t *wifi_role,
+                        struct rtw_wifi_role_link_t *rlink,
+                        struct rtw_chan_def *chan_def);
 
 #ifdef CONFIG_CMD_DISP
+struct setch_param {
+	struct rtw_wifi_role_t *wrole;
+	struct rtw_wifi_role_link_t *rlink;
+	struct rtw_chan_def chdef;
+	enum rfk_tri_type rt_type;
+};
+
 enum rtw_phl_status
 phl_cmd_chg_op_chdef_start_hdl(struct phl_info_t *phl, u8 *param);
 
@@ -47,8 +59,9 @@ enum rtw_phl_status
 phl_cmd_set_ch_bw_hdl(struct phl_info_t *phl_info, u8 *param);
 enum rtw_phl_status
 rtw_phl_cmd_set_ch_bw(struct rtw_wifi_role_t *wifi_role,
+                      struct rtw_wifi_role_link_t *rlink,
                       struct rtw_chan_def *chdef,
-                      bool do_rfk,
+                      enum rfk_tri_type rt_type,
                       enum phl_cmd_type cmd_type,
                       u32 cmd_timeout);
 enum rtw_phl_status
@@ -67,12 +80,11 @@ void phl_chan_dump_chandef(const char *caller, const int line, bool show_caller,
 
 #ifdef CONFIG_DBCC_SUPPORT
 enum rtw_phl_status
-rtw_phl_dbcc_test(void *phl, enum dbcc_test_id id, void *param);
+phl_chanctx_switch(struct phl_info_t *phl_info,
+	struct hw_band_ctl_t *dest, struct hw_band_ctl_t *src);
 #endif
 
-enum band_type rtw_phl_get_band_type(u8 chan);
-u8 rtw_phl_get_center_ch(u8 ch,
-	enum channel_width bw, enum chan_offset offset);
+u8 rtw_phl_get_center_ch(struct rtw_chan_def *chan_def);
 int rtw_phl_bch2freq(enum band_type band, int ch);
 bool rtw_phl_bchbw_to_freq_range(enum band_type band, u8 ch
 	, enum channel_width bw, enum chan_offset offset, u32 *hi, u32 *lo);
@@ -87,4 +99,8 @@ rtw_phl_get_chandef_from_operating_class(
 	u8 operating_class,
 	struct rtw_chan_def *chan_def
 );
+
+void rtw_phl_set_chsw_ofld_info(struct rtw_phl_com_t *phl_com,
+	bool chsw_ofld_en, bool rf_reload, bool skip_normal_watchdog);
+
 #endif /*_PHL_CHANA_H_*/

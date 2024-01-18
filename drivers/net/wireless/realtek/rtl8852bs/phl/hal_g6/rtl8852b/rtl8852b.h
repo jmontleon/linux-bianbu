@@ -14,7 +14,6 @@
  *****************************************************************************/
 #ifndef _RTL8852B_H_
 #define _RTL8852B_H_
-#include "../hal_headers.h"
 
 /*to communicate with upper-hal*/
 #ifdef CONFIG_PCI_HCI

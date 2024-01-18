@@ -653,7 +653,7 @@ void rtw_wapi_on_assoc_ok(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE)
 	pWapiSta = (PRT_WAPI_STA_INFO)list_entry(pWapiInfo->wapiSTAIdleList.next, RT_WAPI_STA_INFO, list);
 	list_del_init(&pWapiSta->list);
 	list_add_tail(&pWapiSta->list, &pWapiInfo->wapiSTAUsedList);
-	_rtw_memcpy(pWapiSta->PeerMacAddr, padapter->mlmeextpriv.mlmext_info.network.MacAddress, 6);
+	_rtw_memcpy(pWapiSta->PeerMacAddr, padapter->mlmeextpriv.mlmext_info.dev_network.MacAddress, 6);
 	_rtw_memcpy(pWapiSta->lastRxMulticastPN, WapiAEMultiCastPNInitialValueSrc, 16);
 	_rtw_memcpy(pWapiSta->lastRxUnicastPN, WapiAEPNInitialValueSrc, 16);
 
@@ -1257,6 +1257,9 @@ bool rtw_wapi_drop_for_key_absent(_adapter *padapter, u8 *pRA)
 void rtw_wapi_set_set_encryption(_adapter *padapter, struct ieee_param *param)
 {
 	struct security_priv *psecuritypriv = &padapter->securitypriv;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_security_priv *lsecuritypriv = &padapter_link->securitypriv;
 	struct mlme_priv	*pmlmepriv = &padapter->mlmepriv;
 	PRT_WAPI_T			pWapiInfo = &padapter->wapiInfo;
 	PRT_WAPI_STA_INFO	pWapiSta;
@@ -1297,7 +1300,7 @@ void rtw_wapi_set_set_encryption(_adapter *padapter, struct ieee_param *param)
 				_rtw_memcpy(pWapiSta->wapiMsk.dataKey, param->u.crypt.key, 16);
 				_rtw_memcpy(pWapiSta->wapiMsk.micKey, param->u.crypt.key + 16, 16);
 				pWapiSta->wapiMsk.keyId = param->u.crypt.idx;
-				psecuritypriv->dot118021XGrpKeyid = param->u.crypt.idx;
+				lsecuritypriv->dot118021XGrpKeyid = param->u.crypt.idx;
 				pWapiSta->wapiMsk.bTxEnable = false;
 				if (!pWapiSta->bSetkeyOk)
 					pWapiSta->bSetkeyOk = true;

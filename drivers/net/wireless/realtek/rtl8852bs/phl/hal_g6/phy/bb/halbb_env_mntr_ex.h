@@ -30,24 +30,18 @@
 /*NHM*/
 #define	NHM_TH_NUM		11	/*threshold number of NHM*/
 #define	NHM_RPT_NUM		12
-/*FAHM*/
-#define	FAHM_INCLU_FA		BIT(0)
-#define	FAHM_INCLU_CRC_OK	BIT(1)
-#define	FAHM_INCLU_CRC_ERR	BIT(2)
-#define	FAHM_TH_NUM		11	/*threshold number of FAHM*/
-#define	FAHM_RPT_NUM		12
 /*IFS-CLM*/
 #define	IFS_CLM_NUM		4
+#define	BE_IFS_CLM_NUM		5
 
 /*--------------------------[Enum]------------------------------------------*/
 enum mntr_result_lv {
 	CCX_FAIL		= 0,
 	NHM_SUCCESS		= BIT(0),
 	CLM_SUCCESS		= BIT(1),
-	FAHM_SUCCESS		= BIT(2),
-	IFS_CLM_SUCCESS		= BIT(3),
-	EDCCA_CLM_SUCCESS	= BIT(4),
-	CCX_SUCCESS		= 0x1f,
+	IFS_CLM_SUCCESS		= BIT(2),
+	EDCCA_CLM_SUCCESS		= BIT(3),
+	CCX_SUCCESS		= 0xf, /*exclude FAHM*/
 };
 
 enum halbb_racing_lv {
@@ -60,20 +54,28 @@ enum halbb_racing_lv {
 };
 
 enum ccx_edcca_opt_sc_idx {
-	CCX_EDCCA_SEG0_P0	= 0,	/*seg0:p20*/
-	CCX_EDCCA_SEG0_S1	= 1,	/*seg0:s20*/
-	CCX_EDCCA_SEG0_S2	= 2,	/*seg0:s40, opposite of p20*/
-	CCX_EDCCA_SEG0_S3	= 3,	/*seg0:s40, opposite of s20*/
-	CCX_EDCCA_SEG1_P0	= 4,	/*seg1:p20*/
-	CCX_EDCCA_SEG1_S1	= 5,	/*seg1:s20*/
-	CCX_EDCCA_SEG1_S2	= 6,	/*seg1:s40, opposite of p20*/
-	CCX_EDCCA_SEG1_S3	= 7	/*seg1:s40, opposite of s20*/
+	CCX_EDCCA_P0	= 0,	/*p20*/
+	CCX_EDCCA_S1	= 1,	/*s20*/
+	CCX_EDCCA_S2	= 2,	/*s40, opposite of p20*/
+	CCX_EDCCA_S3	= 3,	/*s40, opposite of s20*/
 };
 
-enum nhm_option_cca_all {
+enum nhm_opt_cca_all {
 	NHM_EXCLUDE_CCA		= 0,
 	NHM_INCLUDE_CCA		= 1,
 	NHM_CCA_INIT
+};
+
+enum nhm_opt_nav_en {
+	NHM_NAV_EN_DISABLED	= 0,
+	NHM_NAV_EN_ENABLED	= 1,
+	NHM_NAV_EN_INIT
+};
+
+enum nhm_opt_rssi_th_en {
+	NHM_RSSI_TH_EN_DISABLED	= 0,
+	NHM_RSSI_TH_EN_ENABLED	= 1,
+	NHM_RSSI_TH_EN_INIT
 };
 
 enum clm_opt_input {
@@ -88,54 +90,63 @@ enum clm_opt_input {
 	CLM_CCA_INIT
 };
 
+enum be_clm_opt_input {
+	BE_CLM_CCA_P20			= 0,
+	BE_CLM_CCA_S20			= 1,
+	BE_CLM_CCA_S40			= 2,
+	BE_CLM_CCA_S80			= 3,
+	BE_CLM_CCA_S160			= 4,
+	BE_CLM_FROM_DBG			= 5,
+	BE_CLM_TXON_CCA			= 6,
+	BE_CLM_CCA_S160_S80_S40_S20	= 7,
+	BE_CLM_CCA_S160_S80_S40_S20_P20	= 8,
+	BE_CLM_CCA_INIT
+};
+
+enum clm_opt_nav_en {
+	CLM_NAV_EN_DISABLED	= 0,
+	CLM_NAV_EN_ENABLED	= 1,
+	CLM_NAV_EN_INIT
+};
+
+enum clm_opt_rssi_th_en {
+	CLM_RSSI_TH_EN_DISABLED	= 0,
+	CLM_RSSI_TH_EN_ENABLED	= 1,
+	CLM_RSSI_TH_EN_INIT
+};
+
 enum nhm_application {
 	NHM_INIT		= 0,
 	NHM_BACKGROUND		= 1, /*IEEE 11K for background*/
 	NHM_ACS			= 2,
-	NHM_DIG			= 3,
-	NHM_TDMA_DIG		= 4,
-	NHM_DBG_11K		= 5, /*IEEE 11K for dbg cmd*/
-	NHM_DBG_RSSI		= 6, /*nhm_th[0]=rssi-20, th_ofst=3dB*/
-	NHM_DBG_MANUAL		= 7 /*nhm_th[0] & th_ofst is manual*/
+	NHM_FW_CTRL		= 3,
+	NHM_DBG_11K		= 4, /*IEEE 11K for dbg cmd*/
+	NHM_DBG_MANUAL		= 5 /*nhm_th[0] & th_ofst is manual*/
 };
 
 enum clm_application {
 	CLM_INIT		= 0,
 	CLM_BACKGROUND		= 1,/*default*/
 	CLM_ACS			= 2,
-	CLM_DIG			= 3,
-	CLM_TDMA_DIG		= 4,
-	CLM_DBG			= 5
+	CLM_FW_CTRL		= 3,
+	CLM_DBG			= 4
 };
 
 enum ifs_clm_application {
 	IFS_CLM_INIT		= 0,
 	IFS_CLM_BACKGROUND	= 1,/*default*/
 	IFS_CLM_ACS		= 2,
-	IFS_CLM_DIG		= 3,
-	IFS_CLM_TDMA_DIG	= 4,
-	IFS_CLM_DBG		= 5,
-	IFS_CLM_DBG_MANUAL	= 6
-};
-
-enum fahm_application {
-	FAHM_INIT		= 0,
-	FAHM_BACKGROUND		= 1, /*IEEE 11K for background*/
-	FAHM_ACS		= 2,
-	FAHM_DIG		= 3,
-	FAHM_TDMA_DIG		= 4,
-	FAHM_DBG_11K		= 5, /*IEEE 11K for dbg cmd*/
-	FAHM_DBG_RSSI		= 6, /*fahm_th[0]=rssi-20, th_ofst=3dB*/
-	FAHM_DBG_MANUAL		= 7 /*fahm_th[0] & th_ofst is manual*/
+	IFS_CLM_FW_CTRL		= 3,
+	IFS_CLM_DBG		= 4,
+	IFS_CLM_DBG_MANUAL	= 5
 };
 
 enum edcca_clm_application {
 	EDCCA_CLM_INIT		= 0,
 	EDCCA_CLM_BACKGROUND	= 1,/*default*/
 	EDCCA_CLM_ACS		= 2,
-	EDCCA_CLM_DIG		= 3,
-	EDCCA_CLM_TDMA_DIG	= 4,
-	EDCCA_CLM_DBG		= 5
+	EDCCA_CLM_FW_CTRL	= 3,
+	EDCCA_CLM_DBG		= 4
 };
 
 /*--------------------------[Structure]-------------------------------------*/
@@ -169,14 +180,9 @@ struct env_mntr_rpt {
 	u16			ifs_clm_cck_fa_permil; /*permil*/
 	u16			ifs_clm_ofdm_fa_permil; /*permil*/
 	u16			ifs_clm_total_ifs; /*cnt*/
-	u16			ifs_clm_his[IFS_CLM_NUM]; /*cnt*/
-	u32			ifs_clm_ifs_avg[IFS_CLM_NUM]; /*us*/
-	u32			ifs_clm_cca_avg[IFS_CLM_NUM]; /*us*/
-	u8			fahm_rpt[FAHM_RPT_NUM]; /*percent*/
-	u8			fahm_ratio; /*percent*/
-	u8			fahm_denom_ratio; /*percent*/
-	u8			fahm_pwr; /*110+x(dBm), unit = 1dB*/
-	u8			fahm_pwr_0p5; /*110+x/2(dBm), unit = 0.5dB*/
+	u16			ifs_clm_his[BE_IFS_CLM_NUM]; /*cnt*/
+	u32			ifs_clm_ifs_avg[BE_IFS_CLM_NUM]; /*us*/
+	u32			ifs_clm_cca_avg[BE_IFS_CLM_NUM]; /*us*/
 	u8			edcca_clm_ratio; /*percent*/
 };
 
@@ -186,18 +192,19 @@ struct ccx_para_info {
 	enum ccx_edcca_opt_sc_idx	ccx_edcca_opt_sc_idx;
 	enum clm_application		clm_app;
 	enum clm_opt_input		clm_input_opt;
+	enum clm_opt_nav_en		clm_nav_en;
+	enum clm_opt_rssi_th_en		clm_rssi_th_en;
+	u8				clm_rssi_th;
 	enum nhm_application		nhm_app;
 	u8				nhm_manual_th_ofst;
 	u8				nhm_manual_th0;	/*dbg manual mode*/
-	enum nhm_option_cca_all		nhm_incld_cca; /*Include CCA*/
+	enum nhm_opt_cca_all		nhm_incld_cca; /*Include CCA*/
+	enum nhm_opt_nav_en		nhm_nav_en;
+	enum nhm_opt_rssi_th_en		nhm_rssi_th_en;
+	u8				nhm_rssi_th;
 	enum ifs_clm_application	ifs_clm_app;
 	u32				ifs_clm_manual_th_times;
 	u32				ifs_clm_manual_th0;/*us*/
-	enum fahm_application		fahm_app;
-	u8				fahm_manual_th_ofst;
-	u8				fahm_manual_th0; /*dbg manual mode*/
-	u8				fahm_numer_opt;
-	u8				fahm_denom_opt;
 	enum edcca_clm_application	edcca_clm_app;
 };
 
@@ -209,8 +216,8 @@ void halbb_env_mntr_get_bg_setting(struct bb_info *bb,
 				   struct ccx_para_info *bg_para,
 				   enum phl_phy_idx phy_idx);
 u8 halbb_env_mntr_trigger(struct bb_info *bb, struct ccx_para_info *para,
-			    struct env_trig_rpt *trig_rpt);
-u8 halbb_env_mntr_result(struct bb_info *bb, struct env_mntr_rpt *rpt);
+			  struct env_trig_rpt *trig_rpt, enum phl_phy_idx phy_idx);
+u8 halbb_env_mntr_result(struct bb_info *bb, struct env_mntr_rpt *rpt, enum phl_phy_idx phy_idx);
 
 u8 halbb_env_mntr_get_802_11_k_rsni(struct bb_info *bb, s8 rcpi, s8 anpi);
 

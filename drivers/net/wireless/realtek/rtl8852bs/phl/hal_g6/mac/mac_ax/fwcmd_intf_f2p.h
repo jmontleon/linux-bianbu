@@ -31,9 +31,9 @@
 #define FWCMD_F2PTEST_TXPWR_SH		9
 #define FWCMD_F2PTEST_TXPWR_MSK		0x3F
 #define FWCMD_F2PTEST_USERNUM_SH	16
-#define FWCMD_F2PTEST_USERNUM_MSK	0x7
-#define FWCMD_F2PTEST_PKTNUM_SH		19
-#define FWCMD_F2PTEST_PKTNUM_MSK	0x7
+#define FWCMD_F2PTEST_USERNUM_MSK	0xF
+#define FWCMD_F2PTEST_PKTNUM_SH		20
+#define FWCMD_F2PTEST_PKTNUM_MSK	0xF
 #define FWCMD_F2PTEST_BITMAP_SH		24
 #define FWCMD_F2PTEST_BITMAP_MSK	0xFF
 
@@ -465,6 +465,7 @@
  * @var fwcmd_test_para::byte46
  * Please Place Description here.
  */
+
 struct fwcmd_test_para {
 #define MAX_SIGB_LEN 64
 	u32 dword0;

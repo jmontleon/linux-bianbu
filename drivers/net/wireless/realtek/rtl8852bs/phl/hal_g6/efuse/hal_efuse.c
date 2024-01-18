@@ -27,6 +27,9 @@ c. efuse information query, map size/used bytes...
 #include "hal_efuse.h"
 #include "hal_efuse_export.h"
 
+#define get_hci_to_a_die_offset(log_size, limit_log_size) (log_size - limit_log_size)
+#define get_a_die_start_offset(limit_log_size, a_die_size) (limit_log_size - a_die_size)
+
 /* WIFI EFUSE API */
 void efuse_shadow_read_one_byte(struct efuse_t *efuse, u16 offset, u8 *value)
 {
@@ -95,6 +98,7 @@ enum rtw_hal_status efuse_set_hw_cap(struct efuse_t *efuse)
 	u8 rfe_type = 0xFF;
 	u8 xcap = 0xFF;
 	u8 domain = 0xFF;
+	u8 domain_6g = 0xFF;
 	u8 rf_board_opt = 0xFF;
 
 	status = rtw_efuse_get_info(efuse, EFUSE_INFO_RF_PKG_TYPE, &pkg_type,
@@ -125,6 +129,13 @@ enum rtw_hal_status efuse_set_hw_cap(struct efuse_t *efuse)
 		PHL_WARN("%s: Get domain fail! Status(%x)\n", __FUNCTION__, status);
 	}
 
+	status = rtw_efuse_get_info(efuse, EFUSE_INFO_RF_CHAN_PLAN_6GHZ,
+					&domain_6g, sizeof(domain_6g));
+
+	if(status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_WARN("%s: Get 6ghz domain fail! Status(%x)\n", __FUNCTION__, status);
+	}
+
 	status = rtw_efuse_get_info(efuse, EFUSE_INFO_RF_BOARD_OPTION, &rf_board_opt,
 				sizeof(rf_board_opt));
 
@@ -136,6 +147,7 @@ enum rtw_hal_status efuse_set_hw_cap(struct efuse_t *efuse)
 	hal_com->dev_hw_cap.rfe_type = rfe_type;
 	hal_com->dev_hw_cap.xcap = xcap;
 	hal_com->dev_hw_cap.domain = domain;
+	hal_com->dev_hw_cap.domain_6g = domain_6g;
 	hal_com->dev_hw_cap.rf_board_opt = rf_board_opt;
 
 	return status;
@@ -256,7 +268,10 @@ enum rtw_hal_status rtw_efuse_shadow_update(void *efuse, bool is_limit)
 							efuse_info->mask_version,
 							efuse_info->version_len,
 							0,
-							is_limit);
+							is_limit,
+							efuse_info->efuse_a_die_size,
+							efuse_info->hci_to_a_die_offset,
+							efuse_info->a_die_start_offset);
 
 	if(status != RTW_HAL_STATUS_SUCCESS)
 		PHL_WARN("%s: PG Fail!\n", __FUNCTION__);
@@ -310,6 +325,11 @@ rtw_efuse_shadow_read(void *efuse, u8 byte_count, u16 offset, u32 *value,
 		goto exit;
 	}
 
+	if (efuse_info->efuse_a_die_size != 0 &&
+		offset >= efuse_info->a_die_start_offset &&
+		is_limit)
+		offset += (u16)efuse_info->hci_to_a_die_offset;
+
 	if (byte_count == 1)
 		efuse_shadow_read_one_byte(efuse_info, offset, (u8 *)value);
 	else if (byte_count == 2)
@@ -346,6 +366,11 @@ rtw_efuse_shadow_write(void *efuse, u8 byte_count, u16 offset, u32 value,
 		status = RTW_HAL_STATUS_EFUSE_IVALID_OFFSET;
 		goto exit;
 	}
+
+	if (efuse_info->efuse_a_die_size != 0 &&
+		offset >= efuse_info->a_die_start_offset &&
+		!is_limit)
+		offset += (u16)efuse_info->hci_to_a_die_offset;
 
 	if (byte_count == 1)
 		efuse_shadow_write_one_byte(efuse_info, offset, (u8)value);
@@ -520,6 +545,7 @@ rtw_efuse_file_map_load(void *efuse, char *file_path, u8 is_limit)
 	u8 *mapbuf = NULL;
 	u16 data_len = 0;
 	u32 map_sz = 0, full_map_sz = 0;
+	u32 offset;
 
 	if (is_limit)
 		map_sz = efuse_info->limit_efuse_size;
@@ -551,6 +577,15 @@ rtw_efuse_file_map_load(void *efuse, char *file_path, u8 is_limit)
 
 			PHL_INFO("%s , File eFuse map to shadow len %d\n", __FUNCTION__, data_len);
 			hal_status = efuse_map_buf2shadow(efuse_info, mapbuf, data_len);
+
+			if (efuse_info->efuse_a_die_size != 0 && is_limit) {
+				for (offset = efuse_info->a_die_start_offset;
+					offset < (efuse_info->a_die_start_offset + (u32)efuse_info->efuse_a_die_size);
+					offset++)
+					efuse_info->shadow_map[offset + efuse_info->hci_to_a_die_offset] =
+						mapbuf[offset];
+			}
+
 			efuse_info->map_from_status = FILE_MAP;
 		} else {
 			PHL_INFO("Error No Map Version !, File Map Data Len %d not over 1536.\n", data_len);
@@ -754,6 +789,11 @@ void rtw_efuse_process(void *efuse, char *ic_name)
 {
 	struct efuse_t *efuse_info = (struct efuse_t *)efuse;
 
+	if(efuse_info == NULL) {
+		PHL_ERR("%s efuse_info is NULL\n",__FUNCTION__);
+		return;
+	}
+
 	efuse_check_autoload(efuse_info);
 	/* Load wifi full map to shadow map */
 	rtw_efuse_shadow_load(efuse_info, false);
@@ -834,6 +874,20 @@ u32 rtw_efuse_init(struct rtw_phl_com_t *phl_com,
 		PHL_ERR("%s Get limited logical efuse map size fail!\n", __FUNCTION__);
 		goto error_efuse_shadow_init;
 	}
+
+	hal_status = rtw_hal_mac_get_efuse_a_die_size(hal_com,
+						    &(efuse_info->efuse_a_die_size));
+
+	if(hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Get efuse a die size fail!\n", __FUNCTION__);
+		goto error_efuse_shadow_init;
+	}
+
+	efuse_info->hci_to_a_die_offset = get_hci_to_a_die_offset(efuse_info->log_efuse_size,
+										efuse_info->limit_efuse_size);
+
+	efuse_info->a_die_start_offset = get_a_die_start_offset(efuse_info->limit_efuse_size,
+										efuse_info->efuse_a_die_size);
 
 	/* Allocate mask memory */
 	hal_status = rtw_hal_mac_get_efuse_mask_size(hal_com,
@@ -1251,7 +1305,7 @@ rtw_efuse_bt_file_map_load(void *efuse, char *file_path)
 
 		data_len = efuse_file_open(d, file_path, mapbuf, bt_map_sz);
 
-		if (data_len <= bt_map_sz) {
+		if (data_len <= bt_map_sz && data_len > 0) {
 			PHL_INFO("%s , File eFuse bt map to shadow len %d\n", __FUNCTION__, data_len);
 			hal_status = efuse_bt_map_buf2shadow(efuse_info, mapbuf, data_len);
 
@@ -1293,7 +1347,7 @@ rtw_efuse_bt_file_mask_load(void *efuse, char *file_path)
 
 		data_len = efuse_file_open(d, file_path, maskbuf, bt_mask_sz);
 
-		if (data_len <= bt_mask_sz) {
+		if (data_len <= bt_mask_sz && data_len > 0) {
 			PHL_INFO("Mask File data 2 buf len %d\n", data_len);
 			hal_status = efuse_bt_file_mask2buf(efuse_info, maskbuf, data_len);
 

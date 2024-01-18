@@ -34,32 +34,26 @@
 #include "halbb_ic_hw_info.h"
 #include "halbb_ic_sw_info.h"
 #include "halbb_interface.h"
-
+#include "halbb_dbg.h"
+#include "halbb_dbg_ex.h"
 #include "halbb_dbg_cnsl_out.h"
 #include "halbb_rua_tbl_ex.h"
 
 #if (PLATFOM_IS_LITTLE_ENDIAN)
 	#include "halbb_physts_ie_l_endian.h"
+	#include "halbb_physts_ie_l_endian_7.h"
 	#include "halbb_ra_l_endian.h"
 	#include "halbb_rua_tbl_l_endian.h"
+	#include "halbb_plcp_tx_l_endian.h"
 #else
 	#include "halbb_physts_ie_b_endian.h"
+	#include "halbb_physts_ie_b_endian_7.h"
 	#include "halbb_ra_b_endian.h"
 	#include "halbb_rua_tbl_b_endian.h"
+	#include "halbb_plcp_tx_b_endian.h"
 #endif
 
 /*---[Include structure & prototype] ----------------------------------------*/
-#ifdef BB_8852A_CAV_SUPPORT
-
-	#include "halbb_8852a/halbb_cr_info_8852a_a_cut.h"
-	#include "halbb_8852a/halbb_8852a.h"
-	#include "halbb_8852a/halbb_8852a_api.h"
-	#include "halbb_8852a/halbb_8852a_api_ex.h"
-	#include "halbb_8852a/halbb_hwimg_8852a.h"
-	#include "halbb_8852a/halbb_reg_cfg_8852a.h"
-	#include "halbb_8852a/halbb_version_rtl8852a.h"
-#endif
-
 #ifdef BB_8852A_2_SUPPORT
 	#include "halbb_8852a_2/halbb_cr_info_8852a_2.h"
 	#include "halbb_8852a_2/halbb_8852a_2.h"
@@ -86,9 +80,53 @@
 	#include "halbb_8852c/halbb_8852c.h"
 	#include "halbb_8852c/halbb_8852c_api.h"
 	#include "halbb_8852c/halbb_8852c_api_ex.h"
+	#include "halbb_8852c/halbb_8852c_fwofld_api.h"
 	#include "halbb_8852c/halbb_hwimg_8852c.h"
 	#include "halbb_8852c/halbb_reg_cfg_8852c.h"
 	#include "halbb_8852c/halbb_version_rtl8852c.h"
+	#include "halbb_8852c/halbb_8852c_dcra.h"
+	#include "halbb_8852c/halbb_8852c_dcra_ex.h"
+#endif
+
+#ifdef BB_8192XB_SUPPORT
+	#include "halbb_8192xb/halbb_cr_info_8192xb.h"
+	#include "halbb_8192xb/halbb_8192xb.h"
+	#include "halbb_8192xb/halbb_8192xb_api.h"
+	#include "halbb_8192xb/halbb_8192xb_api_ex.h"
+	#include "halbb_8192xb/halbb_hwimg_8192xb.h"
+	#include "halbb_8192xb/halbb_reg_cfg_8192xb.h"
+	#include "halbb_8192xb/halbb_version_rtl8192xb.h"
+#endif
+
+#ifdef BB_1115_SUPPORT
+	#include "halbb_8922a/halbb_cr_info_8922a.h"
+	#include "halbb_8922a/halbb_8922a.h"
+	#include "halbb_8922a/halbb_8922a_api.h"
+        #include "halbb_8922a/halbb_hwimg_8922a.h"
+        #include "halbb_8922a/halbb_reg_cfg_8922a.h"
+        #include "halbb_8922a/halbb_version_rtl8922a.h"
+	#include "bbmcu/bbmcu_precomp.h"
+#endif
+
+#ifdef BB_8922A_SUPPORT
+	#include "halbb_8922a_2/halbb_cr_info_8922a_2.h"
+	#include "halbb_8922a_2/halbb_8922a_2.h"
+	#include "halbb_8922a_2/halbb_8922a_2_api.h"
+        #include "halbb_8922a_2/halbb_hwimg_8922a_2.h"
+        #include "halbb_8922a_2/halbb_reg_cfg_8922a_2.h"
+        #include "halbb_8922a_2/halbb_version_rtl8922a_2.h"
+	#include "bbmcu/bbmcu_precomp.h"
+#endif
+
+#ifdef BB_8851B_SUPPORT
+	#include "halbb_8851b/halbb_cr_info_8851b.h"
+	#include "halbb_8851b/halbb_8851b.h"
+	#include "halbb_8851b/halbb_8851b_api.h"
+	#include "halbb_8851b/halbb_8851b_api_ex.h"
+	#include "halbb_8851b/halbb_8851b_fwofld_api.h"
+	#include "halbb_8851b/halbb_hwimg_8851b.h"
+	#include "halbb_8851b/halbb_reg_cfg_8851b.h"
+	#include "halbb_8851b/halbb_version_rtl8851b.h"
 #endif
 
 #include "halbb_ra.h"
@@ -100,19 +138,20 @@
 #include "halbb_interface_ex.h"
 #include "halbb_math_lib_ex.h"
 #include "halbb_math_lib.h"
-#include "halbb_dbg.h"
 #include "halbb_dbg_cmd.h"
 #include "halbb_dbg_cmd_ex.h"
 #include "halbb_physts_ex.h"
 #include "halbb_physts.h"
+#include "halbb_physts_7.h"
 #include "halbb_cmn_rpt_ex.h"
 #include "halbb_cmn_rpt.h"
 #include "halbb_init.h"
 #include "halbb_init_ex.h"
 #include "halbb_pmac_setting.h"
 #include "halbb_pmac_setting_ex.h"
-#include "halbb_plcp_tx_ex.h"
+#include "halbb_outsrc_def.h"
 #include "halbb_plcp_tx.h"
+#include "halbb_plcp_tx_7.h"
 #include "halbb_plcp_gen.h"
 #include "halbb_la_mode_ex.h"
 #include "halbb_la_mode.h"
@@ -120,6 +159,8 @@
 #include "halbb_ul_tb_ctrl.h"
 #include "halbb_pwr_ctrl_ex.h"
 #include "halbb_pwr_ctrl.h"
+#include "halbb_bb_wrapper.h"
+#include "halbb_bb_wrapper_outsrc.h"
 #include "halbb_mp_ex.h"
 #include "halbb_dfs.h"
 #include "halbb_dfs_ex.h"
@@ -133,16 +174,23 @@
 #include "halbb_dyn_csi_rsp.h"
 #include "halbb_dyn_csi_rsp_ex.h"
 #include "halbb_ant_div.h"
+#include "halbb_ant_div_ex.h"
 #include "halbb_path_div.h"
 #include "halbb_statistics.h"
+#include "halbb_statistics_ex.h"
+#include "halbb_dbg_cnsl_out_ex.h"
 #include "halbb_ch_info_ex.h"
 #include "halbb_ch_info.h"
 #include "halbb_auto_dbg.h"
 #include "halbb_dbcc_ex.h"
 #include "halbb_dbcc.h"
+#include "halbb_snif_ex.h"
+#include "halbb_snif.h"
 #include "halbb_rua_tbl.h"
+#include "halbb_spur_suppress.h"
 #include "halbb_fwofld.h"
 #include "halbb_fwofld_ex.h"
+#include "halbb_dyn_1r_cca.h"
 #include "halbb_dyn_dtr.h"
 #include "halbb_ex.h"
 #include "halbb.h"

@@ -272,6 +272,48 @@ static enum rtw_phl_status phl_mp_cal_psd_query(
 	return RTW_PHL_STATUS_SUCCESS;
 }
 
+static enum rtw_phl_status phl_mp_cal_event_trigger(
+	struct mp_context *mp, struct mp_cal_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+
+	hal_status = rtw_hal_mp_event_trigger(mp, arg);
+	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
+
+	/* Record the result */
+	arg->cmd_ok = true;
+	arg->status = hal_status;
+
+	/* Transfer to report */
+	mp->rpt = arg;
+	mp->rpt_len = sizeof(struct mp_cal_arg);
+	mp->buf = NULL;
+	mp->buf_len = 0;
+
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
+static enum rtw_phl_status phl_mp_trigger_watchdog_cal(
+	struct mp_context *mp, struct mp_cal_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+
+	hal_status = rtw_hal_mp_trigger_watchdog_cal(mp);
+	PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
+
+	/* Record the result */
+	arg->cmd_ok = true;
+	arg->status = hal_status;
+
+	/* Transfer to report */
+	mp->rpt = NULL;
+	mp->rpt_len = sizeof(struct mp_cal_arg);
+	mp->buf = NULL;
+	mp->buf_len = 0;
+
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
 enum rtw_phl_status mp_cal(struct mp_context *mp, struct mp_cal_arg *arg)
 {
 	enum rtw_phl_status phl_status = RTW_PHL_STATUS_FAILURE;
@@ -336,6 +378,16 @@ enum rtw_phl_status mp_cal(struct mp_context *mp, struct mp_cal_arg *arg)
 		PHL_INFO("%s: CMD = MP_CAL_CMD_PSD_QUERY\n",
 			 __FUNCTION__);
 		phl_status = phl_mp_cal_psd_query(mp, arg);
+		break;
+	case MP_CAL_CMD_EVENT_TRIGGER:
+		PHL_INFO("%s: CMD = MP_CAL_CMD_EVENT_TRIGGER\n",
+			 __FUNCTION__);
+		phl_status = phl_mp_cal_event_trigger(mp, arg);
+		break;
+	case MP_CAL_CMD_TRIGGER_WATCHDOG_CAL:
+		PHL_INFO("%s: CMD = MP_CAL_CMD_TRIGGER_WATCHDOG_CAL\n",
+			 __FUNCTION__);
+		phl_status = phl_mp_trigger_watchdog_cal(mp, arg);
 		break;
 	default:
 		PHL_WARN("%s: CMD NOT RECOGNIZED\n", __FUNCTION__);

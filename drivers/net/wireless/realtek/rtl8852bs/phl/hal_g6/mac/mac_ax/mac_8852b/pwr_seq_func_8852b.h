@@ -20,23 +20,23 @@
 #include "../../mac_def.h"
 #if MAC_AX_8852B_SUPPORT
 
-#define PWR_SEQ_VER_8852B  17
+#define PWR_SEQ_VER_8852B  22
 
-u32 mac_pwr_on_sdio_8852b(void *vadapter);
-u32 mac_pwr_on_usb_8852b(void *vadapter);
-u32 mac_pwr_on_pcie_8852b(void *vadapter);
+u32 mac_pwr_on_sdio_8852b(struct mac_ax_adapter *adapter);
+u32 mac_pwr_on_usb_8852b(struct mac_ax_adapter *adapter);
+u32 mac_pwr_on_pcie_8852b(struct mac_ax_adapter *adapter);
 
-u32 mac_pwr_off_sdio_8852b(void *vadapter);
-u32 mac_pwr_off_usb_8852b(void *vadapter);
-u32 mac_pwr_off_pcie_8852b(void *vadapter);
+u32 mac_pwr_off_sdio_8852b(struct mac_ax_adapter *adapter);
+u32 mac_pwr_off_usb_8852b(struct mac_ax_adapter *adapter);
+u32 mac_pwr_off_pcie_8852b(struct mac_ax_adapter *adapter);
 #if MAC_AX_FEATURE_HV
-u32 mac_enter_lps_sdio_8852b(void *vadapter);
-u32 mac_enter_lps_usb_8852b(void *vadapter);
-u32 mac_enter_lps_pcie_8852b(void *vadapter);
+u32 mac_enter_lps_sdio_8852b(struct mac_ax_adapter *adapter);
+u32 mac_enter_lps_usb_8852b(struct mac_ax_adapter *adapter);
+u32 mac_enter_lps_pcie_8852b(struct mac_ax_adapter *adapter);
 
-u32 mac_leave_lps_sdio_8852b(void *vadapter);
-u32 mac_leave_lps_usb_8852b(void *vadapter);
-u32 mac_leave_lps_pcie_8852b(void *vadapter);
+u32 mac_leave_lps_sdio_8852b(struct mac_ax_adapter *adapter);
+u32 mac_leave_lps_usb_8852b(struct mac_ax_adapter *adapter);
+u32 mac_leave_lps_pcie_8852b(struct mac_ax_adapter *adapter);
 
 #endif /* #if MAC_AX_FEATURE_HV */
 #endif /* #if MAC_AX_8852B_SUPPORT */

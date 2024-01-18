@@ -15,6 +15,8 @@
 #ifndef __PHL_SOUND_H__
 #define __PHL_SOUND_H__
 
+#ifdef CONFIG_PHL_CMD_BF
+
 #define MAX_SND_GRP_NUM 4
 #define MAX_SND_HE_BFRP_NUM 2
 #define MAX_SND_HE_BFRP_USER_NUM 4
@@ -113,6 +115,9 @@ struct phl_snd_grp {
 	 **/
 	u8 en_swap_mode;
 	u8 skip_post_cfg;/* 1: SKIP ALL; BIT1:Skip Group, BIT2:Skip GID, BIT3:Skip STA */
+
+	struct snd_cmd_bfer snd_cmd;
+
 };
 
 
@@ -149,17 +154,13 @@ struct phl_sound_param {
 struct phl_snd_ops
 {
 	enum rtw_phl_status (*snd_send_ndpa)(void *drv_priv,
-                                             struct rtw_wifi_role_t *wrole,
+                                             struct rtw_wifi_role_link_t *rlink,
                                              u8 *snd_dialog_tkn,
                                              u32 *ndpa_sta,
                                              enum channel_width snd_bw);
 };
 
 struct phl_sound_obj {
-	#ifdef CONFIG_FSM
-	struct fsm_main *fsm;
-	struct fsm_obj *fsm_obj;
-	#endif
 	struct phl_sound_param snd_param;
 	struct phl_snd_ops ops;
 
@@ -175,18 +176,20 @@ struct phl_sound_obj {
 
 	/* snd cmd disp related */
 	u8 msg_busy;
-	_os_lock cmd_lock;
-};
-#ifdef CONFIG_FSM
-enum rtw_phl_status phl_snd_new_obj(
-	struct fsm_main *fsm,
-	struct phl_info_t *phl_info);
 
-#endif
+	_os_lock cmd_lock;
+	_os_timer snd_timer;
+	u32 msg_hdl;
+
+};
+
+
 /* phl sounding intern api*/
 enum rtw_phl_status phl_snd_func_snd_init(struct phl_info_t *phl_info);
 
 enum rtw_phl_status phl_snd_func_pre_config(struct phl_info_t *phl_info);
+
+enum rtw_phl_status phl_snd_init_snd_grp(struct phl_info_t *phl_info);
 
 /* phl sounding extern api*/
 enum rtw_phl_status
@@ -244,5 +247,36 @@ phl_snd_polling_pri_sta_sts(struct phl_info_t *phl_info,
 			    struct phl_snd_grp *grp);
 void
 phl_snd_mac_ctrl(struct phl_info_t *phl_info,
-		 struct rtw_wifi_role_t *wrole, u8 ctrl);
+		 enum phl_band_idx band, u8 ctrl);
+
+enum rtw_phl_status
+rtw_phl_snd_add_grp(void *phl,
+                    struct rtw_wifi_role_link_t *rlink,
+                    u8 gidx,
+                    u16 *macid,
+                    u8 num_sta,
+                    bool he,
+                    bool mu);
+
+enum rtw_phl_status
+rtw_phl_sound_start_ex(void *phl, u8 wrole_idx, u8 st_dlg_tkn, u8 period, u8 test_flag);
+
+
+#else
+#define phl_snd_func_snd_init(_phl_info) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_func_pre_config(_phl_info) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_init_snd_grp(_phl_info) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_get_grp_byidx(_phl_info, _gidx) NULL
+#define phl_snd_func_remove_grp_all(_phl_info)
+#define phl_snd_func_grouping(_phl_info, _wroleidx) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_get_res(_phl_info, _grp, _nsta) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_release_res(_phl_info, _grp) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_precfg(_phl_info, _grp) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_start_sounding_fw(_phl_info, _grp) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_postcfg(_phl_info, _grp) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_chk_condition(_phl_info, _grp) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_proc_chk_prev_grp(_phl_info, _grp)
+#define phl_snd_polling_pri_sta_sts(_phl_info, _grp) RTW_PHL_STATUS_SUCCESS
+#define phl_snd_mac_ctrl(_phl_info, _band, _ctrl)
+#endif
 #endif

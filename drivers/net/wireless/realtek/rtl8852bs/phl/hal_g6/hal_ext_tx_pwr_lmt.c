@@ -15,9 +15,8 @@
 #define _HAL_EXT_TX_PWR_LMT_C_
 #include "hal_headers.h"
 
-
 enum rtw_hal_status
-rtw_hal_set_power_lmt(void *hal, u8 band_idx)
+rtw_hal_set_power_limit(void *hal, u8 band_idx)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
@@ -36,49 +35,69 @@ rtw_hal_set_power_lmt(void *hal, u8 band_idx)
 	return status;
 }
 
-void
-rtw_hal_set_ext_pwr_lmt_en(void *hal,
-		bool enable)
+s8 rtw_hal_get_power_limit(void *hal, enum phl_phy_idx phy,
+	u16 rate, u8 bandwidth, u8 beamforming, u8 tx_num, u8 channel)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	return rtw_hal_rf_get_power_limit(hal_info, phy, rate, bandwidth,
+					  beamforming, tx_num, channel);
+}
+
+bool
+rtw_hal_get_ext_pwr_lmt_en(void *hal,
+		u8 hw_band)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	struct rtw_tpu_info *tpu = &(hal_com->band[hw_band].rtw_tpu_i);
 
-	PHL_INFO("%s: en(%d)\n", __func__, enable);
+	PHL_INFO("%s: hw_band(%d), en(%d)\n", __func__, hw_band, tpu->ext_pwr_lmt_en);
 
-	hal_com->ext_pwr_lmt_en = enable;
+	return tpu->ext_pwr_lmt_en;
+}
+
+void
+rtw_hal_set_ext_pwr_lmt_en(void *hal,
+		u8 hw_band, bool enable)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	struct rtw_tpu_info *tpu = &(hal_com->band[hw_band].rtw_tpu_i);
+
+	PHL_INFO("%s: hw_band(%d), en(%d)\n", __func__, hw_band, enable);
+
+	tpu->ext_pwr_lmt_en = enable;
 }
 
 void
 rtw_hal_enable_ext_pwr_lmt(void *hal, u8 hw_band,
-		struct rtw_tpu_ext_pwr_lmt_info *ext_pwr_lmt_info)
+		struct rtw_phl_ext_pwr_lmt_info *ext_pwr_lmt_info)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
-	struct rtw_tpu_ext_pwr_lmt_info *tpu_ext_pwr_lmt_info;
-	u8 i;
+	struct rtw_tpu_info *tpu = &(hal_com->band[hw_band].rtw_tpu_i);
+	enum phl_phy_idx phy_idx = HW_PHY_0;
 
 	PHL_INFO("%s\n", __func__);
 
-	tpu_ext_pwr_lmt_info = &(hal_com->rtw_tpu_ext_pwr_lmt_i[hw_band]);
+	if (hw_band == 1)
+		phy_idx = HW_PHY_1;
 
-	/* Fill external tx power limit into hal_com->rtw_tpu_ext_pwr_lmt_info */
-	for (i = 0; i < HAL_MAX_PATH; i++) {
-		tpu_ext_pwr_lmt_info->ext_pwr_lmt_2_4g[i]
-			= ext_pwr_lmt_info->ext_pwr_lmt_2_4g[i];
 
-		tpu_ext_pwr_lmt_info->ext_pwr_lmt_5g_band1[i]
-			= ext_pwr_lmt_info->ext_pwr_lmt_5g_band1[i];
-		tpu_ext_pwr_lmt_info->ext_pwr_lmt_5g_band2[i]
-			= ext_pwr_lmt_info->ext_pwr_lmt_5g_band2[i];
-		tpu_ext_pwr_lmt_info->ext_pwr_lmt_5g_band3[i]
-			= ext_pwr_lmt_info->ext_pwr_lmt_5g_band3[i];
-		tpu_ext_pwr_lmt_info->ext_pwr_lmt_5g_band4[i]
-			= ext_pwr_lmt_info->ext_pwr_lmt_5g_band4[i];
-	}
+	/* Fill external tx power limit into hal_com->band[hw_band].rtw_tpu_i.ext_pwr_lmt_i */
+	_os_mem_cpy(hal_com->drv_priv, &(tpu->ext_pwr_lmt_i),
+		    ext_pwr_lmt_info, sizeof(struct rtw_phl_ext_pwr_lmt_info));
 
-	rtw_hal_rf_update_ext_pwr_lmt_table(hal_info);
+	/**
+	 * Update extension(or external) tx power limit to corresponding field of halrf power limit table (as below)
+	 *   2g=> rf->pwr_info.tx_pwr_limit_2g[PW_LMT_REGU_EXT_PWR][bw][rate][bf][ch][tx_num]
+	 *   5g=> rf->pwr_info.tx_pwr_limit_5g[PW_LMT_REGU_EXT_PWR][bw][rate][bf][ch][tx_num]
+	 *   6g=> rf->pwr_info.tx_pwr_limit_6g[PW_LMT_REGU_EXT_PWR][bw][rate][bf][ch][tx_num]
+	 */
+	rtw_hal_rf_update_ext_pwr_lmt_table(hal_info, phy_idx);
 
 	/* enable external tx power limit mechanism */
-	hal_com->ext_pwr_lmt_en = true;
+	tpu->ext_pwr_lmt_en = true;
 }
 

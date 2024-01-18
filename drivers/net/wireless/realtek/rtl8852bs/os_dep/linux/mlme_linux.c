@@ -100,6 +100,8 @@ void rtw_reset_securitypriv(_adapter *adapter)
 	u8	backupPMKIDIndex = 0;
 	u8	backupTKIPCountermeasure = 0x00;
 	u32	backupTKIPcountermeasure_time = 0;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
 	/* add for CONFIG_IEEE80211W, none 11w also can use */
 
 	_rtw_spinlock_bh(&adapter->security_key_mutex);
@@ -123,6 +125,7 @@ void rtw_reset_securitypriv(_adapter *adapter)
 		backupTKIPCountermeasure = adapter->securitypriv.btkip_countermeasure;
 		backupTKIPcountermeasure_time = adapter->securitypriv.btkip_countermeasure_time;
 		_rtw_memset((unsigned char *)&adapter->securitypriv, 0, sizeof(struct security_priv));
+		_rtw_memset((unsigned char *)&adapter_link->securitypriv, 0, sizeof(struct link_security_priv));
 
 		/* Added by Albert 2009/02/18 */
 		/* Restore the PMK information to securitypriv structure for the following connection. */
@@ -143,13 +146,15 @@ void rtw_reset_securitypriv(_adapter *adapter)
 		/* if(adapter->mlmepriv.fw_state & WIFI_STATION_STATE) */
 		/* { */
 		struct security_priv *psec_priv = &adapter->securitypriv;
+		struct link_security_priv *lsec_priv = &adapter_link->securitypriv;
 
 		psec_priv->dot11AuthAlgrthm = dot11AuthAlgrthm_Open; /* open system */
 		psec_priv->dot11PrivacyAlgrthm = _NO_PRIVACY_;
 		psec_priv->dot11PrivacyKeyIndex = 0;
 
 		psec_priv->dot118021XGrpPrivacy = _NO_PRIVACY_;
-		psec_priv->dot118021XGrpKeyid = 1;
+		/* ToDo CONFIG_RTW_MLD: loop for all links */
+		lsec_priv->dot118021XGrpKeyid = 1;
 
 		psec_priv->ndisauthtype = Ndis802_11AuthModeOpen;
 		psec_priv->ndisencryptstatus = Ndis802_11WEPDisabled;
@@ -434,3 +439,66 @@ void hostapd_mode_unload(_adapter *padapter)
 
 #endif
 #endif
+
+#ifdef CONFIG_DFS_MASTER
+void rtw_os_indicate_radar_detected(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 cch, enum channel_width bw)
+{
+	rtw_nlrtw_radar_detect_event(rfctl, band_idx, cch, bw);
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_radar_detected_event(rfctl, band_idx, cch, bw);
+#endif
+}
+
+void rtw_os_indicate_cac_started(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_cac_started_event(rfctl, band_idx, ifbmp, cch, bw);
+#endif
+}
+
+void rtw_os_indicate_cac_finished(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	rtw_nlrtw_cac_finish_event(rfctl, band_idx, ifbmp, cch, bw);
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_cac_finished_event(rfctl, band_idx, ifbmp, cch, bw);
+#endif
+}
+
+void rtw_os_indicate_cac_aborted(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+	rtw_nlrtw_cac_abort_event(rfctl, band_idx, ifbmp, cch, bw);
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_cac_aborted_event(rfctl, band_idx, ifbmp, cch, bw);
+#endif
+}
+
+void rtw_os_force_cac_finished(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 ifbmp, u8 cch, enum channel_width bw)
+{
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_cac_force_finished(rfctl, band_idx, ifbmp, cch, bw);
+#endif
+}
+
+void rtw_os_indicate_nop_finished(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 band, u8 cch, enum channel_width bw)
+{
+	rtw_nlrtw_nop_finish_event(rfctl, band_idx, band, cch, bw);
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_nop_finished_event(rfctl, band_idx, band, cch, bw);
+#endif
+}
+
+void rtw_os_indicate_nop_started(struct rf_ctl_t *rfctl, u8 band_idx
+	, u8 band, u8 cch, enum channel_width bw, bool called_on_cmd_thd)
+{
+	rtw_nlrtw_nop_start_event(rfctl, band_idx, band, cch, bw);
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_cfg80211_nop_started_event(rfctl, band_idx, band, cch, bw, called_on_cmd_thd);
+#endif
+}
+#endif /* CONFIG_DFS_MASTER */

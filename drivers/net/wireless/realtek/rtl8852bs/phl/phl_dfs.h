@@ -16,9 +16,9 @@
 #define _PHL_DFS_H_
 
 #ifdef CONFIG_PHL_DFS
-bool phl_is_radar_detect_enabled(struct phl_info_t *phl_info, u8 band_idx);
+bool rtw_phl_is_radar_detect_enabled(struct rtw_phl_com_t *phl_com, u8 band_idx);
 
-bool phl_is_under_cac(struct phl_info_t *phl_info, u8 band_idx);
+bool rtw_phl_is_under_cac(struct rtw_phl_com_t *phl_com, u8 band_idx);
 
 bool phl_is_cac_tx_paused(struct phl_info_t *phl_info, u8 band_idx);
 

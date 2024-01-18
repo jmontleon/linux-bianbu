@@ -17,6 +17,8 @@
 
 #define phlcom_to_drvpriv(_pcom) 	(_pcom->drv_priv)
 #define phl_is_mp_mode(_phl_com)	(_phl_com->drv_mode >= RTW_DRV_MODE_MP_SMDL_START && _phl_com->drv_mode <= RTW_DRV_MODE_MP_SMDL_END)
+#define phl_mp_is_tmac_mode(_phl_com)	(_phl_com->drv_mode == RTW_DRV_MODE_MP_TMAC)
+#define phl_is_fpga_mode(_phl_com)	(_phl_com->drv_mode >= RTW_DRV_MODE_FPGA_SMDL_START && _phl_com->drv_mode <= RTW_DRV_MODE_FPGA_SMDL_END)
 
 #ifndef is_broadcast_mac_addr
 #define is_broadcast_mac_addr(addr) ((((addr[0]) & 0xff) == 0xff) && (((addr[1]) & 0xff) == 0xff) && \
@@ -42,29 +44,58 @@
 #define CLEAR_STATUS_FLAG(_status,_flags)\
 	((_status) &= ~(_flags))
 
-static inline void _add_bitmap_bit(u8 *bitmap, u8 *arr, u32 len)
+#define rtw_phl_is_ap_category(_type) (_type == PHL_RTYPE_AP ||\
+				       _type == PHL_RTYPE_P2P_GO ||\
+				       _type == PHL_RTYPE_VAP)
+#define rtw_phl_is_client_category(_type) (_type == PHL_RTYPE_STATION ||\
+					   _type == PHL_RTYPE_P2P_GC ||\
+					   _type == PHL_RTYPE_TDLS)
+#define rtw_phl_role_is_ap_category(_wrole) (rtw_phl_is_ap_category(_wrole->type))
+#define rtw_phl_role_is_client_category(_wrole) (rtw_phl_is_client_category(_wrole->type))
+
+#ifdef CONFIG_DBCC_SUPPORT
+#define is_dbcc_sup(_phl_com) (_phl_com->dev_cap.dbcc_sup == true)
+#define is_frc_bdand1_role(_phl_com, _rid) (_phl_com->dev_cap.dbcc_force_rmap & BIT(_rid))
+#ifdef CONFIG_DBCC_FORCE
+#define is_frc_dbcc_mode(_phl_com) (_phl_com->dev_cap.dbcc_force_mode)
+#endif
+#endif
+
+static inline void _add_bitmap_bit(u8 *bitmap, u8 max_map_len,u8 *arr, u8 cnt)
 {
-	u32 k = 0;
-	for(k = 0; k < (len); k++)
-		bitmap[arr[k] / 8] |= (BIT0 << (arr[k] % 8));
+	u8 k = 0;
+
+	for(k = 0; k < (cnt); k++) {
+		if ((arr[k] / 8) < max_map_len)
+			bitmap[arr[k] / 8] |= (BIT0 << (arr[k] % 8));
+	}
 }
 
-static inline void _clr_bitmap_bit(u8 *bitmap, u8 *arr, u32 len)
+static inline void _clr_bitmap_bit(u8 *bitmap, u8 max_map_len, u8 *arr, u8 cnt)
 {
-	u32 k = 0;
+	u8 k = 0;
 
-	for(k = 0; k < (len); k++)
-		bitmap[arr[k] / 8] &= ~(BIT0 << (arr[k] % 8));
+	for(k = 0; k < (cnt); k++) {
+		if ((arr[k] / 8) < max_map_len)
+			bitmap[arr[k] / 8] &= ~(BIT0 << (arr[k] % 8));
+	}
 }
 
-#define _chk_bitmap_bit(_bitmap, _id) \
-	((_bitmap)[(_id) / 8] & (BIT0 << ((_id) % 8)))
+static inline bool _chk_bitmap_bit(u8 *bitmap, u8 max_map_len, u8 _id)
+{
+	if ((_id / 8) < max_map_len)
+		return (bitmap[(_id) / 8] & (BIT0 << ((_id) % 8)));
+
+	/*_os_warn_on(1);*/
+	return false;
+}
+
 
 #define _reset_bitmap(_d, _bitmap ,_len) _os_mem_set(_d, _bitmap, 0, _len)
 
 static inline void _and_bitmaps( u8* ref_bitmap, u8* _bitmap, u32 len)
 {
-	u32 k = 0;
+	u8 k = 0;
 
 	for(k = 0; k < len; k++)
 		_bitmap[k] &= ref_bitmap[k];
@@ -115,13 +146,10 @@ u8 pq_insert(void *d, struct phl_queue *q, enum lock_type type, void *priv, _os_
 u32 phl_get_passing_time_us(u32 start);
 u32 phl_get_passing_time_ms(u32 start);
 
-#define rtw_phl_is_ap_category(_type) (_type == PHL_RTYPE_AP ||\
-				       _type == PHL_RTYPE_P2P_GO ||\
-				       _type == PHL_RTYPE_VAP)
-#define rtw_phl_is_client_category(_type) (_type == PHL_RTYPE_STATION ||\
-					   _type == PHL_RTYPE_P2P_GC ||\
-					   _type == PHL_RTYPE_TDLS)
-#define rtw_phl_role_is_ap_category(_wrole) (rtw_phl_is_ap_category(_wrole->type))
-#define rtw_phl_role_is_client_category(_wrole) (rtw_phl_is_client_category(_wrole->type))
+#ifdef DBG_MONITOR_TIME
+void phl_fun_monitor_start(u32 *start_t, bool show_caller, const char *caller);
+
+void phl_fun_monitor_end(u32 *start_t, const char *caller);
+#endif /* DBG_MONITOR_TIME */
 #endif /*_PHL_UTIL_H_*/
 

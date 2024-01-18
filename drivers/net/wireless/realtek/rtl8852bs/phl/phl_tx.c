@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2022 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -65,12 +65,10 @@ void phl_dump_sorted_ring(_os_list *sorted_ring)
 			       list) {
 		i++;
 		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "==ring %d==\n", i);
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->macid = %d\n",
-			  ring_sts->macid);
 		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->req_busy = %d\n",
 			  ring_sts->req_busy);
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->ring_ptr->tid = %d\n",
-			  ring_sts->ring_ptr->tid);
+		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->ring_ptr->cat = %d\n",
+			  ring_sts->ring_ptr->cat);
 	}
 }
 
@@ -106,12 +104,10 @@ void phl_dump_t_fctrl_result(_os_list *t_fctrl_result)
 						   list) {
 		i++;
 		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "==ring %d==\n", i);
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->macid = %d\n",
-			  ring_sts->macid);
 		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->req_busy = %d\n",
 			  ring_sts->req_busy);
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->ring_ptr->tid = %d\n",
-			  ring_sts->ring_ptr->tid);
+		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_, "ring_sts->ring_ptr->cat = %d\n",
+			  ring_sts->ring_ptr->cat);
 	}
 }
 
@@ -268,9 +264,17 @@ static void _phl_free_phl_tring_list(void *phl,
 	u16 rptr = 0;
 	u8 i = 0;
 
+	if(ring_list==NULL)
+		return ;
+
 	for (i = 0; i < MAX_PHL_RING_CAT_NUM; i++) {
 		ring = &ring_list->phl_ring[i];
 		rptr = (u16)_os_atomic_read(drv_priv, &ring->phl_idx);
+
+		if (ring->entry==NULL) {
+			PHL_DBG("tx ring %d entry is empty!\n", i);
+			continue;
+		}
 
 		while (rptr != ring->core_idx) {
 			rptr += 1;
@@ -281,6 +285,9 @@ static void _phl_free_phl_tring_list(void *phl,
 				break;
 			ops->tx_recycle(drv_priv, tx_req);
 		}
+
+		_os_kmem_free(drv_priv, ring->entry, MAX_PHL_TX_RING_ENTRY_NUM * sizeof(u8 *));
+		ring->entry = NULL;
 	}
 	_os_kmem_free(drv_priv, ring_list, sizeof(*ring_list));
 }
@@ -305,7 +312,7 @@ _phl_allocate_phl_tring_list(void *phl, u16 macid,
 	void *drv_priv = NULL;
 	u32 buf_len = 0;
 	u8 i = 0, dma_ch = 0;
-
+	u8 fail = 1;
 	drv_priv = phl_to_drvpriv(phl_info);
 
 	buf_len = sizeof(struct rtw_phl_tring_list);
@@ -322,12 +329,23 @@ _phl_allocate_phl_tring_list(void *phl, u16 macid,
 		/*phl_tring_list->mbssid = hw_mbssid*/
 
 		for (i = 0; i < MAX_PHL_RING_CAT_NUM; i++) {
-			phl_tring_list->phl_ring[i].tid = i;
+			phl_tring_list->phl_ring[i].cat = i;
 			dma_ch = rtw_hal_tx_chnl_mapping(phl_info->hal, macid,
 							 i, hw_band);
 			phl_tring_list->phl_ring[i].dma_ch = dma_ch;
+			phl_tring_list->phl_ring[i].entry = (u8 **)_os_kmem_alloc(drv_priv, MAX_PHL_TX_RING_ENTRY_NUM * sizeof(u8 *));
+			if (phl_tring_list->phl_ring[i].entry == NULL) {
+				PHL_DBG("cannot malloc %lu bytes, stop!", (unsigned long int)(MAX_PHL_TX_RING_ENTRY_NUM * sizeof(u8 *)));
+				goto exit;
+			}
 		}
 		_phl_init_tx_plan(&phl_tring_list->tx_plan);
+		fail = 0;
+	}
+exit:
+	if (fail) {
+		_phl_free_phl_tring_list(phl_info, phl_tring_list);
+		phl_tring_list = NULL;
 	}
 
 	return phl_tring_list;
@@ -355,8 +373,6 @@ phl_register_tx_ring(void *phl, u16 macid, u8 hw_band, u8 hw_wmm, u8 hw_port)
 
 	return phl_status;
 }
-
-
 
 enum rtw_phl_status phl_deregister_tx_ring(void *phl, u16 macid)
 {
@@ -391,6 +407,43 @@ enum rtw_phl_status phl_deregister_tx_ring(void *phl, u16 macid)
 	return phl_status;
 }
 
+enum rtw_phl_status
+phl_re_register_tx_ring(void *phl, u16 macid, u8 hw_band, u8 hw_wmm, u8 hw_port)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	void *drv_priv = phl_to_drvpriv(phl_info);
+	struct rtw_phl_tring_list *phl_tring_list = NULL, *t;
+	enum rtw_phl_status phl_status = RTW_PHL_STATUS_FAILURE;
+	_os_list *ring_list = NULL;
+	u8 i = 0, dma_ch = 0;
+
+	ring_list = &phl_info->t_ring_list;
+
+	_os_spinlock(drv_priv, &phl_info->t_ring_list_lock, _bh, NULL);
+
+	phl_list_for_loop_safe(phl_tring_list, t, struct rtw_phl_tring_list,
+					ring_list, list) {
+		if (macid == phl_tring_list->macid) {
+
+			phl_tring_list->band = hw_band;
+			phl_tring_list->wmm = hw_wmm;
+			phl_tring_list->port = hw_port;
+
+			for (i = 0; i < MAX_PHL_RING_CAT_NUM; i++) {
+				phl_tring_list->phl_ring[i].cat = i;
+				dma_ch = rtw_hal_tx_chnl_mapping(phl_info->hal, macid,
+							 i, hw_band);
+				phl_tring_list->phl_ring[i].dma_ch = dma_ch;
+			}
+			phl_status = RTW_PHL_STATUS_SUCCESS;
+			break;
+		}
+	}
+
+	_os_spinunlock(drv_priv, &phl_info->t_ring_list_lock, _bh, NULL);
+	return phl_status;
+}
+
 void phl_free_deferred_tx_ring(struct phl_info_t *phl_info)
 {
 	void *drv_priv = phl_to_drvpriv(phl_info);
@@ -404,7 +457,9 @@ void phl_free_deferred_tx_ring(struct phl_info_t *phl_info)
 		phl_list_for_loop_safe(phl_tring_list, t, struct rtw_phl_tring_list,
 						ring_list, list) {
 			list_del(&phl_tring_list->list);
+			_os_spinunlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
 			_phl_free_phl_tring_list(phl_info, phl_tring_list);
+			_os_spinlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
 		}
 	}
 	_os_spinunlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
@@ -470,7 +525,7 @@ enum rtw_phl_status _phl_ring_status_init(struct phl_info_t *phl_info)
 	struct phl_ring_status *ring_sts = NULL;
 	void *drv_priv = NULL;
 	u16 buf_len = 0;
-	u8 i = 0;
+	u16 i = 0;
 	FUNCIN_WSTS(pstatus);
 
 	drv_priv = phl_to_drvpriv(phl_info);
@@ -533,7 +588,6 @@ _phl_check_ring_status(struct phl_info_t *phl_info,
 				pstatus = RTW_PHL_STATUS_RESOURCE;
 				break;
 			}
-			ring_sts->macid = tring_list->macid;
 			ring_sts->band = tring_list->band;
 			ring_sts->wmm = tring_list->wmm;
 			ring_sts->port = tring_list->port;
@@ -580,17 +634,17 @@ void _phl_sort_ring_by_tid(struct phl_ring_status *ring_sts,
 {
 	struct phl_ring_status *last_sts = NULL;
 
-	if (ring_sts->ring_ptr->tid == 1) {
+	if (ring_sts->ring_ptr->cat == RTW_PHL_RING_CAT_TID1) {
 		list_add_tail(&ring_sts->list,
 			      &tx_plan->sorted_ring);
-	} else if (ring_sts->ring_ptr->tid == 2) {
+	} else if (ring_sts->ring_ptr->cat == RTW_PHL_RING_CAT_TID2) {
 		if (list_empty(&tx_plan->sorted_ring)) {
 			list_add_tail(&ring_sts->list,
 				      &tx_plan->sorted_ring);
 		} else {
 			last_sts = list_last_entry(&tx_plan->sorted_ring,
-					struct phl_ring_status, list);
-			if (1 == last_sts->ring_ptr->tid) {
+			                   struct phl_ring_status, list);
+			if (RTW_PHL_RING_CAT_TID1 == last_sts->ring_ptr->cat) {
 				__list_add(&ring_sts->list,
 					   _get_prev(&last_sts->list),
 					   &last_sts->list);
@@ -647,7 +701,12 @@ u8 phl_check_xmit_ring_resource(struct phl_info_t *phl_info, _os_list *sta_list)
 	phl_list_for_loop_safe(tring_list, t, struct rtw_phl_tring_list,
 				tring_list_head, list) {
 		_phl_check_tring_list(phl_info, tring_list, sta_list);
+
+		 /* use the first phl tx ring */
+		if (phl_info->use_onetxring)
+			break;
 	}
+
 #ifdef SDIO_TX_THREAD
 	/**
 	* when SDIO_TX_THREAD is enabled,
@@ -703,7 +762,7 @@ void phl_tx_flow_ctrl(struct phl_info_t *phl_info, _os_list *sta_list)
 		phl_list_for_loop_safe(ring_sts, ts, struct phl_ring_status,
 				       &tx_plan->sorted_ring, list) {
 			list_del(&ring_sts->list);
-			tid = ring_sts->ring_ptr->tid;
+			tid = rtw_phl_cvt_cat_to_tid(ring_sts->ring_ptr->cat);
 			/* todo: drop tid which has reached tx limit */
 			/* sw tx cnt limit */
 			if (NULL == tid_entry[tid]) {
@@ -731,14 +790,18 @@ enum rtw_phl_status phl_register_handler(struct rtw_phl_com_t *phl_com,
 
 	FUNCIN_WSTS(phl_status);
 
+	#ifdef CONFIG_RTW_OS_HANDLER_EXT
+	_os_init_handler_ext(drv_priv, handler);
+	#endif /* CONFIG_RTW_OS_HANDLER_EXT */
+
 	if (handler->type == RTW_PHL_HANDLER_PRIO_HIGH) {
 		tasklet = &handler->os_handler.u.tasklet;
 		phl_status = _os_tasklet_init(drv_priv, tasklet,
-										handler->callback, handler);
+						handler->callback, handler);
 	} else if (handler->type == RTW_PHL_HANDLER_PRIO_LOW) {
 		workitem = &handler->os_handler.u.workitem;
 		phl_status = _os_workitem_init(drv_priv, workitem,
-										handler->callback, workitem);
+						handler->callback, workitem);
 	} else if (handler->type == RTW_PHL_HANDLER_PRIO_NORMAL) {
 		_os_sema_init(drv_priv, &(handler->os_handler.hdlr_sema), 0);
 		handler->os_handler.hdlr_created = false;
@@ -765,6 +828,10 @@ enum rtw_phl_status phl_deregister_handler(
 	void *drv_priv = phlcom_to_drvpriv(phl_com);
 
 	FUNCIN_WSTS(phl_status);
+
+	#ifdef CONFIG_RTW_OS_HANDLER_EXT
+	_os_deinit_handler_ext(drv_priv, handler);
+	#endif /* CONFIG_RTW_OS_HANDLER_EXT */
 
 	if (handler->type == RTW_PHL_HANDLER_PRIO_HIGH) {
 		tasklet = &handler->os_handler.u.tasklet;
@@ -798,6 +865,38 @@ enum rtw_phl_status phl_deregister_handler(
 	return phl_status;
 }
 
+static int _phl_thread_handler(void *context)
+{
+	struct rtw_phl_handler *phl_handler;
+	struct phl_info_t *phl_info;
+	void *d;
+
+
+	phl_handler = (struct rtw_phl_handler *)phl_container_of(context,
+							struct rtw_phl_handler,
+							os_handler);
+	phl_info = (struct phl_info_t *)phl_handler->context;
+	d = phl_to_drvpriv(phl_info);
+
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s start\n", phl_handler->cb_name);
+
+	while (1) {
+		_os_sema_down(d, &phl_handler->os_handler.hdlr_sema);
+
+		if (_os_thread_check_stop(d, (_os_thread*)context))
+			break;
+
+		phl_handler->callback(context);
+	}
+
+	_os_thread_wait_stop(d, (_os_thread*)context);
+	_os_sema_free(d, &phl_handler->os_handler.hdlr_sema);
+
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s down\n", phl_handler->cb_name);
+
+	return 0;
+}
+
 enum rtw_phl_status phl_schedule_handler(
 	struct rtw_phl_com_t *phl_com, struct rtw_phl_handler *handler)
 {
@@ -818,7 +917,8 @@ enum rtw_phl_status phl_schedule_handler(
 	} else if (handler->type == RTW_PHL_HANDLER_PRIO_NORMAL) {
 		thread = &handler->os_handler.u.thread;
 		if (handler->os_handler.hdlr_created == false) {
-			phl_status = _os_thread_init(drv_priv, thread, (int(*)(void*))handler->callback,
+			phl_status = _os_thread_init(drv_priv, thread,
+						     _phl_thread_handler,
 						     thread, handler->cb_name);
 			if (phl_status == RTW_PHL_STATUS_SUCCESS) {
 				handler->os_handler.hdlr_created = true;
@@ -1279,7 +1379,7 @@ phl_trx_free_sw_rsc(void *phl)
 	FUNCOUT();
 }
 
-enum rtw_phl_status phl_datapath_start(struct phl_info_t *phl_info)
+enum rtw_phl_status phl_datapath_start_hw(struct phl_info_t *phl_info)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct phl_hci_trx_ops *hci_trx_ops = phl_info->hci_trx_ops;
@@ -1288,23 +1388,18 @@ enum rtw_phl_status phl_datapath_start(struct phl_info_t *phl_info)
 		pstatus = hci_trx_ops->trx_cfg(phl_info);
 		if (RTW_PHL_STATUS_SUCCESS != pstatus)
 			break;
-#ifdef RTW_WKARD_FW_OFFLOAD_C2H_TYPE
-		rtw_hal_notification(phl_info->hal, MSG_EVT_DATA_PATH_STOP, HW_BAND_MAX); // for slow io
-#else
 		rtw_hal_notification(phl_info->hal, MSG_EVT_DATA_PATH_START, HW_BAND_MAX);
-#endif
-	}while (false);
+	} while (false);
 
 	return pstatus;
 }
 
-void phl_datapath_stop(struct phl_info_t *phl_info)
+void phl_datapath_stop_hw(struct phl_info_t *phl_info)
 {
 	struct phl_hci_trx_ops *hci_trx_ops = phl_info->hci_trx_ops;
 
 	hci_trx_ops->trx_stop(phl_info);
 	rtw_hal_notification(phl_info->hal, MSG_EVT_DATA_PATH_STOP, HW_BAND_MAX);
-	phl_free_deferred_tx_ring(phl_info);
 }
 
 void phl_datapath_reset(struct phl_info_t *phl_info, u8 type)
@@ -1313,6 +1408,35 @@ void phl_datapath_reset(struct phl_info_t *phl_info, u8 type)
 
 	hci_trx_ops->trx_reset(phl_info, type);
 }
+
+enum rtw_phl_status phl_datapath_start_sw(struct phl_info_t *phl_info, enum phl_module_id id)
+{
+	struct phl_data_ctl_t ctl = {0};
+
+	ctl.id = id;
+	ctl.cmd = PHL_DATA_CTL_SW_TX_RESUME;
+	if (phl_data_ctrler(phl_info, &ctl, NULL) != RTW_PHL_STATUS_SUCCESS)
+		PHL_WARN("%s: tx resume fail!\n", __func__);
+	ctl.cmd = PHL_DATA_CTL_SW_RX_RESUME;
+	if (phl_data_ctrler(phl_info, &ctl, NULL) != RTW_PHL_STATUS_SUCCESS)
+		PHL_WARN("%s: rx resume fail!\n", __func__);
+
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
+void phl_datapath_stop_sw(struct phl_info_t *phl_info, enum phl_module_id id)
+{
+	struct phl_data_ctl_t ctl = {0};
+
+	ctl.id = id;
+	ctl.cmd = PHL_DATA_CTL_SW_TX_PAUSE;
+	if (phl_data_ctrler(phl_info, &ctl, NULL) != RTW_PHL_STATUS_SUCCESS)
+		PHL_WARN("%s: tx pause fail!\n", __func__);
+	ctl.cmd = PHL_DATA_CTL_SW_RX_PAUSE;
+	if (phl_data_ctrler(phl_info, &ctl, NULL) != RTW_PHL_STATUS_SUCCESS)
+		PHL_WARN("%s: rx pause fail!\n", __func__);
+}
+
 
 void phl_datapath_deinit(struct phl_info_t *phl_info)
 {
@@ -1343,6 +1467,11 @@ enum rtw_phl_status phl_datapath_init(struct phl_info_t *phl_info)
 		event_handler->context = phl_info;
 		event_handler->drv_priv = drv_priv;
 		event_handler->status = 0;
+
+		#ifdef CONFIG_RTW_OS_HANDLER_EXT
+		event_handler->id = RTW_PHL_EVT_HANDLER;
+		#endif /* CONFIG_RTW_OS_HANDLER_EXT */
+
 		pstatus = phl_register_handler(phl_info->phl_com, event_handler);
 		if (RTW_PHL_STATUS_SUCCESS != pstatus)
 			break;
@@ -1379,11 +1508,7 @@ _phl_tx_pwr_notify(void *phl)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_SUCCESS;
 
-#ifdef SDIO_TX_THREAD
-	phl_tx_sdio_wake_thrd((struct phl_info_t *)phl);
-#else
 	pstatus = rtw_phl_tx_req_notify(phl);
-#endif
 
 	return pstatus;
 }
@@ -1439,6 +1564,7 @@ static void _phl_datapath_req_pwr(struct phl_info_t *phl_info, u8 type)
 		               1);
 
 	psts = phl_disp_eng_send_msg(phl_info, &msg, &attr, NULL);
+
 	if (RTW_PHL_STATUS_SUCCESS != psts) {
 		PHL_WARN("%s(): CANNOT send msg to request power.\n", __func__);
 		if (PHL_CTRL_TX == type)
@@ -1458,6 +1584,7 @@ static bool _phl_datapath_chk_pwr(struct phl_info_t *phl_info, u8 type)
 	enum data_ctrl_mdl pause_id = 0;
 	_os_atomic *trx_more;
 	_os_atomic *req_pwr;
+	struct rtw_ps_cap_t *ps_cap = &phl_info->phl_com->dev_cap.ps_cap;
 
 	if (type == PHL_CTRL_TX) {
 		pause_id = phl_info->pause_tx_id;
@@ -1477,6 +1604,17 @@ static bool _phl_datapath_chk_pwr(struct phl_info_t *phl_info, u8 type)
 		return false;
 	}
 
+	/**
+	 * For some ICs, we may pause datapath during the configuration flow of
+	 * entering/leaving low power state. In this case, the pause_id will also be
+	 * "DATA_CTRL_MDL_PS" but we don't need to send msg "MSG_EVT_TRX_PWR_REQ"
+	 * to leave low power state for this situation. Thus we check the capability
+	 * "lps_pause_tx" before sending msg "MSG_EVT_TRX_PWR_REQ".
+	 */
+	if (!ps_cap->lps_pause_tx)
+		return false;
+
+	/* only paused by ps module */
 	if (true == _os_atomic_read(drvpriv, trx_more) &&
 	    false == _os_atomic_read(drvpriv, req_pwr))
 		_phl_datapath_req_pwr(phl_info, type);
@@ -1528,39 +1666,54 @@ enum rtw_phl_status rtw_phl_tx_req_notify(void *phl)
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 
+#ifdef SDIO_TX_THREAD
+	phl_tx_sdio_wake_thrd(phl_info);
+#endif
 	pstatus = phl_schedule_handler(phl_info->phl_com,
 					&phl_info->phl_tx_handler);
 
 	return pstatus;
 }
 
+struct rtw_phl_tx_ring *
+_phl_select_tx_ring(struct phl_info_t *phl_info, struct rtw_xmit_req *tx_req)
+{
+	struct rtw_phl_tring_list *tring_list, *t;
+	_os_list *list_head = &phl_info->t_ring_list;
+	struct rtw_phl_tx_ring *ring = NULL;
+	u16 macid = tx_req->mdata.macid;
+
+	if (phl_info->use_onetxring) {
+		/*just pick the first entry*/
+		tring_list = list_first_entry(list_head, struct rtw_phl_tring_list, list);
+		ring = &tring_list->phl_ring[tx_req->mdata.cat];
+	} else {
+		phl_list_for_loop_safe(tring_list, t, struct rtw_phl_tring_list,
+					list_head, list) {
+			if (macid != tring_list->macid) {
+				continue;
+			} else {
+				ring = &tring_list->phl_ring[tx_req->mdata.cat];
+				break;
+			}
+		}
+	}
+	return ring;
+}
+
 enum rtw_phl_status rtw_phl_add_tx_req(void *phl,
 				struct rtw_xmit_req *tx_req)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
-	struct rtw_phl_tring_list *tring_list, *t;
 	struct rtw_phl_tx_ring *ring = NULL;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	void *drv_priv = NULL;
-	_os_list *list_head = &phl_info->t_ring_list;
-	u16 macid = tx_req->mdata.macid;
-	u8 tid = tx_req->mdata.tid;
 	u16 ring_res = 0, rptr = 0;
 
 	drv_priv = phl_to_drvpriv(phl_info);
 
 	_os_spinlock(drv_priv, &phl_info->t_ring_list_lock, _bh, NULL);
-
-	phl_list_for_loop_safe(tring_list, t, struct rtw_phl_tring_list,
-				list_head, list) {
-		if (macid != tring_list->macid) {
-			continue;
-		} else {
-			/* hana_todo check mgnt frame case */
-			ring = &tring_list->phl_ring[tid];
-			break;
-		}
-	}
+	ring = 	_phl_select_tx_ring(phl_info, tx_req);
 
 	if (NULL != ring) {
 		rptr = (u16)_os_atomic_read(drv_priv, &ring->phl_idx);
@@ -1664,6 +1817,10 @@ _phl_cfg_tx_ampdu(void *phl, struct rtw_phl_stainfo_t *sta)
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
 
+	hsts = rtw_hal_upd_ampdu_cctrl_info(phl_info->hal, sta);
+	if (RTW_HAL_STATUS_SUCCESS != hsts)
+		goto fail;
+
 	hsts = rtw_hal_cfg_tx_ampdu(phl_info->hal, sta);
 	if (RTW_HAL_STATUS_SUCCESS != hsts)
 		goto fail;
@@ -1675,6 +1832,24 @@ fail:
 }
 
 #ifdef CONFIG_CMD_DISP
+struct cmd_amsdu_param {
+	u8 macid;
+	u8 enable;
+	u8 amsdu_max_len;
+	u8 qos_field_h;
+	u8 qos_field_h_en;
+	u8 mhdr_len;
+	u8 vlan_tag_valid;
+};
+
+
+struct cmd_hwseq_param {
+	u16 macid;
+	u8 ref_sel;
+	u8 ssn_sel;
+	u16 *hw_seq;
+};
+
 enum rtw_phl_status
 phl_cmd_cfg_ampdu_hdl(struct phl_info_t *phl_info, u8 *param)
 {
@@ -1684,7 +1859,207 @@ phl_cmd_cfg_ampdu_hdl(struct phl_info_t *phl_info, u8 *param)
 
 	return _phl_cfg_tx_ampdu(phl_info, sta);
 }
+
+static enum rtw_phl_status
+_phl_cfg_tx_amsdu(void *phl, struct cmd_amsdu_param *pamsdu_param)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+
+	hsts = rtw_hal_cfg_tx_amsdu(phl_info->hal,
+				    pamsdu_param->macid,
+				    pamsdu_param->enable,
+				    pamsdu_param->amsdu_max_len,
+				    pamsdu_param->qos_field_h,
+				    pamsdu_param->qos_field_h_en,
+				    pamsdu_param->mhdr_len,
+				    pamsdu_param->vlan_tag_valid);
+	if (RTW_HAL_STATUS_SUCCESS != hsts)
+		goto fail;
+
+	return RTW_PHL_STATUS_SUCCESS;
+
+fail:
+	return RTW_PHL_STATUS_FAILURE;
+}
+
+enum rtw_phl_status
+phl_cmd_cfg_amsdu_tx_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct cmd_amsdu_param *pamsdu_param = (struct cmd_amsdu_param *)param;
+
+	PHL_INFO(" %s(), pamsdu_param = %p !\n", __func__, pamsdu_param);
+
+	return _phl_cfg_tx_amsdu(phl_info, pamsdu_param);
+}
+
+static void _phl_cfg_amsdu_tx_done(void *drv_priv, u8 *cmd, u32 cmd_len,
+					enum rtw_phl_status status)
+{
+	if (cmd) {
+		_os_kmem_free(drv_priv, cmd, cmd_len);
+		cmd = NULL;
+		PHL_INFO("%s.....\n", __func__);
+	}
+}
+
+
+
+enum rtw_phl_status
+phl_cmd_get_hwseq_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct cmd_hwseq_param *hwseq_param = (struct cmd_hwseq_param *)param;
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+
+	hsts = rtw_hal_get_hwseq(phl_info->hal, hwseq_param->macid, hwseq_param->ref_sel,
+					hwseq_param->ssn_sel,
+					hwseq_param->hw_seq);
+
+	if (RTW_HAL_STATUS_SUCCESS != hsts)
+		goto fail;
+
+	return RTW_PHL_STATUS_SUCCESS;
+
+fail:
+	return RTW_PHL_STATUS_FAILURE;
+}
+
+
+static void _phl_get_hw_sequence_done(void *drv_priv, u8 *cmd, u32 cmd_len,
+					enum rtw_phl_status status)
+{
+	if (cmd) {
+		_os_kmem_free(drv_priv, cmd, cmd_len);
+		cmd = NULL;
+		PHL_INFO("%s.....\n", __func__);
+	}
+}
+
 #endif
+
+/**
+ * rtw_phl_get_hw_sequence - get hw sequence form CR or DMAC table
+ * @phl: see struct phl_info_t
+ * @cur_hw_seq: hw sequence value
+ * @updated: if hw sequnece successfully updated, let caller know
+ * @hw_ssn_mode: ssn mode;
+ *                 HW_SSN_MODE_CR : 0
+ *                 HW_SSN_MODE_DMAC : 1
+ * @hw_ssn_sel: ssn select; currently each CR set or DMAC entry include 4 entry
+ *                 HW_SSN_SEL0 : 0
+ *                 HW_SSN_SEL1 : 1
+ *                 HW_SSN_SEL2 : 2
+ *                 HW_SSN_SEL3 : 3
+ * returns enum RTW_PHL_STATUS
+ */
+enum rtw_phl_status
+rtw_phl_get_hw_sequence(void *phl,
+			u16 *cur_hw_seq,
+			u16 macid,
+			u8 hw_ssn_mode,
+			u8 hw_ssn_sel)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+
+#ifdef CONFIG_CMD_DISP
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	void *drv = phl_to_drvpriv(phl_info);
+	u32 param_len = sizeof(struct cmd_hwseq_param);
+	struct cmd_hwseq_param *param = _os_kmem_alloc(drv, param_len);
+
+	if (NULL == param) {
+		/* alloc fail */
+		PHL_ERR("%s : param alloc fail !! \n", __func__);
+		return RTW_PHL_STATUS_FAILURE;
+	}
+
+	param->macid = macid;
+	param->ref_sel = hw_ssn_mode;
+	param->ssn_sel = hw_ssn_sel;
+	param->hw_seq = cur_hw_seq;
+
+	sts = phl_cmd_enqueue(phl_info,
+			HW_BAND_0,
+			MSG_EVT_HWSEQ_GET_HW_SEQUENCE,
+			(u8 *)param,
+			param_len,
+			_phl_get_hw_sequence_done,
+			PHL_CMD_WAIT,
+			0);
+
+	if (is_cmd_failure(sts)) {
+		/* Send cmd success, but wait cmd fail*/
+		PHL_ERR("%s : command send success but exec fail, sts = %d\n", __func__, sts);
+		sts = RTW_PHL_STATUS_FAILURE;
+	} else if (sts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		PHL_ERR("%s : send command fail, sts = %d\n", __func__, sts);
+		_os_kmem_free(phl_to_drvpriv(phl_info), param, param_len);
+		sts = RTW_PHL_STATUS_CMD_DROP;
+	}
+
+#else
+	PHL_ERR("%s : CONFIG_CMD_DISP need to be enabled for MSG_EVT_HWSEQ_GET_HW_SEQUENCE !! \n", __func__);
+#endif
+
+	return sts;
+}
+
+enum rtw_phl_status
+rtw_phl_cmd_cfg_amsdu_tx(struct rtw_wifi_role_t *wrole,
+	struct rtw_phl_stainfo_t *sta,
+	struct rtw_amsdu_tx_param *input_param,
+	bool cmd_wait,
+	u32 cmd_timeout)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+
+#ifdef CONFIG_CMD_DISP
+
+	struct phl_info_t *phl = wrole->phl_com->phl_priv;
+	void *drv = phl_to_drvpriv(phl);
+	u32 param_len = sizeof(struct cmd_amsdu_param);
+	struct cmd_amsdu_param *param = _os_kmem_alloc(drv, param_len);
+
+	if (param == NULL) {
+		PHL_ERR("%s: alloc param failed!\n", __func__);
+		return sts;
+	}
+
+	param->macid = input_param->macid;
+	param->enable = input_param->enable;
+	param->amsdu_max_len = input_param->amsdu_max_len;
+	param->qos_field_h = input_param->qos_field_h;
+	param->qos_field_h_en = input_param->qos_field_h_en;
+	param->mhdr_len = input_param->mhdr_len;
+	param->vlan_tag_valid = input_param->vlan_tag_valid;
+
+	sts = phl_cmd_enqueue(phl,
+	                       sta->rlink->hw_band,
+	                       MSG_EVT_CFG_AMSDU_TX,
+	                       (u8 *)param,
+	                       param_len,
+	                       _phl_cfg_amsdu_tx_done,
+	                       PHL_CMD_NO_WAIT,
+	                       0);
+
+	if (is_cmd_failure(sts)) {
+		/* Send cmd success, but wait cmd fail*/
+		PHL_ERR("%s : command send success but exec fail, sts = %d\n", __func__, sts);
+		sts = RTW_PHL_STATUS_FAILURE;
+	} else if (sts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		PHL_ERR("%s : send command fail, sts = %d\n", __func__, sts);
+		_os_kmem_free(drv, param, param_len);
+		sts = RTW_PHL_STATUS_CMD_DROP;
+	}
+#else
+	PHL_ERR("%s : CONFIG_CMD_DISP need to be enabled for MSG_EVT_CFG_AMSDU_TX !! \n", __func__);
+#endif
+
+	return sts;
+}
+
 
 enum rtw_phl_status
 rtw_phl_cmd_cfg_ampdu(void *phl,
@@ -1696,11 +2071,12 @@ rtw_phl_cmd_cfg_ampdu(void *phl,
 	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
 #ifdef CONFIG_CMD_DISP
 	sts = phl_cmd_enqueue(phl,
-			wrole->hw_band,
-			MSG_EVT_CFG_AMPDU,
-			(u8 *)sta, 0,
-			NULL,
-			cmd_type, cmd_timeout);
+	                      sta->rlink->hw_band,
+	                      MSG_EVT_CFG_AMPDU,
+	                      (u8 *)sta,
+	                      0,
+	                      NULL,
+	                      cmd_type, cmd_timeout);
 
 	if (is_cmd_failure(sts)) {
 		/* Send cmd success, but wait cmd fail*/
@@ -1718,6 +2094,20 @@ rtw_phl_cmd_cfg_ampdu(void *phl,
 #endif
 }
 
+
+void rtw_phl_cfg_hwamsdu_init(void *phl,
+	u8 hwamsdu_en,
+	u8 pkt_num,
+	u8 single_amsdu_en,
+	u8 last_padding_en)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+
+	rtw_hal_enable_hwamsdu(phl_info->hal, hwamsdu_en, pkt_num, single_amsdu_en, last_padding_en);
+	PHL_TRACE(COMP_PHL_P2PPS, _PHL_INFO_, "rtw_phl_cfg_hwamsdu_init(): init ok\n");
+}
+
+
 void
 phl_tx_watchdog(struct phl_info_t *phl_info)
 {
@@ -1726,6 +2116,89 @@ phl_tx_watchdog(struct phl_info_t *phl_info)
 
 	phl_tx_traffic_upd(phl_stats);
 	trx_ops->tx_watchdog(phl_info);
+}
+
+
+u8 rtw_phl_cvt_cat_to_tid(enum rtw_phl_ring_cat cat)
+{
+	u8 tid = 0;
+
+	switch (cat) {
+	case RTW_PHL_RING_CAT_TID0:
+		tid = 0;
+		break;
+	case RTW_PHL_RING_CAT_TID1:
+		tid = 1;
+		break;
+	case RTW_PHL_RING_CAT_TID2:
+		tid = 2;
+		break;
+	case RTW_PHL_RING_CAT_TID3:
+		tid = 3;
+		break;
+	case RTW_PHL_RING_CAT_TID4:
+		tid = 4;
+		break;
+	case RTW_PHL_RING_CAT_TID5:
+		tid = 5;
+		break;
+	case RTW_PHL_RING_CAT_TID6:
+		tid = 6;
+		break;
+	case RTW_PHL_RING_CAT_TID7:
+		tid = 7;
+		break;
+	case RTW_PHL_RING_CAT_MGNT:
+	case RTW_PHL_RING_CAT_HIQ:
+		tid = 0;
+		break;
+	default:
+		PHL_WARN("%s: this category(%d) is invalid to convert to tid\n",
+		         __func__, cat);
+		break;
+	}
+
+	return tid;
+}
+
+/* note: this fucntion shall only be used on data frame  */
+enum rtw_phl_ring_cat
+rtw_phl_cvt_tid_to_cat(u8 tid)
+{
+	enum rtw_phl_ring_cat cat = RTW_PHL_RING_CAT_TID0;
+
+	switch (tid) {
+	case 0:
+		cat = RTW_PHL_RING_CAT_TID0;
+		break;
+	case 1:
+		cat = RTW_PHL_RING_CAT_TID1;
+		break;
+	case 2:
+		cat = RTW_PHL_RING_CAT_TID2;
+		break;
+	case 3:
+		cat = RTW_PHL_RING_CAT_TID3;
+		break;
+	case 4:
+		cat = RTW_PHL_RING_CAT_TID4;
+		break;
+	case 5:
+		cat = RTW_PHL_RING_CAT_TID5;
+		break;
+	case 6:
+		cat = RTW_PHL_RING_CAT_TID6;
+		break;
+	case 7:
+		cat = RTW_PHL_RING_CAT_TID7;
+		break;
+	default:
+		PHL_WARN("%s: this tid(%d) is invalid to convert to category\n",
+		         __func__, tid);
+		break;
+	}
+
+	return cat;
 }
 
 enum data_ctrl_mdl _phl_get_ctrl_mdl(enum phl_module_id id)
@@ -1742,6 +2215,12 @@ enum data_ctrl_mdl _phl_get_ctrl_mdl(enum phl_module_id id)
 	case PHL_MDL_POWER_MGNT:
 		ctrl_mdl = DATA_CTRL_MDL_PS;
 		break;
+	case PHL_MDL_MRC:
+		ctrl_mdl = DATA_CTRL_MDL_MRC;
+		break;
+	case PHL_FG_MDL_ECSA:
+		ctrl_mdl = DATA_CTRL_MDL_ECSA;
+		break;
 	default:
 		PHL_WARN("Unknown PHL module(%d) try to control datapath and is skipped!\n",
 			 id);
@@ -1756,7 +2235,7 @@ enum data_ctrl_mdl _phl_get_ctrl_mdl(enum phl_module_id id)
 enum rtw_phl_status
 _phl_poll_hw_tx_done(void)
 {
-	PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_, "[DATA_CTRL] Polling hw tx done is not supported now\n");
+	PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "[DATA_CTRL] Polling hw tx done is not supported now\n");
 
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1764,7 +2243,7 @@ _phl_poll_hw_tx_done(void)
 enum rtw_phl_status
 _phl_hw_tx_resume(void)
 {
-	PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_, "[DATA_CTRL] Resume hw tx not is supported now\n");
+	PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "[DATA_CTRL] Resume hw tx not is supported now\n");
 
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1776,8 +2255,14 @@ _phl_sw_tx_resume(struct phl_info_t *phl_info, struct phl_data_ctl_t *ctl)
 	struct phl_hci_trx_ops *ops = phl_info->hci_trx_ops;
 	enum data_ctrl_mdl ctrl_mdl = _phl_get_ctrl_mdl(ctl->id);
 
+	if (PHL_TX_STATUS_IDLE ==
+	    _os_atomic_read(phl_to_drvpriv(phl_info), &phl_info->phl_sw_tx_sts)) {
+	    ops->trx_resume(phl_info, PHL_CTRL_TX);
+	    return RTW_PHL_STATUS_SUCCESS;
+	}
+
 	if (!TEST_STATUS_FLAG(phl_info->pause_tx_id, ctrl_mdl)) {
-		PHL_WARN("[DATA_CTRL] module %d resume sw tx fail, sw tx is paused by module 0x%x\n",
+		PHL_WARN("[DATA_CTRL] module %d do not pause tx previously (pause_tx_id 0x%x)\n",
 		         ctl->id, phl_info->pause_tx_id);
 		return sts;
 	}
@@ -1816,37 +2301,41 @@ _phl_sw_tx_pause(struct phl_info_t *phl_info,
 	void *drv = phl_to_drvpriv(phl_info);
 	u32 i = 0;
 	enum data_ctrl_mdl ctrl_mdl = _phl_get_ctrl_mdl(ctl->id);
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
 
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	if (PHL_TX_STATUS_SW_PAUSE ==
 	    _os_atomic_read(drv, &phl_info->phl_sw_tx_sts)) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] SW tx has been paused by module(0x%x)\n",
 		          phl_info->pause_tx_id);
 
 		SET_STATUS_FLAG(phl_info->pause_tx_id, ctrl_mdl);
 
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] Update pause sw tx id(0x%x) by module(%d)\n",
 		          phl_info->pause_tx_id, ctl->id);
 
 		sts = RTW_PHL_STATUS_SUCCESS;
-		return sts;
+		goto exit;
 	}
 
 	if (PHL_TX_STATUS_STOP_INPROGRESS ==
 	    _os_atomic_read(drv, &phl_info->phl_sw_tx_sts)) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] SW tx has been requested to pause by module(0x%x)\n",
 		          phl_info->pause_tx_id);
 
 		SET_STATUS_FLAG(phl_info->pause_tx_id, ctrl_mdl);
 
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] Update pause sw tx id(0x%x) by module(%d)\n",
 		          phl_info->pause_tx_id, ctl->id);
 
 		sts = RTW_PHL_STATUS_SUCCESS;
-		return sts;
+		goto exit;
 	}
 
 	/* requset sw tx to stop */
@@ -1857,40 +2346,47 @@ _phl_sw_tx_pause(struct phl_info_t *phl_info,
 	 * and poll if it receviced the stop request and paused itself
 	 */
 	if (RTW_PHL_STATUS_SUCCESS == rtw_phl_tx_req_notify(phl_info)) {
-		for (i = 0; i < POLL_SW_TX_PAUSE_CNT; i++) {
+		u32 start = _os_get_cur_time_ms();
+		u32 cnt = (POLL_SW_TX_PAUSE_MAX_MS * 1000) / 50;
+
+		for (i = 0; (i < cnt) &&
+		     (phl_get_passing_time_ms(start) < POLL_SW_TX_PAUSE_MAX_MS);
+		     i++) {
 			if (true == ops->is_tx_pause(phl_info)) {
 				SET_STATUS_FLAG(phl_info->pause_tx_id, ctrl_mdl);
 				sts = RTW_PHL_STATUS_SUCCESS;
 				break;
 			}
-			_os_sleep_ms(drv, POLL_SW_TX_PAUSE_MS);
+			_os_sleep_us(drv, 50);
 		}
 
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
 			SET_STATUS_FLAG(phl_info->pause_tx_id, ctrl_mdl);
 			sts = RTW_PHL_STATUS_CMD_TIMEOUT;
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_,
+			PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_,
 			          "[DATA_CTRL] Module(%d) polling sw tx pause timeout (%d ms)!\n",
-			          ctl->id,
-			          (POLL_SW_TX_PAUSE_MS * POLL_SW_TX_PAUSE_CNT));
+			          ctl->id, POLL_SW_TX_PAUSE_MAX_MS);
 		} else {
 			if (true == rst_sw) {
-				PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_,
+				PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
 				          "[DATA_CTRL] Pause Tx with reset is not supported now! requested by module(%d)\n",
 				          ctl->id);
 			}
 		}
 	} else {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Schedule sw tx process fail!\n");
+		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Schedule sw tx process fail!\n");
 	}
-
+exit:
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	return sts;
 }
 
 enum rtw_phl_status
 _phl_poll_hw_rx_done(void)
 {
-	PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_, "[DATA_CTRL] Polling hw rx done is not supported now\n");
+	PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "[DATA_CTRL] Polling hw rx done is not supported now\n");
 
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1898,7 +2394,7 @@ _phl_poll_hw_rx_done(void)
 enum rtw_phl_status
 _phl_hw_rx_resume(void)
 {
-	PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_, "[DATA_CTRL] Resume hw rx not is supported now\n");
+	PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "[DATA_CTRL] Resume hw rx not is supported now\n");
 
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1910,8 +2406,14 @@ _phl_sw_rx_resume(struct phl_info_t *phl_info, struct phl_data_ctl_t *ctl)
 	struct phl_hci_trx_ops *ops = phl_info->hci_trx_ops;
 	enum data_ctrl_mdl ctrl_mdl = _phl_get_ctrl_mdl(ctl->id);
 
+	if (PHL_RX_STATUS_IDLE ==
+	    _os_atomic_read(phl_to_drvpriv(phl_info), &phl_info->phl_sw_rx_sts)) {
+	    ops->trx_resume(phl_info, PHL_CTRL_RX);
+	    return RTW_PHL_STATUS_SUCCESS;
+	}
+
 	if (!TEST_STATUS_FLAG(phl_info->pause_rx_id, ctrl_mdl)) {
-		PHL_WARN("[DATA_CTRL] module %d resume sw rx fail, sw rx is paused by module 0x%x\n",
+		PHL_WARN("[DATA_CTRL] module %d do not pause rx previously (pause_rx_id 0x%x)\n",
 		         ctl->id, phl_info->pause_rx_id);
 		return sts;
 	}
@@ -1950,35 +2452,39 @@ _phl_sw_rx_pause(struct phl_info_t *phl_info,
 	void *drv = phl_to_drvpriv(phl_info);
 	u32 i = 0;
 	enum data_ctrl_mdl ctrl_mdl = _phl_get_ctrl_mdl(ctl->id);
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
 
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	if (PHL_RX_STATUS_SW_PAUSE ==
 	    _os_atomic_read(drv, &phl_info->phl_sw_rx_sts)) {
-		PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] SW rx has been paused by module(0x%x)\n",
 		          phl_info->pause_rx_id);
 
 		SET_STATUS_FLAG(phl_info->pause_rx_id, ctrl_mdl);
 
-		PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] Update pause sw rx id(0x%x) by module(%d)\n",
 		          phl_info->pause_rx_id, ctl->id);
 		sts = RTW_PHL_STATUS_SUCCESS;
-		return sts;
+		goto exit;
 	}
 
 	if (PHL_RX_STATUS_STOP_INPROGRESS ==
 	    _os_atomic_read(drv, &phl_info->phl_sw_rx_sts)) {
-		PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] SW rx has been requested to pause by module(0x%x)\n",
 		          phl_info->pause_rx_id);
 
 		SET_STATUS_FLAG(phl_info->pause_rx_id, ctrl_mdl);
 
-		PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "[DATA_CTRL] Update pause sw rx id(0x%x) by module(%d)\n",
 		          phl_info->pause_rx_id, ctl->id);
 		sts = RTW_PHL_STATUS_SUCCESS;
-		return sts;
+		goto exit;
 	}
 
 	/* requset sw rx to stop */
@@ -1989,33 +2495,51 @@ _phl_sw_rx_pause(struct phl_info_t *phl_info,
 	 * and poll if it receviced the stop request and paused itself
 	 */
 	if (RTW_PHL_STATUS_SUCCESS == rtw_phl_start_rx_process(phl_info)) {
-		for (i = 0; i < POLL_SW_RX_PAUSE_CNT; i++) {
-			if (true == ops->is_rx_pause(phl_info)) {
-				SET_STATUS_FLAG(phl_info->pause_rx_id, ctrl_mdl);
-				sts = RTW_PHL_STATUS_SUCCESS;
-				break;
+		u32 start = _os_get_cur_time_ms();
+		u32 cnt = (POLL_SW_RX_PAUSE_MAX_MS * 1000) / 50;
+
+		for (i = 0; (i < cnt) &&
+		     (phl_get_passing_time_ms(start) < POLL_SW_TX_PAUSE_MAX_MS);
+		     i++) {
+			if (false == ops->is_rx_pause(phl_info)) {
+				_os_sleep_us(drv, 50);
+				continue;
 			}
-			_os_sleep_ms(drv, POLL_SW_RX_PAUSE_MS);
+
+			phl_handle_queued_rx(phl_info);
+
+			if (false == rtw_phl_is_phl_rx_idle(phl_info)) {
+				PHL_INFO("[DATA_CTRL] Still have running rx pkt\n");
+				phl_dump_all_sta_rx_info(phl_info);
+				PHL_INFO("[DATA_CTRL] phl_rx_ring stored rx number = %d\n",
+				         rtw_phl_query_new_rx_num(phl_info));
+			}
+			SET_STATUS_FLAG(phl_info->pause_rx_id, ctrl_mdl);
+			sts = RTW_PHL_STATUS_SUCCESS;
+			break;
+
 		}
 
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
 			SET_STATUS_FLAG(phl_info->pause_rx_id, ctrl_mdl);
 			sts = RTW_PHL_STATUS_CMD_TIMEOUT;
-			PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_,
+			PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_,
 			          "[DATA_CTRL] Module(%d) polling sw rx pause timeout (%d ms)!\n",
-			          ctl->id,
-			          (POLL_SW_RX_PAUSE_MS * POLL_SW_RX_PAUSE_CNT));
+			          ctl->id, POLL_SW_RX_PAUSE_MAX_MS);
 		} else {
 			if (true == rst_sw) {
-				PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_,
+				PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
 				          "[DATA_CTRL] Pause Rx with reset is not supported now! requested by module(%d)\n",
 				          ctl->id);
 			}
 		}
 	} else {
-		PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_, "[DATA_CTRL] Schedule sw rx process fail!\n");
+		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Schedule sw rx process fail!\n");
 	}
-
+exit:
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	return sts;
 }
 
@@ -2025,12 +2549,12 @@ _phl_hw_trx_rst_resume(struct phl_info_t *phl_info)
 	void *drv = phl_to_drvpriv(phl_info);
 
 	if (false == _os_atomic_read(drv, &phl_info->is_hw_trx_pause)) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] HW T/Rx is not paused\n");
+		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] HW T/Rx is not paused\n");
 	}
 
 	if (rtw_hal_lv1_rcvy(phl_info->hal, RTW_PHL_SER_LV1_SER_RCVY_STEP_2) !=
 	    RTW_HAL_STATUS_SUCCESS) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_, "[DATA_CTRL] Reset and Resume HW T/Rx fail\n");
+		PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "[DATA_CTRL] Reset and Resume HW T/Rx fail\n");
 		return RTW_PHL_STATUS_FAILURE;
 	} else {
 		_os_atomic_set(drv, &phl_info->is_hw_trx_pause, false);
@@ -2044,12 +2568,12 @@ _phl_hw_trx_pause(struct phl_info_t *phl_info)
 	void *drv = phl_to_drvpriv(phl_info);
 
 	if (true == _os_atomic_read(drv, &phl_info->is_hw_trx_pause)) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] HW T/Rx is already paused\n");
+		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] HW T/Rx is already paused\n");
 	}
 
 	if (rtw_hal_lv1_rcvy(phl_info->hal, RTW_PHL_SER_LV1_RCVY_STEP_1) !=
 	    RTW_HAL_STATUS_SUCCESS) {
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_ERR_, "[DATA_CTRL] Pause HW T/Rx fail\n");
+		PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "[DATA_CTRL] Pause HW T/Rx fail\n");
 		return RTW_PHL_STATUS_FAILURE;
 	} else {
 		_os_atomic_set(drv, &phl_info->is_hw_trx_pause, true);
@@ -2065,13 +2589,13 @@ _phl_trx_sw_pause(struct phl_info_t *phl_info, struct phl_data_ctl_t *ctl)
 	do {
 		sts = _phl_sw_tx_pause(phl_info, ctl, false);
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Pause SW Tx fail in PHL_DATA_CTL_TRX_SW_PAUSE!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Pause SW Tx fail in PHL_DATA_CTL_TRX_SW_PAUSE!\n");
 			break;
 		}
 
 		sts = _phl_sw_rx_pause(phl_info, ctl, false);
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
-			PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_, "[DATA_CTRL] Pause SW Rx fail in PHL_DATA_CTL_TRX_SW_PAUSE!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Pause SW Rx fail in PHL_DATA_CTL_TRX_SW_PAUSE!\n");
 			break;
 		}
 	} while (false);
@@ -2087,13 +2611,13 @@ _phl_trx_sw_resume(struct phl_info_t *phl_info, struct phl_data_ctl_t *ctl)
 	do {
 		sts = _phl_sw_tx_resume(phl_info, ctl);
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Resume SW Tx fail in PHL_DATA_CTL_TRX_SW_RESUME!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Resume SW Tx fail in PHL_DATA_CTL_TRX_SW_RESUME!\n");
 			break;
 		}
 
 		sts = _phl_sw_rx_resume(phl_info, ctl);
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
-			PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_, "[DATA_CTRL] Resume SW Rx fail in PHL_DATA_CTL_TRX_SW_RESUME!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Resume SW Rx fail in PHL_DATA_CTL_TRX_SW_RESUME!\n");
 			break;
 		}
 	} while (false);
@@ -2121,7 +2645,7 @@ _phl_trx_pause_w_rst(struct phl_info_t *phl_info,
 				else
 					*err_sts = CTRL_ERR_SW_TX_PAUSE_FAIL;
 			}
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Pause SW Tx fail in PHL_DATA_CTL_TRX_PAUSE_W_RST!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Pause SW Tx fail in PHL_DATA_CTL_TRX_PAUSE_W_RST!\n");
 			break;
 		}
 
@@ -2129,7 +2653,7 @@ _phl_trx_pause_w_rst(struct phl_info_t *phl_info,
 		if (RTW_PHL_STATUS_SUCCESS != sts) {
 			if (err_sts)
 				*err_sts = CTRL_ERR_HW_TRX_PAUSE_FAIL;
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Pause HW T/Rx fail in PHL_DATA_CTL_TRX_PAUSE_W_RST!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Pause HW T/Rx fail in PHL_DATA_CTL_TRX_PAUSE_W_RST!\n");
 			break;
 		}
 
@@ -2141,7 +2665,7 @@ _phl_trx_pause_w_rst(struct phl_info_t *phl_info,
 				else
 					*err_sts = CTRL_ERR_SW_RX_PAUSE_FAIL;
 			}
-			PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_, "[DATA_CTRL] Pause SW Rx fail in PHL_DATA_CTL_TRX_PAUSE_W_RST!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Pause SW Rx fail in PHL_DATA_CTL_TRX_PAUSE_W_RST!\n");
 			break;
 		}
 
@@ -2169,7 +2693,7 @@ _phl_trx_resume_w_rst(struct phl_info_t *phl_info,
 			if (err_sts)
 				*err_sts = CTRL_ERR_SW_RX_RESUME_FAIL;
 
-			PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_, "[DATA_CTRL] Resume SW Rx fail in PHL_DATA_CTL_TRX_RESUME_W_RST!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Resume SW Rx fail in PHL_DATA_CTL_TRX_RESUME_W_RST!\n");
 			break;
 		}
 
@@ -2178,7 +2702,7 @@ _phl_trx_resume_w_rst(struct phl_info_t *phl_info,
 			if (err_sts)
 				*err_sts = CTRL_ERR_HW_TRX_RESUME_FAIL;
 
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Resume HW T/Rx fail in PHL_DATA_CTL_TRX_RESUME_W_RST!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Resume HW T/Rx fail in PHL_DATA_CTL_TRX_RESUME_W_RST!\n");
 			break;
 		}
 
@@ -2187,7 +2711,7 @@ _phl_trx_resume_w_rst(struct phl_info_t *phl_info,
 			if (err_sts)
 				*err_sts = CTRL_ERR_SW_TX_RESUME_FAIL;
 
-			PHL_TRACE(COMP_PHL_XMIT, _PHL_WARNING_, "[DATA_CTRL] Resume SW Tx fail in PHL_DATA_CTL_TRX_RESUME_W_RST!\n");
+			PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "[DATA_CTRL] Resume SW Tx fail in PHL_DATA_CTL_TRX_RESUME_W_RST!\n");
 			break;
 		}
 	} while (false);
@@ -2246,16 +2770,332 @@ phl_data_ctrler(struct phl_info_t *phl_info, struct phl_data_ctl_t *ctl,
 		sts = _phl_trx_resume_w_rst(phl_info, ctl, msg);
 		break;
 	default:
-		PHL_TRACE(COMP_PHL_XMIT, _PHL_INFO_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		          "Unknown data control command(%d)!\n", ctl->cmd);
 		break;
 	}
 	return sts;
 }
 
+static enum rtw_phl_status
+_phl_set_lifetime(void *phl, u8 hw_band, u8 enable, u16 val)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+
+	if (rtw_hal_com_set_tx_lifetime(phl_info->hal, hw_band,
+				enable, val) == RTW_HAL_STATUS_SUCCESS)
+		return RTW_PHL_STATUS_SUCCESS;
+	else
+		return RTW_PHL_STATUS_FAILURE;
+}
+
+#ifdef CONFIG_CMD_DISP
+enum rtw_phl_status
+phl_cmd_cfg_lifetime_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct lifetime_ctx *lt_ctx = (struct lifetime_ctx *)param;
+
+	return _phl_set_lifetime((void *)phl_info, lt_ctx->hw_band,
+				lt_ctx->en, lt_ctx->val);
+}
+#endif
+
+enum rtw_phl_status
+rtw_phl_cmd_cfg_lifetime(void *phl,
+                         struct rtw_wifi_role_link_t *rlink,
+                         u8 enable,
+                         u16 acq_val,
+                         enum phl_cmd_type cmd_type,
+                         u32 cmd_timeout)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct lifetime_ctx *lt_ctx = (struct lifetime_ctx *) &phl_info->lt_ctx;
+
+	lt_ctx->hw_band = rlink->hw_band;
+	lt_ctx->en = enable;
+	lt_ctx->val = acq_val;
+
+#ifdef CONFIG_CMD_DISP
+	sts = phl_cmd_enqueue(phl,
+	                      rlink->hw_band,
+	                      MSG_EVT_LIFETIME_SETUP,
+	                      (u8 *)lt_ctx, 0,
+	                      NULL,
+	                      cmd_type,
+	                      cmd_timeout);
+	if (is_cmd_failure(sts)) {
+		/* Send cmd success, but wait cmd fail*/
+		sts = RTW_PHL_STATUS_FAILURE;
+	} else if (sts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		sts = RTW_PHL_STATUS_FAILURE;
+	}
+
+	return sts;
+#else
+	PHL_ERR("%s : CONFIG_CMD_DISP not set for MSG_EVT_LIFETIME_SETUP\n", __func__);
+	return sts;
+#endif
+}
+
+static enum rtw_phl_status
+_phl_set_power_offset(void *phl, u8 hw_band, s8 ofst_mode, s8 ofst_bw)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+
+	if (rtw_hal_com_set_power_offset(phl_info->hal, hw_band,
+				ofst_mode, ofst_bw) == RTW_HAL_STATUS_SUCCESS)
+		return RTW_PHL_STATUS_SUCCESS;
+	else
+		return RTW_PHL_STATUS_FAILURE;
+}
+
+#ifdef CONFIG_CMD_DISP
+enum rtw_phl_status
+phl_cmd_cfg_power_offset_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct power_offset_ctx *pwr_ctx = (struct power_offset_ctx *)param;
+
+	return _phl_set_power_offset((void *)phl_info, pwr_ctx->hw_band,
+				pwr_ctx->ofst_mode, pwr_ctx->ofst_bw);
+}
+#endif
+
+enum rtw_phl_status
+rtw_phl_cmd_cfg_power_offset(void *phl,
+                             struct rtw_wifi_role_link_t *rlink,
+                             s8 ofst_mode,
+                             s8 ofst_bw,
+                             enum phl_cmd_type cmd_type,
+                             u32 cmd_timeout)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct power_offset_ctx *pwr_ctx =
+			(struct power_offset_ctx *)&phl_info->pwr_ofst_ctx;
+
+	pwr_ctx->hw_band = rlink->hw_band;
+	pwr_ctx->ofst_mode = ofst_mode;
+	pwr_ctx->ofst_bw = ofst_bw;
+
+#ifdef CONFIG_CMD_DISP
+	sts = phl_cmd_enqueue(phl,
+	                      rlink->hw_band,
+	                      MSG_EVT_POWER_OFFSET_SETUP,
+	                      (u8 *)pwr_ctx,
+	                      0,
+	                      NULL,
+	                      cmd_type,
+	                      cmd_timeout);
+	if (is_cmd_failure(sts)) {
+		/* Send cmd success, but wait cmd fail*/
+		sts = RTW_PHL_STATUS_FAILURE;
+	} else if (sts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		sts = RTW_PHL_STATUS_FAILURE;
+	}
+
+	return sts;
+#else
+	PHL_ERR("%s : CONFIG_CMD_DISP not set for MSG_EVT_POWER_OFFSET_SETUP\n", __func__);
+	return sts;
+#endif
+}
+
+static enum rtw_phl_status
+_phl_set_gt3_with_type(void *phl, u8 en, u32 timeout)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	void *hal = phl_info->hal;
+
+	if(rtw_hal_com_set_gt3(hal, en, timeout) == RTW_HAL_STATUS_SUCCESS)
+		return RTW_PHL_STATUS_SUCCESS;
+	else
+		return RTW_PHL_STATUS_FAILURE;
+}
+
+static enum rtw_phl_status _phl_set_gt3(void *phl, u8 en, u32 timeout)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct gtimer_ctx *gt_ctx = (struct gtimer_ctx *) &phl_info->gt3_ctx;
+
+	gt_ctx->en = en;
+	gt_ctx->timer_type = _GT3_TYPE_SH_TASK;
+	gt_ctx->duration = timeout;
+
+	return _phl_set_gt3_with_type(phl, en, timeout);
+}
+
+#ifdef CONFIG_CMD_DISP
+enum rtw_phl_status
+phl_cmd_cfg_gt3_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct gtimer_ctx *gt_ctx = (struct gtimer_ctx *)param;
+
+	PHL_INFO(" %s(), gt_ctx = %p !\n", __func__, gt_ctx);
+
+	if (0 == gt_ctx->timer_type)
+		return _phl_set_gt3((void *)phl_info,
+			gt_ctx->en, gt_ctx->duration);
+	else
+		return _phl_set_gt3_with_type((void *)phl_info,
+			gt_ctx->en, gt_ctx->duration);
+}
+#endif
+
+enum rtw_phl_status
+rtw_phl_cfg_gtimer_register(void *phl,
+                            struct rtw_wifi_role_link_t *rlink,
+                            u8 type,
+                            u8 enable,
+                            u32 timeout,
+                            enum phl_cmd_type cmd_type,
+                            u32 cmd_timeout)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct gtimer_ctx *gt_ctx = (struct gtimer_ctx *) &phl_info->gt3_ctx;
+
+	gt_ctx->en = enable;
+	gt_ctx->timer_type = type;
+	gt_ctx->duration = timeout;
+
+#ifdef CONFIG_CMD_DISP
+	sts = phl_cmd_enqueue(phl,
+	                      rlink->hw_band,
+	                      MSG_EVT_GT3_SETUP,
+	                      (u8 *)gt_ctx,
+	                      0,
+	                      NULL,
+	                      cmd_type,
+	                      cmd_timeout);
+	if (is_cmd_failure(sts)) {
+		/* Send cmd success, but wait cmd fail*/
+		sts = RTW_PHL_STATUS_FAILURE;
+	} else if (sts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		sts = RTW_PHL_STATUS_FAILURE;
+	}
+
+	return sts;
+#else
+	PHL_ERR("%s : CONFIG_CMD_DISP not set for MSG_EVT_GT3_SETUP\n", __func__);
+	return sts;
+#endif
+}
+
+#ifdef CONFIG_CMD_DISP
+enum rtw_phl_status
+phl_cmd_cfg_hw_seq_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct rtw_phl_stainfo_t *sta = (struct rtw_phl_stainfo_t *)param;
+
+	PHL_INFO(" %s(), sta = %p !\n", __func__, sta);
+
+	return rtw_hal_set_dctrl_tbl_seq((void *)phl_info->hal, sta, sta->hw_seq);
+}
+#endif
+
+enum rtw_phl_status
+rtw_phl_cmd_cfg_hw_seq(void *phl,
+                       struct rtw_wifi_role_link_t *rlink,
+                       struct rtw_phl_stainfo_t *sta,
+                       u32 seq,
+                       u16 rts_rate,
+                       enum phl_cmd_type cmd_type,
+                       u32 cmd_timeout)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+
+	if (NULL == sta)
+		return RTW_PHL_STATUS_FAILURE;
+
+	sta->hw_seq = seq;
+	sta->set_rts_init_rate = rts_rate;
+
+#ifdef CONFIG_CMD_DISP
+	sts = phl_cmd_enqueue(phl,
+	                      rlink->hw_band,
+	                      MSG_EVT_HW_SEQ_SETUP,
+	                      (u8 *)sta,
+	                      0,
+	                      NULL,
+	                      cmd_type,
+	                      cmd_timeout);
+	if (is_cmd_failure(sts)) {
+		/* Send cmd success, but wait cmd fail*/
+		sts = RTW_PHL_STATUS_FAILURE;
+	} else if (sts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		sts = RTW_PHL_STATUS_FAILURE;
+	}
+
+	return sts;
+#else
+	PHL_ERR("%s : CMD_DISP not set for MSG_EVT_HW_SEQ_SETUP\n", __func__);
+	return sts;
+#endif
+}
+
+#ifdef CONFIG_PCI_HCI
+void rtw_phl_get_hw_cnt_tx_fail(void *phl, u32 *tx_fail, u32 *tx_fail_mgmt)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
+	struct rtw_wp_rpt_stats *rpt_sts = (struct rtw_wp_rpt_stats *)hal_com->trx_stat.wp_rpt_stats;
+	u8 txch_num = rtw_hal_query_txch_num(phl_info->hal);
+	u8 mgmt_ch = 0;
+	u8 i;
+
+	*tx_fail = 0;
+	*tx_fail_mgmt = 0;
+
+	if (rpt_sts) {
+		for (i = 0; i < txch_num; i++)
+			*tx_fail += rpt_sts[i].tx_fail_cnt;
+
+		/* sum up mgmt queue counters of all HW bands */
+		for (i = 0; i < HW_BAND_MAX; i++) {
+			mgmt_ch = rtw_hal_tx_chnl_mapping(phl_info->hal, 0,
+				RTW_PHL_RING_CAT_MGNT, i);
+			*tx_fail_mgmt += rpt_sts[mgmt_ch].tx_fail_cnt;
+		}
+	}
+}
+
+void rtw_phl_get_hw_cnt_tx_ok(void *phl, u32 *tx_ok, u32 *tx_ok_mgmt)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
+	struct rtw_wp_rpt_stats *rpt_sts = (struct rtw_wp_rpt_stats *)hal_com->trx_stat.wp_rpt_stats;
+	u8 txch_num = rtw_hal_query_txch_num(phl_info->hal);
+	u8 mgmt_ch = 0;
+	u8 i;
+
+	*tx_ok = 0;
+	*tx_ok_mgmt = 0;
+
+	if (rpt_sts) {
+		for(i = 0; i < txch_num; i++) {
+			*tx_ok += rpt_sts[i].tx_ok_cnt;
+			*tx_ok += rpt_sts[i].delay_tx_ok_cnt;
+		}
+
+		/* sum up mgmt queue counters of all HW bands */
+		for (i = 0; i < HW_BAND_MAX; i++) {
+			mgmt_ch = rtw_hal_tx_chnl_mapping(phl_info->hal, 0,
+				RTW_PHL_RING_CAT_MGNT, i);
+			*tx_ok_mgmt += rpt_sts[mgmt_ch].tx_ok_cnt;
+			*tx_ok_mgmt += rpt_sts[mgmt_ch].delay_tx_ok_cnt;
+		}
+	}
+}
+#endif
+
 #ifdef CONFIG_CMD_DISP
 static void
-_phl_packet_notify_done(void *drv_priv, u8 *cmd, u32 cmd_len,
+_phl_tx_packet_notify_done(void *drv_priv, u8 *cmd, u32 cmd_len,
 			enum rtw_phl_status status)
 {
 	if (cmd && cmd_len){
@@ -2265,8 +3105,8 @@ _phl_packet_notify_done(void *drv_priv, u8 *cmd, u32 cmd_len,
 	}
 }
 
-void rtw_phl_packet_event_notify(void *phl,
-	struct rtw_wifi_role_t *wifi_role,
+void rtw_phl_tx_packet_event_notify(void *phl,
+	struct rtw_wifi_role_link_t *rlink,
 	enum phl_pkt_evt_type pkt_evt)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
@@ -2283,7 +3123,57 @@ void rtw_phl_packet_event_notify(void *phl,
 	*pkt_evt_type = pkt_evt;
 
 	phl_status = phl_cmd_enqueue(phl_info,
-                                     wifi_role->hw_band,
+                                     rlink->hw_band,
+                                     MSG_EVT_PKT_EVT_NTFY,
+                                     (u8 *)pkt_evt_type,
+                                     sizeof(enum phl_pkt_evt_type),
+                                     _phl_tx_packet_notify_done,
+                                     PHL_CMD_NO_WAIT,
+                                     0);
+
+	if (is_cmd_failure(phl_status)) {
+		/* Send cmd success, but wait cmd fail*/
+		PHL_ERR("%s event: %d status: %d\n",
+			__func__, pkt_evt, phl_status);
+	} else if (phl_status != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		PHL_ERR("%s event: %d status: %d\n",
+			__func__, pkt_evt, phl_status);
+		_os_kmem_free(phl_to_drvpriv(phl_info), pkt_evt_type,
+			sizeof(enum phl_pkt_evt_type));
+	}
+}
+
+static void
+_phl_packet_notify_done(void *drv_priv, u8 *cmd, u32 cmd_len,
+			enum rtw_phl_status status)
+{
+	if (cmd && cmd_len){
+		_os_kmem_free(drv_priv, cmd, cmd_len);
+		cmd = NULL;
+		PHL_INFO("%s.....\n", __func__);
+	}
+}
+
+void rtw_phl_packet_event_notify(void *phl,
+	struct rtw_wifi_role_link_t *rlink,
+	enum phl_pkt_evt_type pkt_evt)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	enum phl_pkt_evt_type *pkt_evt_type = NULL;
+	enum rtw_phl_status phl_status = RTW_PHL_STATUS_FAILURE;
+
+	pkt_evt_type = (enum phl_pkt_evt_type *)_os_kmem_alloc(
+		phl_to_drvpriv(phl_info), sizeof(enum phl_pkt_evt_type));
+	if (pkt_evt_type == NULL) {
+		PHL_ERR("%s: alloc packet cmd fail.\n", __func__);
+		return;
+	}
+
+	*pkt_evt_type = pkt_evt;
+
+	phl_status = phl_cmd_enqueue(phl_info,
+                                     rlink->hw_band,
                                      MSG_EVT_PKT_EVT_NTFY,
                                      (u8 *)pkt_evt_type,
                                      sizeof(enum phl_pkt_evt_type),
@@ -2303,4 +3193,120 @@ void rtw_phl_packet_event_notify(void *phl,
 			sizeof(enum phl_pkt_evt_type));
 	}
 }
+
+#define TX_DBG_STATUS_DUMP_INTERVAL 30000 /* ms */
+void phl_tx_dbg_status_dump(struct phl_info_t *phl_info, enum phl_band_idx hwband)
+{
+	enum rtw_phl_status phl_status = RTW_PHL_STATUS_FAILURE;
+
+	static u32 last_dump_t = 0;
+
+	if (phl_get_passing_time_ms(last_dump_t) >= TX_DBG_STATUS_DUMP_INTERVAL) {
+		phl_status = phl_cmd_enqueue(phl_info,
+					     hwband,
+					     MSG_EVT_DBG_TX_DUMP,
+					     NULL,
+					     0,
+					     NULL,
+					     PHL_CMD_NO_WAIT,
+					     0);
+		if (phl_status != RTW_PHL_STATUS_SUCCESS) {
+			PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "%s: cmd enqueue fail!\n",
+				  __func__);
+		}
+		last_dump_t = _os_get_cur_time_ms();
+	}
+}
+
+static enum rtw_phl_status
+_phl_cfg_hw_cts2self(struct phl_info_t *phl_info,
+		     struct rtw_phl_hw_cts2self_cfg *cts_cfg)
+{
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+
+	hsts = rtw_hal_cfg_hw_cts2self(phl_info->hal,
+				    cts_cfg->band_sel,
+				    cts_cfg->enable,
+				    cts_cfg->non_sec_threshold,
+				    cts_cfg->sec_threshold);
+
+	if (RTW_HAL_STATUS_SUCCESS != hsts)
+		goto fail;
+
+	return RTW_PHL_STATUS_SUCCESS;
+
+fail:
+	return RTW_PHL_STATUS_FAILURE;
+}
+
+enum rtw_phl_status
+phl_cmd_cfg_hw_cts2self_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	struct rtw_phl_hw_cts2self_cfg *cts_cfg = (struct rtw_phl_hw_cts2self_cfg *)param;
+
+	PHL_INFO(" %s(), cts_cfg = %p !\n", __func__, cts_cfg);
+
+	return _phl_cfg_hw_cts2self(phl_info, cts_cfg);
+}
+
+static void _phl_hw_cts2self_done(void *drv_priv, u8 *cmd, u32 cmd_len, enum rtw_phl_status status)
+{
+	if (cmd) {
+		_os_mem_free(drv_priv, cmd, cmd_len);
+		cmd = NULL;
+	}
+}
+
+enum rtw_phl_status
+rtw_phl_hw_cts2self_cfg(void *phl, u8 enable,
+			u8 band_sel, u8 non_sec_thr, u8 sec_thr)
+{
+#ifdef CONFIG_CMD_DISP
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	void *drv_priv = phl_to_drvpriv(phl_info);
+	struct rtw_phl_hw_cts2self_cfg *cts_cfg = NULL;
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+	u32 cfg_len = sizeof(struct rtw_phl_hw_cts2self_cfg);
+
+	cts_cfg = _os_mem_alloc(drv_priv, cfg_len);
+	if (cts_cfg == NULL) {
+		PHL_ERR("%s: alloc cts_cfg failed!\n", __func__);
+		goto _exit;
+	}
+
+	cts_cfg->enable = enable;
+	cts_cfg->band_sel = band_sel;
+	cts_cfg->non_sec_threshold = non_sec_thr;
+	cts_cfg->sec_threshold = sec_thr;
+
+	psts = phl_cmd_enqueue(phl_info,
+	                       HW_BAND_0,
+	                       MSG_EVT_HW_CTS2SELF,
+	                       (u8 *)cts_cfg,
+	                       cfg_len,
+	                       _phl_hw_cts2self_done,
+	                       PHL_CMD_NO_WAIT,
+	                       0);
+
+	if (is_cmd_failure(psts)) {
+		/* Send cmd success, but wait cmd fail*/
+		psts = RTW_PHL_STATUS_FAILURE;
+	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		psts = RTW_PHL_STATUS_FAILURE;
+		_os_mem_free(drv_priv, cts_cfg, cfg_len);
+	}
+_exit:
+	return psts;
+#else
+	PHL_ERR("phl_fsm not support %s\n", __func__);
+	return RTW_PHL_STATUS_FAILURE;
+#endif /*CONFIG_CMD_DISP*/
+}
+
 #endif /* #ifdef CONFIG_CMD_DISP */
+
+bool
+rtw_phl_check_sta_has_busy_wp(struct rtw_phl_stainfo_t *sta) {
+	return rtw_hal_check_sta_has_busy_wp(sta);
+}

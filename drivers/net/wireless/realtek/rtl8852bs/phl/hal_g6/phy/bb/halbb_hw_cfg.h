@@ -32,8 +32,12 @@
 #define BB_RXSC_NUM_160		15 /*SC:0,1~8,9~12,13~14*/
 #define BB_RXSC_START_IDX_FULL	0
 #define BB_RXSC_START_IDX_20	1
+#define BB_RXSC_START_IDX_20_1	5
 #define BB_RXSC_START_IDX_40	9
 #define BB_RXSC_START_IDX_80	13
+
+#define BB_BAND_NUM_MAX		12 /*2G:1, 5G:3, 6G:8*/
+#define BB_HIDE_EFUSE_SIZE	55
 
 //#define BB_GAIN_BAND_NUM	4
 /*@--------------------------[Enum]------------------------------------------*/
@@ -42,7 +46,11 @@ enum bb_band_t {
 	BB_BAND_5G_L	= 1,
 	BB_BAND_5G_M	= 2,
 	BB_BAND_5G_H	= 3,
-	BB_GAIN_BAND_NUM	= 4
+	BB_BAND_6G_L	= 4,
+	BB_BAND_6G_M	= 5,
+	BB_BAND_6G_H	= 6,
+	BB_BAND_6G_UH	= 7,
+	BB_GAIN_BAND_NUM	= 8
 };
 /*@--------------------------[Structure]-------------------------------------*/
 
@@ -55,4 +63,6 @@ bool halbb_init_gain_table(struct bb_info *bb, bool is_form_folder, u32 folder_l
 				 u32 *folder_array, enum phl_phy_idx phy_idx);
 void halbb_rx_gain_table_dbg(struct bb_info *bb, char input[][16], 
 			     u32 *_used, char *output, u32 *_out_len);
+void halbb_rx_op1db_table_dbg(struct bb_info *bb, char input[][16], 
+			      u32 *_used, char *output, u32 *_out_len);
 #endif

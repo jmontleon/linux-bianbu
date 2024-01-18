@@ -16,6 +16,8 @@
 #define _HAL_COM_I_C_
 #include "hal_headers.h"
 
+#define HAL_MAC_TX_LIFETIME_UNIT_US_SHT 8 /* 256 us */
+
 void
 rtw_hal_com_scan_set_tx_lifetime(void *hal, u8 band)
 {
@@ -23,8 +25,8 @@ rtw_hal_com_scan_set_tx_lifetime(void *hal, u8 band)
 
 	/* set mgnt queue pkt lifetime */
 #define HAL_COM_MGQ_TX_LIFETIME_MS 19
-	rtw_hal_mac_set_tx_lifetime(hal_info, band, false, true, 0,
-				    (HAL_COM_MGQ_TX_LIFETIME_MS * 1000));
+	rtw_hal_mac_set_tx_lifetime(hal_info, band, PHL_LIFETIME_MGQ, true,
+		((HAL_COM_MGQ_TX_LIFETIME_MS * 1000) >> HAL_MAC_TX_LIFETIME_UNIT_US_SHT));
 }
 
 void rtw_hal_com_scan_restore_tx_lifetime(void *hal, u8 band)
@@ -32,8 +34,62 @@ void rtw_hal_com_scan_restore_tx_lifetime(void *hal, u8 band)
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 
 	/* reset data/mgnt queue pkt lifetime to 0 */
-	rtw_hal_mac_set_tx_lifetime(hal_info, band, false, false, 0, 0);
+	rtw_hal_mac_set_tx_lifetime(hal_info, band, PHL_LIFETIME_MGQ, false, 0);
+}
 
+/* set ac queue pkt lifetime, val is in unit of ms */
+enum rtw_hal_status
+rtw_hal_com_set_tx_lifetime(void *hal, u8 band, u8 en, u16 val)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	if (en)
+		return rtw_hal_mac_set_tx_lifetime(hal_info, band, PHL_LIFETIME_ACQ, true,
+					((val * 1000) >> HAL_MAC_TX_LIFETIME_UNIT_US_SHT));
+	else
+		return rtw_hal_mac_set_tx_lifetime(hal_info, band, PHL_LIFETIME_ACQ, false,
+					0);
+}
+
+/* set TPU ofst_mode & ofst_bw, step 0.5 dB */
+enum rtw_hal_status
+rtw_hal_com_set_power_offset(void *hal, u8 band, s8 ofst_mode, s8 ofst_bw)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	enum rtw_hal_status hsts;
+
+	hsts = rtw_hal_mac_set_pwr_ofst_mode(hal_info->hal_com, band, ofst_mode);
+	if(hsts != RTW_HAL_STATUS_SUCCESS){
+		PHL_ERR("%s set tpu pwr_ofst_mode - failed\n", __func__);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	hsts = rtw_hal_mac_write_pwr_ofst_mode(hal_info->hal_com, band);
+	if(hsts != RTW_HAL_STATUS_SUCCESS){
+		PHL_ERR("%s write tpu pwr_ofst_mode - failed\n", __func__);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	hsts = rtw_hal_mac_set_pwr_ofst_bw(hal_info->hal_com, band, ofst_bw);
+	if(hsts != RTW_HAL_STATUS_SUCCESS){
+		PHL_ERR("%s set tpu pwr_ofst_bw - failed\n", __func__);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	hsts = rtw_hal_mac_write_pwr_ofst_bw(hal_info->hal_com, band);
+	if(hsts != RTW_HAL_STATUS_SUCCESS){
+		PHL_ERR("%s write tpu pwr_ofst_bw - failed\n", __func__);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status rtw_hal_com_set_gt3(void *hal, u8 en, u8 timeout)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	return rtw_hal_mac_set_gt3(hal_info, en, timeout);
 }
 
 enum rtw_hal_status rtw_hal_scan_pause_tx_fifo(void *hinfo,
@@ -49,8 +105,8 @@ enum rtw_hal_status rtw_hal_scan_pause_tx_fifo(void *hinfo,
 	return hal_status;
 }
 
-enum rtw_hal_status rtw_hal_dfs_pause_tx(void *hinfo,
-	u8 band_idx, bool off_ch, enum tx_pause_rson reason)
+enum rtw_hal_status
+rtw_hal_dfs_pause_tx(void *hinfo, u8 band_idx, bool off_ch, enum tx_pause_rson reason)
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
 	struct hal_info_t *hal_info = (struct hal_info_t *)hinfo;
@@ -65,62 +121,7 @@ enum rtw_hal_status rtw_hal_dfs_pause_tx(void *hinfo,
 enum rtw_hal_status rtw_hal_scan_flush_queue(void *hinfo,
 	struct rtw_wifi_role_t *wrole)
 {
-	struct hal_info_t *hal_info = (struct hal_info_t *)hinfo;
-	int wait = 5/* 10ms */, hal_status;
-	u8 val8;
-#if 0
-	struct phl_queue *sta_queue;
-	struct rtw_phl_stainfo_t *sta;
-	void *drv = hal_to_drvpriv(hal_info);
-	_os_list *sta_list;
-	u8 rts_txcnt_lmt_sel = 1;
-	u8 rts_txcnt_lmt = 1;
-	u8 data_txcnt_lmt_sel = 1;
-	u8 data_tx_cnt_lmt = 1;
-#endif
-	hal_status = rtw_hal_mac_is_tx_mgnt_empty(hal_info, wrole->hw_band, &val8);
-
-	if (val8)
-		return RTW_HAL_STATUS_SUCCESS;
-
-#if 0
-	sta_queue = &wrole->assoc_sta_queue;
-	sta_list = &sta_queue->queue;
-
-	/* TODO wait halmac api */
-	/* shorten retry limit */
-	_os_spinlock(drv, &sta_queue->lock, _bh, NULL);
-	phl_list_for_loop(sta, struct rtw_phl_stainfo_t, sta_list, list) {
-		rtw_hal_mac_set_rty_lmt(hal_info->hal_com, sta->macid,
-			rts_txcnt_lmt_sel, rts_txcnt_lmt,
-			data_txcnt_lmt_sel, data_tx_cnt_lmt);
-	}
-	_os_spinunlock(drv, &sta_queue->lock, _bh, NULL);
-#endif
-	while (wait-- && (!val8)) {
-		_os_delay_ms(hal_info->hal_com->drv_priv, 2);
-		rtw_hal_mac_is_tx_mgnt_empty(hal_info, wrole->hw_band, &val8);
-	}
-#if 0
-	/* restore retry limit */
-	if (wrole->cap.rty_lmt_rts == 0xFF)
-		rts_txcnt_lmt_sel = 0;
-	else
-		rts_txcnt_lmt = wrole->cap.rty_lmt_rts & 0xF;
-
-	if (wrole->cap.rty_lmt == 0xFF)
-		data_txcnt_lmt_sel = 0;
-	else
-		data_tx_cnt_lmt = wrole->cap.rty_lmt & 0x3F;
-
-	rtw_hal_mac_set_rty_lmt(hal_info->hal_com, sta->macid,
-		rts_txcnt_lmt_sel, rts_txcnt_lmt,
-		data_txcnt_lmt_sel, data_tx_cnt_lmt);
-#endif
-	if (val8 == DLE_QUEUE_EMPTY)
-		return RTW_HAL_STATUS_SUCCESS;
-
-	return RTW_HAL_STATUS_FAILURE;
+	return RTW_HAL_STATUS_SUCCESS;
 }
 #endif
 
@@ -130,6 +131,7 @@ enum rtw_hal_status rtw_hal_notify_switch_band(void *hinfo,
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
 	struct hal_info_t *hal_info = (struct hal_info_t *)hinfo;
 
+	PHL_INFO("%s: band(%d), phy_idx(%d)\n", __FUNCTION__, band, phy_idx);
 #ifdef CONFIG_BTCOEX
 	rtw_hal_btc_switch_band_ntfy(hal_info, phy_idx, band);
 #endif
@@ -175,6 +177,11 @@ rtw_hal_proc_cmd(void *hal, char proc_cmd, struct rtw_proc_cmd *incmd,
 	return hal_status;
 }
 
+void rtw_hal_get_mac_version(char *ver_str, u16 len)
+{
+	rtw_hal_mac_get_version(ver_str, len);
+}
+
 void rtw_hal_get_fw_ver(void *hal, char *ver_str, u16 len)
 {
 	rtw_hal_mac_get_fw_ver((struct hal_info_t *)hal, ver_str, len);
@@ -210,11 +217,101 @@ rtw_hal_set_mu_edca_ctrl(void *hal, u8 band, u8 wmm, u8 set)
 					band, wmm, set);
 	return hal_status;
 }
+
+/*init rx filter opt,type, max MPDU size, RTS threshold*/
+enum rtw_hal_status
+rtw_hal_hw_param_init(struct hal_info_t *hal_info, struct rtw_phl_com_t *phl_com,
+				enum phl_band_idx band_idx)
+{
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+	struct phy_cap_t *phy_cap = phl_com->phy_cap;
+
+	hsts = rtw_hal_set_rxfltr_opt_by_mode(hal_info, band_idx, RX_FLTR_OPT_MODE_STA_NORMAL);
+	if (hsts != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s set rx filter opt failed\n", __func__);
+		goto _exit;
+	}
+	hsts = rtw_hal_set_rxfltr_type_by_mode(hal_info, band_idx, RX_FLTR_TYPE_MODE_HAL_INIT);
+	if (hsts != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s set rx filter type failed\n", __func__);
+		goto _exit;
+	}
+	hsts = rtw_hal_mac_set_rxfltr_mpdu_size(hal_info->hal_com, band_idx, 0x2c00);
+	if (hsts != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s set mpdu size failed\n", __func__);
+		goto _exit;
+	}
+
+	hsts = rtw_hal_mac_set_hw_rts_th(hal_info, band_idx,
+				  phy_cap[band_idx].hw_rts_time_th,
+				  phy_cap[band_idx].hw_rts_len_th);
+	if (hsts != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s set RTS threshold failed\n", __func__);
+		goto _exit;
+	}
+
+_exit:
+	return hsts;
+}
+
+enum rtw_hal_status rtw_hal_ppdu_sts_init(void *hal, struct hal_ppdu_sts_cfg *cfg)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+
+	hal_status = hal_info->hal_ops.cfg_ppdu_sts(hal_info, cfg);
+
+	hal_com->band[cfg->band_idx].ppdu_sts_appen_info = cfg->appen_info;
+	hal_com->band[cfg->band_idx].ppdu_sts_filter = cfg->filter;
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS)
+		PHL_ERR("%s - failed\n", __func__);
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_ppdu_sts_cfg(void *hal, u8 band_idx, bool en)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+	struct hal_ppdu_sts_cfg cfg = {0};
+
+	cfg.band_idx = band_idx;
+	cfg.ppdu_stat_en = en;
+	if(en) {
+		cfg.appen_info = hal_com->band[band_idx].ppdu_sts_appen_info;
+		cfg.filter = hal_com->band[band_idx].ppdu_sts_filter;
+	}
+
+	hal_status = hal_info->hal_ops.cfg_ppdu_sts(hal_info, &cfg);
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS)
+		PHL_ERR("%s (en %d) - failed\n", __func__, en);
+
+	return hal_status;
+}
+
 enum rtw_hal_status
 rtw_hal_reset(struct rtw_hal_com_t *hal_com, enum phl_phy_idx phy_idx, u8 band_idx, bool reset)
 {
-    struct hal_info_t *hal_info = hal_com->hal_priv;
-    enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
+	struct hal_info_t *hal_info = hal_com->hal_priv;
+	enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
+
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	PHL_INFO("%s: phy_idx(%d) band_idx(%d)\n", __FUNCTION__, phy_idx, band_idx);
 
 	if (reset){
 		/* disable contention */
@@ -225,100 +322,34 @@ rtw_hal_reset(struct rtw_hal_com_t *hal_com, enum phl_phy_idx phy_idx, u8 band_i
 		}
 
 		/* disable ppdu_sts */
-		status = rtw_hal_mac_ppdu_stat_cfg(hal_info, band_idx, false, 0, 0);
+		status = rtw_hal_ppdu_sts_cfg(hal_info, band_idx, false);
 		if(status != RTW_HAL_STATUS_SUCCESS){
-			PHL_ERR("%s rtw_hal_mac_ppdu_stat_cfg - failed\n", __func__);
+			PHL_ERR("%s rtw_hal_ppdu_sts_cfg - failed\n", __func__);
 			return status;
 		}
 
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-		rtw_hal_bb_fwofld_cfgcr_start(hal_com);
-#endif
-		/*disable DFS/TSSI*/
-		rtw_hal_bb_dfs_en(hal_info, false);
-		if (!hal_com->dbcc_en) {
-			rtw_hal_bb_tssi_cont_en(hal_info, false, RF_PATH_A);
-			rtw_hal_bb_tssi_cont_en(hal_info, false, RF_PATH_B);
-		}else{
-			if(phy_idx == HW_PHY_0)
-				rtw_hal_bb_tssi_cont_en(hal_info, false, RF_PATH_A);
-			else
-				rtw_hal_bb_tssi_cont_en(hal_info, false, RF_PATH_B);
-		}
-		/*disable ADC*/
-		rtw_hal_bb_adc_en(hal_info, false);
-		/* wait 40us*/
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-		rtw_hal_bb_fw_delay(hal_info, 40);
-#else
-		_os_delay_us(hal_com->drv_priv, 40);
-#endif
-		/* reset BB*/
-		rtw_hal_bb_reset_en(hal_info, false, phy_idx);
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-		rtw_hal_bb_fwofld_cfgcr_end(hal_com);
-#endif
+		rtw_hal_bb_bb_reset_cmn(hal_info, true, phy_idx);
 	}else{
 		/*enable ppdu_sts*/
-		status = rtw_hal_mac_ppdu_stat_cfg(
-			hal_info, band_idx, true,
-			hal_com->band[band_idx].ppdu_sts_appen_info,
-			hal_com->band[band_idx].ppdu_sts_filter);
+		status = rtw_hal_ppdu_sts_cfg(hal_info, band_idx, true);
 
 		if(status != RTW_HAL_STATUS_SUCCESS){
-			PHL_ERR("%s rtw_hal_mac_ppdu_stat_cfg - failed\n", __func__);
+			PHL_ERR("%s rtw_hal_ppdu_sts_cfg - failed\n", __func__);
 			return status;
 		}
 
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-		rtw_hal_bb_fwofld_cfgcr_start(hal_com);
-#endif
-		/*enable ADC*/
-		rtw_hal_bb_adc_en(hal_info, true);
-		/*enable DFS/TSSI*/
-		rtw_hal_bb_dfs_en(hal_info, true);
-		if (!hal_com->dbcc_en) {
-			rtw_hal_bb_tssi_cont_en(hal_info, true, RF_PATH_A);
-			rtw_hal_bb_tssi_cont_en(hal_info, true, RF_PATH_B);
-		}else{
-			if(phy_idx == HW_PHY_0)
-				rtw_hal_bb_tssi_cont_en(hal_info, true, RF_PATH_A);
-			else
-				rtw_hal_bb_tssi_cont_en(hal_info, true, RF_PATH_B);
-		}
-		/*BB reset set to 1*/
-		rtw_hal_bb_reset_en(hal_info, true, phy_idx);
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-		rtw_hal_bb_fwofld_cfgcr_end(hal_com);
-#endif
+		rtw_hal_bb_bb_reset_cmn(hal_info, false, phy_idx);
+
 		status = rtw_hal_tx_pause(hal_com, band_idx, false, PAUSE_RSON_RESET);
 		if(status != RTW_HAL_STATUS_SUCCESS){
 			PHL_ERR("%s rtw_hal_tx_pause - failed\n", __func__);
 			return status;
 		}
 	}
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	return status;
-}
-
-enum rtw_hal_status rtw_hal_ppdu_sts_cfg(void *hal, u8 band_idx, bool en)
-{
-	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
-	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
-
-	if (en) {
-		hal_status = rtw_hal_mac_ppdu_stat_cfg(
-			hal_info, band_idx, true,
-			hal_com->band[band_idx].ppdu_sts_appen_info,
-			hal_com->band[band_idx].ppdu_sts_filter);
-	} else {
-		hal_status = rtw_hal_mac_ppdu_stat_cfg(hal_info, band_idx, false, 0, 0);
-	}
-
-	if (hal_status != RTW_HAL_STATUS_SUCCESS)
-		PHL_ERR("%s (en %d) - failed\n", __func__, en);
-
-	return hal_status;
 }
 
 void
@@ -338,13 +369,27 @@ bool rtw_hal_check_ch_rfk(void *hal, struct rtw_chan_def *chandef)
 	return check;
 }
 
-void rtw_hal_env_rpt(struct rtw_hal_com_t *hal_com, struct rtw_env_report *env_rpt,
-	struct rtw_wifi_role_t *wrole)
+void rtw_hal_env_rpt(struct rtw_hal_com_t *hal_com,
+                     struct rtw_env_report *env_rpt,
+                     u8 hw_band)
 {
 	enum phl_phy_idx p_idx = HW_PHY_0;
 
-	p_idx = rtw_hal_hw_band_to_phy_idx(wrole->hw_band);
+	p_idx = rtw_hal_hw_band_to_phy_idx(hw_band);
 	rtw_hal_bb_env_rpt(hal_com, env_rpt, p_idx);
+}
+
+enum phl_band_idx rtw_hal_phy_idx_to_hw_band(enum phl_phy_idx p_idx)
+{
+	enum phl_band_idx band_idx = HW_BAND_MAX;
+
+	if (p_idx == HW_PHY_0)
+		band_idx = HW_BAND_0;
+	else if (p_idx == HW_PHY_1)
+		band_idx = HW_BAND_1;
+	else
+		PHL_ERR("%s: error phy_idx(%d)\n", __func__, p_idx);
+	return band_idx;
 }
 
 enum phl_phy_idx rtw_hal_hw_band_to_phy_idx(enum phl_band_idx band_idx)
@@ -358,5 +403,34 @@ enum phl_phy_idx rtw_hal_hw_band_to_phy_idx(enum phl_band_idx band_idx)
 	else
 		PHL_ERR("%s: error band_idx(%d)\n", __func__, band_idx);
 	return p_idx;
+}
+
+void
+rtw_hal_init_hw_band_info(void *hal, enum phl_band_idx band_idx)
+{
+	struct hal_info_t *hal_i = (struct hal_info_t *)hal;
+	struct rtw_hw_band *hw_band_i = &hal_i->hal_com->band[band_idx];
+
+	PHL_INFO("%s: band_idx(%d)\n", __FUNCTION__, band_idx);
+	_os_mem_set(hal_i->phl_com->drv_priv, hw_band_i,
+			0, sizeof(struct rtw_hw_band));
+	rtw_phl_init_chdef(hal_i->phl_com, &hw_band_i->cur_chandef);
+}
+#ifdef DBG_DUMP_TX_COUNTER
+void rtw_hal_dump_tx_status(void *hal, enum phl_band_idx bidx)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	rtw_hal_mac_get_tx_cnt(hal_info, bidx, 0);
+	rtw_hal_bb_dump_tx_sts(hal_info, true, rtw_hal_hw_band_to_phy_idx(bidx));
+
+}
+#endif
+
+enum rtw_hal_status
+rtw_hal_tbtt_tuning(void *hal, enum phl_band_idx band,
+			u8 port, u32 tbtt)
+{
+	return rtw_hal_mac_tbtt_tuning_cfg(hal, band, port, tbtt);
 }
 #endif /* _HAL_COM_I_C_ */

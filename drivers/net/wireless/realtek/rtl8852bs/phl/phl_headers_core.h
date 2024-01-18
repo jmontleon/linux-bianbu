@@ -35,10 +35,15 @@
 #include "phl_chnlplan.h"
 #include "phl_country.h"
 #include "phl_scan_instance.h"
-#include "phl_def.h"
 #include "hal_g6/mac/mac_exp_def.h"
+#include "phl_def.h"
 #include "phl_trx_def.h"
 #include "phl_wow_def.h"
+#include "phl_ie.h"
+#include "phl_debug.h"
+#ifdef CONFIG_PHL_CHANNEL_INFO
+#include "phl_chan_info_def.h"
+#endif
 
 #include "phl_btc_def.h"
 #include "phl_test_def.h"
@@ -48,13 +53,13 @@
 #include "phl_acs_def.h"
 #include "custom/phl_custom_def.h"
 #include "phl_ext_tx_pwr_lmt_def.h"
-#include "phl_chnlplan.h"
 
 /* Exported APIs from PHL */
 #include "phl_api.h"
 #include "phl_scan.h"
-#include "phl_btc.h"
+#ifdef CONFIG_FSM
 #include "phl_cmd_job.h"
+#endif
 #include "phl_connect.h"
 #include "phl_ecsa_export.h"
 #include "custom/phl_custom_api.h"

@@ -68,7 +68,7 @@ void halbb_cfg_bb_phy_8852b(struct bb_info *bb, u32 addr, u32 data,
 		#ifdef HALBB_DBCC_SUPPORT
 		if ((bb->hal_com->dbcc_en || bb->bb_dbg_i.cr_dbg_mode_en) &&
 		    phy_idx == HW_PHY_1) {
-			ofst = halbb_phy0_to_phy1_ofst(bb, addr);
+			ofst = halbb_phy0_to_phy1_ofst(bb, addr, phy_idx);
 			if (ofst == 0)
 				return;
 			addr += ofst;

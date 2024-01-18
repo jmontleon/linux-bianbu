@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -40,6 +40,9 @@
 #define BEAMFORMING_HE_BEAMFORMEE_SOUND_DIM     (BIT(12)|BIT(13)|BIT(14))       /*Sta Bfer's capability*/
 
 void rtw_core_bf_watchdog(_adapter *padapter);
+
+int rtw_bf_get_vht_gid_mgnt_packet(struct _ADAPTER *a, union recv_frame *rframe);
+#define rtw_beamforming_get_vht_gid_mgnt_frame		rtw_bf_get_vht_gid_mgnt_packet
 
 #endif
 #endif /*__RTW_BEAMFORMING_H_*/

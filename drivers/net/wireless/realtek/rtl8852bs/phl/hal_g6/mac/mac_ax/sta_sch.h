@@ -24,11 +24,17 @@
 #define STA_SCH_WMM_NUM_8852B 2
 #define STA_SCH_WMM_NUM_8852C 4
 #define STA_SCH_WMM_NUM_8192XB  4
+#define STA_SCH_WMM_NUM_8851B 2
+#define STA_SCH_WMM_NUM_8851E 4
+#define STA_SCH_WMM_NUM_8852D 4
 
 #define STA_SCH_UL_SUPPORT_8852A 1
 #define STA_SCH_UL_SUPPORT_8852B 0
 #define STA_SCH_UL_SUPPORT_8852C 1
 #define STA_SCH_UL_SUPPORT_8192XB 1
+#define STA_SCH_UL_SUPPORT_8851B 0
+#define STA_SCH_UL_SUPPORT_8851E 1
+#define STA_SCH_UL_SUPPORT_8852D 1
 
 #define CTRL1_R_NEXT_LINK 20
 
@@ -116,5 +122,16 @@ u32 mac_ss_wmm_map_upd(struct mac_ax_adapter *adapter,
 		       enum mac_ax_ss_wmm src_wmm,
 		       enum mac_ax_ss_wmm_tbl dst_link,
 		       u8 chk_emp);
-
+/**
+ * @brief mac_ss_dl_rpt_cfg
+ *
+ * @param *adapter
+ * @param *info
+ * @param cfg
+ * @return Please Place Description here.
+ * @retval void
+ */
+void mac_ss_dl_rpt_cfg(struct mac_ax_adapter *adapter,
+		       struct mac_ax_ss_dl_rpt_info *info,
+		       enum mac_ax_ss_rpt_cfg cfg);
 #endif

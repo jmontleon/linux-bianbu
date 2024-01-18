@@ -13,7 +13,6 @@
  * more details.
  *
  ******************************************************************************/
-
 #ifndef _MAC_EXP_DEF_H_
 #define _MAC_EXP_DEF_H_
 
@@ -29,6 +28,27 @@
 #define RTW_PHL_PROXY_MDNS_MAX_TARGET_LEN 64
 #define RTW_PHL_PROXY_MDNS_MAX_SERV_NUM 10
 #define RTW_PHL_PROXY_MDNS_RSP_HDR_LEN sizeof(struct rtw_hal_mac_proxy_mdns_rsp_hdr)
+#define RTW_PHL_PROXY_PTCL_PATTERN_MAX_NUM 5
+#define RTW_PHL_PROXY_PTCL_PATTERN_MAX_LEN 128
+
+#define RTW_PHL_SOFTAP_MAX_CLIENT_NUM 8
+
+#define MAC_WLANFW_CAP_MAX_SIZE 48
+#define MAC_WLANFW_CAP_MAGIC_CODE 0xFCABFCAB
+
+#define MAC_WLANFW_MAC_CAP_SUBID 0xAC
+#define MAC_WLANFW_BB_CAP_SUBID 0xBB
+#define MAC_WLANFW_RF_CAP_SUBID 0xFF
+#define MAC_WLANFW_BTC_CAP_SUBID 0xBC
+
+#define RTW_PHL_WLANFW_MAC_CAP_LEN 4
+#define RTW_PHL_WLANFW_BB_CAP_LEN 1
+#define RTW_PHL_WLANFW_RF_CAP_LEN 1
+#define RTW_PHL_WLANFW_BTC_CAP_LEN 1
+
+#define RTW_PHL_DEV2HST_MAX_EXTEND_NUM 15
+#define RTW_PHL_MAGIC_WAKER_NUM 8
+#define MAC_ADDRESS_LEN 6
 /*--------------------Define MACRO--------------------------------------*/
 /*--------------------Define Enum---------------------------------------*/
 enum rtw_mac_gfunc {
@@ -68,7 +88,198 @@ enum rtw_mac_gfunc {
 	RTW_MAC_GPIO_DFLT = RTW_MAC_GPIO_LAST,
 };
 
+/**
+ * @enum mac_ax_wow_wake_reason
+ *
+ * @brief mac_ax_wow_wake_reason
+ *
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_PAIRWISEKEY
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_GTK
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_FOURWAY_HANDSHAKE
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_DISASSOC
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_DEAUTH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_ARP_REQUEST
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_NS
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_EAPREQ_IDENTIFY
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_FW_DECISION_DISCONNECT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_MAGIC_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_UNICAST_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_PATTERN_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RTD3_SSID_MATCH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_DATA_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_SSDP_MATCH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_WSD_MATCH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_SLP_MATCH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_LLTD_MATCH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_MDNS_MATCH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_REALWOW_V2_WAKEUP_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_REALWOW_V2_ACK_LOST
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_REALWOW_V2_TX_KAPKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_ENABLE_FAIL_DMA_IDLE
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_ENABLE_FAIL_DMA_PAUSE
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RTIME_FAIL_DMA_IDLE
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RTIME_FAIL_DMA_PAUSE
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_SNMP_MISMATCHED_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_RX_DESIGNATED_MAC_PKT
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_NLO_SSID_MACH
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_AP_OFFLOAD_WAKEUP
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_DMAC_ERROR_OCCURRED
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_EXCEPTION_OCCURRED
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_CLK_32K_UNLOCK
+ * Please Place Description here.
+ * @var mac_ax_wow_wake_reason::MAC_AX_WOW_CLK_32K_LOCK
+ * Please Place Description here.
+ */
+enum mac_ax_wow_wake_reason {
+	MAC_AX_WOW_RX_PAIRWISEKEY = 0x01,
+	MAC_AX_WOW_RX_GTK = 0x02,
+	MAC_AX_WOW_RX_FOURWAY_HANDSHAKE = 0x03,
+	MAC_AX_WOW_RX_DISASSOC = 0x04,
+	MAC_AX_WOW_RX_DEAUTH = 0x08,
+	MAC_AX_WOW_RX_ARP_REQUEST = 0x09,
+	MAC_AX_WOW_RX_NS = 0x0A,
+	MAC_AX_WOW_RX_EAPREQ_IDENTIFY = 0x0B,
+	MAC_AX_WOW_FW_DECISION_DISCONNECT = 0x10,
+	MAC_AX_WOW_RX_MAGIC_PKT = 0x21,
+	MAC_AX_WOW_RX_UNICAST_PKT = 0x22,
+	MAC_AX_WOW_RX_PATTERN_PKT = 0x23,
+	MAC_AX_WOW_RTD3_SSID_MATCH = 0x24,
+	MAC_AX_WOW_RX_DATA_PKT = 0x25,
+	MAC_AX_WOW_RX_SSDP_MATCH = 0x26,
+	MAC_AX_WOW_RX_WSD_MATCH = 0x27,
+	MAC_AX_WOW_RX_SLP_MATCH = 0x28,
+	MAC_AX_WOW_RX_LLTD_MATCH = 0x29,
+	MAC_AX_WOW_RX_MDNS_MATCH = 0x2A,
+	MAC_AX_WOW_RX_REALWOW_V2_WAKEUP_PKT = 0x30,
+	MAC_AX_WOW_RX_REALWOW_V2_ACK_LOST = 0x31,
+	MAC_AX_WOW_RX_REALWOW_V2_TX_KAPKT = 0x32,
+	MAC_AX_WOW_ENABLE_FAIL_DMA_IDLE = 0x40,
+	MAC_AX_WOW_ENABLE_FAIL_DMA_PAUSE = 0x41,
+	MAC_AX_WOW_RTIME_FAIL_DMA_IDLE = 0x42,
+	MAC_AX_WOW_RTIME_FAIL_DMA_PAUSE = 0x43,
+	MAC_AX_WOW_RX_SNMP_MISMATCHED_PKT = 0x50,
+	MAC_AX_WOW_RX_DESIGNATED_MAC_PKT = 0x51,
+	MAC_AX_WOW_NLO_SSID_MACH = 0x55,
+	MAC_AX_WOW_AP_OFFLOAD_WAKEUP = 0x66,
+	MAC_AX_WOW_DMAC_ERROR_OCCURRED = 0x70,
+	MAC_AX_WOW_EXCEPTION_OCCURRED = 0x71,
+	MAC_AX_WOW_L0_TO_L1_ERROR_OCCURRED = 0x72,
+	MAC_AX_WOW_ASSERT_OCCURRED = 0x73,
+	MAC_AX_WOW_L2_ERROR_OCCURRED = 0x74,
+	MAC_AX_WOW_WDT_TIMEOUT_WAKE = 0x75,
+	MAC_AX_WOW_RX_ACTION = 0xD0,
+	MAC_AX_WOW_CLK_32K_UNLOCK = 0xFD,
+	MAC_AX_WOW_CLK_32K_LOCK = 0xFE
+};
+
+enum rtw_mac_wow_wake_reason {
+	RTW_MAC_WOW_UNKNOWN = 0x00,
+	RTW_MAC_WOW_RX_PAIRWISEKEY = 0x01,
+	RTW_MAC_WOW_RX_GTK = 0x02,
+	RTW_MAC_WOW_RX_FOURWAY_HANDSHAKE = 0x03,
+	RTW_MAC_WOW_RX_DISASSOC = 0x04,
+	RTW_MAC_WOW_RX_DEAUTH = 0x08,
+	RTW_MAC_WOW_RX_ARP_REQUEST = 0x09,
+	RTW_MAC_WOW_RX_NS = 0x0A,
+	RTW_MAC_WOW_RX_EAPREQ_IDENTIFY = 0x0B,
+	RTW_MAC_WOW_FW_DECISION_DISCONNECT = 0x10,
+	RTW_MAC_WOW_TX_TCP_SEND_LIMIT = 0x11,
+	RTW_MAC_WOW_RX_TCP_FROM_SERVER_TO = 0x12,
+	RTW_MAC_WOW_RX_MAGIC_PKT = 0x21,
+	RTW_MAC_WOW_RX_UNICAST_PKT = 0x22,
+	RTW_MAC_WOW_RX_PATTERN_PKT = 0x23,
+	RTW_MAC_WOW_RTD3_SSID_MATCH = 0x24,
+	RTW_MAC_WOW_RX_DATA_PKT = 0x25,
+	RTW_MAC_WOW_RX_SSDP_MATCH = 0x26,
+	RTW_MAC_WOW_RX_WSD_MATCH = 0x27,
+	RTW_MAC_WOW_RX_SLP_MATCH = 0x28,
+	RTW_MAC_WOW_RX_LLTD_MATCH = 0x29,
+	RTW_MAC_WOW_RX_MDNS_MATCH = 0x2A,
+	RTW_MAC_WOW_RX_TCP_FIN = 0x2B,
+	RTW_MAC_WOW_RX_REALWOW_V2_WAKEUP_PKT = 0x30,
+	RTW_MAC_WOW_RX_REALWOW_V2_ACK_LOST = 0x31,
+	RTW_MAC_WOW_RX_REALWOW_V2_TX_KAPKT = 0x32,
+	RTW_MAC_WOW_ENABLE_FAIL_DMA_IDLE = 0x40,
+	RTW_MAC_WOW_ENABLE_FAIL_DMA_PAUSE = 0x41,
+	RTW_MAC_WOW_RTIME_FAIL_DMA_IDLE = 0x42,
+	RTW_MAC_WOW_RTIME_FAIL_DMA_PAUSE = 0x43,
+	RTW_MAC_WOW_RX_SNMP_MISMATCHED_PKT = 0x50,
+	RTW_MAC_WOW_RX_DESIGNATED_MAC_PKT = 0x51,
+	RTW_MAC_WOW_NLO_SSID_MACH = 0x55,
+	RTW_MAC_WOW_AP_OFFLOAD_WAKEUP = 0x66,
+	RTW_MAC_WOW_DMAC_ERROR_OCCURRED = 0x70,
+	RTW_MAC_WOW_EXCEPTION_OCCURRED = 0x71,
+	RTW_MAC_WOW_L0_TO_L1_ERROR_OCCURRED = 0x72,
+	RTW_MAC_WOW_ASSERT_OCCURRED = 0x73,
+	RTW_MAC_WOW_L2_ERROR_OCCURRED = 0x74,
+	RTW_MAC_WOW_WDT_TIMEOUT_WAKE = 0x75,
+	RTW_MAC_WOW_L1_TO_L2_ERROR_OCCURED = 0x76,
+	RTW_MAC_WOW_NO_WAKE_RX_PAIRWISEKEY = 0xB0,
+	RTW_MAC_WOW_NO_WAKE_RX_GTK = 0xB1,
+	RTW_MAC_WOW_NO_WAKE_RX_DISASSOC = 0xB2,
+	RTW_MAC_WOW_NO_WAKE_RX_DEAUTH = 0xB3,
+	RTW_MAC_WOW_NO_WAKE_RX_EAPREQ_IDENTIFY = 0xB4,
+	RTW_MAC_WOW_NO_WAKE_FW_DECISION_DISCONNECT = 0xB5,
+	RTW_MAC_WOW_RX_ACTION = 0xD0,
+	RTW_MAC_WOW_CLK_32K_UNLOCK = 0xFD,
+	RTW_MAC_WOW_CLK_32K_LOCK = 0xFE
+};
+
+enum rtw_mac_proxy_pattern_ptcl {
+	RTW_MAC_PROXY_PATTERN_SSDP = 0x0,
+	RTW_MAC_PROXY_PATTERN_WSD = 0x1,
+	RTW_MAC_PROXY_PATTERN_SLP = 0x2,
+	RTW_MAC_PROXY_PATTERN_MAX
+};
+
+/*for device environment*/
+enum rtw_mac_env_mode {
+	DUT_ENV_ASIC = 0,
+	DUT_ENV_FPGA = 1,
+	DUT_ENV_PXP = 2,
+};
+
 /*--------------------Define Struct-------------------------------------*/
+struct mac_ser_status {
+	u32 l0_cnt:8;
+	u32 l1_cnt:4;
+	u32 l0_pro_event:4;
+	u32 rmac_ppdu_hang_cnt:8;
+	u32 rsvd:8;
+};
+
 struct hal_txmap_cfg {
 	u32 macid:8;
 	u32 n_tx_en:4;
@@ -135,10 +346,11 @@ struct  rtw_phl_ax_ulrua_output {
 	struct  rtw_phl_ax_ulru_out_sta_ent sta[RTW_PHL_MAX_RU_NUM];
 };
 
-struct  rtw_phl_ul_macid_info {
+struct rtw_phl_ul_macid_info {
 	u8 macid;
 	u8 pref_AC:2;
-	u8 rsvd:6;
+	u8 ul_mu_dis:1;
+	u8 rsvd:5;
 };
 
 struct  rtw_phl_ul_mode_cfg {
@@ -295,6 +507,55 @@ struct rtw_hal_mac_ax_cctl_info {
 	u32 csi_bw:2;
 };
 
+/**
+ * @struct mac_ax_fw_log
+ * @brief mac_ax_fw_log
+ *
+ * @var mac_ax_fw_log::level
+ * Please Place Description here.
+ * @var mac_ax_fw_log::output
+ * Please Place Description here.
+ * @var mac_ax_fw_log::comp
+ * Please Place Description here.
+ * @var mac_ax_fw_log::comp_ext
+ * Please Place Description here.
+ */
+struct mac_ax_fw_log {
+#define MAC_AX_FL_LV_OFF 0
+#define MAC_AX_FL_LV_CRT 1
+#define MAC_AX_FL_LV_SER 2
+#define MAC_AX_FL_LV_WARN 3
+#define MAC_AX_FL_LV_LOUD 4
+#define MAC_AX_FL_LV_TR 5
+	u32 level;
+#define MAC_AX_FL_LV_UART BIT(0)
+#define MAC_AX_FL_LV_C2H BIT(1)
+#define MAC_AX_FL_LV_SNI BIT(2)
+	u32 output;
+#define MAC_AX_FL_COMP_VER BIT(0)
+#define MAC_AX_FL_COMP_INIT BIT(1)
+#define MAC_AX_FL_COMP_TASK BIT(2)
+#define MAC_AX_FL_COMP_CNS BIT(3)
+#define MAC_AX_FL_COMP_H2C BIT(4)
+#define MAC_AX_FL_COMP_C2H BIT(5)
+#define MAC_AX_FL_COMP_TX BIT(6)
+#define MAC_AX_FL_COMP_RX BIT(7)
+#define MAC_AX_FL_COMP_IPSEC BIT(8)
+#define MAC_AX_FL_COMP_TIMER BIT(9)
+#define MAC_AX_FL_COMP_DBGPKT BIT(10)
+#define MAC_AX_FL_COMP_PS BIT(11)
+#define MAC_AX_FL_COMP_ERROR BIT(12)
+#define MAC_AX_FL_COMP_WOWLAN BIT(13)
+#define MAC_AX_FL_COMP_SECURE_BOOT BIT(14)
+#define MAC_AX_FL_COMP_BTC BIT(15)
+#define MAC_AX_FL_COMP_BB BIT(16)
+#define MAC_AX_FL_COMP_TWT BIT(17)
+#define MAC_AX_FL_COMP_RF BIT(18)
+#define MAC_AX_FL_COMP_MCC BIT(20)
+	u32 comp;
+	u32 comp_ext;
+};
+
 #pragma pack(push)
 #pragma pack(1)
 
@@ -395,6 +656,184 @@ struct rtw_hal_mac_proxy_mdns_service {
 	u8 txt_id;
 };
 
+struct rtw_hal_mac_proxy_ptcl_pattern {
+	u8 macid;
+	u8 num_pattern;
+	enum rtw_mac_proxy_pattern_ptcl ptcl;
+	u8 pattern_len[RTW_PHL_PROXY_PTCL_PATTERN_MAX_NUM];
+	u8 patterns[RTW_PHL_PROXY_PTCL_PATTERN_MAX_NUM][RTW_PHL_PROXY_PTCL_PATTERN_MAX_LEN];
+};
+
 #pragma pack(pop)
+
+struct rtw_hal_mac_sensing_csi_param{
+	u8 macid;
+	u8 en:1;
+	u8 rsvd:7;
+	u16 period; // Unit: ms
+	u8 retry_cnt;
+	u16 rate; // AX use [8:0], BE use [10:0]
+	u8 pkt_num;
+	u8 *pkt_id; // Array of packet offload id
+};
+
+struct rtw_hal_mac_sensing_csi_tx_rpt{
+	u8 result;
+	u8 rsvd[3];
+};
+
+struct rtw_hal_mac_sensing_csi_tx_result{
+	u8 macid;
+	u8 num; // Number of result
+	u8 seq_num;
+	u8 rsvd;
+	struct rtw_hal_mac_sensing_csi_tx_rpt tx_rpt[RTW_PHL_SOFTAP_MAX_CLIENT_NUM];
+};
+
+struct rtw_wcpu_mac_cap_t {
+	/* ---- dword 0 ---- */
+	u32 io_offload: 1;
+	u32 chsw_offload: 1;
+	u32 lps_pg: 1;
+	u32 twt_sta: 1;
+	u32 nan: 1;
+	u32 ftm: 1;
+	u32 scan_offload: 1;
+	u32 sensing_csi: 1;
+	u32 efuse_dump_offload: 1;
+	u32 adie_efuse_dump_offload: 1;
+	u32 rsvd0: 22;
+	/* ---- dword 1 ---- */
+	u32 rsvd1: 32;
+	/* ---- dword 2 ---- */
+	u32 rsvd2: 32;
+	/* ---- dword 3 ---- */
+	u32 rsvd3: 32;
+};
+
+struct rtw_wcpu_cap_t {
+	u8 valid;
+	u8 rsvd0;
+	u16 rsvd1;
+	struct rtw_wcpu_mac_cap_t mac_ofld_cap;
+	u32 bb_ofld_cap[RTW_PHL_WLANFW_BB_CAP_LEN];
+	u32 rf_ofld_cap[RTW_PHL_WLANFW_RF_CAP_LEN];
+	u32 btc_ofld_cap[RTW_PHL_WLANFW_BTC_CAP_LEN];
+};
+
+#pragma pack(push)
+#pragma pack(1)
+struct mac_wlanfw_cap_hdr {
+	u32 magic_code;
+	u8 num_mods;
+};
+
+#pragma pack(pop)
+
+struct rtw_dev2hst_extend_rsn {
+	u8 rsn;
+	u8 pulse_duration;
+	u8 pulse_period;
+	u8 pulse_count;
+
+	u8 toggle_pulse : 1;
+	u8 pulse_nonstop : 1;
+	u8 time_unit : 1;
+	u8 subrsn_en : 1;
+	u8 rsvd0 : 4;
+	u8 subrsn;
+	u16 rsvd1;
+};
+
+struct rtw_dev2hst_gpio_info {
+	/* dword0 */
+	u32 dev2hst_gpio_en : 1;
+	u32 disable_inband : 1;
+	u32 gpio_output_input : 1;
+	u32 gpio_active : 1;
+	u32 toggle_pulse : 1;
+	u32 data_pin_wakeup : 1;
+	u32 gpio_pulse_nonstop : 1;
+	u32 gpio_time_unit : 1;
+	u32 gpio_num : 8;
+	u32 gpio_pulse_dura : 8;
+	u32 gpio_pulse_period : 8;
+	/* dword1 */
+	u32 gpio_pulse_count : 8;
+	u32 num_extend_rsn : 4;
+	u32 rsvd0 : 4;
+	u32 indicate_duration : 8;
+	u32 indicate_intermission : 8;
+	/* dword2 */
+	u32 customer_id : 8;
+	u32 rsvd2 : 24;
+	/* dword3 */
+	u32 rsn_a_en : 1;
+	u32 rsn_a_toggle_pulse : 1;
+	u32 rsn_a_pulse_nonstop : 1;
+	u32 rsn_a_time_unit : 1;
+	u32 rsvd3 : 28;
+	/* dword4 */
+	u32 rsn_a : 8;
+	u32 rsn_a_pulse_duration : 8;
+	u32 rsn_a_pulse_period : 8;
+	u32 rsn_a_pulse_count : 8;
+	/* dword5 */
+	u32 rsn_b_en : 1;
+	u32 rsn_b_toggle_pulse : 1;
+	u32 rsn_b_pulse_nonstop : 1;
+	u32 rsn_b_time_unit : 1;
+	u32 rsvd4 : 28;
+	/* dword6 */
+	u32 rsn_b : 8;
+	u32 rsn_b_pulse_duration : 8;
+	u32 rsn_b_pulse_period : 8;
+	u32 rsn_b_pulse_count : 8;
+	/* dword 7 ~ 36 */
+	struct rtw_dev2hst_extend_rsn extend_rsn[RTW_PHL_DEV2HST_MAX_EXTEND_NUM];
+};
+
+struct rtw_magic_waker_parm {
+	u8 waker_num;
+	u8 waker_addr_arr[RTW_PHL_MAGIC_WAKER_NUM][MAC_ADDRESS_LEN];
+};
+
+struct rtw_tcp_keepalive_parm {
+	u16 macid;
+	u8 period;
+	u8 tx_pktid;
+	u8 retry_intvl;
+	u8 max_retry_cnt;
+	u8 ack_pktid;
+	u8 recv_keepalive_timeout;
+	u8 enable : 1;
+	u8 immed_tx : 1;
+	u8 seq_increase : 1;
+	u8 rsvd : 5;
+};
+struct rtw_hal_mac_sta_csa {
+	u8 en;
+	u8 macid;
+	u8 max_ap_gone_time;
+	u8 num_supported_ch;
+	struct rtw_hal_mac_sta_csa_ch *chlist;
+};
+
+struct rtw_hal_mac_sta_csa_ch {
+	/* dword 0 */
+	u8 pri_ch;
+	u8 supported_bw; //BIT0: 20 / BIT1: 40 / BIT2: 80 / BIT3: 160
+	u8 ch_band:2;
+	u8 rsvd0:6;
+	u32 rsvd1;
+	/* dword 1 */
+	u32 rf0;
+	/* dword 2 */
+	u32 rf1;
+	/* dword 3 */
+	u32 rf2;
+	/* dword 4 */
+	u32 rf3;
+};
 
 #endif

@@ -16,30 +16,106 @@
 #include "phl_headers.h"
 
 #ifdef CONFIG_PHL_CHANNEL_INFO
+static enum rtw_phl_status
+_chinfo_chk_pkt_offload(struct phl_info_t *phl_info,
+				struct rtw_chinfo_action_parm *act_param, u8 *id)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_SUCCESS;
+	struct rtw_pkt_ofld_null_info null_info = {0};
+	void *d = phl_to_drvpriv(phl_info);
+	u32 token = 0;
 
-struct chinfo_param {
-	struct rtw_phl_stainfo_t *sta;
-	u8 enable;
-};
+	if (act_param->mode != CHINFO_MODE_ACK)
+		goto exit;
+
+	*id = phl_pkt_ofld_get_id(phl_info, act_param->sta->macid,
+							PKT_TYPE_NULL_DATA);
+	if (NOT_USED == *id) {
+		_os_mem_cpy(d, &(null_info.a1[0]), &(act_param->sta->mac_addr[0]),
+						MAC_ADDRESS_LENGTH);
+
+		_os_mem_cpy(d,&(null_info.a2[0]), &(act_param->sta->rlink[0].mac_addr[0]),
+						MAC_ADDRESS_LENGTH);
+
+		_os_mem_cpy(d, &(null_info.a3[0]), &(act_param->sta->mac_addr[0]),
+						MAC_ADDRESS_LENGTH);
+
+		sts = rtw_phl_pkt_ofld_request(phl_info, act_param->sta->macid,
+							PKT_TYPE_NULL_DATA, &token, &null_info, __func__);
+
+		if (sts != RTW_PHL_STATUS_SUCCESS)
+			goto exit;
+
+		*id = phl_pkt_ofld_get_id(phl_info, act_param->sta->macid,
+							PKT_TYPE_NULL_DATA);
+	}
+exit:
+	return sts;
+}
 
 enum rtw_phl_status
-_phl_cfg_chinfo(void *phl, struct rtw_phl_stainfo_t *sta, u8 enable)
+_phl_cfg_chinfo(struct phl_info_t *phl_info,
+			    struct rtw_chinfo_action_parm *act_param)
 {
-	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	enum rtw_phl_status sts = RTW_PHL_STATUS_SUCCESS;
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_SUCCESS;
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	struct rtw_chinfo_cur_parm *cur_param = phl_com->cur_parm;
+	struct rtw_wifi_role_link_t *rlink = act_param->sta->rlink;
+	u8 pkt_id = NOT_USED;
 
-	if (RTW_HAL_STATUS_SUCCESS == rtw_hal_cfg_chinfo(phl_info->hal, sta, enable))
-		return RTW_PHL_STATUS_SUCCESS;
-	else
-		return RTW_PHL_STATUS_FAILURE;
+	switch (act_param->act) {
+	case CHINFO_ACT_EN:
+		/* for light mode(from ppdu sts) */
+		if (act_param->enable == true &&
+			act_param->mode == CHINFO_MODE_ACK &&
+			act_param->enable_mode == CHINFO_EN_LIGHT_MODE
+			&& cur_param->num == 0)
+			rtw_phl_mr_set_rxfltr_type_by_mode(phl_info, rlink,
+						RX_FLTR_TYPE_MODE_CHAN_INFO_EN);
+		else if (act_param->enable == false) {
+			if (cur_param->num == 0) {
+				PHL_ERR("[CHAN INFO]%s: enable before disable\n", __func__);
+				sts = RTW_PHL_STATUS_FAILURE;
+				goto exit;
+			} else {
+				if (cur_param->action_parm.mode == CHINFO_MODE_ACK &&
+					cur_param->action_parm.enable_mode == CHINFO_EN_LIGHT_MODE &&
+					cur_param->num == 1)
+					rtw_phl_mr_set_rxfltr_type_by_mode(phl_info, rlink,
+						RX_FLTR_TYPE_MODE_CHAN_INFO_DIS);
+			}
+		}
+
+		sts = _chinfo_chk_pkt_offload(phl_info, act_param, &pkt_id);
+		if (sts != RTW_PHL_STATUS_SUCCESS)
+			goto exit;
+
+		hsts = rtw_hal_ch_info_en(phl_info->hal, act_param, pkt_id);
+		if (hsts != RTW_HAL_STATUS_SUCCESS)
+			sts = RTW_PHL_STATUS_FAILURE;
+		break;
+	case CHINFO_ACT_CFG:
+		sts = rtw_hal_cfg_chinfo(phl_info->hal, act_param);
+		if (sts != RTW_PHL_STATUS_SUCCESS)
+			PHL_ERR("%s: cfg_chinfo fail\n", __func__);
+		break;
+	default:
+		PHL_ERR("%s: unknow act(%d)\n", __func__, act_param->act);
+		sts = RTW_PHL_STATUS_INVALID_PARAM;
+		break;
+	}
+exit:
+	return sts;
 }
 
 #ifdef CONFIG_CMD_DISP
 enum rtw_phl_status
 phl_cmd_cfg_chinfo_hdl(struct phl_info_t *phl_info, u8 *param)
 {
-	struct chinfo_param *chinfo = (struct chinfo_param *)param;
+	struct rtw_chinfo_action_parm *act_parm = (struct rtw_chinfo_action_parm *)param;
 
-	return _phl_cfg_chinfo(phl_info, chinfo->sta,  chinfo->enable);
+	return _phl_cfg_chinfo(phl_info, act_parm);
 }
 
 static void _phl_cfg_chinfo_done(void *drv_priv, u8 *cmd, u32 cmd_len, enum rtw_phl_status status)
@@ -52,36 +128,36 @@ static void _phl_cfg_chinfo_done(void *drv_priv, u8 *cmd, u32 cmd_len, enum rtw_
 }
 
 enum rtw_phl_status
-_phl_cmd_cfg_chinfo(void *phl, struct rtw_phl_stainfo_t *sta, u8 enable,
-		    enum phl_cmd_type cmd_type, u32 cmd_timeout)
+_phl_cmd_cfg_chinfo(struct phl_info_t *phl_info,
+			    struct rtw_chinfo_action_parm *act_parm,
+			    enum phl_cmd_type cmd_type,
+			    u32 cmd_timeout)
 {
 	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
-	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
-	struct chinfo_param *param = NULL;
+	void *d = phl_to_drvpriv(phl_info);
+	struct rtw_chinfo_action_parm *param = NULL;
 	u32 param_len;
 
-	if (cmd_type == PHL_CMD_DIRECTLY) {
-		return _phl_cfg_chinfo(phl, sta, enable);
-	}
+	if (cmd_type == PHL_CMD_DIRECTLY)
+		return _phl_cfg_chinfo(phl_info, act_parm);
 
-	param_len = sizeof(struct chinfo_param);
+	param_len = sizeof(struct rtw_chinfo_action_parm);
 	param = _os_kmem_alloc(phl_to_drvpriv(phl_info), param_len);
 	if (param == NULL) {
 		PHL_ERR("%s: alloc param failed!\n", __func__);
 		goto _exit;
 	}
 
-	param->enable = enable;
-	param->sta =sta;
+	_os_mem_cpy(d, param, act_parm, sizeof(struct rtw_chinfo_action_parm));
 
-	sts = phl_cmd_enqueue(phl,
-			       sta->wrole->hw_band,
-			       MSG_EVT_CFG_CHINFO,
-			       (u8 *)param,
-			       param_len,
-			       _phl_cfg_chinfo_done,
-			       cmd_type, cmd_timeout);
-
+	sts = phl_cmd_enqueue(phl_info,
+	                      act_parm->sta->rlink->hw_band,
+	                      MSG_EVT_CFG_CHINFO,
+	                      (u8 *)param,
+	                      param_len,
+	                      _phl_cfg_chinfo_done,
+	                      cmd_type,
+	                      cmd_timeout);
 	if (is_cmd_failure(sts)) {
 		/* Send cmd success, but wait cmd fail*/
 		sts = RTW_PHL_STATUS_FAILURE;
@@ -94,20 +170,20 @@ _phl_cmd_cfg_chinfo(void *phl, struct rtw_phl_stainfo_t *sta, u8 enable,
 _exit:
 	return sts;
 }
+
 #endif
 
 enum rtw_phl_status rtw_phl_cmd_cfg_chinfo(void *phl,
-					   struct rtw_phl_stainfo_t *sta,
-					   u8 enable,
+					   struct rtw_chinfo_action_parm *act_parm,
 					   enum phl_cmd_type cmd_type,
 					   u32 cmd_timeout)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 
 #ifdef CONFIG_CMD_DISP
-	return _phl_cmd_cfg_chinfo(phl, sta, enable, cmd_type, cmd_timeout);
+	return _phl_cmd_cfg_chinfo(phl_info, act_parm, cmd_type, cmd_timeout);
 #else
-	return _phl_cfg_chinfo(phl_info, sta, enable);
+	return _phl_cfg_chinfo(phl_info, act_parm);
 #endif
 }
 
@@ -126,7 +202,7 @@ enum rtw_phl_status rtw_phl_query_chan_info(void *phl, u32 buf_len,
 	}
 
 	/* Get the latest channel info from busy queue. */
-	chan_info_pkt_latest = rtw_phl_query_busy_chaninfo_latest(drv_priv, phl_com);
+	chan_info_pkt_latest = rtw_phl_query_busy_chaninfo(drv_priv, phl_com);
 	if (chan_info_pkt_latest != NULL) {
 		if (buf_len < chan_info_pkt_latest->length) {
 			PHL_ERR("%s: Buffer length not sufficient! \n", __func__);
@@ -143,7 +219,7 @@ enum rtw_phl_status rtw_phl_query_chan_info(void *phl, u32 buf_len,
 		rtw_phl_enqueue_idle_chaninfo(drv_priv, phl_com, chan_info_pkt_latest);
 		status = RTW_PHL_STATUS_SUCCESS;
 	} else {
-		PHL_INFO("%s: There is no channel info packet.\n", __func__);
+		PHL_TRACE(COMP_PHL_CHINFO, _PHL_DEBUG_, "%s: There is no channel info packet.\n", __func__);
 	}
 	return status;
 }
@@ -174,6 +250,9 @@ static void _phl_chaninfo_deinit (struct phl_info_t *phl_info)
 		_os_mem_free(phl_to_drvpriv(phl_info), chan_info_pool, buf_len);
 	}
 
+	if (NULL != phl_info->phl_com->cur_parm)
+		_os_mem_free(phl_to_drvpriv(phl_info), phl_info->phl_com->cur_parm,
+					sizeof(struct rtw_chinfo_cur_parm));
 	FUNCOUT();
 }
 
@@ -209,14 +288,23 @@ static enum rtw_phl_status _phl_chaninfo_init(struct phl_info_t *phl_info)
 				chan_info_pool->idle_cnt++;
 			} else {
 				pstatus = RTW_PHL_STATUS_RESOURCE;
+				goto exit;
 				break;
 			}
 		}
 		phl_info->phl_com->chan_info_pool = chan_info_pool;
 	} else {
 		pstatus = RTW_PHL_STATUS_RESOURCE;
+		goto exit;
 	}
 
+	phl_info->phl_com->cur_parm = _os_mem_alloc(phl_to_drvpriv(phl_info),
+				sizeof(struct rtw_chinfo_cur_parm));
+	if (NULL == phl_info->phl_com->cur_parm) {
+		pstatus = RTW_PHL_STATUS_RESOURCE;
+		goto exit;
+	}
+exit:
 	if (RTW_PHL_STATUS_SUCCESS != pstatus)
 		_phl_chaninfo_deinit(phl_info);
 	FUNCOUT_WSTS(pstatus);

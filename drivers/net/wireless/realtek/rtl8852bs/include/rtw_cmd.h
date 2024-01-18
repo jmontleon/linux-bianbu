@@ -34,6 +34,7 @@ struct cmd_obj {
 	u8 band_idx;
 
 	u16	cmdcode;
+	u32 cmd_token;
 	u8	res;
 	u8	*parmbuf;
 	u32	cmdsz;
@@ -143,9 +144,10 @@ thread_return rtw_cmd_thread(thread_context context);
 u32 rtw_init_cmd_priv(struct dvobj_priv *dvobj);
 void rtw_free_cmd_priv(struct dvobj_priv *dvobj);
 
-#ifdef CONFIG_IOCTL_CFG80211 
-u8 rtw_mgnt_tx_cmd(_adapter *adapter, u8 tx_ch, u8 no_cck, const u8 *buf, size_t len, int wait_ack, u8 flags);
+#ifdef CONFIG_IOCTL_CFG80211
+u8 rtw_mgnt_tx_cmd(_adapter *adapter, u8 tx_band, u8 tx_ch, u8 no_cck, const u8 *buf, size_t len, int wait_ack, u8 flags);
 struct mgnt_tx_parm {
+	u8 tx_band;
 	u8 tx_ch;
 	u8 no_cck;
 	const u8 *buf;
@@ -162,9 +164,6 @@ enum rtw_drvextra_cmd_id {
 	#endif
 	DM_CTRL_WK_CID,
 	PBC_POLLING_WK_CID,
-	#ifdef CONFIG_POWER_SAVING
-	POWER_SAVING_CTRL_WK_CID,/* IPS,AUTOSuspend */
-	#endif
 	LPS_CTRL_WK_CID,
 	ANT_SELECT_WK_CID,
 	P2P_PS_WK_CID,
@@ -194,7 +193,7 @@ enum rtw_drvextra_cmd_id {
 	TBTX_CONTROL_TX_WK_CID,
 #endif
 	TSF_SYNC_DONE_WK_CID,
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 	FIND_REMOTE_WK_CID,
 #ifdef CONFIG_P2P
 	HIDE_SSID_WK_CID,
@@ -230,6 +229,17 @@ enum RFINTFS {
 	HWPI,
 };
 
+/*
+Caller Mode: Infra, Ad-Hoc
+
+Notes: To join the specified bss
+
+Command Event Mode
+
+*/
+struct joinbss_parm {
+	WLAN_BSSID_EX network;
+};
 
 /*
 Caller Mode: Infra, Ad-HoC(C)
@@ -256,6 +266,7 @@ struct createbss_parm {
 	/* used by AP/Mesh mode now */
 	u8 ifbmp;
 	u8 excl_ifbmp;
+	s8 req_band;
 	s16 req_ch;
 	s8 req_bw;
 	s8 req_offset;
@@ -263,8 +274,10 @@ struct createbss_parm {
 	u8 ch_to_set;
 	u8 offset_to_set;
 	u8 bw_to_set;
-	u8 do_rfk;
-
+	u8 is_change_chbw;
+	#ifdef CONFIG_DBCC_SUPPORT
+	u8 is_trigger_dbcc;
+	#endif
 };
 
 
@@ -390,6 +403,7 @@ struct Tx_Beacon_param {
 
 /* CMD param Formart for driver extra cmd handler */
 struct drvextra_cmd_parm {
+	struct _ADAPTER_LINK *adapter_link;
 	int ec_id; /* extra cmd id */
 	int type; /* Can use this field as the type id or command size */
 	int size; /* buffer size */
@@ -412,36 +426,14 @@ struct addBaRsp_parm {
 };
 
 struct set_ch_parm {
+	enum band_type band;
 	u8 ch;
 	u8 bw;
 	u8 ch_offset;
-	u8 do_rfk;
+	enum rfk_tri_type rt_type;
+	u8 link_idx;
 };
 
-struct SetChannelPlan_param {
-	enum regd_src_t regd_src;
-	enum rtw_regd_inr inr;
-	struct country_chplan country_ent;
-	bool has_country;
-	u8 channel_plan;
-#if CONFIG_IEEE80211_BAND_6GHZ
-	u8 channel_plan_6g;
-#endif
-
-#ifdef CONFIG_80211D
-	/* used for regd_src == RTK_PRIV and inr == COUNTRY_IE */
-	struct country_ie_slave_record cisr;
-	bool has_cisr;
-#endif
-
-#ifdef PLATFORM_LINUX
-	bool rtnl_lock_needed;
-#endif
-};
-
-struct get_channel_plan_param {
-	struct get_chplan_resp **chplan;
-};
 
 struct LedBlink_param {
 	void *pLed;
@@ -485,19 +477,20 @@ Result:
 #define H2C_ENQ_HEAD			0x08
 #define H2C_ENQ_HEAD_FAIL		0x09
 #define H2C_CMD_FAIL			0x0A
-
+#define H2C_MEMORY				0x0B
 
 u8 rtw_create_ibss_cmd(_adapter *adapter, int flags);
 u8 rtw_startbss_cmd(_adapter *adapter, int flags);
 
+#define REQ_BAND_NONE		-1
 #define REQ_CH_NONE		-1
 #define REQ_CH_INT_INFO	-2
 #define REQ_BW_NONE		-1
 #define REQ_BW_ORI		-2
 #define REQ_OFFSET_NONE	-1
 
-u8 rtw_change_bss_chbw_cmd(_adapter *adapter, int flags
-	, u8 ifbmp, u8 excl_ifbmp, s16 req_ch, s8 req_bw, s8 req_offset);
+u8 rtw_change_bss_bchbw_cmd(_adapter *adapter, int flags
+	, u32 iflbmp, u32 excl_iflbmp, s8 req_band, s16 req_ch, s8 req_bw, s8 req_offset);
 
 struct sta_info;
 extern u8 rtw_setstakey_cmd(_adapter  *padapter, struct sta_info *sta, u8 key_type, bool enqueue);
@@ -524,39 +517,20 @@ extern u8 rtw_free_assoc_resources_cmd(_adapter *padapter, u8 lock_scanned_queue
 #if 0 /*#ifdef CONFIG_CORE_DM_CHK_TIMER*/
 extern u8 rtw_dynamic_chk_wk_cmd(_adapter *adapter);
 #endif
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 extern u8 rtw_find_remote_wk_cmd(_adapter *adapter);
 #ifdef CONFIG_P2P
 extern u8 rtw_hide_ssid_wk_cmd(_adapter *adapter);
 #endif
 #endif
-u8 rtw_lps_ctrl_wk_cmd(_adapter *padapter, u8 lps_ctrl_type, u8 flags);
-u8 rtw_lps_ctrl_leave_set_level_cmd(_adapter *adapter, u8 lps_level, u8 flags);
-#ifdef CONFIG_LPS_1T1R
-u8 rtw_lps_ctrl_leave_set_1t1r_cmd(_adapter *adapter, u8 lps_1t1r, u8 flags);
-#endif
-u8 rtw_dm_in_lps_wk_cmd(_adapter *padapter);
-u8 rtw_lps_change_dtim_cmd(_adapter *padapter, u8 dtim);
 
 #ifdef CONFIG_ANTENNA_DIVERSITY
 extern  u8 rtw_antenna_select_cmd(_adapter *padapter, u8 antenna, u8 enqueue);
 #endif
 
-#ifdef CONFIG_POWER_SAVING
-extern u8 rtw_ps_cmd(_adapter *padapter);
-#endif
-#if CONFIG_DFS
-void rtw_dfs_ch_switch_hdl_0(_adapter *adapter);
-#endif
-
 #ifdef CONFIG_AP_MODE
 u8 rtw_chk_hi_queue_cmd(_adapter *padapter);
 #endif /* CONFIG_AP_MODE */
-
-#ifdef CONFIG_BTC
-u8 rtw_btinfo_cmd(_adapter *padapter, u8 *pbuf, u16 length);
-u8 rtw_btc_reduce_wl_txpwr_cmd(_adapter *adapter, u32 val);
-#endif
 
 u8 rtw_test_h2c_cmd(_adapter *adapter, u8 *buf, u8 len);
 #if defined(RTW_PHL_DBG_CMD)
@@ -565,23 +539,12 @@ void core_add_record(_adapter *adapter, u8 type, void *p);
 void phl_add_record(void *d, u8 type, void *p, u32 size);
 #endif
 
-u8 rtw_set_chbw_cmd(_adapter *padapter, u8 ch, u8 bw, u8 ch_offset, u8 flags);
-
-u8 rtw_set_chplan_cmd(_adapter *adapter, int flags, u8 chplan, u8 chplan_6g, enum rtw_regd_inr inr);
-u8 rtw_set_country_cmd(_adapter *adapter, int flags, const char *country_code, enum rtw_regd_inr inr);
-#ifdef CONFIG_REGD_SRC_FROM_OS
-u8 rtw_sync_os_regd_cmd(_adapter *adapter, int flags, const char *country_code, u8 dfs_region, enum rtw_regd_inr inr);
-#endif
-u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chplan);
-
-#ifdef CONFIG_80211D
-u8 rtw_apply_recv_country_ie_cmd(_adapter *adapter, int flags, enum band_type band,u8 opch, const u8 *country_ie);
-#endif
+u8 rtw_set_chbw_cmd(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+				struct rtw_chan_def *chdef, u8 flags);
 
 #ifdef CONFIG_RTW_LED_HANDLED_BY_CMD_THREAD
 u8 rtw_led_blink_cmd(_adapter *padapter, void *pLed);
 #endif
-extern u8 rtw_set_csa_cmd(_adapter *adapter);
 extern u8 rtw_tdls_cmd(_adapter *padapter, u8 *addr, u8 option);
 
 u8 rtw_mp_cmd(_adapter *adapter, u8 mp_cmd_id, u8 flags);
@@ -606,7 +569,7 @@ u8 session_tracker_chk_cmd(_adapter *adapter, struct sta_info *sta);
 u8 session_tracker_add_cmd(_adapter *adapter, struct sta_info *sta, u8 *local_naddr, u8 *local_port, u8 *remote_naddr, u8 *remote_port);
 u8 session_tracker_del_cmd(_adapter *adapter, struct sta_info *sta, u8 *local_naddr, u8 *local_port, u8 *remote_naddr, u8 *remote_port);
 
-u8 set_txq_params_cmd(_adapter *adapter, u32 ac_parm, u8 ac_type);
+u8 set_txq_params_cmd(_adapter *adapter, struct _ADAPTER_LINK *padapter_link, u32 ac_parm, u8 ac_type);
 
 #if defined(CONFIG_RTW_MESH) && defined(RTW_PER_CMD_SUPPORT_FW)
 u8 rtw_req_per_cmd(_adapter * adapter);
@@ -633,7 +596,6 @@ void dbg_ctrl_txss(_adapter *adapter, bool tx_1ss);
 u8 rtw_drvextra_cmd_hdl(_adapter *padapter, unsigned char *pbuf);
 
 extern void rtw_disassoc_cmd_callback(_adapter  *padapter, struct cmd_obj *pcmd);
-extern void rtw_joinbss_cmd_callback(_adapter  *padapter, struct cmd_obj *pcmd);
 void rtw_create_ibss_post_hdl(_adapter *padapter, int status);
 extern void rtw_readtssi_cmdrsp_callback(_adapter	*padapter,  struct cmd_obj *pcmd);
 
@@ -643,32 +605,33 @@ void rtw_run_cmd(_adapter *padapter, struct cmd_obj *pcmd, bool discard);
 u32 rtw_get_turbo_edca(_adapter *padapter, u8 aifs, u8 ecwmin, u8 ecwmax, u8 txop);
 
 enum rtw_cmd_id {
-	CMD_JOINBSS, /*0*/
-	CMD_DISCONNECT, /*1*/
-	CMD_CREATE_BSS,/*2*/
-	CMD_SET_OPMODE, /*3*/
-	CMD_SITE_SURVEY, /*4*/
-	CMD_SET_AUTH, /*5*/
-#ifndef CONFIG_CMD_DISP
-	CMD_SET_KEY, /*6*/
-	CMD_SET_STAKEY, /*7*/
+	CMD_JOINBSS,
+	CMD_DISCONNECT,
+	CMD_CREATE_BSS,
+	CMD_SET_OPMODE,
+#ifdef CONFIG_FSM
+	CMD_SITE_SURVEY,
 #endif
-	CMD_ADD_BAREQ, /*8*/
-	CMD_SET_CHANNEL, /*9*/
-	CMD_TX_BEACON, /*10*/
-	CMD_SET_MLME_EVT, /*11*/
-	CMD_SET_DRV_EXTRA, /*12*/
-	CMD_SET_CHANPLAN, /*13*/
-	CMD_LEDBLINK, /*14*/
-	CMD_SET_CHANSWITCH, /*15*/
-	CMD_TDLS, /*16*/
-	CMD_CHK_BMCSLEEPQ,  /*17*/
-	CMD_RUN_INTHREAD, /*18*/
-	CMD_ADD_BARSP, /*19*/
-	CMD_RM_POST_EVENT, /*20*/
-	CMD_SET_MESH_PLINK_STATE, /* 21 */
-	CMD_DELBA, /* 22 */
-	CMD_GET_CHANPLAN, /*23*/
+	CMD_SET_AUTH,
+#ifndef CONFIG_CMD_DISP
+	CMD_SET_KEY,
+	CMD_SET_STAKEY,
+#endif
+	CMD_ADD_BAREQ,
+	CMD_SET_CHANNEL,
+	CMD_TX_BEACON,
+	CMD_SET_MLME_EVT,
+	CMD_SET_DRV_EXTRA,
+	CMD_SET_CHANPLAN,
+	CMD_LEDBLINK,
+	CMD_TDLS,
+	CMD_CHK_BMCSLEEPQ,
+	CMD_RUN_INTHREAD,
+	CMD_ADD_BARSP,
+	CMD_RM_POST_EVENT,
+	CMD_SET_MESH_PLINK_STATE,
+	CMD_DELBA,
+	CMD_GET_CHANPLAN,
 	CMD_ID_MAX
 };
 

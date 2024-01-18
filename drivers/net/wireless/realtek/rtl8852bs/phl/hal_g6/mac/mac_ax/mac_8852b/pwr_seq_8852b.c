@@ -14,6 +14,7 @@
  ******************************************************************************/
 
 #include "../pwr.h"
+#if MAC_AX_8852B_SUPPORT
 
 static struct mac_pwr_cfg mac_pwron_8852b[] = {
 	{0x1086,
@@ -1484,3 +1485,4 @@ struct mac_pwr_cfg *ips_seq_8852b[] = {
 
 #endif
 
+#endif /* #if MAC_AX_8852B_SUPPORT */

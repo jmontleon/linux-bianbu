@@ -18,6 +18,15 @@
 #define VHT_CAP_IE_LEN 12
 #define VHT_OP_IE_LEN 5
 
+/* channel width defined in 802.11-2016, Table 9-252 VHT operation information subfields
+* 0 for 20 MHz or 40 MHz
+* 1 for 80 MHz, 160 MHz or 80+80 MHz
+* 2 for 160 MHz (deprecated)
+* 3 for non-contiguous 80+80 MHz (deprecated)
+*/
+#define CH_WIDTH_20_40M 0
+#define CH_WIDTH_80_160M 1
+
 #define	LDPC_VHT_ENABLE_RX			BIT0
 #define	LDPC_VHT_ENABLE_TX			BIT1
 #define	LDPC_VHT_TEST_TX_ENABLE		BIT2
@@ -52,6 +61,7 @@
 #define SET_VHT_CAPABILITY_ELE_MCS_RX_HIGHEST_RATE(_pEleStart, _val)				SET_BITS_TO_LE_2BYTE((_pEleStart)+6, 0, 13, _val)
 #define SET_VHT_CAPABILITY_ELE_MCS_TX_MAP(_pEleStart, _val)				SET_BITS_TO_LE_2BYTE((_pEleStart)+8, 0, 16, _val)   /* B0~B15 indicate Tx MCS MAP, we write 0 to indicate MCS0~7. by page */
 #define SET_VHT_CAPABILITY_ELE_MCS_TX_HIGHEST_RATE(_pEleStart, _val)				SET_BITS_TO_LE_2BYTE((_pEleStart)+10, 0, 13, _val)
+#define SET_VHT_CAPABILITY_ELE_MCS_TX_EXT_NSS_BW_CAP(_pEleStart, _val)				SET_BITS_TO_LE_2BYTE((_pEleStart)+10, 13, 1, _val)
 #define SET_VHT_CAPABILITY_ELE_RX_ANT_PATTERN(_pEleStart, _val)		SET_BITS_TO_LE_1BYTE((_pEleStart)+3, 4, 1, _val)
 #define SET_VHT_CAPABILITY_ELE_TX_ANT_PATTERN(_pEleStart, _val)		SET_BITS_TO_LE_1BYTE((_pEleStart)+3, 5, 1, _val)
 #define SET_VHT_CAPABILITY_ELE_EXT_NSS_BW(_pEleStart, _val)			SET_BITS_TO_LE_1BYTE((_pEleStart)+3, 6, 2, _val)
@@ -96,9 +106,11 @@
 
 /* VHT Operating Mode */
 #define SET_VHT_OPERATING_MODE_FIELD_CHNL_WIDTH(_pEleStart, _val)		SET_BITS_TO_LE_1BYTE(_pEleStart, 0, 2, _val)
+#define SET_VHT_OPERATING_MODE_FIELD_80_80_160_BW(_pEleStart, _val)		SET_BITS_TO_LE_1BYTE(_pEleStart, 2, 1, _val)
 #define SET_VHT_OPERATING_MODE_FIELD_RX_NSS(_pEleStart, _val)			SET_BITS_TO_LE_1BYTE(_pEleStart, 4, 3, _val)
 #define SET_VHT_OPERATING_MODE_FIELD_RX_NSS_TYPE(_pEleStart, _val)	SET_BITS_TO_LE_1BYTE(_pEleStart, 7, 1, _val)
 #define GET_VHT_OPERATING_MODE_FIELD_CHNL_WIDTH(_pEleStart)			LE_BITS_TO_1BYTE(_pEleStart, 0, 2)
+#define GET_VHT_OPERATING_MODE_FIELD_80_80_160_BW(_pEleStart)			LE_BITS_TO_1BYTE(_pEleStart, 2, 1)
 #define GET_VHT_OPERATING_MODE_FIELD_RX_NSS(_pEleStart)				LE_BITS_TO_1BYTE(_pEleStart, 4, 3)
 #define GET_VHT_OPERATING_MODE_FIELD_RX_NSS_TYPE(_pEleStart)		LE_BITS_TO_1BYTE(_pEleStart, 7, 1)
 
@@ -173,7 +185,7 @@ struct vht_priv {
 	u8 vht_op_ie_backup[VHT_OP_IE_LEN];
 };
 
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 struct vht_priv_infra_ap {
 
 	/* Infra mode, only store for AP's info, not intersection of STA and AP*/
@@ -185,36 +197,53 @@ struct vht_priv_infra_ap {
 	u8	channel_width_infra_ap;
 	u8	number_of_streams_infra_ap;
 };
-#endif /* ROKU_PRIVATE */
+#endif /* PRIVATE_R */
 
 u8	rtw_get_vht_highest_rate(u8 *pvht_mcs_map);
 u16	rtw_vht_mcs_to_data_rate(u8 bw, u8 short_GI, u8 vht_mcs_rate);
 u64	rtw_vht_mcs_map_to_bitmap(u8 *mcs_map, u8 nss);
 struct protocol_cap_t;
 struct role_cap_t;
+struct role_link_cap_t;
+u32	rtw_get_dft_vht_cap_ie(_adapter *padapter, u8 *pbuf);
 void rtw_vht_get_dft_setting(_adapter *padapter,
-			struct protocol_cap_t *dft_proto_cap, struct role_cap_t *dft_cap);
-void	rtw_vht_get_real_setting(_adapter *padapter);
-u32	rtw_build_vht_operation_ie(_adapter *padapter, u8 *pbuf, u8 channel);
-u32	rtw_build_vht_op_mode_notify_ie(_adapter *padapter, u8 *pbuf, u8 bw);
-u32	rtw_build_vht_cap_ie(_adapter *padapter, u8 *pbuf);
+			struct protocol_cap_t *dft_proto_cap,
+			struct role_link_cap_t *dft_cap);
+void	rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
+u32	rtw_build_vht_operation_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+						u8 *pbuf, u8 channel);
+u32	rtw_build_vht_op_mode_notify_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+						u8 *pbuf, u8 bw);
+u32	rtw_build_vht_cap_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf);
 void	update_sta_vht_info_apmode(_adapter *padapter, void *psta);
-void	update_hw_vht_param(_adapter *padapter);
-void	VHT_caps_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
-#ifdef ROKU_PRIVATE
-void	VHT_caps_handler_infra_ap(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
-#endif /* ROKU_PRIVATE */
-void	VHT_operation_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
+void	VHT_caps_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+				PNDIS_802_11_VARIABLE_IEs pIE);
+#ifdef PRIVATE_R
+void	VHT_caps_handler_infra_ap(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			PNDIS_802_11_VARIABLE_IEs pIE);
+#endif /* PRIVATE_R */
+void	VHT_operation_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+					PNDIS_802_11_VARIABLE_IEs pIE);
 void	rtw_process_vht_op_mode_notify(_adapter *padapter, u8 *pframe, void *sta);
-u32	rtw_restructure_vht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, struct country_chplan *req_chplan);
+u8 rtw_vht_get_oper_bw(u8 *ht_op_ie, u8 *vht_cap_ie, u8 *vht_op_ie, u8 oper_bw);
+u32	rtw_restructure_vht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+				u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, u8 channel);
 void	VHTOnAssocRsp(_adapter *padapter);
 u8	rtw_vht_mcsmap_to_nss(u8 *pvht_mcs_map);
 void rtw_vht_nss_to_mcsmap(u8 nss, u8 *target_mcs_map, u8 *cur_mcs_map);
-void rtw_vht_ies_attach(_adapter *padapter, WLAN_BSSID_EX *pcur_network);
-void rtw_vht_ies_detach(_adapter *padapter, WLAN_BSSID_EX *pcur_network);
+void rtw_vht_ies_attach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			WLAN_BSSID_EX *pcur_network);
+void rtw_vht_ies_detach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			WLAN_BSSID_EX *pcur_network);
 void rtw_check_for_vht20(_adapter *adapter, u8 *ies, int ies_len);
-void rtw_update_drv_vht_cap(_adapter *padapter, u8 *vht_cap_ie);
-void rtw_check_vht_ies(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
-void rtw_reattach_vht_ies(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
+void rtw_update_drv_vht_cap(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			u8 *vht_cap_ie);
+void rtw_check_vht_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+			WLAN_BSSID_EX *pnetwork);
 void rtw_update_probe_rsp_vht_cap(struct _ADAPTER *a, u8 *ies, sint ies_len);
+void rtw_reattach_vht_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork);
+u8 rtw_issue_op_mode_notify_frame(_adapter *a, struct _ADAPTER_LINK *a_link,
+		u8 *ra, u8 rx_nss, enum channel_width bw, u8 try_cnt, u8 wait_ms);
+void rtw_vht_op_mode_ctrl_rx_nss(_adapter *adapter, struct _ADAPTER_LINK *a_link,
+		struct sta_info *sta, u8 final_rx_nss, bool need_update_ra);
 #endif /* _RTW_VHT_H_ */

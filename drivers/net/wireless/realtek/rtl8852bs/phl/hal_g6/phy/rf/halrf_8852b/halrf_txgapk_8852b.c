@@ -138,12 +138,16 @@ void _halrf_txgapk_bb_afe_by_mode_8852b(struct rf_info *rf,
 		halrf_write_fwofld_start(rf);		/*FW Offload Start*/
 
 		halrf_wreg(rf, 0x4490, 0x80000000, 0x1);
-		halrf_wreg(rf, 0x12a0, 0x00007000, 0x7);
-		halrf_wreg(rf, 0x12a0, 0x00008000, 0x1);
-		halrf_wreg(rf, 0x12a0, 0x00070000, 0x3);
-		halrf_wreg(rf, 0x12a0, 0x00080000, 0x1);
-		halrf_wreg(rf, 0x32a0, 0x00070000, 0x3);
-		halrf_wreg(rf, 0x32a0, 0x00080000, 0x1);
+//		halrf_wreg(rf, 0x12a0, 0x00007000, 0x7);
+//		halrf_wreg(rf, 0x12a0, 0x00008000, 0x1);
+	halrf_txck_force_8852b(rf, RF_PATH_A, true, DAC_960M);
+//		halrf_wreg(rf, 0x12a0, 0x00070000, 0x3);
+//		halrf_wreg(rf, 0x12a0, 0x00080000, 0x1);
+	halrf_rxck_force_8852b(rf, RF_PATH_A, true, ADC_1920M);
+//		halrf_wreg(rf, 0x32a0, 0x00070000, 0x3);
+//		halrf_wreg(rf, 0x32a0, 0x00080000, 0x1);
+	halrf_txck_force_8852b(rf, RF_PATH_B, true, DAC_960M);
+	halrf_rxck_force_8852b(rf, RF_PATH_B, true, ADC_1920M);
 		halrf_wreg(rf, 0x0700, 0x01000000, 0x1);
 		halrf_wreg(rf, 0x0700, 0x06000000, 0x2);
 		halrf_wreg(rf, 0x20fc, 0xffff0000, 0x3333);
@@ -152,6 +156,9 @@ void _halrf_txgapk_bb_afe_by_mode_8852b(struct rf_info *rf,
 	} else {
 		if (phy == HW_PHY_0) {
 			/* dbcc phy0 path 0 */
+
+			halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 			halrf_wreg(rf, 0x20fc, 0xffff0000, 0x0101);
 			halrf_wreg(rf, 0x5864, 0x18000000, 0x3);
 			halrf_wreg(rf, 0x7864, 0x18000000, 0x3);
@@ -168,6 +175,9 @@ void _halrf_txgapk_bb_afe_by_mode_8852b(struct rf_info *rf,
 			halrf_wreg(rf, 0x0c60, 0x00000003, 0x3);
 			halrf_wreg(rf, 0x0c6c, 0x00000001, 0x1);
 			halrf_wreg(rf, 0x58ac, 0x08000000, 0x1);
+
+			halrf_write_fwofld_end(rf);		/*FW Offload End*/
+
 #ifdef CF_PHL_BB_CTRL_RX_CCA
 			halrf_bb_ctrl_rx_cca(rf, false, phy);
 #else			
@@ -179,17 +189,26 @@ void _halrf_txgapk_bb_afe_by_mode_8852b(struct rf_info *rf,
 			halrf_wreg(rf, 0x0704, BIT(1), 0x0); /*bb rst*/
 			halrf_wreg(rf, 0x0704, BIT(1), 0x1);
 			halrf_delay_us(rf, 1);
-#endif				
+#endif
+			halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 			halrf_wreg(rf, 0x4490, 0x80000000, 0x1);
-			halrf_wreg(rf, 0x12a0, 0x00007000, 0x7);
-			halrf_wreg(rf, 0x12a0, 0x00008000, 0x1);
-			halrf_wreg(rf, 0x12a0, 0x00070000, 0x3);
-			halrf_wreg(rf, 0x12a0, 0x00080000, 0x1);
+//			halrf_wreg(rf, 0x12a0, 0x00007000, 0x7);
+//			halrf_wreg(rf, 0x12a0, 0x00008000, 0x1);
+//			halrf_wreg(rf, 0x12a0, 0x00070000, 0x3);
+//			halrf_wreg(rf, 0x12a0, 0x00080000, 0x1);
+			halrf_txck_force_8852b(rf, RF_PATH_A, true, DAC_960M);
+			halrf_rxck_force_8852b(rf, RF_PATH_A, true, ADC_1920M);
 			halrf_wreg(rf, 0x0700, 0x01000000, 0x1);
 			halrf_wreg(rf, 0x0700, 0x06000000, 0x2);					
 			halrf_wreg(rf, 0x20fc, 0xffff0000, 0x1111);
+
+			halrf_write_fwofld_end(rf);		/*FW Offload End*/
 		} else if (phy == HW_PHY_1) {
 			/* dbcc phy1 path 1 */
+
+			halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 			halrf_wreg(rf, 0x20fc, 0xffff0000, 0x0202);
 			halrf_wreg(rf, 0x7864, 0x18000000, 0x3);
 			halrf_wreg(rf, 0x32b8, 0x40000000, 0x1);
@@ -205,6 +224,9 @@ void _halrf_txgapk_bb_afe_by_mode_8852b(struct rf_info *rf,
 			halrf_wreg(rf, 0x0c60, 0x00000003, 0x3);
 			halrf_wreg(rf, 0x0c6c, 0x00000001, 0x1);
 			halrf_wreg(rf, 0x78ac, 0x08000000, 0x1);
+
+			halrf_write_fwofld_end(rf);		/*FW Offload End*/
+
 #ifdef CF_PHL_BB_CTRL_RX_CCA
 			halrf_bb_ctrl_rx_cca(rf, false, phy);
 #else			
@@ -216,15 +238,21 @@ void _halrf_txgapk_bb_afe_by_mode_8852b(struct rf_info *rf,
 			halrf_wreg(rf, 0x2704, BIT(1), 0x0); /*bb rst*/
 			halrf_wreg(rf, 0x2704, BIT(1), 0x1);
 			halrf_delay_us(rf, 1);
-#endif			
+#endif
+			halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 			halrf_wreg(rf, 0x6490, 0x80000000, 0x1);
-			halrf_wreg(rf, 0x32a0, 0x00007000, 0x7);
-			halrf_wreg(rf, 0x32a0, 0x00008000, 0x1);
-			halrf_wreg(rf, 0x32a0, 0x00070000, 0x3);
-			halrf_wreg(rf, 0x32a0, 0x00080000, 0x1);
+//			halrf_wreg(rf, 0x32a0, 0x00007000, 0x7);
+//			halrf_wreg(rf, 0x32a0, 0x00008000, 0x1);
+//			halrf_wreg(rf, 0x32a0, 0x00070000, 0x3);
+//			halrf_wreg(rf, 0x32a0, 0x00080000, 0x1);
+			halrf_txck_force_8852b(rf, RF_PATH_B, true, DAC_960M);
+			halrf_rxck_force_8852b(rf, RF_PATH_B, true, ADC_1920M);
 			halrf_wreg(rf, 0x2700, 0x01000000, 0x1);
 			halrf_wreg(rf, 0x2700, 0x06000000, 0x2);
 			halrf_wreg(rf, 0x20fc, 0xffff0000, 0x2222);
+
+			halrf_write_fwofld_end(rf);		/*FW Offload End*/
 		}
 	}
 		
@@ -642,26 +670,67 @@ void _halrf_txgapk_track_table_nctl_2g_8852b
 	halrf_wreg(rf, itqt[path], MASKDWORD, 0x09);
 	halrf_wreg(rf, 0x80d0, 0x00100000, 0x1);
 
+//d =====
+//	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (d[i] & BIT(6)) {
+				txgapk_info->track_d[path][i] = (s32)(d[i] | 0xffffff80);
 
-	for (i = 0; i < 17; i++) {
-		if (d[i] & BIT(6))
-			txgapk_info->track_d[path][i] = (s32)(d[i] | 0xffffff80);
-		else
-			txgapk_info->track_d[path][i] = (s32)(d[i]);
+				if (d[i] < 0x60) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]trk d[i] < 0x60\n");
+				}
+			}	
+			else {
+				txgapk_info->track_d[path][i] = (s32)(d[i]);
 
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	d[%d][%d]=0x%x\n",
-			path, i, txgapk_info->track_d[path][i]);
+				if (d[i] > 0x20) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]trk d[i] > 0x20\n");
+				}
+			}
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_d[path][i]);
+		}
+//	}
+#if 0
+	else {
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK][Warning]trk d check out of limit before, d = 0");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->track_d[path][i] = 0;
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_d[path][i]);
+		}
 	}
-
-	for (i = 0; i < 17; i++) {
-		if (ta[i] & BIT(7))
-			txgapk_info->track_ta[path][i] = (s32)(ta[i] | 0xffffff00);
-		else
-			txgapk_info->track_ta[path][i] = (s32)(ta[i]);
-		
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	ta[%d][%d]=0x%x\n",
-			path, i, txgapk_info->track_ta[path][i]);
+#else
+	if (!txgapk_info->d_bnd_ok)
+		RF_WARNING("[TXGAPK][Warning]trk d check out of limit before\n");
+#endif
+	
+	//ta ======
+	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (ta[i] & BIT(7))
+				txgapk_info->track_ta[path][i] = (s32)(ta[i] | 0xffffff00);
+			else
+				txgapk_info->track_ta[path][i] = (s32)(ta[i]);
+			
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_ta[path][i]);
+		}
 	}
+	else {
+		RF_WARNING("[TXGAPK][Warning]trk d check out of limit, ta = 0\n");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->track_ta[path][i] =0;
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_ta[path][i]);
+		}
+	}
+ 
+	
 	
 }
 
@@ -909,25 +978,67 @@ void _halrf_txgapk_track_table_nctl_5g_8852b
 	halrf_wreg(rf, itqt[path], MASKDWORD, 0x09);
 	halrf_wreg(rf, 0x80d0, 0x00100000, 0x1);
 
-	for (i = 0; i < 17; i++) {
-		if (d[i] & BIT(6))
-			txgapk_info->track_d[path][i] = (s32)(d[i] | 0xffffff80);
-		else
-			txgapk_info->track_d[path][i] = (s32)(d[i]);
+	//d =====
+//	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (d[i] & BIT(6)) {
+				txgapk_info->track_d[path][i] = (s32)(d[i] | 0xffffff80);
 
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	d[%d][%d]=0x%x\n",
-			path, i, txgapk_info->track_d[path][i]);
+				if (d[i] < 0x60) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]trk d[i] < 0x60\n");
+				}
+			}	
+			else {
+				txgapk_info->track_d[path][i] = (s32)(d[i]);
+
+				if (d[i] > 0x20) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]trk d[i] > 0x20\n");
+				}
+			}
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_d[path][i]);
+		}
+//	}
+#if 0
+	else {
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK][Warning]trk d check out of limit before, d = 0");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->track_d[path][i] = 0;
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_d[path][i]);
+		}
+	}
+#else
+	if (!txgapk_info->d_bnd_ok)
+		RF_WARNING("[TXGAPK][Warning]trk d check out of limit before\n");
+#endif
+
+	
+	//ta ======
+	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (ta[i] & BIT(7))
+				txgapk_info->track_ta[path][i] = (s32)(ta[i] | 0xffffff00);
+			else
+				txgapk_info->track_ta[path][i] = (s32)(ta[i]);
+			
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_ta[path][i]);
+		}
+	}
+	else {
+		RF_WARNING("[TXGAPK][Warning]trk d check out of limit, ta = 0\n");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->track_ta[path][i] =0;
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->track_ta[path][i]);
+		}
 	}
 
-	for (i = 0; i < 17; i++) {
-		if (ta[i] & BIT(7))
-			txgapk_info->track_ta[path][i] = (s32)(ta[i] | 0xffffff00);
-		else
-			txgapk_info->track_ta[path][i] = (s32)(ta[i]);
-		
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	track	ta[%d][%d]=0x%x\n",
-			path, i, txgapk_info->track_ta[path][i]);
-	}
 
 }
 
@@ -1542,26 +1653,66 @@ void _halrf_txgapk_power_table_nctl_2g_8852b
 	halrf_wreg(rf, itqt[path], MASKDWORD, 0x1b);
 	halrf_wreg(rf, 0x80d0, 0x00100000, 0x1);
 
-	for (i = 0; i < 17; i++) {
-		if (d[i] & BIT(6))
-			txgapk_info->power_d[path][i] = (s32)(d[i] | 0xffffff80);
-		else
-			txgapk_info->power_d[path][i] = (s32)(d[i]);
+	//d =====
+//	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (d[i] & BIT(6)) {
+				txgapk_info->power_d[path][i] = (s32)(d[i] | 0xffffff80);
 
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	d[%d][%d]=0x%x\n",
-			path, i, txgapk_info->power_d[path][i]);
+				if (d[i] < 0x60) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]pwr d[i] < 0x60\n");
+				}
+			}	
+			else {
+				txgapk_info->power_d[path][i] = (s32)(d[i]);
+
+				if (d[i] > 0x20) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]pwr d[i] > 0x20\n");
+				}
+			}
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_d[path][i]);
+		}
+//	}
+#if 0
+	else {
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK][Warning]pwr d check out of limit before, d = 0");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->power_d[path][i] = 0;
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_d[path][i]);
+		}
 	}
-
-	for (i = 0; i < 17; i++) {
-		if (ta[i] & BIT(7))
-			txgapk_info->power_ta[path][i] = (s32)(ta[i] | 0xffffff00);
-		else
-			txgapk_info->power_ta[path][i] = (s32)(ta[i]);
-		
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	ta[%d][%d]=0x%x\n",
-			path, i, txgapk_info->power_ta[path][i]);
+#else
+	if (!txgapk_info->d_bnd_ok)
+		RF_WARNING("[TXGAPK][Warning]pwr d check out of limit before\n");
+#endif
+	
+	//ta ======
+	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (ta[i] & BIT(7))
+				txgapk_info->power_ta[path][i] = (s32)(ta[i] | 0xffffff00);
+			else
+				txgapk_info->power_ta[path][i] = (s32)(ta[i]);
+			
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_ta[path][i]);
+		}
 	}
+	else {
+		RF_WARNING("[TXGAPK][Warning] d check out of limit, ta = 0\n");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->power_ta[path][i] =0;
 
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_ta[path][i]);
+		}
+	}
+	
 }
 
 
@@ -1778,25 +1929,67 @@ void _halrf_txgapk_power_table_nctl_5g_8852b
 	halrf_wreg(rf, itqt[path], MASKDWORD, 0x1b);
 	halrf_wreg(rf, 0x80d0, 0x00100000, 0x1);
 
-	for (i = 0; i < 17; i++) {
-		if (d[i] & BIT(6))
-			txgapk_info->power_d[path][i] = (s32)(d[i] | 0xffffff80);
-		else
-			txgapk_info->power_d[path][i] = (s32)(d[i]);
+	//d =====
+//	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (d[i] & BIT(6)) {
+				txgapk_info->power_d[path][i] = (s32)(d[i] | 0xffffff80);
 
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	d[%d][%d]=0x%x\n",
-			path, i, txgapk_info->power_d[path][i]);
+				if (d[i] < 0x60) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]pwr d[i] < 0x60\n");
+				}
+			}	
+			else {
+				txgapk_info->power_d[path][i] = (s32)(d[i]);
+
+				if (d[i] > 0x20) {
+					txgapk_info->d_bnd_ok = false;
+					RF_WARNING("[TXGAPK][Warning]pwr d[i] > 0x20\n");
+				}
+			}
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_d[path][i]);
+		}
+//	}
+#if 0
+	else {
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK][Warning]pwr d check out of limit before, d = 0");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->power_d[path][i] = 0;
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	d[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_d[path][i]);
+		}
+	}
+#else
+	if (!txgapk_info->d_bnd_ok)
+		RF_WARNING("[TXGAPK][Warning]pwr d check out of limit before\n");
+#endif
+
+	
+	//ta ======
+	if (txgapk_info->d_bnd_ok) {
+		for (i = 0; i < 17; i++) {
+			if (ta[i] & BIT(7))
+				txgapk_info->power_ta[path][i] = (s32)(ta[i] | 0xffffff00);
+			else
+				txgapk_info->power_ta[path][i] = (s32)(ta[i]);
+			
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_ta[path][i]);
+		}
+	}
+	else {
+		RF_WARNING("[TXGAPK][Warning] d check out of limit, ta = 0\n");
+		for (i = 0; i < 17; i++) {
+			txgapk_info->power_ta[path][i] =0;
+
+			RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	ta[%d][%d]=0x%x\n",
+				path, i, txgapk_info->power_ta[path][i]);
+		}
 	}
 
-	for (i = 0; i < 17; i++) {
-		if (ta[i] & BIT(7))
-			txgapk_info->power_ta[path][i] = (s32)(ta[i] | 0xffffff00);
-		else
-			txgapk_info->power_ta[path][i] = (s32)(ta[i]);
-		
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]	power	ta[%d][%d]=0x%x\n",
-			path, i, txgapk_info->power_ta[path][i]);
-	}
 
 }
 
@@ -2301,7 +2494,9 @@ void _halrf_do_non_dbcc_txgapk_8852b(struct rf_info *rf,
 					enum phl_phy_idx phy)
 {
 	u8 i;
-	
+#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT	
+	struct halrf_gapk_info *txgapk_info = &rf->gapk;
+#endif	
 	u32 bb_reg[1] = {0x2344};
 	u32 bb_reg_backup[1] = {0};
 	u32 backup_num = 1;	
@@ -2356,6 +2551,7 @@ void _halrf_do_non_dbcc_txgapk_8852b(struct rf_info *rf,
 		/*halrf_btc_rfk_ntfy(rf, (BIT(phy) << 4), RF_BTC_TSSI, RFK_START);*/
 		/*halrf_tmac_tx_pause(rf, phy, true);*/
 
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
 		_halrf_txgapk_track_table_nctl_8852b(rf, phy, i);
 	
 		halrf_write_fwofld_start(rf);	/*FW Offload Start*/
@@ -2374,6 +2570,28 @@ void _halrf_do_non_dbcc_txgapk_8852b(struct rf_info *rf,
 		_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, i, false);
 
 		halrf_write_fwofld_end(rf); 	/*FW Offload End*/
+#else		
+		_halrf_txgapk_track_table_nctl_8852b(rf, phy, i);
+
+		if (txgapk_info->d_bnd_ok)
+			_halrf_txgapk_write_track_table_8852b(rf, phy, i);
+		else
+			_halrf_txgapk_write_track_table_default_8852b(rf, phy, i);
+			
+
+		_halrf_txgapk_power_table_nctl_8852b(rf, phy, i);
+
+		if (txgapk_info->d_bnd_ok)
+			_halrf_txgapk_write_power_table_8852b(rf, phy, i);
+		else {
+			_halrf_txgapk_write_track_table_default_8852b(rf, phy, i);
+			_halrf_txgapk_write_power_table_default_8852b(rf, phy, i);
+		}
+
+		_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, i, false);
+		_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, i, false);
+
+#endif
 	}
 
 	/*halrf_wrf(rf, RF_PATH_A, 0x0, 0x00001, rf_0[RF_PATH_A]);*/
@@ -2403,7 +2621,9 @@ void _halrf_do_dbcc_txgapk_8852b(struct rf_info *rf,
 	u32 backup_num = 1;
 	u32 rf_3wire[2] = {0};
 	enum rf_path path = 0;
-
+#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	struct halrf_gapk_info *txgapk_info = &rf->gapk;
+#endif
 	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> %s   phy=%d\n", __func__, phy);
 	
 	_txgapk_backup_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
@@ -2425,17 +2645,22 @@ void _halrf_do_dbcc_txgapk_8852b(struct rf_info *rf,
 		path = RF_PATH_B;
 
 	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 	_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
 	_halrf_txgapk_write_power_table_default_8852b(rf, phy, path);
+
+	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 		
 	_halrf_txgapk_bb_afe_by_mode_8852b(rf, phy, path, true);
+
+	halrf_write_fwofld_start(rf);	/*FW Offload Start*/
+
 	_halrf_txgapk_iqk_preset_by_mode_8852b(rf, phy, path, true);
 	_halrf_txgapk_clk_setting_dac960mhz_by_mode_8852b(rf, phy, path, true);
+
 	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 	
-	/*halrf_btc_rfk_ntfy(rf, (BIT(phy) << 4), RF_BTC_TSSI, RFK_START);*/
-	/*halrf_tmac_tx_pause(rf, phy, true);*/
-	
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT	
 	_halrf_txgapk_track_table_nctl_8852b(rf, phy, path);
 
 	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
@@ -2449,14 +2674,10 @@ void _halrf_do_dbcc_txgapk_8852b(struct rf_info *rf,
 
 	_halrf_txgapk_write_power_table_8852b(rf, phy, path);
 
-	/*halrf_tmac_tx_pause(rf, phy, true);*/
-	/*halrf_btc_rfk_ntfy(rf, (BIT(phy) << 4), RF_BTC_TSSI, RFK_STOP);*/
 
 	_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, path, true);
 	_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, path, true);
-	
-	/* halrf_wrf(rf, RF_PATH_A, 0x00, 0x00001, 0x0); */
-	/* halrf_wrf(rf, RF_PATH_B, 0x00, 0x00001, 0x0); */
+
 
 	halrf_wrf(rf, RF_PATH_A, 0x5, 0xfffff, rf_3wire[RF_PATH_A]);
 	halrf_wrf(rf, RF_PATH_B, 0x5, 0xfffff, rf_3wire[RF_PATH_B]);
@@ -2465,6 +2686,34 @@ void _halrf_do_dbcc_txgapk_8852b(struct rf_info *rf,
 					backup_num);
 
 	halrf_write_fwofld_end(rf);		/*FW Offload End*/
+#else
+	_halrf_txgapk_track_table_nctl_8852b(rf, phy, path);
+
+	if (txgapk_info->d_bnd_ok)
+		_halrf_txgapk_write_track_table_8852b(rf, phy, path);
+	else 
+		_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
+	
+	_halrf_txgapk_power_table_nctl_8852b(rf, phy, path);
+
+	if (txgapk_info->d_bnd_ok)
+		_halrf_txgapk_write_power_table_8852b(rf, phy, path);
+	else {
+		_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
+		_halrf_txgapk_write_power_table_default_8852b(rf, phy, path);
+	}
+
+	_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, path, true);
+	_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, path, true);
+
+
+	halrf_wrf(rf, RF_PATH_A, 0x5, 0xfffff, rf_3wire[RF_PATH_A]);
+	halrf_wrf(rf, RF_PATH_B, 0x5, 0xfffff, rf_3wire[RF_PATH_B]);
+
+	_txgapk_reload_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
+					backup_num);
+#endif
+	
 }
 void _halrf_txgapk_get_ch_info_8852b(struct rf_info *rf, enum phl_phy_idx phy)
 {
@@ -2505,9 +2754,24 @@ void halrf_do_txgapk_8852b(struct rf_info *rf,
 					enum phl_phy_idx phy)
 {
 	struct halrf_gapk_info *txgapk_info = &rf->gapk;
+	u8 i = 0;
+	u8 path = 0;
+
 
 	txgapk_info->is_txgapk_ok = true;
 	txgapk_info->r0x8010[0] = halrf_rreg(rf, 0x8010, MASKDWORD);
+	txgapk_info->d_bnd_ok = true;
+
+
+	for (path = 0; path <2; path++) {
+		for (i = 0; i < 17; i++) {
+			txgapk_info->track_d[path][i] = 0;
+			txgapk_info->track_ta[path][i] = 0;
+			txgapk_info->power_d[path][i] = 0;
+			txgapk_info->power_ta[path][i] = 0;
+		}
+	}
+		
 
 	_halrf_txgapk_get_ch_info_8852b(rf, phy);
 	

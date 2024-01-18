@@ -14,12 +14,17 @@
  *****************************************************************************/
 #define _HAL_API_BB_C_
 #include "hal_headers.h"
+#ifdef USE_TRUE_PHY
 #include "phy/bb/halbb_export_fun.h"
 
 //kevin-cmd
 #include "phy/bb/halbb_hw_cfg_ex.h"
 
-#ifdef USE_TRUE_PHY
+void rtw_hal_bb_bb_reset_cmn(struct hal_info_t *hal_info, bool en, enum phl_phy_idx phy_idx)
+{
+	halbb_bb_reset_cmn(hal_info->bb, en, phy_idx);
+}
+
 void rtw_hal_bb_dfs_en(struct hal_info_t *hal_info, bool en)
 {
 	halbb_dfs_en(hal_info->bb, en);
@@ -30,9 +35,9 @@ void rtw_hal_bb_tssi_cont_en(struct hal_info_t *hal_info, bool en, enum rf_path 
 	halbb_tssi_cont_en(hal_info->bb, en, path);
 }
 
-void rtw_hal_bb_adc_en(struct hal_info_t *hal_info, bool en)
+void rtw_hal_bb_adc_en(struct hal_info_t *hal_info, bool en, enum phl_phy_idx phy_idx)
 {
-	halbb_adc_en(hal_info->bb, en);
+	halbb_adc_ctrl_en(hal_info->bb, en, phy_idx);
 }
 
 void rtw_hal_bb_reset_en(struct hal_info_t *hal_info, bool en, enum phl_phy_idx phy_idx)
@@ -99,6 +104,24 @@ void rtw_hal_bb_dm_deinit(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_
 	halbb_dm_deinit(phl_com, hal_info->bb);
 }
 
+bool rtw_hal_bb_query_cck_en(struct rtw_hal_com_t *hal_com, enum phl_phy_idx phy_idx)
+{
+	struct hal_info_t *hal = (struct hal_info_t *)hal_com->hal_priv;
+	bool cck_en = false;
+
+	cck_en = halbb_query_cck_en(hal->bb, phy_idx);
+	return cck_en;
+}
+
+enum rtw_hal_status rtw_hal_bb_ctrl_cck_en(struct rtw_hal_com_t *hal_com,
+					bool cca_en, enum phl_phy_idx phy_idx)
+{
+	struct hal_info_t *hal = (struct hal_info_t *)hal_com->hal_priv;
+
+	halbb_ctrl_cck_en(hal->bb, cca_en, phy_idx);
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
 enum rtw_hal_status rtw_hal_bb_ctrl_rx_cca(struct rtw_hal_com_t *hal_com,
 	bool cca_en, enum phl_phy_idx phy_idx)
 {
@@ -109,19 +132,105 @@ enum rtw_hal_status rtw_hal_bb_ctrl_rx_cca(struct rtw_hal_com_t *hal_com,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
-enum rtw_hal_status rtw_hal_bb_ctrl_dbcc(struct hal_info_t *hal_info, bool dbcc_en)
+#ifdef CONFIG_DBCC_SUPPORT
+void
+rtw_hal_dbcc_init_bb_reg(struct hal_info_t *hal_info)
+{
+
+	halbb_init_bb_cr_per_phy(hal_info->bb, HW_PHY_1);
+	halbb_reset_bb(hal_info->bb);
+}
+
+enum rtw_hal_status
+rtw_hal_bb_ctrl_dbcc(struct hal_info_t *hal_info, bool dbcc_en)
 {
 	halbb_ctrl_dbcc(hal_info->bb, dbcc_en);
-
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
-enum rtw_hal_status rtw_hal_bb_cfg_dbcc(struct hal_info_t *hal_info, bool dbcc_en)
+enum rtw_hal_status
+rtw_hal_bb_cfg_dbcc_phy_map(struct hal_info_t *hal_info,
+					   enum phl_phy_idx phy_idx)
 {
-	halbb_cfg_dbcc(hal_info->bb, dbcc_en);
-
-	return RTW_HAL_STATUS_SUCCESS;
+	if (halbb_cfg_dbcc_cck_phy_map(hal_info->bb, phy_idx))
+		return RTW_HAL_STATUS_SUCCESS;
+	else
+	return RTW_HAL_STATUS_FAILURE;
 }
+
+enum rtw_hal_status
+rtw_hal_bb_cfg_dbcc(struct hal_info_t *hal_info,
+				struct rtw_phl_com_t *phl_com, bool dbcc_en)
+{
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+	struct bb_dbcc_cfg_info cfg = {0};
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	cfg.dbcc_en = dbcc_en;
+	cfg.cck_phy_map = hal_dbcc_cck_phyidx_decision(hal_info, phl_com, dbcc_en);
+	if (halbb_cfg_dbcc(hal_info->bb, &cfg)) {
+		hsts = RTW_HAL_STATUS_SUCCESS;
+	} else {
+		PHL_ERR("%s Fail \n", __FUNCTION__);
+	}
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	return hsts;
+}
+
+enum rtw_hal_status
+rtw_hal_phy_dbcc_pre_cfg(struct hal_info_t *hal_info,
+			struct rtw_phl_com_t *phl_com, bool dbcc_en)
+{
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	if (dbcc_en)
+		rtw_hal_dbcc_init_bb_reg(hal_info);
+	else
+		rtw_hal_bb_cfg_dbcc_phy_map(hal_info, HW_PHY_0);
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+		return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_phy_dbcc_cfg(struct hal_info_t *hal_info,
+	struct rtw_phl_com_t *phl_com, bool dbcc_en)
+{
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	/* BB DBCC Settings */
+	hsts = rtw_hal_bb_cfg_dbcc(hal_info, phl_com, dbcc_en);
+	if (RTW_HAL_STATUS_SUCCESS != hsts) {
+		PHL_ERR("%s halbb cfg dbcc failed\n", __func__);
+		goto _err;
+	}
+	/* enable/disable rf */
+	hsts = rtw_hal_rf_ctrl_dbcc(hal_info->hal_com, dbcc_en);
+	if (RTW_HAL_STATUS_SUCCESS != hsts) {
+		PHL_ERR("%s halrf ctrl dbcc failed\n", __func__);
+		goto _err;
+	}
+
+_err:
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	return hsts;
+}
+#endif /* CONFIG_DBCC_SUPPORT */
 
 u32 rtw_hal_bb_init(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info)
 {
@@ -286,6 +395,29 @@ rtw_hal_bb_stainfo_delete(struct hal_info_t *hal_info,
 	return hal_status;
 }
 
+enum rtw_hal_status
+rtw_hal_bb_lps_info_update(void *hal, u16 macid)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+
+	if (halbb_lps_info(hal_info->bb, macid))
+		hal_status = RTW_HAL_STATUS_SUCCESS;
+	else
+		PHL_ERR("[HAL] %s failed status(%d)\n",
+			__func__, hal_status);
+
+	return hal_status;
+}
+
+#ifdef RTW_WKARD_RVR_USE_BB_1TX_CONFIG
+void rtw_hal_bb_tx_path_div_update(struct hal_info_t *hal_info,
+			struct rtw_phl_stainfo_t *sta)
+{
+	halbb_update_tx_path_div(hal_info->bb, sta);
+}
+#endif /* RTW_WKARD_RVR_USE_BB_1TX_CONFIG */
+
 void rtw_hal_bb_media_status_update(struct hal_info_t *hal_info,
 			struct rtw_phl_stainfo_t *sta, bool is_connected)
 {
@@ -337,9 +469,16 @@ enum rtw_hal_status
 rtw_hal_bb_ra_update(struct hal_info_t *hal_info,
 				struct rtw_phl_stainfo_t *sta)
 {
+	enum rtw_hal_status hal_sts = RTW_HAL_STATUS_FAILURE;
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 	if (!sta->hal_sta->ra_info.ra_registered) {
 		PHL_WARN("%s mac-id:%d not register RA\n", __func__, sta->macid);
-		return RTW_HAL_STATUS_SUCCESS;
+		hal_sts = RTW_HAL_STATUS_SUCCESS;
+		goto exit;
 	}
 
 	if (sta->hal_sta->ra_info.ra_mask) {
@@ -348,10 +487,19 @@ rtw_hal_bb_ra_update(struct hal_info_t *hal_info,
 			sta->hal_sta->ra_info.ra_mask, sta->hal_sta->ra_info.cur_ra_mask);
 	}
 
-	if (rtw_halbb_raupdate(hal_info->bb, sta) == true)
-		return RTW_HAL_STATUS_SUCCESS;
-	else
-		return RTW_HAL_STATUS_FAILURE;
+	if (rtw_halbb_raupdate(hal_info->bb, sta) == true) {
+		hal_sts = RTW_HAL_STATUS_SUCCESS;
+		goto exit;
+	} else {
+		PHL_WARN("%s: macid:0x%x update fail\n", __func__, sta->macid);
+		hal_sts = RTW_HAL_STATUS_FAILURE;
+		goto exit;
+	}
+exit:
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_end(&start_t, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
+	return hal_sts;
 }
 
 #ifdef CONFIG_FW_IO_OFLD_SUPPORT
@@ -372,67 +520,6 @@ bool rtw_hal_bb_fw_delay(struct hal_info_t *hal_info, u32 val)
 	return halbb_fw_delay(hal_info->bb, val);
 }
 #endif
-
-#ifdef CONFIG_BTCOEX
-enum rtw_hal_status rtw_hal_btc_cfg_tx_1ss(struct rtw_hal_com_t *hal_com,
-			struct rtw_phl_com_t *phl_com, u8 rid, bool enable)
-{
-	enum rtw_hal_status hstats = RTW_HAL_STATUS_FAILURE;
-	struct hal_info_t *hal_i = (struct hal_info_t *)hal_com->hal_priv;
-	void *drv = halcom_to_drvpriv(hal_com);
-	struct rtw_wifi_role_t *wrole = rtw_phl_get_wrole_by_ridx(phl_com, rid);
-	struct phl_queue *sta_queue = NULL;
-	int sta_qlen = 0;
-	struct rtw_phl_stainfo_t *sta = NULL;
-	struct rtw_phl_stainfo_t **sta_todo = NULL;
-	size_t sta_todo_len = 0;
-	size_t i;
-	u8 ra_nss_limit = enable ? 1 : 0;
-
-	PHL_PRINT("%s: rid(%d), enable(%d)\n", __FUNCTION__, rid, enable);
-	if (wrole == NULL) {
-		PHL_ERR("%s: Get role failed\n", __FUNCTION__);
-		goto exit;
-	}
-	sta_queue = &wrole->assoc_sta_queue;
-
-	/* collect the sta list */
-	_os_spinlock(drv, &sta_queue->lock, _bh, NULL);
-	sta_qlen = sta_queue->cnt;
-	sta_todo = (struct rtw_phl_stainfo_t **)
-		_os_kmem_alloc(drv, sta_qlen * sizeof(struct rtw_phl_stainfo_t *));
-	if (!sta_todo) {
-		PHL_ERR("%s: failed to alloc sta_todo\n", __FUNCTION__);
-		hstats = RTW_HAL_STATUS_RESOURCE;
-		_os_spinunlock(drv, &sta_queue->lock, _bh, NULL);
-		goto exit;
-	}
-	phl_list_for_loop(sta, struct rtw_phl_stainfo_t,
-	                  &sta_queue->queue, list) {
-		if (sta)
-			sta_todo[sta_todo_len++] = sta;
-	}
-	_os_spinunlock(drv, &sta_queue->lock, _bh, NULL);
-
-	for (i = 0; i < sta_todo_len; i++) {
-		sta = sta_todo[i];
-		sta->hal_sta->ra_info.ra_nss_limit = ra_nss_limit;
-		hstats = rtw_hal_bb_ra_update(hal_i, sta);
-		if (RTW_HAL_STATUS_SUCCESS != hstats) {
-			PHL_ERR("%s: macid(%d), Fail to cfg ra_nss_limit(%d)\n",
-			        __FUNCTION__, sta->macid, ra_nss_limit);
-			break;
-		}
-		PHL_PRINT("%s: macid(%d), succee to cfg ra_nss_limit(%d)\n",
-		          __FUNCTION__, sta->macid, ra_nss_limit);
-	}
-
-	_os_kmem_free(drv, sta_todo, sta_qlen * sizeof(struct rtw_phl_stainfo_t *));
-
-exit:
-	return hstats;
-}
-#endif /* CONFIG_BTCOEX */
 
 enum rtw_hal_status
 rtw_hal_bb_query_txsts_rpt(struct hal_info_t *hal_info,
@@ -547,7 +634,7 @@ bool rtw_hal_bb_query_pop_en(struct hal_info_t *hal_info,
  * returns enum rtw_hal_status
  */
 enum rtw_hal_status rtw_hal_bb_set_pkt_detect_thold(struct hal_info_t *hal_info,
-                                                    u32 bound)
+				enum phl_band_idx band_idx, u32 bound)
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 	enum halbb_pause_type pause_type = HALBB_PAUSE;
@@ -555,6 +642,8 @@ enum rtw_hal_status rtw_hal_bb_set_pkt_detect_thold(struct hal_info_t *hal_info,
 	u32 val[5] = {0};
 	val[0] = bound;
 	val[1] = 0;
+	enum phl_phy_idx p_idx = rtw_hal_hw_band_to_phy_idx(band_idx);
+
 	if (bound == 0) {
 		pause_type = HALBB_RESUME;
 	} else if ((bound > 102) || (bound < 40)) {
@@ -565,7 +654,7 @@ enum rtw_hal_status rtw_hal_bb_set_pkt_detect_thold(struct hal_info_t *hal_info,
 					F_DIG, pause_type,
 					HALBB_PAUSE_LV_2,
 					2,
-					val);
+					val, p_idx);
 	if (pause_result == PAUSE_SUCCESS)
 		hal_status = RTW_HAL_STATUS_SUCCESS;
 	return hal_status;
@@ -585,6 +674,21 @@ u8 rtw_hal_bb_query_pkt_detect_thold(struct hal_info_t *hal_info,
                                      enum phl_phy_idx phy_idx)
 {
 	return halbb_querry_pd_lower_bound(hal_info->bb, get_en_info, phy_idx);
+}
+
+/**
+ * rtw_hal_bb_set_tx_rate_rty_tbl: set the tx retry count of tx MCS rate table.
+ * @hal_info: see struct hal_info_t
+ * @en: enable: true, disable: false(halbb default setting)
+ * @rty_rate_tbl: tx retry count of tx MCS rate table
+ * returns void
+ */
+void
+rtw_hal_bb_set_tx_rate_rty_tbl(struct hal_info_t *hal_info,
+                               bool en,
+                               u8 *rty_rate_tbl)
+{
+	halbb_ra_shift_darf_tc(hal_info->bb, en ,rty_rate_tbl);
 }
 #endif
 
@@ -609,8 +713,10 @@ void rtw_hal_bb_dfs_change_domain(void *hal, enum band_type band, u8 ch
 }
 
 enum rtw_hal_status
-rtw_hal_bb_dfs_rpt_cfg(struct hal_info_t *hal_info, bool dfs_en)
+rtw_hal_bb_dfs_rpt_cfg(struct rtw_hal_com_t *hal_com, enum phl_phy_idx phy_idx, bool dfs_en)
 {
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+
 	if (dfs_en)
 		halbb_radar_detect_enable(hal_info->bb);
 	else
@@ -630,14 +736,17 @@ rtw_hal_bb_radar_detect(struct hal_info_t *hal_info,
 #ifdef CONFIG_PHL_CHANNEL_INFO
 enum rtw_hal_status
 rtw_hal_bb_ch_info_parsing(struct hal_info_t *hal_info,
-	u8 *addr, u32 len, u8 *rpt_buf, struct ch_rpt_hdr_info *ch_hdr_rpt,
+	u8 *addr, struct rtw_r_meta_data *mdata,
+	u8 *rpt_buf, struct ch_rpt_hdr_info *ch_hdr_rpt,
 	struct phy_info_rpt *phy_rpt, struct ch_info_drv_rpt *drv)
 {
 	enum bb_ch_info_t chinfo_status = BB_CH_INFO_SUCCESS;
+	struct physts_rxd rxdesc = {0};
+	u32 len = mdata->pktlen;
 
-	chinfo_status = halbb_ch_info_parsing(hal_info->bb, addr, len, rpt_buf
-		, (void*)ch_hdr_rpt, (void *)phy_rpt, (void *)drv);
-
+	rxdesc.data_rate = mdata->rx_rate;
+	chinfo_status = halbb_ch_info_parsing(hal_info->bb, addr, len, &rxdesc,rpt_buf
+			, (void*)ch_hdr_rpt, (void *)phy_rpt, (void *)drv);
 	if (chinfo_status == BB_CH_INFO_SUCCESS)
 		return RTW_HAL_STATUS_SUCCESS;
 	else if (chinfo_status == BB_CH_INFO_LAST_SEG)
@@ -647,9 +756,127 @@ rtw_hal_bb_ch_info_parsing(struct hal_info_t *hal_info,
 }
 
 void
-rtw_hal_bb_chan_info_cfg(struct hal_info_t *hal_info, struct chinfo_bbcr_cfg *bbcr)
+_halchinfo2bbchinfo(struct chinfo_bbcr_cfg *cfg, struct bb_ch_info_cr_cfg_info *bb_cfg)
 {
-	halbb_cfg_ch_info_cr(hal_info->bb, (void*)bbcr);
+	bb_cfg->ch_i_data_src = cfg->ch_i_data_src;
+	bb_cfg->ch_i_cmprs = cfg->ch_i_cmprs;
+	bb_cfg->ch_i_grp_num = cfg->ch_i_grp_num_non_he;
+	bb_cfg->ch_i_grp_num_he = cfg->ch_i_grp_num_he;
+	bb_cfg->ch_i_blk_start_idx = cfg->ch_i_blk_start_idx;
+	bb_cfg->ch_i_blk_end_idx = cfg->ch_i_blk_end_idx;
+	bb_cfg->ch_i_ele_bitmap = cfg->ch_i_ele_bitmap;
+	switch(cfg->ch_i_type) {
+	case CH_INFO_LEGACY_CH:
+		bb_cfg->ch_i_type = BB_CH_LEGACY_CH;
+		break;
+	case CH_INFO_MIMO_CH:
+		bb_cfg->ch_i_type = BB_CH_MIMO_CH;
+		break;
+	default:
+		PHL_ERR("%s unknown ch_i_type=%d\n", __func__, cfg->ch_i_type);
+		bb_cfg->ch_i_type = BB_CH_LEGACY_CH;
+		break;
+	}
+	bb_cfg->ch_i_seg_len = cfg->ch_i_seg_len;
+
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - bb_cfg\n");
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_data_src:%d\n", bb_cfg->ch_i_data_src);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_cmprs:%d\n", bb_cfg->ch_i_cmprs);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_grp_num:%d\n", bb_cfg->ch_i_grp_num);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_grp_num_he:%d\n", bb_cfg->ch_i_grp_num_he);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_blk_start_idx:%d\n", bb_cfg->ch_i_blk_start_idx);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_blk_end_idx:%d\n", bb_cfg->ch_i_blk_end_idx);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_ele_bitmap:0x%02x\n", bb_cfg->ch_i_ele_bitmap);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_type:%d\n", bb_cfg->ch_i_type);
+	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_,"[CH INFO] - ch_i_seg_len:%d\n", bb_cfg->ch_i_seg_len);
+}
+
+void
+rtw_hal_bb_chan_info_cfg(struct hal_info_t *hal_info, struct chinfo_bbcr_cfg *cfg)
+{
+	struct bb_ch_info_cr_cfg_info bb_cfg;
+
+	_os_mem_set(hal_to_drvpriv(hal_info), &bb_cfg, 0, sizeof(struct bb_ch_info_cr_cfg_info));
+	_halchinfo2bbchinfo(cfg, &bb_cfg);
+	halbb_cfg_ch_info_cr(hal_info->bb, &bb_cfg);
+}
+
+void
+rtw_hal_bb_ch_info_status_en(struct hal_info_t *hal_info, bool en, enum phl_phy_idx phy_idx)
+{
+	PHL_INFO("[CH INFO] %s: en=%d\n", __func__, en);
+	halbb_ch_info_status_en(hal_info->bb, en, phy_idx);
+}
+
+void
+rtw_hal_bb_ch_info_physts_en(struct hal_info_t *hal_info, bool en,
+					enum phl_phy_idx phy_idx, enum wlan_mode wmode, bool ack_mode)
+{
+	u16 bitmap = 0;
+	if (!ack_mode) {
+		if (wmode & WLAN_MD_11AX)
+			bitmap = bitmap | BIT(HE_PKT);
+		else if (wmode & WLAN_MD_11AC)
+			bitmap = bitmap | BIT(VHT_PKT);
+		else if (wmode & WLAN_MD_11N)
+			bitmap = bitmap | BIT(HT_PKT);
+		else
+			bitmap = bitmap | BIT(LEGACY_OFDM_PKT);
+	} else {
+		bitmap = bitmap | BIT(LEGACY_OFDM_PKT);
+	}
+
+	PHL_INFO("[CH INFO] %s: en=%d, wmode=0x%x, bitmap=0x%02x\n",
+		__func__, en, wmode, bitmap);
+	halbb_ch_info_physts_en(hal_info->bb, en, bitmap, phy_idx);
+}
+
+enum rtw_hal_status
+rtw_hal_bb_ch_info_decision(struct hal_info_t *hal_info, enum phl_phy_idx phy_idx,
+								enum channel_width bw, enum wlan_mode wmode,
+								bool *valid_ch_info_physts)
+{
+	 struct bb_ch_rpt_size_info exp_rpt_size = {0};
+	 enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
+
+	halbb_ch_info_size_query(hal_info->bb, &exp_rpt_size, phy_idx);
+
+	if (bw > CHANNEL_WIDTH_160) {
+		PHL_ERR("%s unknown bw=%d\n", __func__, bw);
+		status = RTW_HAL_STATUS_FAILURE;
+		goto exit;
+	}
+
+	if (wmode & WLAN_MD_11AX)
+		*valid_ch_info_physts = exp_rpt_size.valid_size_physts_he[bw];
+	else if (wmode & WLAN_MD_11AC)
+		*valid_ch_info_physts = exp_rpt_size.valid_size_physts_vht[bw];
+	else if (wmode & WLAN_MD_11N)
+		*valid_ch_info_physts = exp_rpt_size.valid_size_physts_ht[bw];
+	else
+		*valid_ch_info_physts = exp_rpt_size.valid_size_physts_lgcy[bw];
+
+	PHL_INFO("[CH INFO] %s: bw=%d, wmode=0x%x, valid_ch_info_physts=%d\n",
+		__func__, bw, wmode, *valid_ch_info_physts);
+
+exit:
+	return status;
+}
+
+void rtw_hal_bb_ch_trig_select(struct hal_info_t *hal_info, u8 event)
+{
+	enum bb_ch_info_event_type event_type;
+
+	if (event == 0)
+		event_type = CH_RPT_TRIG_ONCE;
+	else if (event == 1)
+		event_type = CH_RPT_TRIG_ALWAYS;
+	else {
+		PHL_ERR("%s: unknown event(%d)\n", __func__, event);
+		event_type = CH_RPT_TRIG_ALWAYS;
+	}
+
+	halbb_ch_trig_select(hal_info->bb, event_type);
 }
 #endif /* CONFIG_PHL_CHANNEL_INFO */
 
@@ -680,34 +907,97 @@ rtw_hal_bb_ctrl_btc_preagc(struct rtw_hal_com_t *hal_com, bool bt_en)
 }
 
 enum rtw_hal_status
-rtw_hal_bb_cfg_rx_path(struct rtw_hal_com_t *hal_com, u8 rx_path)
+rtw_hal_bb_cfg_rx_path(struct rtw_hal_com_t *hal_com, u8 rx_path, u8 phy_idx)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
 
 	PHL_INFO("[HAL] call halbb_ctrl_rx_path !!!\n");
 
-	if(halbb_ctrl_rx_path(hal_info->bb, rx_path))
+	status = rtw_hal_reset(hal_com, HW_PHY_0, HW_BAND_0, true);
+	if(status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_reset PHY0 en - failed\n", __func__);
+		_os_warn_on(1);
+	}
+
+	if (hal_com->dbcc_en) {
+		status = rtw_hal_reset(hal_com, HW_PHY_1, HW_BAND_1, true);
+		if(status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s rtw_hal_reset PHY1 en - failed\n",
+			        __func__);
+			_os_warn_on(1);
+		}
+	}
+
+	if(halbb_ctrl_rx_path(hal_info->bb, rx_path, phy_idx)) {
+		halbb_ctrl_rf_mode_rx_path(hal_info->bb, rx_path);
 		status = RTW_HAL_STATUS_SUCCESS;
-	else
+	} else {
 		status = RTW_HAL_STATUS_FAILURE;
+	}
+
+	status = rtw_hal_reset(hal_com, HW_PHY_0, HW_BAND_0, false);
+	if(status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_reset PHY0 dis - failed\n", __func__);
+		_os_warn_on(1);
+	}
+
+	if (hal_com->dbcc_en) {
+		status = rtw_hal_reset(hal_com, HW_PHY_1, HW_BAND_1, false);
+		if(status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s rtw_hal_reset PHY1 dis - failed\n",
+			        __func__);
+			_os_warn_on(1);
+		}
+	}
 
 	return status;
-
 }
 
 enum rtw_hal_status
-rtw_hal_bb_cfg_tx_path(struct rtw_hal_com_t *hal_com, u8 tx_path)
+rtw_hal_bb_cfg_tx_path(struct rtw_hal_com_t *hal_com, u8 tx_path, u8 phy_idx)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
 
 	PHL_INFO("[HAL] call halbb_ctrl_tx_path !!!\n");
 
-	if(halbb_ctrl_tx_path(hal_info->bb, tx_path))
+        /* add for bb reset start */
+	status = rtw_hal_reset(hal_com, HW_PHY_0, HW_BAND_0, true);
+	if(status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_reset PHY0 en - failed\n", __func__);
+		_os_warn_on(1);
+	}
+
+	if (hal_com->dbcc_en) {
+		status = rtw_hal_reset(hal_com, HW_PHY_1, HW_BAND_1, true);
+		if(status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s rtw_hal_reset PHY1 en - failed\n",
+			        __func__);
+			_os_warn_on(1);
+		}
+	}
+
+	if(halbb_ctrl_tx_path_pmac(hal_info->bb, tx_path, phy_idx))
 		status = RTW_HAL_STATUS_SUCCESS;
 	else
 		status = RTW_HAL_STATUS_FAILURE;
+
+	status = rtw_hal_reset(hal_com, HW_PHY_0, HW_BAND_0, false);
+	if(status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_reset PHY0 dis - failed\n", __func__);
+		_os_warn_on(1);
+	}
+
+	if (hal_com->dbcc_en) {
+		status = rtw_hal_reset(hal_com, HW_PHY_1, HW_BAND_1, false);
+		if(status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s rtw_hal_reset PHY1 dis - failed\n",
+			        __func__);
+			_os_warn_on(1);
+		}
+	}
+
 	return status;
 }
 
@@ -816,8 +1106,8 @@ enum rtw_hal_status rtw_hal_bb_get_pwr_index(void *hal, u16 *pwr_idx, enum rf_pa
 }
 
 enum rtw_hal_status rtw_hal_bb_set_plcp_tx(struct rtw_hal_com_t *hal_com,
-						struct mp_plcp_param_t *plcp_tx_struct,
-						struct mp_usr_plcp_gen_in *plcp_usr_info,
+						struct halbb_plcp_info *plcp_tx_struct,
+						struct usr_plcp_gen_in *plcp_usr_info,
 						enum phl_phy_idx plcp_phy_idx,
 						u8 *plcp_sts)
 {
@@ -848,8 +1138,27 @@ rtw_hal_bb_set_pmac_cont_tx(struct rtw_hal_com_t *hal_com, u8 enable, u8 is_cck,
 }
 
 enum rtw_hal_status
+rtw_hal_bb_set_pmac_carrier_suppression_tx(struct rtw_hal_com_t *hal_com, u8 enable, u8 is_cck,
+							enum phl_phy_idx phy_idx)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+	struct halbb_pmac_info tx_info = {0};
+
+	PHL_INFO("%s: enable = %d is_cck = %d phy_idx = %d\n",
+			 __FUNCTION__, enable, is_cck, phy_idx);
+
+	tx_info.en_pmac_tx = enable;
+	tx_info.is_cck = is_cck;
+	tx_info.mode = CCK_CARRIER_SIPPRESSION_TX;
+
+	halbb_set_pmac_tx(hal_info->bb, &tx_info, phy_idx);
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
 rtw_hal_bb_set_pmac_packet_tx(struct rtw_hal_com_t *hal_com, u8 enable,
-							  u8 is_cck, u16 tx_cnt ,u16 period, u16 tx_time,
+							  u8 is_cck, u16 tx_cnt ,u16 period,
+							  u16 tx_time, u8 cck_lbk_en,
 							  enum phl_phy_idx phy_idx)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
@@ -866,6 +1175,7 @@ rtw_hal_bb_set_pmac_packet_tx(struct rtw_hal_com_t *hal_com, u8 enable,
 	tx_info.tx_cnt = tx_cnt;
 	tx_info.period = period;
 	tx_info.tx_time = tx_time;
+	tx_info.cck_lbk_en = cck_lbk_en;
 
 	halbb_set_pmac_tx(hal_info->bb, &tx_info, phy_idx);
 	return RTW_HAL_STATUS_SUCCESS;
@@ -894,9 +1204,147 @@ rtw_hal_bb_set_pmac_fw_trigger_tx(struct rtw_hal_com_t *hal_com, u8 enable,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+void __dump_lsig(u32 *_lsig)
+{
+	struct phl_plcp_hdr_l_sig_info *lsig = (struct phl_plcp_hdr_l_sig_info *)_lsig;
+
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "--> %s \n", __func__);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "lsig->rate 0x%x\n", lsig->rate);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "lsig->len0_l 0x%x ; ", lsig->len0_l);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "lsig->len0_m 0x%x\n", lsig->len0_m);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "lsig->len1 0x%x\n", lsig->len1);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "lsig->parity_chk 0x%x\n", lsig->parity_chk);
+}
+
+void __dump_he_sig_a1(u32 *_siga1)
+{
+
+	struct phl_plcp_hdr_he_sig_a1_su_info *siga = (struct phl_plcp_hdr_he_sig_a1_su_info *)_siga1;
+
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "--> %s \n", __func__);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->fmt 0x%x\n", siga->fmt);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->beam_chg 0x%x\n", siga->beam_chg);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->ul_dl 0x%x\n", siga->ul_dl);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->he_mcs 0x%x\n", siga->he_mcs);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->dcm 0x%x\n", siga->dcm);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->bss_color 0x%x\n", siga->bss_color);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->spatial_reuse_l 0x%x ; ", siga->spatial_reuse_l);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->spatial_reuse_m 0x%x\n", siga->spatial_reuse_m);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->bw 0x%x\n", siga->bw);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->gi_ltf_size 0x%x\n", siga->gi_ltf_size);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->nsts_mid_period_l 0x%x ; ", siga->nsts_mid_period_l);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->nsts_mid_period_m 0x%x\n", siga->nsts_mid_period_m);
+}
+
+void __dump_he_sig_a2(u32 *_siga2)
+{
+
+	struct phl_plcp_hdr_he_sig_a2_su_info *siga = (struct phl_plcp_hdr_he_sig_a2_su_info *)_siga2;
+
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "--> %s \n", __func__);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->txop 0x%x\n", siga->txop);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->coding 0x%x\n", siga->coding);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->ldpc_ext_sym 0x%x\n", siga->ldpc_ext_sym);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->stbc 0x%x\n", siga->stbc);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->bf 0x%x\n", siga->bf);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->pre_fec_fac 0x%x\n", siga->pre_fec_fac);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->pe_dis 0x%x\n", siga->pe_dis);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_, "siga->doppler 0x%x\n", siga->doppler);
+}
+
+void _dump_bb_snif_info(struct rtw_phl_rx_pkt *phl_rx)
+{
+	struct rtw_phl_ppdu_phy_info *phy_info = &(phl_rx->r.phy_info);
+	struct phl_snif_info *snif_inf = &phy_info->snif_i;
+
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_,
+		  "snif_mode_en %d ; snif_rate_mode %d ; snif_rate %d ; snif_ie_bitmap_type %d\n",
+		  snif_inf->snif_mode_en ? 1 : 0,
+		  snif_inf->snif_rate_mode,
+		  snif_inf->snif_rate,
+		  snif_inf->snif_ie_bitmap_type);
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_INFO_,
+		  "snif_l_sig_len %d ; snif_sig_a1_len %d ; snif_sig_a2_len %d ; snif_sig_b_len %d\n",
+		  snif_inf->snif_l_sig_len,
+		  snif_inf->snif_sig_a1_len,
+		  snif_inf->snif_sig_a2_len,
+		  snif_inf->snif_sig_b_len);
+
+	switch (snif_inf->snif_rate_mode) {
+		case SNIF_I_RATE_MODE_LEGACY :
+			/* legacy */
+			if (snif_inf->snif_l_sig_len > 0) {
+				__dump_lsig(snif_inf->snif_l_sig);
+			}
+		break;
+		case SNIF_I_RATE_MODE_HT :
+			/* HT */
+			if (snif_inf->snif_l_sig_len > 0) {
+				__dump_lsig(snif_inf->snif_l_sig);
+			}
+		break;
+		case SNIF_I_RATE_MODE_VHT :
+			/* VHT */
+			if (snif_inf->snif_l_sig_len > 0) {
+				__dump_lsig(snif_inf->snif_l_sig);
+			}
+		break;
+		case SNIF_I_RATE_MODE_HE :
+			/* HE */
+			if (snif_inf->snif_l_sig_len > 0) {
+				__dump_lsig(snif_inf->snif_l_sig);
+			}
+			if(phl_rx->r.mdata.ppdu_type == RX_DESC_PPDU_T_HE_SU) {
+				if ((snif_inf->snif_sig_a1_len > 0) &&
+				    (snif_inf->snif_sig_a1 != NULL)) {
+					__dump_he_sig_a1(snif_inf->snif_sig_a1);
+				}
+				if ((snif_inf->snif_sig_a2_len > 0) &&
+				    (snif_inf->snif_sig_a2 != NULL)) {
+					__dump_he_sig_a2(snif_inf->snif_sig_a2);
+				}
+			}
+			/* TODO: SIG-B */
+		break;
+		default:
+		break;
+	}
+}
+#endif /* end of CONFIG_PHL_SNIFFER_SUPPORT */
+
+#ifdef  CONFIG_PHL_CHANNEL_INFO
+static void
+_get_ch_info_from_bb_rpt(struct rtw_phl_ppdu_phy_info *phy_info,
+							const struct physts_result bb_rpt)
+{
+	phy_info->n_rx = bb_rpt.n_rx;
+	phy_info->n_sts = bb_rpt.n_sts;
+	phy_info->evm_1_sts = bb_rpt.evm_1_sts;
+	phy_info->evm_2_sts = bb_rpt.evm_2_sts;
+	phy_info->avg_idle_noise_pwr = bb_rpt.avg_idle_noise_pwr;
+	phy_info->is_ch_info_len_valid = bb_rpt.is_ch_info_len_valid;
+	phy_info->ch_info_len = bb_rpt.ch_info_len;
+	phy_info->ch_info_addr = (u8 *)bb_rpt.ch_info_addr;
+}
+#endif
+
 enum rtw_hal_status
-rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
-			 struct rtw_phl_rx_pkt *phl_rx, u8 is_su)
+rtw_hal_bb_switch_antenna(struct rtw_hal_com_t *hal_com, u8 ant_sw)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+
+	PHL_INFO("[HAL] call halbb_set_ant !!!\n");
+	halbb_set_ant(hal_info->bb, ant_sw);
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_parse_phy_sts(void *hal,
+			 void *ppdu_sts,
+			 struct rtw_phl_rx_pkt *phl_rx,
+			 u8 is_su,
+			 bool sniffer_mode)
 {
 	enum rtw_hal_status hstutus = RTW_HAL_STATUS_SUCCESS;
 
@@ -906,6 +1354,12 @@ rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
 	struct rtw_phl_ppdu_phy_info *phy_info = &(phl_rx->r.phy_info);
 	struct physts_rxd rxdesc = {0};
 	struct physts_result bb_rpt = {0};
+#ifdef CONFIG_PHL_WKARD_CHANNEL_INFO_ACK
+	struct rtw_phl_com_t *phl_com = hal_info->phl_com;
+	struct rtw_chinfo_cur_parm *cur_parm = phl_com->cur_parm;
+	struct rtw_phl_ppdu_sts_info *ppdu_info = &phl_com->ppdu_sts_info;
+	enum phl_band_idx band = (mdata->bb_sel > 0) ? HW_BAND_1 : HW_BAND_0;
+#endif
 	u8 i = 0;
 	bool valid = false;
 
@@ -914,7 +1368,7 @@ rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
 	rxdesc.is_su = is_su;
 	rxdesc.macid_su = (u8)mdata->macid;
 	rxdesc.user_num = hal_ppdu->usr_num;
-	rxdesc.is_to_self = mdata->a1_match;
+	rxdesc.is_to_self = (true == sniffer_mode) ? 1 : ((mdata->a1_match == true) ? 1 : 0);
 	rxdesc.phy_idx = (mdata->bb_sel == 0) ? HW_PHY_0 : HW_PHY_1;
 
 	for (i = 0; i < rxdesc.user_num; i++) {
@@ -934,11 +1388,13 @@ rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
 		hstutus = RTW_HAL_STATUS_FAILURE;
 	}
 
+	phy_info->is_pkt_with_data = bb_rpt.is_pkt_with_data;
 	if ((bb_rpt.rssi_avg != 0) || (bb_rpt.physts_rpt_valid == 1)) {
 		phy_info->is_valid = true;
 		/* rssi from bb rpt, bit 0 is 0.0 ~ 0.9, removed it */
 		phy_info->rssi = (bb_rpt.rssi_avg >> 1);
 		phy_info->ch_idx = bb_rpt.ch_idx;
+		phy_info->rxsc = bb_rpt.rxsc;
 		phy_info->tx_bf = bb_rpt.is_bf;
 		for (i = 0; i < RTW_PHL_MAX_RF_PATH; i++) {
 			/* rssi from bb rpt, bit 0 is 0.0 ~ 0.9, removed it */
@@ -946,6 +1402,13 @@ rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
 			PHL_TRACE(COMP_PHL_PSTS, _PHL_INFO_,
 					"phy_info->rssi_path[%d] = %d\n",
 					i, phy_info->rssi_path[i]);
+		}
+		/* SNR from bb rpt */
+		phy_info->snr_fd_avg = bb_rpt.snr_fd_avg;
+		phy_info->snr_td_avg = bb_rpt.snr_td_avg;
+		for ( i = 0; i < RTW_PHL_MAX_RF_PATH; i++) {
+			phy_info->snr_fd[i] = bb_rpt.snr_fd[i];
+			phy_info->snr_td[i] = bb_rpt.snr_td[i];
 		}
 #ifdef RTW_WKARD_SINGLE_PATH_RSSI
 		if (RF_PATH_A == hal_info->hal_com->cur_rx_rfpath) {
@@ -961,8 +1424,45 @@ rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
 		PHL_TRACE(COMP_PHL_PSTS, _PHL_INFO_,
 				"avg_rssi %d ; ch_idx %d\n",
 				phy_info->rssi, phy_info->ch_idx);
-	}
 
+#ifdef  CONFIG_PHL_CHANNEL_INFO
+		if (bb_rpt.ch_info_len != 0
+			&& bb_rpt.ch_info_addr != NULL
+			&& bb_rpt.is_ch_info_len_valid == true) {
+			#ifdef CONFIG_PHL_WKARD_CHANNEL_INFO_ACK
+			u16 macid = rtw_phl_get_macid_by_addr(phl_com->phl_priv,
+							ppdu_info->sts_ent[band][mdata->ppdu_cnt].src_mac_addr);
+
+			if (rtw_hal_ch_info_process_ack(mdata, ppdu_info, cur_parm, macid)) {
+				mdata->freerun_cnt = ppdu_info->sts_ent[band][mdata->ppdu_cnt].freerun_cnt;
+				hal_mem_cpy(hal_info->hal_com, mdata->ta,
+					ppdu_info->sts_ent[band][mdata->ppdu_cnt].src_mac_addr, MAC_ADDRESS_LENGTH);
+
+				_get_ch_info_from_bb_rpt(phy_info, bb_rpt);
+				rtw_hal_get_ch_info_physts(hal, mdata, hal_ppdu->usr, phy_info);
+			} else if (cur_parm->action_parm.mode != CHINFO_MODE_ACK)
+			#endif
+			{
+				_get_ch_info_from_bb_rpt(phy_info, bb_rpt);
+				rtw_hal_get_ch_info_physts(hal, mdata, hal_ppdu->usr, phy_info);
+			}
+		}
+#endif
+	}
+#ifdef CONFIG_PHL_SNIFFER_SUPPORT
+	PHL_TRACE(COMP_PHL_SNIFF, _PHL_DEBUG_,
+		  "bb_rpt.snif_rpt_valid %d \n",
+		  bb_rpt.snif_rpt_valid ? 1 : 0);
+	if (bb_rpt.snif_rpt_valid) {
+		/* copy bb_snif to phl_rx */
+		_os_mem_cpy(hal_info->hal_com->drv_priv,
+			    &(phy_info->snif_i),
+			    bb_rpt.bb_snif_i,
+			    sizeof(struct phl_snif_info));
+		phy_info->is_snif_i_vld = true;
+		/* _dump_bb_snif_info(phl_rx); */
+	}
+#endif
 	return hstutus;
 }
 
@@ -972,6 +1472,13 @@ enum rtw_hal_status rtw_hal_bb_get_tx_ok(void *hal, u8 cur_phy_idx, u32 *tx_ok)
 
 	PHL_INFO("[HAL] call get halbb_mp_get_tx_ok !!!\n");
 	/*tx_ok = halbb_mp_get_tx_ok(hal_info->bb, cur_phy_idx);*/
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_dump_tx_sts(struct hal_info_t *hal_info, bool en, u8 phy_idx)
+{
+	halbb_pmac_statistics_ex(hal_info->bb, en, phy_idx);
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
@@ -1002,22 +1509,22 @@ enum rtw_hal_status rtw_hal_bb_get_rssi(struct hal_info_t *hal_info, enum rf_pat
 	return ret;
 }
 
-enum rtw_hal_status rtw_hal_bb_get_rssi_ex(struct hal_info_t *hal_info, enum rf_path rx_path, s16 *rssi, u8 cur_phy_idx)
+enum rtw_hal_status rtw_hal_bb_get_rssi_ex(struct hal_info_t *hal_info, s32 *rssi_ex,
+						enum rf_path rx_path, u8 nss, u8 cur_phy_idx)
 {
-	enum rtw_hal_status ret=RTW_HAL_STATUS_SUCCESS;
-
-	PHL_INFO("[MP HAL API]%s\n", __FUNCTION__);
-
-	/*
-	ToDo: Should follow halbb master
-	[HALBB][8852A][B-Cut] Refine rssi structure from s32 to s8
-	sha-1:f301ebb0e7cd0c1521d3c67e94c2dd4434d87f44
-
 	struct rssi_physts  rssi_t;
-	*rssi_t = halbb_get_mp_rssi_physts(hal_info->bb, RF_PATH_AB, cur_phy_idx);
-	*rssi = rssi_t.rssi_seg[cur_phy_idx].rssi[0];
-	*rssi = (*rssi<<8)|rssi_t.rssi_seg[cur_phy_idx].rssi[1];
-	*/
+	enum rtw_hal_status ret=RTW_HAL_STATUS_SUCCESS;
+	u8 i;
+
+	PHL_INFO("[MP HAL API]%s cur_phy(%d)\n", __FUNCTION__, cur_phy_idx);
+	rssi_t = halbb_get_mp_rssi_physts(hal_info->bb, rx_path, cur_phy_idx);
+
+	for(i = 0; i < nss; i++) {
+		*(rssi_ex + i) = rssi_t.rssi_seg[0].rssi[i];
+		PHL_INFO("[MP HAL API]%s nss(%d) rssi(%d)\n", __FUNCTION__, i,
+								*(rssi_ex + i));
+	}
+
 	return ret;
 }
 
@@ -1032,9 +1539,12 @@ enum rtw_hal_status rtw_hal_bb_get_rxevm(struct hal_info_t *hal_info, u8 user, u
 	return ret;
 }
 
-enum rtw_hal_status rtw_hal_bb_trigger_rxevm(struct hal_info_t *hal_info, u8 cur_phy_idx,
-	u32 *phy0_user0_rxevm, u32 *phy0_user1_rxevm, u32 *phy0_user2_rxevm, u32 *phy0_user3_rxevm,
-	u32 *phy1_user0_rxevm, u32 *phy1_user1_rxevm, u32 *phy1_user2_rxevm, u32 *phy1_user3_rxevm)
+enum rtw_hal_status rtw_hal_bb_trigger_rxevm(struct hal_info_t *hal_info,
+                                             u32 *phy_user0_rxevm,
+                                             u32 *phy_user1_rxevm,
+                                             u32 *phy_user2_rxevm,
+                                             u32 *phy_user3_rxevm,
+                                             u8 rx_phy_idx)
 {
 
 	struct rxevm_physts evm;
@@ -1042,46 +1552,26 @@ enum rtw_hal_status rtw_hal_bb_trigger_rxevm(struct hal_info_t *hal_info, u8 cur
 
 	PHL_INFO("[MP HAL API]%s\n", __FUNCTION__);
 
-	evm = halbb_mp_get_rxevm_physts(hal_info->bb, cur_phy_idx);
-	*phy0_user0_rxevm = evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_3;
-	*phy0_user0_rxevm = (*phy0_user0_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_2;
-	*phy0_user0_rxevm = (*phy0_user0_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_1;
-	*phy0_user0_rxevm = (*phy0_user0_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_0;
+	evm = halbb_mp_get_rxevm_physts(hal_info->bb, rx_phy_idx);
+	*phy_user0_rxevm = evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_3;
+	*phy_user0_rxevm = (*phy_user0_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_2;
+	*phy_user0_rxevm = (*phy_user0_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_1;
+	*phy_user0_rxevm = (*phy_user0_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[0].rxevm_ss_0;
 
-	*phy0_user1_rxevm = evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_3;
-	*phy0_user1_rxevm = (*phy0_user1_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_2;
-	*phy0_user1_rxevm = (*phy0_user1_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_1;
-	*phy0_user1_rxevm = (*phy0_user1_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_0;
+	*phy_user1_rxevm = evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_3;
+	*phy_user1_rxevm = (*phy_user1_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_2;
+	*phy_user1_rxevm = (*phy_user1_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_1;
+	*phy_user1_rxevm = (*phy_user1_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[1].rxevm_ss_0;
 
-	*phy0_user2_rxevm = evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_3;
-	*phy0_user2_rxevm = (*phy0_user2_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_2;
-	*phy0_user2_rxevm = (*phy0_user2_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_1;
-	*phy0_user2_rxevm = (*phy0_user2_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_0;
+	*phy_user2_rxevm = evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_3;
+	*phy_user2_rxevm = (*phy_user2_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_2;
+	*phy_user2_rxevm = (*phy_user2_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_1;
+	*phy_user2_rxevm = (*phy_user2_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[2].rxevm_ss_0;
 
-	*phy0_user3_rxevm = evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_3;
-	*phy0_user3_rxevm = (*phy0_user3_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_2;
-	*phy0_user3_rxevm = (*phy0_user3_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_1;
-	*phy0_user3_rxevm = (*phy0_user3_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_0;
-
-	*phy1_user0_rxevm = evm.rxevm_seg[1].rxevm_user[0].rxevm_ss_3;
-	*phy1_user0_rxevm = (*phy1_user0_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[0].rxevm_ss_2;
-	*phy1_user0_rxevm = (*phy1_user0_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[0].rxevm_ss_1;
-	*phy1_user0_rxevm = (*phy1_user0_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[0].rxevm_ss_0;
-
-	*phy1_user1_rxevm = evm.rxevm_seg[1].rxevm_user[1].rxevm_ss_3;
-	*phy1_user1_rxevm = (*phy1_user1_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[1].rxevm_ss_2;
-	*phy1_user1_rxevm = (*phy1_user1_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[1].rxevm_ss_1;
-	*phy1_user1_rxevm = (*phy1_user1_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[1].rxevm_ss_0;
-
-	*phy1_user2_rxevm = evm.rxevm_seg[1].rxevm_user[2].rxevm_ss_3;
-	*phy1_user2_rxevm = (*phy1_user2_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[2].rxevm_ss_2;
-	*phy1_user2_rxevm = (*phy1_user2_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[2].rxevm_ss_1;
-	*phy1_user2_rxevm = (*phy1_user2_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[2].rxevm_ss_0;
-
-	*phy1_user3_rxevm = evm.rxevm_seg[1].rxevm_user[3].rxevm_ss_3;
-	*phy1_user3_rxevm = (*phy1_user3_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[3].rxevm_ss_2;
-	*phy1_user3_rxevm = (*phy1_user3_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[3].rxevm_ss_1;
-	*phy1_user3_rxevm = (*phy1_user3_rxevm<<8)|evm.rxevm_seg[1].rxevm_user[3].rxevm_ss_0;
+	*phy_user3_rxevm = evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_3;
+	*phy_user3_rxevm = (*phy_user3_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_2;
+	*phy_user3_rxevm = (*phy_user3_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_1;
+	*phy_user3_rxevm = (*phy_user3_rxevm<<8)|evm.rxevm_seg[0].rxevm_user[3].rxevm_ss_0;
 
 	return ret;
 }
@@ -1112,10 +1602,7 @@ enum rtw_hal_status rtw_hal_bb_set_txsc(struct hal_info_t *hal_info, u8 txsc,
 	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
 	PHL_INFO("[HAL] call halbb_set_txsc !!!\n");
 
-	if(halbb_set_txsc(hal_info->bb, txsc, phy_idx))
-		status = RTW_HAL_STATUS_SUCCESS;
-	else
-		status = RTW_HAL_STATUS_FAILURE;
+	status = halbb_set_txsc(hal_info->bb, txsc, phy_idx);
 
 	return status;
 }
@@ -1129,7 +1616,7 @@ u8 rtw_hal_bb_get_txsc(struct rtw_hal_com_t *hal_com, u8 pri_ch,
 	return halbb_get_txsc(hal_info->bb, pri_ch, central_ch, cbw, dbw);
 }
 
-u32 rtw_hal_bb_process_c2h(void *hal, struct rtw_c2h_info *c2h)
+u32 rtw_hal_bb_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_msg *c2h_msg)
 {
 #ifdef RTW_WKARD_BB_C2H
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
@@ -1144,7 +1631,8 @@ u32 rtw_hal_bb_process_c2h(void *hal, struct rtw_c2h_info *c2h)
 #endif
 }
 
-u16 rtw_hal_bb_get_su_rx_rate(struct rtw_hal_com_t *hal_com)
+u16 rtw_hal_bb_get_su_rx_rate(struct rtw_hal_com_t *hal_com,
+				enum phl_band_idx band_idx)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)(hal_com->hal_priv);
 	struct bb_pkt_cnt_su_info rpt;
@@ -1158,8 +1646,9 @@ u16 rtw_hal_bb_get_su_rx_rate(struct rtw_hal_com_t *hal_com)
 	u16 idx = 0;
 	bool is_ht_mode = false;
 	bool is_legacy_rate = true;
+	enum phl_phy_idx p_idx = rtw_hal_hw_band_to_phy_idx(band_idx);
 
-	halbb_get_rx_pkt_cnt_rpt_su(hal_info->bb, &rpt);
+	halbb_get_rx_pkt_cnt_rpt_su(hal_info->bb, &rpt, p_idx);
 
 	/*Legacy rate*/
 	if (rpt.pkt_cnt_cck || rpt.pkt_cnt_ofdm) {
@@ -1209,34 +1698,6 @@ u16 rtw_hal_bb_get_su_rx_rate(struct rtw_hal_com_t *hal_com)
 	return rx_rate;
 }
 
-#ifdef CONFIG_DBCC_SUPPORT
-enum rtw_hal_status
-rtw_hal_phy_dbcc_pre_cfg(struct hal_info_t *hal_info,
-			struct rtw_phl_com_t *phl_com, bool dbcc_en)
-{
-
-	rtw_hal_init_bb_reg(hal_info);
-
-	return RTW_HAL_STATUS_SUCCESS;
-}
-
-enum rtw_hal_status
-rtw_hal_phy_dbcc_cfg(struct hal_info_t *hal_info,
-	struct rtw_phl_com_t *phl_com, bool dbcc_en)
-{
-	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
-
-	/* BB DBCC Settings */
-	rtw_hal_bb_cfg_dbcc(hal_info, dbcc_en);
-	/* enable/disable rf */
-	hal_status = rtw_hal_rf_ctrl_dbcc(hal_info->hal_com, dbcc_en);
-	if (RTW_HAL_STATUS_SUCCESS != hal_status) {
-		hal_status = RTW_HAL_STATUS_FAILURE;
-	}
-
-	return hal_status;
-}
-#endif
 
 enum rtw_hal_status
 rtw_hal_bb_get_txinfo_power(struct hal_info_t *hal_info,
@@ -1289,17 +1750,62 @@ rtw_hal_bb_set_bss_color(struct hal_info_t *hal_info,
 	return ret;
 }
 
+/*
+ * Fill cmac table info of bb
+ * This caller only are allowed on rtw_hal_add_sta_entry, rtw_hal_change_sta_entry and rtw_hal_update_sta_entry.
+ */
+enum rtw_hal_status
+rtw_hal_bb_cfg_config_cmac_tbl(struct hal_info_t *hal_i,
+			struct rtw_phl_stainfo_t *phl_sta,
+			struct rtw_hal_mac_ax_cctl_info *cctrl,
+			struct rtw_hal_mac_ax_cctl_info *cctl_info_mask)
+{
+	return halbb_config_cmac_tbl(hal_i->bb, phl_sta, cctrl, cctl_info_mask);
+}
+
 #ifdef RTW_WKARD_DEF_CMACTBL_CFG
 enum rtw_hal_status
 rtw_hal_bb_trx_path_cfg(struct hal_info_t *hal_info,
 		enum rf_path tx, u8 tx_nss, enum rf_path rx, u8 rx_nss)
 {
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
 	int ret = RTW_HAL_STATUS_SUCCESS;
+
+	ret = rtw_hal_reset(hal_com, HW_PHY_0, HW_BAND_0, true);
+	if(ret != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_reset PHY0 en - failed\n", __func__);
+		_os_warn_on(1);
+	}
+
+	if (hal_com->dbcc_en) {
+		ret = rtw_hal_reset(hal_com, HW_PHY_1, HW_BAND_1, true);
+		if(ret != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s rtw_hal_reset PHY1 en - failed\n",
+			        __func__);
+			_os_warn_on(1);
+		}
+	}
 
 	halbb_ctrl_trx_path(hal_info->bb, tx, tx_nss, rx, rx_nss);
 	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
 		"tx_ant(%d) tx_nss(%d) rx_ant(%d) rx_nss(%d)\n",
 		tx, tx_nss, rx, rx_nss);
+
+	ret = rtw_hal_reset(hal_com, HW_PHY_0, HW_BAND_0, false);
+	if(ret != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s rtw_hal_reset PHY0 dis - failed\n", __func__);
+		_os_warn_on(1);
+	}
+
+	if (hal_com->dbcc_en) {
+		ret = rtw_hal_reset(hal_com, HW_PHY_1, HW_BAND_1, false);
+		if(ret != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s rtw_hal_reset PHY1 dis - failed\n",
+			        __func__);
+			_os_warn_on(1);
+		}
+	}
+
 	return ret;
 }
 
@@ -1345,6 +1851,14 @@ rtw_hal_bb_restore_info(struct rtw_hal_com_t *hal_com, u8 cur_phy_idx)
 	return ret;
 }
 
+void rtw_hal_bb_set_tx_pow_per_path_lmt(struct rtw_hal_com_t *hal_com,
+					s16 pwr_lmt_a, s16 pwr_lmt_b)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+
+	halbb_set_tx_pow_per_path_lmt(hal_info->bb, pwr_lmt_a, pwr_lmt_b);
+}
+
 void rtw_hal_bb_set_tx_pow_ref(struct rtw_hal_com_t *hal_com,
 			       enum phl_phy_idx phy_idx)
 {
@@ -1354,29 +1868,31 @@ void rtw_hal_bb_set_tx_pow_ref(struct rtw_hal_com_t *hal_com,
 }
 
 #ifdef CONFIG_RTW_ACS
-void rtw_hal_bb_acs_mntr_trigger(struct hal_info_t *hal_info, struct acs_mntr_parm *parm)
+void rtw_hal_bb_acs_mntr_trigger(struct hal_info_t *hal_info,
+				enum phl_band_idx band_idx, struct acs_mntr_parm *parm)
 {
 	struct ccx_para_info para = {0};
 	struct env_trig_rpt trig_rpt = {0};
-	struct acs_mntr_parm *mntr_parm = (struct acs_mntr_parm *)parm;
+	enum phl_phy_idx p_idx = rtw_hal_hw_band_to_phy_idx(band_idx);
 
 	para.rac_lv = RAC_LV_3;
-	para.mntr_time = mntr_parm->mntr_time;
+	para.mntr_time = parm->mntr_time;
 	para.clm_app = CLM_ACS;
 	para.clm_input_opt = CLM_CCA_P20;
 	para.nhm_app = NHM_ACS;
-	para.nhm_incld_cca = mntr_parm->nhm_incld_cca ? NHM_INCLUDE_CCA : NHM_EXCLUDE_CCA;
+	para.nhm_incld_cca = parm->nhm_incld_cca ? NHM_INCLUDE_CCA : NHM_EXCLUDE_CCA;
 
-	halbb_env_mntr_trigger(hal_info->bb, &para, &trig_rpt);
+	halbb_env_mntr_trigger(hal_info->bb, &para, &trig_rpt, p_idx);
 }
 
-enum rtw_hal_status rtw_hal_bb_acs_mntr_result(struct hal_info_t *hal_info, struct acs_mntr_rpt *rpt)
+enum rtw_hal_status rtw_hal_bb_acs_mntr_result(struct hal_info_t *hal_info,
+					enum phl_band_idx band_idx, struct acs_mntr_rpt *rpt)
 {
 	u8 result = 0;
 	struct env_mntr_rpt mntr_rpt = {0};
+	enum phl_phy_idx p_idx = rtw_hal_hw_band_to_phy_idx(band_idx);
 
-	result = halbb_env_mntr_result(hal_info->bb, &mntr_rpt);
-
+	result = halbb_env_mntr_result(hal_info->bb, &mntr_rpt, p_idx);
 	if ((result & (CLM_SUCCESS | NHM_SUCCESS)) != (CLM_SUCCESS | NHM_SUCCESS)) {
 		return RTW_HAL_STATUS_FAILURE;
 	} else {
@@ -1388,6 +1904,25 @@ enum rtw_hal_status rtw_hal_bb_acs_mntr_result(struct hal_info_t *hal_info, stru
 	}
 }
 #endif /* CONFIG_RTW_ACS */
+
+#ifdef RTW_WKARD_AP_MP
+void rtw_hal_bb_rx_ndp_mp(void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *) hal;
+	struct bb_info *bb = hal_info->bb;
+
+	// r_en_sound_wo_ndp
+	halbb_set_reg(bb, 0xd7c, BIT(1), 1);
+}
+
+void rtw_hal_bb_dm_init_mp(void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *) hal;
+
+	rtw_hal_bb_dm_init(hal_info);
+}
+
+#endif /*WKARD_MP*/
 
 enum rtw_hal_status
 rtw_hal_bb_tssi_bb_reset(struct rtw_hal_com_t *hal_com)
@@ -1413,6 +1948,11 @@ bool rtw_hal_bb_csi_rsp(struct hal_info_t *hal_info)
 	if (0 == halbb_dyn_csi_rsp_rlt_get(hal_info->bb)) {
 		ret = false;
 	}
+
+	if (0 == halbb_dcr_rssi_chk(hal_info->bb)){
+		ret = false;
+	}
+
 	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
 		  "rtw_hal_bb_csi_rsp : %d \n", (ret ? 1 : 0));
 	return ret;
@@ -1423,10 +1963,7 @@ void rtw_hal_bb_notification(struct hal_info_t *hal_info,
                              enum phl_msg_evt_id event,
                              enum phl_phy_idx phy_idx)
 {
-	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s >>: event(%d), phy_idx(%d)\n",
-		__func__, event, phy_idx);
 	halbb_wifi_event_notify(hal_info->bb, event, phy_idx);
-	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s <<\n", __func__);
 }
 
 void rtw_hal_bb_cmd_notification(struct hal_info_t *hal_info,
@@ -1535,6 +2072,33 @@ rtw_hal_bb_ic_hw_setting_init(struct hal_info_t *hal_info)
 }
 
 enum rtw_hal_status
+rtw_hal_bb_loop_bck_en(struct hal_info_t *hal_info, u8 enable, u8 is_dgt_mode,
+						enum rf_path tx_path, enum rf_path rx_path,
+		   				enum channel_width bw, enum phl_phy_idx phy_idx,
+						u8 is_cck)
+{
+	u8 status = false;
+
+	if (is_cck)
+		status = halbb_cfg_lbk_cck(hal_info->bb, enable, is_dgt_mode, tx_path, tx_path, bw, phy_idx);
+	else
+		status = halbb_cfg_lbk(hal_info->bb, enable, is_dgt_mode, tx_path, rx_path, bw, phy_idx);
+
+	if (status)
+		return RTW_HAL_STATUS_SUCCESS;
+	else
+		return RTW_HAL_STATUS_FAILURE;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_cfg_tx_by_bt_link(struct hal_info_t *hal_info , u8 is_bt_link)
+{
+	halbb_mp_bt_cfg(hal_info->bb, is_bt_link);
+
+	return RTW_HAL_STATUS_SUCCESS;;
+}
+
+enum rtw_hal_status
 rtw_hal_bb_query_rainfo(void *hal, struct rtw_hal_stainfo_t *hal_sta,
 			struct rtw_phl_rainfo *phl_rainfo)
 {
@@ -1560,6 +2124,7 @@ rtw_hal_bb_query_rainfo(void *hal, struct rtw_hal_stainfo_t *hal_sta,
 
 		phl_rainfo->gi_ltf = rainfo->gi_ltf;
 		phl_rainfo->is_actrl = rainfo->is_actrl;
+		phl_rainfo->en_stbc = rainfo->en_stbc;
 		if (HAL_RATE_BW_20 == rainfo->bw) {
 			phl_rainfo->bw = CHANNEL_WIDTH_20;
 		} else if (HAL_RATE_BW_40 == rainfo->bw) {
@@ -1587,6 +2152,43 @@ rtw_hal_bb_query_rainfo(void *hal, struct rtw_hal_stainfo_t *hal_sta,
 	} while (false);
 
 	return hal_sts;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_dump_tpu_info (void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	struct rtw_tpu_info *tpu = &hal_com->band[0].rtw_tpu_i;
+	struct rtw_tpu_pwr_by_rate_info *by_rate = &tpu->rtw_tpu_pwr_by_rate_i;
+	u8 i;
+
+	PHL_PRINT("%-10s {%02d, %02d, %02d, %02d}\n", "[CCK]",
+				by_rate->pwr_by_rate_lgcy[0] >> 1, by_rate->pwr_by_rate_lgcy[1] >> 1,
+				by_rate->pwr_by_rate_lgcy[2] >> 1, by_rate->pwr_by_rate_lgcy[3] >> 1);
+	PHL_PRINT("%-10s {%02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d}\n","[OFDM]",
+			by_rate->pwr_by_rate_lgcy[4] >> 1, by_rate->pwr_by_rate_lgcy[5] >> 1,
+			by_rate->pwr_by_rate_lgcy[6] >> 1, by_rate->pwr_by_rate_lgcy[7] >> 1,
+			by_rate->pwr_by_rate_lgcy[8] >> 1, by_rate->pwr_by_rate_lgcy[9] >> 1,
+			by_rate->pwr_by_rate_lgcy[10] >> 1, by_rate->pwr_by_rate_lgcy[11] >> 1);
+
+	for (i = 0; i < HAL_MAX_PATH; i++) {
+		PHL_PRINT("[%d]%-7s {%02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d}\n",
+				i, "[MCS]",
+				by_rate->pwr_by_rate[i][0] >> 1, by_rate->pwr_by_rate[i][1] >> 1,
+				by_rate->pwr_by_rate[i][2] >> 1, by_rate->pwr_by_rate[i][3] >> 1,
+				by_rate->pwr_by_rate[i][4] >> 1, by_rate->pwr_by_rate[i][5] >> 1,
+				by_rate->pwr_by_rate[i][6] >> 1, by_rate->pwr_by_rate[i][7] >> 1,
+				by_rate->pwr_by_rate[i][8] >> 1, by_rate->pwr_by_rate[i][9] >> 1,
+				by_rate->pwr_by_rate[i][10] >> 1, by_rate->pwr_by_rate[i][11] >> 1);
+
+		PHL_PRINT("[%d]%-7s {%02d, %02d, %02d, %02d}\n",
+				i,"[DCM]",
+				by_rate->pwr_by_rate[i][12] >> 1, by_rate->pwr_by_rate[i][13] >> 1,
+				by_rate->pwr_by_rate[i][14] >> 1, by_rate->pwr_by_rate[i][15] >> 1);
+	}
+
+	return RTW_HAL_STATUS_SUCCESS;
 }
 
 void rtw_hal_bb_nhm_mntr_result(struct rtw_hal_com_t *hal_com, void *rpt, enum phl_phy_idx phy_idx)
@@ -1627,10 +2229,14 @@ void rtw_hal_bb_env_rpt(struct rtw_hal_com_t *hal_com, struct rtw_env_report *en
 	/*if ok update env rpt */
 	if (env_rpt_status == CCX_SUCCESS) {
 		env_rpt->clm_ratio = bg_rpt.clm_ratio;
-		env_rpt->nhm_pwr = bg_rpt.nhm_pwr;
 		env_rpt->nhm_ratio = bg_rpt.nhm_ratio;
 		env_rpt->nhm_tx_ratio = bg_rpt.nhm_tx_ratio;
 		env_rpt->nhm_cca_ratio = bg_rpt.nhm_cca_ratio;
+		env_rpt->nhm_idle_ratio = bg_rpt.nhm_idle_ratio;
+		env_rpt->nhm_tx_cnt = bg_rpt.nhm_tx_cnt;
+		env_rpt->nhm_cca_cnt = bg_rpt.nhm_cca_cnt;
+		env_rpt->nhm_idle_cnt = bg_rpt.nhm_idle_cnt;
+		env_rpt->nhm_pwr = bg_rpt.nhm_pwr;
 		env_rpt->rpt_status = 1;
 	} else {
 		env_rpt->rpt_status = 0;
@@ -1648,6 +2254,12 @@ rtw_hal_bb_set_tb_pwr_ofst(struct hal_info_t *hal_info,
 		return RTW_HAL_STATUS_SUCCESS;
 	else
 		return RTW_HAL_STATUS_FAILURE;
+}
+
+u8 rtw_hal_bb_drv_info_dbm2rssi(struct hal_info_t *hal_info,
+				 u16 dbm, enum channel_width bw)
+{
+	return halbb_drv_info_rssi_parsing(hal_info->bb, dbm, bw);
 }
 
 #ifdef CONFIG_MCC_SUPPORT
@@ -1707,8 +2319,48 @@ rtw_hal_bb_mcc_start(struct hal_info_t *hal_info,
 }
 #endif
 
+bool
+rtw_hal_bb_adc_cfg(struct rtw_hal_com_t *hal_com,
+                   enum channel_width bw,
+                   enum rf_path path,
+                   enum phl_phy_idx phy_idx)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)(hal_com->hal_priv);
+
+	PHL_INFO("%s: bw(%d) path(%d) phy_idx(%d)\n",
+			 __FUNCTION__, bw, path, phy_idx);
+	return halbb_adc_cfg(hal_info->bb, bw, path, phy_idx);
+}
+void rtw_hal_bb_snif_mode_ctrl(struct hal_info_t *hal_info, bool en)
+{
+	halbb_sniffer_mode_en(hal_info->bb, en);
+	return;
+}
+
+
+u8 rtw_hal_bb_decode_chidx(struct rtw_hal_com_t *hal_com, u8 chan_idx, enum band_type *band)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+	u8 ret_ch = 0;
+
+	halbb_ch_idx_decode(hal_info->bb, chan_idx,
+			    &ret_ch, band);
+
+	return ret_ch;
+}
 
 #else /*ifndef USE_TRUE_PHY*/
+
+
+void rtw_hal_bb_bb_reset_cmn(struct hal_info_t *hal_info, bool en, enum phl_phy_idx phy_idx)
+{
+}
+
+void rtw_hal_bb_snif_mode_ctrl(struct hal_info_t *hal_info, bool en)
+{
+	return;
+}
+
 void rtw_hal_bb_dfs_en(struct hal_info_t *hal_info, bool en)
 {
 }
@@ -1717,7 +2369,7 @@ void rtw_hal_bb_tssi_cont_en(struct hal_info_t *hal_info, bool en, enum rf_path 
 {
 }
 
-void rtw_hal_bb_adc_en(struct hal_info_t *hal_info, bool en)
+void rtw_hal_bb_adc_en(struct hal_info_t *hal_info, bool en, enum phl_phy_idx phy_idx)
 {
 }
 
@@ -1756,18 +2408,14 @@ void rtw_hal_bb_dm_deinit(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_
 {
 }
 
+enum rtw_hal_status rtw_hal_bb_ctrl_cck_en(struct rtw_hal_com_t *hal_com,
+					bool cca_en, enum phl_phy_idx phy_idx)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
 enum rtw_hal_status rtw_hal_bb_ctrl_rx_cca(struct rtw_hal_com_t *hal_com,
 	bool cca_en, enum phl_phy_idx phy_idx)
-{
-	return RTW_HAL_STATUS_SUCCESS;
-}
-
-enum rtw_hal_status rtw_hal_bb_ctrl_dbcc(struct hal_info_t *hal_info, bool dbcc_en)
-{
-	return RTW_HAL_STATUS_SUCCESS;
-}
-
-enum rtw_hal_status rtw_hal_bb_cfg_dbcc(struct hal_info_t *hal_info, bool dbcc_en)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -1786,15 +2434,15 @@ void rtw_hal_init_bb_reg(struct hal_info_t *hal_info)
 {
 }
 
+u8 rtw_hal_ex_cn_report(struct rtw_hal_com_t *hal_com)
+{
+	return 0;
+}
+
 void rtw_hal_bb_init_reg_by_hdr(struct hal_info_t *hal_info, u32 *folder_array,
 				u32 folder_len, u8 is_form_folder, enum phl_phy_idx phy_idx)
 
 {
-}
-
-u8 rtw_hal_ex_cn_report(struct rtw_hal_com_t *hal_com)
-{
-	return 0;
 }
 
 u32 rtw_hal_read_rf_reg(struct rtw_hal_com_t *hal_com,
@@ -1936,16 +2584,18 @@ void rtw_hal_bb_dfs_change_domain(void *hal, enum band_type band, u8 ch
 }
 
 enum rtw_hal_status
-rtw_hal_bb_dfs_rpt_cfg(struct hal_info_t *hal_info, bool dfs_en)
+rtw_hal_bb_dfs_rpt_cfg(struct rtw_hal_com_t *hal_com, enum phl_phy_idx phy_idx, bool dfs_en)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
+#ifdef CONFIG_PHL_DFS
 bool rtw_hal_bb_radar_detect(struct hal_info_t *hal_info,
 			     struct hal_dfs_rpt *hal_dfs)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
+#endif
 
 enum rtw_hal_status
 rtw_hal_bb_ctrl_btg(struct rtw_hal_com_t *hal_com, bool btg)
@@ -1960,13 +2610,13 @@ rtw_hal_bb_ctrl_btc_preagc(struct rtw_hal_com_t *hal_com, bool bt_en)
 }
 
 enum rtw_hal_status
-rtw_hal_bb_cfg_rx_path(struct rtw_hal_com_t *hal_com, u8 rx_path)
+rtw_hal_bb_cfg_rx_path(struct rtw_hal_com_t *hal_com, u8 rx_path, u8 phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
 enum rtw_hal_status
-rtw_hal_bb_cfg_tx_path(struct rtw_hal_com_t *hal_com, u8 tx_path)
+rtw_hal_bb_cfg_tx_path(struct rtw_hal_com_t *hal_com, u8 tx_path, u8 phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -2016,10 +2666,10 @@ enum rtw_hal_status rtw_hal_bb_get_pwr_index(void *hal, u16 *pwr_idx,
 
 enum rtw_hal_status
 rtw_hal_bb_set_plcp_tx(struct rtw_hal_com_t *hal_com,
-						struct mp_plcp_param_t *plcp_tx_struct,
-						struct mp_usr_plcp_gen_in *plcp_usr_info,
-						enum phl_phy_idx plcp_phy_idx,
-						u8 *plcp_sts)
+                       struct halbb_plcp_info *plcp_tx_struct,
+                       struct usr_plcp_gen_in *plcp_usr_info,
+                       enum phl_phy_idx plcp_phy_idx,
+                       u8 *plcp_sts)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -2032,8 +2682,15 @@ rtw_hal_bb_set_pmac_cont_tx(struct rtw_hal_com_t *hal_com, u8 enable,
 }
 
 enum rtw_hal_status
+rtw_hal_bb_set_pmac_carrier_suppression_tx(struct rtw_hal_com_t *hal_com, u8 enable, u8 is_cck,
+							enum phl_phy_idx phy_idx)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
 rtw_hal_bb_set_pmac_packet_tx(struct rtw_hal_com_t *hal_com, u8 enable,
-			      u8 is_cck, u16 tx_cnt ,u16 period, u16 tx_time,
+			      u8 is_cck, u16 tx_cnt ,u16 period, u16 tx_time, u8 cck_lbk_en,
 			      enum phl_phy_idx phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
@@ -2048,13 +2705,28 @@ rtw_hal_bb_set_pmac_fw_trigger_tx(struct rtw_hal_com_t *hal_com, u8 enable,
 }
 
 enum rtw_hal_status
-rtw_hal_bb_parse_phy_sts(void *hal, void *ppdu_sts,
-			 struct rtw_phl_rx_pkt *phl_rx, u8 is_su)
+rtw_hal_bb_switch_antenna(struct rtw_hal_com_t *hal_com, u8 ant_sw)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_parse_phy_sts(void *hal,
+			 void *ppdu_sts,
+			 struct rtw_phl_rx_pkt *phl_rx,
+			 u8 is_su,
+			 bool sniffer_mode)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
 enum rtw_hal_status rtw_hal_bb_get_tx_ok(void *hal, u8 cur_phy_idx, u32 *tx_ok)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_dump_tx_sts(struct hal_info_t *hal_info, bool en, u8 phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -2072,8 +2744,8 @@ enum rtw_hal_status rtw_hal_bb_get_rssi(struct hal_info_t *hal_info,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
-enum rtw_hal_status rtw_hal_bb_get_rssi_ex(struct hal_info_t *hal_info,
-					enum rf_path rx_path, s16 *rssi, u8 cur_phy_idx)
+enum rtw_hal_status rtw_hal_bb_get_rssi_ex(struct hal_info_t *hal_info, s32 *rssi_ex,
+						enum rf_path rx_path, u8 nss, u8 cur_phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -2084,9 +2756,12 @@ enum rtw_hal_status rtw_hal_bb_get_rxevm(struct hal_info_t *hal_info, u8 user,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
-enum rtw_hal_status rtw_hal_bb_trigger_rxevm(struct hal_info_t *hal_info, u8 cur_phy_idx,
-	u32 *phy0_user0_rxevm, u32 *phy0_user1_rxevm, u32 *phy0_user2_rxevm, u32 *phy0_user3_rxevm,
-	u32 *phy1_user0_rxevm, u32 *phy1_user1_rxevm, u32 *phy1_user2_rxevm, u32 *phy1_user3_rxevm)
+enum rtw_hal_status rtw_hal_bb_trigger_rxevm(struct hal_info_t *hal_info,
+                                             u32 *phy_user0_rxevm,
+                                             u32 *phy_user1_rxevm,
+                                             u32 *phy_user2_rxevm,
+                                             u32 *phy_user3_rxevm,
+                                             u8 rx_phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -2111,7 +2786,7 @@ u8 rtw_hal_bb_get_txsc(struct rtw_hal_com_t *hal_com, u8 pri_ch,
 	return 0;
 }
 
-u32 rtw_hal_bb_process_c2h(void *hal, struct rtw_c2h_info *c2h)
+u32 rtw_hal_bb_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_msg *c2h_msg)
 {
 	return 0;
 }
@@ -2123,13 +2798,37 @@ rtw_hal_phy_dbcc_pre_cfg(struct hal_info_t *hal_info,
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
+
 enum rtw_hal_status
 rtw_hal_phy_dbcc_cfg(struct hal_info_t *hal_info,
 			struct rtw_phl_com_t *phl_com, bool dbcc_en)
 {
 	return RTW_HAL_STATUS_SUCCESS;
 }
-#endif
+
+enum rtw_hal_status rtw_hal_bb_ctrl_dbcc(struct hal_info_t *hal_info, bool dbcc_en)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status rtw_hal_bb_cfg_dbcc(struct hal_info_t *hal_info,
+				struct rtw_phl_com_t *phl_com, bool dbcc_en)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+void rtw_hal_dbcc_init_bb_reg(struct hal_info_t *hal_info)
+{
+
+}
+
+enum rtw_hal_status
+rtw_hal_bb_cfg_dbcc_phy_map(struct hal_info_t *hal_info,
+					enum phl_phy_idx phy_idx)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+#endif /* CONFIG_DBCC_SUPPORT */
 
 enum rtw_hal_status
 rtw_hal_bb_get_txinfo_power(struct hal_info_t *hal_info,
@@ -2174,6 +2873,15 @@ u16 rtw_hal_bb_cfg_cmac_tx_ant(struct hal_info_t *hal_info,
 #endif
 
 enum rtw_hal_status
+rtw_hal_bb_cfg_config_cmac_tbl(struct hal_info_t *hal_i,
+			struct rtw_phl_stainfo_t *phl_sta,
+			struct rtw_hal_mac_ax_cctl_info *cctrl,
+			struct rtw_hal_mac_ax_cctl_info *cctl_info_mask)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
 rtw_hal_bb_backup_info(struct rtw_hal_com_t *hal_com, u8 cur_phy_idx)
 {
 	return RTW_HAL_STATUS_SUCCESS;
@@ -2197,12 +2905,14 @@ rtw_hal_bb_tssi_bb_reset(struct rtw_hal_com_t *hal_com)
 }
 
 #ifdef CONFIG_RTW_ACS
-void rtw_hal_bb_acs_mntr_trigger(struct hal_info_t *hal_info, struct acs_mntr_parm *parm)
+void rtw_hal_bb_acs_mntr_trigger(struct hal_info_t *hal_info,
+				enum phl_band_idx band_idx, struct acs_mntr_parm *parm)
 {
 
 }
 
-enum rtw_hal_status rtw_hal_bb_acs_mntr_result(struct hal_info_t *hal_info, struct acs_mntr_rpt *rpt)
+enum rtw_hal_status rtw_hal_bb_acs_mntr_result(struct hal_info_t *hal_info,
+					enum phl_band_idx band_idx, struct acs_mntr_rpt *rpt)
 {
 	return RTW_HAL_STATUS_FAILURE;
 }
@@ -2269,12 +2979,31 @@ rtw_hal_bb_ic_hw_setting_init(struct hal_info_t *hal_info)
 }
 
 enum rtw_hal_status
+rtw_hal_bb_loop_bck_en(struct hal_info_t *hal_info, u8 enable, u8 is_dgt_mode,
+						enum rf_path tx_path, enum rf_path rx_path,
+		   				enum channel_width bw, enum phl_phy_idx phy_idx,
+						u8 is_cck)
+{
+	return RTW_HAL_STATUS_FAILURE;
+}
+
+enum rtw_hal_status
+rtw_hal_bb_cfg_tx_by_bt_link(struct hal_info_t *hal_info , u8 is_bt_link)
+{
+	return RTW_HAL_STATUS_FAILURE;
+}
+
+enum rtw_hal_status
 rtw_hal_bb_query_rainfo(void *hal, struct rtw_hal_stainfo_t *hal_sta,
 			struct rtw_phl_rainfo *phl_rainfo)
 {
 	return RTW_HAL_STATUS_FAILURE;
 }
 
+enum rtw_hal_status rtw_hal_bb_dump_tpu_info (void *hal)
+{
+	return RTW_HAL_STATUS_FAILURE;
+}
 
 void rtw_hal_bb_nhm_mntr_result(struct rtw_hal_com_t *hal_com, void *rpt, enum phl_phy_idx phy_idx)
 {
@@ -2301,6 +3030,64 @@ rtw_hal_bb_set_tb_pwr_ofst(struct hal_info_t *hal_info,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
+enum rtw_hal_status
+rtw_hal_bb_query_txsts_rpt(struct hal_info_t *hal_info,
+				u16 macid0, u16 macid1)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status rtw_hal_bb_set_pop_en(struct hal_info_t *hal_info,
+                                          bool en,
+                                          enum phl_phy_idx phy_idx)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+bool rtw_hal_bb_query_pop_en(struct hal_info_t *hal_info,
+                             enum phl_phy_idx phy_idx)
+{
+	return false;
+}
+
+enum rtw_hal_status rtw_hal_bb_set_pkt_detect_thold(struct hal_info_t *hal_info,
+					enum phl_band_idx band_idx, u32 bound)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+u8 rtw_hal_bb_query_pkt_detect_thold(struct hal_info_t *hal_info,
+                                     bool get_en_info,
+                                     enum phl_phy_idx phy_idx)
+{
+	return 0;
+}
+
+void
+rtw_hal_bb_set_tx_rate_rty_tbl(struct hal_info_t *hal_info,
+                               bool en,
+                               u8 *rty_rate_tbl)
+{
+
+}
+
+#ifdef RTW_WKARD_AP_MP
+void rtw_hal_bb_rx_ndp_mp(void *hal)
+{
+
+}
+void rtw_hal_bb_dm_init_mp(void *hal)
+{
+
+}
+#endif /* RTW_WKARD_AP_MP */
+
+u8 rtw_hal_bb_drv_info_dbm2rssi(struct hal_info_t *hal_info,
+				 u16 dbm, enum channel_width bw)
+{
+	return 0;
+}
+
 #ifdef CONFIG_MCC_SUPPORT
 enum rtw_hal_status
 rtw_hal_bb_upd_mcc_macid(struct hal_info_t *hal_info,
@@ -2323,4 +3110,18 @@ rtw_hal_bb_mcc_start(struct hal_info_t *hal_info,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 #endif
+
+bool
+rtw_hal_bb_adc_cfg(struct rtw_hal_com_t *hal_com,
+                   enum channel_width bw,
+                   enum rf_path path,
+                   enum phl_phy_idx phy_idx)
+{
+	return false;
+}
+
+u8 rtw_hal_bb_decode_chidx(struct rtw_hal_com_t *hal_com, u8 chan_idx, enum band_type *band)
+{
+	return 0;
+}
 #endif /*ifdef USE_TRUE_PHY*/

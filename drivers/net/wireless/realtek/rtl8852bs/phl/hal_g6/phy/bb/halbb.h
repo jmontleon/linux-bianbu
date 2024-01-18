@@ -37,7 +37,12 @@
 #define BB_EFUSE_BAND_NUM	5
 #define IC_LNA_NUM		7
 #define IC_TIA_NUM		2
+#define IC_LNA_OP1DB_NUM	7
+#define IC_TIA_LNA_OP1DB_NUM	8
 #define EFUSE_OFST_NUM		1
+#define WB_GIDX_ELNA_NUM	16
+#define GS_IDX_NUM		2
+#define G_ELNA_NUM		2
 
 /*@--------------------------[Enum]------------------------------------------*/
 
@@ -62,9 +67,11 @@ enum efuse_bit_mask {
 /*@--------------------------[Structure]-------------------------------------*/
 
 struct halbb_pause_lv {
+	s8			lv_fa_cnt;
 	s8			lv_dig;
 	s8			lv_cfo;
 	s8			lv_edcca;
+	s8			lv_path_div;
 };
 
 struct bb_func_hooker_info {
@@ -123,9 +130,15 @@ struct bb_link_info {
 	u32			rx_tp;			/*@Mbps*/
 	u32			total_tp;		/*@Mbps*/
 	u16			consecutive_idle_time;	/*@unit: second*/
+	u16			wlan_mode_bitmap; /*enum wlan_mode*/
+	/*[at least one macid BFer & BFee chk]*/
+	bool			at_least_one_bfer; /*at least one macid Tx BFer*/
+	bool			at_least_one_bfee; /*at least one macid Rx BFee*/
 };
 
 struct bb_ch_info {
+	u8 			fc_ch_idx;
+	bool			is_2g;
 	u8			rssi_min; /*U(8.1), external rssi (from antenna)*/
 	u16			rssi_min_macid;
 	u8			pre_rssi_min;
@@ -149,7 +162,12 @@ struct bb_cmn_backup_info {
 	u8			cur_rx_path;
 	s16			cur_tx_pwr;
 	u8			cur_pd_lower_bound;
-	u8			last_rssi;
+	u8			last_rpl;
+	u32			last_rssi;
+	u16			last_cfo;
+	s32			cck_ps_th_bk;
+	s32			cck_rssi_ofst_bk;
+	s32			cck_sbd_th_bk;
 	u32			cur_rfmode_a_12ac;
 	u32			cur_rfmode_a_12b0;
 	u32			cur_rfmode_b_32ac;
@@ -161,18 +179,27 @@ struct bb_cmn_backup_info {
 struct bb_gain_info {
 	s8 lna_gain[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][IC_LNA_NUM];
 	s8 tia_gain[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][IC_TIA_NUM];
+	s8 lna_gain_bypass[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][IC_LNA_NUM];
+	s8 lna_op1db[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][IC_LNA_NUM];
+	s8 tia_lna_op1db[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][IC_LNA_NUM + 1]; // TIA0_LNA0~6 + TIA1_LNA6
 	s8 efuse_ofst[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][EFUSE_OFST_NUM];
 	s8 rpl_ofst_20[BB_GAIN_BAND_NUM][HALBB_MAX_PATH];
 	s8 rpl_ofst_40[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][BB_RXSC_NUM_40];
 	s8 rpl_ofst_80[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][BB_RXSC_NUM_80];
+	s8 rpl_ofst_160[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][BB_RXSC_NUM_160];
+	u32 wb_gidx_elna[BB_GAIN_BAND_NUM][HALBB_MAX_PATH]; // {bit(15) ~ bit(0)}: {wb_gidx_15_elna ~ wb_gidx_0_elna}
+	u8 wb_gidx_lna_tia[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][WB_GIDX_ELNA_NUM];
+	u32 gs_idx[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][GS_IDX_NUM];
+	u8 g_elna[BB_GAIN_BAND_NUM][HALBB_MAX_PATH][G_ELNA_NUM];
 };
 
 struct bb_efuse_info{
 	bool normal_efuse_check;
 	bool hidden_efuse_check;
-	s8 gain_offset[HALBB_MAX_PATH][BB_EFUSE_BAND_NUM]; // S(8,0)
-	s8 gain_cs[HALBB_MAX_PATH][BB_GAIN_BAND_NUM]; // S(8,0)
-	s8 gain_cg[HALBB_MAX_PATH][BB_GAIN_BAND_NUM]; // S(8,0)
+	s8 gain_offset[HALBB_MAX_PATH][BB_BAND_NUM_MAX + 1]; // S(8,0)
+	s8 gain_cs[HALBB_MAX_PATH][BB_BAND_NUM_MAX]; // S(8,0)
+	s8 gain_cg[HALBB_MAX_PATH][BB_BAND_NUM_MAX]; // S(8,0)
+	s8 hidden_efuse[BB_HIDE_EFUSE_SIZE];
 
 	s8 lna_err_2g[HALBB_MAX_PATH][7]; // S(6,2)
 	s8 lna_err_5g[HALBB_MAX_PATH][7]; // S(6,2)
@@ -181,33 +208,69 @@ struct bb_efuse_info{
 	s8 rpl_bias_comp[HALBB_MAX_PATH];
 	s8 rssi_bias_comp[HALBB_MAX_PATH];
 
-	s8 efuse_ofst; // 8852A:S(5,2) 8852B:S(8,4)
-	s8 efuse_ofst_tb; // 8852A:S(7,4) 8852B:S(8,4)
+	s8 efuse_ofst[HW_PHY_MAX]; // 8852A:S(5,2) 8852B:S(8,4)
+	s8 efuse_ofst_path[HALBB_MAX_PATH]; // 8852C: S(8,4)
+	s8 efuse_ofst_tb[HW_PHY_MAX]; // 8852A:S(7,4) 8852B:S(8,4)
+	s8 efuse_ofst_tb_path[HALBB_MAX_PATH]; // 8852C: S(8,4)
+
+	u8 efuse_ft; // 8192XB: U(8,0)
+	u8 efuse_adc_td; // 8192XB: U(2,0)
+};
+
+struct vht_mu_cr_backup_table {
+	u32 muic_en_a;
+	u32 lpbw_sw_symb0_a;
+	u32 ch_tracking_symb0_a;
+	u32 lpbw_sel_d1_a;
+	u32 ch_tracking_symb1_a;
+	u32 ch_tracking_a1_a;
+	u32 lpbw_sel_p1_a;
+	u32 noise_tracking_en_a;
 };
 
 struct bb_cmn_dbg_info {
 	bool cmn_log_2_cnsl_en;
+	bool cmn_log_2_drv_statistic_en;
 };
 
 struct bb_cmn_info {
 	u8 bb_dm_number;
+	bool cck_blk_en;
+	enum phl_phy_idx cck_phy_map;
+	bool bb_dbcc_en;
+	bool ic_dual_phy_support;
+	bool ic_dbcc_support;
+	enum halbb_drv_type bb_drv_type;
+#ifdef BB_1115_DVLP_SPF
+	enum mlo_dbcc_mode_type bb_mlo_dbcc_mode_t;
+#endif
+#ifdef HALBB_RA_SUPPORT
+	struct bb_ra_info	bb_ra_i[PHL_MAX_STA_NUM];
+#endif
 #ifdef HALBB_PSD_SUPPORT
 	struct bb_psd_info	bb_psd_i;
 #endif
 #ifdef HALBB_LA_MODE_SUPPORT
 	struct bb_la_mode_info	bb_la_mode_i;
 #endif
+#ifdef HALBB_SNIF_SUPPORT
+	struct bb_snif_info	bb_snif_i;
+#endif
 #ifdef HALBB_DYN_CSI_RSP_SUPPORT
 	struct bf_ch_raw_info bf_ch_raw_i;
 #endif
+	struct bb_spur_info bb_spur_i;
 	struct bb_echo_cmd_info	bb_echo_cmd_i;
 	struct bb_func_hooker_info bb_func_hooker_i;
 	struct bb_cmn_dbg_info bb_cmn_dbg_i;
 #ifdef HALBB_FW_OFLD_SUPPORT
 	u8 bbcr_fwofld_state;
 	bool skip_io_init_en;
+	bool is_io_ofld_success;
 #endif
-
+	bool bb_fwofld_in_progress;
+	u32 bb_fwofld_sup_bitmap; /*enum fw_ofld_type.For HALBB to control DBCC-OFLD manully*/
+	u32 bb_fwofld_start_time;
 };
 
 #ifdef HALBB_DIG_MCC_SUPPORT
@@ -281,13 +344,18 @@ struct bb_info {
 	enum phl_phy_idx	bb_phy_idx;
 	struct bb_cmn_info	*bb_cmn_hooker;
 	/*[Common Info]*/
+	u32			bb0_cr_offset;
+	u32			bb0_mcu_cr_offset;
 	struct bb_gain_info	bb_gain_i;
 	struct bb_efuse_info	bb_efuse_i;
 	enum bb_ic_t		ic_type;
 	enum bb_ic_sub_t	ic_sub_type;
 	enum bb_cr_t		cr_type;
+	enum bb_80211spec_t	bb_80211spec;
 	u8			num_rf_path;
+	u8			bb_sta_cnt;
 	/*[System Info]*/
+	bool			is_mp_mode_pre;
 	enum bb_watchdog_mode_t bb_watchdog_mode;
 	bool			bb_cmn_info_init_ready;
 	bool			bb_dm_init_ready;
@@ -302,14 +370,16 @@ struct bb_info {
 	bool			adv_bb_dm_en;
 	u64			support_ability;	/*HALBB function Supportability*/
 	u64			manual_support_ability;
-	u64			pause_ability;		/*HALBB function pause Supportability*/
+	u32			pause_ability;		/*HALBB function pause Supportability*/
 	struct halbb_pause_lv	pause_lv_table;
 	/*[FW Info]*/
 	u8			fwofld_last_cmd;
 	u64			fw_dbg_component;
 	/*[Drv Dbg Info]*/
 	u64			dbg_component;
+	u64			mcu_dbg_component;
 	u8			cmn_dbg_msg_period;
+	u16			cmn_dbg_msg_component;
 	u8			cmn_dbg_msg_cnt;
 	bool			is_disable_phy_api;
 	/*[Dummy]*/
@@ -320,18 +390,23 @@ struct bb_info {
 	/*[Link Info]*/
 	enum rf_path 		tx_path; /*PMAC Tx Path*/
 	enum rf_path 		rx_path;
+	/*[pmac]*/
+	bool			dyn_pmac_tri_en;
+	bool			pmac_tri_en;
+	bool			pwr_comp_en;
+	u32			pmac_tri_idx;
+	u32			pmac_pwr_ofst;
+	/*[btc]*/
+	bool			bt_en; /*bt_en=1 when is_share_ant=0 and is_2g, backup for ch_bw switch*/
 
 	/*@=== [HALBB Structure] ============================================*/
-#ifdef BB_8852A_CAV_SUPPORT
-	struct bb_8852a_info	bb_8852a_i;
-#endif
 #ifdef BB_8852A_2_SUPPORT
 	struct bb_8852a_2_info	bb_8852a_2_i;
 	struct bb_h2c_fw_cmw	bb_fw_cmw_i;
+	struct vht_mu_cr_backup_table vht_mu_backup_val;
 #endif
-
-#ifdef HALBB_RA_SUPPORT
-	struct bb_ra_info	bb_ra_i[PHL_MAX_STA_NUM];
+#ifdef HALBB_DBCC_SUPPORT
+	struct bb_dbcc_info	bb_dbcc_i;
 #endif
 #ifdef HALBB_ENV_MNTR_SUPPORT
 	struct bb_env_mntr_info bb_env_mntr_i;
@@ -378,12 +453,13 @@ struct bb_info {
 	struct bb_c2h_fw_tx_rpt	bb_fwtx_c2h_i;
 	struct bb_h2c_fw_tx_setting	bb_fwtx_h2c_i;
 	struct bb_h2c_fw_edcca	bb_fw_edcca_i;
-	struct bb_h2c_he_sigb	bb_h2c_he_sigb_i;
+	struct bb_h2c_ehtsig_sigb	bb_h2c_ehtsig_sigb_i;
 	struct bb_fw_dbg_cmn_info	bb_fwdbg_i;
 	struct bb_cmn_rpt_info	bb_cmn_rpt_i;
 	struct bb_rpt_info bb_rpt_i;
 	struct rxevm_physts	rxevm;
 	struct bb_cmn_backup_info	bb_cmn_backup_i;
+	struct bb_spur_info 	bb_spur_i;
 #ifdef HALBB_CH_INFO_SUPPORT
 	struct bb_ch_rpt_info	bb_ch_rpt_i;
 #endif
@@ -406,6 +482,9 @@ struct bb_info {
 #ifdef HALBB_DIG_MCC_SUPPORT
 	struct halbb_mcc_dm mcc_dm;
 #endif
+#ifdef HALBB_DYN_1R_CCA_SUPPORT
+	struct bb_dyn_1r_cca_info bb_dyn_1r_cca_i;
+#endif
 #ifdef HALBB_DYN_DTR_SUPPORT
 	struct bb_dyn_dtr_info bb_dyn_dtr_i;
 #endif
@@ -415,7 +494,7 @@ struct bb_info {
 
 };
 
- 
+
 /*@--------------------------[Prptotype]-------------------------------------*/
 u8 halbb_get_rssi_min(struct bb_info *bb);
 void halbb_cmn_info_self_reset(struct bb_info *bb);

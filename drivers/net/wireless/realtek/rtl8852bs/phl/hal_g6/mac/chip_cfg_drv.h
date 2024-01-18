@@ -42,6 +42,23 @@
 #define MAC_AX_8192XB_SUPPORT	0
 #endif
 
+#ifdef CONFIG_RTL8851B
+#define MAC_AX_8851B_SUPPORT	1
+#else
+#define MAC_AX_8851B_SUPPORT	0
+#endif
+
+#ifdef CONFIG_RTL8851E
+#define MAC_AX_8851E_SUPPORT	1
+#else
+#define MAC_AX_8851E_SUPPORT	0
+#endif
+
+#ifdef CONFIG_RTL8852D
+#define MAC_AX_8852D_SUPPORT	1
+#else
+#define MAC_AX_8852D_SUPPORT	0
+#endif
 /* Interface support */
 #ifdef CONFIG_SDIO_HCI
 #define MAC_AX_SDIO_SUPPORT	1

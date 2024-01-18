@@ -59,15 +59,14 @@ enum lock_type {
 
 	#define BUG_ON
 
-	#define PCI_DMA_TODEVICE 0
-	#define PCI_DMA_FROMDEVICE 1
+	#define DMA_TO_DEVICE 0
+	#define DMA_FROM_DEVICE 1
 #endif /*#ifndef PHL_PLATFORM_LINUX*/
 
 
 #ifdef PHL_PLATFORM_WINDOWS
 
 	#define MAC_ALEN 6
-	#define _dma unsigned int
 	#define _os_timer RT_TIMER
 	#define _os_lock RT_SPIN_LOCK
 	#define _os_mutex PlatformMutex
@@ -78,6 +77,8 @@ enum lock_type {
 	#define _os_atomic volatile long
 	#define _os_dbgdump DbgPrint
 	#define _os_dbgdump_c DbgPrint
+	#define _os_dbgdump_lmt DbgPrint
+	#define _os_dbgdump_c_lmt DbgPrint
 	#define _os_assert ASSERT
 	#define _os_warn_on
 
@@ -94,6 +95,15 @@ enum lock_type {
 
 #elif defined(PHL_PLATFORM_LINUX)
 	typedef struct rtw_timer_list _os_timer;
+
+	/* taskletw is wrapper for callback function prototype is void (*func)(void *) */
+	typedef struct rtw_taskletw _taskletw;
+	struct rtw_taskletw {
+		struct tasklet_struct tasklet;
+		void (*func)(void *);
+		void *data;
+	};
+
 	#define _os_lock _lock
 	#define _os_mutex _mutex
 	#define _os_sema _sema
@@ -102,19 +112,29 @@ enum lock_type {
 	#define _os_atomic ATOMIC_T
 	#define MAC_ALEN ETH_ALEN
 	#define _os_dbgdump _dbgdump
+	#ifdef _dbgdump_lmt
+		#define _os_dbgdump_lmt _dbgdump_lmt
+	#else
+		#define _os_dbgdump_lmt _dbgdump
+	#endif
 	#ifdef _dbgdump_c
 		#define _os_dbgdump_c _dbgdump_c
+		#ifdef _dbgdump_c_lmt
+			#define _os_dbgdump_c_lmt _dbgdump_c_lmt
+		#else
+			#define _os_dbgdump_c_lmt _dbgdump_c
+		#endif
 	#else
 		#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24))
 			#define KERN_CONT
 		#endif
 		#define _os_dbgdump_c(fmt, arg...)	_dbgdump(KERN_CONT fmt, ##arg)
+		#define _os_dbgdump_c_lmt(fmt, arg...)	_dbgdump(KERN_CONT fmt, ##arg)
 	#endif
 	#define _os_assert(_expr) 0/*rtw_bug_on(_expr)*/
 	#define _os_warn_on(_cond) rtw_warn_on(_cond)
-	#define _dma dma_addr_t
 
-	#define _os_tasklet _tasklet
+	#define _os_tasklet _taskletw
 	#define _os_thread struct thread_hdl
 	#define _os_workitem _workitem
 	#define _os_spinlockfg unsigned long
@@ -168,7 +188,6 @@ enum lock_type {
 	#endif
 
 	/* keep define name then delete if osdep ready */
-	#define _dma unsigned long
 
 	#define _os_timer unsigned long
 	#define _os_lock unsigned long
@@ -179,6 +198,8 @@ enum lock_type {
 	#define _os_atomic int
 	#define _os_dbgdump(_fmt, ...)
 	#define _os_dbgdump_c(_fmt, ...)
+	#define _os_dbgdump_lmt(...)
+	#define _os_dbgdump_c_lmt(...)
 	#define _os_assert(_expr)
 	#define _os_warn_on(_cond)
 	#define _os_spinlockfg unsigned int

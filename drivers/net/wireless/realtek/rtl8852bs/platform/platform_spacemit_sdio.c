@@ -41,7 +41,7 @@ int platform_wifi_power_on(void)
 	RTW_PRINT("=======================================================\n");
 	RTW_PRINT("==== Launching Wi-Fi driver! (Powered by Spacemit) ====\n");
 	RTW_PRINT("=======================================================\n");
-	
+	RTW_PRINT("Realtek %s WiFi driver (Powered by Spacemit,Ver %s) init.\n", DRV_NAME, DRIVERVERSION);
 	spacemit_wlan_set_power(1);
 	spacemit_sdio_detect_change(1);
 
@@ -50,6 +50,11 @@ int platform_wifi_power_on(void)
 
 void platform_wifi_power_off(void)
 {
+	RTW_PRINT("\n");
+	RTW_PRINT("=======================================================\n");
+	RTW_PRINT("==== Dislaunching Wi-Fi driver! (Powered by Spacemit) ====\n");
+	RTW_PRINT("=======================================================\n");
+	RTW_PRINT("Realtek %s WiFi driver (Powered by Spacemit,Ver %s) init.\n", DRV_NAME, DRIVERVERSION);
 	spacemit_sdio_detect_change(0);
 	spacemit_wlan_set_power(0);
 }

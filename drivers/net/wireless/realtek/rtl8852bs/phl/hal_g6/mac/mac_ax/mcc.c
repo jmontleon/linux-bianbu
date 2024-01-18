@@ -157,7 +157,9 @@ u32 mac_add_mcc(struct mac_ax_adapter *adapter, struct mac_ax_mcc_role *info)
 			     FWCMD_H2C_ADD_MCC_TX_NULL_EARLY) |
 		    (info->btc_in_2g ? FWCMD_H2C_ADD_MCC_BTC_IN_2G : 0) |
 		    (info->pta_en ? FWCMD_H2C_ADD_MCC_PTA_EN : 0) |
-		    (info->rfk_by_pass ? FWCMD_H2C_ADD_MCC_RFK_BY_PASS : 0));
+		    (info->rfk_by_pass ? FWCMD_H2C_ADD_MCC_RFK_BY_PASS : 0) |
+		    SET_WORD(info->ch_band_type,
+			     FWCMD_H2C_ADD_MCC_CH_BAND_TYPE));
 
 	ptr->dword2 =
 	cpu_to_le32(SET_WORD(info->duration, FWCMD_H2C_ADD_MCC_DURATION));

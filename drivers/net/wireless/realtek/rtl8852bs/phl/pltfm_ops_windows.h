@@ -19,10 +19,17 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <ntstrsafe.h>
+#include "Core_Includes.h"  //WDK header files
+
 #include "StatusCode.h"
 #include "EndianFree.h"
 #include "LinkList.h"		//for N6C_pltfmdef - _RT_TIMER_HANDLE
-#include "N6C_pltfmdef.h" //defined u8 :: XXX_pltfmdef.h must before pltfm_def.h
+#include "Ms_pltfmdef.h"	//defined u8 :: XXX_pltfmdef.h must before pltfm_def.h
+#ifdef WIFICX_BASED
+	#include "CX_pltfmdef.h"
+#else
+	#include "N6C_pltfmdef.h"
+#endif
 #include "pltfm_def.h"
 
 #if defined(CONFIG_USB_HCI)
@@ -42,6 +49,7 @@
 #endif
 #include "phl_types.h"
 #include "phl_util.h"
+#include "hal_g6\mac\mac_exp_def.h"
 #include "phl_def.h"
 //#include "phl_types.h"
 //#include "PlatformDef.h"
@@ -174,19 +182,19 @@ static inline u32 _os_div_round_up(u32 x, u32 y)
 	return (x + y - 1) / y;
 }
 
-static inline void *_os_pkt_buf_unmap_rx(void *d, _dma bus_addr_l, _dma bus_addr_h, u32 buf_sz)
+static inline void *_os_pkt_buf_unmap_rx(void *d, u32 bus_addr_l, u32 bus_addr_h, u32 buf_sz)
 {
 	return NULL;
 }
 
-static inline void *_os_pkt_buf_map_rx(void *d, _dma *bus_addr_l, _dma *bus_addr_h,
+static inline void *_os_pkt_buf_map_rx(void *d, u32 *bus_addr_l, u32 *bus_addr_h,
 					u32 buf_sz, void *os_priv)
 {
 	return NULL;
 }
 
-static inline void *_os_pkt_buf_alloc_rx(void *d, _dma *bus_addr_l,
-			_dma *bus_addr_h, u32 buf_sz, void **os_priv)
+static inline void *_os_pkt_buf_alloc_rx(void *d, u32 *bus_addr_l,
+			u32 *bus_addr_h, u32 buf_sz, void **os_priv)
 {
 	struct _SHARED_MEMORY share_mem;
 
@@ -200,8 +208,8 @@ static inline void *_os_pkt_buf_alloc_rx(void *d, _dma *bus_addr_l,
 	} else {
 		PlatformZeroMemory(share_mem.VirtualAddress, buf_sz);
 #ifdef CONFIG_PCI_HCI
-		*bus_addr_l = (_dma)share_mem.PhysicalAddressLow;
-		*bus_addr_h = (_dma)share_mem.PhysicalAddressHigh;
+		*bus_addr_l = share_mem.PhysicalAddressLow;
+		*bus_addr_h = share_mem.PhysicalAddressHigh;
 #endif
 #if WIFICX_BASED
 		*os_priv = share_mem.pltfm_rsvd[0];
@@ -209,8 +217,8 @@ static inline void *_os_pkt_buf_alloc_rx(void *d, _dma *bus_addr_l,
 	}
 	return (u8 *)share_mem.VirtualAddress;
 }
-static inline void _os_pkt_buf_free_rx(void *d, u8 *vir_addr, _dma bus_addr_l,
-			_dma bus_addr_h, u32 buf_sz, void *os_priv)
+static inline void _os_pkt_buf_free_rx(void *d, u8 *vir_addr, u32 bus_addr_l,
+			u32 bus_addr_h, u32 buf_sz, void *os_priv)
 {
 	struct _SHARED_MEMORY share_mem;
 
@@ -238,18 +246,18 @@ static inline void _os_free_netbuf(void *d, u8 *vir_addr, u32 buf_sz, void *os_p
 }
 
 #ifdef CONFIG_PCI_HCI
-static inline void _os_cache_inv(void *d, _dma *bus_addr_l, _dma *bus_addr_h,
+static inline void _os_cache_inv(void *d, u32 *bus_addr_l, u32 *bus_addr_h,
 					u32 buf_sz, u8 direction)
 {
 }
-static inline void _os_cache_wback(void *d, _dma *bus_addr_l,
-			_dma *bus_addr_h, u32 buf_sz, u8 direction)
+static inline void _os_cache_wback(void *d, u32 *bus_addr_l,
+			u32 *bus_addr_h, u32 buf_sz, u8 direction)
 {
 }
 
 /* txbd, rxbd, wd */
-static inline void *_os_shmem_alloc(void *d, _dma *bus_addr_l,
-				    _dma *bus_addr_h, u32 buf_sz,
+static inline void *_os_shmem_alloc(void *d, u32 *bus_addr_l,
+				    u32 *bus_addr_h, u32 buf_sz,
 				    u8 cache, u8 direction, void **os_rsvd)
 {
 	struct _SHARED_MEMORY share_mem;
@@ -262,16 +270,16 @@ static inline void *_os_shmem_alloc(void *d, _dma *bus_addr_l,
 		*bus_addr_h = 0;
 	} else {
 		PlatformZeroMemory(share_mem.VirtualAddress, buf_sz);
-		*bus_addr_l = (_dma)share_mem.PhysicalAddressLow;
-		*bus_addr_h = (_dma)share_mem.PhysicalAddressHigh;
+		*bus_addr_l = share_mem.PhysicalAddressLow;
+		*bus_addr_h = share_mem.PhysicalAddressHigh;
 #if WIFICX_BASED
 		*os_rsvd = share_mem.pltfm_rsvd[0];
 #endif
 	}
 	return (u8 *)share_mem.VirtualAddress;
 }
-static inline void _os_shmem_free(void *d, u8 *vir_addr, _dma *bus_addr_l,
-				  _dma *bus_addr_h, u32 buf_sz,
+static inline void _os_shmem_free(void *d, u8 *vir_addr, u32 *bus_addr_l,
+				  u32 *bus_addr_h, u32 buf_sz,
 				  u8 cache, u8 direction, void *os_rsvd)
 {
 	struct _SHARED_MEMORY share_mem;
@@ -290,6 +298,12 @@ static inline void _os_shmem_free(void *d, u8 *vir_addr, _dma *bus_addr_l,
 	}
 }
 #endif /*CONFIG_PCI_HCI*/
+
+/* Generate an unsigned 32-bit random number */
+static inline u32 _os_random32(void *d)
+{
+	return 0;
+}
 
 #define _os_mem_alloc(h, buf_sz) _os_mem_alloc_with_tag(h, GenTag(__func__), buf_sz)
 /* memory */
@@ -337,14 +351,14 @@ static __inline void _os_mem_set(void *h, void *buf, s8 value, u32 buf_sz)
 {
 	PlatformFillMemory(buf, buf_sz, value);
 }
-static __inline void _os_mem_cpy(void *h, void *dest, void *src, u32 buf_sz)
+static __inline void _os_mem_cpy(void *h, void *dest, const void *src, u32 buf_sz)
 {
-	PlatformMoveMemory(dest, src, buf_sz);
+	PlatformMoveMemory(dest, (void *)src, buf_sz);
 }
-static __inline int _os_mem_cmp(void *h, void *ptr1, void *ptr2, u32 buf_sz)
+static __inline int _os_mem_cmp(void *h, const void *ptr1, const void *ptr2, u32 buf_sz)
 {
 
-	return PlatformCompareMemory(ptr1, ptr2, buf_sz);
+	return PlatformCompareMemory((void *)ptr1, (void *)ptr2, buf_sz);
 }
 
 /* timer */
@@ -601,8 +615,7 @@ static __inline u8 _os_tasklet_deinit(void *drv_priv, _os_tasklet *tasklet)
 {
 	_os_thread *actual_thread = (_os_thread *)tasklet;
 	struct rtw_phl_handler *handler = (struct rtw_phl_handler *)actual_thread->pContext;
-	if (handler)
-		handler->status |= RTW_PHL_HANDLER_STATUS_RELEASED;
+	handler->status |= RTW_PHL_HANDLER_STATUS_RELEASED;
 	_os_sema_up(drv_priv, &(actual_thread->sema));
 	_os_thread_deinit(drv_priv, actual_thread);
 	return 0;
@@ -670,12 +683,25 @@ static __inline int _os_atomic_sub_return(void *d, _os_atomic *v, int i)
 
 static __inline int _os_atomic_inc_return(void *d, _os_atomic *v)
 {
-	return 0;
+	return InterlockedIncrement(v);
 }
 
 static __inline int _os_atomic_dec_return(void *d, _os_atomic *v)
 {
-	return 0;
+	return InterlockedDecrement(v);
+}
+
+/* OS handler extension */
+static inline u8 _os_init_handler_ext(void *drv_priv,
+                                      void *phl_handler)
+{
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
+static inline u8 _os_deinit_handler_ext(void *drv_priv,
+                                        void *phl_handler)
+{
+	return RTW_PHL_STATUS_SUCCESS;
 }
 
 /* File Operation */
@@ -684,6 +710,14 @@ static inline u32 _os_read_file(const char *path, u8 *buf, u32 sz)
 	/* OS Dependent API */
 	return platform_read_file(path, buf, sz);
 }
+
+/* Network Function */
+#ifdef CONFIG_RTW_MIRROR_DUMP
+static inline u32 _os_mirror_dump(u8 *hdr, u32 hdr_len, u8 *buf, u32 sz)
+{
+	return 0;
+}
+#endif
 
 /*
 static __inline bool _os_atomic_inc_unless(void *d, _os_atomic *v, int u)

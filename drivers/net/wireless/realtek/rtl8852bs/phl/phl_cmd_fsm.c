@@ -29,9 +29,6 @@
 #define pstr(s) (s +_os_strlen((u8 *)s))
 #define lstr(s, l) (size_t)(l - _os_strlen((u8 *)s))
 
-#ifdef CONFIG_RTW_SCAN_FSM
-struct _adapter;
-#endif
 #define MAX_POWER_ON_TIME	100
 #define WDOG_ALARM_ID		1
 #define WD_DURATION		2000 /* 2sec */

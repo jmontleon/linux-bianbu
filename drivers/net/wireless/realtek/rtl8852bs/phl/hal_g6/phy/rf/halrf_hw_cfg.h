@@ -33,4 +33,8 @@
 
 /*@--------------------------[Prptotype]-------------------------------------*/
 
+bool halrf_config_power_limit(void *rf_void, enum phl_phy_idx phy);
+
+bool halrf_config_power_limit_ru(void *rf_void, enum phl_phy_idx phy);
+
 #endif

@@ -15,11 +15,13 @@
 #ifndef __RTW_MLME_H_
 #define __RTW_MLME_H_
 
-
-#define	MAX_BSS_CNT	128
+#ifndef MAX_BSS_CNT
+#define MAX_BSS_CNT 128
+#endif
 /* #define   MAX_JOIN_TIMEOUT	2000 */
 /* #define   MAX_JOIN_TIMEOUT	2500 */
 #define   MAX_JOIN_TIMEOUT	6500
+#define   PS_ANNC_DRV_RETRY_INT_MS	30
 
 /*	Commented by Albert 20101105
  *	Increase the scanning timeout because of increasing the SURVEY_TO value. */
@@ -351,7 +353,7 @@ struct wifidirect_info {
 	u32						noa_interval[P2P_MAX_NOA_NUM]; /* Length of interval for owner, preferred or max acceptable interval of client. */
 	u32						noa_start_time[P2P_MAX_NOA_NUM]; /* schedule expressed in terms of the lower 4 bytes of the TSF timer. */
 #endif /* CONFIG_P2P_PS */
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 	u8						remote_mac_address[48]; /* For Roku find remote function */
 	u32						num_of_remote;
 #endif
@@ -449,87 +451,43 @@ struct unassoc_sta_info {
 };
 #endif
 
-#ifdef ROKU_PRIVATE
+struct	wlan_network {
+	_list	list;
+	int	network_type;	/* refer to ieee80211.h for WIRELESS_11A/B/G */
+	int	fixed;			/* set to fixed when not to be removed as site-surveying */
+	systime last_scanned; /* timestamp for the network */
+	systime last_non_hidden_ssid_ap;
+#ifdef CONFIG_RTW_MESH
+#if CONFIG_RTW_MESH_ACNODE_PREVENT
+	systime acnode_stime;
+	systime acnode_notify_etime;
+#endif
+#endif
+	int	aid;			/* will only be valid when a BSS is joinned. */
+	int	join_res;
+	struct beacon_keys bcn_keys;
+	bool bcn_keys_valid;
+#ifdef CONFIG_80211D
+	struct country_ie_slave_record cisr;
+#endif
+	WLAN_BSSID_EX	network; /* must be the last item */
+};
+
+#ifdef PRIVATE_R
 #define MAX_VENDOR_IE_NUM 10
 #define MAX_VENDOR_IE_LEN 255
 #define MAX_VENDOR_IE_PARAM_LEN MAX_VENDOR_IE_LEN + 2	/* vendor ie filter index + content maximum length */
 #endif
-struct mlme_priv {
 
-	_lock	lock;
-	sint	fw_state;	/* shall we protect this variable? maybe not necessarily... */
-	u8	to_join; /* flag */
-	u16 join_status;
-#ifdef CONFIG_LAYER2_ROAMING
-	u8 to_roam; /* roaming trying times */
-	struct wlan_network *roam_network; /* the target of active roam */
-	u8 roam_flags;
-	u8 roam_rssi_diff_th; /* rssi difference threshold for active scan candidate selection */
-	u32 roam_scan_int; 		/* scan interval for active roam (Unit:2 second)*/
-	u32 roam_scanr_exp_ms; /* scan result expire time in ms  for roam */
-	u8 roam_tgt_addr[ETH_ALEN]; /* request to roam to speicific target without other consideration */
-	u8 roam_rssi_threshold;
-	systime last_roaming;
-	bool need_to_roam;
-#endif
-
-	u32 defs_lmt_sta;
-	u32 defs_lmt_time;
-
-	u8	*nic_hdl;
-	u32	max_bss_cnt;		/*	The size of scan queue	*/
-	_list		*pscanned;
-	_queue	free_bss_pool;
-	_queue	scanned_queue;
-	u8		*free_bss_buf;
-	u32	num_of_scanned;
-
-	NDIS_802_11_SSID	assoc_ssid;
-	u8	assoc_bssid[6];
-	u16	assoc_ch;		/* 0 reserved for no specific channel */
-
+struct link_mlme_priv {
+	u8 	link_id;		/* valid for connectint to MLD network
+					** is parsed from RN and ML IEs */
+	u8 	is_accepted;	/* Accepted by AP or not */
+	u8	to_join;	/* Desired link or not */
 	struct wlan_network	cur_network;
-	struct wlan_network *cur_network_scanned;
 
 	/* bcn check info */
 	struct beacon_keys cur_beacon_keys; /* save current beacon keys */
-#if CONFIG_DFS
-	u8 bcn_cnts_after_csa;
-#endif
-
-#ifdef CONFIG_ARP_KEEP_ALIVE
-	/* for arp offload keep alive */
-	u8 bGetGateway;
-	u8	GetGatewayTryCnt;
-	u8	gw_mac_addr[ETH_ALEN];
-	u8	gw_ip[4];
-#endif
-
-	/* uint wireless_mode; no used, remove it */
-
-	u32	auto_scan_int_ms;
-
-	_timer assoc_timer;
-
-	uint assoc_by_bssid;
-	uint assoc_by_rssi;
-
-	_timer scan_to_timer; /* driver itself handles scan_timeout status. */
-	systime scan_start_time; /* used to evaluate the time spent in scanning */
-
-#ifdef CONFIG_SET_SCAN_DENY_TIMER
-	_timer set_scan_deny_timer;
-	ATOMIC_T set_scan_deny; /* 0: allowed, 1: deny */
-#endif
-	u8 wpa_phase;/*wpa_phase after wps finished*/
-
-	struct qos_priv qospriv;
-
-#ifdef CONFIG_80211D
-	u8 *recv_country_ie;
-	u32 recv_country_ie_len;
-#endif
-
 #ifdef CONFIG_80211N_HT
 
 	/* Number of non-HT AP/stations */
@@ -542,51 +500,26 @@ struct mlme_priv {
 	int num_FortyMHzIntolerant;
 
 	struct ht_priv	htpriv;
-
+	struct ampdu_priv ampdu_priv;
 #endif
-
 	/* VHT or HE IE is configured by upper layer or not (hostapd or wpa_supplicant) */
 	u8 upper_layer_setting;
-
 #ifdef CONFIG_80211AC_VHT
 	struct vht_priv	vhtpriv;
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 	/*infra mode, used to store AP's info*/
 	struct vht_priv_infra_ap vhtpriv_infra_ap;
-#endif /* ROKU_PRIVATE */
+#endif /* PRIVATE_R */
 #endif
+
+#ifdef PRIVATE_R
+	struct ht_priv_infra_ap htpriv_infra_ap;
+#endif /* PRIVATE_R */
 
 #ifdef CONFIG_80211AX_HE
 	struct he_priv hepriv;
 #endif
-
-#ifdef CONFIG_RTW_MBO
-	struct mbo_priv mbopriv;
-#endif
-
-#ifdef ROKU_PRIVATE
-	struct ht_priv_infra_ap htpriv_infra_ap;
-#endif /* ROKU_PRIVATE */
-
-#ifdef CONFIG_RTW_80211R
-	struct ft_roam_info ft_roam;
-#endif
-#if defined(CONFIG_RTW_WNM) || defined(CONFIG_RTW_80211K)
-	struct roam_nb_info nb_info;
-	u8 ch_cnt;
-#endif
-
-	RT_LINK_DETECT_T	LinkDetectInfo;
-
-	u8	acm_mask; /* for wmm acm mask */
-	enum rtw_phl_scan_type scan_mode; /* active: 1, passive: 0 */
-
-	u8 *wps_probe_req_ie;
-	u32 wps_probe_req_ie_len;
-
-	u8 ext_capab_ie_data[WLAN_EID_EXT_CAP_MAX_LEN];/*currently for ap mode only*/
-	u8 ext_capab_ie_len;
-
+	struct qos_priv qospriv;
 #if defined(CONFIG_AP_MODE) && defined (CONFIG_NATIVEAP_MLME)
 	/* Number of associated Non-ERP stations (i.e., stations using 802.11b
 	 * in 802.11g BSS) */
@@ -615,13 +548,130 @@ struct mlme_priv {
 	/* Overlapping BSS information */
 	ATOMIC_T olbc_ht;
 
+	_lock	bcn_update_lock;
+	u8 update_bcn;
+	struct rtw_chan_def ori_chandef;
+#endif
+	u8 ext_capab_ie_data[WLAN_EID_EXT_CAP_MAX_LEN];/*currently for ap mode only*/
+	u8 ext_capab_ie_len;
+
 #ifdef CONFIG_80211N_HT
 	int ht_20mhz_width_req;
 	int ht_intolerant_ch_reported;
 	u16 ht_op_mode;
 	u8 sw_to_20mhz; /*switch to 20Mhz BW*/
 #endif /* CONFIG_80211N_HT */
+};
 
+struct mlme_priv {
+
+	_lock	lock;
+	sint	fw_state;	/* shall we protect this variable? maybe not necessarily... */
+	u8	to_join; /* flag */
+	u16 join_status;
+#ifdef CONFIG_LAYER2_ROAMING
+	u8 to_roam; /* roaming trying times */
+	struct wlan_network *roam_network; /* the target of active roam */
+	u8 roam_flags;
+	u8 roam_rssi_diff_th; /* rssi difference threshold for active scan candidate selection */
+	u32 roam_scan_int; 		/* scan interval for active roam (Unit:2 second)*/
+	u32 roam_scanr_exp_ms; /* scan result expire time in ms  for roam */
+	u8 roam_tgt_addr[ETH_ALEN]; /* request to roam to speicific target without other consideration */
+	u8 roam_rssi_threshold;
+	systime last_roaming;
+	bool need_to_roam;
+#endif
+
+	u32 defs_lmt_sta;
+	u32 defs_lmt_time;
+
+	u8	*nic_hdl;
+	u32	max_bss_cnt;		/*	The size of scan queue	*/
+	_list	*pscanned;
+	_queue	free_bss_pool;
+	_queue	scanned_queue;
+	u8		*free_bss_buf;
+	u32		num_of_scanned;
+
+	_queue	free_mld_bss_pool;
+	_queue	scanned_mld_queue;
+	u8		*free_mld_bss_buf;
+	u32		num_of_scanned_mld;
+
+	NDIS_802_11_SSID	assoc_ssid;
+	u8	assoc_bssid[6];
+	u16	assoc_ch;		/* 0 reserved for no specific channel */
+	enum band_type	assoc_band;
+
+	struct wlan_network	dev_cur_network;
+	struct wlan_network *cur_network_scanned;
+
+#if CONFIG_DFS
+	u8 bcn_cnts_after_csa;
+#endif
+
+#ifdef CONFIG_ARP_KEEP_ALIVE_GW
+	/* for arp offload keep alive */
+	u8 bGetGateway;
+	u8	GetGatewayTryCnt;
+	u8	gw_mac_addr[ETH_ALEN];
+	u8	gw_ip[4];
+#endif
+
+	/* uint wireless_mode; no used, remove it */
+
+	u32	auto_scan_int_ms;
+
+	_timer assoc_timer;
+
+	uint assoc_by_bssid;
+	uint assoc_by_rssi;
+
+	systime scan_start_time; /* used to evaluate the time spent in scanning */
+
+#ifdef CONFIG_SET_SCAN_DENY_TIMER
+	_timer set_scan_deny_timer;
+	ATOMIC_T set_scan_deny; /* 0: allowed, 1: deny */
+#endif
+	u8 wpa_phase;/*wpa_phase after wps finished*/
+
+#ifdef CONFIG_80211N_HT
+	struct ht_priv	dev_htpriv;
+#endif
+
+#ifdef CONFIG_80211AC_VHT
+	struct vht_priv	dev_vhtpriv;
+#endif
+
+#ifdef CONFIG_80211AX_HE
+	struct he_priv dev_hepriv;
+#endif
+
+#ifdef CONFIG_80211BE_EHT
+	struct mlo_priv mlopriv;
+#endif
+
+#ifdef CONFIG_RTW_MBO
+	struct mbo_priv mbopriv;
+#endif
+
+#ifdef CONFIG_RTW_80211R
+	struct ft_roam_info ft_roam;
+#endif
+#if defined(CONFIG_RTW_WNM) || defined(CONFIG_RTW_80211K)
+	struct roam_nb_info nb_info;
+	u8 ch_cnt;
+#endif
+
+	RT_LINK_DETECT_T	LinkDetectInfo;
+
+	u8	acm_mask; /* for wmm acm mask */
+	enum rtw_phl_scan_type scan_mode; /* active: 1, passive: 0 */
+
+	u8 *wps_probe_req_ie;
+	u32 wps_probe_req_ie_len;
+
+#if defined(CONFIG_AP_MODE) && defined (CONFIG_NATIVEAP_MLME)
 #ifdef CONFIG_RTW_80211R
 	u8 *auth_rsp;
 	u32 auth_rsp_len;
@@ -634,6 +684,11 @@ struct mlme_priv {
 
 	/* u8 *wps_probe_req_ie; */
 	/* u32 wps_probe_req_ie_len; */
+
+	u8 *beacon_head_ie;
+	u32 beacon_head_ie_len;
+	u8 *beacon_tail_ie;
+	u32 beacon_tail_ie_len;
 
 	u8 *wps_beacon_ie;
 	u32 wps_beacon_ie_len;
@@ -724,18 +779,12 @@ struct mlme_priv {
 	u32 interested_unassoc_sta_cnt;
 	u32 max_unassoc_sta_cnt;
 #endif
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 	u8 vendor_ie_filter[MAX_VENDOR_IE_NUM][MAX_VENDOR_IE_LEN];
 	u8 vendor_ie_len[MAX_VENDOR_IE_NUM];
 	u8 vendor_ie_filter_enable;
 #endif
 };
-
-#define mlme_set_scan_to_timer(mlme, ms) \
-	do { \
-		/* RTW_INFO("%s set_scan_to_timer(%p, %d)\n", __FUNCTION__, (mlme), (ms)); */ \
-		_set_timer(&(mlme)->scan_to_timer, (ms)); \
-	} while (0)
 
 #define rtw_mlme_set_auto_scan_int(adapter, ms) \
 	do { \
@@ -753,12 +802,13 @@ struct mlme_priv {
 		_cancel_timer_ex(&(mlme)->assoc_timer); \
 	} while (0)
 
-#define RTW_AUTO_SCAN_REASON_UNSPECIFIED		0
-#define RTW_AUTO_SCAN_REASON_2040_BSS			BIT0
-#define RTW_AUTO_SCAN_REASON_ACS				BIT1
-#define RTW_AUTO_SCAN_REASON_ROAM				BIT2
-#define RTW_AUTO_SCAN_REASON_ROAM_ACTIVE			BIT3
-#define RTW_AUTO_SCAN_REASON_MESH_OFFCH_CAND		BIT4
+#define RTW_AUTO_SCAN_REASON_UNSPECIFIED	0
+#define RTW_AUTO_SCAN_REASON_2040_BSS		BIT0
+#define RTW_AUTO_SCAN_REASON_ACS		BIT1
+#define RTW_AUTO_SCAN_REASON_ROAM		BIT2
+#define RTW_AUTO_SCAN_REASON_ROAM_ACTIVE	BIT3
+#define RTW_AUTO_SCAN_REASON_MESH_OFFCH_CAND	BIT4
+#define RTW_AUTO_SCAN_REASON_CIS_ENV_BSS	BIT5
 
 void rtw_mlme_reset_auto_scan_int(_adapter *adapter, u8 *reason);
 
@@ -793,16 +843,23 @@ extern int rtw_init_mlme_priv(_adapter *adapter);/* (struct mlme_priv *pmlmepriv
 
 extern void rtw_free_mlme_priv(struct mlme_priv *pmlmepriv);
 
-
 extern sint rtw_select_and_join_from_scanned_queue(struct mlme_priv *pmlmepriv);
-extern sint rtw_set_key(_adapter *adapter, struct security_priv *psecuritypriv, sint keyid, u8 set_tx, bool enqueue);
+extern sint rtw_set_key(_adapter *adapter, struct _ADAPTER_LINK *adapter_link,
+			sint keyid, u8 set_tx, bool enqueue);
 extern sint rtw_set_auth(_adapter *adapter, struct security_priv *psecuritypriv);
+
+__inline static u8 *get_link_bssid(struct link_mlme_priv *pmlmepriv)
+{
+	/* if sta_mode:pmlmepriv->cur_network.network.MacAddress=> bssid */
+	/* if adhoc_mode:pmlmepriv->cur_network.network.MacAddress=> ibss mac address */
+	return pmlmepriv->cur_network.network.MacAddress;
+}
 
 __inline static u8 *get_bssid(struct mlme_priv *pmlmepriv)
 {
 	/* if sta_mode:pmlmepriv->cur_network.network.MacAddress=> bssid */
 	/* if adhoc_mode:pmlmepriv->cur_network.network.MacAddress=> ibss mac address */
-	return pmlmepriv->cur_network.network.MacAddress;
+	return pmlmepriv->dev_cur_network.network.MacAddress;
 }
 
 __inline static sint check_fwstate(struct mlme_priv *pmlmepriv, sint state)
@@ -881,7 +938,15 @@ __inline static void set_scanned_network_val(struct mlme_priv *pmlmepriv, sint v
 	_rtw_spinunlock_bh(&pmlmepriv->lock);
 }
 
+__inline static void set_scanned_mld_network_val(struct mlme_priv *pmlmepriv, sint val)
+{
+	_rtw_spinlock_bh(&pmlmepriv->lock);
+	pmlmepriv->num_of_scanned_mld = val;
+	_rtw_spinunlock_bh(&pmlmepriv->lock);
+}
+
 extern u16 rtw_get_capability(WLAN_BSSID_EX *bss);
+void dump_scanned_queue(void *sel, _adapter *adapter);
 extern void rtw_disconnect_hdl_under_linked(_adapter *adapter, struct sta_info *psta, u8 free_assoc);
 extern void rtw_generate_random_ibss(u8 *pibss);
 struct wlan_network *_rtw_find_network(_queue *scanned_queue, const u8 *addr);
@@ -898,14 +963,11 @@ void rtw_indicate_scan_done(_adapter *padapter, bool aborted);
 u32 rtw_join_abort_timeout(_adapter *adapter, u32 timeout_ms);
 
 int rtw_cached_pmkid(_adapter *adapter, u8 *bssid);
-int rtw_rsn_sync_pmkid(_adapter *adapter, u8 *ie, uint ie_len, int i_ent);
+int rtw_pmkid_sync_rsn(_adapter *adapter, u8 *ie, uint ie_len, int i_ent);
 
 extern int rtw_restruct_sec_ie(_adapter *adapter, u8 *out_ie);
-#ifdef CONFIG_WMMPS_STA
-void rtw_uapsd_use_default_setting(_adapter *padapter);
-bool rtw_is_wmmps_mode(_adapter *padapter);
-#endif /* CONFIG_WMMPS_STA */
-extern int rtw_restruct_wmm_ie(_adapter *adapter, u8 *in_ie, u8 *out_ie, uint in_len, uint initial_out_len);
+extern int rtw_restruct_wmm_ie(_adapter *adapter, struct _ADAPTER_LINK *adapter_link,
+					u8 *in_ie, u8 *out_ie, uint in_len, uint initial_out_len);
 extern void rtw_init_registrypriv_dev_network(_adapter *adapter);
 
 extern void rtw_update_registrypriv_dev_network(_adapter *adapter);
@@ -916,6 +978,7 @@ extern void rtw_join_timeout_handler(void *ctx);
 
 extern void rtw_iface_dynamic_check_handlder(struct _ADAPTER *a);
 #ifdef CONFIG_CMD_GENERAL
+void rtw_core_watchdog_sw_post_hdlr(void *drv_priv);
 void rtw_core_watchdog_sw_hdlr(void *drv_priv);
 void rtw_core_watchdog_hw_hdlr(void *drv_priv);
 #else
@@ -948,10 +1011,26 @@ extern struct wlan_network *_rtw_alloc_network(struct mlme_priv *pmlmepriv);
 
 extern void _rtw_free_network(struct mlme_priv *pmlmepriv, struct wlan_network *pnetwork, u8 isfreeall);
 extern void _rtw_free_network_nolock(struct mlme_priv *pmlmepriv, struct wlan_network *pnetwork);
+extern int rtw_init_link_mlme_priv(struct _ADAPTER_LINK *padapter_link);
+extern void rtw_free_mld_network_queue(_adapter *adapter, u8 isfreeall);
+#ifdef CONFIG_80211BE_EHT
+void rtw_link_mld_network(_adapter *padapter, struct wlan_mld_network *mld_network, struct wlan_network *network);
+struct wlan_mld_network *rtw_clone_to_join_mld_network(_adapter *padapter, struct wlan_mld_network *pmld_network);
+void rtw_free_cloned_mld_network(struct wlan_mld_network *mld_network);
+extern struct wlan_network *rtw_get_link_network_by_linkid(struct wlan_mld_network *mld_network, u8 link_id);
+#endif
+struct wlan_network *rtw_clone_network(_adapter *padapter, WLAN_BSSID_EX *pnetwork);
+struct wlan_mld_network *rtw_alloc_mld_network(_adapter *adapter, const u8 *mac_addr);
+extern struct _ADAPTER_LINK *rtw_get_adapter_link_by_linkid(_adapter *padapter, u8 link_id);
+struct _ADAPTER_LINK *rtw_get_adapter_link_by_hwband(_adapter *padapter, u8 band_idx);
+u8 rtw_adapter_link_get_id(struct _ADAPTER_LINK *alink);
+void rtw_update_link_ht_cap(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pie, uint ie_len, u8 channel);
+void rtw_update_join_priv(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+				WLAN_BSSID_EX *network, WLAN_BSSID_EX *psecnetwork);
+void rtw_clear_to_join_status(_adapter *padapter);
+void rtw_clear_is_accepted_status(_adapter *padapter);
 
 extern void _rtw_free_network_queue(_adapter *padapter, u8 isfreeall);
-
-struct _ADAPTER_LINK *rtw_get_adapter_link_by_hwband(_adapter *padapter, u8 band_idx);
 
 extern sint rtw_if_up(_adapter *padapter);
 
@@ -966,15 +1045,18 @@ void rtw_joinbss_reset(_adapter *padapter);
 
 #ifdef CONFIG_80211N_HT
 void rtw_ht_get_dft_setting(_adapter *padapter,
-				struct protocol_cap_t *dft_proto_cap, struct role_cap_t *dft_cap);
-void	rtw_ht_use_default_setting(_adapter *padapter);
+				struct protocol_cap_t *dft_proto_cap,
+				struct role_link_cap_t *dft_cap);
+void	rtw_ht_use_default_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
 void rtw_build_wmm_ie_ht(_adapter *padapter, u8 *out_ie, uint *pout_len);
-unsigned int rtw_restructure_ht_ie(_adapter *padapter, u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, u8 channel, struct country_chplan *req_chplan);
-void rtw_update_ht_cap(_adapter *padapter, u8 *pie, uint ie_len, u8 channel);
+unsigned int rtw_restructure_ht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+						u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len,
+						u8 channel);
 void rtw_issue_addbareq_cmd(_adapter *padapter, struct xmit_frame *pxmitframe, u8 issue_when_busy);
 #endif
 
-void rtw_append_extended_cap(_adapter *padapter, u8 *out_ie, uint *pout_len);
+void rtw_append_extended_cap(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
+					u8 *out_ie, uint *pout_len);
 
 int rtw_is_same_ibss(_adapter *adapter, struct wlan_network *pnetwork);
 int is_same_network(WLAN_BSSID_EX *src, WLAN_BSSID_EX *dst);
@@ -1017,7 +1099,8 @@ int rtw_select_roaming_candidate(struct mlme_priv *pmlmepriv);
 #define rtw_select_roaming_candidate(mlme) _FAIL
 #endif /* CONFIG_LAYER2_ROAMING */
 
-bool rtw_adjust_chbw(_adapter *adapter, u8 req_ch, u8 *req_bw, u8 *req_offset);
+RTW_FUNC_2G_5G_ONLY bool rtw_adjust_chbw(_adapter *adapter, u8 req_ch, u8 *req_bw, u8 *req_offset);
+bool rtw_adjust_bchbw(_adapter *adapter, enum band_type req_band, u8 req_ch, u8 *req_bw, u8 *req_offset);
 
 struct sta_media_status_rpt_cmd_parm {
 	struct sta_info *sta;

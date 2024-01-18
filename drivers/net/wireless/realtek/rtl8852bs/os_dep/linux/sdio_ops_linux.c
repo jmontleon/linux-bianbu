@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2020 Realtek Corporation.
+ * Copyright(c) 2007 - 2021 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -16,227 +16,21 @@
 
 #include <drv_types.h>
 
-inline bool rtw_is_sdio30(struct dvobj_priv *dvobj)
-{
-	PSDIO_DATA psdio_data = dvobj_to_sdio(dvobj);
-
-	return (psdio_data->sd3_bus_mode) ? _TRUE : _FALSE;
-}
-/* The unit of return value is Hz */
-inline u32 rtw_sdio_get_clock(struct dvobj_priv *d)
-{
-	return dvobj_to_sdio(d)->clock;
-}
-
 static bool rtw_sdio_claim_host_needed(struct sdio_func *func)
 {
 	struct dvobj_priv *dvobj = sdio_get_drvdata(func);
-	PSDIO_DATA sdio_data = dvobj_to_sdio(dvobj);
+	struct sdio_data *sdio_data = dvobj_to_sdio(dvobj);
 
 	if (sdio_data->sys_sdio_irq_thd && sdio_data->sys_sdio_irq_thd == current)
 		return _FALSE;
 	return _TRUE;
 }
 
-inline void rtw_sdio_set_irq_thd(struct dvobj_priv *dvobj, _thread_hdl_ thd_hdl)
-{
-	PSDIO_DATA sdio_data = dvobj_to_sdio(dvobj);
-
-	sdio_data->sys_sdio_irq_thd = thd_hdl;
-}
-
-/*
- * Use CMD53 to read data from SDIO device.
- * This function MUST be called after sdio_claim_host() or
- * in SDIO ISR(host had been claimed).
- *
- * Parameters:
- *	psdio	pointer of SDIO_DATA
- *	addr	address to read
- *	cnt		amount to read
- *	pdata	pointer to put data, this should be a "DMA:able scratch buffer"!
- *
- * Return:
- *	0		Success
- *	others	Fail
- */
-s32 _sd_read(struct dvobj_priv *dvobj, u32 addr, u32 cnt, void *pdata)
-{
-	PSDIO_DATA psdio;
-	int err = -EPERM;
-	struct sdio_func *func;
-
-	psdio = dvobj_to_sdio(dvobj);
-
-	if (dev_is_surprise_removed(dvobj)) {
-		/* RTW_INFO(" %s (padapter->bSurpriseRemoved ||adapter->pwrctrlpriv.pnp_bstop_trx)!!!\n",__FUNCTION__); */
-		return err;
-	}
-
-	func = psdio->func;
-
-	if (unlikely((cnt == 1) || (cnt == 2))) {
-		int i;
-		u8 *pbuf = (u8 *)pdata;
-
-		for (i = 0; i < cnt; i++) {
-			*(pbuf + i) = sdio_readb(func, addr + i, &err);
-
-			if (err) {
-				RTW_ERR("%s: FAIL!(%d) addr=0x%05x\n", __func__, err, addr);
-				break;
-			}
-		}
-		return err;
-	}
-
-	err = sdio_memcpy_fromio(func, pdata, addr, cnt);
-	if (err)
-		RTW_ERR("%s: FAIL(%d)! ADDR=%#x Size=%d\n", __func__, err, addr, cnt);
-
-	if (err == (-ESHUTDOWN) || err == (-ENODEV) || err == (-ENOMEDIUM) || err == (-ETIMEDOUT))
-		dev_set_surprise_removed(dvobj);
-
-
-	return err;
-}
-
-/*
- * Use CMD53 to read data from SDIO device.
- *
- * Parameters:
- *	psdio	pointer of SDIO_DATA
- *	addr	address to read
- *	cnt		amount to read
- *	pdata	pointer to put data, this should be a "DMA:able scratch buffer"!
- *
- * Return:
- *	0		Success
- *	others	Fail
- */
-s32 sd_read(struct dvobj_priv *dvobj, u32 addr, u32 cnt, void *pdata)
-{
-	PSDIO_DATA psdio;
-	struct sdio_func *func;
-	bool claim_needed;
-	s32 err = -EPERM;
-
-	psdio = dvobj_to_sdio(dvobj);
-	if (dev_is_surprise_removed(dvobj)) {
-		/* RTW_INFO(" %s (padapter->bSurpriseRemoved ||adapter->pwrctrlpriv.pnp_bstop_trx)!!!\n",__FUNCTION__); */
-		return err;
-	}
-	func = psdio->func;
-	claim_needed = rtw_sdio_claim_host_needed(func);
-
-	if (claim_needed)
-		sdio_claim_host(func);
-	err = _sd_read(dvobj, addr, cnt, pdata);
-	if (claim_needed)
-		sdio_release_host(func);
-	return err;
-}
-
-/*
- * Use CMD53 to write data to SDIO device.
- * This function MUST be called after sdio_claim_host() or
- * in SDIO ISR(host had been claimed).
- *
- * Parameters:
- *	psdio	pointer of SDIO_DATA
- *	addr	address to write
- *	cnt		amount to write
- *	pdata	data pointer, this should be a "DMA:able scratch buffer"!
- *
- * Return:
- *	0		Success
- *	others	Fail
- */
-s32 _sd_write(struct dvobj_priv *dvobj, u32 addr, u32 cnt, void *pdata)
-{
-	PSDIO_DATA psdio;
-
-	struct sdio_func *func;
-	u32 size;
-	s32 err = -EPERM;
-
-	psdio = dvobj_to_sdio(dvobj);
-
-	if (dev_is_surprise_removed(dvobj)) {
-		/* RTW_INFO(" %s (padapter->bSurpriseRemoved ||adapter->pwrctrlpriv.pnp_bstop_trx)!!!\n",__FUNCTION__); */
-		return err;
-	}
-
-	func = psdio->func;
-	/*	size = sdio_align_size(func, cnt); */
-
-	if (unlikely((cnt == 1) || (cnt == 2))) {
-		int i;
-		u8 *pbuf = (u8 *)pdata;
-
-		for (i = 0; i < cnt; i++) {
-			sdio_writeb(func, *(pbuf + i), addr + i, &err);
-			if (err) {
-				RTW_ERR("%s: FAIL!(%d) addr=0x%05x val=0x%02x\n", __func__, err, addr, *(pbuf + i));
-				break;
-			}
-		}
-
-		return err;
-	}
-
-	size = cnt;
-	err = sdio_memcpy_toio(func, addr, pdata, size);
-	if (err)
-		RTW_ERR("%s: FAIL(%d)! ADDR=%#x Size=%d(%d)\n", __func__, err, addr, cnt, size);
-
-
-	return err;
-}
-
-/*
- * Use CMD53 to write data to SDIO device.
- *
- * Parameters:
- *  psdio	pointer of SDIO_DATA
- *  addr	address to write
- *  cnt		amount to write
- *  pdata	data pointer, this should be a "DMA:able scratch buffer"!
- *
- * Return:
- *  0		Success
- *  others	Fail
- */
-s32 sd_write(struct dvobj_priv *dvobj, u32 addr, u32 cnt, void *pdata)
-{
-	PSDIO_DATA psdio;
-	struct sdio_func *func;
-	bool claim_needed;
-	s32 err = -EPERM;
-
-	psdio = dvobj_to_sdio(dvobj);
-
-	if (dev_is_surprise_removed(dvobj)) {
-		/* RTW_INFO(" %s (padapter->bSurpriseRemoved ||adapter->pwrctrlpriv.pnp_bstop_trx)!!!\n",__FUNCTION__); */
-		return err;
-	}
-
-	func = psdio->func;
-	claim_needed = rtw_sdio_claim_host_needed(func);
-
-	if (claim_needed)
-		sdio_claim_host(func);
-	err = _sd_write(dvobj, addr, cnt, pdata);
-	if (claim_needed)
-		sdio_release_host(func);
-	return err;
-}
-
 /*#define RTW_SDIO_DUMP*/
 #ifdef RTW_SDIO_DUMP
 #define DUMP_LEN_LMT	0	/* buffer dump size limit */
 				/* unit: byte, 0 for no limit */
-#else 
+#else
 #define DUMP_LEN_LMT	32
 #endif
 #define GET_DUMP_LEN(len)	(DUMP_LEN_LMT ? rtw_min(len, DUMP_LEN_LMT) : len)

@@ -66,5 +66,51 @@ u32 mac_set_hwseq_reg(struct mac_ax_adapter *adapter,
  * @}
  * @}
  */
+/**
+ * @addtogroup Basic_TRX
+ * @{
+ * @addtogroup TX_ShortCut
+ * @{
+ */
+/**
+ * @brief mac_set_hwseq_dctrl
+ *
+ * @param *adapter
+ * @param macid
+ * @param mac_ax_dctl_seq_cfg
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_set_hwseq_dctrl(struct mac_ax_adapter *adapter,
+			u8 macid,
+			struct mac_ax_dctl_seq_cfg *seq_info);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup Basic_TRX
+ * @{
+ * @addtogroup TX_ShortCut
+ * @{
+ */
+/**
+ * @brief mac_get_hwseq_cfg
+ *
+ * @param *adapter
+ * @param macid
+ * @param ref_sel 0:dmac_tbl; 1:CR
+ * @param mac_ax_dctl_seq_cfg
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_get_hwseq_cfg(struct mac_ax_adapter *adapter,
+		      u8 macid, u8 ref_sel,
+		      struct mac_ax_dctl_seq_cfg *seq_info);
+/**
+ * @}
+ * @}
+ */
 
 #endif

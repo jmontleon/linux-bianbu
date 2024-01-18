@@ -16,8 +16,10 @@
 #define _HAL_CHAN_H_
 
 enum rtw_hal_status rtw_hal_set_ch_bw(void *hal, u8 band_idx,
-		struct rtw_chan_def *chdef, bool do_rfk, bool rd_enabled);
+		struct rtw_chan_def *chdef, enum rfk_tri_type rt_type, bool rd_enabled, bool frc_switch);
 
+void rtw_hal_get_cur_chdef(void *hal, u8 band_idx,
+				struct rtw_chan_def *cur_chandef);
 
 #ifdef DBG_PHL_CHAN
 void phl_chan_dump_chandef(const char *caller, const int line, bool show_caller,

@@ -25,12 +25,15 @@ rtw_hal_thermal_protect_cfg_tx_ampdu(
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
-	u8 num_ampdu = 0, tx_time = 0;
+	u8 tx_time = 0;
+	u16 num_ampdu = 0;
 
 	if (64 == sta->asoc_cap.num_ampdu)
 		tx_time = 0xA5;
 	else if (128 == sta->asoc_cap.num_ampdu)
-		tx_time = 0xAB;
+		tx_time = 0xA5;
+	else if (256 == sta->asoc_cap.num_ampdu)
+		tx_time = 0xA5;
 
 	if(sta->asoc_cap.num_ampdu_bk == 0)
 		sta->asoc_cap.num_ampdu_bk = sta->asoc_cap.num_ampdu;

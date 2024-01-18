@@ -20,6 +20,7 @@
 #include "../type.h"
 #include "../fw_ax/inc_hdr/fwcmd_intf.h"
 #include "fwcmd_intf_f2p.h"
+#include "fwcmd_intf_f2p_v1.h"
 #include "trx_desc.h"
 #include "fwofld.h"
 #include "p2p.h"
@@ -52,9 +53,6 @@
 #define FWCMD_C2H_CL_NULL		0xFF
 #define FWCMD_C2H_FUNC_NULL		0xFF
 #define FWCMD_C2H_CAT_NULL		0xFF
-
-#define FWCMD_C2H_FUNC_FTMRPT 0x2
-#define FWCMD_C2H_FUNC_FTMACKRPT 0x3
 
 /**
  * @struct h2c_buf_head
@@ -287,7 +285,7 @@ u32 h2cb_exit(struct mac_ax_adapter *adapter);
  */
 #if MAC_AX_PHL_H2C
 struct rtw_h2c_pkt *h2cb_alloc(struct mac_ax_adapter *adapter,
-			       enum h2c_buf_class buf_class);
+			       enum rtw_h2c_pkt_type buf_class);
 /**
  * @}
  * @}
@@ -466,20 +464,6 @@ u32 h2c_pkt_set_cmd(struct mac_ax_adapter *adapter, struct rtw_h2c_pkt *h2cb,
  */
 
 /**
- * @brief h2c_agg_enqueue
- *
- * @param *adapter
- * @param *h2cb
- * @return Please Place Description here.
- * @retval u32
- */
-u32 h2c_agg_enqueue(struct mac_ax_adapter *adapter, struct rtw_h2c_pkt *h2cb);
-/**
- * @}
- * @}
- */
-
-/**
  * @brief h2c_pkt_build_txd
  *
  * @param *adapter
@@ -488,6 +472,20 @@ u32 h2c_agg_enqueue(struct mac_ax_adapter *adapter, struct rtw_h2c_pkt *h2cb);
  * @retval u32
  */
 u32 h2c_pkt_build_txd(struct mac_ax_adapter *adapter, struct rtw_h2c_pkt *h2cb);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief h2c_agg_enqueue
+ *
+ * @param *adapter
+ * @param *h2cb
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 h2c_agg_enqueue(struct mac_ax_adapter *adapter, struct rtw_h2c_pkt *h2cb);
 /**
  * @}
  * @}
@@ -848,7 +846,5 @@ u32 mac_get_c2h_event(struct mac_ax_adapter *adapter,
 
 u32 mac_notify_fw_dbcc(struct mac_ax_adapter *adapter, u8 en);
 
-void H2CRegIncreaseCounter(struct mac_ax_adapter *adapter);
-void C2HRegIncreaseCounter(struct mac_ax_adapter *adapter);
 #endif
 

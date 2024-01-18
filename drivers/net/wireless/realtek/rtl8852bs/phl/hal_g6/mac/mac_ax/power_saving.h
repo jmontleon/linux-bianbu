@@ -25,6 +25,14 @@
 #define	MACID_GRP_MASK	0x1F
 #define PORT_SH		4
 
+#define REQ_BCN_TO_VAL_MIN	4
+#define REQ_BCN_TO_VAL_MAX	64
+
+#define REQ_BCN_TO_VAL_NONVALID	0
+
+#define RPWM_DELAY_FOR_32K_TICK	64
+
+#define REQ_PWR_ST_XTAL_OFF_VAL	0x82ff0000
 /**
  * @enum last_rpwm_mode
  *
@@ -66,6 +74,16 @@ enum last_rpwm_mode {
  * Please Place Description here.
  * @var lps_parm::lastrpwm
  * Please Place Description here.
+ * @var lps_parm::bcnnohit_en
+ * Please Place Description here.
+ * @var lps_parm::nulltype
+ * Please Place Description here.
+ * @var lps_parm::dyntxantnum_en
+ * Please Place Description here.
+ * @var lps_parm::maxtxantnum
+ * Please Place Description here.
+ * @var lps_parm::lpstxantnum
+ * Please Place Description here.
  * @var lps_parm::rsvd1
  * Please Place Description here.
  */
@@ -81,7 +99,12 @@ struct lps_parm {
 	u32 bkuapsd:1;
 	u32 rsvd:4;
 	u32 lastrpwm:8;
-	u32 rsvd1:16;
+	u32 bcnnohit_en:1;
+	u32 nulltype:1;
+	u32 dyntxantnum_en:1;
+	u32 maxtxantnum:1;
+	u32 lpstxantnum:1;
+	u32 rsvd1:11;
 };
 
 /**
@@ -136,6 +159,99 @@ struct ips_cfg {
 	u32 macid:8;
 	u32 enable:1;
 	u32 rsvd0:23;
+};
+
+/**
+ * @struct periodic_wake_cfg
+ * @brief periodic_wake_cfg
+ *
+ * @var fw_redl_cfg::
+ * Please Place Description here.
+ * @var fw_redl_cfg::rsvd
+ * Please Place Description here.
+ */
+struct periodic_wake_cfg {
+	u32 macid:8;
+	u32 enable:1;
+	u32 band:1;
+	u32 port:3;
+	u32 rsvd:19;
+	u32 wake_period;
+	u32 wake_duration;
+};
+
+/**
+ * @struct req_pwr_state_cfg
+ * @brief req_pwr_state_cfg
+ *
+ * @var req_pwr_state_cfg::req_pwr_state
+ * Please Place Description here.
+ * @var req_pwr_state_cfg::rsvd0
+ * Please Place Description here.
+ */
+struct req_pwr_state_cfg {
+	u32 req_pwr_state:8;
+	u32 rsvd0:24;
+};
+
+/**
+ * @struct req_pwr_lvl_cfg
+ * @brief req_pwr_vl_cfg
+ *
+ * @var req_pwr_lvl_cfg::macid
+ * Please Place Description here.
+ * @var req_pwr_lvl_cfg::bcn_to_val
+ * Please Place Description here.
+ * @var req_pwr_lvl_cfg::ps_lvl
+ * Please Place Description here.
+ * @var req_pwr_lvl_cfg::trx_lvl
+ * Please Place Description here.
+ * @var req_pwr_lvl_cfg::bcn_to_lvl
+ * Please Place Description here.
+ * @var req_pwr_lvl_cfg::rsvd0
+ * Please Place Description here.
+ */
+struct req_pwr_lvl_cfg {
+	u32 macid:8;
+	u32 bcn_to_val:8;
+	u32 ps_lvl:4;
+	u32 trx_lvl:4;
+	u32 bcn_to_lvl:4;
+	u32 rsvd0:4;
+};
+
+/**
+ * @struct lps_option_cfg
+ * @brief lps_option_cfg
+ *
+ * @var lps_option_cfg::req_lps_option
+ * Please Place Description here.
+ * @var lps_option_cfg::rsvd0
+ * Please Place Description here.
+ */
+struct lps_option_cfg {
+	u32 req_lps_option:1;
+	u32 rsvd0:31;
+};
+
+/**
+ * @struct tbtt_tuning_cfg
+ * @brief tbtt_tuning_cfg
+ *
+ * @var tbtt_tuning_cfg::band
+ * Please Place Description here.
+ * @var tbtt_tuning_cfg::port
+ * Please Place Description here.
+ * @var tbtt_tuning_cfg::rsvd0
+ * Please Place Description here.
+ * @var tbtt_tuning_cfg::shift_val
+ * Please Place Description here.
+ */
+struct tbtt_tuning_cfg {
+	u32 band:4;
+	u32 port:4;
+	u32 rsvd0:24;
+	u32 shift_val;
 };
 
 /**
@@ -345,6 +461,81 @@ u32 mac_ps_notify_wake(struct mac_ax_adapter *adapter);
  */
 u32 mac_cfg_ps_advance_parm(struct mac_ax_adapter *adapter,
 			    struct mac_ax_ps_adv_parm *parm);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_periodic_wake_cfg
+ *
+ * @param *adapter
+ * @param pw_info
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_periodic_wake_cfg(struct mac_ax_adapter *adapter,
+			  struct mac_ax_periodic_wake_info pw_info);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_req_pwr_state_cfg
+ *
+ * @param *adapter
+ * @param req_pwr_st
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_req_pwr_state_cfg(struct mac_ax_adapter *adapter,
+			  enum mac_req_pwr_st req_pwr_st);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_req_pwr_lvl_cfg
+ *
+ * @param *adapter
+ * @param *pwr_lvl_info
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_req_pwr_lvl_cfg(struct mac_ax_adapter *adapter,
+			struct mac_ax_req_pwr_lvl_info *pwr_lvl_info);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_lps_option_cfg
+ *
+ * @param *adapter
+ * @param *lps_option
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_lps_option_cfg(struct mac_ax_adapter *adapter,
+		       struct mac_lps_option *lps_option);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_tbtt_tuning_cfg
+ *
+ * @param *adapter
+ * @param *tbtt_tuning_info
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_tbtt_tuning_cfg(struct mac_ax_adapter *adapter,
+			struct mac_ax_tbtt_tuning_info *tbtt_tuning_info);
 /**
  * @}
  * @}

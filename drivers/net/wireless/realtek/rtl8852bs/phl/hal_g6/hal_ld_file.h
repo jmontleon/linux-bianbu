@@ -34,8 +34,10 @@ enum PHY_PG_RATE_def {
 	HE2SS_MCS7_4 = 4,
 	HE2SS_MCS11_8 = 5,
 	HE2SS_DCM4_0 = 6,
-	Legacy_AllRate = 7,
-	HE_AllRate = 8,
+	Legacy_AllRate2_1 = 7,
+	HE_AllRate2_2 = 8,
+	OFDM_AllRate5_1 = 9,
+	OFDM_AllRate6_1 = 10,
 };
 
 struct _hal_file_regd_ext {
@@ -76,7 +78,9 @@ enum _halrf_tx_pw_lmt_ru_bandwidth_type {
 
 enum _halrf_pw_lmt_band_type {
 		_PW_LMT_BAND_2_4G = 0,
-		_PW_LMT_BAND_5G = 1
+		_PW_LMT_BAND_5G = 1,
+		_PW_LMT_BAND_6G = 2,
+		_PW_LMT_MAX_BAND = 3
 };
 
 enum _halrf_pw_lmt_bandwidth_type {
@@ -115,6 +119,7 @@ enum _halrf_pw_lmt_beamforming_type {
 #define MAX_RF_PATH 4
 #define DELTA_SWINGIDX_SIZE 30
 #define BAND_NUM 4
+#define BAND_NUM_6G 4
 #define DELTA_SWINTSSI_SIZE 61
 
 /*@---------------------------End Define Parameters---------------------------*/
@@ -186,6 +191,14 @@ struct hal_txpwr_track_t {
 	s8 delta_swing_table_idx_5gc_n[BAND_NUM][DELTA_SWINGIDX_SIZE];
 	s8 delta_swing_table_idx_5gd_p[BAND_NUM][DELTA_SWINGIDX_SIZE];
 	s8 delta_swing_table_idx_5gd_n[BAND_NUM][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6ga_p[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6ga_n[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6gb_p[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6gb_n[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6gc_p[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6gc_n[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6gd_p[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
+	s8 delta_swing_table_idx_6gd_n[BAND_NUM_6G][DELTA_SWINGIDX_SIZE];
 	s8 delta_swing_tssi_table_2g_cck_a[DELTA_SWINTSSI_SIZE];
 	s8 delta_swing_tssi_table_2g_cck_b[DELTA_SWINTSSI_SIZE];
 	s8 delta_swing_tssi_table_2g_cck_c[DELTA_SWINTSSI_SIZE];
@@ -233,6 +246,7 @@ struct hal_txpwr_track_t {
 	u8 rf_kfree_enable;		/*for efuse enable check*/
 	};
 
+int rtw_hal_find_ext_regd_num(struct rtw_para_pwrlmt_info_t *para_info, const char *regd_name);
 void rtw_hal_dl_all_para_file(struct rtw_phl_com_t *phl_com, char *ic_name, void *hal);
 u8 rtw_hal_efuse_shadow_file_load(void *hal, char *ic_name, bool is_limit);
 u8 rtw_hal_ld_fw_symbol(struct rtw_phl_com_t *phl_com,

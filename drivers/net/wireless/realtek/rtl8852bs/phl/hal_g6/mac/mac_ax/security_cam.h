@@ -53,6 +53,9 @@
 #define DEFAULT_KEYID		0x0
 #define DEFAULT_KEYTYPE		0x0
 
+#define MACID_ENTRY_NUM		0x80
+#define KEYNUM_PER_MACID	0x07
+
 /*--------------------DSecurity cam type declaration-----------------*/
 
 /**
@@ -78,6 +81,16 @@ struct sec_cam_entry_t {
 	struct mac_ax_sec_cam_info *sec_cam_info;
 };
 
+struct dctl_secinfo_entry_t {
+	u16 aes_iv_l;
+	u32 aes_iv_h;
+	u8 sec_keyid;
+	u8 wapi_ctrl;
+	u8 sec_ent_valid;
+	u8 sec_ent_keyid[7];
+	u8 sec_ent[7];
+};
+
 /**
  * @struct sec_cam_table_t
  * @brief sec_cam_table_t
@@ -90,6 +103,10 @@ struct sec_cam_entry_t {
 struct sec_cam_table_t {
 	struct sec_cam_entry_t *sec_cam_entry[128];
 	u8 next_cam_storage_idx;
+};
+
+struct dctl_sec_info_t {
+	struct dctl_secinfo_entry_t *dctl_secinfo_entry[MACID_ENTRY_NUM];
 };
 
 /**
@@ -119,11 +136,10 @@ enum SEC_FUNCTION_TYPE {
 	SEC_BMC_MGNT_ENC = 5,
 };
 
-enum SEC_CAM_OP_MODE {
-	SEC_CAM_NORMAL = 0,
-	SEC_CAM_CLEAR = 1,
-	SEC_CAM_BACKUP = 2,
-	SEC_CAM_RESTORE = 3,
+enum SEC_IV_UPD_TYPE {
+	SEC_IV_UPD_TYPE_NONE = 0,
+	SEC_IV_UPD_TYPE_WRITE = 1,
+	SEC_IV_UPD_TYPE_READ = 2
 };
 
 /*--------------------Funciton declaration----------------------------*/
@@ -165,7 +181,7 @@ u32 disconnect_flush_key(struct mac_ax_adapter *adapter,
  * @retval u32
  */
 
-u32 sec_info_tbl_init(struct mac_ax_adapter *adapter, u8 op_mode);
+u32 sec_info_tbl_init(struct mac_ax_adapter *adapter);
 /**
  * @}
  * @}
@@ -186,7 +202,7 @@ u32 sec_info_tbl_init(struct mac_ax_adapter *adapter, u8 op_mode);
  * @retval u32
  */
 
-u32 free_sec_info_tbl(struct mac_ax_adapter *adapter, u8 op_mode);
+u32 free_sec_info_tbl(struct mac_ax_adapter *adapter);
 /**
  * @}
  * @}
@@ -212,7 +228,7 @@ u32 free_sec_info_tbl(struct mac_ax_adapter *adapter, u8 op_mode);
 u32 fill_sec_cam_info(struct mac_ax_adapter *adapter,
 		      struct mac_ax_sec_cam_info *s_info,
 		      struct fwcmd_seccam_info *sec_info,
-		      u8 op_mode);
+		      u8 clear);
 /**
  * @}
  * @}
@@ -274,8 +290,6 @@ u32 mac_sta_del_key(struct mac_ax_adapter *adapter,
  * @}
  */
 
-u32 mac_sta_keycam_backup(struct mac_ax_adapter *adapter, u8 op_mode);
-
 /**
  * @addtogroup Basic_TRX
  * @{
@@ -331,5 +345,8 @@ u32 refresh_security_cam_info(struct mac_ax_adapter *adapter,
  * @}
  * @}
  */
+
+u32 mac_wowlan_secinfo(struct mac_ax_adapter *adapter,
+		       struct mac_ax_sec_iv_info *sec_iv_info);
 
 #endif

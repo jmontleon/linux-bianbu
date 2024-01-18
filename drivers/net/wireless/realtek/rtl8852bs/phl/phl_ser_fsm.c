@@ -444,7 +444,7 @@ static int ser_pci_l1_pause_trx_st_hdl(void *obj, u16 event, void *param)
 			break;
 		}
 
-		ops->trx_reset(pser->phl_info, PHL_CTRL_TX|PHL_CTRL_RX);
+		ops->trx_reset(pser->phl_info, PHL_CTRL_TX | PHL_CTRL_RX);
 
 		/* pci: send M2 event */
 		ser_send_m2_event(pser);
@@ -492,7 +492,7 @@ static int ser_pci_l1_pause_trx_st_hdl(void *obj, u16 event, void *param)
 		if (pser->poll_io_times-- <= 0) {
 #ifdef RTW_WKARD_SER_L1_EXPIRE
 
-			ops->trx_reset(pser->phl_info, PHL_CTRL_TX|PHL_CTRL_RX);
+			ops->trx_reset(pser->phl_info, PHL_CTRL_TX | PHL_CTRL_RX);
 
 			/* pci: send M2 event */
 			ser_send_m2_event(pser);
@@ -527,7 +527,7 @@ static int ser_pci_l1_pause_trx_st_hdl(void *obj, u16 event, void *param)
 			break;
 		}
 */
-		ops->trx_reset(pser->phl_info, PHL_CTRL_TX|PHL_CTRL_RX);
+		ops->trx_reset(pser->phl_info, PHL_CTRL_TX | PHL_CTRL_RX);
 
 		/* pci: send M2 event */
 		ser_send_m2_event(pser);

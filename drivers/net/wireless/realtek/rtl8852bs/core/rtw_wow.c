@@ -39,7 +39,7 @@ void rtw_init_wow(_adapter *padapter)
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct rtw_wow_gpio_info *wow_gpio = &wowpriv->wow_gpio;
 	struct rtw_dev2hst_gpio_info *d2h_gpio_info = &wow_gpio->d2h_gpio_info;
-	u8 toggle_pulse = DEV2HST_TOGGLE, gpio_time_unit = 1, gpio_pulse_count = 3;
+	u8 toggle_pulse = CONFIG_TOGGLE_PULSE, gpio_time_unit = 1, gpio_pulse_count = CONFIG_PULSE_COUNT;
 	u8 gpio_pulse_period = 20, gpio_pulse_dura = 10;
 	u8 rsn_a_en = 0, rsn_a = 0, rsn_a_time_unit = 0, rsn_a_toggle_pulse = DEV2HST_TOGGLE;
 	u8 rsn_a_pulse_count = 0, rsn_a_pulse_period = 0, rsn_a_pulse_duration = 0;
@@ -53,18 +53,23 @@ void rtw_init_wow(_adapter *padapter)
 	pwrctrlpriv->wowlan_ap_mode = _FALSE;
 	pwrctrlpriv->wowlan_p2p_mode = _FALSE;
 	pwrctrlpriv->wowlan_in_resume = _FALSE;
-	pwrctrlpriv->wowlan_last_wake_reason = 0;
+
+	wowpriv->wow_wake_reason = 0;
 
 #ifdef CONFIG_GPIO_WAKEUP
-#ifdef ROKU_PRIVATE
+#ifdef PRIVATE_R
 	rsn_a_en = 1;
+	toggle_pulse = DEV2HST_PULSE;
+	gpio_pulse_count = 1;
+	gpio_pulse_dura = 20;
+	gpio_pulse_period = 40;
 	rsn_a_toggle_pulse = DEV2HST_PULSE;
 	rsn_a_time_unit = 1;
 	rsn_a_pulse_count = 1;
-	rsn_a_pulse_duration = 5;
-	rsn_a_pulse_period = 10;
+	rsn_a_pulse_duration = 60;
+	rsn_a_pulse_period = 120;
 	rsn_a = 0x21;
-#endif /* ROKU_PRIVATE */
+#endif /* PRIVATE_R */
 	pwrctrlpriv->hst2dev_high_active = HIGH_ACTIVE_HST2DEV;
 	/*default low active*/
 	d2h_gpio_info->gpio_active = HIGH_ACTIVE_DEV2HST;
@@ -103,25 +108,6 @@ void rtw_init_wow(_adapter *padapter)
 #endif /* CONFIG_GPIO_WAKEUP */
 
 #ifdef CONFIG_WOWLAN
-#ifdef CONFIG_LPS_1T1R
-#define WOW_LPS_1T1R_FMT ", WOW_LPS_1T1R=%d"
-#define WOW_LPS_1T1R_ARG , pwrctrlpriv->wowlan_lps_1t1r
-#else
-#define WOW_LPS_1T1R_FMT ""
-#define WOW_LPS_1T1R_ARG
-#endif
-
-	pwrctrlpriv->wowlan_power_mgmt = padapter->registrypriv.wow_power_mgnt;
-	pwrctrlpriv->wowlan_lps_level = padapter->registrypriv.wow_lps_level;
-#ifdef CONFIG_LPS_1T1R
-	pwrctrlpriv->wowlan_lps_1t1r = padapter->registrypriv.wow_lps_1t1r;
-#endif
-
-	RTW_INFO("%s: WOW_LPS_mode=%d, WOW_LPS_level=%d"WOW_LPS_1T1R_FMT"\n",
-		__func__, pwrctrlpriv->wowlan_power_mgmt, pwrctrlpriv->wowlan_lps_level
-		WOW_LPS_1T1R_ARG
-	);
-
 	if (!(registry_par->wakeup_event & BIT(3)))
 		rtw_wow_pattern_clean(padapter, RTW_CUSTOMIZED_PATTERN);
 
@@ -155,15 +141,6 @@ void rtw_wowlan_set_pattern_cast_type(_adapter *adapter, struct rtw_wowcam_upd_i
 		wowcam_info->uc = 1;
 }
 
-inline bool _rtw_wow_chk_cap(_adapter *adapter, u8 cap)
-{
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	struct wow_ctl_t *wow_ctl = &dvobj->wow_ctl;
-
-	if (wow_ctl->wow_cap & cap)
-		return _TRUE;
-	return _FALSE;
-}
 bool rtw_wowlan_parser_pattern_cmd(u8 *input, char *pattern,
 				   int *pattern_len, char *bit_mask)
 {
@@ -475,8 +452,11 @@ void rtw_construct_remote_control_info(_adapter *adapter,
 	u8 gtk_rx_iv[4][IV_LENGTH] = {0};
 	u8 tid_id = 0;
 	u8 i = 0;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
+	struct link_security_priv *lsecuritypriv = &adapter_link->securitypriv;
 
-	sta = rtw_get_stainfo(&adapter->stapriv, get_bssid(&adapter->mlmepriv));
+	sta = rtw_get_stainfo(&adapter->stapriv, get_link_bssid(&adapter_link->mlmepriv));
 
 	if (!sta) {
 		rtw_warn_on(1);
@@ -485,14 +465,14 @@ void rtw_construct_remote_control_info(_adapter *adapter,
 
 	rxcache = &sta->sta_recvpriv.rxcache;
 
-	rtw_get_sec_iv(adapter, ctrl_info->ptk_tx_iv, get_bssid(&adapter->mlmepriv));
+	rtw_get_sec_iv(adapter, ctrl_info->ptk_tx_iv, get_link_bssid(&adapter_link->mlmepriv));
 	RTW_INFO("[wow] ptk_tx_iv = " IV_FMT "\n", IV_ARG(ctrl_info->ptk_tx_iv));
 
 	ctrl_info->valid_check = REMOTECTRL_INFO_VALID_CHECK;
 	ctrl_info->symbol_check_en |= REMOTECTRL_INFO_SYMBOL_CHK_PTK |
 				      REMOTECTRL_INFO_SYMBOL_CHK_GTK;
 
-	ctrl_info->gtk_key_idx = securitypriv->dot118021XGrpKeyid;
+	ctrl_info->gtk_key_idx = lsecuritypriv->dot118021XGrpKeyid;
 	RTW_INFO("[wow] gtk_key_idx = %d\n", ctrl_info->gtk_key_idx);
 
 	tid_id = rxcache->last_tid;
@@ -500,7 +480,7 @@ void rtw_construct_remote_control_info(_adapter *adapter,
 	RTW_INFO("[wow] ptk_rx_iv = " IV_FMT "\n", IV_ARG(ctrl_info->ptk_rx_iv));
 
 	for (i = 0; i < 4; i++) {
-		rtw_pn_to_iv(securitypriv->iv_seq[i], gtk_rx_iv[i], i,
+		rtw_pn_to_iv(lsecuritypriv->iv_seq[i], gtk_rx_iv[i], i,
 			     securitypriv->dot118021XGrpPrivacy);
 		RTW_INFO("[wow] gtk_rx_iv[%u] = " IV_FMT "\n", i, IV_ARG(gtk_rx_iv[i]));
 	}
@@ -510,63 +490,13 @@ void rtw_construct_remote_control_info(_adapter *adapter,
 	_rtw_memcpy(ctrl_info->gtk_rx_iv_idx3, gtk_rx_iv[3], IV_LENGTH);
 }
 
-void rtw_wow_lps_level_decide(_adapter *adapter, u8 wow_en)
+void rtw_core_wow_handle_wake_up_rsn(void *drv_priv, u8 rsn)
 {
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	struct pwrctrl_priv *pwrpriv = dvobj_to_pwrctl(dvobj);
+	struct dvobj_priv *dvobj = (struct dvobj_priv *)drv_priv;
+	struct wow_priv *wowpriv = dvobj_to_wowlan(dvobj);
 
-	if (wow_en) {
-		pwrpriv->lps_level_bk = pwrpriv->lps_level;
-		pwrpriv->lps_level = pwrpriv->wowlan_lps_level;
-		#ifdef CONFIG_LPS_1T1R
-		pwrpriv->lps_1t1r_bk = pwrpriv->lps_1t1r;
-		pwrpriv->lps_1t1r = pwrpriv->wowlan_lps_1t1r;
-		#endif
-	} else {
-		pwrpriv->lps_level = pwrpriv->lps_level_bk;
-		#ifdef CONFIG_LPS_1T1R
-		pwrpriv->lps_1t1r = pwrpriv->lps_1t1r_bk;
-		#endif
-	}
+	wowpriv->wow_wake_reason = rsn;
 }
-
-int rtw_pm_set_wow_lps(_adapter *padapter, u8 mode)
-{
-	int	ret = 0;
-	struct pwrctrl_priv *pwrctrlpriv = adapter_to_pwrctl(padapter);
-
-	if (mode < PM_PS_MODE_NUM) {
-		if (pwrctrlpriv->wowlan_power_mgmt != mode) 
-			pwrctrlpriv->wowlan_power_mgmt = mode;
-	} else
-		ret = -EINVAL;
-
-	return ret;
-}
-int rtw_pm_set_wow_lps_level(_adapter *padapter, u8 level)
-{
-	int	ret = 0;
-	struct pwrctrl_priv *pwrctrlpriv = adapter_to_pwrctl(padapter);
-
-	if (level < LPS_LEVEL_MAX)
-		pwrctrlpriv->wowlan_lps_level = level;
-	else
-		ret = -EINVAL;
-
-	return ret;
-}
-#ifdef CONFIG_LPS_1T1R
-int rtw_pm_set_wow_lps_1t1r(_adapter *padapter, u8 en)
-{
-	int	ret = 0;
-	struct pwrctrl_priv *pwrctrlpriv = adapter_to_pwrctl(padapter);
-
-	en = en ? 1 : 0;
-	pwrctrlpriv->wowlan_lps_1t1r = en;
-
-	return ret;
-}
-#endif /* CONFIG_LPS_1T1R */
 
 #ifdef CONFIG_GTK_OL
 void _update_aoac_rpt_phase_0(_adapter *adapter, struct rtw_aoac_report *aoac_info)
@@ -577,6 +507,9 @@ void _update_aoac_rpt_phase_0(_adapter *adapter, struct rtw_aoac_report *aoac_in
 	u8 pn[8] = {0};
 	u8 gtk_key_idx = 0;
 	u8 i = 0;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
+	struct link_security_priv *lsecuritypriv = &adapter_link->securitypriv;
 
 	/* handle ptk rx iv */
 	/* This Rx IV has no effect, the driver does not drop unicast packets
@@ -599,14 +532,14 @@ void _update_aoac_rpt_phase_0(_adapter *adapter, struct rtw_aoac_report *aoac_in
 	gtk_key_idx = aoac_info->key_idx;
 	if (rtw_iv_to_pn(aoac_info->gtk_rx_iv[gtk_key_idx], pn, NULL,
 			 securitypriv->dot118021XGrpPrivacy)) {
-		_rtw_memcpy(securitypriv->iv_seq[gtk_key_idx], pn, 8);
+		_rtw_memcpy(lsecuritypriv->iv_seq[gtk_key_idx], pn, 8);
 		RTW_INFO("[wow] gtk_rx_pn[%u] = " PN_FMT "\n", gtk_key_idx, PN_ARG(pn));
 	}
 
 #ifdef CONFIG_IEEE80211W
 	/* handle igtk rx ipn */
-	if (SEC_IS_BIP_KEY_INSTALLED(securitypriv)) {
-		securitypriv->dot11wBIPrxpn.val = RTW_GET_LE64(aoac_info->igtk_ipn);
+	if (SEC_IS_BIP_KEY_INSTALLED(lsecuritypriv)) {
+		lsecuritypriv->dot11wBIPrxpn.val = RTW_GET_LE64(aoac_info->igtk_ipn);
 		RTW_INFO("[wow] igtk_rx_pn = " PN_FMT "\n", PN_ARG(aoac_info->igtk_ipn));
 	}
 #endif
@@ -620,9 +553,12 @@ void _update_aoac_rpt_phase_1(_adapter *adapter, struct rtw_aoac_report *aoac_in
 	u8 gtk_key_idx = 0;
 	u8 key_len = 0;
 	u8 i = 0;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
+	struct link_security_priv *lsecuritypriv = &adapter_link->securitypriv;
 
 	/* handle ptk tx iv */
-	sta = rtw_get_stainfo(&adapter->stapriv, get_bssid(&adapter->mlmepriv));
+	sta = rtw_get_stainfo(&adapter->stapriv, get_link_bssid(&adapter_link->mlmepriv));
 	if (sta) {
 		if (rtw_iv_to_pn(aoac_info->ptk_tx_iv, pn, NULL,
 				 securitypriv->dot11PrivacyAlgrthm)) {
@@ -634,7 +570,7 @@ void _update_aoac_rpt_phase_1(_adapter *adapter, struct rtw_aoac_report *aoac_in
 	if (aoac_info->rekey_ok) {
 		/* update gtk key */
 		gtk_key_idx = aoac_info->key_idx;
-		securitypriv->dot118021XGrpKeyid = gtk_key_idx;
+		lsecuritypriv->dot118021XGrpKeyid = gtk_key_idx;
 
 		switch (securitypriv->dot118021XGrpPrivacy) {
 		case _TKIP_:
@@ -651,26 +587,26 @@ void _update_aoac_rpt_phase_1(_adapter *adapter, struct rtw_aoac_report *aoac_in
 		}
 
 		if (key_len)
-			_rtw_memcpy(securitypriv->dot118021XGrpKey[gtk_key_idx].skey,
-				    aoac_info->gtk, key_len);
+			_rtw_memcpy(lsecuritypriv->dot118021XGrpKey[gtk_key_idx].skey,
+					aoac_info->gtk, key_len);
 		/* update tkip dot118021XGrptxmickey dot118021XGrprxmickey */
 		if (securitypriv->dot118021XGrpPrivacy == _TKIP_) {
 			/* The order of the GTK Tx/Rx mic keys in the AOAC report is
 			 * reversed compared to the GTK Tx/Rx mic keys provided by
 			 * wpa_supplicant.
 			 */
-			_rtw_memcpy(securitypriv->dot118021XGrptxmickey[gtk_key_idx].skey,
-				    &aoac_info->gtk[24], 8);
-			_rtw_memcpy(securitypriv->dot118021XGrprxmickey[gtk_key_idx].skey,
-				    &aoac_info->gtk[16], 8);
+			_rtw_memcpy(lsecuritypriv->dot118021XGrptxmickey[gtk_key_idx].skey,
+					&aoac_info->gtk[24], 8);
+			_rtw_memcpy(lsecuritypriv->dot118021XGrprxmickey[gtk_key_idx].skey,
+					&aoac_info->gtk[16], 8);
 		}
-		rtw_set_key(adapter, securitypriv, gtk_key_idx, 1, _TRUE);
+		rtw_set_key(adapter, adapter_link, gtk_key_idx, 1, _TRUE);
 
 		/* update eapol replay_counter */
 		_rtw_memcpy(sta->replay_ctr, aoac_info->eapol_key_replay_count,
 			    RTW_REPLAY_CTR_LEN);
 #ifdef CONFIG_IEEE80211W
-		if (SEC_IS_BIP_KEY_INSTALLED(securitypriv)) {
+		if (SEC_IS_BIP_KEY_INSTALLED(lsecuritypriv)) {
 			switch (securitypriv->dot11wCipher) {
 			case _BIP_CMAC_128_:
 			case _BIP_GMAC_128_:
@@ -690,8 +626,8 @@ void _update_aoac_rpt_phase_1(_adapter *adapter, struct rtw_aoac_report *aoac_in
 			 * unless WoWLAN FW updates the Rx IPN before sending
 			 * out the phase1 AOAC report.
 			 */
-			securitypriv->dot11wBIPKeyid = RTW_GET_LE32(aoac_info->igtk_key_id);
-			_rtw_memcpy(securitypriv->dot11wBIPKey[securitypriv->dot11wBIPKeyid].skey,
+			lsecuritypriv->dot11wBIPKeyid = RTW_GET_LE32(aoac_info->igtk_key_id);
+			_rtw_memcpy(lsecuritypriv->dot11wBIPKey[lsecuritypriv->dot11wBIPKeyid].skey,
 				    &aoac_info->igtk, key_len);
 		}
 #endif
@@ -702,7 +638,7 @@ void _update_aoac_rpt_phase_1(_adapter *adapter, struct rtw_aoac_report *aoac_in
 	for (i = 0; i < 4; i++) {
 		if (rtw_iv_to_pn(aoac_info->gtk_rx_iv[i], pn, NULL,
 				 securitypriv->dot118021XGrpPrivacy)) {
-			_rtw_memcpy(securitypriv->iv_seq[i], pn, 8);
+			_rtw_memcpy(lsecuritypriv->iv_seq[i], pn, 8);
 			RTW_INFO("[wow] gtk_rx_pn[%u] = " PN_FMT "\n", i, PN_ARG(pn));
 		}
 	}
@@ -720,6 +656,106 @@ void rtw_update_gtk_ofld_info(void *drv_priv, struct rtw_aoac_report *aoac_info,
 		_update_aoac_rpt_phase_1(adapter, aoac_info);
 }
 #endif /* CONFIG_GTK_OL */
+
+#ifdef CONFIG_WRC_WOW_MAGIC
+u8 rtw_cfg_wrc_wol_magic(_adapter *padapter, u8 enable)
+{
+	struct registry_priv *registry_par = &padapter->registrypriv;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+	u8 iface_num = GET_IFACE_NUMS(padapter);
+	_adapter *padapter_wrc = NULL;
+	struct _ADAPTER_LINK *padapter_wrc_link = NULL;
+	enum rtw_phl_status pstatus;
+	u8 ret = _FAIL;
+	u8 i;
+
+	if (!registry_par->wakeup_event & BIT(0)) {
+		RTW_INFO("[wow][wrc] no magic packet wake up\n");
+		goto exit;
+	}
+
+	for (i = 0; i < iface_num; i++) {
+		if (i != padapter->iface_id)
+			padapter_wrc = GET_ADAPTER(padapter, i);
+	}
+
+	if (padapter_wrc == NULL) {
+		RTW_ERR("[wow][wrc] no avaliable interface\n");
+		goto exit;
+	}
+
+	/* ToDo CONFIG_RTW_MLD: currently primary link only */
+	padapter_wrc_link = GET_PRIMARY_LINK(padapter_wrc);
+
+	if (enable) {
+		struct rtw_phl_stainfo_t *phl_sta;
+		enum role_type rtype = PHL_RTYPE_AP;
+
+		pstatus = rtw_phl_cmd_wrole_change(GET_PHL_INFO(dvobj),
+						   padapter_wrc->phl_role,
+						   padapter_wrc_link->wrlink,
+						   WR_CHG_MADDR,
+						   padapter->mac_addr,
+						   MACADDRLEN,
+						   PHL_CMD_DIRECTLY, 0);
+		if (pstatus != RTW_PHL_STATUS_SUCCESS) {
+			RTW_ERR("[wow][wrc] change role mac failed\n");
+			goto exit;
+		}
+
+		phl_sta = rtw_phl_get_stainfo_self(GET_PHL_INFO(dvobj),
+						   padapter_wrc_link->wrlink);
+		if (!phl_sta) {
+			RTW_ERR("[wow][wrc] change role type failed\n");
+			goto exit;
+		}
+
+		phl_sta->wol_magic = _TRUE;
+		phl_sta->hit_rule = _TRUE;
+
+		pstatus = rtw_phl_cmd_wrole_change(GET_PHL_INFO(dvobj),
+						   padapter_wrc->phl_role,
+						   padapter_wrc_link->wrlink,
+						   WR_CHG_TYPE, (u8*)&rtype,
+						   sizeof(enum role_type),
+						   PHL_CMD_DIRECTLY, 0);
+		if (pstatus != RTW_PHL_STATUS_SUCCESS) {
+			RTW_ERR("[wow][wrc] change role type failed\n");
+			goto exit;
+		}
+	} else {
+		u8 role_id;
+		u8 *padapter_wrc_link_mac_addr[RTW_RLINK_MAX] = {NULL};
+
+		rtw_phl_wifi_role_free(GET_PHL_INFO(dvobj),
+				       padapter_wrc->phl_role->id);
+		padapter_wrc->phl_role = NULL;
+
+		rtw_collect_adapter_link_mac_addr(padapter_wrc,
+						  padapter_wrc_link_mac_addr);
+
+		role_id = rtw_phl_wifi_role_alloc(GET_PHL_INFO(dvobj),
+						  padapter_wrc->mac_addr,
+						  padapter_wrc_link_mac_addr,
+						  PHL_RTYPE_STATION,
+						  padapter_wrc->iface_id,
+						  &padapter_wrc->phl_role,
+						  DTYPE,
+						  _FALSE);
+		if (role_id == INVALID_WIFI_ROLE_IDX ||
+		    padapter_wrc->phl_role == NULL) {
+			RTW_ERR("[wow][wrc] rtw_phl_wifi_role_alloc failed\n");
+			rtw_warn_on(1);
+			goto exit;
+		}
+	}
+
+	ret = _SUCCESS;
+
+exit:
+	return ret;
+}
+#endif /* CONFIG_WRC_WOW_MAGIC */
 #endif /* CONFIG_WOWLAN */
 
 #ifdef CONFIG_PNO_SUPPORT

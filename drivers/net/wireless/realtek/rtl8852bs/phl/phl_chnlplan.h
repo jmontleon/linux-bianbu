@@ -15,7 +15,7 @@
 #ifndef _PHL_CHNLPLAN_H_
 #define _PHL_CHNLPLAN_H_
 
-#define REGULATION_CHPLAN_VERSION 59
+#define REGULATION_CHPLAN_VERSION 63
 
 enum REGULATION {
     REGULATION_WW        =  0,
@@ -124,8 +124,8 @@ struct regulatory_domain_mapping {
 };
 
 #define MAX_CHDEF_2GHZ 7
-#define MAX_CHDEF_5GHZ 54
-#define MAX_RD_MAP_NUM 110
+#define MAX_CHDEF_5GHZ 56
+#define MAX_RD_MAP_NUM 112
 
 
 

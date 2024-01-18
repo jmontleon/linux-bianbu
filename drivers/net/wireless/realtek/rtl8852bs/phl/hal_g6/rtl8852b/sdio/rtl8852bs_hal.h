@@ -36,10 +36,14 @@ enum rtw_hal_status hal_wow_deinit_8852bs(struct rtw_phl_com_t *phl_com, struct 
 
 enum rtw_hal_status hal_mp_init_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal);
 enum rtw_hal_status hal_mp_deinit_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal);
+bool hal_mp_path_chk_8852bs(struct rtw_phl_com_t *phl_com, u8 ant_tx, u8 cur_phy);
+
 
 u32 hal_hci_cfg_8852bs(struct rtw_phl_com_t *phl_com,
 		struct hal_info_t *hal, struct rtw_ic_info *ic_info);
-void init_default_value_8852bs(struct hal_info_t *hal, struct hal_intr_mask_cfg *cfg);
+void init_default_value_8852bs(struct hal_info_t *hal);
+void init_int_default_value_8852bs(struct hal_info_t *hal, enum rtw_hal_int_set_opt opt);
+
 void sd_int_hdl_8852bs(void *h);
 
 void hal_enable_int_8852bs(struct hal_info_t *hal);

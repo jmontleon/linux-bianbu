@@ -87,6 +87,8 @@ u8 rtw_ft_chk_roaming_candidate(
 	u8 *pmdie;
 	u32 mdie_len = 0;
 	struct ft_roam_info *pft_roam = &(padapter->mlmepriv.ft_roam);
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
 
 	if (!(pmdie = rtw_get_ie(&competitor->network.IEs[12], _MDIE_,
 		&mdie_len, competitor->network.IELength-12))) {
@@ -110,7 +112,7 @@ u8 rtw_ft_chk_roaming_candidate(
 
 	if (rtw_ft_chk_flags(padapter, RTW_FT_TEST_RSSI_ROAM)) {
 		if (!_rtw_memcmp(
-			padapter->mlmepriv.cur_network.network.MacAddress,
+			padapter_link->mlmepriv.cur_network.network.MacAddress,
 			competitor->network.MacAddress, ETH_ALEN)) {
 			competitor->network.PhyInfo.rssi +=20;
 			RTW_FT_INFO("%s : update "MAC_FMT
@@ -124,20 +126,26 @@ u8 rtw_ft_chk_roaming_candidate(
 	return _TRUE;
 }
 
-void rtw_ft_update_stainfo(_adapter *padapter, WLAN_BSSID_EX *pnetwork)
+void rtw_ft_update_stainfo(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork)
 {
 	struct sta_priv		*pstapriv = &padapter->stapriv;
 	struct sta_info		*psta = NULL;
+	struct rtw_phl_mld_t	*pmld = NULL;
 
 	psta = rtw_get_stainfo(pstapriv, pnetwork->MacAddress);
-	if (psta == NULL)
-		psta = rtw_alloc_stainfo(pstapriv, pnetwork->MacAddress);
+	if (psta == NULL) {
+		pmld = rtw_phl_alloc_mld(GET_PHL_INFO(adapter_to_dvobj(padapter)),
+					padapter->phl_role, pnetwork->MacAddress, DTYPE);
+		/* main_id is don't care for self sta */
+		psta = rtw_alloc_stainfo(pstapriv, pnetwork->MacAddress, DTYPE, 0,
+					padapter_link->wrlink->id, PHL_CMD_DIRECTLY);
+	}
 
 	if (padapter->securitypriv.dot11AuthAlgrthm ==
 		dot11AuthAlgrthm_8021X) {
-		padapter->securitypriv.binstallGrpkey = _FALSE;
+		padapter_link->securitypriv.binstallGrpkey = _FALSE;
+		padapter_link->securitypriv.bgrpkey_handshake = _FALSE;
 		padapter->securitypriv.busetkipkey = _FALSE;
-		padapter->securitypriv.bgrpkey_handshake = _FALSE;
 
 		psta->ieee8021x_blocked = _TRUE;
 		psta->dot118021XPrivacy = \
@@ -157,13 +165,15 @@ void rtw_ft_reassoc_event_callback(_adapter *padapter, u8 *pbuf)
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct stassoc_event *pstassoc = (struct stassoc_event *)pbuf;
 	struct ft_roam_info *pft_roam = &(pmlmepriv->ft_roam);
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
+	struct link_mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX *pnetwork = (WLAN_BSSID_EX *)&(pmlmeinfo->network);
 	struct cfg80211_ft_event_params ft_evt_parms;
 
 	_rtw_memset(&ft_evt_parms, 0, sizeof(ft_evt_parms));
-	rtw_ft_update_stainfo(padapter, pnetwork);
+	rtw_ft_update_stainfo(padapter, padapter_link, pnetwork);
 	ft_evt_parms.ies_len = pft_roam->ft_event.ies_len;
 	ft_evt_parms.ies =  rtw_zmalloc(ft_evt_parms.ies_len);
 	if (ft_evt_parms.ies) {
@@ -209,7 +219,7 @@ err_2:
 }
 
 void rtw_ft_validate_akm_type(_adapter  *padapter,
-	struct wlan_network *pnetwork)
+	WLAN_BSSID_EX *network)
 {
 	struct security_priv *psecuritypriv = &(padapter->securitypriv);
 	struct ft_roam_info *pft_roam = &(padapter->mlmepriv.ft_roam);
@@ -218,16 +228,16 @@ void rtw_ft_validate_akm_type(_adapter  *padapter,
 
 	/*IEEE802.11-2012 Std. Table 8-101-AKM suite selectors*/
 	if (rtw_ft_valid_akm(padapter, psecuritypriv->rsn_akm_suite_type)) {
-		ptmp = rtw_get_ie(&pnetwork->network.IEs[12],
+		ptmp = rtw_get_ie(&network->IEs[12],
 				_MDIE_, &tmp_len,
-				(pnetwork->network.IELength-12));
+				(network->IELength-12));
 		if (ptmp) {
 			pft_roam->mdid = *(u16 *)(ptmp+2);
 			pft_roam->ft_cap = *(ptmp+4);
 
 			RTW_INFO("FT: target "MAC_FMT
 				" mdid=(0x%2x), capacity=(0x%2x)\n",
-				MAC_ARG(pnetwork->network.MacAddress),
+				MAC_ARG(network->MacAddress),
 				pft_roam->mdid, pft_roam->ft_cap);
 
 			rtw_ft_set_flags(padapter, RTW_FT_PEER_EN);
@@ -268,8 +278,9 @@ void rtw_ft_validate_akm_type(_adapter  *padapter,
 
 void rtw_ft_update_bcn(_adapter *padapter, union recv_frame *precv_frame)
 {
-	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct _ADAPTER_LINK *padapter_link = precv_frame->u.hdr.adapter_link;
+	struct link_mlme_ext_priv *pmlmeext = &padapter_link->mlmeextpriv;
+	struct link_mlme_ext_info *pmlmeinfo = &(padapter_link->mlmeextpriv.mlmext_info);
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	u8 *pframe = precv_frame->u.hdr.rx_data;
 	uint len = precv_frame->u.hdr.len;
@@ -283,22 +294,27 @@ void rtw_ft_update_bcn(_adapter *padapter, union recv_frame *precv_frame)
 				padapter, precv_frame, pbss) == _SUCCESS) {
 				struct beacon_keys recv_beacon;
 
+				/* Update adapter network info */
+				rtw_update_adapter_network(
+					&(pmlmepriv->dev_cur_network.network),
+					pbss, padapter, _TRUE);
+
 				rtw_update_network(
-					&(pmlmepriv->cur_network.network),
+					&(padapter_link->mlmepriv.cur_network.network),
 					pbss, padapter, _TRUE);
 
 				/* Move into rtw_get_bcn_keys */
 				/* rtw_get_bcn_info(&(pmlmepriv->cur_network)); */
 
 				/* update bcn keys */
-				if (rtw_get_bcn_keys(padapter, pframe, len,
+				if (rtw_get_bcn_keys(padapter, padapter_link, pframe, len,
 						&recv_beacon) == _TRUE) {
 
 					RTW_FT_INFO("%s: beacon keys ready\n",
 						__func__);
 
 					_rtw_memcpy(
-						&pmlmepriv->cur_beacon_keys,
+						&padapter_link->mlmepriv.cur_beacon_keys,
 						&recv_beacon,
 						sizeof(recv_beacon));
 
@@ -307,18 +323,18 @@ void rtw_ft_update_bcn(_adapter *padapter, union recv_frame *precv_frame)
 						recv_beacon.ssid_len)) {
 
 						_rtw_memcpy(
-						pmlmepriv->cur_beacon_keys.ssid,
+						padapter_link->mlmepriv.cur_beacon_keys.ssid,
 						pmlmeinfo->network.Ssid.Ssid,
 						IW_ESSID_MAX_SIZE);
 
-						pmlmepriv->cur_beacon_keys.ssid_len = \
+						padapter_link->mlmepriv.cur_beacon_keys.ssid_len = \
 						pmlmeinfo->network.Ssid.SsidLength;
 					}
 				} else {
 					RTW_ERR("%s: get beacon keys failed\n",
 						__func__);
 					_rtw_memset(
-						&pmlmepriv->cur_beacon_keys,
+						&padapter_link->mlmepriv.cur_beacon_keys,
 						0, sizeof(recv_beacon));
 				}
 				#ifdef CONFIG_BCN_CNT_CONFIRM_HDL
@@ -329,7 +345,7 @@ void rtw_ft_update_bcn(_adapter *padapter, union recv_frame *precv_frame)
 		}
 
 		/* check the vendor of the assoc AP */
-		pmlmeinfo->assoc_AP_vendor =
+		padapter->mlmeextpriv.mlmext_info.assoc_AP_vendor =
 			check_assoc_AP(
 				pframe + sizeof(struct rtw_ieee80211_hdr_3addr),
 				(len - sizeof(struct rtw_ieee80211_hdr_3addr))
@@ -531,35 +547,35 @@ void rtw_ft_issue_action_req(_adapter *padapter, u8 *pTargetAddr)
 {
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct xmit_priv *pxmitpriv = &(padapter->xmitpriv);
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	struct xmit_frame *pmgntframe;
 	struct rtw_ieee80211_hdr *pwlanhdr;
 	struct pkt_attrib *pattrib;
 	u8 *pframe;
 	u8 category = RTW_WLAN_CATEGORY_FT;
 	u8 action = RTW_WLAN_ACTION_FT_REQ;
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
+	struct link_mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 
 	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
 	if (pmgntframe == NULL)
 		return;
 
 	pattrib = &pmgntframe->attrib;
-	update_mgntframe_attrib(padapter, pattrib);
+	update_mgntframe_attrib(padapter, padapter_link, pattrib);
 	_rtw_memset(pmgntframe->buf_addr, 0, WLANHDR_OFFSET + TXDESC_OFFSET);
 
 	pframe = (u8 *)(pmgntframe->buf_addr) + TXDESC_OFFSET;
 	pwlanhdr = (struct rtw_ieee80211_hdr *)pframe;
 	pwlanhdr->frame_ctl = 0;
 
-	_rtw_memcpy(pwlanhdr->addr1,
-		get_my_bssid(&pmlmeinfo->network), ETH_ALEN);
-	_rtw_memcpy(pwlanhdr->addr2, adapter_mac_addr(padapter), ETH_ALEN);
-	_rtw_memcpy(pwlanhdr->addr3,
-		get_my_bssid(&pmlmeinfo->network), ETH_ALEN);
+	_rtw_memcpy(pwlanhdr->addr1, get_my_bssid(&pmlmeinfo->network), ETH_ALEN);
+	_rtw_memcpy(pwlanhdr->addr2, padapter_link->mac_addr, ETH_ALEN);
+	_rtw_memcpy(pwlanhdr->addr3, get_my_bssid(&pmlmeinfo->network), ETH_ALEN);
 
-	SetSeqNum(pwlanhdr, pmlmeext->mgnt_seq);
-	pmlmeext->mgnt_seq++;
+	SetSeqNum(pwlanhdr, padapter->mlmeextpriv.mgnt_seq);
+	padapter->mlmeextpriv.mgnt_seq++;
 	set_frame_sub_type(pframe, WIFI_ACTION);
 
 	pframe += sizeof(struct rtw_ieee80211_hdr_3addr);
@@ -568,6 +584,7 @@ void rtw_ft_issue_action_req(_adapter *padapter, u8 *pTargetAddr)
 	pframe = rtw_set_fixed_ie(pframe, 1, &(category), &(pattrib->pktlen));
 	pframe = rtw_set_fixed_ie(pframe, 1, &(action), &(pattrib->pktlen));
 
+	/* ToDo CONFIG_RTW_MLD: MLD address or link address */
 	_rtw_memcpy(pframe, adapter_mac_addr(padapter), ETH_ALEN);
 	pframe += ETH_ALEN;
 	pattrib->pktlen += ETH_ALEN;
@@ -589,13 +606,15 @@ void rtw_ft_report_evt(_adapter *padapter)
 {
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
 	struct ft_roam_info *pft_roam = &(pmlmepriv->ft_roam);
-	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
-	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_ext_priv *pmlmeext = &(padapter_link->mlmeextpriv);
+	struct link_mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX *pnetwork = (WLAN_BSSID_EX *)&(pmlmeinfo->network);
 	struct cfg80211_ft_event_params ft_evt_parms;
 
 	_rtw_memset(&ft_evt_parms, 0, sizeof(ft_evt_parms));
-	rtw_ft_update_stainfo(padapter, pnetwork);
+	rtw_ft_update_stainfo(padapter, padapter_link, pnetwork);
 
 	if (!pnetwork)
 		goto err_2;
@@ -711,7 +730,8 @@ void rtw_ft_link_timer_hdl(void *ctx)
 void rtw_ft_roam_timer_hdl(void *ctx)
 {
 	_adapter *padapter = (_adapter *)ctx;
-	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct link_mlme_priv *pmlmepriv = &(padapter_link->mlmepriv);
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
 

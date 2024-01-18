@@ -23,6 +23,8 @@
 
 #define RX_PPDU_MAC_INFO_SIZE_8852B 4
 
+#define RX_DESC_DRV_INFO_UNIT_8852B 8 /* unit : byte */
+
 #define ACH0_QUEUE_IDX_8852B 0x0
 #define ACH1_QUEUE_IDX_8852B 0x1
 #define ACH2_QUEUE_IDX_8852B 0x2

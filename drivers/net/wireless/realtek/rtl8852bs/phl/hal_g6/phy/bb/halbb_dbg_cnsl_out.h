@@ -32,6 +32,12 @@
 
 /*@--------------------------[Prptotype]-------------------------------------*/
 struct bb_info;
+void halbb_ra_dbgreg_cnsl(struct bb_info *bb, u32 *_used, char *output,
+			  u32 *_out_len);
+void halbb_basic_dbg_msg_tx_dbg_reg_cnsl(struct bb_info *bb, u32 *_used,
+					 char *output, u32 *_out_len);
 void halbb_basic_dbg_message_cnsl_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 				      char *output, u32 *_out_len);
+void halbb_show_rx_rate(struct bb_info *bb, char input[][16], u32 *_used,
+			      char *output, u32 *_out_len);
 #endif

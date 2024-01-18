@@ -139,6 +139,25 @@ typedef struct _RT_PMKID_LIST {
 	u16						ssid_length;
 } RT_PMKID_LIST, *PRT_PMKID_LIST;
 
+struct link_security_priv {
+	u32	dot118021XGrpKeyid;		/* key id used for Grp Key ( tx key index) */
+	union Keytype	dot118021XGrpKey[6];	/* 802.1x Group Key, for inx0 and inx1	 */
+	union Keytype	dot118021XGrptxmickey[6];
+	union Keytype	dot118021XGrprxmickey[6];
+	union pn48		dot11Grptxpn;			/* PN48 used for Grp Key xmit. */
+	union pn48		dot11Grprxpn;			/* PN48 used for Grp Key recv. */
+	u8				iv_seq[4][8];
+#ifdef CONFIG_IEEE80211W
+	u32	dot11wBIPKeyid;						/* key id used for BIP Key ( tx key index) */
+	union Keytype	dot11wBIPKey[6];		/* BIP Key, for index4 and index5 */
+	union pn48		dot11wBIPtxpn;			/* PN48 used for BIP xmit. */
+	union pn48		dot11wBIPrxpn;			/* PN48 used for BIP recv. */
+	u8	binstallBIPkey;
+#endif /* CONFIG_IEEE80211W */
+	u8	binstallGrpkey;
+	u8	bcheck_grpkey;
+	u8	bgrpkey_handshake;
+};
 
 struct security_priv {
 	u32	  dot11AuthAlgrthm;		/* 802.11 auth, could be open, shared, 8021x and authswitch */
@@ -152,20 +171,9 @@ struct security_priv {
 	u8 	key_mask; /* use to restore wep key after hal_init */
 
 	u32 dot118021XGrpPrivacy;	/* This specify the privacy algthm. used for Grp key */
-	u32	dot118021XGrpKeyid;		/* key id used for Grp Key ( tx key index) */
-	union Keytype	dot118021XGrpKey[6];	/* 802.1x Group Key, for inx0 and inx1	 */
-	union Keytype	dot118021XGrptxmickey[6];
-	union Keytype	dot118021XGrprxmickey[6];
-	union pn48		dot11Grptxpn;			/* PN48 used for Grp Key xmit. */
-	union pn48		dot11Grprxpn;			/* PN48 used for Grp Key recv. */
-	u8				iv_seq[4][8];
 #ifdef CONFIG_IEEE80211W
 	enum security_type dot11wCipher;
-	u32	dot11wBIPKeyid;						/* key id used for BIP Key ( tx key index) */
-	union Keytype	dot11wBIPKey[6];		/* BIP Key, for index4 and index5 */
-	union pn48		dot11wBIPtxpn;			/* PN48 used for BIP xmit. */
-	union pn48		dot11wBIPrxpn;			/* PN48 used for BIP recv. */
-#endif /* CONFIG_IEEE80211W */
+#endif
 #ifdef CONFIG_AP_MODE
 	/* extend security capabilities for AP_MODE */
 	unsigned int dot8021xalg;/* 0:disable, 1:psk, 2:802.1x */
@@ -192,16 +200,10 @@ struct security_priv {
 	u8 rsnx_ie[MAX_RSNX_IE_LEN];
 	int rsnx_ie_len;
 
-	u8	binstallGrpkey;
 #ifdef CONFIG_GTK_OL
 	u8	binstallKCK_KEK;
 #endif /* CONFIG_GTK_OL */
-#ifdef CONFIG_IEEE80211W
-	u8	binstallBIPkey;
-#endif /* CONFIG_IEEE80211W */
 	u8	busetkipkey;
-	u8	bcheck_grpkey;
-	u8	bgrpkey_handshake;
 
 	u8	auth_alg;
 	u8	auth_type;
@@ -220,7 +222,6 @@ struct security_priv {
 
 	NDIS_802_11_WEP ndiswep;
 
-	u8 authenticator_ie[256];  /* store ap security information element */
 	u8 supplicant_ie[256];  /* store sta security information element */
 
 

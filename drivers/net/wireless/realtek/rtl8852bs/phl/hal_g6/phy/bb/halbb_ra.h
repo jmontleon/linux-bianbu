@@ -31,6 +31,9 @@ extern const u16 bb_phy_rate_table[LEGACY_RATE_NUM + HE_RATE_NUM_4SS];
 #define RAMASK_VHT_5G	0x000ffffffffff010
 #define RAMASK_HE_2G	0x0ffffffffffff015
 #define RAMASK_HE_5G	0x0ffffffffffff010
+#define RAMASK_EHT_2G_L	0xfffffffffffff015
+#define RAMASK_EHT_5G_L	0xfffffffffffff010
+#define RAMASK_EHT_H	0xfff
 
 #define RAMASK_1SS_HT	0x00000000000fffff
 #define RAMASK_2SS_HT	0x00000000ff0fffff
@@ -47,10 +50,17 @@ extern const u16 bb_phy_rate_table[LEGACY_RATE_NUM + HE_RATE_NUM_4SS];
 #define RAMASK_3SS_HE	0x0000ffffffffffff
 #define RAMASK_4SS_HE	0x0fffffffffffffff
 
+#define RAMASK_1SS_EHT	0x000000000fffffff
+#define RAMASK_2SS_EHT	0x00000fffffffffff
+#define RAMASK_3SS_EHT	0x0fffffffffffffff
+#define RAMASK_4SS_EHT_L 0xffffffffffffffff
+#define RAMASK_4SS_EHT_H 0xfff
+
 #define MAX_ABG_RATE_NUM 12
 #define MAX_NSS_VHT 4
 #define MAX_NSS_HT 4
 #define MAX_NSS_HE 4
+#define MAX_CAP_EHT 4
 
 #define STA_NUM_RSSI_CMD PHL_MAX_STA_NUM
 
@@ -63,6 +73,7 @@ extern const u16 bb_phy_rate_table[LEGACY_RATE_NUM + HE_RATE_NUM_4SS];
 #define HT_SUPPORT		BIT(2)
 #define VHT_SUPPORT_TX	BIT(3)
 #define HE_SUPPORT		BIT(4)
+#define EHT_SUPPORT		BIT(5)
 
 #define	RA_FLOOR_TABLE_SIZE	7
 #define	RA_FLOOR_UP_GAP		3
@@ -198,7 +209,8 @@ enum wifi_mode {
 	RA_non_ht	= 1,
 	RA_HT		= 2,
 	RA_VHT		= 3,
-	RA_HE		= 4
+	RA_HE		= 4,
+	RA_EHT		= 5
 };
 
 enum mu_cmd_type {
@@ -226,9 +238,15 @@ struct bb_rate_info {
 	u8 fw_rate_idx;
 };
 
+union bb_h2c_ra_cmn_info {
+    u32 val[6];
+    struct bb_h2c_ra_cfg_info bb_h2c_ra_info;
+    struct bb_h2c_ra_cfg_info_wifi7 bb_h2c_ra_info_wifi7;
+};
+
 struct bb_ra_info {
 	/* Config move to phl_sta_info*/
-	struct bb_h2c_ra_cfg_info ra_cfg;
+	union bb_h2c_ra_cmn_info ra_cfg;
 	u8 cal_giltf;
 	/* Ctrl */
 	u8 drv_ractrl;
@@ -254,6 +272,12 @@ struct bb_ra_info {
 	
 };
 
+union bb_h2c_ra_rssi_info {
+    u32 val[2];
+    struct bb_h2c_rssi_setting bb_h2c_ra_rssi;
+    struct bb_h2c_rssi_setting_wifi7 bb_h2c_ra_rssi_wifi7;
+};
+
 /*@--------------------------[Prptotype]-------------------------------------*/
 
 struct bb_info;
@@ -262,11 +286,18 @@ bool halbb_is_ofdm_rate(struct bb_info *bb, u16 rate);
 bool halbb_is_ht_rate(struct bb_info *bb, u16 rate);
 bool halbb_is_vht_rate(struct bb_info *bb, u16 rate);
 bool halbb_is_he_rate(struct bb_info *bb, u16 rate);
+#ifdef BB_1115_DVLP_SPF
+bool halbb_is_eht_rate_wifi7(struct bb_info *bb, u16 rate);
+bool halbb_is_he_rate_wifi7(struct bb_info *bb, u16 rate);
+bool halbb_is_vht_rate_wifi7(struct bb_info *bb, u16 rate);
+bool halbb_is_ht_rate_wifi7(struct bb_info *bb, u16 rate);
+#endif
 u8 halbb_legacy_rate_2_spec_rate(struct bb_info *bb, u16 rate);
 u8 halbb_rate_2_rate_digit(struct bb_info *bb, u16 rate);
 u8 halbb_get_rx_stream_num(struct bb_info *bb, enum rf_type type);
 u8 halbb_rate_type_2_num_ss(struct bb_info *bb, enum halbb_rate_type type);
 u8 halbb_rate_to_num_ss(struct bb_info *bb, u16 rate);
+u16 halbb_gen_rate_idx(struct bb_info *bb, enum bb_mode_type mode, u8 ss, u8 idx);
 void halbb_print_rate_2_buff(struct bb_info *bb, u16 rate_idx, enum rtw_gi_ltf gi_ltf, char *buf, u16 buf_size);
 enum bb_qam_type halbb_get_qam_order(struct bb_info *bb, u16 rate_idx);
 u8 halbb_rate_order_compute(struct bb_info *bb, u16 rate_idx);
@@ -278,5 +309,6 @@ void halbb_ra_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 void halbb_rate_idx_parsor(struct bb_info *bb, u16 rate_idx, enum rtw_gi_ltf gi_ltf, struct bb_rate_info *ra_i);
 u32 halbb_get_fw_ra_rpt(struct bb_info *bb, u16 len, u8 *c2h);
 u32 halbb_get_txsts_rpt(struct bb_info *bb, u16 len, u8 *c2h);
-
+void halbb_get_ra_dbgreg(struct bb_info *bb);
 #endif
+

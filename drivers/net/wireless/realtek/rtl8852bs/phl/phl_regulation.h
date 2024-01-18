@@ -27,7 +27,6 @@ enum rtw_regulation_freq_group {
 	FREQ_GROUP_6GHZ_UNII6,
 	FREQ_GROUP_6GHZ_UNII7,
 	FREQ_GROUP_6GHZ_UNII8,
-	FREQ_GROUP_6GHZ_PSC,
 	FREQ_GROUP_MAX
 };
 
@@ -45,8 +44,6 @@ struct rtw_regulation_chplan_group {
 	struct rtw_regulation_channel ch[MAX_CH_NUM_GROUP];
 };
 
-#define MAX_HISTORY_NUM 20
-
 #define INVALID_DOMAIN_CODE 0xffff
 #define INVALID_CHDEF 0xff
 
@@ -55,12 +52,16 @@ struct rtw_domain {
 	u8 reason;
 };
 
+struct rtw_regu_policy {
+	u8 valid_6g_bp; /* 1: valid, 0: invalid */
+	u8 cp_6g_bp[MAX_COUNTRY_NUM]; /* the country property for 6g band policy */
+	u8 valid_5g_bp; /* 1: valid, 0: invalid */
+	u8 cp_5g_bp[MAX_COUNTRY_NUM]; /* the country property for 5g band policy */
+};
+
 struct rtw_regulation {
 	_os_lock lock;
 	u8 init; /* regulation sw initialization */
-	u8 invalid_cnt;
-	u8 history_cnt;
-	struct rtw_domain history[MAX_HISTORY_NUM];
 
 	/* working regulation */
 	bool valid; /* true if domain code successfully set */
@@ -77,20 +78,24 @@ struct rtw_regulation {
 
 	struct rtw_regulation_chplan_group chplan[FREQ_GROUP_MAX];
 
+	struct rtw_regu_policy policy; /* regulatory policy */
+
 	/* 6 ghz */
-	u8 invalid_cnt_6g;
-	u8 history_cnt_6g;
-	struct rtw_domain history_6g[MAX_HISTORY_NUM];
+	struct rtw_regulation_chplan_group psc_6g; /* 6 ghz psc */
 	bool valid_6g; /* true if domain code successfully set */
 	struct rtw_domain domain_6g;
 	u8 ch_idx6g; /* 6ghz chdef index */
 	u8 regulation_6g;
+	enum rtw_power_limit_6g_info category_6g;
 };
+
+void phl_regu_policy_init(void *drv_priv, void *phl);
 
 bool rtw_phl_regulation_query_ch(void *phl, enum band_type band, u8 channel,
 					struct rtw_regulation_channel *ch);
+bool rtw_phl_regulation_set_6g_category(void *phl, enum rtw_power_limit_6g_info ri);
 
-u8 rtw_phl_get_domain_regulation_2g(u8 domain);
-u8 rtw_phl_get_domain_regulation_5g(u8 domain);
+enum rtw_regulation_freq_group phl_get_regu_freq_group(enum band_type band, u8 ch);
 
+u8 rtw_phl_get_cat6g_by_country(char *cntry);
 #endif /* _PHL_REGULATION_H_ */
