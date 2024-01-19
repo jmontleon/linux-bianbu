@@ -133,19 +133,25 @@
 		vin-supply = <&dc_12v>;
 	};
 
-	rf_pwrseq: rf_pwrseq {
+	rf_pwrseq: rf-pwrseq {
 		compatible = "spacemit,rf-pwrseq";
 		//vdd-supply = <&ldo_7>;
 		//vdd_voltage = <3300000>;
-		io-supply = <&ldo_10>;
+		io-supply = <&dcdc_3>;
 		io_voltage = <1800000>;
 		pwr-gpios  = <&gpio 67 0>;
+		power-always-on;
 		status = "okay";
 
-		wlan_pwrseq: wlan_pwrseq {
+		wlan_pwrseq: wlan-pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
 			regon-gpios     = <&gpio 116 0>;
 			hostwake-gpios  = <&gpio 66 0>;
+		};
+
+		bt_pwrseq: bt-pwrseq {
+			compatible = "spacemit,bt-pwrseq";
+			reset-gpios     = <&gpio 118 0>;
 		};
 	};
 };
@@ -291,14 +297,14 @@
 			dcdc_3: DCDC_REG3 {
 				regulator-name = "dcdc3";
 				regulator-min-microvolt = <500000>;
-				regulator-max-microvolt = <3450000>;
+				regulator-max-microvolt = <1800000>;
 				regulator-always-on;
 			};
 
 			dcdc_4: DCDC_REG4 {
 				regulator-name = "dcdc4";
 				regulator-min-microvolt = <500000>;
-				regulator-max-microvolt = <3450000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
 			};
 
@@ -438,6 +444,7 @@
 		&range GPIO_114 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_115 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_116 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_118 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_123 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_124 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_125 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -456,6 +463,7 @@
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
 		&pinctrl 114 GPIO_114 3
+		&pinctrl 118 GPIO_118 1
 		&pinctrl 123 GPIO_123 5
 	>;
 };
@@ -512,6 +520,7 @@
 	spacemit,sdh-host-caps-disable = <(
 			MMC_CAP_UHS_SDR104 |
 			MMC_CAP_UHS_SDR50 |
+			MMC_CAP_UHS_DDR50 |
 			MMC_CAP_NEEDS_POLL
 			)>;
 	spacemit,sdh-quirks = <(
@@ -525,7 +534,7 @@
 			)>;
 	spacemit,rx_dline_reg = <0x01>;
 	spacemit,sdh-freq = <204800000>;
-	status = "disabled";
+	status = "okay";
 
 	//brcmf: wifi@1 {
 	//	compatible = "brcm,bcm4329-fmac";
