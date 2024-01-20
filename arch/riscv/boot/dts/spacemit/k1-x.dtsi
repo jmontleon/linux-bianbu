@@ -64,6 +64,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_1: cpu@1 {
@@ -91,6 +97,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_2: cpu@2 {
@@ -118,6 +130,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_3: cpu@3 {
@@ -145,6 +163,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_4: cpu@4 {
@@ -172,6 +196,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_5: cpu@5 {
@@ -199,6 +229,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_6: cpu@6 {
@@ -226,6 +262,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		cpu_7: cpu@7 {
@@ -253,6 +295,12 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
+
+                         thermal-idle {
+                                 #cooling-cells = <2>;
+                                 duration-us = <10000>;
+                                 exit-latency-us = <500>;
+                         };
 		};
 
 		clst0_l2_cache: l2-cache0 {
@@ -1922,19 +1970,19 @@
 
 				trips {
 					cls0_trip0: cls0-trip-point0 {
-						temperature = <60000>;
+						temperature = <55000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls0_trip1: cls0-trip-point1 {
-						temperature = <75000>;
+						temperature = <70000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls0_trip2: cls0-trip-point2 {
-						temperature = <90000>;
+						temperature = <85000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
@@ -1962,6 +2010,12 @@
 								 <&cpu_2 3 4>,
 								 <&cpu_3 3 4>;
 					};
+
+					map2 {
+						trip = <&cls0_trip2>;
+						cooling-device = <&{/cpus/cpu@2/thermal-idle} 0 15>,
+							<&{/cpus/cpu@3/thermal-idle} 0 15>;
+					};
 				};
 			};
 
@@ -1972,19 +2026,19 @@
 
 				trips {
 					cls1_trip0: cls1-trip-point0 {
-						temperature = <60000>;
+						temperature = <55000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls1_trip1: cls1-trip-point1 {
-						temperature = <75000>;
+						temperature = <70000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
 
 					cls1_trip2: cls1-trip-point2 {
-						temperature = <90000>;
+						temperature = <85000>;
 						hysteresis = <5000>;
 						type = "passive";
 					};
@@ -2011,6 +2065,12 @@
 								 <&cpu_5 3 4>,
 								 <&cpu_6 3 4>,
 								 <&cpu_7 3 4>;
+					};
+
+					map2 {
+						trip = <&cls1_trip2>;
+						cooling-device = <&{/cpus/cpu@6/thermal-idle} 0 15>,
+							<&{/cpus/cpu@7/thermal-idle} 0 15>;
 					};
 				};
 
