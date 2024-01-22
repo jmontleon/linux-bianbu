@@ -486,7 +486,7 @@ static const char *pwm_parent_names[] = {
 };
 static SPACEMIT_CCU_MUX_GATE(pwm0_clk, "pwm0_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM0_CLK_RST,
-	4, 3, 0x3, 0x3, 0x0,
+	4, 3, 0x2, 0x2, 0x0,
 	0);
 static SPACEMIT_CCU_MUX_GATE(pwm1_clk, "pwm1_clk", pwm_parent_names,
 	BASE_TYPE_APBC, APBC_PWM1_CLK_RST,
