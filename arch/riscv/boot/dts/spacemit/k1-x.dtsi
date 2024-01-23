@@ -1059,10 +1059,10 @@
                         status = "disabled";
                 };
 
-                i2c2: i2c@d4011200 {
+                i2c2: i2c@d4012000 {
                         compatible = "spacemit,k1x-i2c";
                         spacemit,adapter-id = <2>;
-                        reg = <0x0 0xd4011200 0x0 0x38>;
+                        reg = <0x0 0xd4012000 0x0 0x38>;
                         /* usually i2c client has only 1 reg field */
                         #address-cells = <1>;
                         #size-cells = <0>;
