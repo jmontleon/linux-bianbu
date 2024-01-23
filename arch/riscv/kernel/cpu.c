@@ -333,10 +333,13 @@ static int c_show(struct seq_file *m, void *v)
 	unsigned long cpu_id = (unsigned long)v - 1;
 	struct riscv_cpuinfo *ci = per_cpu_ptr(&riscv_cpuinfo, cpu_id);
 	struct device_node *node;
-	const char *compat;
+	const char *compat, *model;
 
 	seq_printf(m, "processor\t: %lu\n", cpu_id);
 	seq_printf(m, "hart\t\t: %lu\n", cpuid_to_hartid_map(cpu_id));
+
+	if (!of_property_read_string(node, "model", &model))
+		seq_printf(m, "model name\t: %s\n", model);
 
 	/*
 	 * For historical raisins, the isa: line is limited to the lowest common

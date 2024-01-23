@@ -42,6 +42,7 @@
 		cpu_0: cpu@0 {
 			compatible = "riscv";
 			device_type = "cpu";
+			model = "Spacemit(R) X60";
 			reg = <0>;
 			status = "okay";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
@@ -77,6 +78,7 @@
 			reg = <1>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
@@ -110,6 +112,7 @@
 			reg = <2>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
@@ -143,6 +146,7 @@
 			reg = <3>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
@@ -176,6 +180,7 @@
 			reg = <4>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
@@ -209,6 +214,7 @@
 			reg = <5>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
@@ -242,6 +248,7 @@
 			reg = <6>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
@@ -275,6 +282,7 @@
 			reg = <7>;
 			status = "okay";
 			compatible = "riscv";
+			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
