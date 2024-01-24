@@ -34,6 +34,37 @@ static const struct of_device_id spacemit_pmic_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, spacemit_pmic_of_match);
 
+struct mfd_match_data *match_data;
+
+static void spacemit_pm_power_off(void)
+{
+	int ret;
+	struct spacemit_pmic *pmic = (struct spacemit_pmic *)match_data->ptr;
+
+	ret = regmap_update_bits(pmic->regmap, match_data->shutdown.reg,
+			match_data->shutdown.bit, match_data->shutdown.bit);
+	if (ret) {
+		pr_err("Failed to shutdown device!\n");
+	}
+
+	while (1) {
+		asm volatile ("wfi");
+	}
+
+	return;
+}
+
+static int spacemit_restart_notify(struct notifier_block *this, unsigned long mode, void *cmd)
+{
+	/* TODO */
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block spacemit_restart_handler = {
+	.notifier_call = spacemit_restart_notify,
+	.priority = 192,
+};
+
 static int spacemit_prepare_sub_pmic(struct spacemit_pmic *pmic)
 {
 	struct i2c_client *client = pmic->i2c;
@@ -67,7 +98,6 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	struct spacemit_pmic *pmic;
 	const struct mfd_cell *cells;
 	const struct of_device_id *of_id;
-	struct mfd_match_data *match_data;
 
 	pmic = devm_kzalloc(&client->dev, sizeof(*pmic), GFP_KERNEL);
 	if (!pmic) {
@@ -89,6 +119,7 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	of_node_put(np);
 
 	match_data = (struct mfd_match_data *)of_id->data;
+	match_data->ptr = (void *)pmic;
 
 	pmic->regmap_cfg = match_data->regmap_cfg;
 	pmic->regmap_irq_chip = match_data->regmap_irq_chip;
@@ -144,6 +175,15 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 	if (ret) {
 		pr_err("failed to add MFD devices %d\n", ret);
 		return -EINVAL;
+	}
+
+	if (match_data->shutdown.reg)
+		pm_power_off = spacemit_pm_power_off;
+
+	if (match_data->reboot.reg) {
+		ret = register_restart_handler(&spacemit_restart_handler);
+		if (ret)
+			pr_warn("failed to register rst handler, %d\n", ret);
 	}
 
 	return 0;
