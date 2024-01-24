@@ -76,6 +76,9 @@ enum SPM8821_reg {
 #define SPM8821_SWITCH_CTRL_REG		0x59
 #define SPM8821_SWTICH_EN_MASK		0x1
 
+#define SPM8821_PWR_CTRL2		0x7e
+#define SPM8821_SW_SHUTDOWN_BIT_MSK	0x4
+
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
 		.reg_bits = 8,	\
@@ -753,6 +756,10 @@ static struct mfd_match_data spm8821_mfd_match_data = {		\
 	.mfd_cells = spm8821,					\
 	.nr_cells = ARRAY_SIZE(spm8821),			\
 	.name = "spm8821",					\
+	.shutdown = {						\
+		.reg = SPM8821_PWR_CTRL2,			\
+		.bit = SPM8821_SW_SHUTDOWN_BIT_MSK,		\
+	},							\
 };
 
 #define SPM8821_PINCTRL_MATCH_DATA				\
