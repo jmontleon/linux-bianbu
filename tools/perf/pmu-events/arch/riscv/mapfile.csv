@@ -18,3 +18,4 @@
 0x5b7-0x0-0x0,v1,thead/c900-legacy,core
 0x67e-0x80000000db0000[89]0-0x[[:xdigit:]]+,v1,starfive/dubhe-80,core
 0x31e-0x8000000000008a45-0x[[:xdigit:]]+,v1,andes/ax45,core
+0x710-0x8000000058000001-0x[[:xdigit:]]+,v1,spacemit/x60,core
