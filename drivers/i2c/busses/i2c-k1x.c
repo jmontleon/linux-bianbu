@@ -1988,11 +1988,17 @@ static int spacemit_i2c_remove(struct platform_device *pdev)
 
 static void spacemit_i2c_shutdown(struct platform_device *pdev)
 {
-	struct spacemit_i2c_dev *spacemit_i2c = platform_get_drvdata(pdev);
-
-	mutex_lock(&spacemit_i2c->mtx);
-	spacemit_i2c->shutdown = true;
-	mutex_unlock(&spacemit_i2c->mtx);
+	/**
+	 * we should using i2c to communicate with pmic to shutdown the system
+	 * so we should not shutdown i2c
+	 */
+/**
+ *	struct spacemit_i2c_dev *spacemit_i2c = platform_get_drvdata(pdev);
+ *
+ *	mutex_lock(&spacemit_i2c->mtx);
+ *	spacemit_i2c->shutdown = true;
+ *	mutex_unlock(&spacemit_i2c->mtx);
+ */
 }
 
 static const struct of_device_id spacemit_i2c_dt_match[] = {
