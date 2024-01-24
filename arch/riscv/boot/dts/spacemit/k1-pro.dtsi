@@ -27,7 +27,7 @@
 			reg = <0>;
 			status = "okay";
 			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
 			mmu-type = "riscv,sv39";
 			cpu-freq = "1.848Ghz";
@@ -51,7 +51,7 @@
 			reg = <1>;
 			status = "okay";
 			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
 			mmu-type = "riscv,sv39";
 			cpu-freq = "1.848Ghz";
@@ -75,7 +75,7 @@
 			reg = <2>;
 			status = "okay";
 			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
 			mmu-type = "riscv,sv39";
 			cpu-freq = "1.848Ghz";
@@ -99,7 +99,7 @@
 			reg = <3>;
 			status = "okay";
 			compatible = "riscv";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
+			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc";
 			riscv,cbom-block-size = <64>;
 			mmu-type = "riscv,sv39";
 			cpu-freq = "1.848Ghz";
