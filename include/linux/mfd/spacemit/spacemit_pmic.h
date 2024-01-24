@@ -174,6 +174,18 @@ struct mfd_match_data {
 	const struct mfd_cell *mfd_cells;
 	int nr_cells;
 	const char *name;
+	void *ptr;
+
+	/* shutdown - reboot support */
+	struct {
+		unsigned char reg;
+		unsigned char bit;
+	} shutdown;
+
+	struct {
+		unsigned int reg;
+		unsigned char bit;
+	} reboot;
 };
 
 /* regulator: match data */
