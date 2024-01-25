@@ -449,6 +449,13 @@
 		&range GPIO_124 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_125 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 	>;
+
+	pinctrl_rcpu: pinctrl_rcpu_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
+			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
+		>;
+	};
 };
 
 &gpio{
@@ -801,4 +808,10 @@
 	opp1600000000 {
 		opp-microvolt = <1050000>;
 	};
+};
+
+&rcpu {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rcpu>;
+	status = "okay";
 };
