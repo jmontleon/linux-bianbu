@@ -472,6 +472,13 @@
 			K1X_PADCONF(GPIO_80, MUX_MODE0, (EDGE_BOTH | PULL_UP | PAD_3V_DS4))  /* mmc cd */
 		>;
 	};
+
+	pinctrl_rcpu: pinctrl_rcpu_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))   /* r_uart0_tx */
+			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))   /* r_uart0_rx */
+		>;
+	};
 };
 
 /* SD */
@@ -811,4 +818,10 @@
 	opp1600000000 {
 		opp-microvolt = <1050000>;
 	};
+};
+
+&rcpu {
+       pinctrl-names = "default";
+       pinctrl-0 = <&pinctrl_rcpu>;
+       status = "okay";
 };
