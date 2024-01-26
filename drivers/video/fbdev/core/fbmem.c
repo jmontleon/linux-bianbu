@@ -676,7 +676,6 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 
 	height = fb_logo.logo->height;
 
-	fb_center_logo = TRUE;
 	if (fb_center_logo)
 		height += (yres - fb_logo.logo->height) / 2;
 
@@ -693,7 +692,6 @@ int fb_show_logo(struct fb_info *info, int rotate)
 
 	count = fb_logo_count < 0 ? num_online_cpus() : fb_logo_count;
 
-	count = 1;
 	y = fb_show_logo_line(info, rotate, fb_logo.logo, 0, count);
 	y = fb_show_extra_logos(info, y, rotate);
 
