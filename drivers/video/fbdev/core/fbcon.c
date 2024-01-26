@@ -1141,7 +1141,6 @@ static void fbcon_init(struct vc_data *vc, bool init)
 	} else
 		vc_resize(vc, new_cols, new_rows);
 
-	logo = 1;
 	if (logo)
 		fbcon_prepare_logo(vc, info, cols, rows, new_cols, new_rows);
 
@@ -2191,7 +2190,6 @@ static bool fbcon_switch(struct vc_data *vc)
 	fbcon_set_palette(vc, color_table);
 	fbcon_clear_margins(vc, 0);
 
-	logo_shown = FBCON_LOGO_DRAW;
 	if (logo_shown == FBCON_LOGO_DRAW) {
 
 		logo_shown = fg_console;
