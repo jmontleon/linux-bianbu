@@ -90,8 +90,8 @@
 
 		linux,cma {
 			compatible = "shared-dma-pool";
-			/* alloc memory from 0x60000000~0x80000000 */
-			alloc-ranges = <0 0x60000000 0 0x20000000>;
+			/* alloc memory from 0x40000000~0x80000000 */
+			alloc-ranges = <0 0x40000000 0 0x40000000>;
 			/* size of cma buffer is 384MByte */
 			size = <0 0x18000000>;
 			/* start address is 1Mbyte aligned */
