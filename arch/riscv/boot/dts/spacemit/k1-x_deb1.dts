@@ -815,3 +815,11 @@
 	pinctrl-0 = <&pinctrl_rcpu>;
 	status = "okay";
 };
+
+&cls0_trip3 {
+	temperature = <115000>;
+};
+
+&cls1_trip3 {
+	temperature = <115000>;
+};
