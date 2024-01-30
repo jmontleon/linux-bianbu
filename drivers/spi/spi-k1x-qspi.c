@@ -108,7 +108,7 @@
 #define QSPI_SMPR_DDRSMP_MASK		GENMASK(18, 16)
 #define QSPI_SMPR_FSDLY_MASK		BIT(6)
 #define QSPI_SMPR_FSPHS_MASK		BIT(5)
-#define QSPI_SMPR_FSPHS_CLK		(312000000)
+#define QSPI_SMPR_FSPHS_CLK		(416000000)
 #define QSPI_SMPR_HSENA_MASK		BIT(0)
 
 #define QSPI_RBSR			0x10c
@@ -404,11 +404,7 @@ static int qspi_set_func_clk(struct k1x_qspi *qspi)
 	}
 	clk_prepare_enable(qspi->bus_clk);
 
-	/*
-	 * This frequency is 4X of QSPI bus clock frequency,
-	 * so the final QSPI bus clock freq = bit[8:6] selected freq / 4
-	 */
-	ret = clk_set_rate(qspi->clk, qspi->max_hz << 2);
+	ret = clk_set_rate(qspi->clk, qspi->max_hz);
 	if (ret) {
 		dev_err(qspi->dev, "fail to set clk, ret:%d\n", ret);
 		return ret;
@@ -1347,7 +1343,7 @@ static int k1x_qspi_host_init(struct k1x_qspi *qspi)
 	qspi_enter_mode(qspi, QSPI_DISABLE_MODE);
 
 	/* sampled by sfif_clk_b; half cycle delay; */
-	if (qspi->max_hz <= (QSPI_SMPR_FSPHS_CLK >> 2))
+	if (qspi->max_hz < (QSPI_SMPR_FSPHS_CLK >> 2))
 		qspi_writel(qspi, 0x0, base + QSPI_SMPR);
 	else
 		qspi_writel(qspi, QSPI_SMPR_FSPHS_MASK, base + QSPI_SMPR);
