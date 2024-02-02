@@ -622,7 +622,7 @@ static unsigned int serial_pxa_get_mctrl(struct uart_port *port)
 	return ret;
 }
 
-#if defined(CONFIG_BT)
+#if 0
 extern int bluesleep_hostwake_is_active(int port);
 #endif
 
@@ -649,7 +649,7 @@ static void serial_pxa_set_mctrl(struct uart_port *port, unsigned int mctrl)
 	 * block the serial_core to assert RTS if BT HOST_WAKE is disactive.
 	 */
 	if (up->device_ctrl_rts) {
-		#if defined(CONFIG_BT)
+		#if 0
 		hostwake = (bluesleep_hostwake_is_active(BT_UART_PORT) == 0);
 		#endif
 		if ((hostwake || up->in_resume) && (mctrl & TIOCM_RTS))
