@@ -428,13 +428,18 @@ static struct ccu_ddn_tbl slow_uart1_tbl[] = {
 static struct ccu_ddn_tbl slow_uart2_tbl[] = {
 	{.num = 6144, .den = 960},/*rate = parent_rate*960/6144/2) */
 };
-static SPACEMIT_CCU_DDN_GATE(slow_uart1_14p74, "slow_uart1_14p74", "pll1_d16_153p6",
+
+static SPACEMIT_CCU_GATE_NO_PARENT(slow_uart, "slow_uart", NULL,
+	BASE_TYPE_MPMU, MPMU_ACGR,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DDN(slow_uart1_14p74, "slow_uart1_14p74", "pll1_d16_153p6",
 	&uart_ddn_mask_info, &slow_uart1_tbl, ARRAY_SIZE(slow_uart1_tbl),
-	BASE_TYPE_MPMU, MPMU_SUCCR, MPMU_ACGR, BIT(1),
+	BASE_TYPE_MPMU, MPMU_SUCCR,
 	CLK_IGNORE_UNUSED);
-static SPACEMIT_CCU_DDN_GATE(slow_uart2_48, "slow_uart2_48", "pll1_d4_614p4",
+static SPACEMIT_CCU_DDN(slow_uart2_48, "slow_uart2_48", "pll1_d4_614p4",
 	&uart_ddn_mask_info, &slow_uart2_tbl, ARRAY_SIZE(slow_uart2_tbl),
-	BASE_TYPE_MPMU, MPMU_SUCCR_1, MPMU_ACGR, BIT(1),
+	BASE_TYPE_MPMU, MPMU_SUCCR_1,
 	CLK_IGNORE_UNUSED);
 
 //apbc
@@ -1260,6 +1265,7 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_SEC_KPC]		= &kpc_sec_clk.common.hw,
 		[CLK_SEC_GPIO]		= &gpio_sec_clk.common.hw,
 		[CLK_APB]		= &apb_clk.common.hw,
+		[CLK_SLOW_UART]		= &slow_uart.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };

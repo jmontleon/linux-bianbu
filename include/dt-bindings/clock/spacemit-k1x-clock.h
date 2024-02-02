@@ -187,5 +187,7 @@
 #define CLK_PLL3_40     178
 #define CLK_PLL3_20     179
 
-#define CLK_MAX_NO      180
+#define CLK_SLOW_UART   180
+
+#define CLK_MAX_NO      181
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */
