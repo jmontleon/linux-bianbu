@@ -158,7 +158,9 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 
 	// hdmi config
 	if (mode->hdisplay > 1024) {
-		// 1920x1080
+	// 1920x1080
+	#if 0
+
 		writel(0x4d, hdmi_addr + 0x34);
 		writel(0x20200000, hdmi_addr + 0xe8);
 		writel(0x509D453E, hdmi_addr + 0xec);
@@ -167,9 +169,27 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 
 		udelay(2);
 		value = readl_relaxed(hdmi_addr + 0xe4);
-		DRM_DEBUG("%s() hdmi 0xe4 0x%x\n", __func__, value);
+		DRM_INFO("%s() hdmi 0xe4 0x%x\n", __func__, value);
 
 		writel(0x30184000, hdmi_addr + 0x28);
+	#else
+
+		writel(0xEE40410F, hdmi_addr + 0xe0);
+		writel(0x0000005d, hdmi_addr + 0x34);
+		writel(0x2022C000, hdmi_addr + 0xe8);
+		writel(0x508D414D, hdmi_addr + 0xec);
+
+		writel(0x00000901, hdmi_addr + 0xf0);
+		writel(0x3, hdmi_addr + 0xe4);
+
+		udelay(2);
+		value = readl_relaxed(hdmi_addr + 0xe4);
+		DRM_INFO("%s() hdmi 0xe4 0x%x\n", __func__, value);
+
+		writel(0x3018C001, hdmi_addr + 0x28);
+
+	#endif
+
 	} else {
 		// 640x480
 		writel(0x40, hdmi_addr + 0x34);
