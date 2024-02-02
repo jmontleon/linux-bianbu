@@ -777,7 +777,8 @@
 			reg = <0x0 0xd4017000 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <42>;
-			clocks = <&ccu CLK_UART1>;
+			clocks = <&ccu CLK_UART1>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART1>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -793,7 +794,8 @@
 			reg = <0x0 0xd4017100 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <44>;
-			clocks = <&ccu CLK_UART2>;
+			clocks = <&ccu CLK_UART2>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART2>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -809,7 +811,8 @@
 			reg = <0x0 0xd4017200 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <45>;
-			clocks = <&ccu CLK_UART3>;
+			clocks = <&ccu CLK_UART3>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
  			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART3>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -825,7 +828,8 @@
 			interrupt-parent = <&intc>;
 			reg = <0x0 0xd4017300 0x0 0x100>;
 			interrupts = <46>;
-			clocks = <&ccu CLK_UART4>;
+			clocks = <&ccu CLK_UART4>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART4>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -841,7 +845,8 @@
 			interrupt-parent = <&intc>;
 			reg = <0x0 0xd4017400 0x0 0x100>;
 			interrupts = <47>;
-			clocks = <&ccu CLK_UART5>;
+			clocks = <&ccu CLK_UART5>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART5>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -857,7 +862,8 @@
 			interrupt-parent = <&intc>;
 			reg = <0x0 0xd4017500 0x0 0x100>;
 			interrupts = <48>;
-			clocks = <&ccu CLK_UART6>;
+			clocks = <&ccu CLK_UART6>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART6>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -873,7 +879,8 @@
 			interrupt-parent = <&intc>;
 			reg = <0x0 0xd4017600 0x0 0x100>;
 			interrupts = <49>;
-			clocks = <&ccu CLK_UART7>;
+			clocks = <&ccu CLK_UART7>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART7>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
@@ -889,7 +896,8 @@
 			interrupt-parent = <&intc>;
 			reg = <0x0 0xd4017700 0x0 0x100>;
 			interrupts = <50>;
-			clocks = <&ccu CLK_UART8>;
+			clocks = <&ccu CLK_UART8>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART8>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
