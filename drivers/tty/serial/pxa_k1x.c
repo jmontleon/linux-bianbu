@@ -57,7 +57,7 @@
 
 #define UARTCLK_FPGA		(14750000)
 
-#define NUM_UART_PORTS		(4)
+#define NUM_UART_PORTS		(9)
 #define BT_UART_PORT		(2)
 
 #define UART_FCR_PXA_BUS32	(0x20)	/* 32-Bit Peripheral Bus */
@@ -118,7 +118,8 @@ struct uart_pxa_port {
 	unsigned char		lcr;
 	unsigned char		mcr;
 	unsigned int		lsr_break_flag;
-	struct clk		*clk;
+	struct clk		*fclk;
+	struct clk		*gclk;
 	struct reset_control    *resets;
 	char			name[PXA_NAME_LEN];
 
@@ -151,7 +152,7 @@ static int uart_dma;
 
 static int __init uart_dma_setup(char *__unused)
 {
-#ifdef CONFIG_MMP_PDMA
+#ifdef CONFIG_MMP_PDMA_SPACEMIT_K1X
 	uart_dma = 1;
 #endif
 	return 1;
@@ -1155,7 +1156,7 @@ static int serial_pxa_startup(struct uart_port *port)
 		up->port.uartclk = UARTCLK_FPGA;
 	}
 	#else
-	up->port.uartclk = clk_get_rate(up->clk);
+	up->port.uartclk = clk_get_rate(up->fclk);
 	#endif
 
 	/*
@@ -1308,14 +1309,14 @@ static int pxa_set_baudrate_clk(struct uart_port *port, unsigned int baud)
 	 * choose the closest integral value above zero.
 	 * So for different clk source, the real baudrate is
 	 * baudrate = clk_rate / 16 / [quot]. */
-	ret = clk_set_rate(up->clk, rate);
+	ret = clk_set_rate(up->fclk, rate);
 	if (ret < 0) {
 		dev_err(port->dev,
 			"Failed to set clk rate %lu\n", rate);
 		return ret;
 	}
 
-	up->port.uartclk = clk_get_rate(up->clk);
+	up->port.uartclk = clk_get_rate(up->fclk);
 	up->current_baud = baud;
 
 	return 0;
@@ -1500,9 +1501,11 @@ static void serial_pxa_pm(struct uart_port *port, unsigned int state, unsigned i
 	struct uart_pxa_port *up = (struct uart_pxa_port *)port;
 
 	if (!state) {
-		clk_prepare_enable(up->clk);
+		clk_prepare_enable(up->gclk);
+		clk_prepare_enable(up->fclk);
 	} else {
-		clk_disable_unprepare(up->clk);
+		clk_disable_unprepare(up->fclk);
+		clk_disable_unprepare(up->gclk);
 	}
 }
 
@@ -1693,7 +1696,8 @@ serial_pxa_console_write(struct console *co, const char *s, unsigned int count)
 	unsigned long flags;
 	int locked = 1;
 
-	clk_enable(up->clk);
+	clk_enable(up->gclk);
+	clk_enable(up->fclk);
 
 	local_irq_save(flags);
 	if (up->port.sysrq)
@@ -1721,8 +1725,8 @@ serial_pxa_console_write(struct console *co, const char *s, unsigned int count)
 	if (locked)
 		spin_unlock(&up->port.lock);
 	local_irq_restore(flags);
-	clk_disable(up->clk);
-
+	clk_disable(up->fclk);
+	clk_disable(up->gclk);
 }
 
 #ifdef CONFIG_CONSOLE_POLL
@@ -2125,15 +2129,27 @@ static int serial_pxa_probe(struct platform_device *dev)
 		return -ENOMEM;
 	}
 #endif
-	sport->clk = clk_get(&dev->dev, NULL);
-	if (IS_ERR(sport->clk)) {
-		ret = PTR_ERR(sport->clk);
+	sport->gclk = devm_clk_get(&dev->dev, "gate");
+	if (IS_ERR(sport->gclk)) {
+		ret = PTR_ERR(sport->gclk);
 		goto err_free;
 	}
 
-	ret = clk_prepare(sport->clk);
+	sport->fclk = devm_clk_get(&dev->dev, "func");
+	if (IS_ERR(sport->fclk)) {
+		ret = PTR_ERR(sport->fclk);
+		goto err_free;
+	}
+
+	ret = clk_prepare(sport->gclk);
 	if (ret) {
-		clk_put(sport->clk);
+		clk_put(sport->gclk);
+		goto err_free;
+	}
+
+	ret = clk_prepare(sport->fclk);
+	if (ret) {
+		clk_put(sport->fclk);
 		goto err_free;
 	}
 
@@ -2154,7 +2170,7 @@ static int serial_pxa_probe(struct platform_device *dev)
 		sport->port.uartclk = UARTCLK_FPGA;
 	}
 #else
-	sport->port.uartclk = clk_get_rate(sport->clk);
+	sport->port.uartclk = clk_get_rate(sport->fclk);
 #endif
 	sport->resets = devm_reset_control_get_optional(&dev->dev, NULL);
 	if(IS_ERR(sport->resets)) {
@@ -2236,7 +2252,7 @@ static int serial_pxa_probe(struct platform_device *dev)
 
 	serial_pxa_ports[sport->port.line] = sport;
 	uart_add_one_port(&serial_pxa_reg, &sport->port);
-	dev_info(&dev->dev, "uart clk_rate: %lu\n", clk_get_rate(sport->clk));
+	dev_info(&dev->dev, "uart clk_rate: %lu\n", clk_get_rate(sport->fclk));
 	platform_set_drvdata(dev, sport);
 
 #ifdef CONFIG_PM
@@ -2267,8 +2283,10 @@ err_qos:
 err_rst:
 	reset_control_assert(sport->resets);
 err_clk:
-	clk_unprepare(sport->clk);
-	clk_put(sport->clk);
+	clk_unprepare(sport->fclk);
+	clk_unprepare(sport->gclk);
+	clk_put(sport->fclk);
+	clk_put(sport->gclk);
 err_free:
 	kfree(sport);
 	return ret;
@@ -2286,8 +2304,10 @@ static int serial_pxa_remove(struct platform_device *dev)
 
 	reset_control_assert(sport->resets);
 	free_irq(sport->port.irq, sport);
-	clk_unprepare(sport->clk);
-	clk_put(sport->clk);
+	clk_unprepare(sport->fclk);
+	clk_unprepare(sport->gclk);
+	clk_put(sport->fclk);
+	clk_put(sport->gclk);
 
 #ifdef CONFIG_PM
 /*	if (sport->edge_wakeup_gpio >= 0) {
