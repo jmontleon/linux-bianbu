@@ -40,6 +40,8 @@ struct spacemit_drm_private {
 	bool contig_mem;
 	int num_pipes;
 	struct cmdlist **cmdlist_groups;
+	struct cmdlist_reg *cmdlist_regs;
+	int cmdlist_num;
 };
 
 extern struct platform_driver spacemit_dpu_driver;

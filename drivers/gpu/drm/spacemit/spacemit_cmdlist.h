@@ -57,15 +57,12 @@ struct cmdlist_reg {
     uint32_t value;
 };
 
-extern struct cmdlist_reg cmdlist_regs[CMDLIST_REGS_NUM];
-extern int cmdlist_num;
-
 #define dpu_offsetof(TYPE, MEMBER)  ((size_t)&((TYPE *)0)->v.MEMBER)
-#define write_to_cmdlist(module_name, module_base, reg, val) \
+#define write_to_cmdlist(priv, module_name, module_base, reg, val) \
 { \
-    u32 offset = module_base + dpu_offsetof(module_name, reg); \
-    cmdlist_regs[cmdlist_num].value = val; \
-    cmdlist_regs[cmdlist_num++].offset = offset; \
+	u32 offset = module_base + dpu_offsetof(module_name, reg); \
+	priv->cmdlist_regs[priv->cmdlist_num].value = val; \
+	priv->cmdlist_regs[priv->cmdlist_num++].offset = offset; \
 }
 
 void cmdlist_regs_packing(struct drm_plane *plane);

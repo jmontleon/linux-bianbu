@@ -172,12 +172,14 @@ void inline saturn_write_fbcmem_regs(struct drm_plane_state *state, u32 rdma_id,
 				     u32 module_base, volatile RDMA_PATH_X_REG *rdma_regs)
 {
 	struct drm_crtc_state *crtc_state = state->crtc->state;
+	struct drm_crtc *crtc = crtc_state->crtc;
+	struct spacemit_drm_private *priv = crtc->dev->dev_private;
 	const struct spacemit_dpu_rdma *rdmas = to_spacemit_crtc_state(crtc_state)->rdmas;
 	u32 size  = rdmas[rdma_id].fbcmem.size;// / FBCMEM_UNIT;
 	u32 start = rdmas[rdma_id].fbcmem.start;// / FBCMEM_UNIT;
 	bool map   = rdmas[rdma_id].fbcmem.map;
 
-	write_to_cmdlist(RDMA_PATH_X_REG, module_base, FBC_MEM_SIZE, map << 28 | start << 16 | size);
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, FBC_MEM_SIZE, map << 28 | start << 16 | size);
 
 	return;
 }

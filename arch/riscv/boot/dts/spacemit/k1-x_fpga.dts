@@ -94,7 +94,7 @@
 
 };
 
-&dpu_online2 {
+&dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
 	status = "okay";
 };
