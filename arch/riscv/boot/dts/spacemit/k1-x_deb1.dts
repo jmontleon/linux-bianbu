@@ -104,7 +104,7 @@
 		/* reserved 384K for dpu, including mmu table(256K) and cmdlist(128K) */
 		dpu_resv: dpu_reserved@27000000 {
 			compatible = "shared-dma-pool";
-			reg = <0x0 0x27000000 0x0 0x00060000>;
+			reg = <0x0 0x27000000 0x0 0x000C0000>;
 			no-map;
 		};
 	};
@@ -171,14 +171,14 @@
 &pwm14 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm14_1>;
-	status = "disabled";
+	status = "okay";
 };
 
-&dpu_online2 {
+&dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
 	dsi_1v2-supply = <&ldo_5>;
 	vin-supply-names = "dsi_1v2";
-	status = "okay";
+	status = "disabled";
 };
 
 &dsi2 {
@@ -199,6 +199,11 @@
 
 &lcds {
 	status = "disabled";
+};
+
+&dpu_online2_hdmi {
+	memory-region = <&dpu_resv>;
+	status = "okay";
 };
 
 &hdmi{
@@ -751,7 +756,7 @@
 	>;
 	default-brightness-level = <100>;
 
-	status = "disabled";
+	status = "okay";
 };
 
 /* imx315 */

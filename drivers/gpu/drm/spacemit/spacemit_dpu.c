@@ -294,7 +294,7 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 
-	DRM_DEBUG("%s(power on)\n", __func__);
+	DRM_INFO("%s(power on)\n", __func__);
 	trace_spacemit_crtc_atomic_enable(dpu->dev_id);
 
 	/* If bootloader logo is boot on, release its resources first */
@@ -814,7 +814,7 @@ static int spacemit_dpu_bind(struct device *dev, struct device *master, void *da
 	if (ret)
 		goto err_destroy_workqueue;
 
-	spacemit_wb_init(drm_dev, &dpu->crtc);
+	// spacemit_wb_init(drm_dev, &dpu->crtc);
 
 	spacemit_dpu_sysfs_init(dev);
 
