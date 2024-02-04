@@ -2176,14 +2176,19 @@
 			status = "okay";
 		};
 
-		/*
-		display-subsystem {
+		display-subsystem-dsi {
 			compatible = "spacemit,saturn-le";
 			reg = <0 0xC0340000 0 0x2A000>;
-			ports = <&dpu_online2>;
+			ports = <&dpu_online2_dsi>;
 		};
 
-		dpu_online2: port@c0340000 {
+		display-subsystem-hdmi {
+			compatible = "spacemit,saturn-hdmi";
+			reg = <0 0xc0440000 0 0x2A000>;
+			ports = <&dpu_online2_hdmi>;
+		};
+
+		dpu_online2_dsi: port@c0340000 {
 			compatible = "spacemit,dpu-online2";
 			interrupt-parent = <&intc>;
 			interrupts = <90>, <89>;
@@ -2213,62 +2218,14 @@
 			pipeline-id = <ONLINE2>;
 			ip = "spacemit-saturn";
 			spacemit-dpu-min-mclk = <40960000>;
-			status = "ok";
+			status = "disabled";
 
-			dpu_online2_out_dsi: endpoint@0 {
+			dpu_online2_dsi_out: endpoint@0 {
 				remote-endpoint = <&dsi2_in>;
 			};
 
-			dpu_offline0_out: endpoint@1 {
-				remote-endpoint = <&wb0_in>;
-			};
-		};
-		*/
-
-		display-subsystem {
-			compatible = "spacemit,saturn-hdmi";
-			reg = <0 0xc0440000 0 0x2A000>;
-			ports = <&dpu_online2>;
-		};
-
-		dpu_online2: port@c0440000 {
-			compatible = "spacemit,dpu-online2";
-			interrupt-parent = <&intc>;
-			interrupts = <139>, <138>;
-			interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
-			clocks = <&ccu CLK_HDMI>;
-			clock-names = "hmclk";
-			assigned-clocks = <&ccu CLK_HDMI>;
-			assigned-clock-parents = <&ccu CLK_PLL1_491>;
-			assigned-clock-rates = <491520000>;
-			resets = <&reset RESET_HDMI>;
-			reset-names= "hdmi_reset";
-			power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
-			pipeline-id = <ONLINE2>;
-			ip = "spacemit-saturn";
-			status = "ok";
-
-			dpu_online2_out_hdmi: endpoint@0 {
-				remote-endpoint = <&hdmi_in_dpu>;
-			};
-
-			dpu_offline0_out: endpoint@1 {
-				remote-endpoint = <&wb0_in>;
-			};
-		};
-
-		hdmi: hdmi@C0400500 {
-			compatible = "spacemit,hdmi";
-			reg = <0 0xC0400500 0 0x200>;
-			status = "disabled";
-
-			hdmi_in: port {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				hdmi_in_dpu: endpoint@0 {
-					reg = <0>;
-					remote-endpoint = <&dpu_online2_out_hdmi>;
-				};
+			dpu_offline0_dsi_out: endpoint@1 {
+				// remote-endpoint = <&wb0_in>;
 			};
 		};
 
@@ -2293,30 +2250,14 @@
 						remote-endpoint = <&dphy2_in>;
 					};
 				};
-				/*
+
 				port@1 {
 					reg = <1>;
 					dsi2_in: endpoint {
-						remote-endpoint = <&dpu_online2_out_dsi>;
+						remote-endpoint = <&dpu_online2_dsi_out>;
 					};
 				};
-				*/
-			};
-		};
 
-		wb0 {
-			compatible = "spacemit,wb0";
-			dev-id = <2>;
-			status = "ok";
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@0 {
-					reg = <0>;
-					wb0_in: endpoint {
-						remote-endpoint = <&dpu_offline0_out>;
-					};
-				};
 			};
 		};
 
@@ -2327,12 +2268,71 @@
 			reg = <0 0xD421A800 0 0x200>;
 			ip = "spacemit-dphy";
 			dev-id = <2>;
-			status = "ok";
+			status = "okay";
 
 			port@1 {
 				reg = <1>;
 				dphy2_in: endpoint {
 					remote-endpoint = <&dsi2_out>;
+				};
+			};
+		};
+
+		wb0 {
+			compatible = "spacemit,wb0";
+			dev-id = <2>;
+			status = "okay";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					wb0_in: endpoint {
+						remote-endpoint = <&dpu_offline0_dsi_out>;
+					};
+				};
+			};
+		};
+
+		dpu_online2_hdmi: port@c0440000 {
+			compatible = "spacemit,dpu-online2";
+			interrupt-parent = <&intc>;
+			interrupts = <139>, <138>;
+			interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
+			clocks = <&ccu CLK_HDMI>;
+			clock-names = "hmclk";
+			assigned-clocks = <&ccu CLK_HDMI>;
+			assigned-clock-parents = <&ccu CLK_PLL1_491>;
+			assigned-clock-rates = <491520000>;
+			resets = <&reset RESET_HDMI>;
+			reset-names= "hdmi_reset";
+			power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
+			pipeline-id = <ONLINE2>;
+			ip = "spacemit-saturn";
+			status = "disabled";
+
+			dpu_online2_hdmi_out: endpoint@0 {
+				remote-endpoint = <&hdmi_in>;
+			};
+
+			dpu_offline0_hdmi_out: endpoint@1 {
+				remote-endpoint = <&wb0_in>;
+			};
+
+		};
+
+		hdmi: hdmi@C0400500 {
+			compatible = "spacemit,hdmi";
+			reg = <0 0xC0400500 0 0x200>;
+			status = "disabled";
+
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				hdmi_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&dpu_online2_hdmi_out>;
 				};
 			};
 		};

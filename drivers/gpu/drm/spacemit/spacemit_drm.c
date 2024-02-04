@@ -420,6 +420,11 @@ static int spacemit_drm_probe(struct platform_device *pdev)
 
 	priv->hwdev = (struct spacemit_hw_device *)of_device_get_match_data(&pdev->dev);
 
+	priv->cmdlist_num = 0;
+	priv->cmdlist_regs = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!priv->cmdlist_regs)
+		return -ENOMEM;
+
 	priv->cmdlist_groups = kzalloc(sizeof(struct cmdlist *) * \
 			       priv->hwdev->rdma_nums, GFP_KERNEL);
 	if (!priv->cmdlist_groups)

@@ -617,29 +617,32 @@ void spacemit_update_csc_matrix(struct drm_plane *plane, struct drm_plane_state 
 	u32 module_base;
 	int color_encoding = plane->state->color_encoding;
 	int color_range = plane->state->color_range;
+	struct spacemit_drm_private *priv = plane->dev->dev_private;
 	int value;
 
 	module_base = RDMA0_BASE_ADDR + rdma_id * RDMA_SIZE;
 
 	if ((color_encoding != old_state->color_encoding) || (color_range != old_state->color_range)){
 		value = (spacemit_yuv2rgb_coefs[color_encoding][color_range][0] & 0x3FFF) | ((spacemit_yuv2rgb_coefs[color_encoding][color_range][1] & 0x3FFF) << 14);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, CSC_MATRIX0, value);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, CSC_MATRIX0, value);
 		value = (spacemit_yuv2rgb_coefs[color_encoding][color_range][2] & 0x3FFF) | ((spacemit_yuv2rgb_coefs[color_encoding][color_range][3] & 0x3FFF) << 14);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, CSC_MATRIX1, value);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, CSC_MATRIX1, value);
 		value = (spacemit_yuv2rgb_coefs[color_encoding][color_range][4] & 0x3FFF) | ((spacemit_yuv2rgb_coefs[color_encoding][color_range][5] & 0x3FFF) << 14);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, CSC_MATRIX2, value);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, CSC_MATRIX2, value);
 		value = (spacemit_yuv2rgb_coefs[color_encoding][color_range][6] & 0x3FFF) | ((spacemit_yuv2rgb_coefs[color_encoding][color_range][7] & 0x3FFF) << 14);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, CSC_MATRIX3, value);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, CSC_MATRIX3, value);
 		value = (spacemit_yuv2rgb_coefs[color_encoding][color_range][8] & 0x3FFF) | ((spacemit_yuv2rgb_coefs[color_encoding][color_range][9] & 0x3FFF) << 14);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, CSC_MATRIX4, value);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, CSC_MATRIX4, value);
 		value = (spacemit_yuv2rgb_coefs[color_encoding][color_range][10] & 0x3FFF) | ((spacemit_yuv2rgb_coefs[color_encoding][color_range][11] & 0x3FFF) << 14);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, CSC_MATRIX5, value);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, CSC_MATRIX5, value);
 	}
 }
 
 static void saturn_conf_scaler_x(struct drm_plane_state *state)
 {
 	struct spacemit_plane_state *spacemit_plane_state = to_spacemit_plane_state(state);
+	struct drm_plane *plane = state->plane;
+	struct spacemit_drm_private *priv = plane->dev->dev_private;
 	u32 in_width, in_height, out_width, out_height;
 	uint32_t hor_delta_phase, ver_delta_phase;
 	int64_t hor_init_phase, ver_init_phase;
@@ -668,8 +671,8 @@ static void saturn_conf_scaler_x(struct drm_plane_state *state)
 	hor_delta_phase = in_width * 65536 / out_width;
 	ver_delta_phase = in_height * 65536 / out_height;
 
-	write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_7, hor_delta_phase); //0x10000
-	write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_8, ver_delta_phase); //0x5555
+	write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_7, hor_delta_phase); //0x10000
+	write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_8, ver_delta_phase); //0x5555
 
 	//TODO: start cor
 	hor_init_phase = ((int64_t)hor_delta_phase - 65536) >> 1;
@@ -679,46 +682,47 @@ static void saturn_conf_scaler_x(struct drm_plane_state *state)
 	DRM_DEBUG("hor_init_phase:%lld ver_init_phase:%lld\n", hor_init_phase, ver_init_phase);
 
 	if (hor_init_phase >= 0) {
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_3, hor_init_phase & 0x00000000ffffffff);  //0x0
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_4, 0);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_3, hor_init_phase & 0x00000000ffffffff);  //0x0
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_4, 0);
 	} else { //convert to positive value if negative
 		hor_init_phase += 8589934592;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_3, hor_init_phase & 0x00000000ffffffff);
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_4, (hor_init_phase & 0x0000000100000000) >> 32);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_3, hor_init_phase & 0x00000000ffffffff);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_4, (hor_init_phase & 0x0000000100000000) >> 32);
 	}
 
 	if (ver_init_phase >= 0) {
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_5, ver_init_phase & 0x00000000ffffffff);
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_6, 0);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_5, ver_init_phase & 0x00000000ffffffff);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_6, 0);
 	} else { //convert to positive value if negative
 		ver_init_phase += 8589934592;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_5, ver_init_phase & 0x00000000ffffffff);
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_6, (ver_init_phase & 0x0000000100000000) >> 32);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_5, ver_init_phase & 0x00000000ffffffff);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_6, (ver_init_phase & 0x0000000100000000) >> 32);
 	}
 
 	// enable both ver and hor
-	write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_0, in_width << 8 | 0x1 << 1 | 0x1);
-	write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_1, out_width << 16 | in_height);
-	write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_2, out_height);
+	write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_0, in_width << 8 | 0x1 << 1 | 0x1);
+	write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_1, out_width << 16 | in_height);
+	write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_2, out_height);
 
 	/* Config RDMA scaling regs */
 	module_base = RDMA0_BASE_ADDR + spacemit_plane_state->rdma_id * RDMA_SIZE;
 
 	ver_init_phase = ((int64_t)ver_delta_phase - 65536) / 2;
 	if (ver_init_phase >= 0) {
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_LOW, ver_init_phase & 0x00000000ffffffff);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_HIGH, 0);  //TODO: only 1 bit, read then write??
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_LOW, ver_init_phase & 0x00000000ffffffff);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_HIGH, 0);  //TODO: only 1 bit, read then write??
 	} else { //convert to positive value if negative
 		ver_init_phase += 8589934592;
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_LOW, ver_init_phase & 0x00000000ffffffff);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_HIGH, (ver_init_phase & 0x0000000100000000) >> 32);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_LOW, ver_init_phase & 0x00000000ffffffff);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_INIT_PHASE_V_HIGH, (ver_init_phase & 0x0000000100000000) >> 32);
 	}
 
-	write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_SCL_RATIO_V, 0x1 << 20 | ver_delta_phase);
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_SCL_RATIO_V, 0x1 << 20 | ver_delta_phase);
 }
 
 void saturn_conf_scaler_coefs(struct drm_plane *plane, struct spacemit_plane_state *spacemit_pstate){
 	struct drm_property_blob * blob = spacemit_pstate->scale_coefs_blob_prop;
+	struct spacemit_drm_private *priv = plane->dev->dev_private;
 	int scale_num = 192;
 	u32 module_base;
 	int val;
@@ -743,57 +747,57 @@ void saturn_conf_scaler_coefs(struct drm_plane *plane, struct spacemit_plane_sta
 		}
 
 		val  = (coef_data[0] & 0xFFFF) | coef_data[1] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_9, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_9, val);
 		val  = (coef_data[2] & 0xFFFF) | coef_data[3] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_10, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_10, val);
 		val  = (coef_data[4] & 0xFFFF) | coef_data[5] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_11, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_11, val);
 		val  = (coef_data[6] & 0xFFFF) | coef_data[7] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_12, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_12, val);
 		val  = (coef_data[8] & 0xFFFF) | coef_data[9] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_13, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_13, val);
 		val  = (coef_data[10] & 0xFFFF) | coef_data[11] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_14, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_14, val);
 		val  = (coef_data[12] & 0xFFFF) | coef_data[13] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_15, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_15, val);
 		val  = (coef_data[14] & 0xFFFF) | coef_data[15] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_16, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_16, val);
 		val  = (coef_data[16] & 0xFFFF) | coef_data[17] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_17, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_17, val);
 		val  = (coef_data[18] & 0xFFFF) | coef_data[19] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_18, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_18, val);
 		val  = (coef_data[20] & 0xFFFF) | coef_data[21] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_19, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_19, val);
 		val  = (coef_data[22] & 0xFFFF) | coef_data[23] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_20, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_20, val);
 		val  = (coef_data[24] & 0xFFFF) | coef_data[25] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_21, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_21, val);
 		val  = (coef_data[26] & 0xFFFF) | coef_data[27] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_22, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_22, val);
 		val  = (coef_data[28] & 0xFFFF) | coef_data[29] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_23, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_23, val);
 		val  = (coef_data[30] & 0xFFFF) | coef_data[31] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_24, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_24, val);
 		val  = (coef_data[32] & 0xFFFF) | coef_data[33] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_25, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_25, val);
 		val  = (coef_data[34] & 0xFFFF) | coef_data[35] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_26, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_26, val);
 		val  = (coef_data[36] & 0xFFFF) | coef_data[37] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_27, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_27, val);
 		val  = (coef_data[38] & 0xFFFF) | coef_data[39] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_28, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_28, val);
 		val  = (coef_data[40] & 0xFFFF) | coef_data[41] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_29, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_29, val);
 		val  = (coef_data[42] & 0xFFFF) | coef_data[43] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_30, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_30, val);
 		val  = (coef_data[44] & 0xFFFF) | coef_data[45] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_31, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_31, val);
 		val  = (coef_data[46] & 0xFFFF) | coef_data[47] << 16;
-		write_to_cmdlist(SCALER_X_REG, module_base, disp_scl_reg_32, val);
+		write_to_cmdlist(priv, SCALER_X_REG, module_base, disp_scl_reg_32, val);
 	}
 }
 
-static void spacemit_set_afbc_info(uint64_t modifier, u32 module_base)
+static void spacemit_set_afbc_info(struct spacemit_drm_private *priv, uint64_t modifier, u32 module_base)
 {
 	bool ret = false;
 	u8 tile_type = 0;
@@ -807,7 +811,7 @@ static void spacemit_set_afbc_info(uint64_t modifier, u32 module_base)
 		return;
 	}
 
-	write_to_cmdlist(RDMA_PATH_X_REG, module_base, AFBC_CFG, tile_type << 3 | block_size << 2 | yuv_transform << 1 | split_mode);
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, AFBC_CFG, tile_type << 3 | block_size << 2 | yuv_transform << 1 | split_mode);
 
 	return;
 }
@@ -885,17 +889,17 @@ void spacemit_plane_update_hw_channel(struct drm_plane *plane)
 		/* Set RDMA regs */
 		module_base = RDMA0_BASE_ADDR + rdma_id * RDMA_SIZE;
 		val = 0x0 << 26 | 0x0 << 25 | 0xf << 17 | 0x0 << 15 | channel << 12 | 0x0 << 7 | 0xf << 2 | (is_afbc ? 1 : 0);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LAYER_CTRL, val);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, COMPSR_Y_OFST, crtc_y);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_SCL_RATIO_V, 0x0 << 20);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_IMG_SIZE, fb->height << 16 | fb->width);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LAYER_CTRL, val);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, COMPSR_Y_OFST, crtc_y);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_SCL_RATIO_V, 0x0 << 20);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_IMG_SIZE, fb->height << 16 | fb->width);
 		val = src_y + src_h;
 
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_CROP_POS_START, src_y << 16 | src_x);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_CROP_POS_START, src_y << 16 | src_x);
 		val = ((val - 1) << 16) | (src_x + src_w - 1);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_CROP_POS_END, val);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_ALPHA01, 0x0 << 16 | 0x0);
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, LEFT_ALPHA23, 0x0 << 16 | 0x0);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_CROP_POS_END, val);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_ALPHA01, 0x0 << 16 | 0x0);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_ALPHA23, 0x0 << 16 | 0x0);
 
 		saturn_write_fbcmem_regs(state, rdma_id, module_base, NULL);
 
@@ -910,10 +914,10 @@ void spacemit_plane_update_hw_channel(struct drm_plane *plane)
 			uv_swap = 1;
 		}
 
-		write_to_cmdlist(RDMA_PATH_X_REG, module_base, ROT_MODE, val << 7 | uv_swap << 6 | spacemit_plane_state->format);
+		write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, ROT_MODE, val << 7 | uv_swap << 6 | spacemit_plane_state->format);
 
 		if (fb->modifier) {
-			spacemit_set_afbc_info(fb->modifier, module_base);
+			spacemit_set_afbc_info(priv, fb->modifier, module_base);
 		}
 
 		if (spacemit_plane_state->use_scl){
