@@ -18,9 +18,6 @@
 #define CL_HEADER_SZ sizeof(struct cmdlist_header)
 #define CL_ROW_SZ    sizeof(struct cmdlist_row)
 
-struct cmdlist_reg cmdlist_regs[CMDLIST_REGS_NUM] = { 0 };
-int cmdlist_num = 0;
-
 static inline struct
 spacemit_plane_state *cl_to_spacemit_pstate(const struct cmdlist *cl)
 {
@@ -56,7 +53,8 @@ void cmdlist_regs_packing(struct drm_plane *plane) {
 	struct spacemit_plane_state *spacemit_pstate = to_spacemit_plane_state(plane->state);
 	struct cmdlist *cl = &spacemit_pstate->cl;
 	struct cmdlist_row *row;
-	struct cmdlist_reg *regs = cmdlist_regs;
+	struct spacemit_drm_private *priv = plane->dev->dev_private;
+	struct cmdlist_reg *regs = priv->cmdlist_regs;
 	int i;
 
 	cl->size = PER_CMDLIST_SIZE;
@@ -67,28 +65,28 @@ void cmdlist_regs_packing(struct drm_plane *plane) {
 		return;
 	}
 
-	sort(regs, cmdlist_num, sizeof(struct cmdlist_reg), cmdlist_reg_cmp, cmdlist_reg_swap);
-	for (i = 0; i < cmdlist_num; i++) {
+	sort(regs, priv->cmdlist_num, sizeof(struct cmdlist_reg), cmdlist_reg_cmp, cmdlist_reg_swap);
+	for (i = 0; i < priv->cmdlist_num; i++) {
 		DRM_DEBUG("cmdlist_reg, regs[%d] = {0x%02x, 0x%02x}", i, regs[i].offset, regs[i].value);
 	}
 
-	DRM_DEBUG("-----cmdlist_regs_packing----- cmdlist_num = %u, rch_id = %d, ch_y = %u\n",
-		  cmdlist_num, spacemit_pstate->rdma_id, spacemit_pstate->state.crtc_y);
+	DRM_DEBUG("-----cmdlist_regs_packing----- priv->cmdlist_num = %u, rch_id = %d, ch_y = %u\n",
+		  priv->cmdlist_num, spacemit_pstate->rdma_id, spacemit_pstate->state.crtc_y);
 
 	row = (struct cmdlist_row *)((char *)cl->va + CL_HEADER_SZ);
-	for (i = 0; i < cmdlist_num;) {
+	for (i = 0; i < priv->cmdlist_num;) {
 		row->module_cfg_addr = regs[i].offset >> 2;
 		row->module_regs[0] = regs[i].value;
 		row->module_cfg_num = 1;
 		row->module_cfg_strobe = 0xf;
-		if (i + 1 < cmdlist_num) {
+		if (i + 1 < priv->cmdlist_num) {
 			if (regs[i + 1].offset - regs[i].offset == sizeof(u32)) {
 				row->module_regs[1] = regs[i + 1].value;
 				row->module_cfg_num = 2;
 				row->module_cfg_strobe = 0xff;
 			}
 		}
-		if (i + 2 < cmdlist_num) {
+		if (i + 2 < priv->cmdlist_num) {
 			if (regs[i + 2].offset - regs[i].offset == sizeof(u32) * 2) {
 				row->module_regs[2] = regs[i + 2].value;
 				row->module_cfg_num = 3;
@@ -102,7 +100,7 @@ void cmdlist_regs_packing(struct drm_plane *plane) {
 		cl->nod_len++;
 		row = (struct cmdlist_row *)((char *)row + CL_ROW_SZ);
 	}
-	cmdlist_num = 0; //clear cmdlist_regs buffer
+	priv->cmdlist_num = 0; //clear cmdlist_regs buffer
 	DRM_DEBUG("-----cmdlist_regs_packing----- row_num = %d\n", row->module_cfg_num);
 }
 
