@@ -30,7 +30,7 @@
 
 #define TBU_BASE_VA(tbu_id) ((uint64_t)BASE_VA + (uint64_t)VA_STEP_PER_TBU * tbu_id)
 
-#define CONFIG_TBU_REGS(hwdev, reg_id, tbu_id) \
+#define CONFIG_TBU_REGS(priv, hwdev, reg_id, tbu_id) \
 {\
 	struct spacemit_hw_device *hwdev_p = (struct spacemit_hw_device *)hwdev; \
 	if (hwdev_p) { \
@@ -43,32 +43,32 @@
 		dpu_write_reg(hwdev_p, MMU_REG, MMU_BASE_ADDR, \
 				v.TBU[tbu_id].TBU_SIZE##reg_id, tbu.ttb_size[reg_id]); \
 	} else { \
-		write_to_cmdlist(MMU_REG, MMU_BASE_ADDR, \
+		write_to_cmdlist(priv, MMU_REG, MMU_BASE_ADDR, \
 				TBU[tbu_id].TBU_Base_Addr##reg_id##_Low, \
 				tbu.ttb_pa[reg_id] & 0xFFFFFFFF); \
-		write_to_cmdlist(MMU_REG, MMU_BASE_ADDR, \
+		write_to_cmdlist(priv, MMU_REG, MMU_BASE_ADDR, \
 				TBU[tbu_id].TBU_Base_Addr##reg_id## _High, \
 				(tbu.ttb_pa[reg_id] >> 32) & 0x3); \
-		write_to_cmdlist(MMU_REG, MMU_BASE_ADDR, TBU[tbu_id].TBU_VA##reg_id, \
+		write_to_cmdlist(priv, MMU_REG, MMU_BASE_ADDR, TBU[tbu_id].TBU_VA##reg_id, \
 				(tbu.tbu_va[reg_id] >> 12) & 0x3FFFFF); \
-		write_to_cmdlist(MMU_REG, MMU_BASE_ADDR, \
+		write_to_cmdlist(priv, MMU_REG, MMU_BASE_ADDR, \
 				TBU[tbu_id].TBU_SIZE##reg_id, tbu.ttb_size[reg_id]); \
 	} \
 }
 
-#define CONFIG_RDMA_ADDR_REG(reg_id, rdma_id, addr) \
+#define CONFIG_RDMA_ADDR_REG(priv, reg_id, rdma_id, addr) \
 { \
-	write_to_cmdlist(RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
 			 LEFT_BASE_ADDR##reg_id##_LOW, addr & 0xFFFFFFFF); \
-	write_to_cmdlist(RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
 			 LEFT_BASE_ADDR##reg_id##_HIGH, (addr >> 32) & 0x3); \
 }
 
-#define CONFIG_RDMA_ADDR_REG_32(reg_id, rdma_id, addr) \
+#define CONFIG_RDMA_ADDR_REG_32(priv, reg_id, rdma_id, addr) \
 { \
-	write_to_cmdlist(RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
 			 LEFT_BASE_ADDR##reg_id##_LOW, addr & 0xFFFFFFFF); \
-	write_to_cmdlist(RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
+	write_to_cmdlist(priv, RDMA_PATH_X_REG, RDMA_BASE_ADDR(rdma_id), \
 			 LEFT_BASE_ADDR##reg_id##_HIGH, 0); \
 }
 
