@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/scatterlist.h>
 #include <linux/highmem-internal.h>
+#include <asm/cacheflush.h>
 #include "crypto/skcipher.h"
 #include "spacemit_engine.h"
 
@@ -21,6 +22,7 @@ int aes_expandkey_nouse(struct crypto_aes_ctx *key, u8 const in[], int size){ret
 #define aes_expandkey		aes_expandkey_nouse
 #define PRIO			500
 #define MODE			"spacemit-ce1"
+char __aligned(8) align[16] = {0};
 
 extern int spacemit_aes_ecb_encrypt(int index, const unsigned char *pt,unsigned char *ct, u8 *key, unsigned int len, unsigned int blocks);
 extern int spacemit_aes_ecb_decrypt(int index, const unsigned char *ct,unsigned char *pt, u8 *key, unsigned int len, unsigned int blocks);
@@ -28,6 +30,7 @@ extern int spacemit_aes_cbc_encrypt(int index, const unsigned char *pt,unsigned 
 extern int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *pt, u8 *key, unsigned int len, u8 *IV,unsigned int blocks);
 extern int spacemit_crypto_aes_set_key(int index, struct crypto_tfm *tfm, const u8 *key,unsigned int keylen);
 extern void spacemit_aes_getaddr(unsigned char **in, unsigned char **out);
+extern void spacemit_aes_reladdr(void);
 
 int aes_setkey(struct crypto_skcipher *tfm, const u8 *key,unsigned int keylen)
 {
@@ -40,21 +43,26 @@ static int ecb_encrypt(struct skcipher_request *req)
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
 	int i;
 	unsigned char* map_addr;
-	struct scatterlist* sg;
+	struct scatterlist* sg, *start_srcsg, *start_dstsg;
 	int len = 0,sgl_len;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
-	int singal_len = 0;
+	int page_len = 0, singal_len = 0;
 
 	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	start_srcsg = req->src;
+	start_dstsg = req->dst;
 	for(i = 0; total_len > 0; i++){
 		if(total_len > SPACEMIT_AES_BUFFER_LEN)
-			singal_len = SPACEMIT_AES_BUFFER_LEN;
+			page_len = singal_len = SPACEMIT_AES_BUFFER_LEN;
 		else
-			singal_len = total_len;
+			page_len = singal_len = total_len;
+
+		if(singal_len % AES_BLOCK_SIZE)
+			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len<singal_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -63,13 +71,15 @@ static int ecb_encrypt(struct skcipher_request *req)
 			sgl_len++;
 			map_addr += sg->length;
 		}
-		req->src = sg_next(sg);
+		if(page_len != singal_len)
+			memcpy(map_addr, align, singal_len-page_len);
+		start_srcsg = sg_next(sg);
 
 		spacemit_aes_ecb_encrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_enc),
 				(unsigned int)(ctx->key_length), singal_len / AES_BLOCK_SIZE);
 
 		map_addr = out_buffer;
-		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_dstsg,len = 0;len<singal_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -77,12 +87,14 @@ static int ecb_encrypt(struct skcipher_request *req)
 			memcpy(sg_va,map_addr,sg->length);
 			sgl_len++;
 			map_addr += sg->length;
+			flush_dcache_page(sg_page(sg));
 		}
-		req->dst = sg_next(sg);
+		start_dstsg = sg_next(sg);
 
 		total_len = total_len - singal_len;
 
 	}
+	spacemit_aes_reladdr();
 
 	return 0;
 }
@@ -93,21 +105,25 @@ static int ecb_decrypt(struct skcipher_request *req)
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
 	int i;
 	unsigned char* map_addr;
-	struct scatterlist* sg;
+	struct scatterlist* sg, *start_srcsg, *start_dstsg;
 	int len = 0,sgl_len;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
-	int singal_len = 0;
+	int page_len = 0, singal_len = 0;
 
 	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	start_srcsg = req->src;
+	start_dstsg = req->dst;
 	for(i = 0; total_len > 0; i++){
 		if(total_len > SPACEMIT_AES_BUFFER_LEN)
-			singal_len = SPACEMIT_AES_BUFFER_LEN;
+			page_len = singal_len = SPACEMIT_AES_BUFFER_LEN;
 		else
-			singal_len = total_len;
+			page_len = singal_len = total_len;
+		if(singal_len % AES_BLOCK_SIZE)
+			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len<page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -116,13 +132,15 @@ static int ecb_decrypt(struct skcipher_request *req)
 			sgl_len++;
 			map_addr += sg->length;
 		}
-		req->src = sg_next(sg);
+		start_srcsg = sg_next(sg);
+		if(page_len != singal_len)
+			memcpy(map_addr, align, singal_len-page_len);
 
 		spacemit_aes_ecb_decrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_dec),
 				(unsigned int)(ctx->key_length), singal_len / AES_BLOCK_SIZE);
 
 		map_addr = out_buffer;
-		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_dstsg,len = 0;len<singal_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -130,11 +148,13 @@ static int ecb_decrypt(struct skcipher_request *req)
 			memcpy(sg_va,map_addr,sg->length);
 			sgl_len++;
 			map_addr += sg->length;
+			flush_dcache_page(sg_page(sg));
 		}
-		req->dst = sg_next(sg);
+		start_dstsg = sg_next(sg);
 
 		total_len = total_len - singal_len;
 	}
+	spacemit_aes_reladdr();
 
 	return 0;
 }
@@ -145,21 +165,26 @@ static int cbc_encrypt(struct skcipher_request *req)
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
 	int i;
 	unsigned char* map_addr;
-	struct scatterlist* sg;
+	struct scatterlist* sg, *start_srcsg, *start_dstsg;
 	int len = 0,sgl_len;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
-	int singal_len = 0;
+	int page_len = 0, singal_len = 0;
 
 	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	start_srcsg = req->src;
+	start_dstsg = req->dst;
 	for(i = 0; total_len > 0; i++){
 		if(total_len > SPACEMIT_AES_BUFFER_LEN)
-			singal_len = SPACEMIT_AES_BUFFER_LEN;
+			page_len = singal_len = SPACEMIT_AES_BUFFER_LEN;
 		else
-			singal_len = total_len;
+			page_len = singal_len = total_len;
+
+		if(singal_len % AES_BLOCK_SIZE)
+			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len<singal_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -168,13 +193,15 @@ static int cbc_encrypt(struct skcipher_request *req)
 			sgl_len++;
 			map_addr += sg->length;
 		}
-		req->src = sg_next(sg);
+		if(page_len != singal_len)
+			memcpy(map_addr, align, singal_len-page_len);
+		start_srcsg = sg_next(sg);
 
 		spacemit_aes_cbc_encrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_enc),
 				(unsigned int)(ctx->key_length), (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
 
 		map_addr = out_buffer;
-		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_dstsg,len = 0;len<singal_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -182,12 +209,14 @@ static int cbc_encrypt(struct skcipher_request *req)
 			memcpy(sg_va,map_addr,sg->length);
 			sgl_len++;
 			map_addr += sg->length;
+			flush_dcache_page(sg_page(sg));
 		}
-		req->dst = sg_next(sg);
+		start_dstsg = sg_next(sg);
 
 		total_len = total_len - singal_len;
 
 	}
+	spacemit_aes_reladdr();
 
 	return 0;
 }
@@ -198,21 +227,25 @@ static int cbc_decrypt(struct skcipher_request *req)
 	struct crypto_aes_ctx *ctx = crypto_skcipher_ctx(tfm);
 	int i;
 	unsigned char* map_addr;
-	struct scatterlist* sg;
+	struct scatterlist* sg, *start_srcsg, *start_dstsg;
 	int len = 0,sgl_len;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
-	int singal_len = 0;
+	int page_len = 0, singal_len = 0;
 
 	spacemit_aes_getaddr(&in_buffer,&out_buffer);
+	start_srcsg = req->src;
+	start_dstsg = req->dst;
 	for(i = 0; total_len > 0; i++){
 		if(total_len > SPACEMIT_AES_BUFFER_LEN)
-			singal_len = SPACEMIT_AES_BUFFER_LEN;
+			page_len = singal_len = SPACEMIT_AES_BUFFER_LEN;
 		else
-			singal_len = total_len;
+			page_len = singal_len = total_len;
+		if(singal_len % AES_BLOCK_SIZE)
+			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = req->src,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len<page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -221,13 +254,15 @@ static int cbc_decrypt(struct skcipher_request *req)
 			sgl_len++;
 			map_addr += sg->length;
 		}
-		req->src = sg_next(sg);
+		start_srcsg = sg_next(sg);
+		if(page_len != singal_len)
+			memcpy(map_addr, align, singal_len-page_len);
 
 		spacemit_aes_cbc_decrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_dec),
 				(unsigned int)(ctx->key_length), (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
 
 		map_addr = out_buffer;
-		for(sg = req->dst,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_dstsg,len = 0;len<singal_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -235,11 +270,13 @@ static int cbc_decrypt(struct skcipher_request *req)
 			memcpy(sg_va,map_addr,sg->length);
 			sgl_len++;
 			map_addr += sg->length;
+			flush_dcache_page(sg_page(sg));
 		}
-		req->dst = sg_next(sg);
+		start_dstsg = sg_next(sg);
 
 		total_len = total_len - singal_len;
 	}
+	spacemit_aes_reladdr();
 
 	return 0;
 }
