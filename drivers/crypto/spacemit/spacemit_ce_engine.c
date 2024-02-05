@@ -27,6 +27,9 @@
 #include <linux/of_irq.h>
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
+#include <crypto/algapi.h>
+#include <../crypto/internal.h>
+#include <linux/notifier.h>
 #include <linux/mfd/syscon.h>
 #include "spacemit_engine.h"
 
@@ -459,6 +462,9 @@ static int crypto_aes_set_mode(int index, AES_MODE_T mode,
 	case E_AES_CBC:
 		val |= (0x1 << 0x3);
 		break;
+	case E_AES_XTS:
+		val |= (0x3 << 0x3);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -535,6 +541,44 @@ static int crypto_aes_set_key1(int index, const uint8_t *key, AES_KEY_LEN_T keyl
 	return 0;
 }
 
+static int crypto_aes_set_key2(int index, const uint8_t *key, AES_KEY_LEN_T keylen)
+{
+	uint32_t val;
+	int reg_index, key_end;
+
+	if (!key)
+		return 0;
+
+	switch (keylen) {
+	case E_AES_128:
+		key_end = 4;
+		break;
+	case E_AES_192:
+		key_end = 6;
+		break;
+	case E_AES_256:
+		key_end = 8;
+		break;
+	default:
+		key_end = 0;
+		return -EINVAL;
+	}
+
+	for (reg_index = 0; reg_index < 8; reg_index++) {
+		if (reg_index < key_end) {
+			val = ((key[0 + (reg_index << 2)] & 0xFF) << 0) |
+			    ((key[1 + (reg_index << 2)] & 0xFF) << 8) |
+			    ((key[2 + (reg_index << 2)] & 0xFF) << 16) |
+			    ((key[3 + (reg_index << 2)] & 0xFF) << 24);
+		} else {
+			val = 0;
+		}
+		crypto_write32(index, CE_CRYPTO_K2_W_REG(reg_index), val);
+	}
+
+	return 0;
+}
+
 int ce_rijndael_setup_internal(int index, const unsigned char *key, int keylen)
 {
 	if (!key || keylen <= 0) {
@@ -553,6 +597,356 @@ int ce_rijndael_setup_internal(int index, const unsigned char *key, int keylen)
 	return 0;
 error:
 	return -ENOKEY;
+}
+
+BLOCKING_NOTIFIER_HEAD(spacemit_crypto_chain);
+
+static struct crypto_alg *spacemit_crypto_mod_get(struct crypto_alg *alg)
+{
+	return try_module_get(alg->cra_module) ? crypto_alg_get(alg) : NULL;
+}
+
+static void spacemit_crypto_mod_put(struct crypto_alg *alg)
+{
+	struct module *module = alg->cra_module;
+
+	crypto_alg_put(alg);
+	module_put(module);
+}
+
+static void spacemit_crypto_larval_destroy(struct crypto_alg *alg)
+{
+	struct crypto_larval *larval = (void *)alg;
+
+	BUG_ON(!crypto_is_larval(alg));
+	if (!IS_ERR_OR_NULL(larval->adult))
+		spacemit_crypto_mod_put(larval->adult);
+	kfree(larval);
+}
+
+static struct crypto_larval *spacemit_crypto_larval_alloc(const char *name, u32 type, u32 mask)
+{
+	struct crypto_larval *larval;
+
+	larval = kzalloc(sizeof(*larval), GFP_KERNEL);
+	if (!larval)
+		return ERR_PTR(-ENOMEM);
+
+	larval->mask = mask;
+	larval->alg.cra_flags = CRYPTO_ALG_LARVAL | type;
+	larval->alg.cra_priority = -1;
+	larval->alg.cra_destroy = spacemit_crypto_larval_destroy;
+
+	strlcpy(larval->alg.cra_name, name, CRYPTO_MAX_ALG_NAME);
+	init_completion(&larval->completion);
+
+	return larval;
+}
+
+static struct crypto_alg *__spacemit_crypto_alg_lookup(const char *name, u32 type,
+						u32 mask)
+{
+	struct crypto_alg *q, *alg = NULL;
+	int best = -2;
+
+	list_for_each_entry(q, &crypto_alg_list, cra_list) {
+		int exact, fuzzy;
+
+		if (q->cra_flags & (CRYPTO_ALG_DEAD | CRYPTO_ALG_DYING))
+			continue;
+
+		if ((q->cra_flags ^ type) & mask)
+			continue;
+
+		if ((q->cra_flags & CRYPTO_ALG_LARVAL) &&
+			!crypto_is_test_larval((struct crypto_larval *)q) &&
+			((struct crypto_larval *)q)->mask != mask)
+			continue;
+
+		exact = !strcmp(q->cra_driver_name, name);
+		fuzzy = !strcmp(q->cra_name, name);
+		if (!exact && !(fuzzy && q->cra_priority > best))
+			continue;
+
+		if (unlikely(!spacemit_crypto_mod_get(q)))
+			continue;
+
+		best = q->cra_priority;
+		if (alg)
+			spacemit_crypto_mod_put(alg);
+		alg = q;
+
+		if (exact)
+			break;
+	}
+
+	return alg;
+}
+
+static struct crypto_alg *spacemit_crypto_alg_lookup(const char *name, u32 type,
+						u32 mask)
+{
+	struct crypto_alg *alg;
+	u32 test = 0;
+
+	if (!((type | mask) & CRYPTO_ALG_TESTED))
+		test |= CRYPTO_ALG_TESTED;
+
+	down_read(&crypto_alg_sem);
+	alg = __spacemit_crypto_alg_lookup(name, type | test, mask | test);
+	if (!alg && test) {
+		alg = __spacemit_crypto_alg_lookup(name, type, mask);
+		if (alg && !crypto_is_larval(alg)) {
+			/* Test failed */
+			spacemit_crypto_mod_put(alg);
+			alg = ERR_PTR(-ELIBBAD);
+		}
+	}
+	up_read(&crypto_alg_sem);
+
+	return alg;
+}
+
+static void spacemit_crypto_start_test(struct crypto_larval *larval)
+{
+	if (!larval->alg.cra_driver_name[0])
+		return;
+
+	if (larval->test_started)
+		return;
+
+	down_write(&crypto_alg_sem);
+	if (larval->test_started) {
+		up_write(&crypto_alg_sem);
+		return;
+	}
+
+	larval->test_started = true;
+	up_write(&crypto_alg_sem);
+
+	crypto_wait_for_test(larval);
+}
+
+static struct crypto_alg *spacemit_crypto_larval_wait(struct crypto_alg *alg)
+{
+	struct crypto_larval *larval = (void *)alg;
+	long timeout;
+
+	if (!static_branch_likely(&crypto_boot_test_finished))
+		spacemit_crypto_start_test(larval);
+
+	timeout = wait_for_completion_killable_timeout(
+		&larval->completion, 60 * HZ);
+
+	alg = larval->adult;
+	if (timeout < 0)
+		alg = ERR_PTR(-EINTR);
+	else if (!timeout)
+		alg = ERR_PTR(-ETIMEDOUT);
+	else if (!alg)
+		alg = ERR_PTR(-ENOENT);
+	else if (IS_ERR(alg))
+		;
+	else if (crypto_is_test_larval(larval) &&
+		!(alg->cra_flags & CRYPTO_ALG_TESTED))
+		alg = ERR_PTR(-EAGAIN);
+	else if (!spacemit_crypto_mod_get(alg))
+		alg = ERR_PTR(-EAGAIN);
+	spacemit_crypto_mod_put(&larval->alg);
+
+	return alg;
+}
+
+static struct crypto_alg *spacemit_crypto_larval_add(const char *name,
+						u32 type, u32 mask)
+{
+	struct crypto_alg *alg;
+	struct crypto_larval *larval;
+
+	larval = spacemit_crypto_larval_alloc(name, type, mask);
+	if (IS_ERR(larval))
+		return ERR_CAST(larval);
+
+	refcount_set(&larval->alg.cra_refcnt, 2);
+
+	down_write(&crypto_alg_sem);
+	alg = __spacemit_crypto_alg_lookup(name, type, mask);
+	if (!alg) {
+		alg = &larval->alg;
+		list_add(&alg->cra_list, &crypto_alg_list);
+	}
+	up_write(&crypto_alg_sem);
+
+	if (alg != &larval->alg) {
+		kfree(larval);
+		if (crypto_is_larval(alg))
+			alg = spacemit_crypto_larval_wait(alg);
+	}
+
+	return alg;
+}
+
+static void spacemit_crypto_larval_kill(struct crypto_alg *alg)
+{
+	struct crypto_larval *larval = (void *)alg;
+
+	down_write(&crypto_alg_sem);
+	list_del(&alg->cra_list);
+	up_write(&crypto_alg_sem);
+	complete_all(&larval->completion);
+	crypto_alg_put(alg);
+}
+
+static struct crypto_alg *spacemit_crypto_larval_lookup(const char *name,
+						u32 type, u32 mask)
+{
+	struct crypto_alg *alg;
+
+	if (!name)
+		return ERR_PTR(-ENOENT);
+
+	type &= ~(CRYPTO_ALG_LARVAL | CRYPTO_ALG_DEAD);
+	mask &= ~(CRYPTO_ALG_LARVAL | CRYPTO_ALG_DEAD);
+
+	alg = spacemit_crypto_alg_lookup(name, type, mask);
+	if (!alg && !(mask & CRYPTO_NOLOAD)) {
+		request_module("crypto-%s", name);
+
+		if (!((type ^ CRYPTO_ALG_NEED_FALLBACK) & mask &
+				CRYPTO_ALG_NEED_FALLBACK))
+			request_module("crypto-%s-all", name);
+
+		alg = spacemit_crypto_alg_lookup(name, type, mask);
+	}
+
+	if (!IS_ERR_OR_NULL(alg) && crypto_is_larval(alg))
+		alg = spacemit_crypto_larval_wait(alg);
+	else if (!alg)
+		alg = spacemit_crypto_larval_add(name, type, mask);
+
+	return alg;
+}
+
+static int spacemit_crypto_probing_notify(unsigned long val, void *v)
+{
+	int ok;
+
+	ok = blocking_notifier_call_chain(&spacemit_crypto_chain, val, v);
+	if (ok == NOTIFY_DONE) {
+		request_module("cryptomgr");
+		ok = blocking_notifier_call_chain(&spacemit_crypto_chain, val, v);
+	}
+
+	return ok;
+}
+
+static struct crypto_alg *spacemit_crypto_alg_mod_lookup(const char *name,
+					u32 type, u32 mask)
+{
+	struct crypto_alg *alg;
+	struct crypto_alg *larval;
+	int ok;
+
+	/*
+	 * If the internal flag is set for a cipher, require a caller to
+	 * to invoke the cipher with the internal flag to use that cipher.
+	 * Also, if a caller wants to allocate a cipher that may or may
+	 * not be an internal cipher, use type | CRYPTO_ALG_INTERNAL and
+	 * !(mask & CRYPTO_ALG_INTERNAL).
+	 */
+	if (!((type | mask) & CRYPTO_ALG_INTERNAL))
+		mask |= CRYPTO_ALG_INTERNAL;
+
+	larval = spacemit_crypto_larval_lookup(name, type, mask);
+	if (IS_ERR(larval) || !crypto_is_larval(larval))
+		return larval;
+
+	ok = spacemit_crypto_probing_notify(CRYPTO_MSG_ALG_REQUEST, larval);
+
+	if (ok == NOTIFY_STOP) {
+		alg = spacemit_crypto_larval_wait(larval);
+	} else {
+		spacemit_crypto_mod_put(larval);
+		alg = ERR_PTR(-ENOENT);
+	}
+	spacemit_crypto_larval_kill(larval);
+	return alg;
+}
+
+static struct crypto_alg *spacemit_crypto_find_alg(const char *alg_name,
+				const struct crypto_type *frontend,
+				u32 type, u32 mask)
+{
+	if (frontend) {
+		type &= frontend->maskclear;
+		mask &= frontend->maskclear;
+		type |= frontend->type;
+		mask |= frontend->maskset;
+	}
+
+	return spacemit_crypto_alg_mod_lookup(alg_name, type, mask);
+}
+
+static unsigned int spacemit_crypto_ctxsize(struct crypto_alg *alg, u32 type, u32 mask)
+{
+	const struct crypto_type *type_obj = alg->cra_type;
+	unsigned int len;
+
+	len = alg->cra_alignmask & ~(crypto_tfm_ctx_alignment() - 1);
+	if (type_obj)
+		return len + type_obj->ctxsize(alg, type, mask);
+
+	switch (alg->cra_flags & CRYPTO_ALG_TYPE_MASK) {
+	default:
+		BUG();
+
+	case CRYPTO_ALG_TYPE_CIPHER:
+		len += alg->cra_ctxsize;
+		break;
+
+	case CRYPTO_ALG_TYPE_COMPRESS:
+		len += alg->cra_ctxsize;
+		break;
+	}
+
+	return len;
+}
+
+static unsigned int sw_aes_ce_decrypt(unsigned char *in, unsigned char *out,
+				unsigned char *key, unsigned int keylen)
+{
+	int ret = 0;
+	struct crypto_alg *alg;
+	struct crypto_tfm *tfm;
+	unsigned int tfm_size;
+	struct crypto_aes_ctx aes_ctx;
+
+	alg = spacemit_crypto_find_alg("aes-generic", NULL, 0, 0);
+	if (IS_ERR(alg)) {
+		dev_err_once(dev, "%s : %d : find crypto sw-aes-ce failed!\n",
+					__func__,__LINE__);
+		ret = -1;
+		goto exit;
+	}
+	dev_err_once(dev, "%s : %d : algo drv name %s.\n",__func__,__LINE__,
+					alg->cra_driver_name);
+
+	tfm_size = sizeof(*tfm) + spacemit_crypto_ctxsize(alg, 0, 0);
+	tfm = kzalloc(tfm_size, GFP_KERNEL);
+	if (tfm == NULL) {
+		dev_err_once(dev, "%s : %d : alloc tfm failed.\n",__func__,
+					__LINE__);
+		ret = -1;
+		goto exit;
+	}
+	tfm->__crt_ctx[0] = (void *)&aes_ctx;
+
+	alg->cra_cipher.cia_setkey(tfm, (const uint8_t *)key, keylen);
+	alg->cra_cipher.cia_decrypt(tfm, out, in);
+
+	kfree(tfm);
+exit:
+	return ret;
 }
 
 static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsigned char *buf_out,
@@ -669,6 +1063,21 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 
 	/* Process IV*/
 	switch(mode) {
+		case E_AES_XTS:
+			if (!skey2) {
+				dev_err_once(dev, "%s : %d: skey2 is invalid in xts mode.\n", __func__,__LINE__);
+				ret = -EINVAL;
+				goto error;
+			}
+			if (op == E_AES_ENCRYPT)
+				ret = crypto_aes_set_key2(index, (uint8_t *)skey2->rijndael.eK, skey2->rijndael.Nr);
+			else
+				ret = crypto_aes_set_key2(index, (uint8_t *)skey2->rijndael.dK, skey2->rijndael.Nr);
+			if (ret != 0) {
+				dev_err_once(dev, "%s : %d : crypto_aes_set_key2 failed!\n",__func__,__LINE__);
+				goto error;
+			}
+			break;
 		case E_AES_CBC:
 		case E_AES_CTR:
 			ret = crypto_aes_set_iv(index, inv);
@@ -686,6 +1095,7 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 	dma_input_start(index);
 	dma_output_start(index);
 	crypto_aes_start(index);
+
 	ret = dma_wait_int_input_finish(index);
 	if (ret) {
 		dev_err_once(dev, "%s : %d : dma_wait_input_finish failed! ret = %d\n",__func__,__LINE__,ret);
@@ -706,6 +1116,7 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 
 	/* Readback IV after operation*/
 	switch(mode) {
+		case E_AES_XTS:
 		case E_AES_CBC:
 		case E_AES_CTR:
 			ret = crypto_aes_get_iv(index, inv);
@@ -721,7 +1132,7 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 error:
 	dev_err_once(dev, "====================failed==============\n");
 	dev_err_once(dev, "%s : %d : failed! mode=%s,op=%s,keylen=%d\n",__func__,__LINE__,
-		(mode==E_AES_CBC?"cbc":(mode==E_AES_CTR?"ctr":(mode==E_AES_ECB?"ecb":"err"))),
+		(mode==E_AES_CBC?"cbc":(mode==E_AES_CTR?"ctr":(mode==E_AES_ECB?"ecb":(mode==E_AES_XTS?"xts":"err")))),
 		(op==E_AES_ENCRYPT?"encrypt":(op==E_AES_DECRYPT?"decrypt":"err")),
 		(skey1==NULL?0:skey1->rijndael.Nr));
 	return ret;
@@ -766,9 +1177,29 @@ static int ce_aes_process_nblocks_noalign(int index, const unsigned char *buf_in
 				memcpy(out_cpy, aligned_buf_2, step_bytes);
 			}
 			out_cpy += step_bytes;
+			if ((mode == E_AES_XTS) && (len_bytes != 0) && (len_bytes > WORK_BUF_SIZE)) {
+				unsigned char key_local[32];
+				unsigned int key_len = (skey2->rijndael.Nr < 32) ? skey2->rijndael.Nr : 32;
+
+				if (op == E_AES_ENCRYPT)
+					memcpy(key_local, (unsigned char *)skey2->rijndael.eK, key_len);
+				else
+					memcpy(key_local, (unsigned char *)skey2->rijndael.dK, key_len);
+				sw_aes_ce_decrypt(inv, inv, key_local, key_len);
+			}
 		}
 	} else {
 		ret = ce_aes_process_nblocks(index, buf_in, buf_out, blocks, skey1, skey2, mode, inv, op);
+		if (!ret && (mode == E_AES_XTS)) {
+			unsigned char key_local[32];
+			unsigned int key_len = (skey2->rijndael.Nr < 32) ? skey2->rijndael.Nr : 32;
+
+			if (op == E_AES_ENCRYPT)
+				memcpy(key_local, (unsigned char *)skey2->rijndael.eK, key_len);
+			else
+				memcpy(key_local, (unsigned char *)skey2->rijndael.dK, key_len);
+			sw_aes_ce_decrypt(inv, inv, key_local, key_len);
+		}
 	}
 
 exit:
@@ -842,6 +1273,40 @@ int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *p
 	return ce_aes_process_nblocks_noalign(index, ct,pt,blocks, &skey1,NULL,E_AES_CBC,IV,E_AES_DECRYPT);
 }
 EXPORT_SYMBOL(spacemit_aes_cbc_decrypt);
+
+int spacemit_aes_xts_encrypt(int index, const unsigned char *pt, unsigned char *ct,
+			u8 *key1, u8 *key2, unsigned int len, u8 *IV,
+			unsigned int blocks)
+{
+	symmetric_key skey1, skey2;
+
+	skey1.rijndael.Nr = len;
+	memcpy(skey1.rijndael.eK, key1, sizeof(skey1.rijndael.eK));
+
+	skey2.rijndael.Nr = len;
+	memcpy(skey2.rijndael.eK, key2, sizeof(skey2.rijndael.eK));
+
+	return ce_aes_process_nblocks_noalign(index, pt, ct, blocks, &skey1, &skey2,
+				E_AES_XTS, IV, E_AES_ENCRYPT);
+}
+EXPORT_SYMBOL(spacemit_aes_xts_encrypt);
+
+int spacemit_aes_xts_decrypt(int index, const unsigned char *ct, unsigned char *pt,
+			u8 *key1, u8 *key2, unsigned int len, u8 *IV,
+			unsigned int blocks)
+{
+	symmetric_key skey1, skey2;
+
+	skey1.rijndael.Nr = len;
+	memcpy(skey1.rijndael.dK, key1, sizeof(skey1.rijndael.dK));
+
+	skey2.rijndael.Nr = len;
+	memcpy(skey2.rijndael.dK, key2, sizeof(skey2.rijndael.dK));
+
+	return ce_aes_process_nblocks_noalign(index, ct, pt, blocks, &skey1, &skey2,
+				E_AES_XTS, IV, E_AES_DECRYPT);
+}
+EXPORT_SYMBOL(spacemit_aes_xts_decrypt);
 
 void spacemit_aes_getaddr(unsigned char **in,unsigned char **out)
 {
