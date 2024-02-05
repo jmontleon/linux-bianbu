@@ -565,20 +565,20 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 	uint32_t val;
 
 	dma_sync_single_for_device(dev,dma_addr_in,blocks*16,DMA_TO_DEVICE);
-		if (dma_mapping_error(dev, dma_addr_in)) {
-			dev_err(dev, "failed to map buffer\n");
-			return -EFAULT;
-		}
-		if (dma_mapping_error(dev, dma_addr_out)) {
-			dev_err(dev, "failed to map buffer\n");
-			return -EFAULT;
-		}
+	if (dma_mapping_error(dev, dma_addr_in)) {
+		dev_err(dev, "failed to map buffer\n");
+		return -EFAULT;
+	}
+	if (dma_mapping_error(dev, dma_addr_out)) {
+		dev_err(dev, "failed to map buffer\n");
+		return -EFAULT;
+	}
+
 	dma_addr_in_high = upper_32_bits(dma_addr_in);
 	dma_addr_in_low = lower_32_bits(dma_addr_in);
 	dma_addr_out_high = upper_32_bits(dma_addr_out);
 	dma_addr_out_low = lower_32_bits(dma_addr_out);
 
-	mutex_lock(&engine[index].eng_mutex);
 	/*reset the HW before using it*/
 	adec_engine_hw_reset(index, E_ACC_ENG_DMA);
 	adec_engine_hw_reset(index, E_ACC_ENG_CRYPTO);
@@ -717,10 +717,8 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 		default:
 			break;
 	}
-	mutex_unlock(&engine[index].eng_mutex);
 	return 0;
 error:
-	mutex_unlock(&engine[index].eng_mutex);
 	dev_err_once(dev, "====================failed==============\n");
 	dev_err_once(dev, "%s : %d : failed! mode=%s,op=%s,keylen=%d\n",__func__,__LINE__,
 		(mode==E_AES_CBC?"cbc":(mode==E_AES_CTR?"ctr":(mode==E_AES_ECB?"ecb":"err"))),
@@ -847,10 +845,17 @@ EXPORT_SYMBOL(spacemit_aes_cbc_decrypt);
 
 void spacemit_aes_getaddr(unsigned char **in,unsigned char **out)
 {
+	mutex_lock(&engine[0].eng_mutex);
 	*in = in_buffer;
 	*out = out_buffer;
 }
 EXPORT_SYMBOL(spacemit_aes_getaddr);
+
+void spacemit_aes_reladdr(void)
+{
+	mutex_unlock(&engine[0].eng_mutex);
+}
+EXPORT_SYMBOL(spacemit_aes_reladdr);
 
 __maybe_unused static void engine_reg_dump(int index)
 {
@@ -1260,6 +1265,7 @@ static int crypto_engine_probe(struct platform_device *pdev)
 
 	in_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_in, DMA_TO_DEVICE, GFP_KERNEL);
 	out_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_out, DMA_FROM_DEVICE, GFP_KERNEL);
+
 	for(i=0; i < num_engines; i++)
 	{
 		sprintf(obj_name,"spacemit-crypto-engine-%d",i);
@@ -1359,7 +1365,7 @@ err_ioremap:
 
 static int crypto_engine_remove(struct platform_device *pdev)
 {
-	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, in_buffer, dma_addr_in, DMA_FROM_DEVICE);
+	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, in_buffer, dma_addr_in, DMA_TO_DEVICE);
 	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, out_buffer, dma_addr_out, DMA_FROM_DEVICE);
 	return 0;
 }
