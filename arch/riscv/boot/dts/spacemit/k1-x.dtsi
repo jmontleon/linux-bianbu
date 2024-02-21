@@ -924,6 +924,20 @@
  			status = "disabled";
  		};
 
+		mailbox: mailbox@d4013400 {
+			compatible = "spacemit,k1-x-mailbox";
+			reg = <0x0 0xd4013400 0x0 0x100>;
+			interrupt-parent = <&intc>;
+			interrupts = <52>;
+			#mbox-cells = <1>;
+			clocks = <&ccu CLK_IPC_AP2AUD>;
+			clock-names = "core";
+			resets = <&reset RESET_IPC_AP2AUD>;
+			reset-names = "core_reset";
+			power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+			status = "okay";
+		};
+
 		pdma0: pdma@d4000000 {
 			compatible = "spacemit,pdma-1.0";
 			reg = <0x0 0xd4000000 0x0 0x4000>;
