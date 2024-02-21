@@ -40,4 +40,5 @@ obj-$(CONFIG_TI_K3_DSP_REMOTEPROC)	+= ti_k3_dsp_remoteproc.o
 obj-$(CONFIG_TI_K3_M4_REMOTEPROC)	+= ti_k3_m4_remoteproc.o
 obj-$(CONFIG_TI_K3_R5_REMOTEPROC)	+= ti_k3_r5_remoteproc.o
 obj-$(CONFIG_XLNX_R5_REMOTEPROC)	+= xlnx_r5_remoteproc.o
-obj-$(CONFIG_SPACEMIT_REMOTEPROC)	+= spacemit_rproc.o
+obj-$(CONFIG_K1PRO_REMOTEPROC)		+= k1pro-rproc.o
+obj-$(CONFIG_K1X_REMOTEPROC)		+= k1x-rproc.o
