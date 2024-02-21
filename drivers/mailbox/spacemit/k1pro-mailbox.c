@@ -15,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/spinlock.h>
-#include "spacemit_mailbox.h"
+#include "k1pro_mailbox.h"
 
 #define mbox_dbg(mbox, ...)	dev_dbg((mbox)->controller.dev, __VA_ARGS__)
 
