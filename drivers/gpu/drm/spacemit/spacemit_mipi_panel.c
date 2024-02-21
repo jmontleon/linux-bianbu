@@ -534,6 +534,8 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 	int ret;
 	struct spacemit_panel *panel;
 	struct device *dev = &slave->dev;
+	int count;
+	const char *strings[3];
 	u32 tmp;
 
 	DRM_INFO("%s()\n", __func__);
@@ -544,38 +546,47 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 
 	if (!of_property_read_u32(dev->of_node, "id", &tmp))
 		panel->id = tmp;
-
-	panel->vdd_2v8 = devm_regulator_get(&slave->dev, "vdd_2v8");
-	if (IS_ERR(panel->vdd_2v8)) {
-		DRM_DEBUG("get lcd regulator vdd_2v8 failed\n");
+  
+	count = of_property_count_strings(dev->of_node, "vin-supply-names");
+	if (count <= 0 || count != 3) {
 		panel->vdd_2v8 = NULL;
-	} else {
-		regulator_set_voltage(panel->vdd_2v8, 2800000, 2800000);
-		ret = regulator_enable(panel->vdd_2v8);
-		if (ret)
-			DRM_ERROR("enable lcd regulator vdd_2v8 failed\n");
-	}
-
-	panel->vdd_1v8 = devm_regulator_get(&slave->dev, "vdd_1v8");
-	if (IS_ERR(panel->vdd_1v8)) {
-		DRM_DEBUG("get lcd regulator vdd_1v8 failed\n");
 		panel->vdd_1v8 = NULL;
-	} else {
-		regulator_set_voltage(panel->vdd_1v8, 1800000, 1800000);
-		ret = regulator_enable(panel->vdd_1v8);
-		if (ret)
-			DRM_ERROR("enable lcd regulator vdd_1v8 failed\n");
-	}
-
-	panel->vdd_1v2 = devm_regulator_get(&slave->dev, "vdd_1v2");
-	if (IS_ERR(panel->vdd_1v2)) {
-		DRM_DEBUG("get regulator vdd_1v2 failed\n");
 		panel->vdd_1v2 = NULL;
 	} else {
-		regulator_set_voltage(panel->vdd_1v2, 1200000, 1200000);
-		ret = regulator_enable(panel->vdd_1v2);
-		if (ret)
-			DRM_ERROR("enable lcd regulator vdd_1v2 failed\n");
+		of_property_read_string_array(dev->of_node, "vin-supply-names", strings, 3);
+
+		panel->vdd_2v8 = devm_regulator_get(&slave->dev, strings[0]);
+		if (IS_ERR_OR_NULL(panel->vdd_2v8)) {
+			DRM_DEBUG("get lcd regulator vdd_2v8 failed\n");
+			panel->vdd_2v8 = NULL;
+		} else {
+			regulator_set_voltage(panel->vdd_2v8, 2800000, 2800000);
+			ret = regulator_enable(panel->vdd_2v8);
+			if (ret)
+				DRM_ERROR("enable lcd regulator vdd_2v8 failed\n");
+		}
+
+		panel->vdd_1v8 = devm_regulator_get(&slave->dev, strings[1]);
+		if (IS_ERR_OR_NULL(panel->vdd_1v8)) {
+			DRM_DEBUG("get lcd regulator vdd_1v8 failed\n");
+			panel->vdd_1v8 = NULL;
+		} else {
+			regulator_set_voltage(panel->vdd_1v8, 1800000, 1800000);
+			ret = regulator_enable(panel->vdd_1v8);
+			if (ret)
+				DRM_ERROR("enable lcd regulator vdd_1v8 failed\n");
+		}
+
+		panel->vdd_1v2 = devm_regulator_get(&slave->dev, strings[2]);
+		if (IS_ERR_OR_NULL(panel->vdd_1v2)) {
+			DRM_DEBUG("get regulator vdd_1v2 failed\n");
+			panel->vdd_1v2 = NULL;
+		} else {
+			regulator_set_voltage(panel->vdd_1v2, 1200000, 1200000);
+			ret = regulator_enable(panel->vdd_1v2);
+			if (ret)
+				DRM_ERROR("enable lcd regulator vdd_1v2 failed\n");
+		}
 	}
 
 	ret = of_property_read_u32(dev->of_node, "gpios-reset", &panel->gpio_reset);
@@ -617,8 +628,6 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 
 	if (of_property_read_u32(dev->of_node, "delay-after-reset", &panel->delay_after_reset))
 		panel->delay_after_reset = LCD_DELAY_AFTER_RESET;
-
-	pr_err("##### %d %d\n", panel->reset_toggle_cnt, panel->delay_after_reset);
 
 	ret = spacemit_panel_parse_dt(slave->dev.of_node, panel);
 	if (ret) {
