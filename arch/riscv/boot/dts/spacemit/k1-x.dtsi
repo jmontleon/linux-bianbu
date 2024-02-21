@@ -938,6 +938,21 @@
 			status = "okay";
 		};
 
+		rcpu: rcpu_rproc@0 {
+			compatible = "spacemit,k1-x-rproc";
+			reg =  <0 0xc088c000 0 0x1000>,
+				<0 0xc0880000 0 0x200>;
+			ddr-remap-base = <0x30000000>;
+			esos-entry-point = <0x114>;
+			clocks = <&ccu CLK_AUDIO>;
+			clock-names = "core";
+			resets = <&reset RESET_AUDIO_SYS>;
+			reset-names = "core_reset";
+			firmware-name = "esos.elf";
+			power-domains = <&power K1X_PMU_AUD_PWR_DOMAIN>;
+			status = "okay";
+		};
+
 		pdma0: pdma@d4000000 {
 			compatible = "spacemit,pdma-1.0";
 			reg = <0x0 0xd4000000 0x0 0x4000>;
