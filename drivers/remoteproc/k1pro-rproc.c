@@ -79,7 +79,7 @@ static int spacemit_rproc_prepare(struct rproc *rproc)
 			return -EINVAL;
 		}
 
-		/* No need to translate pa to da, R-Car use same map */
+		/* No need to translate pa to da, spacemit use same map */
 		da = rmem->base;
 		mem = rproc_mem_entry_init(dev, NULL,
 					   rmem->base,
