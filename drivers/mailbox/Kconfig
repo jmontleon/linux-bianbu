@@ -338,4 +338,20 @@ config SPACEMIT_MAILBOX
 	  various Spacemit SoCs. This mailbox is used for communication
 	  between the application CPUs and the power management coprocessor.
 
+config K1PRO_MAILBOX
+	tristate "Spacemit K1pro Message Box"
+	depends on SPACEMIT_MAILBOX
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+
+config K1X_MAILBOX
+	tristate "Spacemit K1x Message Box"
+	depends on SPACEMIT_MAILBOX
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+
 endif
