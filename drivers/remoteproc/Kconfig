@@ -161,8 +161,14 @@ config PRU_REMOTEPROC
 	  processors on various TI SoCs. It's safe to say N here if you're
 	  not interested in the PRU or if you are unsure.
 
-config SPACEMIT_REMOTEPROC
-	tristate "Spacemit remoteproc support"
+config K1PRO_REMOTEPROC
+	tristate "Spacemit k1pro remoteproc support"
+	help
+	  Say Y here here to support spacemit remote processors
+	  via the remote processor framework.
+
+config K1X_REMOTEPROC
+	tristate "Spacemit k1x remoteproc support"
 	help
 	  Say Y here here to support spacemit remote processors
 	  via the remote processor framework.
