@@ -77,3 +77,10 @@
 
 #endif /* _MMP_SSPA_H */
 
+#define CLK1_24P576MHZ                   (0 << 16)
+
+#define PCLK_ENABLE             (1 << 2)
+#define FCLK_ENABLE             (1 << 1)
+#define MODULE_RESET            (0 << 0)
+#define MODULE_ENABLE           (1 << 0)
+
