@@ -264,6 +264,25 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c6_2>;
 	status = "disabled";
+
+	gt9xx@5d {
+		compatible = "goodix,gt9xx";
+		reg = <0x5d>;
+
+		reset-gpios = <&gpio 114 GPIO_ACTIVE_HIGH>;
+		irq-gpios = <&gpio 58 GPIO_ACTIVE_HIGH>;
+		irq-flags = <2>;
+
+		touchscreen-max-id = <11>;
+		touchscreen-size-x = <1200>;
+		touchscreen-size-y = <1920>;
+		touchscreen-max-w = <512>;
+		touchscreen-max-p = <512>;
+
+		goodix,int-sync = <1>;
+		status = "disabled";
+	};
+
 };
 
 &i2c7 {
@@ -438,7 +457,7 @@
 &pinctrl {
 	pinctrl-single,gpio-range = <
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_65  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_66  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
