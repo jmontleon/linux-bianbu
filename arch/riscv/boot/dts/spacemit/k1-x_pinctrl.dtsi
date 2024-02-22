@@ -333,8 +333,8 @@
 
     pinctrl_i2c6_2: i2c6_2_grp {
         pinctrl-single,pins =<
-            K1X_PADCONF(GPIO_56,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))    /* i2c6_scl */
-            K1X_PADCONF(GPIO_57,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))    /* i2c6_sda */
+            K1X_PADCONF(GPIO_56,    MUX_MODE5, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))    /* i2c6_scl */
+            K1X_PADCONF(GPIO_57,    MUX_MODE5, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))    /* i2c6_sda */
         >;
     };
 
