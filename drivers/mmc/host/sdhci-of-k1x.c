@@ -761,7 +761,7 @@ static int spacemit_send_tuning_cmd(struct sdhci_host *host, u32 opcode,
 			"during tuning procedure, resetting CMD and DATA\n",
 			mmc_hostname(host->mmc));
 		sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
-		err = -EIO;
+		/* err = -EIO; */
 	} else
 		err = spacemit_tuning_patten_check(host, point);
 
@@ -832,7 +832,7 @@ static int spacemit_sw_rx_select_window(struct sdhci_host *host, u32 opcode)
 			max += SDHC_RX_TUNE_DELAY_STEP;
 		}
 
-		pr_debug("%s: pass window [%d %d) \n", mmc_hostname(host->mmc), min, max);
+		pr_notice("%s: pass window [%d %d) \n", mmc_hostname(host->mmc), min, max);
 		/* store the top 3 window */
 		if ((max - min) >= rxtuning->window_limit) {
 			window->max_delay = max;
