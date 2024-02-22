@@ -2766,6 +2766,9 @@ target_alloc_sgl(struct scatterlist **sgl, unsigned int *nents, u32 length,
 {
 	gfp_t gfp = GFP_KERNEL | (zero_page ? __GFP_ZERO : 0);
 
+#if defined(CONFIG_SOC_SPACEMIT_K1X)
+	gfp |= GFP_DMA32;
+#endif
 	*sgl = sgl_alloc_order(length, 0, chainable, gfp, nents);
 	return *sgl ? 0 : -ENOMEM;
 }
