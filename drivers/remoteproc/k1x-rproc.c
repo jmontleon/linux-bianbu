@@ -354,7 +354,7 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 		}
 	}
 
-	rproc->auto_boot = false;
+	rproc->auto_boot = true;
 	ret = devm_rproc_add(dev, rproc);
 	if (ret) {
 		dev_err(dev, "rproc_add failed\n");
