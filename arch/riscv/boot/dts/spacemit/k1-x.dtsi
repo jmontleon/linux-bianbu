@@ -1016,6 +1016,17 @@
 			status = "ok";
 		};
 
+		hdmi_adma: adma@C0883800 {
+			compatible = "spacemit,k1x-adma";
+			reg = <0x0 0xc0883800 0x0 0x100>,
+				<0x0 0xc0882050 0x0 0x4>,
+				<0x0 0xc08d0000 0x0 0x400>;
+			reg-names = "adma_reg", "ctrl_reg", "buf_addr";
+			#dma-cells = <0>;
+			hdmi-sample;
+			status = "ok";
+		};
+
 		spi0: spi@d4026000 {
 			compatible = "spacemit,k1x-spi";
 			reg = <0x0 0xd4026000 0x0 0x30>;
