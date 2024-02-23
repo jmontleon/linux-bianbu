@@ -2308,9 +2308,11 @@
 				remote-endpoint = <&dsi2_in>;
 			};
 
+			/*
 			dpu_offline0_dsi_out: endpoint@1 {
-				// remote-endpoint = <&wb0_in>;
+				remote-endpoint = <&wb0_in>;
 			};
+			*/
 		};
 
 		dsi2: dsi2@d421a800 {
@@ -2373,7 +2375,8 @@
 				port@0 {
 					reg = <0>;
 					wb0_in: endpoint {
-						remote-endpoint = <&dpu_offline0_dsi_out>;
+						// remote-endpoint = <&dpu_offline0_dsi_out>;
+						remote-endpoint = <&dpu_offline0_hdmi_out>;
 					};
 				};
 			};
