@@ -88,7 +88,23 @@ static struct platform_driver spacemit_snd_pdrv = {
 	},
 };
 
+#if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
+static int __init spacemit_snd_init(void)
+{
+	int ret = 0;
+	ret = platform_driver_register(&spacemit_snd_pdrv);
+	return ret;
+}
+module_init(spacemit_snd_init);
+
+static void __exit spacemit_snd_exit(void)
+{
+	platform_driver_unregister(&spacemit_snd_pdrv);
+}
+module_exit(spacemit_snd_exit);
+#else
 module_platform_driver(spacemit_snd_pdrv);
+#endif
 
 /* Module information */
 MODULE_DESCRIPTION("SPACEMIT ASoC Machine Driver");
