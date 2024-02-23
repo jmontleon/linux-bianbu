@@ -39,13 +39,24 @@ struct sspa_priv {
 static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
+	u32 value = 0;
+	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
+
+	value = readl_relaxed(hdmi_addr + 0x30);
+	value |= BIT(0);
+	writel(value, hdmi_addr + 0x30);
 	return 0;
 }
 
 static void mmp_sspa_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
+	u32 value = 0;
+	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
 
+	value = readl_relaxed(hdmi_addr + 0x30);
+	value &= ~BIT(0);
+	writel(value, hdmi_addr + 0x30);
 }
 
 static int mmp_sspa_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
