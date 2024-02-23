@@ -110,9 +110,9 @@ static int spacemit_snd_dma_init(struct device *paraent, struct spacemit_snd_soc
 
 static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 
-	.info             = SNDRV_PCM_INFO_INTERLEAVED |
-	                    SNDRV_PCM_INFO_BATCH |
-	                    SNDRV_PCM_INFO_PAUSE,
+	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
+			    SNDRV_PCM_INFO_BATCH |
+			    SNDRV_PCM_INFO_PAUSE,
 	.buffer_bytes_max = 64 * 1024,
 	.period_bytes_min = 32,
 	.period_bytes_max = 8 * 1024,
@@ -120,6 +120,23 @@ static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 	.periods_max	  = 32,
 };
 
+static const struct snd_pcm_hardware spacemit_snd_pcm_hardware_hdmi = {
+
+	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
+			    SNDRV_PCM_INFO_BATCH |
+			    SNDRV_PCM_INFO_PAUSE,
+	.formats	  = SNDRV_PCM_FMTBIT_S16_LE,
+	.rates		  = SNDRV_PCM_RATE_48000,
+	.rate_min	  = SNDRV_PCM_RATE_48000,
+	.rate_max	  = SNDRV_PCM_RATE_48000,
+	.channels_min	  = 2,
+	.channels_max	  = 2,
+	.buffer_bytes_max = 256 * 4 * 4,
+	.period_bytes_min = 256 * 4,
+	.period_bytes_max = 256 * 4,
+	.periods_min	  = 4,
+	.periods_max	  = 4,
+};
 static int spacemit_dma_slave_config(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params,
 		struct dma_slave_config *slave_config,
@@ -242,7 +259,7 @@ static int spacemit_snd_pcm_hdmi_hw_params(struct snd_soc_component *component, 
 	struct spacemit_snd_dmadata *dmadata = runtime->private_data;
 	const char *name = dev_name(component->dev);
 
-	printk("enter %s!! allocbytes=%d, dmadata=0x%lx\n",
+	pr_debug("enter %s!! allocbytes=%d, dmadata=0x%lx\n",
 		__FUNCTION__, params_buffer_bytes(params), (unsigned long)dmadata);
 
 	memset(&slave_config, 0, sizeof(slave_config));
@@ -435,7 +452,12 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 	}
 
 	dmadata = &dev->dmadata[substream->stream];
-	ret = snd_soc_set_runtime_hwparams(substream, &spacemit_snd_pcm_hardware);
+	if (!strcmp(name, "c08d0400.spacemit-snd-dma-hdmi")) {
+		ret = snd_soc_set_runtime_hwparams(substream, &spacemit_snd_pcm_hardware_hdmi);
+	} else {
+		ret = snd_soc_set_runtime_hwparams(substream, &spacemit_snd_pcm_hardware);
+	}
+
 	if (ret)
 		return ret;
 
