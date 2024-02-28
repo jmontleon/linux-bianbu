@@ -476,7 +476,6 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixek_clock){
 static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
-	u32 value;
 	DRM_DEBUG("%s() \n", __func__);
 
 	// hdmi config
