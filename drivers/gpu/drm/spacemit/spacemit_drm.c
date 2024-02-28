@@ -167,8 +167,6 @@ static const struct drm_info_list spacemit_debugfs_files[] = {
 
 static void spacemit_drm_debugfs_init(struct drm_minor *minor)
 {
-	struct drm_device *dev = minor->dev;
-
 	DRM_DEBUG("%s()\n", __func__);
 	drm_debugfs_create_files(spacemit_debugfs_files,
 						ARRAY_SIZE(spacemit_debugfs_files),
