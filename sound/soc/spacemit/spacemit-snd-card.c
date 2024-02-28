@@ -20,25 +20,25 @@
 
 //#include "spacemit-snd.h"
 
-SND_SOC_DAILINK_DEF(dummy,
+__maybe_unused SND_SOC_DAILINK_DEF(dummy,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()));
 
-SND_SOC_DAILINK_DEF(sspa2,
+__maybe_unused SND_SOC_DAILINK_DEF(sspa2,
 	DAILINK_COMP_ARRAY(COMP_CPU("SSPA2")));
 
-SND_SOC_DAILINK_DEF(i2s0,
+__maybe_unused SND_SOC_DAILINK_DEF(i2s0,
 	DAILINK_COMP_ARRAY(COMP_CPU("i2s-dai0")));
 
-SND_SOC_DAILINK_DEF(i2s1,
+__maybe_unused SND_SOC_DAILINK_DEF(i2s1,
 	DAILINK_COMP_ARRAY(COMP_CPU("i2s-dai1")));
 
-SND_SOC_DAILINK_DEF(pcm_dma0,
+__maybe_unused SND_SOC_DAILINK_DEF(pcm_dma0,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("spacemit-snd-dma0")));
 
-SND_SOC_DAILINK_DEF(pcm_dma1,
+__maybe_unused SND_SOC_DAILINK_DEF(pcm_dma1,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("spacemit-snd-dma1")));
 
-SND_SOC_DAILINK_DEF(pcm_dma_hdmi,
+__maybe_unused SND_SOC_DAILINK_DEF(pcm_dma_hdmi,
 	DAILINK_COMP_ARRAY(COMP_PLATFORM("c08d0400.spacemit-snd-dma-hdmi")));
 
 static struct snd_soc_dai_link spacemit_snd_dai_links[] = {
