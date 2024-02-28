@@ -154,7 +154,7 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
 	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
-	u32 value;
+	__maybe_unused u32 value;
 
 	// hdmi config
 	if (mode->hdisplay > 1024) {
