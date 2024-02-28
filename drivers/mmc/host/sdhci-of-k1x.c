@@ -72,7 +72,12 @@
 #define SDHC_PHY_DLLCFG1		0x16C
 #define DLL_REG2_CTRL			0x0C
 #define DLL_REG3_CTRL_MASK		0xFF
-#define DLL_REG3_CTRL_SHIFT		0x08
+#define DLL_REG3_CTRL_SHIFT		0x10
+#define DLL_REG2_CTRL_MASK		0xFF
+#define DLL_REG2_CTRL_SHIFT		0x08
+#define DLL_REG1_CTRL			0x92
+#define DLL_REG1_CTRL_MASK		0xFF
+#define DLL_REG1_CTRL_SHIFT		0x00
 
 #define SDHC_PHY_DLLSTS			0x170
 #define DLL_LOCK_STATE			0x01
@@ -83,6 +88,9 @@
 
 #define SDHC_PHY_PADCFG_REG		0x178
 #define RX_BIAS_CTRL_SHIFT		0x5
+#define PHY_DRIVE_SEL_SHIFT		0x0
+#define PHY_DRIVE_SEL_MASK		0x7
+#define PHY_DRIVE_SEL_DEFAULT		0x4
 
 #define RPM_DELAY			50
 #define MAX_74CLK_WAIT_COUNT		100
@@ -387,6 +395,9 @@ static void spacemit_sdhci_reset(struct sdhci_host *host, u8 mask)
 
 			reg = sdhci_readl(host, SDHC_PHY_PADCFG_REG);
 			reg |= (1 << RX_BIAS_CTRL_SHIFT);
+
+			reg &= ~(PHY_DRIVE_SEL_MASK);
+			reg |= (pdata->phy_driver_sel & PHY_DRIVE_SEL_MASK) << PHY_DRIVE_SEL_SHIFT;
 			sdhci_writel(host, reg, SDHC_PHY_PADCFG_REG);
 		}
 	} else {
@@ -537,7 +548,7 @@ static void spacemit_sdhci_phy_dll_init(struct sdhci_host *host)
 	sdhci_writel(host, reg, SDHC_PHY_DLLCFG);
 
 	reg = sdhci_readl(host, SDHC_PHY_DLLCFG1);
-	reg |= DLL_REG2_CTRL;
+	reg |= (DLL_REG1_CTRL & DLL_REG1_CTRL_MASK);
 	sdhci_writel(host, reg, SDHC_PHY_DLLCFG1);
 
 	/* dll enable */
@@ -1180,6 +1191,12 @@ static void spacemit_get_of_property(struct sdhci_host *host,
 		pdata->tx_delaycode = (u8)property;
 	else
 		pdata->tx_delaycode = TX_TUNING_DELAYCODE;
+
+	/* phy driver select */
+	if (!of_property_read_u32(np, "spacemit,phy_driver_sel", &property))
+		pdata->phy_driver_sel = (u8)property;
+	else
+		pdata->phy_driver_sel = PHY_DRIVE_SEL_DEFAULT;
 
 	return;
 }
