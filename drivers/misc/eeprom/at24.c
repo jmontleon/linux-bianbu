@@ -801,17 +801,11 @@ static void at24_remove(struct i2c_client *client)
 
 static int __maybe_unused at24_suspend(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct at24_data *at24 = i2c_get_clientdata(client);
-
 	return 0;
 }
 
 static int __maybe_unused at24_resume(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct at24_data *at24 = i2c_get_clientdata(client);
-
 	return 0;
 }
 
