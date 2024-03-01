@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2022 SPACEMIT Micro Limited
+ * Copyright (C) 2024 SPACEMIT
  */
 
 #ifndef _SPACEMIT_SND_SSPA_H_
