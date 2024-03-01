@@ -130,6 +130,17 @@
 		regulator-max-microvolt = <4000000>;
 		vin-supply = <&dc_12v>;
 	};
+
+	vcc_touchpad: vcc-touchpad {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_touchpad";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		regulator-boot-on;
+		gpios = <&gpio 112 0>;
+		vin-supply = <&ldo_7>;
+	};
 };
 
 &uart0 {
@@ -183,6 +194,19 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
 	status = "okay";
+
+	touchpad: hid@2c {
+		compatible = "hid-over-i2c";
+		reg = <0x2c>;
+		hid-descr-addr = <0x0020>;
+		post-power-on-delay-ms = <200>;
+
+		vdd-supply = <&vcc_touchpad>;
+		interrupt-parent = <&gpio>;
+		interrupts = <62 2>;
+		status = "okay";
+
+	};
 };
 
 &i2c8 {
@@ -405,6 +429,7 @@
 	pinctrl-single,gpio-range = <
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_62  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_65  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_66  2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -415,6 +440,7 @@
 		&range GPIO_91  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range DVL0     2 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_110 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_112 2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_114 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_115 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_123 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -433,12 +459,13 @@
 	gpio-ranges = <
 		&pinctrl 49  GPIO_49  2
 		&pinctrl 58  GPIO_58  1
-		&pinctrl 63  GPIO_63  5
+		&pinctrl 62  GPIO_62  6
 		&pinctrl 74  GPIO_74  1
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 90  GPIO_90  3
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
+		&pinctrl 112 GPIO_112 1
 		&pinctrl 114 GPIO_114 4
 		&pinctrl 123 GPIO_123 1
 		&pinctrl 125 GPIO_125 3
