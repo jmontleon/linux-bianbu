@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2022 SPACEMIT Micro Limited
+ * Copyright (C) 2024 SPACEMIT
  */
 
 #include <linux/module.h>
@@ -17,8 +17,6 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/input.h>
-
-//#include "spacemit-snd.h"
 
 __maybe_unused SND_SOC_DAILINK_DEF(dummy,
 	DAILINK_COMP_ARRAY(COMP_DUMMY()));

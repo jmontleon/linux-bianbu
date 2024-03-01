@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2022 SPACEMIT Micro Limited
+ * Copyright (C) 2024 SPACEMIT
  */
 
 #include <linux/init.h>
@@ -11,7 +11,6 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/of.h>
-
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/initval.h>
@@ -19,10 +18,7 @@
 #include <sound/soc.h>
 #include <sound/pxa2xx-lib.h>
 #include <sound/dmaengine_pcm.h>
-
 #include "spacemit-snd-sspa.h"
-#include "spacemit-snd.h"
-
 
 struct sspa_priv {
 	struct ssp_device *sspa;
@@ -34,17 +30,43 @@ struct sspa_priv {
 	int running_cnt;
 	void __iomem	*base;
 	void __iomem	*base_clk;
+	void __iomem	*base_hdmi;
 };
+
+static void spacemit_clk_rst_enable(struct sspa_priv *priv)
+{
+	unsigned int value;
+	value = readl_relaxed(priv->base_clk + 0x44);
+
+	value |= PCLK_ENABLE | FCLK_ENABLE;
+	writel(value, priv->base_clk + 0x44);
+	udelay(1);
+	value |= MODULE_ENABLE;
+	writel(value, priv->base_clk + 0x44);
+}
+
+static void spacemit_clk_rst_disable(struct sspa_priv *priv)
+{
+	unsigned int value;
+	value = readl_relaxed(priv->base_clk + 0x44);
+	value |= MODULE_RESET;
+	writel(value, priv->base_clk + 0x44);
+	udelay(1);
+	value &= ~(PCLK_ENABLE | FCLK_ENABLE);
+	writel(value, priv->base_clk + 0x44);
+}
 
 static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 	u32 value = 0;
-	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
+	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 
-	value = readl_relaxed(hdmi_addr + 0x30);
+	value = readl_relaxed(sspa_priv->base_hdmi);
 	value |= BIT(0);
-	writel(value, hdmi_addr + 0x30);
+	writel(value, sspa_priv->base_hdmi);
+
+	spacemit_clk_rst_enable(sspa_priv);
 	return 0;
 }
 
@@ -52,11 +74,12 @@ static void mmp_sspa_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
 	u32 value = 0;
-	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
+	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 
-	value = readl_relaxed(hdmi_addr + 0x30);
+	value = readl_relaxed(sspa_priv->base_hdmi);
 	value &= ~BIT(0);
-	writel(value, hdmi_addr + 0x30);
+	writel(value, sspa_priv->base_hdmi);
+	spacemit_clk_rst_disable(sspa_priv);
 }
 
 static int mmp_sspa_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
@@ -115,24 +138,17 @@ static int mmp_sspa_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-
 		sspa_priv->running_cnt++;
 		break;
-
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-	if (sspa_priv->running_cnt > 0)
-		sspa_priv->running_cnt--;
-	if (sspa_priv->running_cnt == 0 ) {
-
-	}
+		if (sspa_priv->running_cnt > 0)
+			sspa_priv->running_cnt--;
 		break;
-
 	default:
 		ret = -EINVAL;
 	}
-
 	return ret;
 }
 
@@ -143,7 +159,6 @@ static int mmp_sspa_probe(struct snd_soc_dai *dai)
 
 	snd_soc_dai_set_drvdata(dai, sspa_priv);
 	return 0;
-
 }
 
 static const struct snd_soc_dai_ops mmp_sspa_dai_ops = {
@@ -156,18 +171,13 @@ static const struct snd_soc_dai_ops mmp_sspa_dai_ops = {
 	.set_fmt	= mmp_sspa_set_dai_fmt,
 };
 
-
-#define SPACEMIT_SND_SSPA_RATES SNDRV_PCM_RATE_8000_192000
-#define SPACEMIT_SND_SSPA_FORMATS (SNDRV_PCM_FMTBIT_S8 | \
-               SNDRV_PCM_FMTBIT_S16_LE | \
-               SNDRV_PCM_FMTBIT_S24_LE | \
-               SNDRV_PCM_FMTBIT_S32_LE)
+#define SPACEMIT_SND_SSPA_RATES SNDRV_PCM_RATE_48000
+#define SPACEMIT_SND_SSPA_FORMATS SNDRV_PCM_FMTBIT_S16_LE
 
 static struct snd_soc_dai_driver spacemit_snd_sspa_dai[] = {
 	{
 		.name = "SSPA2",
 		.probe = mmp_sspa_probe,
-		.id = SPACEMIT_SND_SSPA2,
 		.playback = {
 			.stream_name = "SSPA2 TX",
 			.channels_min = 2,
@@ -185,6 +195,17 @@ static void spacemit_dma_params_init(struct resource *res, struct snd_dmaengine_
 	dma_params->maxburst = 32;
 	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 }
+
+static void spacemit_clk_init(struct sspa_priv *priv)
+{
+	unsigned int value;
+
+	/*48k 32bit*/
+	value = 0x1ff << 4; //div 512
+	value |=  CLK1_24P576MHZ;
+	writel(value, priv->base_clk + 0x44);
+}
+
 static const struct snd_soc_component_driver spacemit_snd_sspa_component = {
 	.name		= "spacemit-snd-sspa",
 };
@@ -195,7 +216,6 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 	struct sspa_priv *priv;
 	struct resource *base_res;
 	struct resource *clk_res;
-	unsigned int value;
 
 	pr_info("enter %s\n", __FUNCTION__);
 	priv = devm_kzalloc(&pdev->dev,
@@ -205,29 +225,30 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	base_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	pr_info("%s, start=0x%lx, end=0x%lx\n", __FUNCTION__, (unsigned long)base_res->start, (unsigned long)base_res->end);
 	priv->base = devm_ioremap_resource(&pdev->dev, base_res);
-
+	if (IS_ERR(priv->base)) {
+		pr_err("%s reg base alloc failed\n", __FUNCTION__);
+		return PTR_ERR(priv->base);
+	}
 	clk_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	pr_info("%s, start=0x%lx, end=0x%lx\n", __FUNCTION__, (unsigned long)clk_res->start, (unsigned long)clk_res->end);
 	priv->base_clk = devm_ioremap_resource(&pdev->dev, clk_res);
-
+	if (IS_ERR(priv->base_clk)) {
+		pr_err("%s reg clk base alloc failed\n", __FUNCTION__);
+		return PTR_ERR(priv->base_clk);
+	}
+	priv->base_hdmi = (void __iomem *)ioremap(0xC0400530, 1);
+	if (IS_ERR(priv->base_hdmi)) {
+		pr_err("%s reg hdmi base alloc failed\n", __FUNCTION__);
+		return PTR_ERR(priv->base_hdmi);
+	}
 	priv->dma_params = devm_kzalloc(&pdev->dev, sizeof(struct snd_dmaengine_dai_dma_data),
 			GFP_KERNEL);
-
 	if (priv->dma_params == NULL) {
 		pr_err("%s dma_params alloc failed\n", __FUNCTION__);
 		return -ENOMEM;
 	}
 	spacemit_dma_params_init(base_res, priv->dma_params);
-
-	/*48k 32bit*/
-	value = 0x1ff<<4;
-	value |=  CLK1_24P576MHZ | PCLK_ENABLE | FCLK_ENABLE;
-	writel(value, priv->base_clk + 0x44);
-	udelay(1);
-	value |= MODULE_ENABLE;
-	writel(value, priv->base_clk + 0x44);
+	spacemit_clk_init(priv);
 
 	platform_set_drvdata(pdev, priv);
 	ret = devm_snd_soc_register_component(&pdev->dev, &spacemit_snd_sspa_component,
@@ -236,9 +257,7 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to register DAI\n");
 		return ret;
 	}
-
 	return 0;
-
 }
 
 #ifdef CONFIG_OF
@@ -272,6 +291,6 @@ EXPORT_SYMBOL(spacemit_snd_unregister_sspa_pdrv);
 module_platform_driver(spacemit_snd_sspa_pdrv);
 #endif
 
-MODULE_DESCRIPTION("SPACEMIT Aquila ASoC SSPA Driver");
+MODULE_DESCRIPTION("SPACEMIT ASoC SSPA Driver");
 MODULE_LICENSE("GPL");
 
