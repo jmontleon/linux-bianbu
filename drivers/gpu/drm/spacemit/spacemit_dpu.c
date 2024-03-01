@@ -973,7 +973,6 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 
 	pm_runtime_put_sync(dpu->dev);
 	msleep(10);
-	pm_runtime_get_sync(&pdev->dev);
 
 	/*
 	 * To keep bootloader logo on, below operations must be
