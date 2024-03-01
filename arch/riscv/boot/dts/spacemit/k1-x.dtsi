@@ -1603,6 +1603,8 @@
 			clocks = <&ccu CLK_GPIO>;
 			interrupt-names = "gpio_mux";
 			interrupt-parent = <&intc>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
 
 			gcb0: gpio0 {
 				reg-offset = <0x0>;
