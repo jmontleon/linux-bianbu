@@ -207,21 +207,6 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 		writel(0x0e404000, hdmi_addr + 0x28);
 	}
 
-	writel(0x3018C001, hdmi->regs + 0x28);
-}
-
-static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
-			   struct drm_display_mode *mode)
-{
-	DRM_DEBUG("%s() \n", __func__);
-
-	// hdmi config
-	hdmi_writeb(hdmi, 0xe8, 0x20200000);
-	hdmi_writeb(hdmi, 0xec, 0x508d425a);
-	hdmi_writeb(hdmi, 0xf0, 0x861);
-
-	hdmi_init(hdmi, hdmi->previous_mode.clock);
-
 	spacemit_hdmi_config_video_timing(hdmi, mode);
 
 	spacemit_hdmi_config_video_avi(hdmi, mode);
