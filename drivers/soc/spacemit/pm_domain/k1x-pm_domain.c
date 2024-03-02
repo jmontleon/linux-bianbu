@@ -20,6 +20,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/spinlock_types.h>
 #include <linux/regulator/consumer.h>
+#include <dt-bindings/pmu/k1x_pmu.h>
 #include "atomic_qos.h"
 
 #define MAX_REGMAP		5
@@ -636,7 +637,11 @@ static int spacemit_pm_add_one_domain(struct spacemit_pmu *pmu, struct device_no
 	pd->genpd.dev_ops.stop = spacemit_genpd_stop;
 	pd->genpd.dev_ops.start = spacemit_genpd_start;
 
-	pm_genpd_init(&pd->genpd, NULL, true);
+	/* audio power-domain is power-on by default */
+	if (id == K1X_PMU_AUD_PWR_DOMAIN)
+		pm_genpd_init(&pd->genpd, NULL, false);
+	else
+		pm_genpd_init(&pd->genpd, NULL, true);
 
 	pmu->domains[id] = pd;
 
