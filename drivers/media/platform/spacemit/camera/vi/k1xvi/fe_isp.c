@@ -388,14 +388,6 @@ static struct {
 		.format = NV21,
 	},
 	{
-		.fmt_code = MEDIA_BUS_FMT_YUYV8_1X16,
-		.format = YUYV,
-	},
-	{
-		.fmt_code = MEDIA_BUS_FMT_YVYU8_1X16,
-		.format = YVYU,
-	},
-	{
 		.fmt_code = MEDIA_BUS_FMT_YUYV10_1X20,
 		.format = Y210,
 	},
