@@ -577,3 +577,11 @@ void hw_isp_top_pipe1_debug_dump(struct spm_camera_block *sc_block)
 	cam_not("p1 regs dump: reg0.m_nWidth=%d reg0.m_nHeight=%d",
 		reg_0.field.m_nwidth, reg_0.field.m_nheight);
 }
+void hw_isp_top_set_speed_ctrl(struct spm_camera_block *sc_block, unsigned int speed_ctrl)
+{
+	union isp_top_reg_76 reg_76;
+
+	reg_76.value = read32(ISP_TOP_REG(76));
+	reg_76.field.send_speed_ctrl = speed_ctrl;
+	write32(ISP_TOP_REG(76), reg_76.value);
+}

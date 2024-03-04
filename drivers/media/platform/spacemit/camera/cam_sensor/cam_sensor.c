@@ -413,7 +413,6 @@ static int camsnr_set_mclk_enable(unsigned long arg, struct cam_sensor_device *m
 
 	if (msnr_dev->mclk) {
 		if (clk_enable && !__clk_is_enabled(msnr_dev->mclk)) {
-			cam_err("%s: mclk enabled ------------- ZRong", __func__);
 			ret = clk_prepare_enable(msnr_dev->mclk);
 			if (ret < 0)
 				return ret;
