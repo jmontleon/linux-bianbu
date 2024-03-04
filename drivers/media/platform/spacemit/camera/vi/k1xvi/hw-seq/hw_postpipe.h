@@ -11,9 +11,7 @@
 #define SPACEMIT_POSTPIPE_OFFSET	(0x00010000)
 
 enum {
-	YUYV = 0,
-	YVYU,
-	NV12,
+	NV12 = 2,
 	NV21,
 	P210,
 	Y210,
