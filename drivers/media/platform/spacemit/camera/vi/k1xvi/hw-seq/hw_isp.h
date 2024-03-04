@@ -168,4 +168,5 @@ unsigned int hw_isp_top_get_idi_fifo_depth(struct spm_camera_block *sc_block);
 void hw_isp_top_global_reset(struct spm_camera_block *sc_block);
 void hw_isp_top_pipe0_debug_dump(struct spm_camera_block *sc_block);
 void hw_isp_top_pipe1_debug_dump(struct spm_camera_block *sc_block);
+void hw_isp_top_set_speed_ctrl(struct spm_camera_block *sc_block, unsigned int speed_ctrl);
 #endif
