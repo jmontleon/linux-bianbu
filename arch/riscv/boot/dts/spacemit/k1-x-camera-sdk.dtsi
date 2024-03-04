@@ -41,7 +41,7 @@
 		reset-names = "cphy_reset";
 		interconnects = <&dram_range1>;
 		interconnect-names = "dma-mem";
-		status = "disable";
+		status = "okay";
 	};
 
 	csiphy2: csiphy@d4206000 {

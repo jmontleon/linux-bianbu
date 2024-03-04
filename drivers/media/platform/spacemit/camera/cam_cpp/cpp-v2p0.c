@@ -20,9 +20,9 @@
 #define CAM_MODULE_TAG CAM_MDL_CPP
 
 #ifdef CONFIG_SPACEMIT_FPGA
-#define CPP_RESET_TIMEOUT_MS (100)
+#define CPP_RESET_TIMEOUT_MS (1000)
 #else
-#define CPP_RESET_TIMEOUT_MS (50)
+#define CPP_RESET_TIMEOUT_MS (500)
 #endif
 
 static void cpp20_3dnr_src_dmad_cfg(struct cpp_device *cpp_dev,
