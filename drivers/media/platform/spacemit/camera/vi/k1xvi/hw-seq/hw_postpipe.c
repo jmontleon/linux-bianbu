@@ -25,13 +25,6 @@ void hw_postpipe_set_formatter_format(struct spm_camera_block *sc_block,
 	reg_2.field.fmt0_m_bSwitchUVFlag = 0;
 	reg_2.field.fmt0_m_bCompress = 0;
 	switch (format) {
-	case YUYV:
-		reg_2.field.fmt0_m_nFormat = 0;
-		break;
-	case YVYU:
-		reg_2.field.fmt0_m_nFormat = 0;
-		reg_2.field.fmt0_m_bSwitchUVFlag = 1;
-		break;
 	case NV12:
 		reg_2.field.fmt0_m_nFormat = 1;
 		break;
@@ -39,10 +32,12 @@ void hw_postpipe_set_formatter_format(struct spm_camera_block *sc_block,
 		reg_2.field.fmt0_m_nFormat = 1;
 		reg_2.field.fmt0_m_bSwitchUVFlag = 1;
 		break;
+	case RGB888:
+		reg_2.field.fmt0_m_bSwitchUVFlag = 1;
+		fallthrough;
 	case P210:
 	case Y210:
 	case P010:
-	case RGB888:
 	case RGB565:
 		reg_2.field.fmt0_m_nFormat = 2 + (format - P210);
 		break;
