@@ -90,7 +90,7 @@ static void dma_callback_func(void *priv)
 
 static int dma_open(struct inode *inode, struct file *filp)
 {
-	return 0;
+	return (dma_dev != NULL) ? 0 : -EPERM;
 }
 
 static int dma_release(struct inode *inode, struct file *filp)
