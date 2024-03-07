@@ -2555,8 +2555,13 @@
 		status = "ok";
 	};
 
-	sound: snd-card@0 {
-		compatible = "spacemit,spacemit-snd";
+	sound_hdmi: snd-card@0 {
+		compatible = "spacemit,spacemit-snd-hdmi";
+		status = "ok";
+	};
+
+	sound_es8326: snd-card@1 {
+		compatible = "spacemit,spacemit-snd-es8326";
 		status = "ok";
 	};
 };
