@@ -2531,6 +2531,30 @@
 		status = "ok";
 	};
 
+	spacemit_i2s: i2s {
+		compatible = "spacemit,spacemit-i2s-dai";
+		reg = <0x0 0xD4026000 0x0 0x30>,
+			<0x0 0xD4026800 0x0 0x30>;
+		reg-names = "i2s0", "i2s1";
+		status = "ok";
+	};
+
+	spacemit-snd-dma0 {
+		compatible = "spacemit,spacemit-snd-dma0";
+		dmas = <&pdma0 22 1
+			&pdma0 21 1>;
+		dma-names = "rx", "tx";
+		status = "ok";
+	};
+
+	spacemit-snd-dma1 {
+		compatible = "spacemit,spacemit-snd-dma1";
+		dmas = <&pdma0 24 1
+			&pdma0 23 1>;
+		dma-names = "rx", "tx";
+		status = "ok";
+	};
+
 	sound: snd-card@0 {
 		compatible = "spacemit,spacemit-snd";
 		status = "ok";
