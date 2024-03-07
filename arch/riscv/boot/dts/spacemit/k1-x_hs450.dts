@@ -188,6 +188,16 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
 	status = "okay";
+
+	es8326@19{
+                compatible = "everest,es8326";
+                reg = <0x19>;
+                #sound-dai-cells = <0>;
+                interrupt-parent = <&gpio>;
+                interrupts = <126 1>;
+                spk-ctl-gpio = <&gpio 127 0>;
+                status = "okay";
+        };
 };
 
 &i2c4 {
@@ -670,3 +680,8 @@
 	temperature = <115000>;
 };
 
+&spacemit_i2s {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_sspa0_0>;
+        status = "okay";
+};
