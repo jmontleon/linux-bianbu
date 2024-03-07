@@ -16,6 +16,8 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include "es8326.h"
 
 struct es8326_priv {
@@ -43,6 +45,9 @@ struct es8326_priv {
 	int version;
 	int hp;
 	int jack_remove_retry;
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	int spk_ctl_gpio;
+#endif
 };
 
 static int es8326_crosstalk1_get(struct snd_kcontrol *kcontrol,
@@ -407,6 +412,10 @@ static int es8326_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 		break;
 	case SND_SOC_DAIFMT_CBC_CFC:
 		break;
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	case SND_SOC_DAIFMT_CBP_CFP:
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -453,6 +462,9 @@ static int es8326_pcm_hw_params(struct snd_pcm_substream *substream,
 		coeff_div =  coeff_div_v3;
 		array = ARRAY_SIZE(coeff_div_v3);
 	}
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	es8326->sysclk = params_rate(params) * 64;
+#endif
 	coeff = get_coeff(es8326->sysclk, params_rate(params), array, coeff_div);
 	/* bit size */
 	switch (params_format(params)) {
@@ -640,7 +652,14 @@ static void es8326_disable_micbias(struct snd_soc_component *component)
 	snd_soc_dapm_sync_unlocked(dapm);
 	snd_soc_dapm_mutex_unlock(dapm);
 }
-
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+static void es8326_enable_spk(struct es8326_priv *es8326, bool enable)
+{
+	if (es8326->spk_ctl_gpio < 0)
+		return;
+	gpio_set_value(es8326->spk_ctl_gpio, enable);
+}
+#endif
 /*
  *	For button detection, set the following in soundcard
  *	snd_jack_set_key(jack->jack, SND_JACK_BTN_0, KEY_PLAYPAUSE);
@@ -665,15 +684,18 @@ static void es8326_jack_button_handler(struct work_struct *work)
 	case 0x93:
 		/* pause button detected */
 		cur_button = SND_JACK_BTN_0;
+		dev_dbg(comp->dev, "%s 0x%x pause \n", __func__, iface);
 		break;
 	case 0x6f:
 	case 0x4b:
 		/* button volume up */
 		cur_button = SND_JACK_BTN_1;
+		dev_dbg(comp->dev, "%s 0x%x volume+ \n", __func__, iface);
 		break;
 	case 0x27:
 		/* button volume down */
 		cur_button = SND_JACK_BTN_2;
+		dev_dbg(comp->dev, "%s 0x%x volume- \n", __func__, iface);
 		break;
 	case 0x1e:
 	case 0xe2:
@@ -747,6 +769,9 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 		es8326_disable_micbias(es8326->component);
 		if (es8326->jack->status & SND_JACK_HEADPHONE) {
 			dev_dbg(comp->dev, "Report hp remove event\n");
+			#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+			es8326_enable_spk(es8326, true);
+			#endif
 			snd_soc_jack_report(es8326->jack, 0,
 				    SND_JACK_BTN_0 | SND_JACK_BTN_1 | SND_JACK_BTN_2);
 			snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
@@ -790,6 +815,9 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 			queue_delayed_work(system_wq, &es8326->jack_detect_work,
 					msecs_to_jiffies(400));
 			es8326->hp = 1;
+			#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+			es8326_enable_spk(es8326, false);
+			#endif
 			goto exit;
 		}
 		if (es8326->jack->status & SND_JACK_HEADSET) {
@@ -1113,9 +1141,12 @@ static const struct snd_soc_component_driver soc_component_dev_es8326 = {
 };
 
 static int es8326_i2c_probe(struct i2c_client *i2c,
-			    const struct i2c_device_id *id)
+                           const struct i2c_device_id *id)
 {
 	struct es8326_priv *es8326;
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	enum of_gpio_flags flags;
+#endif
 	int ret;
 
 	es8326 = devm_kzalloc(&i2c->dev, sizeof(struct es8326_priv), GFP_KERNEL);
@@ -1147,6 +1178,24 @@ static int es8326_i2c_probe(struct i2c_client *i2c,
 		es8326->irq = -ENXIO;
 	}
 
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	es8326->spk_ctl_gpio = of_get_named_gpio_flags(i2c->dev.of_node,
+						       "spk-ctl-gpio",
+						       0,
+						       &flags);
+	if (es8326->spk_ctl_gpio < 0) {
+		dev_info(&i2c->dev, "Can not read property spk_ctl_gpio\n");
+		es8326->spk_ctl_gpio = -1;
+	} else {
+		ret = devm_gpio_request_one(&i2c->dev, es8326->spk_ctl_gpio,
+					    GPIOF_DIR_OUT, NULL);
+		if (ret) {
+			dev_err(&i2c->dev, "Failed to request spk_ctl_gpio\n");
+			return ret;
+		}
+		es8326_enable_spk(es8326, true);
+	}
+#endif
 	es8326->mclk = devm_clk_get_optional(&i2c->dev, "mclk");
 	if (IS_ERR(es8326->mclk)) {
 		dev_err(&i2c->dev, "unable to get mclk\n");
