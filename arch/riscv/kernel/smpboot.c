@@ -26,9 +26,8 @@
 #include <linux/sched/task_stack.h>
 #include <linux/sched/mm.h>
 
-#include <asm/cpufeature.h>
+#include <asm/cacheflush.h>
 #include <asm/cpu_ops.h>
-#include <asm/cpufeature.h>
 #include <asm/irq.h>
 #include <asm/mmu_context.h>
 #include <asm/numa.h>
@@ -247,8 +246,7 @@ asmlinkage __visible void smp_callin(void)
 	riscv_ipi_enable();
 
 	numa_add_cpu(curr_cpuid);
-	check_unaligned_access(curr_cpuid);
-	set_cpu_online(curr_cpuid, 1);
+	set_cpu_online(curr_cpuid, true);
 
 	if (has_vector()) {
 		if (riscv_v_setup_vsize())
@@ -261,6 +259,7 @@ asmlinkage __visible void smp_callin(void)
 	 * Remote TLB flushes are ignored while the CPU is offline, so emit
 	 * a local TLB flush right now just in case.
 	 */
+	local_flush_icache_all();
 	local_flush_tlb_all();
 	complete(&cpu_running);
 	/*
