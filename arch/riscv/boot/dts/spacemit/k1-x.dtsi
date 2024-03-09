@@ -828,6 +828,9 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
+			dmas = <&pdma0 DMA_UART0_RX 1
+				&pdma0 DMA_UART0_TX 1>;
+			dma-names = "rx", "tx";
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "ok";
