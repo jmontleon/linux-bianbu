@@ -67,6 +67,34 @@ $(obj)/Image.xz: $(obj)/Image FORCE
 $(obj)/loader.bin: $(obj)/loader FORCE
 	$(call if_changed,objcopy)
 
+quiet_cmd_its_cat = CAT     $@
+      cmd_its_cat = cat $(real-prereqs) >$@
+
+$(obj)/Image.its.S: $(addprefix $(srctree)/arch/riscv/generic/,$(ITS_INPUTS)) FORCE
+	$(call if_changed,its_cat)
+
+quiet_cmd_cpp_its_S = ITS     $@
+      cmd_cpp_its_S = $(CPP) -P -C -o $@ $< \
+		-DKERNEL_NAME="\"Linux $(KERNELRELEASE)\"" \
+		-DIMAGE_BINARY="\"$(4)\"" \
+		-DIMAGE_COMPRESSION="\"$(2)\"" \
+		-DIMAGE_CHECK_ALGORITHM="\"$(3)\""
+
+$(obj)/Image.its: $(obj)/Image.its.S $(obj)/Image FORCE
+	$(call if_changed,cpp_its_S,none,crc32,Image)
+
+quiet_cmd_itb-image = ITB     $@
+      cmd_itb-image = \
+		env PATH="$(objtree)/scripts/dtc:$(PATH)" \
+		$(BASH) $(MKIMAGE) \
+		-D "-I dts -O dtb -p 500 \
+			--include $(objtree)/arch/riscv \
+			--warning no-unit_address_vs_reg" \
+		-f $(2) $@
+
+$(obj)/Image.itb: $(obj)/Image.its $(obj)/Image FORCE
+	$(call if_changed,itb-image,$<)
+
 EFI_ZBOOT_PAYLOAD	:= Image
 EFI_ZBOOT_BFD_TARGET	:= elf$(BITS)-littleriscv
 EFI_ZBOOT_MACH_TYPE	:= RISCV$(BITS)
