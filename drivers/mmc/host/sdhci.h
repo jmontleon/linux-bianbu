@@ -683,14 +683,6 @@ struct sdhci_ops {
 				struct mmc_request *mrq);
 	void    (*dump_vendor_regs)(struct sdhci_host *host);
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-	void	(*caps_disable)(struct sdhci_host *host);
-	void	(*set_auto_clk_gate)(struct sdhci_host *host, unsigned int ctrl);
-	void    (*error_handle)(struct sdhci_host *host, u32 status, u8 force);
-	void    (*save_register)(struct sdhci_host *host, u32 cmd);
-	void    (*pre_select_hs400)(struct sdhci_host *host);
-	void    (*post_select_hs400)(struct sdhci_host *host);
-	void    (*pre_hs400_to_hs200)(struct sdhci_host *host);
-	void    (*reset_dllcfg1)(struct sdhci_host *host);
 	void	(*set_encrypt_feature)(struct sdhci_host *host, unsigned int enc_flag);
 #endif
 };
