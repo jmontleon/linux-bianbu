@@ -1499,9 +1499,17 @@ static uint32_t dpu_isr(struct spacemit_dpu *dpu)
 	u32 base = DPU_INT_BASE_ADDR;
 	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
-	static bool flip_done = false;
+	static bool flip_done[DP_MAX_DEVICES];
 	struct drm_writeback_connector *wb_conn = &dpu->wb_connector;
 	u8 channel = dpu->dev_id;
+	int flip_id;
+
+	if (hwdev->is_hdmi) {
+		flip_id = SATURN_HDMI;
+	} else {
+		flip_id = SATURN_LE;
+	}
+	flip_done[flip_id] = false;
 
 	trace_dpu_isr(dpu->dev_id);
 
@@ -1530,7 +1538,8 @@ static uint32_t dpu_isr(struct spacemit_dpu *dpu)
 		if (irq_raw & DPU_INT_CFG_RDY_CLR) {
 			dpu_write_reg_w1c(hwdev, DPU_INTP_REG, base, v.dpu_int_reg_14, DPU_INT_CFG_RDY_CLR);
 			trace_dpu_isr_status("cfg_rdy_clr", irq_raw & DPU_INT_CFG_RDY_CLR);
-			flip_done = false;
+			flip_done[flip_id] = false;
+
 			trace_u64_data("irq crtc mclk cur", dpu->cur_mclk);
 			trace_u64_data("irq crtc mclk new", dpu->new_mclk);
 			trace_u64_data("irq crtc bw cur", dpu->cur_bw);
@@ -1548,13 +1557,16 @@ static uint32_t dpu_isr(struct spacemit_dpu *dpu)
 		if (irq_raw & DPU_INT_FRM_TIMING_VSYNC) {
 			struct drm_crtc *crtc = &dpu->crtc;
 			dpu_write_reg_w1c(hwdev, DPU_INTP_REG, base, v.dpu_int_reg_14, DPU_INT_FRM_TIMING_VSYNC);
+			trace_u64_data("dpu name", (u64)hwdev->is_hdmi);
 			trace_dpu_isr_status("vsync", irq_raw & DPU_INT_FRM_TIMING_VSYNC);
 			drm_crtc_handle_vblank(crtc);
-			if (!flip_done) {
+
+			if (!flip_done[flip_id]) {
 				struct drm_device *drm = dpu->crtc.dev;
 				struct drm_pending_vblank_event *event = crtc->state->event;
 
-				flip_done = true;
+				flip_done[flip_id] = true;
+
 				spin_lock(&drm->event_lock);
 				if (crtc->state->event) {
 					/*
