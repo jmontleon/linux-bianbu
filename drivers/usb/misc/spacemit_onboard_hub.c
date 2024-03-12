@@ -18,41 +18,27 @@
 #include <linux/gpio/consumer.h>
 
 struct spacemit_hub_priv {
-	struct gpio_desc *gpio_usb;
-	struct gpio_desc *gpio_hub;
-	struct gpio_desc *gpio_reset;
+	struct gpio_descs *gpios;
 };
 
 static int spacemit_hub_probe(struct platform_device *pdev)
 {
 	struct spacemit_hub_priv *spacemit;
+	unsigned i;
 
 	spacemit = devm_kzalloc(&pdev->dev, sizeof(*spacemit), GFP_KERNEL);
 	if (!spacemit)
 		return -ENOMEM;
 
-	spacemit->gpio_usb = devm_gpiod_get(&pdev->dev, "usb", GPIOD_OUT_HIGH);
-	if (IS_ERR_OR_NULL(spacemit->gpio_usb)) {
-		dev_err(&pdev->dev, "can not find usb-gpio\n");
-		return -ENODEV;
+	spacemit->gpios = devm_gpiod_get_array(&pdev->dev, "hub", GPIOD_OUT_HIGH);
+	if (IS_ERR(spacemit->gpios)) {
+		dev_err(&pdev->dev, "failed to retrieve hub-gpios from dts\n");
+		return PTR_ERR(spacemit->gpios);
 	}
-	gpiod_set_value(spacemit->gpio_usb, 1);
-
-	spacemit->gpio_hub = devm_gpiod_get(&pdev->dev, "hub", GPIOD_OUT_HIGH);
-	if (IS_ERR_OR_NULL(spacemit->gpio_hub)) {
-		dev_err(&pdev->dev, "can not find hub-gpio\n");
-		return -ENODEV;
+	for (i = 0; i < spacemit->gpios->ndescs; i++) {
+		gpiod_set_value(spacemit->gpios->desc[i], 1);
 	}
-	gpiod_set_value(spacemit->gpio_hub, 1);
-
-	spacemit->gpio_reset= devm_gpiod_get(&pdev->dev, "reset", GPIOD_OUT_HIGH);
-	if (IS_ERR_OR_NULL(spacemit->gpio_reset)) {
-		dev_err(&pdev->dev, "can not find reset-gpio\n");
-		return -ENODEV;
-	}
-	gpiod_set_value(spacemit->gpio_reset, 1);
-
-	dev_info(&pdev->dev, "onboard usb hub driver probe, hub configured\n");
+	dev_info(&pdev->dev, "onboard usb hub driver probed, hub configured\n");
 
 	platform_set_drvdata(pdev, spacemit);
 
@@ -62,10 +48,11 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 static int spacemit_hub_remove(struct platform_device *pdev)
 {
 	struct spacemit_hub_priv *spacemit = platform_get_drvdata(pdev);
+	unsigned i;
 
-	gpiod_set_value(spacemit->gpio_usb, 0);
-	gpiod_set_value(spacemit->gpio_reset, 0);
-	gpiod_set_value(spacemit->gpio_reset, 0);
+	for (i = 0; i < spacemit->gpios->ndescs; i++) {
+		gpiod_set_value(spacemit->gpios->desc[i], 0);
+	}
 
 	dev_info(&pdev->dev, "onboard usb hub driver exit, disable hub\n");
 	return 0;
