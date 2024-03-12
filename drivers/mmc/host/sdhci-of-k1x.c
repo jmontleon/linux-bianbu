@@ -16,6 +16,8 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
+#include <linux/mmc/sd.h>
+#include <linux/mmc/sdio.h>
 #include <linux/mmc/slot-gpio.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -24,6 +26,7 @@
 #include <linux/platform_data/k1x_sdhci.h>
 #include <linux/platform_device.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/regulator/consumer.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
@@ -31,6 +34,9 @@
 
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
+
+#define CONFIG_K1X_MMC_DEBUG 		1
+#define BOOTPART_NOACC_DEFAULT 		0
 
 /* SDH registers define */
 #define SDHC_OP_EXT_REG			0x108
@@ -129,6 +135,8 @@
 
 static struct sdhci_host* sdio_host;
 
+#define MMC_CAP2_QUIRK_BREAK_SDR104	(1 << 30)
+
 struct sdhci_spacemit {
 	struct clk *clk_core;
 	struct clk *clk_io;
@@ -144,10 +152,13 @@ static int spacemit_reg[] = {
 	0x168, 0x16c, 0x170, 0x174, 0x178, 0x17c, 0x180, 0x184,
 	0x188, 0x18c, 0x190, 0x1f0, 0x1f4, 0xFFF,
 };
+
+#ifdef CONFIG_K1X_MMC_DEBUG
 static u8 cur_com_reg[960]; /* 8 line, 120  character  per line */
 static u8 cur_pri_reg[960];
 static u8 pre_com_reg[960];
 static u8 pre_pri_reg[960];
+#endif
 
 #define spacemit_monitor_cmd(cmd) (((cmd) == MMC_READ_SINGLE_BLOCK) || \
 				((cmd) == MMC_READ_MULTIPLE_BLOCK) || \
@@ -175,7 +186,6 @@ static const u32 tuning_patten8[32] = {
 };
 
 static int is_recovery_boot;
-#ifndef MODULE
 static int __init recovery_boot_mode(char *str)
 {
 	if ((str != NULL) && (str[0] == '1'))
@@ -183,10 +193,11 @@ static int __init recovery_boot_mode(char *str)
 
 	return 0;
 }
+#ifndef MODULE
 __setup("recovery=", recovery_boot_mode);
 #endif
 
-static void read_sdh_regs(struct sdhci_host *host, u8 *com_reg, u8 *pri_reg)
+static void __maybe_unused dump_sdh_regs(struct sdhci_host *host, u8 *com_reg, u8 *pri_reg)
 {
 	int val;
 	int offset;
@@ -253,7 +264,7 @@ static void spacemit_reset_dllcfg1_reg(struct sdhci_host *host, u32 dllcfg1)
 	udelay(1);
 }
 
-static void spacemit_handle_emmc_read_crc(struct sdhci_host *host)
+static __maybe_unused void spacemit_handle_emmc_read_crc(struct sdhci_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
 	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
@@ -304,59 +315,91 @@ static void spacemit_handle_emmc_read_crc(struct sdhci_host *host)
 	}
 }
 
-static void spacemit_handle_error_interrupt(struct sdhci_host *host, u32 status, u8 force)
+static u32 spacemit_handle_interrupt(struct sdhci_host *host, u32 intmask)
 {
 	u32 cmd;
 
-	cmd = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
-	read_sdh_regs(host, &cur_com_reg[0], &cur_pri_reg[0]);
+	/* handle sdio SDHCI_INT_CARD_INT */
+	if ((intmask & SDHCI_INT_CARD_INT) && (host->ier & SDHCI_INT_CARD_INT)) {
+		if (!(host->flags & SDHCI_DEVICE_DEAD)) {
+			host->ier &= ~SDHCI_INT_CARD_INT;
+			sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+			sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+		}
 
-	/* dump host register */
-	if (force) {
-		pr_err("%s dump host registers(cmd%d):%s",
-			mmc_hostname(host->mmc), cmd, cur_com_reg);
-		pr_err("%s", cur_pri_reg);
-	} else if ((status & SDHCI_INT_ERROR) && spacemit_monitor_cmd(cmd)) {
-		pr_err("%s cmd%d error(INT status:0x%08x), %s",
-				mmc_hostname(host->mmc), cmd, status,
-				cur_com_reg);
-		pr_err("%s", cur_pri_reg);
+		/* wakeup ksdioirqd thread */
+		host->mmc->sdio_irq_pending = true;
+		if (host->mmc->sdio_irq_thread)
+			wake_up_process(host->mmc->sdio_irq_thread);
+	}
 
-#ifdef CONFIG_MMC_DEBUG
-		pr_err("register before cmd%d trigger %s", cmd, pre_com_reg);
-		pr_err("%s", pre_pri_reg);
+	/* handle error interrupts */
+	if (intmask & SDHCI_INT_ERROR) {
+		cmd = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
+		if (spacemit_monitor_cmd(cmd)) {
+			printk_ratelimited(KERN_ERR "%s: cmd%d error(INT status:0x%08x).\n",
+				mmc_hostname(host->mmc), cmd, intmask);
+#ifdef CONFIG_K1X_MMC_DEBUG
+			/* dump host register */
+			dump_sdh_regs(host, &cur_com_reg[0], &cur_pri_reg[0]);
+			printk_ratelimited(KERN_INFO "%s", cur_com_reg);
+			printk_ratelimited(KERN_INFO "%s", cur_pri_reg);
+			//pr_err("register before cmd%d trigger %s", cmd, pre_com_reg);
+			//pr_err("%s", pre_pri_reg);
 #endif
+		}
+
+		if (intmask & (SDHCI_INT_CRC | SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_END_BIT | SDHCI_INT_AUTO_CMD_ERR)) {
+			/* handle crc error for sd device */
+			if (!(host->mmc->caps2 & MMC_CAP2_NO_SD)) {
+				host->mmc->caps2 |= MMC_CAP2_QUIRK_BREAK_SDR104;
+			}
+		}
 	}
 
-	/* a workaround to handle eMMC read CRC on aquilac platform */
-	if (status & SDHCI_INT_DATA_CRC) {
-		if (cmd != MMC_READ_SINGLE_BLOCK &&
-			cmd != MMC_READ_MULTIPLE_BLOCK)
-			return;
-
-		if (host->mmc->caps2 & MMC_CAP2_CRC_SW_RETRY)
-			spacemit_handle_emmc_read_crc(host);
-	}
+	return intmask;
 }
 
-static void spacemit_save_sdhci_regs(struct sdhci_host *host, u32 cmd)
+#ifdef CONFIG_K1X_MMC_DEBUG
+void __maybe_unused spacemit_save_sdhci_regs(struct sdhci_host *host, u32 cmd)
 {
 	if (host->mmc->card && spacemit_monitor_cmd(cmd))
-		read_sdh_regs(host, &pre_com_reg[0], &pre_pri_reg[0]);
+		dump_sdh_regs(host, &pre_com_reg[0], &pre_pri_reg[0]);
 }
+EXPORT_SYMBOL(spacemit_save_sdhci_regs);
+#endif
 
-extern void mmc_stop_host(struct mmc_host *host);
+extern int __mmc_claim_host(struct mmc_host *host, struct mmc_ctx *ctx, atomic_t *abort);
+extern void mmc_release_host(struct mmc_host *host);
+
 void spacemit_sdio_detect_change(int enable_scan)
 {
+#define MMC_CARD_REMOVED	(1<<4) /* card has been removed */
+	struct mmc_card	*sdio_card;
+
 	if (sdio_host) {
-		sdio_host->mmc->rescan_disable = !enable_scan;
 		if (enable_scan) {
-			mmc_detect_change(sdio_host->mmc, 0);
-		} else {
-			/* stop the sdio card */
-			if (mmc_card_is_removable(sdio_host->mmc) && sdio_host->mmc->card) {
-				mmc_stop_host(sdio_host->mmc);
+			sdio_card = sdio_host->mmc->card;
+			if (sdio_card && (sdio_card->sdio_funcs)) {
+				__mmc_claim_host(sdio_host->mmc, NULL, NULL);
+				mmc_sw_reset(sdio_host->mmc->card);
+				mmc_release_host(sdio_host->mmc);
+			} else {
+				/* first insmod */
+				sdio_host->mmc->rescan_entered = 0;
+				mmc_detect_change(sdio_host->mmc, 0);
 			}
+		} else {
+			/* can not directly use the mmc_stop_host helper due to GKI restrictions.
+			 * use the detect process to remove the card.
+			 */
+			if (!sdio_host->mmc || !sdio_host->mmc->card) {
+				/* sdio card does not exist */
+				return;
+			}
+			sdio_host->mmc->rescan_entered = 0;
+			sdio_host->mmc->card->state |= MMC_CARD_REMOVED;
+			mmc_detect_change(sdio_host->mmc, 0);
 		}
 	}
 }
@@ -371,6 +414,9 @@ static void spacemit_sdhci_reset(struct sdhci_host *host, u8 mask)
 	pdev = to_platform_device(mmc_dev(host->mmc));
 	pdata = pdev->dev.platform_data;
 	sdhci_reset(host, mask);
+
+	if (mask != SDHCI_RESET_ALL)
+		return;
 
 	/* sd/sdio only be SDHCI_QUIRK2_BROKEN_PHY_MODULE */
 	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_PHY_MODULE)) {
@@ -453,7 +499,7 @@ static void spacemit_sdhci_gen_init_74_clocks(struct sdhci_host *host, u8 power_
 	spacemit->power_mode = power_mode;
 }
 
-static void spacemit_sdhci_caps_disable(struct sdhci_host *host)
+static void __maybe_unused spacemit_sdhci_caps_disable(struct sdhci_host *host)
 {
 	struct platform_device *pdev;
 	struct k1x_sdhci_platdata *pdata;
@@ -478,6 +524,10 @@ static void spacemit_sdhci_set_uhs_signaling(struct sdhci_host *host, unsigned t
 		sdhci_writew(host, reg, SDHC_MMC_CTRL_REG);
 	}
 	sdhci_set_uhs_signaling(host, timing);
+	if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO)) {
+		reg = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		sdhci_writew(host, reg | SDHCI_CTRL_VDD_180, SDHCI_HOST_CONTROL2);
+	}
 }
 
 static void spacemit_sdhci_set_clk_gate(struct sdhci_host *host, unsigned int auto_gate)
@@ -492,12 +542,104 @@ static void spacemit_sdhci_set_clk_gate(struct sdhci_host *host, unsigned int au
 	sdhci_writel(host, reg, SDHC_OP_EXT_REG);
 }
 
+static int spacemit_sdhci_card_busy(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	u32 present_state;
+	u32 ret;
+	u32 cmd;
+
+	/* Check whether DAT[0] is 0 */
+	present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
+	ret = !(present_state & SDHCI_DATA_0_LVL_MASK);
+
+	if (host->mmc->caps2 & MMC_CAP2_NO_MMC) {
+		cmd = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
+		if ((cmd == SD_SWITCH_VOLTAGE) && (host->mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180)) {
+			/* recover the auto clock */
+			spacemit_sdhci_set_clk_gate(host, 1);
+		}
+	}
+
+	return ret;
+}
+
+static void spacemit_init_card_quriks(struct mmc_host *mmc, struct mmc_card *card)
+{
+	if (!(mmc->caps2 & MMC_CAP2_NO_SD)) {
+		/* break sdr104 */
+		if (mmc->caps2 & MMC_CAP2_QUIRK_BREAK_SDR104) {
+			mmc->caps &= ~MMC_CAP_UHS_SDR104;
+			mmc->caps2 &= ~MMC_CAP2_QUIRK_BREAK_SDR104;
+		 } else {
+			struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+			struct rx_tuning *rxtuning = &pdata->rxtuning;
+
+			if (rxtuning->tuning_fail) {
+				/* fallback bus speed */
+				mmc->caps &= ~MMC_CAP_UHS_SDR104;
+				rxtuning->tuning_fail = 0;
+			} else {
+				/* recovery sdr104 capability */
+				mmc->caps |= MMC_CAP_UHS_SDR104;
+			}
+		 }
+	}
+
+	if (!(mmc->caps2 & MMC_CAP2_NO_SDIO)) {
+		/* disable MMC_CAP2_SDIO_IRQ_NOTHREAD */
+		mmc->caps2 &= ~MMC_CAP2_SDIO_IRQ_NOTHREAD;
+
+		/* use the fake irq pending to avoid to read the SDIO_CCCR_INTx
+		 * which sometimes return an abnormal value.
+		 */
+		mmc->sdio_irq_pending = true;
+	}
+}
+
+static void spacemit_sdhci_enable_sdio_irq_nolock(struct sdhci_host *host, int enable)
+{
+	if (!(host->flags & SDHCI_DEVICE_DEAD)) {
+		if (enable)
+			host->ier |= SDHCI_INT_CARD_INT;
+		else
+			host->ier &= ~SDHCI_INT_CARD_INT;
+
+		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
+		sdhci_writel(host, host->ier, SDHCI_SIGNAL_ENABLE);
+	}
+}
+
+static void spacemit_sdhci_enable_sdio_irq(struct mmc_host *mmc, int enable)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+
+	spin_lock_irqsave(&host->lock, flags);
+	spacemit_sdhci_enable_sdio_irq_nolock(host, enable);
+	spin_unlock_irqrestore(&host->lock, flags);
+}
+
+static void spacemit_enable_sdio_irq(struct mmc_host *mmc, int enable)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	unsigned long flags;
+
+	spacemit_sdhci_enable_sdio_irq(mmc, enable);
+
+	/* avoid to read the SDIO_CCCR_INTx */
+	spin_lock_irqsave(&host->lock, flags);
+	mmc->sdio_irq_pending = true;
+	spin_unlock_irqrestore(&host->lock, flags);
+}
+
 static void spacemit_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_spacemit *spacemit = sdhci_pltfm_priv(pltfm_host);
 	struct mmc_host *mmc = host->mmc;
 	unsigned int reg;
+	u32 cmd;
 
 	/* according to the SDHC_TX_CFG_REG(0x11c<bit>),
 	 * set TX_INT_CLK_SEL to gurantee the hold time
@@ -531,6 +673,22 @@ static void spacemit_sdhci_set_clock(struct sdhci_host *host, unsigned int clock
 				pr_warn("could not get sdhci pinctrl state.\n");
 			else
 				pinctrl_select_state(spacemit->pinctrl, spacemit->pin);
+		}
+	}
+
+	if (host->mmc->caps2 & MMC_CAP2_NO_MMC) {
+		/*
+		* according to the SD spec, during a signal voltage level switch,
+		* the clock must be closed for 5 ms.
+		* then, the host starts providing clk at 1.8 and the host checks whether
+		* DAT[3:0] is high after 1ms clk.
+		*
+		* for the above goal, temporarily disable the auto clk and keep clk always on for 1ms.
+		*/
+		cmd = SDHCI_GET_CMD(sdhci_readw(host, SDHCI_COMMAND));
+		if ((cmd == SD_SWITCH_VOLTAGE) && (host->mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_180)) {
+			/* disable auto clock */
+			spacemit_sdhci_set_clk_gate(host, 0);
 		}
 	}
 
@@ -582,6 +740,104 @@ static void spacemit_sdhci_hs400_enhanced_strobe(struct mmc_host *mmc,
 
 	if (ios->enhanced_strobe)
 		spacemit_sdhci_phy_dll_init(host);
+}
+
+static int spacemit_sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
+					struct mmc_ios *ios)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	u16 ctrl;
+	int ret;
+
+	/*
+	 * Signal Voltage Switching is only applicable for Host Controllers
+	 * v3.00 and above.
+	 */
+	if (host->version < SDHCI_SPEC_300)
+		return 0;
+
+	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+
+	switch (ios->signal_voltage) {
+	case MMC_SIGNAL_VOLTAGE_330:
+		if (!(host->flags & SDHCI_SIGNALING_330))
+			return -EINVAL;
+		/* Set 1.8V Signal Enable in the Host Control2 register to 0 */
+		ctrl &= ~SDHCI_CTRL_VDD_180;
+		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
+
+		/* Some controller need to do more when switching */
+		if (host->ops->voltage_switch)
+			host->ops->voltage_switch(host);
+
+		if (!IS_ERR(mmc->supply.vqmmc)) {
+			ret = mmc_regulator_set_vqmmc(mmc, ios);
+			if (ret < 0) {
+				pr_warn("%s: Switching to 3.3V signalling voltage failed\n",
+					mmc_hostname(mmc));
+				return -EIO;
+			}
+		}
+		/* Wait for 5ms */
+		usleep_range(5000, 5500);
+
+		/* 3.3V regulator output should be stable within 5 ms */
+		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if (!(ctrl & SDHCI_CTRL_VDD_180))
+			return 0;
+
+		pr_warn("%s: 3.3V regulator output did not become stable\n",
+			mmc_hostname(mmc));
+
+		return -EAGAIN;
+	case MMC_SIGNAL_VOLTAGE_180:
+		if (!(host->flags & SDHCI_SIGNALING_180))
+			return -EINVAL;
+		if (!IS_ERR(mmc->supply.vqmmc)) {
+			ret = mmc_regulator_set_vqmmc(mmc, ios);
+			if (ret < 0) {
+				pr_warn("%s: Switching to 1.8V signalling voltage failed\n",
+					mmc_hostname(mmc));
+				return -EIO;
+			}
+		}
+
+		/*
+		 * Enable 1.8V Signal Enable in the Host Control2
+		 * register
+		 */
+		ctrl |= SDHCI_CTRL_VDD_180;
+		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
+
+		/* Some controller need to do more when switching */
+		if (host->ops->voltage_switch)
+			host->ops->voltage_switch(host);
+
+		/* 1.8V regulator output should be stable within 5 ms */
+		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if (ctrl & SDHCI_CTRL_VDD_180)
+			return 0;
+
+		pr_warn("%s: 1.8V regulator output did not become stable\n",
+			mmc_hostname(mmc));
+
+		return -EAGAIN;
+	case MMC_SIGNAL_VOLTAGE_120:
+		if (!(host->flags & SDHCI_SIGNALING_120))
+			return -EINVAL;
+		if (!IS_ERR(mmc->supply.vqmmc)) {
+			ret = mmc_regulator_set_vqmmc(mmc, ios);
+			if (ret < 0) {
+				pr_warn("%s: Switching to 1.2V signalling voltage failed\n",
+					mmc_hostname(mmc));
+				return -EIO;
+			}
+		}
+		return 0;
+	default:
+		/* No signal voltage switch required */
+		return 0;
+	}
 }
 
 static void spacemit_set_aib_mmc1_io(struct sdhci_host *host, int vol)
@@ -648,14 +904,9 @@ static void spacemit_sw_rx_tuning_prepare(struct sdhci_host *host, u8 dline_reg)
 	reg = sdhci_readl(host, SDHC_DLINE_CFG_REG);
 	reg &= ~(RX_DLINE_REG_MASK << RX_DLINE_REG_SHIFT);
 	reg |= dline_reg << RX_DLINE_REG_SHIFT;
-
-	if (host->quirks2 & SDHCI_QUIRK2_SUPPORT_ENCRYPT) {
-		/* this RX_DLINE_GAIN bit is used for crypto module */
-	} else {
-		reg &= ~(RX_DLINE_GAIN_MASK << RX_DLINE_GAIN_SHIFT);
-		if ((ios.timing == MMC_TIMING_UHS_SDR50) && (reg & 0x40))
-			reg |= RX_DLINE_GAIN << RX_DLINE_GAIN_SHIFT;
-	}
+	reg &= ~(RX_DLINE_GAIN_MASK << RX_DLINE_GAIN_SHIFT);
+	if ((ios.timing == MMC_TIMING_UHS_SDR50) && (reg & 0x40))
+		reg |= RX_DLINE_GAIN << RX_DLINE_GAIN_SHIFT;
 	sdhci_writel(host, reg, SDHC_DLINE_CFG_REG);
 
 	reg = sdhci_readl(host, SDHC_DLINE_CTRL_REG);
@@ -848,7 +1099,7 @@ static int spacemit_sw_rx_select_window(struct sdhci_host *host, u32 opcode)
 		if ((max - min) >= rxtuning->window_limit) {
 			window->max_delay = max;
 			window->min_delay = min;
-			window->type = LEFT_WINDOW;
+			window->type = MIDDLE_WINDOW;
 			if (window == &rxtuning->windows[WINDOW_3RD])
 				break;
 			else
@@ -882,8 +1133,8 @@ static int spacemit_sw_rx_select_delay(struct sdhci_host *host)
 			continue;
 
 		if (window->type == LEFT_WINDOW) {
-			tuning->select_delay[tuning->select_delay_num++] = min + win_len / 4;
 			tuning->select_delay[tuning->select_delay_num++] = min + win_len / 3;
+			tuning->select_delay[tuning->select_delay_num++] = min + win_len / 2;
 		} else if (window->type == RIGHT_WINDOW) {
 			tuning->select_delay[tuning->select_delay_num++] = max - win_len / 4;
 			tuning->select_delay[tuning->select_delay_num++] = min - win_len / 3;
@@ -958,6 +1209,7 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 			memset(rxtuning->windows, 0, sizeof(rxtuning->windows));
 			memset(rxtuning->select_delay, 0xFF, sizeof(rxtuning->select_delay));
 			memset(rxtuning->card_cid, 0, sizeof(rxtuning->card_cid));
+			rxtuning->tuning_fail = 1;
 			return -EIO;
 		}
 
@@ -981,17 +1233,20 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 
 	if (ret) {
 		pr_warn("%s: abort tuning, err:%d\n", mmc_hostname(mmc), ret);
+		rxtuning->tuning_fail = 1;
 		return ret;
 	}
 
 	if (!spacemit_sw_rx_select_delay(host)) {
 		pr_warn("%s: fail to get delaycode\n", mmc_hostname(mmc));
+		rxtuning->tuning_fail = 1;
 		return -EIO;
 	}
 
 	/* step 3: set the delay code and store card cid */
 	spacemit_sw_rx_set_delaycode(host, rxtuning->select_delay[0]);
 	spacemit_sw_rx_card_store(host, rxtuning);
+	rxtuning->tuning_fail = 0;
 	pr_info("%s: tuning done, use the firstly delay_code:%d\n",
 		mmc_hostname(mmc), rxtuning->select_delay[0]);
 	return 0;
@@ -1016,25 +1271,31 @@ static unsigned int spacemit_get_max_timeout_count(struct sdhci_host *host)
 	return 1 << 29;
 }
 
-static void spacemit_sdhci_pre_select_hs400(struct sdhci_host *host)
+static int spacemit_sdhci_pre_select_hs400(struct mmc_host *mmc)
 {
 	u32 reg;
+	struct sdhci_host *host = mmc_priv(mmc);
 
 	reg = sdhci_readl(host, SDHC_MMC_CTRL_REG);
 	reg |= MMC_HS400;
 	sdhci_writel(host, reg, SDHC_MMC_CTRL_REG);
 	host->mmc->caps |= MMC_CAP_WAIT_WHILE_BUSY;
+
+	return 0;
 }
 
-static void spacemit_sdhci_post_select_hs400(struct sdhci_host *host)
+static void spacemit_sdhci_post_select_hs400(struct mmc_host *mmc)
 {
+	struct sdhci_host *host = mmc_priv(mmc);
+
 	spacemit_sdhci_phy_dll_init(host);
 	host->mmc->caps &= ~MMC_CAP_WAIT_WHILE_BUSY;
 }
 
-static void spacemit_sdhci_pre_hs400_to_hs200(struct sdhci_host *host)
+static void spacemit_sdhci_pre_hs400_to_hs200(struct mmc_host *mmc)
 {
 	u32 reg;
+	struct sdhci_host *host = mmc_priv(mmc);
 
 	reg = sdhci_readl(host, SDHC_PHY_CTRL_REG);
 	reg &= ~(PHY_FUNC_EN | PHY_PLL_LOCK);
@@ -1055,7 +1316,7 @@ static void spacemit_sdhci_pre_hs400_to_hs200(struct sdhci_host *host)
 	sdhci_writel(host, reg, SDHC_PHY_CTRL_REG);
 }
 
-static void spacemit_sdhci_reset_dllcfg1(struct sdhci_host *host)
+static void __maybe_unused spacemit_sdhci_reset_dllcfg1(struct sdhci_host *host)
 {
 	struct mmc_host *mmc = host->mmc;
 	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
@@ -1082,6 +1343,15 @@ static void spacemit_sdhci_set_encrypt(struct sdhci_host *host, unsigned int enc
 	}
 }
 
+static void spacemit_sdhci_dump_vendor_regs(struct sdhci_host *host)
+{
+#ifdef CONFIG_K1X_MMC_DEBUG
+	dump_sdh_regs(host, &cur_com_reg[0], &cur_pri_reg[0]);
+	printk_ratelimited(KERN_INFO "%s", cur_com_reg);
+	printk_ratelimited(KERN_INFO "%s", cur_pri_reg);
+#endif
+}
+
 static const struct sdhci_ops spacemit_sdhci_ops = {
 	.set_clock = spacemit_sdhci_set_clock,
 	.platform_send_init_74_clocks = spacemit_sdhci_gen_init_74_clocks,
@@ -1092,15 +1362,10 @@ static const struct sdhci_ops spacemit_sdhci_ops = {
 	.set_uhs_signaling = spacemit_sdhci_set_uhs_signaling,
 	.voltage_switch = spacemit_sdhci_voltage_switch,
 	.platform_execute_tuning = spacemit_sdhci_execute_sw_tuning,
+	.irq = spacemit_handle_interrupt,
+	.set_power = sdhci_set_power_and_bus_voltage,
+	.dump_vendor_regs = spacemit_sdhci_dump_vendor_regs,
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-	.caps_disable = spacemit_sdhci_caps_disable,
-	.set_auto_clk_gate  = spacemit_sdhci_set_clk_gate,
-	.error_handle = spacemit_handle_error_interrupt,
-	.save_register = spacemit_save_sdhci_regs,
-	.pre_select_hs400 = spacemit_sdhci_pre_select_hs400,
-	.post_select_hs400 = spacemit_sdhci_post_select_hs400,
-	.pre_hs400_to_hs200 = spacemit_sdhci_pre_hs400_to_hs200,
-	.reset_dllcfg1 = spacemit_sdhci_reset_dllcfg1,
 	.set_encrypt_feature = spacemit_sdhci_set_encrypt,
 #endif
 };
@@ -1325,16 +1590,27 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	if (host->mmc->pm_caps)
 		host->mmc->pm_flags |= host->mmc->pm_caps;
 
-	if (host->mmc->caps2 & MMC_CAP2_HS400_ES)
-		host->mmc_host_ops.hs400_enhanced_strobe =
-					spacemit_sdhci_hs400_enhanced_strobe;
+	if (!(host->mmc->caps2 & MMC_CAP2_NO_MMC)) {
+		host->mmc_host_ops.hs400_prepare_ddr = spacemit_sdhci_pre_select_hs400;
+		host->mmc_host_ops.hs400_complete = spacemit_sdhci_post_select_hs400;
+		host->mmc_host_ops.hs400_downgrade = spacemit_sdhci_pre_hs400_to_hs200;
+		if (host->mmc->caps2 & MMC_CAP2_HS400_ES)
+			host->mmc_host_ops.hs400_enhanced_strobe = spacemit_sdhci_hs400_enhanced_strobe;
+	}
 
-	if (host->quirks2 & SDHCI_QUIRK2_DISABLE_PROBE_CDSCAN)
-		host->mmc->caps2 |= MMC_CAP2_DISABLE_PROBE_SCAN;
+	host->mmc_host_ops.start_signal_voltage_switch = spacemit_sdhci_start_signal_voltage_switch;
+	host->mmc_host_ops.card_busy = spacemit_sdhci_card_busy;
+	host->mmc_host_ops.init_card = spacemit_init_card_quriks;
+	host->mmc_host_ops.enable_sdio_irq = spacemit_enable_sdio_irq;
 
+	if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO)) {
+		/* skip auto rescan */
+		host->mmc->rescan_entered = 1;
+	}
+#if BOOTPART_NOACC_DEFAULT
 	if (!(host->mmc->caps2 & MMC_CAP2_NO_MMC) && !is_recovery_boot)
 		host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
-
+#endif
 	host->mmc->caps |= MMC_CAP_NEED_RSP_BUSY;
 
 	pm_runtime_get_noresume(&pdev->dev);
@@ -1344,11 +1620,6 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_suspend_ignore_children(&pdev->dev, 1);
 	pm_runtime_get_sync(&pdev->dev);
-
-	if ((host->mmc->caps2 & MMC_CAP2_NO_MMC) || (host->quirks2 & SDHCI_QUIRK2_BROKEN_PHY_MODULE)) {
-		pr_debug("%s: get card pinctrl\n", mmc_hostname(host->mmc));
-		spacemit->pinctrl = devm_pinctrl_get(&pdev->dev);
-	}
 
 	/* set io clock rate */
 	if (pdata->host_freq) {
@@ -1370,10 +1641,13 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 		if (!(host->mmc->caps2 & MMC_CAP2_NO_SDIO)) {
 			pr_notice("sdio: save sdio_host <- %p\n", host);
 			sdio_host = host;
-			sdio_host->mmc->rescan_disable = 1;
 		}
 	}
 
+	if ((host->mmc->caps2 & MMC_CAP2_NO_MMC) || (host->quirks2 & SDHCI_QUIRK2_BROKEN_PHY_MODULE)) {
+		pr_debug("%s: get card pinctrl\n", mmc_hostname(host->mmc));
+		spacemit->pinctrl = devm_pinctrl_get(&pdev->dev);
+	}
 	if (!(host->mmc->caps2 & MMC_CAP2_NO_SD)) {
 #ifdef CONFIG_SYSFS
 		for (i = 0; i < ARRAY_SIZE(sdhci_sysfs_files); i++) {
