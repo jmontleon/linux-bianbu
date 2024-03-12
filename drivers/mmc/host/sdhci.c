@@ -1733,15 +1733,6 @@ static bool sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		timeout += 10 * HZ;
 	sdhci_mod_timer(host, cmd->mrq, timeout);
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-#ifdef CONFIG_MMC_DEBUG
-	host->ops->save_register(host, cmd->opcode);
-#endif
-	if (host->mmc->caps2 & MMC_CAP2_CRC_SW_RETRY)
-		if (flags & SDHCI_CMD_DATA)
-			host->ops->reset_dllcfg1(host);
-#endif
-
 	if (host->use_external_dma)
 		sdhci_external_dma_pre_transfer(host, cmd);
 
@@ -2093,43 +2084,13 @@ static void sdhci_set_power_reg(struct sdhci_host *host, unsigned char mode,
 				unsigned short vdd)
 {
 	struct mmc_host *mmc = host->mmc;
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	u8 pwr = 0;
-#endif
 
 	mmc_regulator_set_ocr(mmc, mmc->supply.vmmc, vdd);
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	if (mode != MMC_POWER_OFF) {
-		switch (1 << vdd) {
-		case MMC_VDD_165_195:
-			pwr = SDHCI_POWER_180;
-			break;
-		case MMC_VDD_29_30:
-		case MMC_VDD_30_31:
-			pwr = SDHCI_POWER_300;
-			break;
-		case MMC_VDD_32_33:
-		case MMC_VDD_33_34:
-			pwr = SDHCI_POWER_330;
-			break;
-		default:
-			WARN(1, "%s: Invalid vdd %#x\n",
-			     mmc_hostname(host->mmc), vdd);
-			break;
-		}
-
-		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
-		sdhci_writeb(host, (pwr | SDHCI_POWER_ON), SDHCI_POWER_CONTROL);
-	} else
-		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-#else
 	if (mode != MMC_POWER_OFF)
 		sdhci_writeb(host, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
 	else
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-#endif
 }
 
 unsigned short sdhci_get_vdd_value(unsigned short vdd)
@@ -2700,13 +2661,6 @@ int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 		/* Set 1.8V Signal Enable in the Host Control2 register to 0 */
 		ctrl &= ~SDHCI_CTRL_VDD_180;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
-
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-		/* Some controller need to do more when switching */
-		if (host->ops->voltage_switch)
-			host->ops->voltage_switch(host);
-#endif
-
 		if (!IS_ERR(mmc->supply.vqmmc)) {
 			ret = mmc_regulator_set_vqmmc(mmc, ios);
 			if (ret < 0) {
@@ -2790,46 +2744,6 @@ static int sdhci_card_busy(struct mmc_host *mmc)
 }
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-static void sdhci_auto_clk_gate(struct mmc_host *mmc, int auto_gate)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->set_auto_clk_gate)
-		host->ops->set_auto_clk_gate(host, auto_gate);
-}
-
-static void sdhci_pre_select_hs400(struct mmc_host *mmc)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->pre_select_hs400)
-		host->ops->pre_select_hs400(host);
-}
-
-static void sdhci_post_select_hs400(struct mmc_host *mmc)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->post_select_hs400)
-		host->ops->post_select_hs400(host);
-}
-
-static void sdhci_pre_hs400_to_hs200(struct mmc_host *mmc)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->pre_hs400_to_hs200)
-		host->ops->pre_hs400_to_hs200(host);
-}
-
-static void sdhci_dump_host_register(struct mmc_host *mmc)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->error_handle)
-		host->ops->error_handle(host, 0, 1);
-}
-
 static void sdhci_encrypt_config(struct mmc_host *mmc, unsigned int enc_flag)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -3192,11 +3106,6 @@ static const struct mmc_host_ops sdhci_ops = {
 	.card_event			= sdhci_card_event,
 	.card_busy	= sdhci_card_busy,
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-	.auto_clk_gate	= sdhci_auto_clk_gate,
-	.pre_select_hs400 = sdhci_pre_select_hs400,
-	.post_select_hs400 = sdhci_post_select_hs400,
-	.pre_hs400_to_hs200 = sdhci_pre_hs400_to_hs200,
-	.dump_host_register = sdhci_dump_host_register,
 	.encrypt_config = sdhci_encrypt_config,
 #endif
 };
@@ -3685,10 +3594,6 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	do {
 		DBG("IRQ status 0x%08x\n", intmask);
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-		if (intmask & SDHCI_INT_ERROR)
-			host->ops->error_handle(host, intmask, 0);
-#endif
 
 		if (host->ops->irq) {
 			intmask = host->ops->irq(host, intmask);
@@ -4743,11 +4648,6 @@ int sdhci_setup_host(struct sdhci_host *host)
 		mmc->caps |= MMC_CAP_DRIVER_TYPE_C;
 	if (host->caps1 & SDHCI_DRIVER_TYPE_D)
 		mmc->caps |= MMC_CAP_DRIVER_TYPE_D;
-
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	if (host->ops->caps_disable)
-		host->ops->caps_disable(host);
-#endif
 
 	/* Initial value for re-tuning timer count */
 	host->tuning_count = FIELD_GET(SDHCI_RETUNING_TIMER_COUNT_MASK,

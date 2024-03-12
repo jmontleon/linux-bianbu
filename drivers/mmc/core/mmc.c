@@ -1173,11 +1173,6 @@ static int mmc_select_hs400(struct mmc_card *card)
 	      host->ios.bus_width == MMC_BUS_WIDTH_8))
 		return 0;
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	if (host->ops->pre_select_hs400)
-		host->ops->pre_select_hs400(host);
-#endif
-
 	/* Switch card to HS mode */
 	val = EXT_CSD_TIMING_HS;
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
@@ -1247,11 +1242,6 @@ static int mmc_select_hs400(struct mmc_card *card)
 	if (host->ops->hs400_complete)
 		host->ops->hs400_complete(host);
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	if (host->ops->post_select_hs400)
-		host->ops->post_select_hs400(host);
-#endif
-
 	err = mmc_switch_status(card, true);
 	if (err)
 		goto out_err;
@@ -1310,10 +1300,6 @@ int mmc_hs400_to_hs200(struct mmc_card *card)
 	if (err)
 		goto out_err;
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	if (host->ops->pre_hs400_to_hs200)
-		host->ops->pre_hs400_to_hs200(host);
-#endif
 	/* Switch HS to HS200 */
 	val = EXT_CSD_TIMING_HS200 |
 	      card->drive_strength << EXT_CSD_DRV_STR_SHIFT;
@@ -1445,9 +1431,6 @@ static int mmc_select_hs400es(struct mmc_card *card)
 
 	/* Set host controller to HS400 timing and frequency */
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	mmc_set_bus_speed(card);
-#endif
 
 	/* Controller enable enhanced strobe function */
 	host->ios.enhanced_strobe = true;
