@@ -5,6 +5,9 @@
 
 #include "k1-x.dtsi"
 #include "lcd/lcd_gc9503v_mipi.dtsi"
+#include "k1-x-hdmi.dtsi"
+#include "k1-x-lcd.dtsi"
+
 / {
 	model = "spacemit k1-x fpga board";
 
