@@ -1205,11 +1205,6 @@ int mmc_host_set_uhs_voltage(struct mmc_host *host)
 
 	/* Keep clock gated for at least 10 ms, though spec only says 5 ms */
 	mmc_delay(10);
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	/* disable auto clock gate */
-	if (host->ops->auto_clk_gate)
-		host->ops->auto_clk_gate(host, 0);
-#endif
 	host->ios.clock = clock;
 	mmc_set_ios(host);
 
@@ -1271,11 +1266,6 @@ int mmc_set_uhs_voltage(struct mmc_host *host, u32 ocr)
 	if (host->ops->card_busy && host->ops->card_busy(host))
 		err = -EAGAIN;
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	/* enable auto clock gate */
-	if (host->ops->auto_clk_gate)
-		host->ops->auto_clk_gate(host, 1);
-#endif
 power_cycle:
 	if (err) {
 		pr_debug("%s: Signal voltage switch failed, "
