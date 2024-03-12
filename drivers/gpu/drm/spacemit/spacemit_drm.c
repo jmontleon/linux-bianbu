@@ -516,7 +516,7 @@ static void __exit spacemit_drm_drivers_exit(void)
 				    ARRAY_SIZE(spacemit_drm_drivers));
 }
 
-late_initcall(spacemit_drm_drivers_init);
+module_init(spacemit_drm_drivers_init);
 module_exit(spacemit_drm_drivers_exit);
 
 MODULE_DESCRIPTION("Spacemit DRM KMS Master Driver");
