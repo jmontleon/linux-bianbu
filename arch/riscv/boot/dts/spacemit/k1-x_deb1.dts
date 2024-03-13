@@ -481,6 +481,8 @@
 		&range GPIO_91  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range DVL0     2 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_110 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_111 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_113 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_114 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_115 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_116 1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -551,6 +553,8 @@
 		&pinctrl 90  GPIO_90  3
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
+		&pinctrl 111 GPIO_111 1
+		&pinctrl 113 GPIO_113 1
 		&pinctrl 114 GPIO_114 3
 		&pinctrl 118 GPIO_118 1
 		&pinctrl 123 GPIO_123 5
@@ -837,39 +841,60 @@
 
 	status = "okay";
 };
-
-/* imx315 */
+/* ov16a10 */
 &backsensor {
-	af_2v8-supply = <&ldo_2>;
-	avdd_2v8-supply = <&ldo_3>;
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
+	pwdn-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio 111 0>;
+
 	status = "okay";
 };
-/* gc2375h */
+
 &backsensor_aux {
-	avdd_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
 
-	status = "okay";
+	status = "disabled";
 };
-/* S5K5E3 */
+
 &frontsensor {
-	avdd_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
+	status = "disabled";
+};
+&csiphy0 {
+
 	status = "okay";
 };
+&csiphy1 {
+
+	status = "disabled";
+};
+&csiphy2 {
+
+	status = "okay";
+};
+
 &ccic0 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
 };
 &ccic1 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
 };
 &ccic2 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
 };
 &isp {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
