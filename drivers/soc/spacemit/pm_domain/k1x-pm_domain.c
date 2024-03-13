@@ -21,6 +21,7 @@
 #include <linux/spinlock_types.h>
 #include <linux/regulator/consumer.h>
 #include <dt-bindings/pmu/k1x_pmu.h>
+#include <linux/syscore_ops.h>
 #include "atomic_qos.h"
 
 #define MAX_REGMAP		5
@@ -31,6 +32,12 @@
 
 #define APMU_POWER_STATUS_REG	0xf0
 #define MPMU_APCR_PER_REG	0x1098
+#define MPMU_AWUCRM_REG		0x104c
+
+/* wakeup set */
+/* pmic */
+#define WAKEUP_SOURCE_WAKEUP_7	7
+
 
 #define PM_QOS_BLOCK_C1		0x0 /* core wfi */
 #define PM_QOS_BLOCK_C2		0x2 /* core power off */
@@ -116,6 +123,7 @@ struct spacemit_pmu {
 
 static DEFINE_SPINLOCK(spacemit_apcr_qos_lock);
 
+static unsigned int g_acpr_per;
 static struct spacemit_pmu *gpmu;
 
 static struct atomic_freq_constraints afreq_constraints;
@@ -138,7 +146,7 @@ static int spacemit_pd_power_off(struct generic_pm_domain *domain)
 	/**
 	 * if all the devices in this power domain don't want the pm-domain driver taker over
 	 * the power-domian' on/off, return directly.
-	 * */
+	 */
 	list_for_each_entry(pos, &spd->qos_head, qos_node) {
 		if (!pos->handle_pm_domain)
 			return 0;
@@ -723,8 +731,59 @@ static void spacemit_pm_domain_cleanup(struct spacemit_pmu *pmu)
 	}
 
 	/* devm will free our memory */
-
 }
+
+#ifdef CONFIG_PM_SLEEP
+static int acpr_per_suspend(void)
+{
+	unsigned int apcr_per;
+	unsigned int apcr_clear = 0, apcr_set = (1 << PM_QOS_PE_VOTE_AP_SLPEN_OFFSET);
+
+	spin_lock(&spacemit_apcr_qos_lock);
+
+	apcr_set |= (1 << PM_QOS_AXISDD_OFFSET);
+	apcr_set |= (1 << PM_QOS_DDRCORSD_OFFSET);
+	apcr_set |= (1 << PM_QOS_APBSD_OFFSET);
+	apcr_set |= (1 << PM_QOS_VCTCXOSD_OFFSET);
+	apcr_set |= (1 << PM_QOS_STBYEN_OFFSET);
+
+	regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_APCR_PER_REG, &apcr_per);
+	g_acpr_per = apcr_per;
+	apcr_per &= ~(apcr_clear);
+	apcr_per |= apcr_set;
+	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_APCR_PER_REG, apcr_per);
+
+	spin_unlock(&spacemit_apcr_qos_lock);
+
+	/* enable pmic wakeup */
+	regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
+	apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_7);
+	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
+
+	return 0;
+}
+
+static void acpr_per_resume(void)
+{
+	unsigned int apcr_per;
+
+	spin_lock(&spacemit_apcr_qos_lock);
+
+	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_APCR_PER_REG, g_acpr_per);
+
+	spin_unlock(&spacemit_apcr_qos_lock);
+
+	/* disable pmic wakeup */
+	regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
+	apcr_per &= ~(1 << WAKEUP_SOURCE_WAKEUP_7);
+	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
+}
+
+static struct syscore_ops acpr_per_syscore_ops = {
+	.suspend = acpr_per_suspend,
+	.resume = acpr_per_resume,
+};
+#endif
 
 static int spacemit_pm_domain_probe(struct platform_device *pdev)
 {
@@ -808,6 +867,9 @@ static int spacemit_pm_domain_probe(struct platform_device *pdev)
 
 	gpmu = pmu;
 
+#ifdef CONFIG_PM_SLEEP
+	register_syscore_ops(&acpr_per_syscore_ops);
+#endif
 	return 0;
 
 err_out:
