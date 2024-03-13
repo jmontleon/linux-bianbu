@@ -960,7 +960,8 @@
 			interrupt-parent = <&intc>;
 			reg = <0x0 0xd4017800 0x0 0x100>;
 			interrupts = <51>;
-			clocks = <&ccu CLK_UART9>;
+			clocks = <&ccu CLK_UART9>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
 			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART9>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
