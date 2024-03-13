@@ -2005,7 +2005,7 @@ static const struct dev_pm_ops serial_pxa_pm_ops = {
 static void _pxa_timer_handler(struct uart_pxa_port *up)
 {
 #if SUPPORT_POWER_QOS
-	pm_runtime_get_sync(up->port.dev);
+	pm_runtime_put_sync(up->port.dev);
 #endif
 	if (up->port.line == BT_UART_PORT) {
 		pr_info("bluesleep: %s: release qos\n", __func__);
@@ -2043,7 +2043,7 @@ static void uart_tx_lpm_handler(struct work_struct *work)
 		usleep_range(1000, 2000);
 	}
 #if SUPPORT_POWER_QOS
-	pm_runtime_get_sync(up->port.dev);
+	pm_runtime_put_sync(up->port.dev);
 #endif
 }
 #endif
@@ -2219,8 +2219,8 @@ static int serial_pxa_probe(struct platform_device *dev)
 
 #ifdef CONFIG_PM
 #if SUPPORT_POWER_QOS
-	pm_runtime_set_active(&dev->dev);
 	pm_runtime_enable(&dev->dev);
+	pm_runtime_set_active(&dev->dev);
 	pm_runtime_irq_safe(&dev->dev);
 #endif
 #endif
