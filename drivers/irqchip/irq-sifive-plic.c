@@ -224,8 +224,12 @@ static struct irq_chip plic_edge_chip = {
 	.irq_set_affinity = plic_set_affinity,
 #endif
 	.irq_set_type	= plic_irq_set_type,
+#ifdef CONFIG_SOC_SPACEMIT
+	.flags		= IRQCHIP_AFFINITY_PRE_STARTUP | IRQCHIP_ENABLE_WAKEUP_ON_SUSPEND | IRQCHIP_SKIP_SET_WAKE,
+#else
 	.flags		= IRQCHIP_SKIP_SET_WAKE |
 			  IRQCHIP_AFFINITY_PRE_STARTUP,
+#endif
 };
 
 static struct irq_chip plic_chip = {
@@ -239,8 +243,12 @@ static struct irq_chip plic_chip = {
 	.irq_set_affinity = plic_set_affinity,
 #endif
 	.irq_set_type	= plic_irq_set_type,
+#ifdef CONFIG_SOC_SPACEMIT
+	.flags		= IRQCHIP_AFFINITY_PRE_STARTUP | IRQCHIP_ENABLE_WAKEUP_ON_SUSPEND | IRQCHIP_SKIP_SET_WAKE,
+#else
 	.flags		= IRQCHIP_SKIP_SET_WAKE |
 			  IRQCHIP_AFFINITY_PRE_STARTUP,
+#endif
 };
 
 static int plic_irq_set_type(struct irq_data *d, unsigned int type)
