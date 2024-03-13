@@ -67,6 +67,21 @@ $(obj)/Image.xz: $(obj)/Image FORCE
 $(obj)/loader.bin: $(obj)/loader FORCE
 	$(call if_changed,objcopy)
 
+ifdef CONFIG_32BIT
+ADDR_BITS := 32
+ADDR_CELLS := 1
+else
+ADDR_BITS := 64
+ADDR_CELLS := 2
+endif
+
+IMAGE_LOAD_ADDRESS := $(CONFIG_IMAGE_LOAD_OFFSET)
+IMAGE_ENTRY_ADDRESS := $(CONFIG_IMAGE_LOAD_OFFSET)
+
+IMAGE_ALGO := crc32
+IMAGE_COMPRESS := none
+IMAGE_SOURCE_FILE := Image
+
 quiet_cmd_its_cat = CAT     $@
       cmd_its_cat = cat $(real-prereqs) >$@
 
@@ -76,12 +91,16 @@ $(obj)/Image.its.S: $(addprefix $(srctree)/arch/riscv/generic/,$(ITS_INPUTS)) FO
 quiet_cmd_cpp_its_S = ITS     $@
       cmd_cpp_its_S = $(CPP) -P -C -o $@ $< \
 		-DKERNEL_NAME="\"Linux $(KERNELRELEASE)\"" \
-		-DIMAGE_BINARY="\"$(4)\"" \
 		-DIMAGE_COMPRESSION="\"$(2)\"" \
-		-DIMAGE_CHECK_ALGORITHM="\"$(3)\""
+		-DIMAGE_CHECK_ALGORITHM="\"$(3)\"" \
+		-DIMAGE_BINARY="\"$(4)\"" \
+		-DIMAGE_LOAD_ADDRESS=$(IMAGE_LOAD_ADDRESS) \
+		-DIMAGE_ENTRY_ADDRESS=$(IMAGE_ENTRY_ADDRESS) \
+		-DADDR_BITS=$(ADDR_BITS) \
+		-DADDR_CELLS=$(ADDR_CELLS)
 
 $(obj)/Image.its: $(obj)/Image.its.S $(obj)/Image FORCE
-	$(call if_changed,cpp_its_S,none,crc32,Image)
+	$(call if_changed,cpp_its_S,$(IMAGE_COMPRESS),$(IMAGE_ALGO),$(IMAGE_SOURCE_FILE))
 
 quiet_cmd_itb-image = ITB     $@
       cmd_itb-image = \
