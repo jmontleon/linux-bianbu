@@ -1628,7 +1628,6 @@ static int spacemit_i2c_suspend(struct device *dev)
 	/* grab mutex to make sure the i2c transaction is over */
 	mutex_lock(&spacemit_i2c->mtx);
 	if (!pm_runtime_status_suspended(dev)) {
-		spacemit_i2c_pm_runtime_suspend(dev);
 
 		/*
 		 * sync runtime pm and system pm states:
