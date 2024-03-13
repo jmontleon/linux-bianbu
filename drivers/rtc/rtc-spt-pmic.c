@@ -389,6 +389,7 @@ static int spacemit_rtc_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	dev_pm_set_wake_irq(&pdev->dev, rtc->irq);
 	device_init_wakeup(&pdev->dev, 1);
 
 	rtc->rtc_dev = devm_rtc_allocate_device(&pdev->dev);

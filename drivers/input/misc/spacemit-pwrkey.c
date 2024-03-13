@@ -8,6 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
 static irqreturn_t pwrkey_fall_irq(int irq, void *_pwr)
@@ -118,6 +119,7 @@ static int spacemit_pwrkey_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, pwr);
+	dev_pm_set_wake_irq(&pdev->dev, fall_irq);
 	device_init_wakeup(&pdev->dev, true);
 
 	return 0;
