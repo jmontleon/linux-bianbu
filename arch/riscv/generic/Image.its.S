@@ -3,7 +3,7 @@
 
 / {
 	description = KERNEL_NAME;
-	#address-cells = <2>;
+	#address-cells = <ADDR_CELLS>;
 
 	images {
 		kernel {
@@ -13,8 +13,8 @@
 			arch = "riscv";
 			os = "linux";
 			compression = IMAGE_COMPRESSION;
-			load = <0x0 0x1400000>;
-			entry = <0x0 0x1400000>;
+			load = /bits/ ADDR_BITS <IMAGE_LOAD_ADDRESS>;
+			entry = /bits/ ADDR_BITS <IMAGE_ENTRY_ADDRESS>;
 			hash {
 				algo = IMAGE_CHECK_ALGORITHM;
 			};
