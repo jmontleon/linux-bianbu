@@ -8,6 +8,7 @@
 #include <linux/regmap.h>
 #include <linux/reboot.h>
 #include <linux/ioport.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
 SPM8821_REGMAP_CONFIG;
@@ -167,6 +168,9 @@ static int spacemit_pmic_probe(struct i2c_client *client,
 				return ret;
 			}
 		}
+
+		dev_pm_set_wake_irq(&client->dev, client->irq);
+		device_init_wakeup(&client->dev, true);
 	}
 
 	ret = devm_mfd_add_devices(&client->dev, PLATFORM_DEVID_NONE,
