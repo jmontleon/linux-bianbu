@@ -4,7 +4,7 @@
  */
 
 //#include "k1-x-camera-reserved-mm.dtsi"
-#include "k1-x-camera-sensor-evb.dtsi"
+#include "k1-x-camera-sensor.dtsi"
 
 &soc {
 	plat-cam {
