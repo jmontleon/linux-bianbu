@@ -466,6 +466,11 @@
 };
 
 &pinctrl {
+	pinctrl-single,gpio-range = <
+		&range GPIO_111 4 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_121 2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+	>;
+
 	usbp1_vbus: usbp1_vbus {
 		pinctrl-single,pins =<
 			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))  /* drive_vbus1_iso */
@@ -484,6 +489,13 @@
 			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))   /* r_uart0_rx */
 		>;
 	};
+};
+
+&gpio {
+	gpio-ranges = <
+		&pinctrl 111  GPIO_111  4
+		&pinctrl 121  GPIO_121  2
+	>;
 };
 
 /* SD */
@@ -770,12 +782,18 @@
 	dovdd_1v8-supply = <&ldo_11>;
 	dvdd_1v2-supply = <&ldo_20>;
 
+	pwdn-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio 111 0>;
+
 	status = "okay";
 };
 /* gc2375h */
 &backsensor_aux {
 	avdd_2v8-supply = <&ldo_10>;
 	dovdd_1v8-supply = <&ldo_11>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
 
 	status = "okay";
 };
@@ -784,6 +802,9 @@
 	avdd_2v8-supply = <&ldo_10>;
 	dovdd_1v8-supply = <&ldo_11>;
 	dvdd_1v2-supply = <&ldo_20>;
+
+	pwdn-gpios = <&gpio 122 0>;
+	reset-gpios = <&gpio 121 0>;
 
 	status = "okay";
 };
