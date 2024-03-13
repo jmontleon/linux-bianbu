@@ -906,6 +906,14 @@ config ARCH_SUSPEND_POSSIBLE
 	depends on SOC_SPACEMIT
 	def_bool y
 
+config IMAGE_LOAD_OFFSET
+	hex "Image load offset from start of RAM when load kernel to RAM"
+	default 0x400000 if 32BIT
+	default 0x200000 if 64BIT
+	help
+	  This is the RAM offset from start of ram. Bootloader would use
+	  this offset to load kernel image to ram.
+
 menu "Power management options"
 
 source "kernel/power/Kconfig"
