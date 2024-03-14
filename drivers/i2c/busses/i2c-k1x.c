@@ -1622,46 +1622,46 @@ static const struct file_operations spacemit_i2c_dbgfs_ops = {
 #endif /* CONFIG_DEBUG_FS */
 
 #ifdef CONFIG_PM_SLEEP
-static int spacemit_i2c_suspend(struct device *dev)
-{
-	struct spacemit_i2c_dev *spacemit_i2c = dev_get_drvdata(dev);
-
-	dev_dbg(spacemit_i2c->dev, "system suspend\n");
-
-	if (spacemit_i2c->clk_always_on)
-		return 0;
-
-	/* grab mutex to make sure the i2c transaction is over */
-	mutex_lock(&spacemit_i2c->mtx);
-	if (!pm_runtime_status_suspended(dev)) {
-
-		/*
-		 * sync runtime pm and system pm states:
-		 * prevent runtime pm suspend callback from being re-invoked
-		 */
-		pm_runtime_disable(dev);
-		pm_runtime_set_suspended(dev);
-		pm_runtime_enable(dev);
-	}
-	mutex_unlock(&spacemit_i2c->mtx);
-
-	return 0;
-}
-
-static int spacemit_i2c_resume(struct device *dev)
-{
-	struct spacemit_i2c_dev *spacemit_i2c = dev_get_drvdata(dev);
-
-	dev_dbg(spacemit_i2c->dev, "system resume\n");
-
-	return 0;
-}
+/** static int spacemit_i2c_suspend(struct device *dev)
+ * {
+ *	struct spacemit_i2c_dev *spacemit_i2c = dev_get_drvdata(dev);
+ *
+ *	dev_dbg(spacemit_i2c->dev, "system suspend\n");
+ *
+ *	if (spacemit_i2c->clk_always_on)
+ *		return 0;
+ *
+ *	// grab mutex to make sure the i2c transaction is over
+ *	mutex_lock(&spacemit_i2c->mtx);
+ *	if (!pm_runtime_status_suspended(dev)) {
+ *		 // sync runtime pm and system pm states:
+ *		 // prevent runtime pm suspend callback from being re-invoked
+ *		pm_runtime_disable(dev);
+ *		pm_runtime_set_suspended(dev);
+ *		pm_runtime_enable(dev);
+ *	}
+ *	mutex_unlock(&spacemit_i2c->mtx);
+ *
+ *	return 0;
+ * }
+ *
+ * static int spacemit_i2c_resume(struct device *dev)
+ * {
+ *	struct spacemit_i2c_dev *spacemit_i2c = dev_get_drvdata(dev);
+ *
+ *	dev_dbg(spacemit_i2c->dev, "system resume\n");
+ *
+ *	return 0;
+ *}
+ */
 #endif /* CONFIG_PM_SLEEP */
 
-static const struct dev_pm_ops spacemit_i2c_pm_ops = {
-	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(spacemit_i2c_suspend,
-			spacemit_i2c_resume)
-};
+/**
+ * static const struct dev_pm_ops spacemit_i2c_pm_ops = {
+ *	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(spacemit_i2c_suspend,
+ *			spacemit_i2c_resume)
+ *};
+ */
 
 static u32 spacemit_i2c_func(struct i2c_adapter *adap)
 {
@@ -2024,7 +2024,7 @@ static struct platform_driver spacemit_i2c_driver = {
 	.shutdown = spacemit_i2c_shutdown,
 	.driver = {
 		.name		= "i2c-spacemit-k1x",
-		.pm		= &spacemit_i2c_pm_ops,
+		/* .pm             = &spacemit_i2c_pm_ops, */
 		.of_match_table	= spacemit_i2c_dt_match,
 	},
 };
