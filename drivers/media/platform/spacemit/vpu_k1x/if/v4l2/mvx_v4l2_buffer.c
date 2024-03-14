@@ -181,7 +181,9 @@ static int update_mvx_flags(struct mvx_buffer *buf,
 {
 	struct vb2_v4l2_buffer *vb2_v4l2 = to_vb2_v4l2_buffer(b);
 	__u32 flags = vb2_v4l2->flags;
+	__u32 rtt_flags = (buf->flags & MVX_BUFFER_FRAME_FLAG_ROTATION_MASK);
 	buf->flags = 0;
+
     if (V4L2_TYPE_IS_OUTPUT(b->type) != false && get_bytesused(b) == 0)
         flags |= V4L2_BUF_FLAG_LAST;
 
@@ -243,6 +245,7 @@ static int update_mvx_flags(struct mvx_buffer *buf,
                     buf->flags |= MVX_BUFFER_FRAME_FLAG_MIRROR_VERT;
                 }
             }
+            buf->flags |= rtt_flags;
             if ((flags & V4L2_BUF_FLAG_MVX_BUFFER_EPR) == V4L2_BUF_FLAG_MVX_BUFFER_EPR) {
                 buf->flags |= MVX_BUFFER_FRAME_FLAG_GENERAL;
             }
