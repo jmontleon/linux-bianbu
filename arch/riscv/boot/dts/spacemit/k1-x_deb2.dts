@@ -595,8 +595,6 @@
 	/* bcmdhd use private oob solution rather than dat1/standard wakeup */
 	/delete-property/ enable-sdio-wakeup;
 	spacemit,sdh-host-caps-disable = <(
-			MMC_CAP_UHS_SDR104 |
-			MMC_CAP_UHS_SDR50 |
 			MMC_CAP_UHS_DDR50 |
 			MMC_CAP_NEEDS_POLL
 			)>;
