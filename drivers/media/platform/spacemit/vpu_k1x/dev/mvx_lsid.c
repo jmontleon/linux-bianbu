@@ -292,6 +292,7 @@ void mvx_lsid_jobqueue_remove(struct mvx_lsid *lsid)
 	uint32_t jobqueue;
 	int i;
 	int j;
+	uint32_t ncores = mvx_hwreg_read(hwreg, MVX_HWREG_NCORES);
 
 	/* Disable scheduling. */
 	mvx_hwreg_write(hwreg, MVX_HWREG_ENABLE, 0);
@@ -306,8 +307,8 @@ void mvx_lsid_jobqueue_remove(struct mvx_lsid *lsid)
 
 	/* Blank out remaining job entries. */
 	for (; j < MVE_JOBQUEUE_NJOBS; j++)
-		jobqueue = set_lsid_ncores(jobqueue, i,
-					   MVE_JOBQUEUE_JOB_INVALID, 0);
+		jobqueue = set_lsid_ncores(jobqueue, j,
+					   MVE_JOBQUEUE_JOB_INVALID, ncores);
 
 	mvx_hwreg_write(hwreg, MVX_HWREG_JOBQUEUE, jobqueue);
 

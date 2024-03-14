@@ -499,6 +499,8 @@ static int mvx_pdev_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(34));
+
 	ret = mvx_dev_probe(&pdev->dev, &iores, &irqres);
 	if (ret != 0)
 		pm_runtime_disable(&pdev->dev);
