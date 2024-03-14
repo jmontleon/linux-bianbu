@@ -508,6 +508,7 @@ static int buf_init(struct vb2_buffer *b)
 	struct mvx_v4l2_port *vport = vb2_get_drv_priv(q);
 	struct mvx_v4l2_session *vsession = vport->vsession;
 	struct mvx_session *session = &vsession->session;
+	unsigned int flags = vbuf->buf.flags;
 
 	MVX_SESSION_VERBOSE(session,
 			    "v4l2: Initialize buffer. vb=%p, type=%u, index=%u, num_planes=%u.",
@@ -532,6 +533,8 @@ static int buf_init(struct vb2_buffer *b)
 
 	ret = mvx_v4l2_buffer_construct(vbuf, vsession, vport->dir,
 					b->num_planes, sgt);
+
+	vbuf->buf.flags = flags;
 
 	return ret;
 }
@@ -1471,6 +1474,23 @@ int mvx_v4l2_vidioc_qbuf(struct file *file,
                 v4l2_general->type ,v4l2_general->config_size, v4l2_general->buffer_size,
                 v4l2_general->config.blk_cfg_type,v4l2_general->config.blk_cfgs.rows_uncomp.n_cols_minus1,
                 v4l2_general->config.blk_cfgs.rows_uncomp.n_rows_minus1);
+    }
+
+    if (dir == MVX_DIR_INPUT && V4L2_TYPE_IS_MULTIPLANAR(b->type)) {
+        vb = vport->vb2_queue.bufs[b->index];
+        vbuf = vb2_to_mvx_v4l2_buffer(vb);
+        buf = &vbuf->buf;
+
+        buf->flags = 0;
+        if ((b->reserved2 & V4L2_BUF_FRAME_FLAG_ROTATION_90) == V4L2_BUF_FRAME_FLAG_ROTATION_90) {
+            buf->flags |= MVX_BUFFER_FRAME_FLAG_ROTATION_90;
+        }
+        if ((b->reserved2 & V4L2_BUF_FRAME_FLAG_ROTATION_180) == V4L2_BUF_FRAME_FLAG_ROTATION_180) {
+           buf->flags |= MVX_BUFFER_FRAME_FLAG_ROTATION_180;
+        }
+        if ((b->reserved2 & V4L2_BUF_FRAME_FLAG_ROTATION_270) == V4L2_BUF_FRAME_FLAG_ROTATION_270) {
+            buf->flags |= MVX_BUFFER_FRAME_FLAG_ROTATION_270;
+        }
     }
 	ret = vb2_qbuf(&vport->vb2_queue, NULL, b);
 	mutex_unlock(&vsession->mutex);
