@@ -1610,9 +1610,37 @@ static const struct platform_device_id mmp_pdma_id_table[] = {
 	{ },
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int mmp_pdma_suspend_noirq(struct device *dev)
+{
+	struct mmp_pdma_device *pdev = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(pdev->clk);
+
+	return 0;
+}
+
+static int mmp_pdma_resume_noirq(struct device *dev)
+{
+	struct mmp_pdma_device *pdev = dev_get_drvdata(dev);
+
+	clk_prepare_enable(pdev->clk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops k1x_mmp_pdma_pm_qos = {
+	.suspend_noirq = mmp_pdma_suspend_noirq,
+	.resume_noirq = mmp_pdma_resume_noirq,
+};
+#endif
+
 static struct platform_driver mmp_pdma_driver = {
 	.driver		= {
 		.name	= "mmp-pdma",
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &k1x_mmp_pdma_pm_qos,
+#endif
 		.of_match_table = mmp_pdma_dt_ids,
 	},
 	.id_table	= mmp_pdma_id_table,
