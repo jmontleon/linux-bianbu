@@ -1204,7 +1204,7 @@ static int put_buffer_frame(struct mvx_fw *fw,
 	f.frame_flags |= (buf->flags & MVX_BUFFER_FRAME_FLAG_ROTATION_MASK) >> 8;
 	f.frame_flags |= (buf->flags & MVX_BUFFER_FRAME_FLAG_MIRROR_MASK) >> 8;
 	f.frame_flags |= (buf->flags & MVX_BUFFER_FRAME_FLAG_SCALING_MASK) >> 8;
-	if (rotation == 1 || rotation == 3) {
+	if (buf->dir == MVX_DIR_OUTPUT && (rotation == 1 || rotation == 3)) {
 		uint8_t nplanes = 0;
 		unsigned int stride90[MVX_BUFFER_NPLANES][2];
 		int i;
@@ -1318,12 +1318,12 @@ static int put_buffer_frame(struct mvx_fw *fw,
 				planar->stride[i] = stride;
 				planar->plane_bot[i] = planar->plane_top[i] +
 									(round_up(stride, 2) >> stride_shift);
-                if (rotation == 1 || rotation == 3) {
+                if (buf->dir == MVX_DIR_OUTPUT && (rotation == 1 || rotation == 3)) {
                     planar->stride[i] = strideRot[i];
                 }
 			} else {
 				// frame mode
-                if (rotation == 1 || rotation == 3){
+                if (buf->dir == MVX_DIR_OUTPUT && (rotation == 1 || rotation == 3)) {
                     planar->stride[i] = strideRot[i];
                 } else {
                     planar->stride[i] = plane->stride;
@@ -1334,7 +1334,7 @@ static int put_buffer_frame(struct mvx_fw *fw,
 		}
 
 #endif
-		if (rotation == 1 || rotation == 3){
+		if (buf->dir == MVX_DIR_OUTPUT && (rotation == 1 || rotation == 3)) {
             planar->max_frame_width = buf->height;
             planar->max_frame_height = buf->width;
         } else {

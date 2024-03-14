@@ -2258,8 +2258,10 @@ int mvx_session_streamoff(struct mvx_session *session,
         }
     }
 dequeue_buffers:
-	if (ret != 0)
+	if (ret != 0) {
+		MVX_SESSION_WARN(session, "stream off error. ret=%d. mvx_session=%p", ret, session);
 		session_unregister(session);
+	}
 
 	/* Return buffers in pending queue. */
 	list_for_each_entry_safe(buf, tmp, &port->buffer_queue, head) {
