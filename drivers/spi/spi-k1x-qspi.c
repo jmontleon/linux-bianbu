@@ -1551,11 +1551,14 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, QSPI_AUTOSUSPEND_TIMEOUT);
-	pm_suspend_ignore_children(&pdev->dev, 0);
+	pm_suspend_ignore_children(&pdev->dev, 1);
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
 
 	ctlr->dev.of_node = np;
+	ctlr->dev.parent = &pdev->dev;
 	ctlr->use_gpio_descriptors = true;
+	ctlr->auto_runtime_pm = true;
 	ret = spi_register_controller(ctlr);
 	if (ret)
 		goto err_destroy_mutex;
