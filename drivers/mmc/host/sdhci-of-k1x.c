@@ -351,7 +351,7 @@ static u32 spacemit_handle_interrupt(struct sdhci_host *host, u32 intmask)
 
 		if (intmask & (SDHCI_INT_CRC | SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_END_BIT | SDHCI_INT_AUTO_CMD_ERR)) {
 			/* handle crc error for sd device */
-			if (!(host->mmc->caps2 & MMC_CAP2_NO_SD)) {
+			if (host->mmc->caps2 & MMC_CAP2_NO_MMC) {
 				host->mmc->caps2 |= MMC_CAP2_QUIRK_BREAK_SDR104;
 			}
 		}
@@ -566,7 +566,7 @@ static int spacemit_sdhci_card_busy(struct mmc_host *mmc)
 
 static void spacemit_init_card_quriks(struct mmc_host *mmc, struct mmc_card *card)
 {
-	if (!(mmc->caps2 & MMC_CAP2_NO_SD)) {
+	if (mmc->caps2 & MMC_CAP2_NO_MMC) {
 		/* break sdr104 */
 		if (mmc->caps2 & MMC_CAP2_QUIRK_BREAK_SDR104) {
 			mmc->caps &= ~MMC_CAP_UHS_SDR104;
@@ -1643,6 +1643,8 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 			sdio_host = host;
 		}
 	}
+
+	spacemit_sdhci_caps_disable(host);
 
 	if ((host->mmc->caps2 & MMC_CAP2_NO_MMC) || (host->quirks2 & SDHCI_QUIRK2_BROKEN_PHY_MODULE)) {
 		pr_debug("%s: get card pinctrl\n", mmc_hostname(host->mmc));
