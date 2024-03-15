@@ -163,13 +163,13 @@ BOOT_TARGETS := Image Image.gz loader loader.bin xipImage vmlinuz.efi
 include $(srctree)/arch/riscv/generic/Platform
 bootvars-y	= ITS_INPUTS="$(its-y)"
 
-all:	$(notdir $(KBUILD_IMAGE)) Image.itb
+all:	$(notdir $(KBUILD_IMAGE)) Image.itb Image.gz.itb
 
 $(BOOT_TARGETS): vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 	@$(kecho) '  Kernel: $(boot)/$@ is ready'
 
-Image.%: Image
+Image.%: Image Image.gz
 	$(Q)$(MAKE) $(build)=$(boot) $(bootvars-y) $(boot)/$@
 
 install: KBUILD_IMAGE := $(boot)/Image
