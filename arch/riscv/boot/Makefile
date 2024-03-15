@@ -77,10 +77,7 @@ endif
 
 IMAGE_LOAD_ADDRESS := $(CONFIG_IMAGE_LOAD_OFFSET)
 IMAGE_ENTRY_ADDRESS := $(CONFIG_IMAGE_LOAD_OFFSET)
-
 IMAGE_ALGO := crc32
-IMAGE_COMPRESS := none
-IMAGE_SOURCE_FILE := Image
 
 quiet_cmd_its_cat = CAT     $@
       cmd_its_cat = cat $(real-prereqs) >$@
@@ -100,7 +97,10 @@ quiet_cmd_cpp_its_S = ITS     $@
 		-DADDR_CELLS=$(ADDR_CELLS)
 
 $(obj)/Image.its: $(obj)/Image.its.S $(obj)/Image FORCE
-	$(call if_changed,cpp_its_S,$(IMAGE_COMPRESS),$(IMAGE_ALGO),$(IMAGE_SOURCE_FILE))
+	$(call if_changed,cpp_its_S,none,$(IMAGE_ALGO),Image)
+
+$(obj)/Image.gz.its: $(obj)/Image.its.S $(obj)/Image.gz FORCE
+	$(call if_changed,cpp_its_S,gzip,$(IMAGE_ALGO),Image.gz)
 
 quiet_cmd_itb-image = ITB     $@
       cmd_itb-image = \
@@ -112,6 +112,9 @@ quiet_cmd_itb-image = ITB     $@
 		-f $(2) $@
 
 $(obj)/Image.itb: $(obj)/Image.its $(obj)/Image FORCE
+	$(call if_changed,itb-image,$<)
+
+$(obj)/Image.%.itb: $(obj)/Image.%.its $(obj)/Image.% FORCE
 	$(call if_changed,itb-image,$<)
 
 EFI_ZBOOT_PAYLOAD	:= Image
