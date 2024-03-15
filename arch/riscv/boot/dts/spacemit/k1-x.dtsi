@@ -1001,7 +1001,8 @@
 			dmas = <&pdma0 19 1
 				&pdma0 18 1>;
 			dma-names = "rx", "tx";
-			/* k1x,ssp-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>; */
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interrupt-parent = <&intc>;
 			interrupts = <56>;
 			clocks = <&ccu CLK_SSPA0>;
@@ -1021,7 +1022,8 @@
 			dmas = <&pdma0 21 1
 				&pdma0 20 1>;
 			dma-names = "rx", "tx";
-			/* k1x,ssp-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>; */
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interrupt-parent = <&intc>;
 			interrupts = <57>;
 			clocks = <&ccu CLK_SSPA1>;
@@ -1041,7 +1043,8 @@
 			dmas = <&pdma0 17 1
 				&pdma0 16 1>;
 			dma-names = "rx", "tx";
-			/* k1x,ssp-lpm-qos = <PM_QOS_CPUIDLE_BLOCK_AXI>; */
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interrupt-parent = <&intc>;
 			interrupts = <55>;
 			clocks = <&ccu CLK_SSP3>;
