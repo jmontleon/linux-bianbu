@@ -1499,7 +1499,7 @@ static uint32_t dpu_isr(struct spacemit_dpu *dpu)
 	u32 base = DPU_INT_BASE_ADDR;
 	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
-	static bool flip_done[DP_MAX_DEVICES];
+	static bool flip_done[DP_MAX_DEVICES] = {false};
 	struct drm_writeback_connector *wb_conn = &dpu->wb_connector;
 	u8 channel = dpu->dev_id;
 	int flip_id;
@@ -1509,7 +1509,6 @@ static uint32_t dpu_isr(struct spacemit_dpu *dpu)
 	} else {
 		flip_id = SATURN_LE;
 	}
-	flip_done[flip_id] = false;
 
 	trace_dpu_isr(dpu->dev_id);
 
