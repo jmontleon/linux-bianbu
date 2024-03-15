@@ -197,7 +197,7 @@ BOOT_TARGETS := Image Image.gz Image.bz2 Image.lz4 Image.lzma Image.lzo Image.zs
 include $(srctree)/arch/riscv/generic/Platform
 bootvars-y	= ITS_INPUTS="$(its-y)"
 
-all:	$(notdir $(KBUILD_IMAGE)) Image.itb
+all:	$(notdir $(KBUILD_IMAGE)) Image.itb Image.gz.itb
 
 loader.bin: loader
 Image.gz Image.bz2 Image.lz4 Image.lzma Image.lzo Image.zst Image.xz loader xipImage vmlinuz.efi: Image
