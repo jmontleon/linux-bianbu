@@ -150,7 +150,7 @@ ifeq ($(CONFIG_RISCV_M_MODE)$(CONFIG_SOC_CANAAN_K210),yy)
 KBUILD_IMAGE := $(boot)/loader.bin
 else
 ifeq ($(CONFIG_EFI_ZBOOT),)
-KBUILD_IMAGE	:= $(boot)/Image.gz
+KBUILD_IMAGE := $(boot)/Image.gz.itb
 else
 KBUILD_IMAGE := $(boot)/vmlinuz.efi
 endif
