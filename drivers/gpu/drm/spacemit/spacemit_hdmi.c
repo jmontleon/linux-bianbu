@@ -14,6 +14,7 @@
 #include <linux/mutex.h>
 #include <linux/of_device.h>
 #include <linux/component.h>
+#include <linux/pm_runtime.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_edid.h>
@@ -26,7 +27,17 @@
 #include "spacemit_lib.h"
 #include "spacemit_dpu.h"
 
+#define SPACEMIT_HDMI_DDC_OTHER_MASK        BIT(31)
+#define SPACEMIT_HDMI_DDC_DONE_MASK         BIT(30)
+#define SPACEMIT_HDMI_HPD_IQR_MASK          BIT(29)
+
+#define SPACEMIT_HDMI_HPD_STATUS            BIT(12)
+
+#define SPACEMIT_HDMI_PHY_STATUS            0xC
+
+
 struct hdmi_data_info {
+	uint8_t edid[128];
 	int vic;
 	bool sink_has_audio;
 	unsigned int enc_in_format;
@@ -54,7 +65,8 @@ struct spacemit_hdmi {
 
 	unsigned int tmds_rate;
 
-	struct hdmi_data_info	hdmi_data;
+	bool edid_done;
+	struct hdmi_data_info *hdmi_data;
 	struct drm_display_mode previous_mode;
 };
 
@@ -64,25 +76,22 @@ struct spacemit_hdmi {
 #define connector_to_spacemit_hdmi(connector) \
 	container_of(connector, struct spacemit_hdmi, connector)
 
-static inline u8 hdmi_readb(struct spacemit_hdmi *hdmi, u16 offset)
+static inline u32 hdmi_readb(struct spacemit_hdmi *hdmi, u16 offset)
 {
 	return readl_relaxed(hdmi->regs + (offset));
 }
 
 static inline void hdmi_writeb(struct spacemit_hdmi *hdmi, u16 offset, u32 val)
 {
-	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xc0400500, 200);
-	//writel_relaxed(val, hdmi->regs + (offset));
-	writel_relaxed(val, hdmi_addr + (offset));
+	writel_relaxed(val, hdmi->regs + (offset));
 }
 
-static inline void hdmi_modb(struct spacemit_hdmi *hdmi, u16 offset,
-			     u32 msk, u32 val)
+static int hdmi_get_plug_in_status(struct spacemit_hdmi *hdmi)
 {
-	u8 temp = hdmi_readb(hdmi, offset) & ~msk;
+	u32 value;
+	value = readl_relaxed(hdmi->regs + SPACEMIT_HDMI_PHY_STATUS) & SPACEMIT_HDMI_HPD_STATUS;
 
-	temp |= val & msk;
-	hdmi_writeb(hdmi, offset, temp);
+	return !!value;
 }
 
 static void spacemit_hdmi_set_pwr_mode(struct spacemit_hdmi *hdmi, int mode)
@@ -134,9 +143,9 @@ static int spacemit_hdmi_config_video_avi(struct spacemit_hdmi *hdmi,
 						      &hdmi->connector,
 						      mode);
 
-	if (hdmi->hdmi_data.enc_out_format == HDMI_COLORSPACE_YUV444)
+	if (hdmi->hdmi_data->enc_out_format == HDMI_COLORSPACE_YUV444)
 		frame.avi.colorspace = HDMI_COLORSPACE_YUV444;
-	else if (hdmi->hdmi_data.enc_out_format == HDMI_COLORSPACE_YUV422)
+	else if (hdmi->hdmi_data->enc_out_format == HDMI_COLORSPACE_YUV422)
 		frame.avi.colorspace = HDMI_COLORSPACE_YUV422;
 	else
 		frame.avi.colorspace = HDMI_COLORSPACE_RGB;
@@ -150,65 +159,392 @@ static int spacemit_hdmi_config_video_timing(struct spacemit_hdmi *hdmi,
 	return 0;
 }
 
+enum bit_depth{
+	EIGHT_BPP = 0,
+	TEN_BPP = 1,
+	TWELVE_BPP =2,
+};
+
+int power_of_two(int n) {
+	int result = 1;
+	for (int i = 0; i < n; ++i) {
+		result <<= 1;
+	}
+
+	return result;
+}
+
+int pll8_bit_5_6 (int bit_clock, int n){
+	int ret = 0;
+	bit_clock = bit_clock / n;
+
+	if (bit_clock < 425)
+		ret = 3;
+	else if (bit_clock < 850)
+		ret = 2;
+	else if (bit_clock < 1700)
+		ret = 1;
+	else
+		ret = 0;
+
+	return ret;
+}
+
+int pll6_bit_4_5 (int bit_clock, int n){
+	int ret = 0;
+	bit_clock = bit_clock / n;
+
+	if (bit_clock <= 337)
+		ret = 0;
+	else if (bit_clock < 425)
+		ret = 1;
+	else if (bit_clock < 675)
+		ret = 0;
+	else if (bit_clock < 850)
+		ret = 1;
+	else if (bit_clock < 1350)
+		ret = 0;
+	else if (bit_clock < 1700)
+		ret = 1;
+	else
+		ret = 0;
+
+	return ret;
+}
+
+int pll5_bit_0_2 (int bit_clock, int n){
+	int value =  bit_clock * power_of_two(pll8_bit_5_6(bit_clock, n)) / n;
+	int ret;
+
+	if (value < 1830)
+		ret = 0;
+	else if (value < 2030)
+		ret = 1;
+	else if (value < 2275)
+		ret = 2;
+	else if (value < 2520)
+		ret = 3;
+	else if (value < 2765)
+		ret = 4;
+	else if (value < 3015)
+		ret = 5;
+	else if (value < 3260)
+		ret = 6;
+	else
+		ret = 7;
+
+	return ret;
+}
+
+int PLL9_BIT0_1[3] = {0x0, 0x1, 0x2};
+
+void pll_reg_cal(int bit_clock, int ref_clock, int n, int *integer_part, u32 *hmdi_e8_reg) {
+	long long int_para = 1000000000;
+	long long value = (power_of_two(pll8_bit_5_6(bit_clock, n))) * bit_clock * int_para / (n * (pll6_bit_4_5(bit_clock, n) + 1) * ref_clock);
+	long long integer = (power_of_two(pll8_bit_5_6(bit_clock, n)))* bit_clock / (n * (pll6_bit_4_5(bit_clock, n) + 1) * ref_clock) * int_para;
+	long long fraction = value - integer;
+	bool negative = false;
+	int bit = 0;
+	int frac_20bit = 0;
+	int pll2_reg = 0;
+	int pll1_reg = 0;
+	int pll0_reg = 0;
+
+	negative =  fraction > 500000000 ? true : false;
+	fraction = negative ? 1000000000 - fraction : fraction;
+	*integer_part = negative ? integer/int_para + 1 : integer/int_para;
+
+
+	for (int i = 0; i < 20; i++){
+		if (bit >= int_para) {
+			frac_20bit |= 1 << (19 - i);
+			fraction -= int_para;
+		}
+		fraction *= 2;
+		bit = fraction;
+	}
+
+	if (!negative){
+		pll2_reg = ((frac_20bit & 0xF0000) >> 16) | (1 << 5);
+	} else {
+		frac_20bit = (~frac_20bit + 1) & 0xfffff;
+		pll2_reg = 0x10 | ((frac_20bit & 0xF0000) >> 16) | (1 << 5);
+	}
+
+	pll1_reg = (frac_20bit & 0xFF00) >> 8;
+	pll0_reg = frac_20bit & 0xFF;
+	*hmdi_e8_reg = (0x20 << 24) | (pll2_reg << 16) | (pll1_reg << 8) | pll0_reg;
+}
+
+int pll_reg (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth) {
+	int pll9_reg = 0, pll8_reg = 0, pll7_reg = 0, pll6_reg = 0, pll5_reg = 0, pll4_reg = 0;
+	int n = 100;
+	int ref_clock = 24;
+	int hdmi_ec_reg = 0;
+	int hdmi_f0_reg = 0;
+	int hdmi_e8_reg = 0;
+	int pow = 0;
+	int bit_clock = bit_depth == EIGHT_BPP ? pixel_clock : pixel_clock * 125 / 100;
+
+	int integer_part = 0;
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	pll_reg_cal(bit_clock, ref_clock, n, &integer_part, &hdmi_e8_reg);
+
+	pll9_reg = 2 << 2 | PLL9_BIT0_1[bit_depth];
+	pll8_reg = (0 << 7) | (pll8_bit_5_6(bit_clock, n) << 5) | 1;
+	pll7_reg = 0x50;
+	pll6_reg = 0xD | (pll6_bit_4_5(bit_clock, n) << 4) | (2 << 6);
+	pll5_reg = 0x40 | pll5_bit_0_2(bit_clock, n);
+
+	pow = (pll8_bit_5_6(bit_clock, n));
+
+	pll4_reg = integer_part;
+
+	hdmi_ec_reg = (pll7_reg << 24) | (pll6_reg << 16) | (pll5_reg << 8) | pll4_reg;
+	hdmi_f0_reg = (pll9_reg << 8) | pll8_reg;
+
+	writel(hdmi_e8_reg, hdmi->regs + 0xe8);
+	DRM_DEBUG("%s() hdmi 0xe8 0x%x\n", __func__, hdmi_e8_reg);
+
+	writel(hdmi_ec_reg, hdmi->regs + 0xec);
+	DRM_DEBUG("%s() hdmi 0xec 0x%x\n", __func__, hdmi_ec_reg);
+
+	writel(hdmi_f0_reg, hdmi->regs + 0xf0);
+	DRM_DEBUG("%s() hdmi 0xf0 0x%x\n", __func__, hdmi_f0_reg);
+
+	return 0;
+}
+
+static void hdmi_i2c_timing(struct spacemit_hdmi *hdmi)
+{
+	uint32_t reg = 0;
+	uint32_t apb_clk = 153500*1000;/*Hz*/
+	uint32_t apb_time = 1000*1000*1000 / apb_clk; /*ns*/
+	uint32_t i2c_clk = 100*1000; /*Hz*/
+	uint32_t i2c_time = 1000*1000*1000 / i2c_clk; /*ns*/
+	uint32_t scl_high_time, scl_low_time; /*ns*/
+	uint32_t scl_high_count = 0, scl_low_count = 0;
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	reg = hdmi_readb(hdmi, 0x18);
+	DRM_DEBUG("%s() hdmi 0x18 #1 0x%x\n", __func__, reg);
+
+	scl_high_time = i2c_time / 2;
+	scl_low_time = i2c_time / 2;
+	scl_high_count = scl_high_time / apb_time;
+	scl_low_count = scl_low_time / apb_time;
+
+	scl_high_count = (scl_high_count - 3) >> 2;
+	scl_low_count = (scl_low_count - 3) >> 2;
+
+	reg &= ~0x7FFFF;
+	reg |= (5 << 16); /*glitch*/
+	reg |= scl_high_count << 8; /*high. time = value *4 + 3*/
+	reg |= scl_low_count; /*low. time = value *4 +3*/
+	DRM_DEBUG("%s() scl_high_count %d, scl_low_count %d\n", __func__, scl_high_count, scl_low_count);
+
+	hdmi_writeb(hdmi, 0x18, reg);
+	msleep(2);
+	reg = hdmi_readb(hdmi, 0x18);
+	DRM_DEBUG("%s() hdmi 0x18 #2 0x%x\n", __func__, reg);
+}
+
+static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* message, uint32_t length)
+{
+	int i, count = 0, left = length;
+	uint8_t *pvalue = message;
+	uint32_t value;
+	uint32_t reg, num;
+
+	DRM_DEBUG("hdmi_i2c_read ++%u\r\n", length);
+
+	do{
+		if(left <= 16)
+			count = left;
+		else
+			count = 16;
+		left -= count;
+
+		value = ((count-1) << 8) + (addr << 1) + 1;
+		hdmi_writeb(hdmi, 0x8, value & 0xFFFF);
+
+		reg = hdmi_readb(hdmi, 0xC);
+		num = (reg & 0x1f0) >> 4;
+
+		while(num < count){
+			reg = hdmi_readb(hdmi, 0xC);
+			num = (reg & 0x1f0) >> 4;
+		}
+
+		for(i = 0; i < count; i++){
+			value = hdmi_readb(hdmi, 0x4);
+			*pvalue++ = value;
+		}
+	} while(left > 0);
+
+	for(i=0; i<10; i++){
+		reg = hdmi_readb(hdmi, 0x0C);
+	}
+
+	DRM_DEBUG("hdmi_i2c_read --%u\r\n", length);
+
+	return;
+}
+
+static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* message, uint32_t length)
+{
+	int i, count = 0, left = length;
+	uint8_t *pvalue = message;
+	uint32_t value, reg;
+
+	DRM_DEBUG("hdmi_i2c_write ++ %u\r\n", length);
+
+	do{
+		if(left <= 16)
+			count = left;
+		else
+			count = 16;
+		left -= count;
+
+		for(i = 0; i < count; i++){
+			value = *pvalue++;
+			hdmi_writeb(hdmi, 0x0, value & 0xFF);
+		}
+		value = ((count-1) << 8) + (addr << 1);
+
+		hdmi_writeb(hdmi, 0x8, value & 0xFFFF);
+		reg = hdmi_readb(hdmi, 0x0C);
+
+		if (reg & BIT(16)) {
+			DRM_INFO("hdmi_i2c_write  i2c ARB FAIL!!");
+			return -1;
+		}
+	} while(left > 0);
+
+	for(i=0; i<10; i++){
+		reg = hdmi_readb(hdmi, 0x0C);
+	}
+
+	DRM_DEBUG("hdmi_i2c_write --%u\r\n", length);
+
+	return 0;
+
+}
+
+int edid_read (struct spacemit_hdmi *hdmi){
+	int i;
+	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	if (0 == hdmi_i2c_write(hdmi, 0x50, hdmi_data->edid, 1))
+		hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid, EDID_LENGTH);
+
+	for(i = 0; i < EDID_LENGTH; i += 4){
+		DRM_INFO("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
+			hdmi_data->edid[i], hdmi_data->edid[i+1], hdmi_data->edid[i+2], hdmi_data->edid[i+3]);
+	}
+
+	if ((hdmi_data->edid[0] == 0x00) && (hdmi_data->edid[1] == 0xff) && (hdmi_data->edid[2] == 0xff) &&
+		(hdmi_data->edid[3] == 0xff) && (hdmi_data->edid[4] == 0xff) && (hdmi_data->edid[5] == 0xff) &&
+		(hdmi_data->edid[6] == 0xff) && (hdmi_data->edid[7] == 0x00)) {
+		hdmi->edid_done = true;
+	} else {
+		hdmi->edid_done = false;
+	}
+
+	return 0;
+}
+
+static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
+{
+	struct spacemit_hdmi *hdmi = data;
+	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
+	uint32_t value;
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	if (len > 128)
+		return -EINVAL;
+
+	if (!hdmi->edid_done) {
+		hdmi_i2c_timing(hdmi);
+		edid_read(hdmi);
+
+		memcpy(buf, hdmi_data->edid, len);
+
+		if (!hdmi->edid_done) {
+			value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
+			value &= ~(SPACEMIT_HDMI_DDC_OTHER_MASK | SPACEMIT_HDMI_DDC_DONE_MASK | SPACEMIT_HDMI_HPD_IQR_MASK);
+			hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
+			msleep(2);
+		}
+		value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
+		DRM_DEBUG("%s() hdmi status value 0x%x\n", __func__, value);
+
+	} else {
+		memcpy(buf, hdmi_data->edid, len);
+	}
+
+	return 0;
+}
+
+void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
+	u32 value = 0;
+	int color_depth = bit_depth == EIGHT_BPP ? 4 : 5;
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	writel(0xEE40410F, hdmi->regs + 0xe0);
+	DRM_DEBUG("%s() hdmi 0xe0 0x%x\n", __func__, 0xEE40410F);
+
+	value = 0x0000000d | color_depth << 4;
+	writel(value, hdmi->regs + 0x34);
+	DRM_DEBUG("%s() hdmi 0x34 0x%x\n", __func__, value);
+
+	pll_reg(hdmi, pixel_clock, bit_depth);
+	writel(0x3, hdmi->regs + 0xe4);
+
+	value = readl_relaxed(hdmi->regs + 0xe4);
+	while ( (value & 0x10000) != 0) {
+		value = readl_relaxed(hdmi->regs + 0xe4);
+	}
+
+	value = 0x3018C000| bit_depth;
+	writel(value, hdmi->regs + 0x28);
+	DRM_DEBUG("%s() hdmi 0x28 0x%x\n", __func__, value);
+}
+
 static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
-	void __iomem *hdmi_addr = (void __iomem *)ioremap(0xC0400500, 1);
-	__maybe_unused u32 value;
+	u32 value;
+	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
+	int bit_depth = TEN_BPP;
+	
+	DRM_DEBUG("%s() \n", __func__);
 
 	// hdmi config
-	if (mode->hdisplay > 1024) {
-	// 1920x1080
-	#if 0
+	hdmi_writeb(hdmi, 0xe8, 0x20200000);
+	hdmi_writeb(hdmi, 0xec, 0x508d425a);
+	hdmi_writeb(hdmi, 0xf0, 0x861);
 
-		writel(0x4d, hdmi_addr + 0x34);
-		writel(0x20200000, hdmi_addr + 0xe8);
-		writel(0x509D453E, hdmi_addr + 0xec);
-		writel(0x821, hdmi_addr + 0xf0);
-		writel(0x3, hdmi_addr + 0xe4);
-
-		udelay(2);
-		value = readl_relaxed(hdmi_addr + 0xe4);
-		DRM_INFO("%s() hdmi 0xe4 0x%x\n", __func__, value);
-
-		writel(0x30184000, hdmi_addr + 0x28);
-	#else
-
-		writel(0xEE40410F, hdmi_addr + 0xe0);
-		writel(0x0000005d, hdmi_addr + 0x34);
-		writel(0x2022C000, hdmi_addr + 0xe8);
-		writel(0x508D414D, hdmi_addr + 0xec);
-
-		writel(0x00000901, hdmi_addr + 0xf0);
-		writel(0x3, hdmi_addr + 0xe4);
-
-		udelay(2);
-		value = readl_relaxed(hdmi_addr + 0xe4);
-		DRM_INFO("%s() hdmi 0xe4 0x%x\n", __func__, value);
-
-		writel(0x3018C001, hdmi_addr + 0x28);
-
-	#endif
-
-	} else {
-		// 640x480
-		writel(0x40, hdmi_addr + 0x34);
-		writel(0x20200000, hdmi_addr + 0xe8);
-		writel(0x508d425a, hdmi_addr + 0xec);
-		writel(0x861, hdmi_addr + 0xf0);
-		writel(0x3, hdmi_addr + 0xe4);
-
-		udelay(2);
-		value = readl_relaxed(hdmi_addr + 0xe4);
-		DRM_DEBUG("%s() hdmi 0xe4 0x%x\n", __func__, value);
-
-		writel(0x28008320, hdmi_addr + 0x20);
-		writel(0x1e00a20d, hdmi_addr + 0x24);
-		writel(0x0e404000, hdmi_addr + 0x28);
+	if (hdmi->edid_done) {
+		// 08H, 09H: ID Manufacturer Nanme
+		// 0AH, 0BH: ID Product Code
+		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) && 
+			((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
+			bit_depth = EIGHT_BPP;
+			DRM_INFO("%s() 8bpc \n", __func__);
+		}
 	}
 
-	spacemit_hdmi_config_video_timing(hdmi, mode);
+	hdmi_init(hdmi, hdmi->previous_mode.clock, bit_depth);
 
+	spacemit_hdmi_config_video_timing(hdmi, mode);
 	spacemit_hdmi_config_video_avi(hdmi, mode);
 	spacemit_hdmi_config_video_vsi(hdmi, mode);
 
@@ -220,7 +556,7 @@ static void spacemit_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 				       struct drm_display_mode *adj_mode)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
 
 	/* Store the display mode for plugin/DPMS poweron events */
 	drm_mode_copy(&hdmi->previous_mode, adj_mode);
@@ -254,6 +590,7 @@ spacemit_hdmi_encoder_atomic_check(struct drm_encoder *encoder,
 			       struct drm_crtc_state *crtc_state,
 			       struct drm_connector_state *conn_state)
 {
+	DRM_DEBUG("%s()\n", __func__);
 	return 0;
 }
 
@@ -268,16 +605,33 @@ static struct drm_encoder_helper_funcs spacemit_hdmi_encoder_helper_funcs = {
 static enum drm_connector_status
 spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 {
+	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
+
+	DRM_DEBUG("%s() \n", __func__);
 	return connector_status_connected;
 }
 
 static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 {
-	// struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
-	// struct edid *edid;
-	int ret = 0;
+	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
+	int ret;
+	struct edid *edid;
 
-	ret = drm_add_modes_noedid(connector, 1920, 1080);
+	DRM_INFO("%s() \n", __func__);
+
+	if (!hdmi_get_plug_in_status(hdmi))
+		return drm_add_modes_noedid(connector, 1920, 1080);
+
+	edid = drm_do_get_edid(connector, spacemit_hdmi_get_edid_block, hdmi);
+	if (hdmi->edid_done) {
+		drm_connector_update_edid_property(connector, edid);
+		ret = drm_add_edid_modes(connector, edid);
+		kfree(edid);
+	} else {
+		kfree(edid);
+		ret = drm_add_modes_noedid(connector, 1920, 1080);
+	}
+
 	return ret;
 }
 
@@ -297,6 +651,8 @@ spacemit_hdmi_probe_single_connector_modes(struct drm_connector *connector,
 
 static void spacemit_hdmi_connector_destroy(struct drm_connector *connector)
 {
+	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
+	kfree(hdmi->hdmi_data);
 	drm_connector_unregister(connector);
 	drm_connector_cleanup(connector);
 }
@@ -357,10 +713,14 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	// int irq;
 	int ret;
 
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_INFO("%s() \n", __func__);
 
 	hdmi = devm_kzalloc(dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
+		return -ENOMEM;
+
+	hdmi->hdmi_data = devm_kzalloc(dev, sizeof(*(hdmi->hdmi_data)), GFP_KERNEL);
+	if (!hdmi->hdmi_data)
 		return -ENOMEM;
 
 	hdmi->dev = dev;
@@ -370,7 +730,11 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	if (IS_ERR(hdmi->regs))
 		return PTR_ERR(hdmi->regs);
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+
 	spacemit_hdmi_reset(hdmi);
+	hdmi->edid_done = false;
 
 	ret = spacemit_hdmi_register(drm, hdmi);
 
@@ -382,10 +746,13 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 			     void *data)
 {
+	struct platform_device *pdev = to_platform_device(dev);
 	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
 
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_INFO("%s() \n", __func__);
 
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(dev);
 	hdmi->connector.funcs->destroy(&hdmi->connector);
 }
 
@@ -396,13 +763,15 @@ static const struct component_ops spacemit_hdmi_ops = {
 
 static int spacemit_hdmi_probe(struct platform_device *pdev)
 {
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
+
 	return component_add(&pdev->dev, &spacemit_hdmi_ops);
 }
 
 static int spacemit_hdmi_remove(struct platform_device *pdev)
 {
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
+
 	component_del(&pdev->dev, &spacemit_hdmi_ops);
 
 	return 0;
