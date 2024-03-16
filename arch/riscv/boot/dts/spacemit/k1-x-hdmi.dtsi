@@ -37,6 +37,12 @@
 	hdmi: hdmi@C0400500 {
 		compatible = "spacemit,hdmi";
 		reg = <0 0xC0400500 0 0x200>;
+		clocks = <&ccu CLK_HDMI>;
+		clock-names = "hmclk";
+		assigned-clocks = <&ccu CLK_HDMI>;
+		assigned-clock-parents = <&ccu CLK_PLL1_491>;
+		assigned-clock-rates = <491520000>;
+		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
 		status = "disabled";
 
 		port {
