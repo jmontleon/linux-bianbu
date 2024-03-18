@@ -34,6 +34,10 @@
 #define MPMU_APCR_PER_REG	0x1098
 #define MPMU_AWUCRM_REG		0x104c
 
+#define APMU_AUDIO_CLK_RES_CTRL	0x14c
+#define AP_POWER_CTRL_AUDIO_AUTH_OFFSET	28
+#define FORCE_AUDIO_POWER_ON_OFFSET	13
+
 /* wakeup set */
 /* pmic */
 #define WAKEUP_SOURCE_WAKEUP_7	7
@@ -302,6 +306,13 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 	if (loop < 0) {
 		pr_err("power-on domain: %d, error\n", spd->pm_index);
 		return -EBUSY;
+	}
+
+	/* for audio power domain, we should let the rcpu handle it, and disable force power on */
+	if (spd->pm_index == K1X_PMU_AUD_PWR_DOMAIN) {
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, &val);
+		val &= ~((1 << AP_POWER_CTRL_AUDIO_AUTH_OFFSET) | (1 << FORCE_AUDIO_POWER_ON_OFFSET));
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, val);
 	}
 
 	return 0;
