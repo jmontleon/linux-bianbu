@@ -101,9 +101,9 @@
 		};
 
 		/* reserved 384K for dpu, including mmu table(256K) and cmdlist(128K) */
-		dpu_resv: dpu_reserved@27000000 {
+		dpu_resv: dpu_reserved@2ff40000 {
 			compatible = "shared-dma-pool";
-			reg = <0x0 0x27000000 0x0 0x000C0000>;
+			reg = <0x0 0x2ff40000 0x0 0x000C0000>;
 			no-map;
 		};
 	};
