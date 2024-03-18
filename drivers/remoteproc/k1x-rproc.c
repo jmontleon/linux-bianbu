@@ -18,6 +18,8 @@
 #include <uapi/linux/sched/types.h>
 #include <uapi/linux/sched.h>
 #include <linux/sched/prio.h>
+#include <linux/rpmsg.h>
+#include <linux/pm_qos.h>
 #include "remoteproc_internal.h"
 
 #define MAX_MEM_BASE	2
@@ -34,6 +36,8 @@
 #define ESOS_AON_PER_CLK_RST_CTL_REG	0x2c
 
 #define ESOS_DDR_REGMAP_BASE_REG_OFFSET	0xc0
+
+struct dev_pm_qos_request greq;
 
 struct spacemit_mbox {
 	const char name[10];
@@ -52,6 +56,10 @@ struct spacemit_rproc {
 	unsigned int ddr_remap_base;
 	void __iomem *base[MAX_MEM_BASE];
 	struct spacemit_mbox *mb;
+#ifdef CONFIG_PM_SLEEP
+	struct rpmsg_device *rpdev;
+	struct completion rlowpwr_comp;
+#endif
 };
 
 static int spacemit_rproc_mem_alloc(struct rproc *rproc,
@@ -96,8 +104,24 @@ static int spacemit_rproc_prepare(struct rproc *rproc)
 
 	/* de-assert the audio module */
 	reset_control_deassert(priv->core_rst);
+
+#define DEV_PM_QOS_CLK_GATE		1
+#define DEV_PM_QOS_REGULATOR_GATE	2
+#define DEV_PM_QOS_PM_DOMAIN_GATE	4
+#define DEV_PM_QOS_DEFAULT		7
+
+	/* open the clk & pm-switch using pm-domain framework */
+	dev_pm_qos_add_request(priv->dev, &greq, DEV_PM_QOS_MAX_FREQUENCY,
+			DEV_PM_QOS_CLK_GATE | DEV_PM_QOS_PM_DOMAIN_GATE);
+
 	/* enable the power-switch and the clk */
 	pm_runtime_get_sync(priv->dev);
+
+	/**
+	 * only disable the clk when system syspend
+	 * the rcpu handle the power-switch
+	 * */
+	dev_pm_qos_update_request(&greq, DEV_PM_QOS_CLK_GATE);
 
 	/* Register associated reserved memory regions */
 	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
@@ -252,11 +276,8 @@ static int __process_theread(void *arg)
 	mb->kthread_running = true;
 	ret = sched_setscheduler(current, SCHED_FIFO, &param);
 
-	set_freezable();
-
 	do {
 		wait_for_completion_timeout(&mb->mb_comp, 10);
-		try_to_freeze();
 		if (rproc_vq_interrupt(rproc, mb->vq_id) == IRQ_NONE)
 			dev_dbg(&rproc->dev, "no message found in vq%d\n", mb->vq_id);
 	} while (!kthread_should_stop());
@@ -290,6 +311,72 @@ static struct spacemit_mbox k1x_rpoc_mbox[] = {
 		},
 	},
 };
+
+#ifdef CONFIG_PM_SLEEP
+
+#define STARTUP_MSG "pwr_management"
+
+static struct rpmsg_device_id rpmsg_rcpu_pwr_management_id_table[] = {
+	{ .name	= "rcpu-pwr-management-service", .driver_data = 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, rpmsg_rcpu_pwr_management_id_table);
+
+static int rpmsg_rcpu_pwr_cb(struct rpmsg_device *rpdev, void *data,
+		int len, void *priv, u32 src)
+{
+	struct spacemit_rproc *srproc;
+
+	if (strcmp(data, "pwr_management_ok") == 0) {
+		pr_err("Connection create success\n");
+		return 0;
+	}
+
+	srproc = dev_get_drvdata(&rpdev->dev);
+
+	/* wakeup the wait */
+	complete(&srproc->rlowpwr_comp);
+
+	return 0;
+}
+
+static int rpmsg_rcpu_pwr_manage_probe(struct rpmsg_device *rpdev)
+{
+	int ret;
+	struct rproc *rproc;
+	struct spacemit_rproc *srproc;
+	struct platform_device *pdev;
+
+	pdev = (struct platform_device *)rpmsg_rcpu_pwr_management_id_table[0].driver_data;
+
+	rproc = platform_get_drvdata(pdev);
+	srproc = rproc->priv;
+	srproc->rpdev = rpdev;
+
+	dev_set_drvdata(&rpdev->dev, srproc);
+
+	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
+					rpdev->src, rpdev->dst);
+
+	ret = rpmsg_send(rpdev->ept, STARTUP_MSG, strlen(STARTUP_MSG));
+
+	return 0;
+}
+
+static void rpmsg_rcpu_pwr_manage_romove(struct rpmsg_device *rpdev)
+{
+	dev_info(&rpdev->dev, "rpmsg rcpu power management driver is removed\n");
+}
+
+/* here we should register a endpoint for power-management */
+static struct rpmsg_driver rpmsg_rcpu_pm_client = {
+	.drv.name	= KBUILD_MODNAME,
+	.id_table	= rpmsg_rcpu_pwr_management_id_table,
+	.probe		= rpmsg_rcpu_pwr_manage_probe,
+	.callback	= rpmsg_rcpu_pwr_cb,
+	.remove		= rpmsg_rcpu_pwr_manage_romove,
+};
+#endif
 
 static int spacemit_rproc_probe(struct platform_device *pdev)
 {
@@ -378,6 +465,14 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 		dev_err(dev, "rproc_add failed\n");
 	}
 
+#ifdef CONFIG_PM_SLEEP
+	rpmsg_rcpu_pwr_management_id_table[0].driver_data = (unsigned long long)pdev;
+
+	init_completion(&priv->rlowpwr_comp);
+
+	register_rpmsg_driver(&rpmsg_rcpu_pm_client);
+#endif
+
 	return ret;
 }
 
@@ -407,6 +502,9 @@ static int spacemit_rproc_remove(struct platform_device *pdev)
 	k1x_rproc_free_mbox(rproc);
 	rproc_free(rproc);
 
+#ifdef CONFIG_PM_SLEEP
+	unregister_rpmsg_driver(&rpmsg_rcpu_pm_client);
+#endif
 	return 0;
 }
 
@@ -417,11 +515,63 @@ static const struct of_device_id spacemit_rproc_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, spacemit_rproc_of_match);
 
+#ifdef CONFIG_PM_SLEEP
+
+#define RCPU_ENTER_LOW_PWR_MODE		"enter-low-pwr-mode"
+#define RCPU_EXIT_LOW_PWR_MODE		"exit-low-pwr-mode"
+
+static int spacemit_rproc_suspend(struct device *dev)
+{
+	int ret;
+	struct rproc *rproc;
+	struct spacemit_rproc *srproc;
+
+	rproc = dev_get_drvdata(dev);
+	srproc = rproc->priv;
+
+	/* send msg to rcpu to let it enter low power mode */
+	ret = rpmsg_send(srproc->rpdev->ept, RCPU_ENTER_LOW_PWR_MODE,
+			strlen(RCPU_ENTER_LOW_PWR_MODE));
+
+	/* wait enter ok */
+	wait_for_completion(&srproc->rlowpwr_comp);
+
+	return 0;
+}
+
+static int spacemit_rproc_resume(struct device *dev)
+{
+	int ret;
+	struct rproc *rproc;
+	struct spacemit_rproc *srproc;
+
+	rproc = dev_get_drvdata(dev);
+	srproc = rproc->priv;
+
+	/* send msg to wakeup the rcpu */
+	ret = rpmsg_send(srproc->rpdev->ept, RCPU_EXIT_LOW_PWR_MODE,
+			strlen(RCPU_EXIT_LOW_PWR_MODE));
+
+	/* wait exit ok */
+	wait_for_completion(&srproc->rlowpwr_comp);
+
+	return 0;
+}
+
+static const struct dev_pm_ops spacemit_rproc_pm_ops = {
+	.suspend = spacemit_rproc_suspend,
+	.resume = spacemit_rproc_resume,
+};
+#endif
+
 static struct platform_driver spacemit_rproc_driver = {
 	.probe = spacemit_rproc_probe,
 	.remove = spacemit_rproc_remove,
 	.driver = {
 		.name = "spacemit-rproc",
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &spacemit_rproc_pm_ops,
+#endif
 		.of_match_table = spacemit_rproc_of_match,
 	},
 };
@@ -430,4 +580,3 @@ module_platform_driver(spacemit_rproc_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("sapcemit remote processor control driver");
-
