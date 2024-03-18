@@ -525,7 +525,7 @@
 			reg = <0x0 0x80000000 0x0 0x40800000>;
 		};
 
-		/* rcpu code & data & heap space */
+		/* sram area, used for rcpu code & data & heap space */
 		rcpu_mem_0: mem@c0800000 {
 			reg = <0x0 0xc0800000 0x0 0x40000>;
 			da_base = <0x0>;
