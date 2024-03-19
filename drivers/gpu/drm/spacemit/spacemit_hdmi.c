@@ -358,6 +358,7 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 	uint8_t *pvalue = message;
 	uint32_t value;
 	uint32_t reg, num;
+	int timeout = 1000;
 
 	DRM_DEBUG("hdmi_i2c_read ++%u\r\n", length);
 
@@ -385,9 +386,18 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 		}
 	} while(left > 0);
 
-	for(i=0; i<10; i++){
-		reg = hdmi_readb(hdmi, 0x0C);
-	}
+	while(timeout) {
+		if (hdmi_readb(hdmi, 0xc) & BIT(14) != 0)
+			break;
+
+		udelay(100);
+		timeout--;
+	};
+
+	if (timeout == 0)
+		DRM_INFO("%s wait hdmi ddc command done timeout\n", __func__);
+
+	hdmi_writeb(hdmi, 0xc, BIT(14));
 
 	DRM_DEBUG("hdmi_i2c_read --%u\r\n", length);
 
@@ -399,6 +409,7 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 	int i, count = 0, left = length;
 	uint8_t *pvalue = message;
 	uint32_t value, reg;
+	int timeout = 1000;
 
 	DRM_DEBUG("hdmi_i2c_write ++ %u\r\n", length);
 
@@ -424,9 +435,16 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 		}
 	} while(left > 0);
 
-	for(i=0; i<10; i++){
-		reg = hdmi_readb(hdmi, 0x0C);
-	}
+	while(timeout) {
+		if (hdmi_readb(hdmi, 0x0C) & BIT(14) != 0)
+			break;
+
+		udelay(100);
+		timeout--;
+	};
+
+	if (timeout == 0)
+		DRM_INFO("%s wait hdmi ddc command done timeout\n", __func__);
 
 	DRM_DEBUG("hdmi_i2c_write --%u\r\n", length);
 
