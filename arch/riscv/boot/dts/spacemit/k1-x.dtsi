@@ -2420,6 +2420,6 @@
 
 	sound_es8326: snd-card@1 {
 		compatible = "spacemit,spacemit-snd-es8326";
-		status = "ok";
+		status = "disabled";
 	};
 };
