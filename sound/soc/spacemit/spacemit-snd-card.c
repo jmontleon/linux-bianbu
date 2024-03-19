@@ -78,7 +78,7 @@ static struct snd_soc_dai_link spacemit_snd_es8326_dai_links[] = {
 };
 
 static struct snd_soc_card spacemit_snd_card_es8326 = {
-	.name = "spacemit-snd-es8326",
+	.name = "snd-es8326",
 	.owner = THIS_MODULE,
 };
 
@@ -93,7 +93,7 @@ static struct snd_soc_dai_link spacemit_snd_hdmi_dai_links[] = {
 };
 
 static struct snd_soc_card spacemit_snd_card_hdmi = {
-	.name = "spacemit-snd-hdmi",
+	.name = "snd-hdmi",
 	.owner = THIS_MODULE,
 };
 
@@ -115,11 +115,9 @@ static int spacemit_snd_pdev_probe(struct platform_device *pdev)
 		return 0;
 	}
 	spacemit_snd_card->dev = &pdev->dev;
-	printk("spacemit %s\n", __func__);
 	platform_set_drvdata(pdev, spacemit_snd_card);
 
 	ret =  devm_snd_soc_register_card(&pdev->dev, spacemit_snd_card);
-	printk("spacemit %s, register card ret = %d\n", __func__,ret);
 	return ret;
 }
 
