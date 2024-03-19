@@ -114,6 +114,12 @@ static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
 			    SNDRV_PCM_INFO_BATCH |
 			    SNDRV_PCM_INFO_PAUSE,
+	.formats          = SNDRV_PCM_FMTBIT_S16_LE,
+	.rates            = SNDRV_PCM_RATE_48000,
+	.rate_min         = SNDRV_PCM_RATE_48000,
+	.rate_max         = SNDRV_PCM_RATE_48000,
+	.channels_min     = 2,
+	.channels_max     = 2,
 	.buffer_bytes_max = 64 * 1024,
 	.period_bytes_min = 32,
 	.period_bytes_max = 8 * 1024,
