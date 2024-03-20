@@ -587,10 +587,10 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_mmc2>;
 	bus-width = <4>;
+	non-removable;
 	vqmmc-supply = <&ldo_7>;
 	no-mmc;
 	no-sd;
-	//mmc-pwrseq = <&sdio_pwrseq>;
 	keep-power-in-suspend;
 	/* bcmdhd use private oob solution rather than dat1/standard wakeup */
 	/delete-property/ enable-sdio-wakeup;
@@ -604,17 +604,11 @@
 			)>;
 	spacemit,sdh-quirks2 = <(
 			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_BROKEN_PHY_MODULE |
-			SDHCI_QUIRK2_DISABLE_PROBE_CDSCAN
+			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
 	spacemit,rx_dline_reg = <0x01>;
 	spacemit,sdh-freq = <204800000>;
 	status = "okay";
-
-	//brcmf: wifi@1 {
-	//	compatible = "brcm,bcm4329-fmac";
-	//	reg = <1>;
-	//};
 };
 
 /* eMMC */
