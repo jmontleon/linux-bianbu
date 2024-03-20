@@ -332,6 +332,49 @@ lock_mutex:
     return ret;
 }
 
+static int wait_switch_out(struct mvx_session *session)
+{
+    int ret = 0;
+
+    while (is_fw_loaded(session) != false &&
+            session->switched_in == true &&
+            session->error == 0) {
+        mutex_unlock(session->isession.mutex);
+
+        ret = wait_event_timeout(
+                session->waitq,
+                is_fw_loaded(session) == false ||
+                session->switched_in == false ||
+                session->error != 0,
+                msecs_to_jiffies(session_wait_pending_timeout));
+
+        if (ret < 0)
+            goto lock_mutex;
+
+        if (ret == 0) {
+            send_event_error(session, -ETIME);
+            ret = -ETIME;
+            goto lock_mutex;
+        }
+
+        mutex_lock(session->isession.mutex);
+    }
+
+    return session->error;
+
+lock_mutex:
+    mutex_lock(session->isession.mutex);
+
+    if (ret < 0) {
+        MVX_SESSION_WARN(session,
+                "wait_switch_out returned error. ret=%d, error=%d, msg_pending=%d, switch_in=%d",
+                ret, session->error, session->fw.msg_pending, session->switched_in);
+
+        print_debug(session);
+    }
+    return ret;
+}
+
 static int send_irq(struct mvx_session *session)
 {
 	if (IS_ERR_OR_NULL(session->csession))
@@ -2255,6 +2298,10 @@ int mvx_session_streamoff(struct mvx_session *session,
         }
         if (session->fw_state == MVX_FW_STATE_STOPPED) {
             fw_switch_out(session);
+            wait_switch_out(session);
+            if (session->switched_in) {
+                MVX_SESSION_WARN(session, "warn: switch_in is %d when stream off done.", session->switched_in);
+            }
         }
     }
 dequeue_buffers:
