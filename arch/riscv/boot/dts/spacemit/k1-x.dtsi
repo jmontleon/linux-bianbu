@@ -65,12 +65,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_1: cpu@1 {
@@ -99,12 +93,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_2: cpu@2 {
@@ -133,12 +121,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_3: cpu@3 {
@@ -167,12 +149,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_4: cpu@4 {
@@ -201,12 +177,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_5: cpu@5 {
@@ -235,12 +205,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_6: cpu@6 {
@@ -269,12 +233,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		cpu_7: cpu@7 {
@@ -303,12 +261,6 @@
 				compatible = "riscv,cpu-intc";
 				interrupt-controller;
 			};
-
-                         thermal-idle {
-                                 #cooling-cells = <2>;
-                                 duration-us = <10000>;
-                                 exit-latency-us = <500>;
-                         };
 		};
 
 		clst0_l2_cache: l2-cache0 {
@@ -2096,11 +2048,18 @@
 					cls0_trip3: cls0-trip-point3 {
 						temperature = <105000>;
 						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls0_trip4: cls0-trip-point4 {
+						temperature = <115000>;
+						hysteresis = <5000>;
 						type = "critical";
 					};
 				};
 
 				cooling-maps {
+/*
 					map0 {
 						trip = <&cls0_trip1>;
 						cooling-device = <&cpu_0 1 2>,
@@ -2116,11 +2075,16 @@
 								 <&cpu_2 3 4>,
 								 <&cpu_3 3 4>;
 					};
-
+*/
 					map2 {
-						trip = <&cls0_trip2>;
-						cooling-device = <&{/cpus/cpu@2/thermal-idle} 0 15>,
-							<&{/cpus/cpu@3/thermal-idle} 0 15>;
+						trip = <&cls0_trip3>;
+/*
+						cooling-device = <&{/cpus/cpu@3/thermal-hotplug} 0 1>;
+*/
+						cooling-device = <&cpu_0 1 1>,
+								 <&cpu_1 1 1>,
+								 <&cpu_2 1 1>,
+								 <&cpu_3 1 1>;
 					};
 				};
 			};
@@ -2152,11 +2116,18 @@
 					cls1_trip3: cls1-trip-point3 {
 						temperature = <105000>;
 						hysteresis = <5000>;
+						type = "passive";
+					};
+
+					cls1_trip4: cls1-trip-point4 {
+						temperature = <115000>;
+						hysteresis = <5000>;
 						type = "critical";
 					};
 				};
 
 				cooling-maps {
+/*
 					map0 {
 						trip = <&cls1_trip1>;
 						cooling-device = <&cpu_4 1 2>,
@@ -2172,14 +2143,18 @@
 								 <&cpu_6 3 4>,
 								 <&cpu_7 3 4>;
 					};
-
+*/
 					map2 {
-						trip = <&cls1_trip2>;
-						cooling-device = <&{/cpus/cpu@6/thermal-idle} 0 15>,
-							<&{/cpus/cpu@7/thermal-idle} 0 15>;
+						trip = <&cls1_trip3>;
+/*
+						cooling-device = <&{/cpus/cpu@7/thermal-hotplug} 0 1>;
+*/
+						cooling-device = <&cpu_4 1 1>,
+								 <&cpu_5 1 1>,
+								 <&cpu_6 1 1>,
+								 <&cpu_7 1 1>;
 					};
 				};
-
 			};
 		};
 
