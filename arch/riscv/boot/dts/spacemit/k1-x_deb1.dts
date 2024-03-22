@@ -326,6 +326,7 @@
 				regulator-name = "dcdc1";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3450000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
@@ -333,6 +334,7 @@
 				regulator-name = "dcdc2";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3450000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
@@ -340,6 +342,7 @@
 				regulator-name = "dcdc3";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1800000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
@@ -347,6 +350,7 @@
 				regulator-name = "dcdc4";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
@@ -354,6 +358,7 @@
 				regulator-name = "dcdc5";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3450000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
@@ -361,6 +366,7 @@
 				regulator-name = "dcdc6";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3450000>;
+				regulator-ramp-delay = <5000>;
 				regulator-always-on;
 			};
 
@@ -930,11 +936,11 @@
 	status = "okay";
 };
 
-&cls0_trip3 {
+&cls0_trip4 {
 	temperature = <115000>;
 };
 
-&cls1_trip3 {
+&cls1_trip4 {
 	temperature = <115000>;
 };
 
