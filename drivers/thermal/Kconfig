@@ -202,6 +202,13 @@ config CPU_IDLE_THERMAL
 	  This implements the CPU cooling mechanism through
 	  idle injection. This will throttle the CPU by injecting
 	  idle cycle.
+
+config CPU_HOTPLUG_THERMAL
+	bool "CPU hotplug cooling device"
+	depends on HOTPLUG_CPU && SOC_SPACEMIT
+	help
+	  This implements the CPU cooling mechanism through
+	  cpu hotplug.
 endif
 
 config DEVFREQ_THERMAL
