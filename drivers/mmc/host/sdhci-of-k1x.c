@@ -1039,7 +1039,8 @@ static int spacemit_sw_rx_select_window(struct sdhci_host *host, u32 opcode)
 	u32 ier;
 	unsigned long flags = 0;
 	int err = 0;
-	struct tuning_window *window;
+	int i, j, len;
+	struct tuning_window tmp;
 	struct mmc_host *mmc = host->mmc;
 	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
 	struct rx_tuning *rxtuning = &pdata->rxtuning;
@@ -1049,7 +1050,6 @@ static int spacemit_sw_rx_select_window(struct sdhci_host *host, u32 opcode)
 	ier = sdhci_readl(host, SDHCI_INT_ENABLE);
 	spacemit_sdhci_clear_set_irqs(host, ier, SDHCI_INT_DATA_AVAIL);
 
-	window = &rxtuning->windows[WINDOW_1ST];
 	min = SDHC_RX_TUNE_DELAY_MIN;
 	do {
 		/* find the mininum delay first which can pass tuning */
@@ -1097,13 +1097,19 @@ static int spacemit_sw_rx_select_window(struct sdhci_host *host, u32 opcode)
 		pr_notice("%s: pass window [%d %d) \n", mmc_hostname(host->mmc), min, max);
 		/* store the top 3 window */
 		if ((max - min) >= rxtuning->window_limit) {
-			window->max_delay = max;
-			window->min_delay = min;
-			window->type = MIDDLE_WINDOW;
-			if (window == &rxtuning->windows[WINDOW_3RD])
-				break;
-			else
-				window++;
+			tmp.max_delay = max;
+			tmp.min_delay = min;
+			tmp.type = MIDDLE_WINDOW;
+			for (i = 0; i < CANDIDATE_WIN_NUM; i++) {
+				len = rxtuning->windows[i].max_delay - rxtuning->windows[i].min_delay;
+				if ((tmp.max_delay - tmp.min_delay) > len) {
+					for (j = CANDIDATE_WIN_NUM - 1; j > i; j--) {
+						rxtuning->windows[j] = rxtuning->windows[j-1];
+					}
+					rxtuning->windows[i] = tmp;
+					break;
+				}
+			}
 		}
 		min = max + SDHC_RX_TUNE_DELAY_STEP;
 	} while (min < SDHC_RX_TUNE_DELAY_MAX);
