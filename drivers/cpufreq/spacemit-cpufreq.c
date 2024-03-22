@@ -22,6 +22,12 @@ static struct notifier_block vol_constraints_notifier;
 static struct freq_constraints vol_constraints;
 static struct per_device_qos *vol_qos[CONFIG_NR_CPUS];
 
+#ifdef CONFIG_CPU_HOTPLUG_THERMAL
+struct thermal_cooling_device **ghotplug_cooling;
+extern struct thermal_cooling_device **
+of_hotplug_cooling_register(struct cpufreq_policy *policy);
+#endif
+
 static int spacemit_vol_qos_notifier_call(struct notifier_block *nb, unsigned long action, void *data)
 {
 	regulator_set_voltage(vol_qos[0]->regulator, action * 1000, action * 1000);
@@ -77,6 +83,13 @@ static int spacemit_policy_notifier(struct notifier_block *nb,
 		freq_qos_add_request(&vol_constraints, &vol_qos[cpu]->qos, FREQ_QOS_MIN,
 				regulator_get_voltage(vol_qos[cpu]->regulator) / 1000);
 
+#ifdef CONFIG_CPU_HOTPLUG_THERMAL
+       ghotplug_cooling = of_hotplug_cooling_register(policy);
+       if (!ghotplug_cooling) {
+               pr_err("register hotplug cpu cooling failed\n");
+               return -EINVAL;
+       }
+#endif
 	return 0;
 }
 
