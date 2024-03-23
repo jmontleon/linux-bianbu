@@ -999,7 +999,10 @@ static int es8326_resume(struct snd_soc_component *component)
 			   ES8326_MUTE);
 
 	regmap_write(es8326->regmap, ES8326_ADC_MUTE, 0x0f);
-
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	regmap_write(es8326->regmap, ES8326_ADC1_SRC, es8326->mic1_src);
+	regmap_write(es8326->regmap, ES8326_ADC2_SRC, es8326->mic2_src);
+#endif
 	es8326->jack_remove_retry = 0;
 	es8326->hp = 0;
 	return 0;
