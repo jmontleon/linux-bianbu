@@ -387,7 +387,7 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 	} while(left > 0);
 
 	while(timeout) {
-		if (hdmi_readb(hdmi, 0xc) & BIT(14) != 0)
+		if ((hdmi_readb(hdmi, 0xc) & BIT(14)) != 0)
 			break;
 
 		udelay(100);
@@ -436,7 +436,7 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 	} while(left > 0);
 
 	while(timeout) {
-		if (hdmi_readb(hdmi, 0x0C) & BIT(14) != 0)
+		if ((hdmi_readb(hdmi, 0x0C) & BIT(14)) != 0)
 			break;
 
 		udelay(100);
