@@ -1596,7 +1596,7 @@
 			ptp-support;
 			ptp-clk-rate = <10000000>;
 			lpm-qos = <7>;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1618,7 +1618,7 @@
 			ptp-support;
 			ptp-clk-rate = <10000000>;
 			lpm-qos = <7>;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
