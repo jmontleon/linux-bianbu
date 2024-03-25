@@ -2770,7 +2770,7 @@ static int emac_probe(struct platform_device *pdev)
 		pr_err("register_netdev failed\n");
 		goto err_mdio_deinit;
 	}
-	dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 
 	netif_napi_add(ndev, &priv->napi, emac_rx_poll);
 
