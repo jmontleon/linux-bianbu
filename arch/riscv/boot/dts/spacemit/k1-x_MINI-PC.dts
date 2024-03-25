@@ -629,6 +629,7 @@
 &pcie2_rc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie2_4>;
+	num-lanes = <1>;
 	status = "okay";
 };
 
