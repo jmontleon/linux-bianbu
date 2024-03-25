@@ -531,7 +531,7 @@
 	spacemit,apbc_assar_reg = <0xD4015054>;
 	spacemit,rx_dline_reg = <0x0>;
 	spacemit,tx_dline_reg = <0x0>;
-	//spacemit,tx_delaycode = <0xA0>;
+	spacemit,tx_delaycode = <0x7f>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <204800000>;
 	status = "okay";
@@ -542,16 +542,15 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_mmc2>;
 	bus-width = <4>;
+	non-removable;
 	vqmmc-supply = <&ldo_7>;
 	no-mmc;
 	no-sd;
-	//mmc-pwrseq = <&sdio_pwrseq>;
 	keep-power-in-suspend;
 	/* bcmdhd use private oob solution rather than dat1/standard wakeup */
 	/delete-property/ enable-sdio-wakeup;
 	spacemit,sdh-host-caps-disable = <(
-			MMC_CAP_UHS_SDR104 |
-			MMC_CAP_UHS_SDR50 |
+			MMC_CAP_UHS_DDR50 |
 			MMC_CAP_NEEDS_POLL
 			)>;
 	spacemit,sdh-quirks = <(
@@ -560,17 +559,12 @@
 			)>;
 	spacemit,sdh-quirks2 = <(
 			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_BROKEN_PHY_MODULE |
-			SDHCI_QUIRK2_DISABLE_PROBE_CDSCAN
+			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
 	spacemit,rx_dline_reg = <0x01>;
+	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <204800000>;
 	status = "disabled";
-
-	//brcmf: wifi@1 {
-	//	compatible = "brcm,bcm4329-fmac";
-	//	reg = <1>;
-	//};
 };
 
 /* eMMC */
