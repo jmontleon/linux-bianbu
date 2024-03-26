@@ -1469,14 +1469,13 @@ static int dpu_init(struct spacemit_dpu *dpu)
 	writel(0xFF65FF05, addr + 0x4c);
 #endif
 
-	if (hwdev->is_hdmi) {
-		value = readl_relaxed(ciu_addr + 0x011c);
-		DRM_INFO("%s ciu offset 0x011c:0x%x\n", __func__, value);
-		writel(value | 0xff00, ciu_addr + 0x0124);
-		udelay(2);
-		value = readl_relaxed(ciu_addr + 0x0124);
-		DRM_INFO("%s ciu offset 0x0124:0x%x\n", __func__, value);
-	}
+	// modified hdmi and mipi dsi qos
+	value = readl_relaxed(ciu_addr + 0x011c);
+	DRM_INFO("%s ciu offset 0x011c:0x%x\n", __func__, value);
+	writel(value | 0xffff, ciu_addr + 0x0124);
+	udelay(2);
+	value = readl_relaxed(ciu_addr + 0x0124);
+	DRM_INFO("%s ciu offset 0x0124:0x%x\n", __func__, value);
 
 	saturn_init_regs(dpu);
 	saturn_setup_dma_top(dpu);
