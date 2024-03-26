@@ -13,6 +13,7 @@
 #include <linux/unaligned.h>
 #include <linux/bitfield.h>
 #include <linux/pci.h>
+#include <linux/usb/phy.h>
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -594,6 +595,10 @@ static void xhci_clear_port_change_bit(struct xhci_hcd *xhci, u16 wValue,
 		break;
 	case USB_PORT_FEAT_C_CONNECTION:
 		status = PORT_CSC;
+#if defined(CONFIG_SOC_SPACEMIT_K1X)
+		usb_phy_notify_connect(xhci_to_hcd(xhci)->usb_phy,
+			USB_SPEED_HIGH);
+#endif
 		port_change_bit = "connect";
 		break;
 	case USB_PORT_FEAT_C_OVER_CURRENT:
