@@ -1199,6 +1199,7 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 	if ((host->mmc->caps2 & MMC_CAP2_NO_MMC) || (host->quirks2 & SDHCI_QUIRK2_BROKEN_PHY_MODULE)) {
 		spacemit_sw_tx_set_dlinereg(host, pdata->tx_dline_reg);
 		spacemit_sw_tx_set_delaycode(host, pdata->tx_delaycode);
+		pr_info("%s: set tx_delaycode: %d\n", mmc_hostname(mmc), pdata->tx_delaycode);
 		spacemit_sw_tx_tuning_prepare(host);
 	}
 
@@ -1519,8 +1520,34 @@ ssize_t sdhci_sysfs_pmux_set(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+ssize_t sdhci_tx_delaycode_show(struct device *dev, struct device_attribute *attr,
+					char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct mmc_host *mmc = host->mmc;
+	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+
+	return sprintf(buf, "0x%02x\n", pdata->tx_delaycode);
+}
+
+ssize_t sdhci_tx_delaycode_set(struct device *dev, struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct mmc_host *mmc = host->mmc;
+	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+	u8 delaycode;
+
+	if (kstrtou8(buf, 0, &delaycode))
+		return -EINVAL;
+
+	pdata->tx_delaycode = delaycode;
+	return count;
+}
+
 static struct device_attribute sdhci_sysfs_files[] = {
 	__ATTR(sd_card_pmux, S_IWUSR, NULL, sdhci_sysfs_pmux_set),
+	__ATTR(tx_delaycode, S_IRUGO|S_IWUSR, sdhci_tx_delaycode_show, sdhci_tx_delaycode_set),
 };
 
 static int spacemit_sdhci_probe(struct platform_device *pdev)
@@ -1656,7 +1683,7 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 		pr_debug("%s: get card pinctrl\n", mmc_hostname(host->mmc));
 		spacemit->pinctrl = devm_pinctrl_get(&pdev->dev);
 	}
-	if (!(host->mmc->caps2 & MMC_CAP2_NO_SD)) {
+	if (host->mmc->caps2 & MMC_CAP2_NO_MMC) {
 #ifdef CONFIG_SYSFS
 		for (i = 0; i < ARRAY_SIZE(sdhci_sysfs_files); i++) {
 			device_create_file(dev, &sdhci_sysfs_files[i]);
