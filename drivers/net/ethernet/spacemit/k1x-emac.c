@@ -1383,7 +1383,7 @@ static int emac_rx_clean_desc(struct emac_priv *priv, int budget)
 
 			skb->ip_summed = CHECKSUM_NONE;
 
-			netif_receive_skb(skb);
+			napi_gro_receive(&priv->napi, skb);
 
 			ndev->stats.rx_packets++;
 			ndev->stats.rx_bytes += skb_len;
@@ -1522,7 +1522,7 @@ static int emac_tx_mem_map(struct emac_priv *priv, struct sk_buff *skb,
 
 	/* if the data is fragmented */
 	for (f = 0; f < frag_num; f++) {
-		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+		const skb_frag_t *frag = &skb_shinfo(skb)->frags[f];
 
 		len = skb_frag_size(frag);
 
@@ -2678,6 +2678,7 @@ static int emac_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ndev->hw_features = NETIF_F_SG;
+	ndev->features |= ndev->hw_features;
 	priv = netdev_priv(ndev);
 	priv->ndev = ndev;
 	priv->pdev = pdev;
