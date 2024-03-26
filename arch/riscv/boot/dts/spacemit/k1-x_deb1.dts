@@ -156,6 +156,18 @@
 			reset-gpios     = <&gpio 63 0>;
 		};
 	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led1 {
+			label = "sys-led";
+			gpios = <&gpio 96 0>;
+			linux,default-trigger = "heartbeat";
+			default-state = "on";
+			status = "okay";
+		};
+	};
 };
 
 &uart0 {
