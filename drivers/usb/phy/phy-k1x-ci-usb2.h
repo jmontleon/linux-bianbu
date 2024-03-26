@@ -2,45 +2,33 @@
 
 #ifndef __MV_USB2_H
 #define __MV_USB2_H
+#include <linux/usb/phy.h>
 
-#define MV_USB2_PHY_INDEX	0
-#define MV_USB2_OTG_PHY_INDEX	1
+/* phy regs */
+#define USB2_PHY_REG01			0x4
+#define USB2_PHY_REG01_PLL_IS_READY	(0x1 << 0)
+#define USB2_PHY_REG04			0x10
+#define USB2_PHY_REG04_EN_HSTSOF	(0x1 << 0)
+#define USB2_PHY_REG04_AUTO_CLEAR_DIS	(0x1 << 2)
+#define USB2_PHY_REG08			0x20
+#define USB2_PHY_REG08_DISCON_DET	(0x1 << 9)
+#define USB2_PHY_REG0D			0x34
+#define USB2_PHY_REG40			0x40
+#define USB2_PHY_REG40_CLR_DISC	(0x1 << 0)
+#define USB2_PHY_REG26			0x98
+#define USB2_PHY_REG22			0x88
+#define USB2_CFG_FORCE_CDRCLK		(0x1 << 6)
+#define USB2_PHY_REG06			0x18
+#define USB2_CFG_HS_SRC_SEL		(0x1 << 0)
 
-#define PHY_28LP	0x2800
-#define PHY_40LP	0x4000
-#define PHY_55LP	0x5500
-
-#define MV_PHY_FLAG_PLL_LOCK_BYPASS	(1 << 0)
-
-/* phy_flag is used to record the feature supported */
-struct mv_usb2_phydata {
-	unsigned long phy_type;
-	u32 phy_rev;
-	u32 phy_flag;
-};
+#define USB2D_CTRL_RESET_TIME_MS	50
 
 struct mv_usb2_phy {
 	struct usb_phy		phy;
 	struct platform_device	*pdev;
 	void __iomem		*base;
 	struct clk		*clk;
-	struct mv_usb2_phydata  drv_data;
+	bool		handle_connect_change;
 };
-
-/*
- * PHY revision: For those has small difference with default setting.
- * bit [15..8]: represent PHY IP as below:
- *     PHY_55LP        0x5500,
- *     PHY_40LP        0x4000,
- *     PHY_28LP        0x2800,
- */
-#define REV_PXA168     0x5500
-#define REV_PXA910     0x5501
-
-#ifdef CONFIG_USB_GADGET_CHARGE_ONLY
-extern int is_charge_only_mode(void);
-extern void charge_only_send_uevent(int event);
-extern void usb_phy_force_dp_dm(struct usb_phy *phy, bool is_force);
-#endif /* CONFIG_USB_GADGET_CHARGE_ONLY */
 
 #endif
