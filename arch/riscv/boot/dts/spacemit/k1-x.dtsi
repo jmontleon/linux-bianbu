@@ -1721,6 +1721,7 @@
 		usb2phy: usb2phy@0xc0a30000 {
 			compatible = "spacemit,usb2-phy";
 			reg = <0x0 0xc0a30000  0x0 0x200>;
+			spacemit,handle_connect_change;
 			clocks = <&ccu CLK_USB30>;
 			status = "disabled";
 		};
