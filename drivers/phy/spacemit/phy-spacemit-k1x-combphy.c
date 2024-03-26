@@ -219,12 +219,6 @@ static int spacemit_combphy_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(priv->phy_rst),
 					 "failed to get phy reset\n");
 
-	ret = reset_control_assert(priv->phy_rst);
-	if (ret) {
-		dev_err(dev, "failed to reset assert phy\n");
-		return ret;
-	}
-
 	priv->phy = devm_phy_create(dev, NULL, &spacemit_combphy_ops);
 	if (IS_ERR(priv->phy)) {
 		dev_err(dev, "failed to create combphy\n");
