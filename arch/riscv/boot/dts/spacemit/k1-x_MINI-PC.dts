@@ -499,8 +499,8 @@
 	/* store forward mode */
 	tx-threshold = <1518>;
 	rx-threshold = <12>;
-	tx-ring-num = <128>;
-	rx-ring-num = <128>;
+	tx-ring-num = <1024>;
+	rx-ring-num = <1024>;
 	dma-burst-len = <5>;
 
 	ref-clock-from-phy;
@@ -540,8 +540,8 @@
         /* store forward mode */
 	tx-threshold = <1518>;
 	rx-threshold = <12>;
-	tx-ring-num = <128>;
-	rx-ring-num = <128>;
+	tx-ring-num = <1024>;
+	rx-ring-num = <1024>;
 	dma-burst-len = <5>;
 
 	ref-clock-from-phy;
