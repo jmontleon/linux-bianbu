@@ -17,29 +17,8 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/platform_data/k1x_ci_usb.h>
-#include <linux/usb/phy.h>
 #include <linux/of_address.h>
 #include "phy-k1x-ci-usb2.h"
-
-/* phy regs */
-
-#define USB2_PHY_REG01			0x4
-#define USB2_PHY_REG01_PLL_IS_READY	(0x1 << 0)
-#define USB2_PHY_REG04			0x10
-#define USB2_PHY_REG04_EN_HSTSOF	(0x1 << 0)
-#define USB2_PHY_REG04_AUTO_CLEAR_DIS	(0x1 << 2)
-#define USB2_PHY_REG08			0x20
-#define USB2_PHY_REG08_DISCON_DET	(0x1 << 9)
-#define USB2_PHY_REG0D			0x34
-#define USB2_PHY_REG26			0x98
-#define USB2_PHY_REG22			0x88
-#define USB2_CFG_FORCE_CDRCLK		(0x1 << 6)
-#define USB2_PHY_REG06			0x18
-#define USB2_CFG_HS_SRC_SEL		(0x1 << 0)
-
-#define USB2D_CTRL_RESET_TIME_MS	50
-
-static struct mv_usb2_phy *mv_phy_ptr;
 
 static int mv_usb2_phy_init(struct usb_phy *phy)
 {
@@ -92,26 +71,16 @@ static void mv_usb2_phy_shutdown(struct usb_phy *phy)
 	clk_disable(mv_phy->clk);
 }
 
-static const struct of_device_id mv_usbphy_dt_match[];
-
-static int mv_usb2_get_phydata(struct platform_device *pdev,
-				struct mv_usb2_phy *mv_phy)
+static int mv_usb2_phy_connect_change(struct usb_phy *phy,
+					  enum usb_device_speed speed)
 {
-	struct device_node *np = pdev->dev.of_node;
-	const struct of_device_id *match;
-	u32 phy_rev;
-
-	match = of_match_device(mv_usbphy_dt_match, &pdev->dev);
-	if (!match)
-		return -ENODEV;
-
-	mv_phy->drv_data.phy_type = (unsigned long)match->data;
-
-	if (!of_property_read_u32(np, "spacemit,usb2-phy-rev", &phy_rev))
-		mv_phy->drv_data.phy_rev = phy_rev;
-	else
-		dev_info(&pdev->dev, "No PHY revision found, use the default setting!");
-
+	struct mv_usb2_phy *mv_phy = container_of(phy, struct mv_usb2_phy, phy);
+	uint32_t reg;
+	if (!mv_phy->handle_connect_change)
+		return 0;
+	reg = readl(mv_phy->base + USB2_PHY_REG40);
+	reg |= USB2_PHY_REG40_CLR_DISC;
+	writel(reg, mv_phy->base + USB2_PHY_REG40);
 	return 0;
 }
 
@@ -119,7 +88,6 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 {
 	struct mv_usb2_phy *mv_phy;
 	struct resource *r;
-	int ret = 0;
 
 	dev_dbg(&pdev->dev, "k1x-ci-usb-phy-probe: Enter...\n");
 	mv_phy = devm_kzalloc(&pdev->dev, sizeof(*mv_phy), GFP_KERNEL);
@@ -129,12 +97,6 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 	}
 
 	mv_phy->pdev = pdev;
-
-	ret = mv_usb2_get_phydata(pdev, mv_phy);
-	if (ret) {
-		dev_err(&pdev->dev, "No matching phy founded\n");
-		return ret;
-	}
 
 	mv_phy->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(mv_phy->clk)) {
@@ -154,17 +116,20 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 
+	mv_phy->handle_connect_change = device_property_read_bool(&pdev->dev,
+		"spacemit,handle_connect_change");
+
 	mv_phy->phy.dev = &pdev->dev;
 	mv_phy->phy.label = "mv-usb2";
 	mv_phy->phy.type = USB_PHY_TYPE_USB2;
 	mv_phy->phy.init = mv_usb2_phy_init;
 	mv_phy->phy.shutdown = mv_usb2_phy_shutdown;
+	mv_phy->phy.notify_disconnect = mv_usb2_phy_connect_change;
+	mv_phy->phy.notify_connect = mv_usb2_phy_connect_change;
 
 	usb_add_phy_dev(&mv_phy->phy);
 
 	platform_set_drvdata(pdev, mv_phy);
-
-	mv_phy_ptr = mv_phy;
 
 	return 0;
 }
