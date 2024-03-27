@@ -131,6 +131,17 @@
 		regulator-max-microvolt = <4000000>;
 		vin-supply = <&dc_12v>;
 	};
+
+	vcc_touchpad: vcc-touchpad {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_touchpad";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		enable-active-high;
+		regulator-boot-on;
+		gpios = <&gpio 49 0>;
+		vin-supply = <&ldo_8>;
+	};
 };
 
 &uart0 {
@@ -177,6 +188,24 @@
 		mac_address1: mac_address1@6 {
 			reg = <0x6 6>;
 		};
+	};
+};
+
+&i2c4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c4_2>;
+	status = "okay";
+
+	touchpad: hid@2c {
+		compatible = "hid-over-i2c";
+		reg = <0x2d>;
+		hid-descr-addr = <0x0020>;
+		post-power-on-delay-ms = <200>;
+
+		vdd-supply = <&vcc_touchpad>;
+		interrupt-parent = <&gpio>;
+		interrupts = <50 2>;
+		status = "okay";
 	};
 };
 
