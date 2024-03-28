@@ -78,6 +78,7 @@ enum SPM8821_reg {
 
 #define SPM8821_PWR_CTRL2		0x7e
 #define SPM8821_SW_SHUTDOWN_BIT_MSK	0x4
+#define SPM8821_SW_RESET_BIT_MSK	0x2
 
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
@@ -759,6 +760,10 @@ static struct mfd_match_data spm8821_mfd_match_data = {		\
 	.shutdown = {						\
 		.reg = SPM8821_PWR_CTRL2,			\
 		.bit = SPM8821_SW_SHUTDOWN_BIT_MSK,		\
+	},							\
+	.reboot = {						\
+		.reg = SPM8821_PWR_CTRL2,			\
+		.bit = SPM8821_SW_RESET_BIT_MSK,		\
 	},							\
 };
 
