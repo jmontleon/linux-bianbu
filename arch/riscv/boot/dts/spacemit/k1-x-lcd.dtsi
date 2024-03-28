@@ -19,16 +19,6 @@
 			<&ccu CLK_DPU_ESC>,
 			<&ccu CLK_DPU_BIT>;
 		clock-names = "pxclk", "mclk", "hclk", "escclk", "bitclk";
-		assigned-clocks = <&ccu CLK_DPU_PXCLK>,
-			<&ccu CLK_DPU_MCLK>,
-			<&ccu CLK_DPU_HCLK>,
-			<&ccu CLK_DPU_ESC>,
-			<&ccu CLK_DPU_BIT>;
-		assigned-clock-parents = <&ccu CLK_PLL1_614>,
-			<&ccu CLK_PLL1_307P2>,
-			<0>,
-			<&ccu CLK_PLL1_51P2_AP>,
-			<&ccu CLK_PLL1_1228>;
 		resets = <&reset RESET_MIPI>,
 			<&reset RESET_LCD_MCLK>,
 			<&reset RESET_LCD>,

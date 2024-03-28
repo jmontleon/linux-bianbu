@@ -496,8 +496,6 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 
 		set_clk_val = mode->clock * 1000;
 		DRM_INFO("pxclk set_clk_val %lld\n", set_clk_val);
-		set_clk_val = DPU_PXCLK_DEFAULT;
-		DRM_INFO("pxclk default %lld\n", set_clk_val);
 
 		if (set_clk_val) {
 			set_clk_val = clk_round_rate(clk_ctx->pxclk, set_clk_val);
