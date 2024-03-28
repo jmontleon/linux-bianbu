@@ -26,7 +26,7 @@
 		work-mode = <0>;
 		rgb-mode = <3>;
 		lane-number = <4>;
-		phy-freq = <624000>;
+		phy-freq = <1000000>;
 		split-enable = <0>;
 		eotp-enable = <0>;
 		burst-mode = <2>;
