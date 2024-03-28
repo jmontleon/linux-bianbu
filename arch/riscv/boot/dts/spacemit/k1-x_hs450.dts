@@ -680,3 +680,7 @@
         pinctrl-0 = <&pinctrl_sspa0_0>;
         status = "okay";
 };
+
+&watchdog {
+	spa,wdt-enable-restart-handler;
+};
