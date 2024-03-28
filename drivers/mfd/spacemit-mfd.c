@@ -57,13 +57,25 @@ static void spacemit_pm_power_off(void)
 
 static int spacemit_restart_notify(struct notifier_block *this, unsigned long mode, void *cmd)
 {
-	/* TODO */
+	int ret;
+	struct spacemit_pmic *pmic = (struct spacemit_pmic *)match_data->ptr;
+
+	ret = regmap_update_bits(pmic->regmap, match_data->reboot.reg,
+			match_data->reboot.bit, match_data->reboot.bit);
+	if (ret) {
+		pr_err("Failed to reboot device!\n");
+	}
+
+	while (1) {
+		asm volatile ("wfi");
+	}
+
 	return NOTIFY_DONE;
 }
 
 static struct notifier_block spacemit_restart_handler = {
 	.notifier_call = spacemit_restart_notify,
-	.priority = 192,
+	.priority = 0,
 };
 
 static int spacemit_prepare_sub_pmic(struct spacemit_pmic *pmic)
