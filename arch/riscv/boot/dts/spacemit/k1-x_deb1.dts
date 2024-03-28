@@ -190,6 +190,7 @@
 
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
+	spacemit-dpu-bitclk = <1000000000>;
 	dsi_1v2-supply = <&ldo_5>;
 	vin-supply-names = "dsi_1v2";
 	status = "disabled";
