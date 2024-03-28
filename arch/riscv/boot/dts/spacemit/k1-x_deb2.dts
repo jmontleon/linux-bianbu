@@ -923,3 +923,6 @@
 	temperature = <115000>;
 };
 
+&watchdog {
+	spa,wdt-enable-restart-handler;
+};
