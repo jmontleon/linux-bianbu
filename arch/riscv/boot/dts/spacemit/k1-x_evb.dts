@@ -151,6 +151,7 @@
 
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
+	spacemit-dpu-bitclk = <614400000>;
 	lcd_2v8-supply = <&ldo_13>;
 	lcd_1v8-supply = <&ldo_15>;
 	dsi_1v2-supply = <&ldo_17>;
