@@ -860,3 +860,7 @@
 &cls1_trip4 {
 	temperature = <115000>;
 };
+
+&watchdog {
+	spa,wdt-enable-restart-handler;
+};
