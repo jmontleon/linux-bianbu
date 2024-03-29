@@ -20,3 +20,17 @@ config DRM_SPACEMIT
 config SPACEMIT_MIPI_PANEL
 	tristate "MIPI Panel Support For Spacemit"
 	depends on DRM_SPACEMIT
+
+config DRM_LT8911EXB
+	tristate "Lontium LT8911EXB DSI to eDP"
+	default y
+	depends on DRM_SPACEMIT
+	select DRM_KMS_HELPER
+	select REGMAP_I2C
+	select DRM_PANEL
+	select DRM_MIPI_DSI
+	select AUXILIARY_BUS
+	select DRM_DP_AUX_BUS
+
+	help
+	  Support for Lontium LT8911EXB DSI to eDP driver.
