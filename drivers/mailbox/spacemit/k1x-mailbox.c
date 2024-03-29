@@ -223,9 +223,39 @@ static const struct of_device_id spacemit_mailbox_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, spacemit_mailbox_of_match);
 
+#ifdef CONFIG_PM_SLEEP
+static int k1x_mailbox_suspend_noirq(struct device *dev)
+{
+	int ret;
+	struct spacemit_mailbox *mbox = dev_get_drvdata(dev);
+
+//	ret = reset_control_assert(mbox->reset);
+
+	return 0;
+}
+
+static int k1x_mailbox_resume_noirq(struct device *dev)
+{
+	int ret;
+	struct spacemit_mailbox *mbox = dev_get_drvdata(dev);
+
+//	ret = reset_control_deassert(mbox->reset);
+
+	return 0;
+}
+
+static const struct dev_pm_ops k1x_mailbox_pm_qos = {
+	.suspend_noirq = k1x_mailbox_suspend_noirq,
+	.resume_noirq = k1x_mailbox_resume_noirq,
+};
+#endif
+
 static struct platform_driver spacemit_mailbox_driver = {
 	.driver = {
 		.name = "spacemit-mailbox",
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &k1x_mailbox_pm_qos,
+#endif
 		.of_match_table = spacemit_mailbox_of_match,
 	},
 	.probe  = spacemit_mailbox_probe,
