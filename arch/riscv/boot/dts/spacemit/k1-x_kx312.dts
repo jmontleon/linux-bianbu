@@ -643,6 +643,7 @@
 &pcie1_rc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie1_3>;
+	num-lanes = <1>;
 	status = "okay";
 };
 
