@@ -142,8 +142,8 @@ struct k1x_pcie {
 	struct irq_domain	*irq_domain;
 	enum dw_pcie_device_mode mode;
 	struct page             *msi_page;
+	struct page             *msix_page;
 	dma_addr_t              msix_addr;
-	void __iomem            *msix_vaddr;
 	struct	clk *clk_pcie;  /*include master slave slave_lite clk*/
 	struct	clk *clk_master;
 	struct	clk *clk_slave;
@@ -827,9 +827,13 @@ void k1x_pcie_msix_addr_alloc(struct dw_pcie_rp *pp)
 	u64 msi_target;
 	u32 reg;
 
-	k1x->msix_vaddr = dma_alloc_coherent(dev, PAGE_SIZE, &(k1x->msix_addr), GFP_KERNEL);
-	if (!k1x->msix_addr) {
-		dev_err(dev, "Failed to alloc MSIx data\n");
+	k1x->msix_page = alloc_page(GFP_KERNEL);
+	k1x->msix_addr = dma_map_page(dev, k1x->msix_page, 0, PAGE_SIZE,
+				    DMA_FROM_DEVICE);
+	if (dma_mapping_error(dev, k1x->msix_addr)) {
+		dev_err(dev, "Failed to map MSIX address\n");
+		__free_page(k1x->msix_page);
+		k1x->msix_page = NULL;
 		return;
 	}
 	msi_target = (u64)k1x->msix_addr;
