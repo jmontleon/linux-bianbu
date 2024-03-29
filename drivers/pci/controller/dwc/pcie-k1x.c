@@ -137,6 +137,7 @@ struct k1x_pcie {
 	struct phy		**phy;
 	int pcie_init_before_kernel;
 	int			port_id;
+	int			num_lanes;
 	int			link_gen;
 	struct irq_domain	*irq_domain;
 	enum dw_pcie_device_mode mode;
@@ -376,12 +377,7 @@ void rterm_force(struct k1x_pcie *k1x, u32 pcie_rcal)
 	int i, lane;
 	u32 val = 0;
 
-	if (k1x->port_id != 0x0) {
-		lane = 2;
-	} else {
-		lane = 1;
-	}
-
+	lane = k1x->num_lanes;
 	printk("pcie_rcal = 0x%08x\n", pcie_rcal);
 	printk("pcie port id = %d, lane num = %d\n", k1x->port_id, lane);
 
@@ -1483,6 +1479,15 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "k1x,pcie-port", &k1x->port_id)) {
 		dev_err(dev, "Failed to get pcie's port id\n");
 		return -EINVAL;
+	}
+
+	if (of_property_read_u32(np, "num-lanes", &k1x->num_lanes)) {
+		dev_warn(dev, "Failed to get pcie's port num-lanes.\n");
+		k1x->num_lanes = 1;
+	}
+	if((k1x->num_lanes < 1) || (k1x->num_lanes > 2)) {
+		dev_warn(dev, "configuration of num-lanes is invalid.\n");
+		k1x->num_lanes = 1;
 	}
 
 	/* parse clk source*/
