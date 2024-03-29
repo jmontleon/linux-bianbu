@@ -520,6 +520,12 @@
 			reg = <0x0 0x302fc000 0x0 0x4000>;
 			no-map;
 		};
+
+		/* memory snapshots of rcpu when rcpu poweroff */
+		rcpu_mem_snapshots: rcpu_mem_snapshots@30300000 {
+			reg = <0x0 0x30300000 0x0 0x40000>;
+			no-map;
+		};
 	};
 
 	soc: soc {
