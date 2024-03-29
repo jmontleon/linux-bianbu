@@ -255,9 +255,57 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 		}
 	}
 
+	if (spd->pm_index == K1X_PMU_AUD_PWR_DOMAIN) {
+		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, &val);
+		val |= (1 << AP_POWER_CTRL_AUDIO_AUTH_OFFSET);
+		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, val);
+	}
+
 	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
-	if (val & (1 << spd->param.bit_pwr_stat))
-		return 0;
+	if (val & (1 << spd->param.bit_pwr_stat)) {
+		if (!spd->param.use_hw) {
+			/* this is the sw type */
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+			val &= ~(1 << spd->param.bit_isolation);
+			regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+
+			usleep_range(10, 15);
+
+			/* mcu power off */
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+			val &= ~((1 << spd->param.bit_sleep1) | (1 << spd->param.bit_sleep2));
+			regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+
+			usleep_range(10, 15);
+
+			for (loop = 10000; loop >= 0; --loop) {
+				regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
+				if ((val & (1 << spd->param.bit_pwr_stat)) == 0)
+					break;
+				usleep_range(4, 6);
+			}
+		} else {
+			/* LCD */
+			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
+			val &= ~(1 << spd->param.bit_auto_pwr_on);
+			val &= ~(1 << spd->param.bit_hw_mode);
+			regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, val);
+
+			usleep_range(10, 30);
+
+			for (loop = 10000; loop >= 0; --loop) {
+				regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
+				if ((val & (1 << spd->param.bit_hw_pwr_stat)) == 0)
+					break;
+				usleep_range(4, 6);
+			}
+		}
+
+		if (loop < 0) {
+			pr_err("power-off domain: %d, error\n", spd->pm_index);
+			return -EBUSY;
+		}
+	}
 
 	if (!spd->param.use_hw) {
 		/* mcu power on */
