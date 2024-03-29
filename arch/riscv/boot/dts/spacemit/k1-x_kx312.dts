@@ -721,7 +721,7 @@
 	mbox-names = "vq0", "vq1";
 	interconnects = <&dram_range0>;
 	interconnect-names = "dma-mem";
-	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>;
+	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
 	status = "okay";
 };
 
