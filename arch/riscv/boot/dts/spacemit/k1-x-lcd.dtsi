@@ -56,7 +56,11 @@
 
 			port@0 {
 				reg = <0>;
-				dsi2_out: endpoint {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				dsi2_out: endpoint@0 {
+					reg = <0>;
 					remote-endpoint = <&dphy2_in>;
 				};
 			};
