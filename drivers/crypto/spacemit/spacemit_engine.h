@@ -4,6 +4,8 @@
  *
  * Copyright (C) 2023 Spacemit
  */
+#include <linux/clk.h>
+#include <linux/reset.h>
 
 #ifndef SPAECMIT_SECENG_H
 #define SPACEMIT_SECENG_H
@@ -311,6 +313,9 @@ struct sram_area{
 static struct sram_area sram_reserved[SRAM_NUM * SUBSYS_MAX];
 static unsigned long  sram_phy_base_src,sram_phy_base_dst;
 #endif
-
+struct aes_clk_reset_ctrl {
+	struct clk *clk;
+	struct reset_control *reset;
+};
 
 #endif
