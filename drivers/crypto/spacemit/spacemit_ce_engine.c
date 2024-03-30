@@ -31,7 +31,11 @@
 #include <../crypto/internal.h>
 #include <linux/notifier.h>
 #include <linux/mfd/syscon.h>
+#include <linux/clk.h>
+#include <linux/reset.h>
 #include "spacemit_engine.h"
+#include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
 
 struct device *dev;
 unsigned char *in_buffer, *out_buffer;
@@ -1717,6 +1721,7 @@ static int crypto_engine_probe(struct platform_device *pdev)
 	int i;
 	uint32_t addr_range[2];
 	unsigned int engine_irq;
+	struct aes_clk_reset_ctrl *ctrl;
 	char obj_name[32];
 	const char *irq_name;
 	u32 num_engines;
@@ -1730,6 +1735,19 @@ static int crypto_engine_probe(struct platform_device *pdev)
 
 	in_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_in, DMA_TO_DEVICE, GFP_KERNEL);
 	out_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_out, DMA_FROM_DEVICE, GFP_KERNEL);
+	ctrl = kmalloc(sizeof(struct aes_clk_reset_ctrl), GFP_KERNEL);
+	ctrl->clk = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(ctrl->clk))
+		return PTR_ERR(ctrl->clk);
+	clk_prepare_enable(ctrl->clk);
+
+	ctrl->reset = devm_reset_control_get_optional(&pdev->dev, NULL);
+	if(IS_ERR(ctrl->reset))
+		return PTR_ERR(ctrl->reset);
+	reset_control_deassert(ctrl->reset);
+
+	pm_runtime_enable(&pdev->dev);
+	platform_set_drvdata(pdev, ctrl);
 
 	for(i=0; i < num_engines; i++)
 	{
@@ -1818,7 +1836,6 @@ static int crypto_engine_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-
 #ifdef CONFIG_SPACEMIT_CRYPTO_SELF_TEST
 	ce_aes_test(num_engines);
 #endif
@@ -1830,8 +1847,11 @@ err_ioremap:
 
 static int crypto_engine_remove(struct platform_device *pdev)
 {
+	struct aes_clk_reset_ctrl *ctrl = dev_get_drvdata(&pdev->dev);
 	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, in_buffer, dma_addr_in, DMA_TO_DEVICE);
 	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, out_buffer, dma_addr_out, DMA_FROM_DEVICE);
+	clk_disable_unprepare(ctrl->clk);
+	reset_control_assert(ctrl->reset);
 	return 0;
 }
 
@@ -1841,10 +1861,38 @@ static struct of_device_id crypto_engine_of_match[] = {
 	{}
 };
 
+#ifdef CONFIG_PM_SLEEP
+static int spacemit_aes_suspend_noirq(struct device *dev)
+{
+	struct aes_clk_reset_ctrl *ctrl = dev_get_drvdata(dev);
+
+	clk_disable_unprepare(ctrl->clk);
+
+	return 0;
+}
+
+static int spacemit_aes_resume_noirq(struct device *dev)
+{
+	struct aes_clk_reset_ctrl *ctrl = dev_get_drvdata(dev);
+
+	clk_prepare_enable(ctrl->clk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops spacemit_aes_pm_qos = {
+	.suspend_noirq = spacemit_aes_suspend_noirq,
+	.resume_noirq = spacemit_aes_resume_noirq,
+};
+#endif
+
 static struct platform_driver crypto_engine_driver = {
 	.driver = {
 		.name = "crypto_engine",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &spacemit_aes_pm_qos,
+#endif
 		.of_match_table = crypto_engine_of_match,
 	},
 	.probe = crypto_engine_probe,
