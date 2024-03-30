@@ -2253,13 +2253,15 @@
 		};
 
 		spacemit_crypto_engine@d8600000 {
-                        compatible = "spacemit,crypto_engine";
-                        spacemit-crypto-engine-0 = <0xd8600000 0x00100000>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <113>;
-                        num-engines = <1>;
-                        status = "okay";
-                };
+			compatible = "spacemit,crypto_engine";
+			spacemit-crypto-engine-0 = <0xd8600000 0x00100000>;
+			interrupt-parent = <&intc>;
+			interrupts = <113>;
+			num-engines = <1>;
+			clocks = <&ccu CLK_AES>;
+			resets = <&reset RESET_AES>;
+			status = "okay";
+		};
 
 		ciu: ciu@d4282c00 {
 			compatible = "spacemit,aquila-ciu", "spacemit,ciu", "syscon";
