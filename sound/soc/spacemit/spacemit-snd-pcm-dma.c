@@ -427,7 +427,6 @@ static int spacemit_snd_dma_submit(struct spacemit_snd_dmadata *dmadata)
 #endif
 	{
 		if (dmadata->stream == SNDRV_PCM_STREAM_PLAYBACK){
-			memset(substream->dma_buffer.area, 0, I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4);
 			desc = dmaengine_prep_dma_cyclic(chan,
 				substream->dma_buffer.addr,
 				I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4,
@@ -473,6 +472,7 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 		dmadata = txdma;
 		switch (cmd) {
 		case SNDRV_PCM_TRIGGER_START:
+			memset(dmadata->substream->dma_buffer.area, 0, I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4);
 			ret = spacemit_snd_dma_submit(dmadata);
 			if (ret < 0)
 				goto unlock;
