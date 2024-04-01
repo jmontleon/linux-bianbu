@@ -101,7 +101,7 @@ static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	struct ssp_device *sspa = priv->sspa;
 	unsigned int isccr1 = 0;
 
-	pr_info("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __FUNCTION__);
 
 	/*clk*/
 	pr_debug("isccr1:%x", __raw_readl(sspa->pmumain + ISCCR1));
@@ -157,7 +157,7 @@ static int mmp_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	unsigned int ssp_top_cfg=0, ssp_fifo_cfg=0, ssp_int_en_cfg=0,ssp_to_cfg=0, ssp_psp_cfg=0, ssp_net_work_ctrl=0;
 	int dai_id = cpu_dai->id;
 
-	pr_info("%s, fmt=0x%x, dai_id=0x%x\n", __FUNCTION__, fmt, dai_id);
+	pr_debug("%s, fmt=0x%x, dai_id=0x%x\n", __FUNCTION__, fmt, dai_id);
 
 	if ((sspa_priv->dai_fmt == fmt) & (sspa_priv->dai_id_pre == dai_id) & (mmp_sspa_read_reg(sspa, PSP_CTRL, dai_id)))
 		return 0;
@@ -184,7 +184,7 @@ static int mmp_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
 	case SND_SOC_DAIFMT_I2S:
 		ssp_top_cfg |= TOP_FRF_PSP;
-		ssp_psp_cfg = (0x10<<12) | (0x1<<3);
+		ssp_psp_cfg = (0x10<<12) | (0x1<<3) | PSP_SFRMP;
 		break;
 	default:
 		return -EINVAL;
@@ -197,7 +197,7 @@ static int mmp_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	mmp_sspa_write_reg(sspa, FIFO_CTRL, ssp_fifo_cfg, dai_id);
 	mmp_sspa_write_reg(sspa, NET_WORK_CTRL, ssp_net_work_ctrl, dai_id);
 
-	pr_info("TOP_CTRL=0x%x,\n PSP_CTRL=0x%x,\n INT_EN=0x%x,\n TO=0x%x,\n FIFO_CTRL=0x%x,\n,NET_WORK_CTRL=0x%x",
+	pr_debug("TOP_CTRL=0x%x,\n PSP_CTRL=0x%x,\n INT_EN=0x%x,\n TO=0x%x,\n FIFO_CTRL=0x%x,\n,NET_WORK_CTRL=0x%x",
 				mmp_sspa_read_reg(sspa, TOP_CTRL, dai_id),
 				mmp_sspa_read_reg(sspa, PSP_CTRL, dai_id),
 				mmp_sspa_read_reg(sspa, INT_EN, dai_id),
@@ -225,7 +225,7 @@ static int mmp_sspa_hw_params(struct snd_pcm_substream *substream,
 	struct ssp_device *sspa = sspa_priv->sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
 
-	printk("%s, format=0x%x\n", __FUNCTION__, params_format(params));
+	pr_debug("%s, format=0x%x\n", __FUNCTION__, params_format(params));
 	dma_params = &sspa_priv->dma_params[substream->stream];
 	dma_params->addr = (sspa->phys_base + DATAR);
 	dma_params->maxburst = 32;
@@ -409,7 +409,7 @@ static int asoc_mmp_sspa_probe(struct platform_device *pdev)
 
 	priv->dai_fmt = (unsigned int) -1;
 	platform_set_drvdata(pdev, priv);
-	pr_info("exit %s\n", __FUNCTION__);
+	pr_debug("exit %s\n", __FUNCTION__);
 	return devm_snd_soc_register_component(&pdev->dev, &mmp_sspa_component,
 					       mmp_sspa_dai, ARRAY_SIZE(mmp_sspa_dai));
 }
