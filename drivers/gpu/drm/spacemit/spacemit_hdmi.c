@@ -22,7 +22,6 @@
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_simple_kms_helper.h>
 
-
 #include "spacemit_hdmi.h"
 #include "spacemit_lib.h"
 #include "spacemit_dpu.h"
@@ -30,6 +29,10 @@
 #define SPACEMIT_HDMI_DDC_OTHER_MASK        BIT(31)
 #define SPACEMIT_HDMI_DDC_DONE_MASK         BIT(30)
 #define SPACEMIT_HDMI_HPD_IQR_MASK          BIT(29)
+
+#define SPACEMIT_HDMI_DDC_NACK              BIT(15)
+#define SPACEMIT_HDMI_DDC_DONE              BIT(14)
+#define SPACEMIT_HDMI_HPD_IQR               BIT(13)
 
 #define SPACEMIT_HDMI_HPD_STATUS            BIT(12)
 
@@ -397,7 +400,12 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 	if (timeout == 0)
 		DRM_INFO("%s wait hdmi ddc command done timeout\n", __func__);
 
-	hdmi_writeb(hdmi, 0xc, BIT(14));
+	value = hdmi_readb(hdmi, 0xc);
+	DRM_DEBUG("%s hdmi status 0x%x\n", __func__, value);
+	value |= SPACEMIT_HDMI_DDC_DONE;
+
+	hdmi_writeb(hdmi, 0xc, value);
+	udelay(5);
 
 	DRM_DEBUG("hdmi_i2c_read --%u\r\n", length);
 
@@ -496,12 +504,11 @@ static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block,
 
 		if (!hdmi->edid_done) {
 			value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
-			value &= ~(SPACEMIT_HDMI_DDC_OTHER_MASK | SPACEMIT_HDMI_DDC_DONE_MASK | SPACEMIT_HDMI_HPD_IQR_MASK);
+			DRM_INFO("%s() get edid failed, hdmi status 0x%x\n", __func__, value);
+			value |= (SPACEMIT_HDMI_DDC_DONE | SPACEMIT_HDMI_DDC_NACK);
 			hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
-			msleep(2);
+			udelay(5);
 		}
-		value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
-		DRM_DEBUG("%s() hdmi status value 0x%x\n", __func__, value);
 
 	} else {
 		memcpy(buf, hdmi_data->edid, len);
@@ -525,11 +532,13 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 
 	pll_reg(hdmi, pixel_clock, bit_depth);
 	writel(0x3, hdmi->regs + 0xe4);
+	udelay(200);
 
 	value = readl_relaxed(hdmi->regs + 0xe4);
-	while ( (value & 0x10000) != 0) {
-		value = readl_relaxed(hdmi->regs + 0xe4);
-	}
+	DRM_INFO("%s() hdmi pll lock status 0x%x\n", __func__, value);
+	// while ( (value & 0x10000) != 0) {
+	// 	value = readl_relaxed(hdmi->regs + 0xe4);
+	// }
 
 	value = 0x3018C000| bit_depth;
 	writel(value, hdmi->regs + 0x28);
@@ -542,7 +551,7 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 	u32 value;
 	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
 	int bit_depth = TEN_BPP;
-	
+
 	DRM_DEBUG("%s() \n", __func__);
 
 	// hdmi config
@@ -553,7 +562,7 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 	if (hdmi->edid_done) {
 		// 08H, 09H: ID Manufacturer Nanme
 		// 0AH, 0BH: ID Product Code
-		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) && 
+		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
 			((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
 			bit_depth = EIGHT_BPP;
 			DRM_INFO("%s() 8bpc \n", __func__);
@@ -583,7 +592,7 @@ static void spacemit_hdmi_encoder_mode_set(struct drm_encoder *encoder,
 static void spacemit_hdmi_encoder_enable(struct drm_encoder *encoder)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_INFO("%s()\n", __func__);
 
 	spacemit_hdmi_set_pwr_mode(hdmi, NORMAL);
 	spacemit_hdmi_setup(hdmi, &hdmi->previous_mode);
@@ -592,7 +601,10 @@ static void spacemit_hdmi_encoder_enable(struct drm_encoder *encoder)
 static void spacemit_hdmi_encoder_disable(struct drm_encoder *encoder)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
-	DRM_DEBUG("%s()\n", __func__);
+	struct spacemit_dpu *dpu = crtc_to_dpu(encoder->crtc);
+	DRM_INFO("%s()\n", __func__);
+
+	spacemit_dpu_stop(dpu);
 	spacemit_hdmi_set_pwr_mode(hdmi, LOWER_PWR);
 }
 
@@ -624,9 +636,25 @@ static enum drm_connector_status
 spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
+	int ret;
 
-	DRM_DEBUG("%s() \n", __func__);
-	return connector_status_connected;
+	DRM_INFO("%s() \n", __func__);
+
+	ret = pm_runtime_get_sync(hdmi->dev);
+	if (ret < 0) {
+		DRM_INFO("%s() pm_runtime_get_sync failed\n", __func__);
+		return connector_status_connected;
+	}
+
+	if (hdmi_get_plug_in_status(hdmi)) {
+		DRM_INFO("%s() hdmi status connected\n", __func__);
+		return connector_status_connected;
+	} else {
+		DRM_INFO("%s() hdmi status disconnected\n", __func__);
+		return connector_status_disconnected;
+	}
+
+	pm_runtime_put(hdmi->dev);
 }
 
 static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
@@ -634,21 +662,39 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
 	int ret;
 	struct edid *edid;
+	uint32_t value;
 
 	DRM_INFO("%s() \n", __func__);
 
-	if (!hdmi_get_plug_in_status(hdmi))
+	ret = pm_runtime_get_sync(hdmi->dev);
+	if (ret < 0) {
+		DRM_INFO("%s() pm_runtime_get_sync failed\n", __func__);
 		return drm_add_modes_noedid(connector, 1920, 1080);
+	}
+
+	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
+	DRM_INFO("%s() hdmi status 0x%x\n", __func__, value);
+	value &= ~(SPACEMIT_HDMI_DDC_OTHER_MASK | SPACEMIT_HDMI_DDC_DONE_MASK);
+	value |= (SPACEMIT_HDMI_HPD_IQR | SPACEMIT_HDMI_DDC_DONE | SPACEMIT_HDMI_DDC_NACK);
+	hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
+	udelay(5);
 
 	edid = drm_do_get_edid(connector, spacemit_hdmi_get_edid_block, hdmi);
-	if (hdmi->edid_done) {
-		drm_connector_update_edid_property(connector, edid);
-		ret = drm_add_edid_modes(connector, edid);
-		kfree(edid);
+	if (edid) {
+		if (hdmi->edid_done) {
+			drm_connector_update_edid_property(connector, edid);
+			ret = drm_add_edid_modes(connector, edid);
+			kfree(edid);
+		} else {
+			ret = drm_add_modes_noedid(connector, 1920, 1080);
+			kfree(edid);
+		}
 	} else {
-		kfree(edid);
-		ret = drm_add_modes_noedid(connector, 1920, 1080);
+		DRM_INFO("%s() get edid failed\n", __func__);
+		return drm_add_modes_noedid(connector, 1920, 1080);
 	}
+
+	pm_runtime_put(hdmi->dev);
 
 	return ret;
 }
@@ -722,13 +768,39 @@ static int spacemit_hdmi_register(struct drm_device *drm, struct spacemit_hdmi *
 	return 0;
 }
 
+static irqreturn_t spacemit_hdmi_hardirq(int irq, void *dev_id)
+{
+	struct spacemit_hdmi *hdmi = dev_id;
+	irqreturn_t ret = IRQ_NONE;
+	uint32_t value;
+
+	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
+	if (value & SPACEMIT_HDMI_HPD_IQR) {
+		value |= SPACEMIT_HDMI_HPD_IQR;
+		hdmi_writeb(hdmi, 0xc, value);
+		ret = IRQ_WAKE_THREAD;
+	}
+
+	return ret;
+}
+
+static irqreturn_t spacemit_hdmi_irq(int irq, void *dev_id)
+{
+	struct spacemit_hdmi *hdmi = dev_id;
+	hdmi->edid_done = false;
+
+	drm_helper_hpd_irq_event(hdmi->connector.dev);
+
+	return IRQ_HANDLED;
+}
+
 static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 				 void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct drm_device *drm = data;
 	struct spacemit_hdmi *hdmi;
-	// int irq;
+	int irq;
 	int ret;
 
 	DRM_INFO("%s() \n", __func__);
@@ -749,7 +821,14 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 		return PTR_ERR(hdmi->regs);
 
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
+	//pm_runtime_get_sync(&pdev->dev);
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		DRM_ERROR("%s() get hdmi phd irq failed\n", __func__);
+		return -ENOENT;
+	}
+	DRM_DEBUG("%s() hdmi hpd irq %d\n", __func__, irq);
 
 	spacemit_hdmi_reset(hdmi);
 	hdmi->edid_done = false;
@@ -758,7 +837,19 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 
 	dev_set_drvdata(dev, hdmi);
 
+	ret = devm_request_threaded_irq(dev, irq, spacemit_hdmi_hardirq,
+					spacemit_hdmi_irq, IRQF_SHARED,
+					dev_name(dev), hdmi);
+	if (ret < 0)
+		goto irq_err;
+
 	return 0;
+
+irq_err:
+	hdmi->connector.funcs->destroy(&hdmi->connector);
+	hdmi->encoder.funcs->destroy(&hdmi->encoder);
+
+	return ret;
 }
 
 static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
@@ -769,9 +860,11 @@ static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 
 	DRM_INFO("%s() \n", __func__);
 
-	pm_runtime_put_sync(&pdev->dev);
-	pm_runtime_disable(dev);
 	hdmi->connector.funcs->destroy(&hdmi->connector);
+	hdmi->encoder.funcs->destroy(&hdmi->encoder);
+
+	// pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(dev);
 }
 
 static const struct component_ops spacemit_hdmi_ops = {
