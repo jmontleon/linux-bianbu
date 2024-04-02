@@ -37,6 +37,8 @@
 	hdmi: hdmi@C0400500 {
 		compatible = "spacemit,hdmi";
 		reg = <0 0xC0400500 0 0x200>;
+		interrupt-parent = <&intc>;
+		interrupts = <136>;
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
 		assigned-clocks = <&ccu CLK_HDMI>;
