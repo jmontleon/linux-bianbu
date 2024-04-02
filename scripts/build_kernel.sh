@@ -2,7 +2,7 @@
 
 SCRIPT="./scripts/build_kernel.sh"
 
-CLEAN=
+CLEAN=false
 BUILD_DEB=false
 
 while getopts "cdh" opt
