@@ -1608,7 +1608,9 @@
 			mac-address = [ 00 00 00 00 00 00 ];
 			ptp-support;
 			ptp-clk-rate = <10000000>;
-			lpm-qos = <7>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range1>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
@@ -1630,7 +1632,9 @@
 			mac-address = [ 00 00 00 00 00 00 ];
 			ptp-support;
 			ptp-clk-rate = <10000000>;
-			lpm-qos = <7>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range1>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
