@@ -293,6 +293,9 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 				   struct drm_atomic_state *old_state)
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
+	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
+	struct spacemit_hw_device *hwdev = priv->hwdev;
+	int result;
 
 	DRM_INFO("%s(power on)\n", __func__);
 	trace_spacemit_crtc_atomic_enable(dpu->dev_id);
@@ -304,6 +307,13 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 	}
 
 	pm_runtime_get_sync(dpu->dev);
+	if (hwdev->is_hdmi && (!IS_ERR_OR_NULL(dpu->hdmi_reset))) {
+		result = reset_control_deassert(dpu->hdmi_reset);
+		if (result < 0) {
+			DRM_INFO("Failed to deassert hdmi: %d\n", result);
+		}
+	}
+
 #ifdef CONFIG_SPACEMIT_DEBUG
 	dpu->is_working = true;
 #endif
@@ -317,8 +327,11 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 	struct drm_device *drm = dpu->crtc.dev;
+	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
+	struct spacemit_hw_device *hwdev = priv->hwdev;
+	int result;
 
-	DRM_DEBUG("%s(power off)\n", __func__);
+	DRM_INFO("%s(power off)\n", __func__);
 	trace_spacemit_crtc_atomic_disable(dpu->dev_id);
 
 	spacemit_dpu_uninit(dpu);
@@ -327,6 +340,13 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 #ifdef CONFIG_SPACEMIT_DEBUG
 	dpu->is_working = false;
 #endif
+
+	if (hwdev->is_hdmi && (!IS_ERR_OR_NULL(dpu->hdmi_reset))) {
+		result = reset_control_assert(dpu->hdmi_reset);
+		if (result < 0) {
+			DRM_INFO("Failed to assert hdmi: %d\n", result);
+		}
+	}
 	pm_runtime_put(dpu->dev);
 
 	spin_lock_irq(&drm->event_lock);
