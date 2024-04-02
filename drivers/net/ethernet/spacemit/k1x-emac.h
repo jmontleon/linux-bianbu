@@ -679,7 +679,6 @@ struct emac_priv {
 	void __iomem *ctrl_reg;
 	void __iomem *dline_reg;
 	s32 lpm_qos;
-	struct freq_qos_request pm_qos_req;
 	u32 tx_count_frames;
 	u32 tx_coal_frames;
 	u32 tx_coal_timeout;
