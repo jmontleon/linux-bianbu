@@ -1499,9 +1499,14 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 	if (IS_ERR(k1x->clk_pcie))
 		return PTR_ERR(k1x->clk_pcie);
 
-	k1x->reset = devm_reset_control_get_optional(dev, NULL);
+	/* pcie0 and usb use combo phy and reset */
+	if (k1x->port_id == 0) {
+		k1x->reset = devm_reset_control_array_get_shared(dev);
+	} else {
+		k1x->reset = devm_reset_control_get_optional(dev, NULL);
+	}
 	if (IS_ERR(k1x->reset)) {
-		dev_err(dev, "Failed to get pcie's resets\n");
+		dev_err(dev, "Failed to get pcie%d's resets\n", k1x->port_id);
 		return PTR_ERR(k1x->reset);
 	}
 
