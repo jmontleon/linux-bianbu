@@ -29,7 +29,8 @@
 #include <linux/phy.h>
 #include <linux/phylink.h>
 #include <linux/platform_device.h>
-#include <linux/pm_qos.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm.h>
 #include <linux/tcp.h>
 #include <linux/timer.h>
 #include <linux/types.h>
@@ -903,11 +904,12 @@ void emac_ptp_deinit(struct emac_priv *priv)
 int emac_up(struct emac_priv *priv)
 {
 	struct net_device *ndev = priv->ndev;
+	struct platform_device *pdev  = priv->pdev;
 	int ret;
 	u32 val = 0;
 
-#ifdef CONFIG_PM_TEST
-	freq_qos_update_request(&priv->pm_qos_req, priv->lpm_qos);
+#ifdef CONFIG_PM_SLEEP
+	pm_runtime_get_sync(&pdev->dev);
 #endif
 	if (priv->ref_clk_frm_soc) {
 		ret = clk_prepare_enable(priv->phy_clk);
@@ -984,9 +986,8 @@ disable_phy_clk:
 	if (priv->ref_clk_frm_soc)
 		clk_disable_unprepare(priv->phy_clk);
 err:
-#ifdef CONFIG_PM_TEST
-	freq_qos_update_request(&priv->pm_qos_req,
-			      PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
+#ifdef CONFIG_PM_SLEEP
+	pm_runtime_put_sync(&pdev->dev);
 #endif
 	return ret;
 }
@@ -1004,6 +1005,7 @@ err:
 int emac_down(struct emac_priv *priv)
 {
 	struct net_device *ndev = priv->ndev;
+	struct platform_device *pdev  = priv->pdev;
 
 	netif_stop_queue(ndev);
 	/* Stop and disconnect the PHY */
@@ -1032,9 +1034,8 @@ int emac_down(struct emac_priv *priv)
 	if (priv->ref_clk_frm_soc)
 		clk_disable_unprepare(priv->phy_clk);
 
-#ifdef CONFIG_PM_TEST
-	freq_qos_update_request(&priv->pm_qos_req,
-			      PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
+#ifdef CONFIG_PM_SLEEP
+	pm_runtime_put_sync(&pdev->dev);
 #endif
 	return 0;
 }
@@ -2310,6 +2311,19 @@ static int emac_mdio_init(struct emac_priv *priv)
 	priv->mii->parent = dev;
 	priv->mii->phy_mask = 0xffffffff;
 	ret = of_mdiobus_register(priv->mii, mii_np);
+	if (ret) {
+		dev_err(dev, "Failed to register mdio bus.\n");
+		goto err_put_node;
+	}
+
+	priv->phy = phy_find_first(priv->mii);
+	if (!priv->phy) {
+		dev_err(dev, "no PHY found\n");
+		return -ENODEV;
+	}
+
+	/* Indicate that the MAC is responsible for PHY PM */
+	priv->phy->mac_managed_pm = true;
 err_put_node:
 	of_node_put(mii_np);
 	return ret;
@@ -2529,15 +2543,6 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 		return -ENXIO;
 	}
 
-	if (of_property_read_u32(np, "lpm-qos", &priv->lpm_qos)) {
-		dev_err(&pdev->dev, "cannot find lpm-qos in device tree\n");
-		return -EINVAL;
-	}
-
-#if 0
-	priv->pm_qos_req.name = pdev->name;
-#endif
-
 	if (of_property_read_u32(np, "ctrl-reg", &ctrl_reg)) {
 		dev_err(&pdev->dev, "cannot find ctrl register in device tree\n");
 		return -EINVAL;
@@ -2669,9 +2674,6 @@ static int emac_probe(struct platform_device *pdev)
 	struct emac_priv *priv;
 	struct net_device *ndev = NULL;
 	int ret;
-#ifdef CONFIG_PM_TEST
-	struct freq_constraints *idle_qos;
-#endif
 
 	ndev = alloc_etherdev(sizeof(struct emac_priv));
 	if (!ndev)
@@ -2704,10 +2706,8 @@ static int emac_probe(struct platform_device *pdev)
 	ndev->ethtool_ops = &emac_ethtool_ops;
 	ndev->netdev_ops = &emac_netdev_ops;
 
-#ifdef CONFIG_PM_TEST
-	idle_qos = cpuidle_get_constraints();
-	freq_qos_add_request(idle_qos, &priv->pm_qos_req, FREQ_QOS_MAX,
-				PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
+#ifdef CONFIG_PM_SLEEP
+	pm_runtime_enable(&pdev->dev);
 #endif
 
 	priv->mac_clk = devm_clk_get(&pdev->dev, "emac-clk");
@@ -2795,8 +2795,8 @@ mac_clk_disable:
 	clk_disable_unprepare(priv->mac_clk);
 err_netdev:
 	free_netdev(ndev);
-#ifdef CONFIG_PM_TEST
-	freq_qos_remove_request(&priv->pm_qos_req);
+#ifdef CONFIG_PM_SLEEP
+	pm_runtime_disable(&pdev->dev);
 #endif
     dev_info(&pdev->dev, "emac_probe failed ret = %d.\n", ret);
 	return ret;
@@ -2821,10 +2821,10 @@ static void emac_shutdown(struct platform_device *pdev)
 {
 }
 
-#ifdef CONFIG_PM_TEST
-static int emac_resume(struct platform_device *pdev)
+#ifdef CONFIG_PM_SLEEP
+static int emac_resume(struct device *dev)
 {
-	struct emac_priv *priv = platform_get_drvdata(pdev);
+	struct emac_priv *priv = dev_get_drvdata(dev);
 	struct net_device *ndev = priv->ndev;
 
 	if (!netif_running(ndev))
@@ -2835,10 +2835,11 @@ static int emac_resume(struct platform_device *pdev)
 	return 0;
 }
 
-static int emac_suspend(struct platform_device *pdev, pm_message_t state)
+static int emac_suspend(struct device *dev)
 {
-	struct emac_priv *priv = platform_get_drvdata(pdev);
+	struct emac_priv *priv = dev_get_drvdata(dev);
 	struct net_device *ndev = priv->ndev;
+
 
 	if (!ndev || !netif_running(ndev))
 		return 0;
@@ -2853,6 +2854,11 @@ static int emac_suspend(struct platform_device *pdev, pm_message_t state)
 #define emac_suspend NULL
 #endif
 
+static const struct dev_pm_ops k1x_emac_pm_qos = {
+        .suspend = emac_suspend,
+        .resume = emac_resume,
+};
+
 static const struct of_device_id emac_of_match[] = {
 	{ .compatible = "spacemit,k1x-emac" },
 	{ },
@@ -2863,11 +2869,10 @@ static struct platform_driver emac_driver = {
 	.probe = emac_probe,
 	.remove = emac_remove,
 	.shutdown = emac_shutdown,
-	.resume = emac_resume,
-	.suspend = emac_suspend,
 	.driver = {
 		.name = DRIVER_NAME,
 		.of_match_table = of_match_ptr(emac_of_match),
+		.pm     = &k1x_emac_pm_qos,
 	},
 };
 
