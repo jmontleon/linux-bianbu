@@ -576,7 +576,7 @@ static int mvx_pm_poweron(struct device *dev)
     struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
 
 	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweron");
-    mvx_pm_enable_clk(dev);
+    //mvx_pm_enable_clk(dev);
     reset_hw(dev);
     mvx_sched_resume(&ctx->scheduler);
 
@@ -589,7 +589,7 @@ static int mvx_pm_poweroff(struct device *dev)
 
     MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweroff");
     mvx_sched_suspend(&ctx->scheduler);
-    mvx_pm_disable_clk(dev);
+    //mvx_pm_disable_clk(dev);
 
     return 0;
 }
