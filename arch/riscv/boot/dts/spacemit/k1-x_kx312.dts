@@ -199,13 +199,13 @@
 
 &dpu_online2_hdmi {
 	memory-region = <&dpu_resv>;
-	status = "disabled";
+	status = "okay";
 };
 
 &hdmi{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hdmi_0>;
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c2 {
