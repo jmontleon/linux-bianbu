@@ -637,6 +637,7 @@ spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 {
 	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
 	int ret;
+	enum drm_connector_status status;
 
 	DRM_INFO("%s() \n", __func__);
 
@@ -648,13 +649,16 @@ spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 
 	if (hdmi_get_plug_in_status(hdmi)) {
 		DRM_INFO("%s() hdmi status connected\n", __func__);
-		return connector_status_connected;
+		status = connector_status_connected;
+
 	} else {
 		DRM_INFO("%s() hdmi status disconnected\n", __func__);
-		return connector_status_disconnected;
+		status = connector_status_disconnected;
 	}
 
 	pm_runtime_put(hdmi->dev);
+
+	return status;
 }
 
 static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
@@ -684,14 +688,13 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 		if (hdmi->edid_done) {
 			drm_connector_update_edid_property(connector, edid);
 			ret = drm_add_edid_modes(connector, edid);
-			kfree(edid);
 		} else {
 			ret = drm_add_modes_noedid(connector, 1920, 1080);
-			kfree(edid);
 		}
+		kfree(edid);
 	} else {
 		DRM_INFO("%s() get edid failed\n", __func__);
-		return drm_add_modes_noedid(connector, 1920, 1080);
+		ret = drm_add_modes_noedid(connector, 1920, 1080);
 	}
 
 	pm_runtime_put(hdmi->dev);
