@@ -954,6 +954,12 @@ static irqreturn_t spacemit_i2c_int_handler(int irq, void *devid)
 	status = spacemit_i2c_read_reg(spacemit_i2c, REG_SR);
 	spacemit_i2c->i2c_status = status;
 
+	/* check if a valid interrupt status */
+	if(!status) {
+		/* nothing need be done */
+		return IRQ_HANDLED;
+	}
+
 #ifdef CONFIG_I2C_SLAVE
 	if (spacemit_i2c->slave) {
 		spacemit_i2c_slave_handler(spacemit_i2c);
@@ -1835,11 +1841,14 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	mutex_init(&spacemit_i2c->mtx);
 
 	spacemit_i2c->resets = devm_reset_control_get_optional(&pdev->dev, NULL);
-        if(IS_ERR(spacemit_i2c->resets)) {
-                dev_err(&pdev->dev, "failed to get resets\n");
-                goto err_out;
-        }
-        reset_control_deassert(spacemit_i2c->resets);
+	if(IS_ERR(spacemit_i2c->resets)) {
+		dev_err(&pdev->dev, "failed to get resets\n");
+		goto err_out;
+	}
+	/* reset the i2c controller */
+	reset_control_assert(spacemit_i2c->resets);
+	udelay(200);
+	reset_control_deassert(spacemit_i2c->resets);
 
 	ret = spacemit_i2c_parse_dt(pdev, spacemit_i2c);
 	if (ret)
@@ -2014,9 +2023,9 @@ static struct platform_driver spacemit_i2c_driver = {
 	.remove = spacemit_i2c_remove,
 	.shutdown = spacemit_i2c_shutdown,
 	.driver = {
-		.name           = "i2c-spacemit-k1x",
-		.pm             = &spacemit_i2c_pm_ops,
-		.of_match_table = spacemit_i2c_dt_match,
+		.name		= "i2c-spacemit-k1x",
+		.pm		= &spacemit_i2c_pm_ops,
+		.of_match_table	= spacemit_i2c_dt_match,
 	},
 };
 
