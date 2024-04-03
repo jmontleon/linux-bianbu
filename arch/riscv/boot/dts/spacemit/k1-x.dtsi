@@ -2222,6 +2222,7 @@
 			page-size = <4>;
 			interconnects = <&dram_range1>;
 			interconnect-names = "dma-mem";
+			clk,pm-runtime,no-sleep;
 			status = "okay";
 		};
 

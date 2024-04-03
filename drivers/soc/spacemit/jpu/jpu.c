@@ -1070,9 +1070,11 @@ static long jpu_ioctl(struct file *filp, u_int cmd, u_long arg)
 		}
 
 		if (clkgate) {
+			pm_runtime_get_sync(jdev->jdev);
 			jpu_clk_enable(jdev);
 		} else {
 			jpu_clk_disable(jdev);
+			pm_runtime_put_sync(jdev->jdev);
 		}
 
 		up(&jdev->s_jpu_sem);
@@ -1723,6 +1725,7 @@ static int jpu_remove(struct platform_device *pdev)
 	}
 #ifndef CONFIG_SOC_SPACEMIT_K1_FPGA
 	jpu_clk_disable(jdev);
+	pm_runtime_put_sync(jdev->jdev);
 	pm_runtime_disable(&pdev->dev);
 #endif
 	sysfs_remove_groups(&pdev->dev.kobj, jpu_frequency_group);
