@@ -681,11 +681,11 @@
 	status = "okay";
 };
 
-&cls0_trip3 {
+&cls0_trip2 {
 	temperature = <115000>;
 };
 
-&cls1_trip3 {
+&cls1_trip2 {
 	temperature = <115000>;
 };
 

@@ -124,13 +124,12 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 
 	if (event == CPUFREQ_PRECHANGE) {
 
+		mutex_lock(&regulator_mutex);
+
 		if (freqs->new > freqs->old) {
 			/* increase voltage first */
-			if (vol_qos[cpu]->regulator) {
-				mutex_lock(&regulator_mutex);
+			if (vol_qos[cpu]->regulator)
 				freq_qos_update_request(&vol_qos[cpu]->qos, microvol / 1000);
-				mutex_unlock(&regulator_mutex);
-			}
 		}
 
 		/**
@@ -170,12 +169,11 @@ static int spacemit_processor_notifier(struct notifier_block *nb,
 
 		if (freqs->new < freqs->old) {
 			/* decrease the voltage last */
-			if (vol_qos[cpu]->regulator) {
-				mutex_lock(&regulator_mutex);
+			if (vol_qos[cpu]->regulator)
 				freq_qos_update_request(&vol_qos[cpu]->qos, microvol / 1000);
-				mutex_unlock(&regulator_mutex);
-			}
 		}
+
+		mutex_unlock(&regulator_mutex);
 	}
 
 	dev_pm_opp_put_opp_table(opp_table);

@@ -854,11 +854,11 @@
 	status = "okay";
 };
 
-&cls0_trip4 {
+&cls0_trip2 {
 	temperature = <115000>;
 };
 
-&cls1_trip4 {
+&cls1_trip2 {
 	temperature = <115000>;
 };
 
