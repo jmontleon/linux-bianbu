@@ -46,6 +46,7 @@
  * There's one bit for each interrupt source.
  */
 #ifdef CONFIG_SOC_SPACEMIT
+#define PENDING_BASE			0x1000
 #define CONTEXT_ENABLE_BASE		0x2080
 #define CONTEXT_ENABLE_SIZE		0x100
 #else
@@ -573,6 +574,10 @@ static int __init __plic_init(struct device_node *node,
 done:
 		for (hwirq = 1; hwirq <= nr_irqs; hwirq++) {
 			plic_toggle(handler, hwirq, 0);
+			#ifdef CONFIG_SOC_SPACEMIT
+			/* clear pending, which maybe triggered by uboot */
+			writel(0, priv->regs + PENDING_BASE + (hwirq/32)*4);
+			#endif
 			writel(1, priv->regs + PRIORITY_BASE +
 				  hwirq * PRIORITY_PER_ID);
 		}
