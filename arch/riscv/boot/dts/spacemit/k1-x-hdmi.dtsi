@@ -15,9 +15,6 @@
 		interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
-		assigned-clocks = <&ccu CLK_HDMI>;
-		assigned-clock-parents = <&ccu CLK_PLL1_491>;
-		assigned-clock-rates = <491520000>;
 		resets = <&reset RESET_HDMI>;
 		reset-names= "hdmi_reset";
 		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
@@ -41,9 +38,6 @@
 		interrupts = <136>;
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
-		assigned-clocks = <&ccu CLK_HDMI>;
-		assigned-clock-parents = <&ccu CLK_PLL1_491>;
-		assigned-clock-rates = <491520000>;
 		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
 		status = "disabled";
 
