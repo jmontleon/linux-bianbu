@@ -478,15 +478,26 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 	struct drm_crtc *crtc = &dpu->crtc;
 	struct drm_display_mode *mode = &crtc->mode;
 	uint64_t clk_val;
+	uint64_t set_clk_val;
 	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
 
 	if (hwdev->is_hdmi) {
 		clk_prepare_enable(clk_ctx->hmclk);
+
+		clk_val = clk_get_rate(clk_ctx->hmclk);
+		if(clk_val != DPU_MCLK_DEFAULT){
+			clk_val = clk_round_rate(clk_ctx->hmclk, DPU_MCLK_DEFAULT);
+			if (dpu_mclk_exclusive_get()) {
+				clk_set_rate(clk_ctx->hmclk, clk_val);
+				DRM_DEBUG("mclk=%lld\n", clk_val);
+				dpu_mclk_exclusive_put();
+			}
+		}
+
 		clk_val = clk_get_rate(clk_ctx->hmclk);
 		DRM_INFO("hmclk=%lld\n", clk_val);
 	} else {
-		uint64_t set_clk_val;
 
 		clk_prepare_enable(clk_ctx->pxclk);
 		clk_prepare_enable(clk_ctx->mclk);
