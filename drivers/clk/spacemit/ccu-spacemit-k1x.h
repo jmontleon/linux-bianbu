@@ -20,6 +20,7 @@ enum ccu_base_type{
 	BASE_TYPE_DDRC       = 6,
 	BASE_TYPE_AUDC       = 7,
 	BASE_TYPE_APBC2      = 8,
+	BASE_TYPE_RCPU       = 9,
 };
 
 enum {
@@ -59,6 +60,7 @@ struct spacemit_k1x_clk {
 	void __iomem *ddrc_base;
 	void __iomem *audio_ctrl_base;
 	void __iomem *apbc2_base;
+	void __iomem *rcpu_base;
 };
 
 struct clk_hw_table {
