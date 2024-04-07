@@ -113,6 +113,7 @@ DEFINE_SPINLOCK(g_cru_lock);
 #define MPMU_RIPCCR     0x210 //no define
 #define MPMU_ACGR       0x1024
 #define MPMU_SUCCR      0x14
+#define MPMU_ISCCR      0x44
 #define MPMU_SUCCR_1    0x10b0
 #define MPMU_APBCSCR    0x1050
 
@@ -164,6 +165,10 @@ DEFINE_SPINLOCK(g_cru_lock);
 #define APBC2_KPC_CLK_RST		0x14
 #define APBC2_GPIO_CLK_RST		0x1c
 /* end of APBC2 register offset */
+
+/* RCPU register offset */
+#define RCPU_HDMI_CLK_RST		0x44
+/* end of RCPU register offset */
 
 struct spacemit_k1x_clk k1x_clock_controller;
 
@@ -633,8 +638,16 @@ static SPACEMIT_CCU_GATE_NO_PARENT(onewire_clk, "onewire_clk", NULL,
 	BASE_TYPE_APBC, APBC_ONEWIRE_CLK_RST,
 	0x3, 0x3, 0x0, 0);
 
+static SPACEMIT_CCU_GATE_FACTOR(i2s_sysclk, "i2s_sysclk", "pll1_d16_153p6",
+	BASE_TYPE_MPMU, MPMU_ISCCR,
+	BIT(31), BIT(31), 0x0,
+	50, 1, 0);
+static SPACEMIT_CCU_GATE_FACTOR(i2s_bclk, "i2s_bclk", "i2s_sysclk",
+	BASE_TYPE_MPMU, MPMU_ISCCR,
+	BIT(29), BIT(29), 0x0,
+	1, 1, 0);
 static const char *sspa_parent_names[] = { "pll1_d384_6p4", "pll1_d192_12p8", "pll1_d96_25p6",
-	"pll1_d48_51p2", "pll1_d768_3p2", "pll1_d1536_1p6", "pll1_d3072_0p8"
+	"pll1_d48_51p2", "pll1_d768_3p2", "pll1_d1536_1p6", "pll1_d3072_0p8", "i2s_bclk"
 };
 static SPACEMIT_CCU_MUX_GATE(sspa0_clk, "sspa0_clk", sspa_parent_names,
 	BASE_TYPE_APBC, APBC_SSPA0_CLK_RST,
@@ -1083,6 +1096,15 @@ static const char * const apb_parent_names[] = {
 static SPACEMIT_CCU_MUX(apb_clk, "apb_clk", apb_parent_names,
 	BASE_TYPE_MPMU, MPMU_APBCSCR,
 	0, 2, 0);
+//rcpu
+static const char *rhdmi_audio_parent_names[] = {
+	"pll1_aud_24p5", "pll1_aud_245p7"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(rhdmi_audio_clk, "rhdmi_audio_clk", rhdmi_audio_parent_names,
+	BASE_TYPE_RCPU, RCPU_HDMI_CLK_RST,
+	4, 11, 16, 2,
+	0x6, 0x6, 0x0,
+	0);
 
 static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.hws	= {
@@ -1267,6 +1289,9 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_SEC_GPIO]		= &gpio_sec_clk.common.hw,
 		[CLK_APB]		= &apb_clk.common.hw,
 		[CLK_SLOW_UART]		= &slow_uart.common.hw,
+		[CLK_I2S_SYSCLK]	= &i2s_sysclk.common.hw,
+		[CLK_I2S_BCLK]		= &i2s_bclk.common.hw,
+		[CLK_RCPU_HDMIAUDIO]	= &rhdmi_audio_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
@@ -1341,6 +1366,9 @@ int ccu_common_init(struct clk_hw * hw, struct spacemit_k1x_clk *clk_info)
 		break;
 	case BASE_TYPE_APBC2:
 		common->base = clk_info->apbc2_base;
+		break;
+	case BASE_TYPE_RCPU:
+		common->base = clk_info->rcpu_base;
 		break;
 	default:
 		common->base = clk_info->apbc_base;
@@ -1450,6 +1478,12 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 		clk_info->apbc2_base = of_iomap(np, 7);
 		if (!clk_info->apbc2_base) {
 			pr_err("failed to map apbc2 registers\n");
+			goto out;
+		}
+
+		clk_info->rcpu_base = of_iomap(np, 8);
+		if (!clk_info->rcpu_base) {
+			pr_err("failed to map rcpu registers\n");
 			goto out;
 		}
 	}
