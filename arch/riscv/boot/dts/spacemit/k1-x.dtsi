@@ -2347,6 +2347,11 @@
 		compatible = "spacemit,spacemit-snd-sspa";
 		reg = <0 0xc0883900 0 0x300>,
 			<0 0xc0882000 0 0x50>;
+		clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
+		resets = <&reset RESET_RCPU_HDMIAUDIO>;
+		assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
+		assigned-clock-rates = <48000>;
+		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
 		status = "ok";
 	};
 
