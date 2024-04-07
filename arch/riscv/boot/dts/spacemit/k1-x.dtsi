@@ -2360,6 +2360,16 @@
 		reg = <0x0 0xD4026000 0x0 0x30>,
 			<0x0 0xD4026800 0x0 0x30>;
 		reg-names = "i2s0", "i2s1";
+		clocks = <&ccu CLK_SSPA0>,
+			<&ccu CLK_SSPA1>;
+		clock-names = "sspa0-clk", "sspa1-clk";
+		resets = <&reset RESET_SSPA0>,
+			<&reset RESET_SSPA1>;
+		reset-names = "sspa0-rst", "sspa1-rst";
+		assigned-clocks = <&ccu CLK_SSPA0>,
+				 <&ccu CLK_SSPA1>;
+		assigned-clock-rates = <3072000>, <3072000>;
+		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
 		status = "ok";
 	};
 

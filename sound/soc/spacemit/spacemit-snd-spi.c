@@ -8,6 +8,9 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/dmaengine.h>
@@ -77,12 +80,14 @@ static int mmp_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai, unsigned int fmt);
 struct sspa_priv {
 	struct ssp_device *sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
-	struct clk *audio_clk;
-	struct clk *sysclk;
+	struct reset_control *sspa0_rst;
+	struct reset_control *sspa1_rst;
 	int dai_fmt;
 	int dai_id_pre;
 	int running_cnt;
 };
+
+struct platform_device *i2splatdev;
 
 static void mmp_sspa_write_reg(struct ssp_device *sspa, u32 reg, u32 val, int id_dai)
 {
@@ -97,29 +102,7 @@ static u32 mmp_sspa_read_reg(struct ssp_device *sspa, u32 reg, int id_dai)
 static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-	struct sspa_priv *priv = snd_soc_dai_get_drvdata(dai);
-	struct ssp_device *sspa = priv->sspa;
-	unsigned int isccr1 = 0;
-
-	pr_debug("%s\n", __FUNCTION__);
-
-	/*clk*/
-	pr_debug("isccr1:%x", __raw_readl(sspa->pmumain + ISCCR1));
-	__raw_writel((SYSCLK_BASE_156M | BITCLK_DIV_468| FRAME_48K_I2S | 200), sspa->pmumain + ISCCR1);
-
-	isccr1 = __raw_readl(sspa->pmumain + ISCCR1);
-	__raw_writel((SYSCLK_EN | BITCLK_EN | isccr1), sspa->pmumain + ISCCR1);
-	if (dai->id == 0) //i2s0
-	{
-		//__raw_writel(CLK_ON_RST, sspa->apb_clk_base + APB_SSP0_CLK_RST);
-		__raw_writel(CLK_ON_I2S, sspa->apb_clk_base + APB_SSP0_CLK_RST);
-	} else {          //i2s1
-		//__raw_writel(CLK_ON_RST, sspa->apb_clk_base + APB_SSP1_CLK_RST);
-		__raw_writel(CLK_ON_I2S, sspa->apb_clk_base + APB_SSP1_CLK_RST);
-	}
-
-	pr_debug("isccr1 :%x", __raw_readl(sspa->pmumain + ISCCR1));
-
+	pm_runtime_get_sync(&i2splatdev->dev);
 	mmp_sspa_set_dai_fmt(dai, SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S);
 
 	return 0;
@@ -128,7 +111,7 @@ static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 static void mmp_sspa_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
 {
-
+	pm_runtime_put_sync(&i2splatdev->dev);
 }
 
 static int mmp_sspa_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
@@ -289,7 +272,24 @@ static int mmp_sspa_trigger(struct snd_pcm_substream *substream, int cmd,
 static int mmp_sspa_probe(struct snd_soc_dai *dai)
 {
 	struct sspa_priv *priv = dev_get_drvdata(dai->dev);
+	struct ssp_device *sspa = priv->sspa;
+	unsigned int sspa_clk = 0;
 	pr_debug("%s\n", __FUNCTION__);
+	//init clock
+	__raw_writel((SYSCLK_BASE_156M | BITCLK_DIV_468| FRAME_48K_I2S | 200), sspa->pmumain + ISCCR1);
+
+	if (dai->id == 0)
+	{
+		//i2s0
+		sspa_clk = __raw_readl(sspa->apb_clk_base + APB_SSP0_CLK_RST);
+		__raw_writel((1 << 3)|sspa_clk, sspa->apb_clk_base + APB_SSP0_CLK_RST);
+		reset_control_deassert(priv->sspa0_rst);
+	} else {
+		//i2s1
+		sspa_clk = __raw_readl(sspa->apb_clk_base + APB_SSP1_CLK_RST);
+		__raw_writel((1 << 3)|sspa_clk, sspa->apb_clk_base + APB_SSP1_CLK_RST);
+		reset_control_deassert(priv->sspa1_rst);
+    }
 	snd_soc_dai_set_drvdata(dai, priv);
 	return 0;
 
@@ -350,9 +350,21 @@ static struct snd_soc_dai_driver mmp_sspa_dai[] = {
 	}
 };
 
+static int i2s_sspa_suspend(struct snd_soc_component *component)
+{
+	/*to-do */
+	return 0;
+}
+
+static int i2s_sspa_resume(struct snd_soc_component *component)
+{
+	/*to-do */
+	return 0;
+}
 static const struct snd_soc_component_driver mmp_sspa_component = {
-	.name		       = "spacemit-dmasspa-dai",
-	//.legacy_dai_naming = true,
+	.name 			= "spacemit-dmasspa-dai",
+	.resume 		= i2s_sspa_resume,
+	.suspend 		= i2s_sspa_suspend,
 };
 
 static int asoc_mmp_sspa_probe(struct platform_device *pdev)
@@ -406,6 +418,17 @@ static int asoc_mmp_sspa_probe(struct platform_device *pdev)
 		pr_err("sspa pmumain ioremap err\n");
 		return -1;
 	}
+	//get reset
+	priv->sspa0_rst = devm_reset_control_get(&pdev->dev, "sspa0-rst");
+	if (IS_ERR(priv->sspa0_rst))
+		return PTR_ERR(priv->sspa0_rst);
+
+	priv->sspa1_rst = devm_reset_control_get(&pdev->dev, "sspa1-rst");
+	if (IS_ERR(priv->sspa1_rst))
+		return PTR_ERR(priv->sspa1_rst);
+
+	pm_runtime_enable(&pdev->dev);
+	i2splatdev = pdev;
 
 	priv->dai_fmt = (unsigned int) -1;
 	platform_set_drvdata(pdev, priv);
@@ -416,11 +439,6 @@ static int asoc_mmp_sspa_probe(struct platform_device *pdev)
 
 static int asoc_mmp_sspa_remove(struct platform_device *pdev)
 {
-	struct sspa_priv *priv = platform_get_drvdata(pdev);
-
-	clk_disable(priv->audio_clk);
-	clk_put(priv->audio_clk);
-	clk_put(priv->sysclk);
 	return 0;
 }
 
