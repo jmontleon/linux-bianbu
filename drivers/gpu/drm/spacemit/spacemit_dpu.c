@@ -306,13 +306,13 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 		spacemit_dpu_free_bootloader_mem();
 	}
 
-	pm_runtime_get_sync(dpu->dev);
 	if (hwdev->is_hdmi && (!IS_ERR_OR_NULL(dpu->hdmi_reset))) {
 		result = reset_control_deassert(dpu->hdmi_reset);
 		if (result < 0) {
 			DRM_INFO("Failed to deassert hdmi: %d\n", result);
 		}
 	}
+	pm_runtime_get_sync(dpu->dev);
 
 #ifdef CONFIG_SPACEMIT_DEBUG
 	dpu->is_working = true;
@@ -341,13 +341,13 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 	dpu->is_working = false;
 #endif
 
+	pm_runtime_put(dpu->dev);
 	if (hwdev->is_hdmi && (!IS_ERR_OR_NULL(dpu->hdmi_reset))) {
 		result = reset_control_assert(dpu->hdmi_reset);
 		if (result < 0) {
 			DRM_INFO("Failed to assert hdmi: %d\n", result);
 		}
 	}
-	pm_runtime_put(dpu->dev);
 
 	spin_lock_irq(&drm->event_lock);
 	if (crtc->state->event) {
