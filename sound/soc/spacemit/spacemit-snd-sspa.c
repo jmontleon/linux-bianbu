@@ -8,6 +8,9 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
+#include <linux/pm_runtime.h>
+#include <linux/pm.h>
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -23,8 +26,7 @@
 struct sspa_priv {
 	struct ssp_device *sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
-	struct clk *audio_clk;
-	struct clk *sysclk;
+	struct reset_control *rst;
 	int dai_fmt;
 	int dai_id_pre;
 	int running_cnt;
@@ -33,28 +35,7 @@ struct sspa_priv {
 	void __iomem	*base_hdmi;
 };
 
-static void spacemit_clk_rst_enable(struct sspa_priv *priv)
-{
-	unsigned int value;
-	value = readl_relaxed(priv->base_clk + 0x44);
-
-	value |= PCLK_ENABLE | FCLK_ENABLE;
-	writel(value, priv->base_clk + 0x44);
-	udelay(1);
-	value |= MODULE_ENABLE;
-	writel(value, priv->base_clk + 0x44);
-}
-
-static void spacemit_clk_rst_disable(struct sspa_priv *priv)
-{
-	unsigned int value;
-	value = readl_relaxed(priv->base_clk + 0x44);
-	value |= MODULE_RESET;
-	writel(value, priv->base_clk + 0x44);
-	udelay(1);
-	value &= ~(PCLK_ENABLE | FCLK_ENABLE);
-	writel(value, priv->base_clk + 0x44);
-}
+struct platform_device *sspa_platdev;
 
 static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
@@ -66,7 +47,7 @@ static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	value |= BIT(0);
 	writel(value, sspa_priv->base_hdmi);
 
-	spacemit_clk_rst_enable(sspa_priv);
+	pm_runtime_get_sync(&sspa_platdev->dev);
 	return 0;
 }
 
@@ -79,7 +60,8 @@ static void mmp_sspa_shutdown(struct snd_pcm_substream *substream,
 	value = readl_relaxed(sspa_priv->base_hdmi);
 	value &= ~BIT(0);
 	writel(value, sspa_priv->base_hdmi);
-	spacemit_clk_rst_disable(sspa_priv);
+
+	pm_runtime_put_sync(&sspa_platdev->dev);
 }
 
 static int mmp_sspa_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
@@ -196,16 +178,6 @@ static void spacemit_dma_params_init(struct resource *res, struct snd_dmaengine_
 	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 }
 
-static void spacemit_clk_init(struct sspa_priv *priv)
-{
-	unsigned int value;
-
-	/*48k 32bit*/
-	value = 0x1ff << 4; //div 512
-	value |=  CLK1_24P576MHZ;
-	writel(value, priv->base_clk + 0x44);
-}
-
 static const struct snd_soc_component_driver spacemit_snd_sspa_component = {
 	.name		= "spacemit-snd-sspa",
 };
@@ -248,7 +220,17 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	spacemit_dma_params_init(base_res, priv->dma_params);
-	spacemit_clk_init(priv);
+
+	//get reset
+	priv->rst = devm_reset_control_get(&pdev->dev, NULL);
+	if (IS_ERR(priv->rst))
+		return PTR_ERR(priv->rst);
+
+	reset_control_deassert(priv->rst);
+
+	pm_runtime_enable(&pdev->dev);
+
+	sspa_platdev = pdev;
 
 	platform_set_drvdata(pdev, priv);
 	ret = devm_snd_soc_register_component(&pdev->dev, &spacemit_snd_sspa_component,
