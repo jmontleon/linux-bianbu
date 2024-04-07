@@ -189,5 +189,9 @@
 
 #define CLK_SLOW_UART   180
 
-#define CLK_MAX_NO      181
+#define CLK_I2S_SYSCLK  181
+#define CLK_I2S_BCLK    182
+#define CLK_RCPU_HDMIAUDIO  183
+
+#define CLK_MAX_NO      184
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */
