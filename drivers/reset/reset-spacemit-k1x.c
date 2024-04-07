@@ -127,6 +127,10 @@
 #define APBC2_GPIO_CLK_RST		0x1c
 /* end of APBC2 register offset */
 
+/* RCPU register offset */
+#define RCPU_HDMI_CLK_RST		0x44
+/* end of RCPU register offset */
+
 enum spacemit_reset_base_type{
 	RST_BASE_TYPE_MPMU       = 0,
 	RST_BASE_TYPE_APMU       = 1,
@@ -137,6 +141,7 @@ enum spacemit_reset_base_type{
 	RST_BASE_TYPE_DDRC       = 6,
 	RST_BASE_TYPE_AUDC       = 7,
 	RST_BASE_TYPE_APBC2      = 8,
+	RST_BASE_TYPE_RCPU       = 9,
 };
 
 struct spacemit_reset_signal {
@@ -165,6 +170,7 @@ struct spacemit_reset {
 	void __iomem *ddrc_base;
 	void __iomem *audio_ctrl_base;
 	void __iomem *apbc2_base;
+	void __iomem *rcpu_base;
 	const struct spacemit_reset_signal *signals;
 };
 
@@ -275,6 +281,8 @@ static const struct spacemit_reset_signal
 	[RESET_SEC_TIMERS0] 	= { APBC2_TIMERS0_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
 	[RESET_SEC_KPC] 	= { APBC2_KPC_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
 	[RESET_SEC_GPIO] 	= { APBC2_GPIO_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
+	//RCPU
+	[RESET_RCPU_HDMIAUDIO] 	= { RCPU_HDMI_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 };
 
 static struct spacemit_reset *to_spacemit_reset(
@@ -314,6 +322,9 @@ static u32 spacemit_reset_read(struct spacemit_reset *reset,
 			break;
 		case RST_BASE_TYPE_APBC2:
 			base = reset->apbc2_base;
+			break;
+		case RST_BASE_TYPE_RCPU:
+			base = reset->rcpu_base;
 			break;
 		default:
 			base = reset->apbc_base;
@@ -355,6 +366,9 @@ static void spacemit_reset_write(struct spacemit_reset *reset, u32 value,
 			break;
 		case RST_BASE_TYPE_APBC2:
 			base = reset->apbc2_base;
+			break;
+		case RST_BASE_TYPE_RCPU:
+			base = reset->rcpu_base;
 			break;
 		default:
 			base = reset->apbc_base;
@@ -478,6 +492,12 @@ static void spacemit_reset_init(struct device_node *np)
 		reset->apbc2_base = of_iomap(np, 7);
 		if (!reset->apbc2_base) {
 			pr_err("failed to map apbc2 registers\n");
+			goto out;
+		}
+
+		reset->rcpu_base = of_iomap(np, 8);
+		if (!reset->rcpu_base) {
+			pr_err("failed to map rcpu registers\n");
 			goto out;
 		}
 	}
