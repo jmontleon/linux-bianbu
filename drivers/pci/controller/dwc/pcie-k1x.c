@@ -1494,11 +1494,6 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 		k1x->num_lanes = 1;
 	}
 
-	/* parse clk source*/
-	k1x->clk_pcie = devm_clk_get(dev, "pcie-clk");
-	if (IS_ERR(k1x->clk_pcie))
-		return PTR_ERR(k1x->clk_pcie);
-
 	/* pcie0 and usb use combo phy and reset */
 	if (k1x->port_id == 0) {
 		k1x->reset = devm_reset_control_array_get_shared(dev);
@@ -1514,9 +1509,9 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 	k1x->pci = pci;
 	platform_set_drvdata(pdev, k1x);
 
-	ret = clk_prepare_enable(k1x->clk_pcie);
-	if(ret < 0)
-		return ret;
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
 
 	reset_control_deassert(k1x->reset);
 
