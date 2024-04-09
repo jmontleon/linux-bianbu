@@ -454,9 +454,9 @@ static void update_sessions(void)
 
         if (restrict_buffer_count < 0)
         {
-            MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
-                    "DVFS failed to retrieve status for the session. Session was removed? session=%p, restrict_buffer_count=%d",
-                    session->session_id, restrict_buffer_count);
+            //MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_WARNING,
+            //        "DVFS failed to retrieve status for the session. Session was removed? session=%p, restrict_buffer_count=%d",
+            //        session->session_id, restrict_buffer_count);
             continue;
         }
 
