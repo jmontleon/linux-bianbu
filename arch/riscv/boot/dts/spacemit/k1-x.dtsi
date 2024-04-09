@@ -1707,6 +1707,8 @@
 			clocks = <&ccu CLK_USB_AXI>;
 			usb-phy = <&usbphy>;
 			usb-otg = <&otg>;
+			interconnects = <&dram_range0>;
+			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
 
