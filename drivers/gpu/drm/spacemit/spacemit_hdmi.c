@@ -69,6 +69,7 @@ struct spacemit_hdmi {
 	unsigned int tmds_rate;
 
 	bool edid_done;
+	bool use_no_edid;
 	struct hdmi_data_info *hdmi_data;
 	struct drm_display_mode previous_mode;
 };
@@ -670,6 +671,9 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 
 	DRM_INFO("%s() \n", __func__);
 
+	if (hdmi->use_no_edid)
+		return drm_add_modes_noedid(connector, 1920, 1080);
+
 	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
 	DRM_INFO("%s() hdmi status 0x%x\n", __func__, value);
 	value &= ~(SPACEMIT_HDMI_DDC_OTHER_MASK | SPACEMIT_HDMI_DDC_DONE_MASK);
@@ -814,6 +818,11 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	hdmi->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(hdmi->regs))
 		return PTR_ERR(hdmi->regs);
+
+	if (of_property_read_bool(dev->of_node, "use-no-edid"))
+		hdmi->use_no_edid = true;
+	else
+		hdmi->use_no_edid = false;
 
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
