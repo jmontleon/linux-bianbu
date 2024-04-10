@@ -122,7 +122,6 @@ static int cam_sensor_power_set(struct cam_sensor_device *msnr_dev, u32 on)
 			usleep_range(5 * 1000, 5 * 1000);
 			gpiod_set_value_cansleep(msnr_dev->rst, 1);
 			usleep_range(10 * 1000, 10 * 1000);
-			//cam_info("rst-gpios to high --------- ZRong");
 		}
 		cam_dbg("sensor%d unreset", msnr_dev->id);
 	} else {
@@ -638,14 +637,7 @@ static int cam_sensor_read(struct cam_i2c_data *data,
 	return 0;
 
 err:
-	cam_info("%s: Failed reading register 0x%02x!", __func__, reg);
-#if 1
-	for (int i=0; i<1000; i++) {
-		msleep(1000);
-		if (i % 60 == 0)
-			cam_info("sleep %ds", i);
-	}
-#endif
+	cam_err("%s: Failed reading register 0x%02x!", __func__, reg);
 	return ret;
 }
 
