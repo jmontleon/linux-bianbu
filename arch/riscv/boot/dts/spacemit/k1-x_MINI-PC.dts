@@ -155,6 +155,15 @@
 			reset-gpios     = <&gpio 63 0>;
 		};
 	};
+
+	usb2hub: usb2hub {
+		compatible = "spacemit,usb3-hub";
+		hub-gpios = <&gpio 74 0>;	/* usb2 hub en */
+		vbus-gpios = <
+			&gpio 91 0
+			&gpio 92 0>;	/* for usb2 hub output vbus */
+		status = "okay";
+	};
 };
 
 &pinctrl {
