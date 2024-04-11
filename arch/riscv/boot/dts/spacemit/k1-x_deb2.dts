@@ -113,7 +113,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8,initcall_debug=1 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 

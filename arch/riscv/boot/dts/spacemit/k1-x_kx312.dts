@@ -112,7 +112,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8,initcall_debug=1 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -252,7 +252,7 @@
 	pinctrl-0 = <&pinctrl_i2c4_2>;
 	status = "okay";
 
-	touchpad: hid@2c {
+	touchpad: hid@2d {
 		compatible = "hid-over-i2c";
 		reg = <0x2d>;
 		hid-descr-addr = <0x0020>;
