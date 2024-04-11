@@ -99,7 +99,11 @@ static struct platform_driver spacemit_regulator_driver = {
 	},
 };
 
-module_platform_driver(spacemit_regulator_driver);
+static int spacemit_regulator_init(void)
+{
+	return platform_driver_register(&spacemit_regulator_driver);
+}
+subsys_initcall(spacemit_regulator_init);
 
 MODULE_DESCRIPTION("regulator drivers for the Spacemit series PMICs");
 
