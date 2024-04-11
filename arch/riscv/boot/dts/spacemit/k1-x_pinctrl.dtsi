@@ -28,10 +28,10 @@
 
     pinctrl_uart2: uart2_grp {
         pinctrl-single,pins =<
-            K1X_PADCONF(GPIO_21,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))   /* uart2_txd */
-            K1X_PADCONF(GPIO_22,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))   /* uart2_rxd */
-            K1X_PADCONF(GPIO_23,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))   /* uart2_cts_n */
-            K1X_PADCONF(GPIO_24,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS2))   /* uart2_rts_n */
+            K1X_PADCONF(GPIO_21,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS0))   /* uart2_txd */
+            K1X_PADCONF(GPIO_22,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS0))   /* uart2_rxd */
+            K1X_PADCONF(GPIO_23,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS0))   /* uart2_cts_n */
+            K1X_PADCONF(GPIO_24,    MUX_MODE1, (EDGE_NONE | PULL_DOWN | PAD_1V8_DS0))   /* uart2_rts_n */
         >;
     };
 
