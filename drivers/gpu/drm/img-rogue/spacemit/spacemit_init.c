@@ -339,6 +339,8 @@ struct st_context *RgxStInit(PVRSRV_DEVICE_CONFIG* psDevConfig)
 		goto fail;
 	}
 
+	reset_control_deassert(platform->gpu_reset);
+
 	clk_prepare_enable(platform->gpu_clk);
 	clk_set_rate(platform->gpu_clk, RGX_ST_CORE_CLOCK_SPEED);
 
@@ -347,6 +349,7 @@ struct st_context *RgxStInit(PVRSRV_DEVICE_CONFIG* psDevConfig)
 		psRGXData->psRGXTimingInfo->ui32CoreClockSpeed = clk_get_rate(platform->gpu_clk);
 	}
 
+	reset_control_assert(platform->gpu_reset);
 
 	mutex_init(&platform->set_power_state);
 
