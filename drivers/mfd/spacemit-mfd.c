@@ -225,6 +225,10 @@ static struct i2c_driver spacemit_pmic_i2c_driver = {
 	.shutdown = spacemit_pmic_shutdown,
 };
 
-module_i2c_driver(spacemit_pmic_i2c_driver);
+static int spacemit_mfd_init(void)
+{
+	return i2c_add_driver(&spacemit_pmic_i2c_driver);
+}
+subsys_initcall(spacemit_mfd_init);
 
 MODULE_LICENSE("GPL");
