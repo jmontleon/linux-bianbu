@@ -409,7 +409,7 @@ static void spacemit_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	DRM_DEBUG("%s()\n", __func__);
 	trace_spacemit_crtc_atomic_flush(dpu->dev_id);
-	spacemit_dpu_wb_config(dpu);
+	// spacemit_dpu_wb_config(dpu);
 	saturn_conf_dpuctrl_color_matrix(dpu, old_state);
 	spacemit_crtc_atomic_update_mclk(crtc, old_state);
 	spacemit_dpu_run(crtc, old_state);
