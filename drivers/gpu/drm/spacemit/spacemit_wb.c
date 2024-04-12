@@ -261,6 +261,13 @@ struct platform_driver spacemit_wb_driver = {
 	},
 };
 
+// module_platform_driver(spacemit_wb_driver);
+static int spacemit_wb_driver_init(void)
+{
+       return platform_driver_register(&spacemit_wb_driver);
+}
+late_initcall(spacemit_wb_driver_init);
+
 MODULE_DESCRIPTION("Spacemit WB Driver");
 MODULE_LICENSE("GPL v2");
 
