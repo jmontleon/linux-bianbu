@@ -2324,15 +2324,16 @@
 			<0x0 0x0 0xffffffff 0xffffff00 0x0007fff8>;
 	};
 
-	spacemit-snd-dma-hdmi {
+	hdmi_dma: spacemit_snd_dma_hdmi {
 		compatible = "spacemit,spacemit-snd-dma-hdmi";
 		reg = <0 0xc08d0400 0 0x3c00>;
 		dmas = <&hdmi_adma>;
 		dma-names = "tx";
-		status = "ok";
+		#sound-dai-cells = <0>;
+		status = "okay";
 	};
 
-	spacemit_snd_sspa {
+	hdmi_sspa: spacemit_snd_sspa {
 		compatible = "spacemit,spacemit-snd-sspa";
 		reg = <0 0xc0883900 0 0x300>,
 			<0 0xc0882000 0 0x50>;
@@ -2341,50 +2342,90 @@
 		assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
 		assigned-clock-rates = <48000>;
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
-		status = "ok";
+		#sound-dai-cells = <0>;
+		status = "okay";
 	};
 
-	spacemit_i2s: i2s {
-		compatible = "spacemit,spacemit-i2s-dai";
-		reg = <0x0 0xD4026000 0x0 0x30>,
-			<0x0 0xD4026800 0x0 0x30>;
-		reg-names = "i2s0", "i2s1";
-		clocks = <&ccu CLK_SSPA0>,
-			<&ccu CLK_SSPA1>;
-		clock-names = "sspa0-clk", "sspa1-clk";
-		resets = <&reset RESET_SSPA0>,
-			<&reset RESET_SSPA1>;
-		reset-names = "sspa0-rst", "sspa1-rst";
-		assigned-clocks = <&ccu CLK_SSPA0>,
-				 <&ccu CLK_SSPA1>;
-		assigned-clock-rates = <3072000>, <3072000>;
+	dummy_codec: dummy_codec{
+		compatible = "spacemit,dummy-codec";
+		#sound-dai-cells = <0>;
+		status = "okay";
+	};
+
+	i2s0: i2s0@d4026000 {
+		compatible = "spacemit,spacemit-i2s0";
+		reg = <0x0 0xD4026000 0x0 0x30>;
+		reg-names = "i2s0";
+		#sound-dai-cells = <0>;
+		clocks = <&ccu CLK_SSPA0>;
+		clock-names = "sspa-clk";
+		resets = <&reset RESET_SSPA0>;
+		reset-names = "sspa-rst";
+		assigned-clocks = <&ccu CLK_SSPA0>;
+		assigned-clock-rates = <3072000>;
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
-		status = "ok";
+		status = "disabled";
 	};
 
-	spacemit-snd-dma0 {
+	i2s1: i2s1@d4026800 {
+		compatible = "spacemit,spacemit-i2s1";
+		reg = <0x0 0xD4026800 0x0 0x30>;
+		reg-names = "i2s1";
+		#sound-dai-cells = <0>;
+		clocks = <&ccu CLK_SSPA1>;
+		clock-names = "sspa-clk";
+		resets = <&reset RESET_SSPA1>;
+		reset-names = "sspa-rst";
+		assigned-clocks = <&ccu CLK_SSPA1>;
+		assigned-clock-rates = <3072000>;
+		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+		status = "disabled";
+	};
+
+	i2s0_dma: spacemit-snd-dma0 {
 		compatible = "spacemit,spacemit-snd-dma0";
 		dmas = <&pdma0 22 1
 			&pdma0 21 1>;
 		dma-names = "rx", "tx";
-		status = "ok";
+		#sound-dai-cells = <0>;
+		status = "okay";
 	};
 
-	spacemit-snd-dma1 {
+	i2s1_dma: spacemit-snd-dma1 {
 		compatible = "spacemit,spacemit-snd-dma1";
 		dmas = <&pdma0 24 1
 			&pdma0 23 1>;
 		dma-names = "rx", "tx";
-		status = "ok";
+		#sound-dai-cells = <0>;
+		status = "okay";
 	};
 
 	sound_hdmi: snd-card@0 {
-		compatible = "spacemit,spacemit-snd-hdmi";
-		status = "ok";
+		compatible = "spacemit,simple-audio-card";
+		simple-audio-card,name = "snd-hdmi";
+		status = "disabled";
+		simple-audio-card,cpu {
+			sound-dai = <&hdmi_sspa>;
+		};
+		simple-audio-card,plat {
+			sound-dai = <&hdmi_dma>;
+		};
+		simple-audio-card,codec {
+			sound-dai = <&dummy_codec>;
+		};
 	};
 
 	sound_es8326: snd-card@1 {
-		compatible = "spacemit,spacemit-snd-es8326";
+		compatible = "spacemit,simple-audio-card";
+		simple-audio-card,name = "snd-es8326";
+		simple-audio-card,format = "i2s";
 		status = "disabled";
+		spacemit,init-jack;
+		simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+		simple-audio-card,plat {
+			sound-dai = <&i2s0_dma>;
+		};
 	};
 };
