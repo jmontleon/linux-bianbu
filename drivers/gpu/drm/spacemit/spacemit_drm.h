@@ -46,7 +46,6 @@ struct spacemit_drm_private {
 
 extern struct platform_driver spacemit_dpu_driver;
 extern struct platform_driver spacemit_dphy_driver;
-extern struct platform_driver spacemit_wb_driver;
 extern struct platform_driver spacemit_dsi_driver;
 
 int spacemit_wb_init(struct drm_device *drm, struct drm_crtc *crtc);
