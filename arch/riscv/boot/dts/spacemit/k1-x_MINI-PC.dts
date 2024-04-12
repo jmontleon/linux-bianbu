@@ -708,7 +708,7 @@
 	temperature = <115000>;
 };
 
-&spacemit_i2s {
+&i2s0 {
         pinctrl-names = "default";
         pinctrl-0 = <&pinctrl_sspa0_0>;
         status = "okay";

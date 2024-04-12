@@ -263,7 +263,7 @@
 		};
 	};
 
-	es8326@19{
+	es8326: es8326@19{
 		compatible = "everest,es8326";
 		reg = <0x19>;
 		#sound-dai-cells = <0>;
@@ -964,12 +964,19 @@
 	temperature = <115000>;
 };
 
-&spacemit_i2s {
+&i2s0 {
         pinctrl-names = "default";
         pinctrl-0 = <&pinctrl_sspa0_0>;
         status = "okay";
 };
 
+&sound_hdmi {
+	status = "okay";
+};
+
 &sound_es8326 {
 	status = "okay";
+	simple-audio-card,codec {
+		sound-dai = <&es8326>;
+	};
 };
