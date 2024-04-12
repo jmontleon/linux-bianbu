@@ -19,12 +19,16 @@
 
 #include "spacemit_onboard_hub.h"
 
-#define DRIVER_VERSION "v1.0.0"
+#define DRIVER_VERSION "v1.0.1"
 
 static void spacemit_hub_enable(struct spacemit_hub_priv *spacemit, bool on)
 {
 	unsigned i;
 	int active_val = spacemit->hub_gpio_active_low ? 0 : 1;
+
+	if (!spacemit->hub_gpios)
+		return;
+
 	dev_dbg(spacemit->dev, "do hub enable %s\n", on ? "on" : "off");
 
 	if (on) {
@@ -53,6 +57,9 @@ static void spacemit_hub_vbus_enable(struct spacemit_hub_priv *spacemit,
 	unsigned i;
 	int active_val = spacemit->vbus_gpio_active_low ? 0 : 1;
 
+	if (!spacemit->vbus_gpios)
+		return;
+
 	dev_dbg(spacemit->dev, "do hub vbus on %s\n", on ? "on" : "off");
 	if (on) {
 		for (i = 0; i < spacemit->vbus_gpios->ndescs; i++) {
@@ -80,13 +87,13 @@ static void spacemit_hub_configure(struct spacemit_hub_priv *spacemit, bool on)
 	mutex_lock(&spacemit->hub_mutex);
 	if (on) {
 		spacemit_hub_enable(spacemit, true);
-		if (spacemit->vbus_delay_ms && spacemit->vbus_gpios->ndescs) {
+		if (spacemit->vbus_delay_ms && spacemit->vbus_gpios) {
 			msleep(spacemit->vbus_delay_ms);
 		}
 		spacemit_hub_vbus_enable(spacemit, true);
 	} else {
 		spacemit_hub_vbus_enable(spacemit, false);
-		if (spacemit->vbus_delay_ms && spacemit->vbus_gpios->ndescs) {
+		if (spacemit->vbus_delay_ms && spacemit->vbus_gpios) {
 			msleep(spacemit->vbus_delay_ms);
 		}
 		spacemit_hub_enable(spacemit, false);
@@ -125,7 +132,7 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 	spacemit->vbus_gpio_active_low =
 		device_property_read_bool(dev, "vbus_gpio_active_low");
 
-	spacemit->hub_gpios = devm_gpiod_get_array(
+	spacemit->hub_gpios = devm_gpiod_get_array_optional(
 		&pdev->dev, "hub",
 		spacemit->hub_gpio_active_low ? GPIOD_OUT_HIGH : GPIOD_OUT_LOW);
 	if (IS_ERR(spacemit->hub_gpios)) {
@@ -133,7 +140,7 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 		return PTR_ERR(spacemit->hub_gpios);
 	}
 
-	spacemit->vbus_gpios = devm_gpiod_get_array(
+	spacemit->vbus_gpios = devm_gpiod_get_array_optional(
 		&pdev->dev, "vbus",
 		spacemit->vbus_gpio_active_low ? GPIOD_OUT_HIGH : GPIOD_OUT_LOW);
 	if (IS_ERR(spacemit->vbus_gpios)) {
