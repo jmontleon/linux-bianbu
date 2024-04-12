@@ -2231,24 +2231,6 @@
 			status = "okay";
 		};
 
-		wb0 {
-			compatible = "spacemit,wb0";
-			dev-id = <2>;
-			status = "okay";
-
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@0 {
-					reg = <0>;
-					wb0_in: endpoint {
-						/* remote-endpoint = <&dpu_offline0_dsi_out>; */
-						/* remote-endpoint = <&dpu_offline0_hdmi_out>; */
-					};
-				};
-			};
-		};
-
 		pwm_bl: lcd_backlight {
 			compatible = "pwm-backlight";
 			status = "disabled";
