@@ -546,7 +546,7 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 
 	if (!of_property_read_u32(dev->of_node, "id", &tmp))
 		panel->id = tmp;
-  
+
 	count = of_property_count_strings(dev->of_node, "vin-supply-names");
 	if (count <= 0 || count != 3) {
 		panel->vdd_2v8 = NULL;
