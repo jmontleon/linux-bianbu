@@ -35,7 +35,7 @@
 		};
 
 		dpu_offline0_dsi_out: endpoint@1 {
-			/* remote-endpoint = <&wb0_in>; */
+			remote-endpoint = <&wb0_in>;
 		};
 	};
 
@@ -87,6 +87,23 @@
 			reg = <1>;
 			dphy2_in: endpoint {
 				remote-endpoint = <&dsi2_out>;
+			};
+		};
+	};
+
+	wb0 {
+		compatible = "spacemit,wb0";
+		dev-id = <2>;
+		status = "okay";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				wb0_in: endpoint {
+					remote-endpoint = <&dpu_offline0_dsi_out>;
+				};
 			};
 		};
 	};
