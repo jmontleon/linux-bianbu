@@ -1793,8 +1793,9 @@
 					 <&reset RESET_SDH0>;
 			reset-names = "sdh_axi", "sdh0";
 			clocks = <&ccu CLK_SDH0>,
-					 <&ccu CLK_SDH_AXI>;
-			clock-names = "sdh-io", "sdh-core";
+					 <&ccu CLK_SDH_AXI>,
+					 <&ccu CLK_AIB>;
+			clock-names = "sdh-io", "sdh-core","aib-clk";
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
