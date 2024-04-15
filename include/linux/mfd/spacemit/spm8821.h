@@ -690,6 +690,26 @@ static const struct rtc_regdesc spm8821_regdesc = {		\
 		.msk = 0x3f,					\
 	},							\
 								\
+	.rtc_sec_a = {						\
+		.reg = 0x19,					\
+		.msk = 0xff,					\
+	},							\
+								\
+	.rtc_sec_b = {						\
+		.reg = 0x1a,					\
+		.msk = 0xff,					\
+	},							\
+								\
+	.rtc_sec_c = {						\
+		.reg = 0x1b,					\
+		.msk = 0xff,					\
+	},							\
+								\
+	.rtc_sec_d = {						\
+		.reg = 0x1c,					\
+		.msk = 0xff,					\
+	},							\
+								\
 	.alarm_s = {						\
 		.reg = 0x13,					\
 		.msk = 0x3f,					\
