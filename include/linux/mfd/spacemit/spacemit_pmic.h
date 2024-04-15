@@ -135,6 +135,26 @@ struct rtc_regdesc {
 	struct {
 		unsigned char reg;
 		unsigned char msk;
+	} rtc_sec_a;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} rtc_sec_b;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} rtc_sec_c;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
+	} rtc_sec_d;
+
+	struct {
+		unsigned char reg;
+		unsigned char msk;
 	} alarm_s;
 
 	struct {
