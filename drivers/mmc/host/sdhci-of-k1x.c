@@ -140,6 +140,7 @@ static struct sdhci_host* sdio_host;
 struct sdhci_spacemit {
 	struct clk *clk_core;
 	struct clk *clk_io;
+	struct clk *clk_aib;
 	struct reset_control *reset;
 	unsigned char power_mode;
 	struct pinctrl_state *pin;
@@ -1584,6 +1585,10 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	if (!IS_ERR(spacemit->clk_core))
 		clk_prepare_enable(spacemit->clk_core);
 
+	spacemit->clk_aib = devm_clk_get(dev, "aib-clk");
+	if (!IS_ERR(spacemit->clk_aib))
+		clk_prepare_enable(spacemit->clk_aib);
+
 	spacemit->reset = devm_reset_control_array_get_optional_shared(dev);
 	if (IS_ERR(spacemit->reset)) {
 		dev_err(dev, "failed to get reset control\n");
@@ -1702,6 +1707,8 @@ err_add_host:
 err_of_parse:
 	reset_control_assert(spacemit->reset);
 err_rst_get:
+	if (!IS_ERR(spacemit->clk_aib))
+		clk_disable_unprepare(spacemit->clk_aib);
 	clk_disable_unprepare(spacemit->clk_io);
 	clk_disable_unprepare(spacemit->clk_core);
 err_clk_get:
@@ -1722,6 +1729,8 @@ static int spacemit_sdhci_remove(struct platform_device *pdev)
 	sdhci_remove_host(host, 1);
 
 	reset_control_assert(spacemit->reset);
+	if (!IS_ERR(spacemit->clk_aib))
+		clk_disable_unprepare(spacemit->clk_aib);
 	clk_disable_unprepare(spacemit->clk_io);
 	clk_disable_unprepare(spacemit->clk_core);
 
@@ -1794,6 +1803,8 @@ static int spacemit_sdhci_runtime_suspend(struct device *dev)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	clk_disable_unprepare(spacemit->clk_io);
+	if (!IS_ERR(spacemit->clk_aib))
+		clk_disable_unprepare(spacemit->clk_aib);
 	if (!IS_ERR(spacemit->clk_core))
 		clk_disable_unprepare(spacemit->clk_core);
 
@@ -1809,6 +1820,8 @@ static int spacemit_sdhci_runtime_resume(struct device *dev)
 	u32 reg;
 
 	clk_prepare_enable(spacemit->clk_io);
+	if (!IS_ERR(spacemit->clk_aib))
+		clk_prepare_enable(spacemit->clk_aib);
 	if (!IS_ERR(spacemit->clk_core))
 		clk_prepare_enable(spacemit->clk_core);
 
