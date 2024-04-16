@@ -662,6 +662,8 @@ static int add_relocation_to_accumulate(struct module *me, int type,
 	struct hlist_head *current_head;
 	struct used_bucket *bucket;
 	unsigned long hash;
+	bool found = false;
+	struct relocation_head *rel_head_iter;
 
 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
 
@@ -680,9 +682,6 @@ static int add_relocation_to_accumulate(struct module *me, int type,
 	 * Search for the relocation_head for the relocations that happen at the
 	 * provided location
 	 */
-	bool found = false;
-	struct relocation_head *rel_head_iter;
-
 	hlist_for_each_entry(rel_head_iter, current_head, node) {
 		if (rel_head_iter->location == location) {
 			found = true;
