@@ -226,20 +226,24 @@ MODULE_DEVICE_TABLE(of, spacemit_mailbox_of_match);
 #ifdef CONFIG_PM_SLEEP
 static int k1x_mailbox_suspend_noirq(struct device *dev)
 {
+#if 0
 	int ret;
 	struct spacemit_mailbox *mbox = dev_get_drvdata(dev);
 
-//	ret = reset_control_assert(mbox->reset);
+	ret = reset_control_assert(mbox->reset);
+#endif
 
 	return 0;
 }
 
 static int k1x_mailbox_resume_noirq(struct device *dev)
 {
+#if 0
 	int ret;
 	struct spacemit_mailbox *mbox = dev_get_drvdata(dev);
 
-//	ret = reset_control_deassert(mbox->reset);
+	ret = reset_control_deassert(mbox->reset);
+#endif
 
 	return 0;
 }
