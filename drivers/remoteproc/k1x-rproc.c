@@ -582,7 +582,6 @@ static int spacemit_rproc_suspend(struct device *dev)
 
 static int spacemit_rproc_resume(struct device *dev)
 {
-	int ret;
 	unsigned int val;
 	struct rproc *rproc;
 	struct spacemit_rproc *srproc;
