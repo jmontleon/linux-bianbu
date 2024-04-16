@@ -1440,7 +1440,7 @@ static void bot_cmd_work(struct work_struct *work)
 	struct se_cmd *se_cmd;
 	struct tcm_usbg_nexus *tv_nexus;
 	struct usbg_tpg *tpg;
-	int dir;
+	int dir, flags = (TARGET_SCF_UNKNOWN_SIZE | TARGET_SCF_ACK_KREF);
 
 	se_cmd = &cmd->se_cmd;
 	tpg = cmd->fu->tpg;
@@ -1457,7 +1457,7 @@ static void bot_cmd_work(struct work_struct *work)
 
 	target_submit_cmd(se_cmd, tv_nexus->tvn_se_sess,
 			  cmd->cmd_buf, cmd->sense_iu.sense, cmd->unpacked_lun,
-			  cmd->data_len, cmd->prio_attr, dir, 0);
+			  cmd->data_len, cmd->prio_attr, dir, flags);
 	return;
 
 out:
