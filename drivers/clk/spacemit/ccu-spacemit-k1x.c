@@ -1032,7 +1032,7 @@ static SPACEMIT_CCU_GATE_NO_PARENT(emac0_bus_clk, "emac0_bus_clk", NULL,
 	BASE_TYPE_APMU, APMU_EMAC0_CLK_RES_CTRL,
 	BIT(0), BIT(0), 0x0,
 	0);
-static SPACEMIT_CCU_GATE(emac0_ptp_clk, "emac0_ptp_clk", "pll1_d3_819p2",
+static SPACEMIT_CCU_GATE(emac0_ptp_clk, "emac0_ptp_clk", "pll2_d6",
 	BASE_TYPE_APMU, APMU_EMAC0_CLK_RES_CTRL,
 	BIT(15), BIT(15), 0x0,
 	0);
@@ -1040,7 +1040,7 @@ static SPACEMIT_CCU_GATE_NO_PARENT(emac1_bus_clk, "emac1_bus_clk", NULL,
 	BASE_TYPE_APMU, APMU_EMAC1_CLK_RES_CTRL,
 	BIT(0), BIT(0), 0x0,
 	0);
-static SPACEMIT_CCU_GATE(emac1_ptp_clk, "emac1_ptp_clk", "pll1_d3_819p2",
+static SPACEMIT_CCU_GATE(emac1_ptp_clk, "emac1_ptp_clk", "pll2_d6",
 	BASE_TYPE_APMU, APMU_EMAC1_CLK_RES_CTRL,
 	BIT(15), BIT(15), 0x0,
 	0);
