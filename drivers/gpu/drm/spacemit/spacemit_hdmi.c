@@ -549,7 +549,6 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
-	u32 value;
 	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
 	int bit_depth = TEN_BPP;
 
