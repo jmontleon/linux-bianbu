@@ -543,6 +543,8 @@ static void reset_hw(struct device *dev)
 }
 
 static int b_backto_active;
+
+#if 0
 static void mvx_pm_disable_clk(struct device *dev)
 {
     struct clk* clock;
@@ -570,6 +572,7 @@ static void mvx_pm_enable_clk(struct device *dev)
         clk_prepare_enable(clock);
     }
 }
+#endif
 
 static int mvx_pm_poweron(struct device *dev)
 {
