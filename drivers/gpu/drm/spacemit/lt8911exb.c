@@ -208,15 +208,6 @@ static const struct regmap_config lt8911exb_regmap_config = {
 	.max_register = 0xff,
 };
 
-static struct lt8911exb *bridge_to_lt8911exb(struct drm_bridge *bridge)
-{
-	return container_of(bridge, struct lt8911exb, bridge);
-}
-
-static struct lt8911exb *connector_to_lt8911exb(struct drm_connector *connector)
-{
-	return container_of(connector, struct lt8911exb, connector);
-}
 
 static struct lt8911exb *panel_to_lt8911exb(struct drm_panel *panel)
 {
@@ -761,7 +752,6 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 
 void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 {
-	unsigned int temp;
 	unsigned int reg;
 	unsigned int temp2;
 
@@ -1358,13 +1348,13 @@ static int lt8911exb_probe(struct i2c_client *client,
 	char lcd_path[60];
 	const char *lcd_name;
 
-	DRM_INFO("%s()\n", __func__);
-
 	struct mipi_dsi_device_info info = {
 		.type = IT8911_DSI_DRIVER_NAME,
 		.channel = 0, //0,
 		.node = NULL,
 	};
+
+	DRM_INFO("%s()\n", __func__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "Failed check I2C functionality");
@@ -1553,7 +1543,6 @@ static int lt8911exb_dsi_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0) {
 		dev_err(&dsi->dev, "failed to attach dsi to host\n");
 		mipi_dsi_device_unregister(dsi);
-		return ERR_PTR(ret);
 	}
 
 	return ret;
