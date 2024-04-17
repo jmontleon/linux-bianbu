@@ -343,6 +343,11 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		}
 	}
 
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_suspend_ignore_children(dev, false);
+	pm_runtime_get_sync(dev);
+
 	dev_dbg(&pdev->dev,
 		 "successful find EHCI device with regs 0x%p irq %d"
 		 " working in %s mode\n", hcd->regs, hcd->irq,
@@ -381,6 +386,10 @@ static int mv_ehci_remove(struct platform_device *pdev)
 
 	usb_put_hcd(hcd);
 
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+
 	return 0;
 }
 
@@ -404,6 +413,56 @@ static void mv_ehci_shutdown(struct platform_device *pdev)
 		hcd->driver->shutdown(hcd);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int mv_ehci_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ehci_hcd_mv *ehci_mv = platform_get_drvdata(pdev);
+	struct usb_hcd *hcd = ehci_mv->hcd;
+	bool do_wakeup = device_may_wakeup(dev);
+	int ret;
+
+	ret = ehci_suspend(hcd, do_wakeup);
+	if (ret)
+		return ret;
+	usb_phy_shutdown(ehci_mv->phy);
+	clk_disable_unprepare(ehci_mv->clk);
+	dev_dbg(dev, "pm suspend: disable clks and phy\n");
+	return ret;
+}
+
+static int mv_ehci_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct ehci_hcd_mv *ehci_mv = platform_get_drvdata(pdev);
+	struct usb_hcd *hcd = ehci_mv->hcd;
+	int ret;
+
+	ret = clk_prepare_enable(ehci_mv->clk);
+	if (ret){
+		dev_err(dev, "Failed to enable clock");
+		return ret;
+	}
+	ret = usb_phy_init(ehci_mv->phy);
+	if (ret) {
+		dev_err(dev, "Failed to init phy\n");
+		ehci_clock_disable(ehci_mv);
+		return ret;
+	}
+	dev_dbg(dev, "pm resume: do EHCI resume\n");
+	ehci_resume(hcd, false);
+	return 0;
+}
+#else
+#define mv_ehci_suspend	NULL
+#define mv_ehci_resume	NULL
+#endif /* CONFIG_PM_SLEEP */
+
+static const struct dev_pm_ops mv_ehci_pm_ops = {
+	.suspend	= mv_ehci_suspend,
+	.resume		= mv_ehci_resume,
+};
+
 static struct platform_driver ehci_k1x_driver = {
 	.probe = mv_ehci_probe,
 	.remove = mv_ehci_remove,
@@ -412,5 +471,8 @@ static struct platform_driver ehci_k1x_driver = {
 		   .name = "mv-ehci",
 		   .of_match_table = of_match_ptr(mv_ehci_dt_match),
 		   .bus = &platform_bus_type,
+#ifdef CONFIG_PM
+		   .pm	= &mv_ehci_pm_ops,
+#endif
 		   },
 };
