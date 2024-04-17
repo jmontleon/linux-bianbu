@@ -1705,6 +1705,10 @@
 			spacemit,otg-force-a-bus-req;
 			resets = <&reset RESET_USB_AXI>;
 			clocks = <&ccu CLK_USB_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			regulator,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy>;
 			usb-otg = <&otg>;
 			interconnects = <&dram_range0>;
@@ -1728,6 +1732,10 @@
 			spacemit,otg-force-a-bus-req;
 			resets = <&reset RESET_USBP1_AXI>;
 			clocks = <&ccu CLK_USB_P1>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			regulator,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy1>;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
