@@ -476,6 +476,8 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 
 		cl = &priv->mb[i].client;
 		cl->dev = dev;
+		init_completion(&priv->mb[i].mb_comp);
+
 		priv->mb[i].chan = mbox_request_channel_byname(cl, name);
 		if (IS_ERR(priv->mb[i].chan)) {
 			dev_err(dev, "failed to request mbox channel\n");
@@ -486,8 +488,6 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 			priv->mb[i].mb_thread = kthread_run(__process_theread, (void *)cl, name);
 			if (IS_ERR(priv->mb[i].mb_thread))
 				return PTR_ERR(priv->mb[i].mb_thread);
-
-			init_completion(&priv->mb[i].mb_comp);
 		}
 	}
 
@@ -641,9 +641,26 @@ static const struct dev_pm_ops spacemit_rproc_pm_ops = {
 };
 #endif
 
+static void spacemit_rproc_shutdown(struct platform_device *pdev)
+{
+	int i;
+	struct rproc *rproc;
+	struct spacemit_rproc *priv;
+
+	rproc = dev_get_drvdata(&pdev->dev);
+	priv = rproc->priv;
+
+	for (i = 0; i < MAX_MBOX; ++i) {
+		/* release the resource of rt thread */
+		kthread_stop(priv->mb[i].mb_thread);
+		mbox_free_channel(priv->mb[i].chan);
+	}
+}
+
 static struct platform_driver spacemit_rproc_driver = {
 	.probe = spacemit_rproc_probe,
 	.remove = spacemit_rproc_remove,
+	.shutdown = spacemit_rproc_shutdown,
 	.driver = {
 		.name = "spacemit-rproc",
 #ifdef CONFIG_PM_SLEEP
