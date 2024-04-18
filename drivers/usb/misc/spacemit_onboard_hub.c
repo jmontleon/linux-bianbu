@@ -19,7 +19,7 @@
 
 #include "spacemit_onboard_hub.h"
 
-#define DRIVER_VERSION "v1.0.1"
+#define DRIVER_VERSION "v1.0.2"
 
 static void spacemit_hub_enable(struct spacemit_hub_priv *spacemit, bool on)
 {
@@ -84,7 +84,6 @@ static void spacemit_hub_vbus_enable(struct spacemit_hub_priv *spacemit,
 static void spacemit_hub_configure(struct spacemit_hub_priv *spacemit, bool on)
 {
 	dev_dbg(spacemit->dev, "do hub configure %s\n", on ? "on" : "off");
-	mutex_lock(&spacemit->hub_mutex);
 	if (on) {
 		spacemit_hub_enable(spacemit, true);
 		if (spacemit->vbus_delay_ms && spacemit->vbus_gpios) {
@@ -98,7 +97,6 @@ static void spacemit_hub_configure(struct spacemit_hub_priv *spacemit, bool on)
 		}
 		spacemit_hub_enable(spacemit, false);
 	}
-	mutex_unlock(&spacemit->hub_mutex);
 }
 
 static void spacemit_read_u32_prop(struct device *dev, const char *name,
@@ -131,6 +129,8 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 		device_property_read_bool(dev, "hub_gpio_active_low");
 	spacemit->vbus_gpio_active_low =
 		device_property_read_bool(dev, "vbus_gpio_active_low");
+	spacemit->suspend_power_on =
+		device_property_read_bool(dev, "suspend_power_on");
 
 	spacemit->hub_gpios = devm_gpiod_get_array_optional(
 		&pdev->dev, "hub",
@@ -165,8 +165,8 @@ static int spacemit_hub_remove(struct platform_device *pdev)
 {
 	struct spacemit_hub_priv *spacemit = platform_get_drvdata(pdev);
 
-	spacemit_hub_configure(spacemit, false);
 	debugfs_remove(debugfs_lookup(dev_name(&pdev->dev), usb_debug_root));
+	spacemit_hub_configure(spacemit, false);
 	mutex_destroy(&spacemit->hub_mutex);
 	dev_info(&pdev->dev, "onboard usb hub driver exit, disable hub\n");
 	return 0;
@@ -178,6 +178,41 @@ static const struct of_device_id spacemit_hub_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, spacemit_hub_dt_match);
 
+#ifdef CONFIG_PM_SLEEP
+static int spacemit_hub_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spacemit_hub_priv *spacemit = platform_get_drvdata(pdev);
+	mutex_lock(&spacemit->hub_mutex);
+	if (!spacemit->suspend_power_on) {
+		spacemit_hub_configure(spacemit, false);
+		dev_info(dev, "turn off hub power supply\n");
+	}
+	mutex_unlock(&spacemit->hub_mutex);
+	return 0;
+}
+
+static int spacemit_hub_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spacemit_hub_priv *spacemit = platform_get_drvdata(pdev);
+	mutex_lock(&spacemit->hub_mutex);
+	if (!spacemit->suspend_power_on) {
+		spacemit_hub_configure(spacemit, true);
+		dev_info(dev, "resume hub power supply\n");
+	}
+	mutex_unlock(&spacemit->hub_mutex);
+	return 0;
+}
+
+static const struct dev_pm_ops spacemit_onboard_hub_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(spacemit_hub_suspend, spacemit_hub_resume)
+};
+#define DEV_PM_OPS	(&spacemit_onboard_hub_pm_ops)
+#else
+#define DEV_PM_OPS	NULL
+#endif /* CONFIG_PM_SLEEP */
+
 static struct platform_driver spacemit_hub_driver = {
 	.probe	= spacemit_hub_probe,
 	.remove = spacemit_hub_remove,
@@ -185,6 +220,7 @@ static struct platform_driver spacemit_hub_driver = {
 		.name   = "spacemit-usb3-hub",
 		.owner  = THIS_MODULE,
 		.of_match_table = of_match_ptr(spacemit_hub_dt_match),
+		.pm = DEV_PM_OPS,
 	},
 };
 
