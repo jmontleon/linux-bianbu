@@ -139,6 +139,10 @@ static void spacemit_gem_sysmem_free(struct spacemit_gem_object *spacemit_obj)
 	struct drm_device *drm = spacemit_obj->base.dev;
 	struct spacemit_drm_private *priv = drm->dev_private;
 
+	if (!sgt) {
+		return;
+	}
+
 	for_each_sgtable_sg(sgt, sg, i) {
 		struct page *page = sg_page(sg);
 		if (priv->contig_mem)
@@ -315,6 +319,7 @@ __spacemit_gem_create_object(struct drm_device *drm, size_t size)
 		return ERR_PTR(ret);
 	}
 
+	spacemit_obj->sgt = NULL;
 	spacemit_obj->vaddr = NULL;
 	spacemit_obj->vmap_cnt = 0;
 	mutex_init(&spacemit_obj->vmap_lock);
