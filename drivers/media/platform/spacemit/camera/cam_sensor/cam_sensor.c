@@ -1198,8 +1198,8 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 	struct device *dev = NULL;
 	struct device_node *of_node = NULL;
 	u32 cell_id, twsi_no, dphy_no;
-	char mclk_name[32];
 	int ret;
+	const char *mclk_name;
 
 	SENSOR_DRIVER_CHECK_POINTER(sensor);
 	dev = &sensor->pdev->dev;
@@ -1239,16 +1239,25 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 	}
 	sensor->dphy_no = (u8) dphy_no;
 
+	ret = of_property_read_string(of_node, "clock-names", &mclk_name);
+	if (!ret) {
+		if (strcmp(mclk_name, "cam_mclk0") && strcmp(mclk_name, "cam_mclk1") && strcmp(mclk_name, "cam_mclk2")) {
+			cam_err("%s: error! only support cam_mclk0~2!", __func__);
+			return -EINVAL;
+		}
+	} else {
+		cam_err("%s: clock-names read failed", __func__);
+		return ret;
+	}
+
 	/* mclks */
-	snprintf(mclk_name, sizeof(mclk_name), "cam_mclk%d", cell_id);
 	sensor->mclk = devm_clk_get(dev, mclk_name);
 	if (IS_ERR(sensor->mclk)) {
 		cam_err("unable to get cam_mclk%d\n", cell_id);
 		ret = PTR_ERR(sensor->mclk);
 		goto st_err;
 	}
-//#if 0
-//#ifdef JINDIE_EVB
+
 	sensor->afvdd = devm_regulator_get(dev, "af_2v8");
 	if (IS_ERR(sensor->afvdd)) {
 		dev_warn(dev, "Failed to get regulator af_2v8\n");
@@ -1272,8 +1281,7 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		dev_warn(dev, "Failed to get regulator dvdd_1v2\n");
 		sensor->dvdd = NULL;
 	}
-//#endif
-//#endif
+
 	/* pwdn-gpios */
 	sensor->pwdn = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
 	if (IS_ERR(sensor->pwdn)) {
