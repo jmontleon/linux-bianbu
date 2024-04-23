@@ -297,6 +297,7 @@ static void giveback(struct spi_driver_data *drv_data)
 
 	if (drv_data->slave_mode)
 		del_timer(&drv_data->slave_rx_timer);
+	complete(&drv_data->cur_msg_completion);
 }
 
 static void reset_fifo_ctrl(struct spi_driver_data *drv_data)
@@ -725,8 +726,11 @@ static int k1x_spi_transfer_one_message(struct spi_master *master,
 		clk_set_rate(drv_data->clk, master->max_speed_hz);
 	}
 
+	reinit_completion(&drv_data->cur_msg_completion);
 	/* Mark as busy and launch transfers */
 	queue_work(system_wq, &drv_data->pump_transfers);
+	wait_for_completion(&drv_data->cur_msg_completion);
+
 	return 0;
 }
 
@@ -1019,6 +1023,8 @@ static int k1x_spi_probe(struct platform_device *pdev)
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
+
+	init_completion(&drv_data->cur_msg_completion);
 
 	/* Register with the SPI framework */
 	platform_set_drvdata(pdev, drv_data);
