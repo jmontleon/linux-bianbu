@@ -184,6 +184,7 @@ struct spi_driver_data {
 	struct spi_message *cur_msg;
 	struct spi_transfer *cur_transfer;
 	struct chip_data *cur_chip;
+	struct completion   cur_msg_completion;
 	size_t len;
 	void *tx;
 	void *tx_end;
