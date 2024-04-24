@@ -163,6 +163,24 @@
 			&gpio 92 0>;	/* for usb2 hub output vbus */
 		status = "okay";
 	};
+
+	vcc_pcie2_0: vcc-pcie2-0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_pcie2_0";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+		gpios = <&gpio 70 0>;
+	};
+
+	vcc_pcie2_1: vcc-pcie2-1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_pcie2_1";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+		gpios = <&gpio 71 0>;
+	};
 };
 
 &pinctrl {
@@ -650,6 +668,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie2_4>;
 	num-lanes = <1>;
+	pcie2_0-supply = <&vcc_pcie2_0>;
+	pcie2_1-supply = <&vcc_pcie2_1>;
+	vin-supply-names = "pcie2_0", "pcie2_1";
 	status = "okay";
 };
 
