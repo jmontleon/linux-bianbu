@@ -167,7 +167,8 @@ DEFINE_SPINLOCK(g_cru_lock);
 /* end of APBC2 register offset */
 
 /* RCPU register offset */
-#define RCPU_HDMI_CLK_RST		0x44
+#define RCPU_HDMI_CLK_RST		0x2044
+#define RCPU_CAN_CLK_RST		0x4c
 /* end of RCPU register offset */
 
 struct spacemit_k1x_clk k1x_clock_controller;
@@ -1106,6 +1107,18 @@ static SPACEMIT_CCU_DIV_MUX_GATE(rhdmi_audio_clk, "rhdmi_audio_clk", rhdmi_audio
 	0x6, 0x6, 0x0,
 	0);
 
+static const char *rcan_parent_names[] = {
+	"pll3_20", "pll3_40", "pll3_80"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(rcan_clk, "rcan_clk", rcan_parent_names,
+	BASE_TYPE_RCPU, RCPU_CAN_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_GATE_NO_PARENT(rcan_bus_clk, "rcan_bus_clk", NULL,
+	BASE_TYPE_RCPU, RCPU_CAN_CLK_RST,
+	BIT(2), BIT(2), 0x0, 0);
+
 static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.hws	= {
 		[CLK_PLL2]		= &pll2.common.hw,
@@ -1292,6 +1305,8 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_I2S_SYSCLK]	= &i2s_sysclk.common.hw,
 		[CLK_I2S_BCLK]		= &i2s_bclk.common.hw,
 		[CLK_RCPU_HDMIAUDIO]	= &rhdmi_audio_clk.common.hw,
+		[CLK_RCPU_CAN] 		= &rcan_clk.common.hw,
+		[CLK_RCPU_CAN_BUS]	= &rcan_bus_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
