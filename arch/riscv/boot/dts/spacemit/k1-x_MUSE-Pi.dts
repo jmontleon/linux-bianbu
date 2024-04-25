@@ -603,7 +603,6 @@
 	pinctrl-1 = <&pinctrl_mmc1_fast>;
 	bus-width = <4>;
 	cd-gpios = <&gpio 80 0>;
-	cd-inverted;
 	vmmc-supply = <&dcdc_4>;
 	vqmmc-supply = <&ldo_1>;
 	no-mmc;
