@@ -112,8 +112,9 @@
 #define	RESET_SEC_KPC      99
 #define	RESET_SEC_GPIO     100
 
-#define RESET_RCPU_HDMIAUDIO 101
+#define	RESET_RCPU_HDMIAUDIO 101
+#define	RESET_RCPU_CAN       102
 
-#define	RESET_NUMBER       102
+#define	RESET_NUMBER       103
 
 #endif /* __DT_BINDINGS_RESET_SAPCEMIT_K1X_H__ */
