@@ -192,6 +192,8 @@
 #define CLK_I2S_SYSCLK  181
 #define CLK_I2S_BCLK    182
 #define CLK_RCPU_HDMIAUDIO  183
+#define CLK_RCPU_CAN        184
+#define CLK_RCPU_CAN_BUS    185
 
-#define CLK_MAX_NO      184
+#define CLK_MAX_NO      186
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */
