@@ -128,7 +128,8 @@
 /* end of APBC2 register offset */
 
 /* RCPU register offset */
-#define RCPU_HDMI_CLK_RST		0x44
+#define RCPU_HDMI_CLK_RST		0x2044
+#define RCPU_CAN_CLK_RST		0x4c
 /* end of RCPU register offset */
 
 enum spacemit_reset_base_type{
@@ -283,6 +284,7 @@ static const struct spacemit_reset_signal
 	[RESET_SEC_GPIO] 	= { APBC2_GPIO_CLK_RST, BIT(2), 0, BIT(2), RST_BASE_TYPE_APBC2 },
 	//RCPU
 	[RESET_RCPU_HDMIAUDIO] 	= { RCPU_HDMI_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
+	[RESET_RCPU_CAN] 	= { RCPU_CAN_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 };
 
 static struct spacemit_reset *to_spacemit_reset(
