@@ -777,6 +777,7 @@ static int v2d_probe(struct platform_device *pdev)
 	void __iomem *base;
 	int i, rval = 0;
 	struct sched_param param;
+	int ret;
 
 	info = devm_kzalloc(dev, sizeof(struct v2d_info), GFP_KERNEL);
 	if (info == NULL) {
@@ -790,6 +791,18 @@ static int v2d_probe(struct platform_device *pdev)
 		V2DLOGE("Could not get v2d core clk!\n");
 		return -EINVAL;
 	}
+
+	info->v2d_reset = devm_reset_control_get_optional_shared(&pdev->dev, "v2d_reset");
+	if (IS_ERR_OR_NULL(info->v2d_reset)) {
+		V2DLOGE("Could not get v2d reset!\n");
+		return -EINVAL;
+	}
+
+	ret = reset_control_deassert(info->v2d_reset);
+	if (ret < 0) {
+		V2DLOGI("Failed to deassert v2d_reset\n");
+	}
+	clk_prepare_enable(info->clkcore);
 	clk_set_rate(info->clkcore, 409600000);
 
 	info->clkio = devm_clk_get(dev, "v2d-io");
@@ -890,6 +903,7 @@ static int v2d_remove(struct platform_device *pdev)
 	struct v2d_info *info = platform_get_drvdata(pdev);
 	struct device *dev = &info->pdev->dev;
 	int i;
+	int ret;
 
 	//V2DLOGI("remove v2d driver!\n");
 	v2d_iommu_deinit(pdev);
@@ -907,6 +921,15 @@ static int v2d_remove(struct platform_device *pdev)
 	misc_deregister(&info->mdev);
 	if(info->v2d_job_done_wq)
 		destroy_workqueue(info->v2d_job_done_wq);
+
+	if (__clk_is_enabled(info->clkcore)) {
+		clk_disable_unprepare(info->clkcore);
+	}
+	ret = reset_control_assert(info->v2d_reset);
+	if (ret < 0) {
+		V2DLOGI("Failed to assert v2d_reset\n");
+	}
+
 	v2dInfo = NULL;
 
 	return 0;
