@@ -452,8 +452,10 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 		timeout--;
 	};
 
-	if (timeout == 0)
+	if (timeout == 0) {
 		DRM_INFO("%s wait hdmi ddc command done timeout\n", __func__);
+		return -1;
+	}
 
 	DRM_DEBUG("hdmi_i2c_write --%u\r\n", length);
 
@@ -469,6 +471,8 @@ int edid_read (struct spacemit_hdmi *hdmi){
 
 	if (0 == hdmi_i2c_write(hdmi, 0x50, hdmi_data->edid, 1))
 		hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid, EDID_LENGTH);
+	else
+		return -1;
 
 	for(i = 0; i < EDID_LENGTH; i += 4){
 		DRM_INFO("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
@@ -491,6 +495,7 @@ static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block,
 	struct spacemit_hdmi *hdmi = data;
 	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
 	uint32_t value;
+	int ret;
 
 	DRM_DEBUG("%s()\n", __func__);
 
@@ -499,7 +504,11 @@ static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block,
 
 	if (!hdmi->edid_done) {
 		hdmi_i2c_timing(hdmi);
-		edid_read(hdmi);
+		ret = edid_read(hdmi);
+		if (ret < 0) {
+			DRM_INFO("%s() failed to read edid\n", __func__);
+			return -EINVAL;
+		}
 
 		memcpy(buf, hdmi_data->edid, len);
 
@@ -563,7 +572,13 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 		// 08H, 09H: ID Manufacturer Nanme
 		// 0AH, 0BH: ID Product Code
 		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
-			((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
+			(hdmi_data->edid[10] == 0x88) && (hdmi_data->edid[11] == 0x23)) {
+			// Lecoo HU20238FB0
+			bit_depth = EIGHT_BPP;
+			DRM_INFO("%s() 8bpc \n", __func__);
+		} else if ((hdmi_data->edid[8] == 0x26) && (hdmi_data->edid[9] == 0x01) &&
+			   (hdmi_data->edid[10] == 0x12) && (hdmi_data->edid[11] == 0x24)) {
+			// IPASON XC242-J
 			bit_depth = EIGHT_BPP;
 			DRM_INFO("%s() 8bpc \n", __func__);
 		}
