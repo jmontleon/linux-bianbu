@@ -149,7 +149,7 @@ static int i2s_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	ssp_fifo_cfg = FIFO_RSRE | FIFO_TSRE | FIFO_RX_THRES_15 | FIFO_TX_THRES_15;
 
 	if ((i2s_sspa_read_reg(sspa, TOP_CTRL) & TOP_SSE)) {
-		pr_err("can't change hardware dai format: stream is in use\n");
+		pr_err("no need to change hardware dai format: stream is in use\n");
 		return -EINVAL;
 	}
 
