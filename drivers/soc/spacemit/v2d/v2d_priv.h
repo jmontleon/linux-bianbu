@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/iommu.h>
 #include <linux/pm_qos.h>
+#include <linux/reset.h>
 
 #define V2D_PRINT_DEBUG
 #define V2D_FALSE 0
@@ -80,6 +81,7 @@ struct v2d_info {
 	void __iomem            *v2dreg_iomem_base;
 	struct clk              *clkcore;
 	struct clk              *clkio;
+	struct reset_control    *v2d_reset;
 	int                     refcount;
 	int                     do_reset;
 	struct mutex            power_mutex;
