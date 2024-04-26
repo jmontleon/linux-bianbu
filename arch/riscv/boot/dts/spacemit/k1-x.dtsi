@@ -1043,6 +1043,25 @@
 			status = "disabled";
 		};
 
+		spi2: spi@f0613000 {
+			compatible = "spacemit,k1x-spi";
+			reg = <0x0 0xf0613000 0x0 0x30>;
+			k1x,ssp-id = <2>;
+			k1x,ssp-clock-rate = <26000000>;
+			k1x,ssp-disable-dma;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
+			interrupt-parent = <&intc>;
+			interrupts = <54>;
+			clocks = <&ccu CLK_SEC_SSP2>;
+			resets = <&reset RESET_SEC_SSP2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interconnects = <&dram_range0>;
+			interconnect-names = "dma-mem";
+			status = "disabled";
+		};
+
 		spi3: spi@d401c000 {
 			compatible = "spacemit,k1x-spi";
 			reg = <0x0 0xd401c000 0x0 0x30>;
