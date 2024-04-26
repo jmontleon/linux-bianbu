@@ -75,6 +75,7 @@ struct spacemit_snd_dmadata {
 	/*DOMAIN:config from userspace*/
 	struct snd_pcm_substream *substream;
 	unsigned long pos;
+	bool playback_data;
 };
 
 struct spacemit_snd_soc_device {
@@ -163,7 +164,7 @@ static int spacemit_dma_slave_config(struct snd_pcm_substream *substream,
 	slave_config->src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	slave_config->dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	/* for tmda , don't need to config dma controller addr, set to 0*/
-	if (dma_id == 0) {
+	if (dma_id == DMA_I2S0) {
 		pr_debug("i2s0_datar\n");
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			slave_config->dst_addr = I2S0_REG_BASE + DATAR;
@@ -173,7 +174,7 @@ static int spacemit_dma_slave_config(struct snd_pcm_substream *substream,
 			slave_config->src_addr = I2S0_REG_BASE + DATAR;
 			slave_config->dst_addr = 0;
 		}
-	} else if (dma_id == 1) {
+	} else if (dma_id == DMA_I2S1) {
 		pr_debug("i2s1_datar\n");
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			slave_config->dst_addr = I2S1_REG_BASE + DATAR;
@@ -183,7 +184,7 @@ static int spacemit_dma_slave_config(struct snd_pcm_substream *substream,
 			slave_config->src_addr = I2S1_REG_BASE + DATAR;
 			slave_config->dst_addr = 0;
 		}
-	} else if (dma_id == 2) {
+	} else if (dma_id == DMA_HDMI) {
 		pr_debug("i2s_hdmi_datar\n");
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			slave_config->dst_addr = I2S_HDMI_REG_BASE + HDMI_TXDATA;
@@ -375,7 +376,8 @@ static int spacemit_snd_pcm_hdmi_hw_free(struct snd_soc_component *component, st
 #endif
 	return snd_pcm_lib_free_pages(substream);
 }
-static void spacemit_snd_dma_complete(void *arg)
+
+static void spacemit_snd_hdmi_dma_complete(void *arg)
 {
 	struct spacemit_snd_dmadata *dmadata = arg;
 	struct snd_pcm_substream *substream = dmadata->substream;
@@ -384,17 +386,33 @@ static void spacemit_snd_dma_complete(void *arg)
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->lock, flags);
-	pr_debug("enter %s, %d\n", __FUNCTION__, substream->stream);
+
+	pos += snd_pcm_lib_period_bytes(substream);
+	pos %= snd_pcm_lib_buffer_bytes(substream);
+	dmadata->pos = pos;
+
+	spin_unlock_irqrestore(&dev->lock, flags);
+	if (snd_pcm_running(substream)) {
+		snd_pcm_period_elapsed(substream);
+	}
+	return;
+}
+
+static void spacemit_snd_dma_complete(void *arg)
+{
+	struct spacemit_snd_dmadata *dmadata = arg;
+	struct snd_pcm_substream *substream = dmadata->substream;
+	struct spacemit_snd_soc_device *dev = (struct spacemit_snd_soc_device *)dmadata->private_data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->lock, flags);
 
 	if (dmadata->stream == SNDRV_PCM_STREAM_PLAYBACK
 		&& spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_CAPTURE)
 		&& !spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_PLAYBACK)) {
 			spin_unlock_irqrestore(&dev->lock, flags);
 			return;
-		}
-	pos += snd_pcm_lib_period_bytes(substream);
-	pos %= snd_pcm_lib_buffer_bytes(substream);
-	dmadata->pos = pos;
+	}
 
 	spin_unlock_irqrestore(&dev->lock, flags);
 	if (snd_pcm_running(substream)) {
@@ -447,7 +465,15 @@ static int spacemit_snd_dma_submit(struct spacemit_snd_dmadata *dmadata)
 	if (!desc)
 		return -ENOMEM;
 
-	desc->callback = spacemit_snd_dma_complete;
+#ifdef HDMI_REFORMAT_ENABLE
+	if (dmadata->dma_id == DMA_HDMI){
+		desc->callback = spacemit_snd_hdmi_dma_complete;
+	} else
+#endif
+	{
+		desc->callback = spacemit_snd_dma_complete;
+	}
+
 	desc->callback_param = dmadata;
 	dmadata->cookie = dmaengine_submit(desc);
 
@@ -466,7 +492,8 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 
 	spin_lock_irqsave(&dev->lock, flags);
 
-	pr_debug("pcm_trigger: cmd=%d,dir=%d,p=%d,c=%d\n", cmd, substream->stream, dev->playback_en, dev->capture_en);
+	pr_debug("pcm_trigger: cmd=%d,dma_id=%d,dir=%d,p=%d,c=%d\n", cmd, dmadata->dma_id, substream->stream,
+		dev->playback_en, dev->capture_en);
 	if (dmadata->stream == SNDRV_PCM_STREAM_CAPTURE
 		&& !spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_PLAYBACK)) {
 		dmadata = txdma;
@@ -477,6 +504,7 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 			if (ret < 0)
 				goto unlock;
 			dma_async_issue_pending(dmadata->dma_chan);
+			dmadata->pos = 0;
 
 			break;
 		case SNDRV_PCM_TRIGGER_STOP:
@@ -507,12 +535,16 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 	case SNDRV_PCM_TRIGGER_START:
 		if (dmadata->stream == SNDRV_PCM_STREAM_PLAYBACK
 			&& spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_CAPTURE)) {
+				dmadata->playback_data = 0;
+				dmadata->pos = 0;
 
 		} else {
 			ret = spacemit_snd_dma_submit(dmadata);
 			if (ret < 0)
 				goto unlock;
 			dma_async_issue_pending(dmadata->dma_chan);
+			dmadata->playback_data = 0;
+			dmadata->pos = 0;
 		}
 		spacemit_update_stream_status(dev, dmadata->stream, true);
 
@@ -520,9 +552,12 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 	case SNDRV_PCM_TRIGGER_STOP:
 		if (dmadata->stream == SNDRV_PCM_STREAM_PLAYBACK
 			&& spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_CAPTURE)) {
+				dmadata->playback_data = 0;
+				dmadata->pos = 0;
 
 		} else {
 			dmaengine_terminate_async(dmadata->dma_chan);
+			dmadata->playback_data = 0;
 			dmadata->pos = 0;
 		}
 		spacemit_update_stream_status(dev, dmadata->stream, false);
@@ -549,8 +584,41 @@ unlock:
 	return ret;
 }
 
-static snd_pcm_uframes_t
+snd_pcm_uframes_t
 spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_substream *substream)
+{
+	struct spacemit_snd_dmadata *dmadata = substream->runtime->private_data;
+	struct spacemit_snd_soc_device *dev = snd_soc_component_get_drvdata(component);
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct dma_tx_state state;
+	enum dma_status status;
+	unsigned int buf_size;
+	unsigned int pos = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->lock, flags);
+	status = dmaengine_tx_status(dmadata->dma_chan, dmadata->cookie, &state);
+	if (status == DMA_IN_PROGRESS || status == DMA_PAUSED) {
+		buf_size = I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4;
+		if (state.residue > 0 && state.residue <= buf_size) {
+			pos = (buf_size - state.residue);
+		}
+		runtime->delay = bytes_to_frames(runtime, state.in_flight_bytes);
+	}
+	if (dmadata->stream == SNDRV_PCM_STREAM_PLAYBACK
+		&& spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_CAPTURE)
+		&& spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_PLAYBACK)) {
+		if (dmadata->playback_data == 0 && pos != 0)
+			pos = 0;
+		else
+			dmadata->playback_data = 1;
+	}
+	spin_unlock_irqrestore(&dev->lock, flags);
+	return bytes_to_frames(runtime, pos);
+}
+
+static snd_pcm_uframes_t
+spacemit_snd_pcm_hdmi_pointer(struct snd_soc_component *component, struct snd_pcm_substream *substream)
 {
 	struct spacemit_snd_dmadata *dmadata = substream->runtime->private_data;
 	return bytes_to_frames(substream->runtime, dmadata->pos);
@@ -569,16 +637,18 @@ static void hdmi_create_cs(struct hdmi_codec_priv *hdmi_priv)
 }
 static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd_pcm_substream *substream)
 {
-	int ret;
+	int ret = 0;
 	struct spacemit_snd_soc_device *dev;
 	struct spacemit_snd_dmadata *dmadata;
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
+	unsigned long flags;
 
 	pr_debug("%s enter, rtd->dev=%s,dir=%d\n", __FUNCTION__, dev_name(rtd->dev),substream->stream);
 
 	if (!component) {
 		pr_err("%s!! coundn't find component %s\n", __FUNCTION__, DRV_NAME);
-		return -1;
+		ret = -1;
+		goto unlock;
 	}
 
 	dev = snd_soc_component_get_drvdata(component);
@@ -586,6 +656,7 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 		pr_err("%s!! get dev error\n", __FUNCTION__);
 		return -1;
 	}
+	spin_lock_irqsave(&dev->lock, flags);
 
 	dmadata = &dev->dmadata[substream->stream];
 	if (dmadata->dma_id == DMA_HDMI) {
@@ -594,13 +665,14 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 		ret = snd_soc_set_runtime_hwparams(substream, &spacemit_snd_pcm_hardware);
 	}
 
-	if (ret)
-		return ret;
+	if (ret) {
+		goto unlock;
+	}
 
 	ret = snd_pcm_hw_constraint_integer(substream->runtime, SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0) {
 		pr_err("%s!! got serror\n", __FUNCTION__);
-		return ret;
+		goto unlock;
 	}
 	substream->runtime->private_data = dmadata;
 
@@ -610,9 +682,11 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
         hdmi_ptr.srate = 48000;
         hdmi_create_cs(&hdmi_ptr);
 	}
-	pr_debug("%s exit\n", __FUNCTION__);
+unlock:
+	spin_unlock_irqrestore(&dev->lock, flags);
+	pr_debug("%s exit dma_id=%d\n", __FUNCTION__, dmadata->dma_id);
 
-	return 0;
+	return ret;
 }
 
 static int spacemit_snd_pcm_close(struct snd_soc_component *component, struct snd_pcm_substream *substream)
@@ -623,7 +697,7 @@ static int spacemit_snd_pcm_close(struct snd_soc_component *component, struct sn
 	unsigned long flags;
 
 	spin_lock_irqsave(&dev->lock, flags);
-	pr_debug("%s debug, dir=%d\n", __FUNCTION__,substream->stream);
+	pr_debug("%s debug, dir=%d, dma_id=%d\n", __FUNCTION__,substream->stream, dmadata->dma_id);
 	if (dmadata->stream == SNDRV_PCM_STREAM_PLAYBACK
 		&& spacemit_get_stream_is_enable(dev, SNDRV_PCM_STREAM_CAPTURE)) {
 		goto unlock;
@@ -879,7 +953,7 @@ static const struct snd_soc_component_driver spacemit_snd_dma_component_hdmi = {
 	.hw_params	   = spacemit_snd_pcm_hdmi_hw_params,
 	.hw_free	   = spacemit_snd_pcm_hdmi_hw_free,
 	.trigger	   = spacemit_snd_pcm_trigger,
-	.pointer	   = spacemit_snd_pcm_pointer,
+	.pointer	   = spacemit_snd_pcm_hdmi_pointer,
 	.pcm_construct = spacemit_snd_pcm_new,
 	.copy_user		= spacemit_snd_pcm_copy,
 };
