@@ -2225,6 +2225,8 @@
 			clocks = <&ccu CLK_DPU_MCLK>,
 				 <&ccu CLK_V2D>;
 			clock-names = "v2d-io", "v2d-core";
+			resets = <&reset RESET_V2D>;
+			reset-names= "v2d_reset";
 			interrupt-parent = <&intc>;
 			interrupts = <86>;
 			interconnects = <&dram_range1>;
