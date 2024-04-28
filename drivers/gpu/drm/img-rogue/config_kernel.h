@@ -200,3 +200,4 @@
 #define SUPPORT_TQ
 #define TRACK_FW_BOOT
 #define LMA
+#define PVR_LINUX_PHYSMEM_USE_HIGHMEM_ONLY
