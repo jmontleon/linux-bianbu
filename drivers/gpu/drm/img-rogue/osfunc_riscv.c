@@ -46,6 +46,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pvr_debug.h"
 #include "cache_ops.h"
 #include <linux/dma-mapping.h>
+#include "sysconfig.h"
 
 void OSCPUCacheFlushRangeKM(PVRSRV_DEVICE_NODE *psDevNode,
 							void *pvVirtStart,
@@ -76,12 +77,21 @@ void OSCPUCacheFlushRangeKM(PVRSRV_DEVICE_NODE *psDevNode,
 		dev = psDevNode->psDevConfig->pvOSDevice;
 		if (dev)
 		{
-			dma_sync_single_for_device(dev, sCPUPhysStart.uiAddr,
-								   sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
-								   DMA_TO_DEVICE);
-			dma_sync_single_for_cpu(dev, sCPUPhysStart.uiAddr,
+			if (sCPUPhysStart.uiAddr == IMG_CAST_TO_CPUPHYADDR_UINT(0xCAFEF00DDEADBEEFULL)) {
+				dma_sync_single_for_device(dev, sCPUPhysStart.uiAddr,
+								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
+								DMA_TO_DEVICE);
+				dma_sync_single_for_cpu(dev, sCPUPhysStart.uiAddr,
 								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
 								DMA_FROM_DEVICE);
+			} else if (sCPUPhysStart.uiAddr != IMG_CAST_TO_CPUPHYADDR_UINT(0x0ULL)) {
+				dma_sync_single_for_device(dev, phys_cpu2gpu(sCPUPhysStart.uiAddr),
+								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
+								DMA_TO_DEVICE);
+				dma_sync_single_for_cpu(dev, phys_cpu2gpu(sCPUPhysStart.uiAddr),
+								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
+								DMA_FROM_DEVICE);
+			}
 		}
 		//PVR_DPF((PVR_DBG_WARNING,
 		//         "%s: System doesn't implement cache maintenance. Skipping!",
@@ -119,9 +129,15 @@ void OSCPUCacheCleanRangeKM(PVRSRV_DEVICE_NODE *psDevNode,
 		dev = psDevNode->psDevConfig->pvOSDevice;
 		if (dev)
 		{
-			dma_sync_single_for_device(dev, sCPUPhysStart.uiAddr,
+			if (sCPUPhysStart.uiAddr == IMG_CAST_TO_CPUPHYADDR_UINT(0xCAFEF00DDEADBEEFULL)) {
+				dma_sync_single_for_device(dev, sCPUPhysStart.uiAddr,
 								   sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
 								   DMA_TO_DEVICE);
+			} else if (sCPUPhysStart.uiAddr != IMG_CAST_TO_CPUPHYADDR_UINT(0x0ULL)) {
+				dma_sync_single_for_device(dev, phys_cpu2gpu(sCPUPhysStart.uiAddr),
+								   sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
+								   DMA_TO_DEVICE);
+			}
 		}
 		//PVR_DPF((PVR_DBG_WARNING,
 		//         "%s: System doesn't implement cache maintenance. Skipping!",
@@ -160,9 +176,15 @@ void OSCPUCacheInvalidateRangeKM(PVRSRV_DEVICE_NODE *psDevNode,
 
 		if (dev)
 		{
-			dma_sync_single_for_cpu(dev, sCPUPhysStart.uiAddr,
+			if (sCPUPhysStart.uiAddr == IMG_CAST_TO_CPUPHYADDR_UINT(0xCAFEF00DDEADBEEFULL)) {
+				dma_sync_single_for_cpu(dev, sCPUPhysStart.uiAddr,
 								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
 								DMA_FROM_DEVICE);
+			} else if (sCPUPhysStart.uiAddr != IMG_CAST_TO_CPUPHYADDR_UINT(0x0ULL)) {
+				dma_sync_single_for_cpu(dev, phys_cpu2gpu(sCPUPhysStart.uiAddr),
+								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
+								DMA_FROM_DEVICE);
+			}
 		}
 		//PVR_DPF((PVR_DBG_WARNING,
 		//         "%s: System doesn't implement cache maintenance. Skipping!",
