@@ -53,6 +53,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define ST_GPU_PBASE        0xcac00000
 #define ST_GPU_SIZE         0x10000
 #define ST_IRQ_GPU          59
+
+unsigned long phys_gpu2cpu(unsigned long phys_addr);
+unsigned long phys_cpu2gpu(unsigned long phys_addr);
 /*****************************************************************************
  * system specific data structures
  *****************************************************************************/

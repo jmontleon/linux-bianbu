@@ -51,6 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pvrsrv_device.h"
 #include "physheap.h"
 #include "physmem_osmem.h"
+#include "sysconfig.h"
 
 static void HostMemCpuPAddrToDevPAddr(IMG_HANDLE hPrivData,
                                       IMG_UINT32 ui32NumOfAddr,
@@ -106,14 +107,15 @@ static void HostMemCpuPAddrToDevPAddr(IMG_HANDLE hPrivData,
                                       IMG_CPU_PHYADDR *psCpuPAddr)
 {
 	PVR_UNREFERENCED_PARAMETER(hPrivData);
+
 	/* Optimise common case */
-	psDevPAddr[0].uiAddr = psCpuPAddr[0].uiAddr;
+	psDevPAddr[0].uiAddr = phys_cpu2gpu(psCpuPAddr[0].uiAddr);
 	if (ui32NumOfAddr > 1)
 	{
 		IMG_UINT32 ui32Idx;
 		for (ui32Idx = 1; ui32Idx < ui32NumOfAddr; ++ui32Idx)
 		{
-			psDevPAddr[ui32Idx].uiAddr = psCpuPAddr[ui32Idx].uiAddr;
+			psDevPAddr[ui32Idx].uiAddr = phys_cpu2gpu(psCpuPAddr[ui32Idx].uiAddr);
 		}
 	}
 }
@@ -124,14 +126,15 @@ static void HostMemDevPAddrToCpuPAddr(IMG_HANDLE hPrivData,
                                       IMG_DEV_PHYADDR *psDevPAddr)
 {
 	PVR_UNREFERENCED_PARAMETER(hPrivData);
+
 	/* Optimise common case */
-	psCpuPAddr[0].uiAddr = IMG_CAST_TO_CPUPHYADDR_UINT(psDevPAddr[0].uiAddr);
+	psCpuPAddr[0].uiAddr = phys_gpu2cpu(psDevPAddr[0].uiAddr);
 	if (ui32NumOfAddr > 1)
 	{
 		IMG_UINT32 ui32Idx;
 		for (ui32Idx = 1; ui32Idx < ui32NumOfAddr; ++ui32Idx)
 		{
-			psCpuPAddr[ui32Idx].uiAddr = IMG_CAST_TO_CPUPHYADDR_UINT(psDevPAddr[ui32Idx].uiAddr);
+			psCpuPAddr[ui32Idx].uiAddr = phys_gpu2cpu(psDevPAddr[ui32Idx].uiAddr);
 		}
 	}
 }
