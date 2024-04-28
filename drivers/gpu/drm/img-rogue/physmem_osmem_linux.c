@@ -97,6 +97,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #include "kernel_compatibility.h"
+#include "sysconfig.h"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0))
 static IMG_UINT32 g_uiMaxOrder = PVR_LINUX_PHYSMEM_MAX_ALLOC_ORDER_NUM;
@@ -3130,7 +3131,7 @@ static IMG_DEV_PHYADDR GetOffsetPA(const PMR_OSPAGEARRAY_DATA *psOSPageArrayData
 
 	PVR_ASSERT(ui32InPageOffset < (1U << ui32Log2AllocPageSize));
 
-	sPA.uiAddr = page_to_phys(psOSPageArrayData->pagearray[ui32PageIndex]);
+	sPA.uiAddr = phys_cpu2gpu(page_to_phys(psOSPageArrayData->pagearray[ui32PageIndex]));
 	sPA.uiAddr += ui32InPageOffset;
 
 	return sPA;
