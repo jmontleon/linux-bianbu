@@ -72,13 +72,13 @@ void UMAPhysHeapCpuPAddrToDevPAddr(IMG_HANDLE hPrivData,
 	PVR_UNREFERENCED_PARAMETER(hPrivData);
 
 	/* Optimise common case */
-	psDevPAddr[0].uiAddr = psCpuPAddr[0].uiAddr;
+	psDevPAddr[0].uiAddr = phys_cpu2gpu(psCpuPAddr[0].uiAddr);
 	if (ui32NumOfAddr > 1)
 	{
 		IMG_UINT32 ui32Idx;
 		for (ui32Idx = 1; ui32Idx < ui32NumOfAddr; ++ui32Idx)
 		{
-			psDevPAddr[ui32Idx].uiAddr = psCpuPAddr[ui32Idx].uiAddr;
+			psDevPAddr[ui32Idx].uiAddr = phys_cpu2gpu(psCpuPAddr[ui32Idx].uiAddr);
 		}
 	}
 }
@@ -95,13 +95,13 @@ void UMAPhysHeapDevPAddrToCpuPAddr(IMG_HANDLE hPrivData,
 	PVR_UNREFERENCED_PARAMETER(hPrivData);
 
 	/* Optimise common case */
-	psCpuPAddr[0].uiAddr = psDevPAddr[0].uiAddr;
+	psCpuPAddr[0].uiAddr = phys_gpu2cpu(psDevPAddr[0].uiAddr);
 	if (ui32NumOfAddr > 1)
 	{
 		IMG_UINT32 ui32Idx;
 		for (ui32Idx = 1; ui32Idx < ui32NumOfAddr; ++ui32Idx)
 		{
-			psCpuPAddr[ui32Idx].uiAddr = psDevPAddr[ui32Idx].uiAddr;
+			psCpuPAddr[ui32Idx].uiAddr = phys_gpu2cpu(psDevPAddr[ui32Idx].uiAddr);
 		}
 	}
 }
@@ -270,6 +270,73 @@ PVRSRV_ERROR SysDebugInfo(PVRSRV_DEVICE_CONFIG *psDevConfig,
 	return PVRSRV_OK;
 }
 
+/*
+ * Convert gpu physical address to cpu physical address:
+ * spacemit_k1x: gpu(0-2g) --> cpu(0-2g);
+ *               gpu(2-xg) --> cpu(2g-(x+2)g); note: x>=2g
+ *                                                                  CPU
+ * 0x04 8000 0000                                         +-->  +----------+
+ *                                                        |     |          |
+ *                  DEVICE                 DRAM           |     |          |
+ * 0x04 0000 0000+---------+  <------+  +----------+  +---+     |          |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |    DDR   |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |          |
+ * 0x01 0000 0000|         |            |          |      +-->  +----------+
+ *               |         |            |          |      |     |          |
+ *               |         |            |          |      |     |    IO    |
+ * 0x00 8000 0000+---------+  <------+  +----------+  +---+-->  +----------+
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |    DDR   |
+ * 0x00 0000 0000+---------+  <------+  +----------+  +------>  +----------+
+ *
+ */
+unsigned long phys_gpu2cpu(unsigned long phys_addr)
+{
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (phys_addr >= 0x80000000UL) {
+		phys_addr += 0x80000000UL;
+	}
+#endif
+
+	return phys_addr;
+}
+
+/*
+ * Convert cpu physical address to gpu physical address:
+ * spacemit_k1x: cpu(0-2g) --> gpu(0-2g);
+ *               cpu(4-xg) --> gpu(2-(x-2)g); note: x>=4g
+ *                                                                  CPU
+ * 0x04 8000 0000                                         +-->  +----------+
+ *                                                        |     |          |
+ *                  DEVICE                 DRAM           |     |          |
+ * 0x04 0000 0000+---------+  <------+  +----------+  +---+     |          |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |    DDR   |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |          |
+ * 0x01 0000 0000|         |            |          |      +-->  +----------+
+ *               |         |            |          |      |     |          |
+ *               |         |            |          |      |     |    IO    |
+ * 0x00 8000 0000+---------+  <------+  +----------+  +---+-->  +----------+
+ *               |         |            |          |            |          |
+ *               |         |            |          |            |    DDR   |
+ * 0x00 0000 0000+---------+  <------+  +----------+  +------>  +----------+
+ *
+ */
+unsigned long phys_cpu2gpu(unsigned long phys_addr)
+{
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (phys_addr >= 0x100000000UL) {
+		phys_addr -= 0x80000000UL;
+	}
+#endif
+
+	return phys_addr;
+}
 /******************************************************************************
  End of file (sysconfig.c)
 ******************************************************************************/
