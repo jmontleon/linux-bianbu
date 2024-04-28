@@ -1893,7 +1893,7 @@ static int serial_pxa_suspend(struct device *dev)
 		return 0;
 	}
 
-	if (serial_pxa_is_open(sport)) {
+	if (serial_pxa_is_open(sport) && sport->dma_enable) {
 		int sent = 0;
 		unsigned long flags;
 
@@ -1973,7 +1973,7 @@ static int serial_pxa_resume(struct device *dev)
 	sport->in_resume = true;
 	uart_resume_port(&serial_pxa_reg, &sport->port);
 
-	if (serial_pxa_is_open(sport)) {
+	if (serial_pxa_is_open(sport) && sport->dma_enable) {
 		if (pxa_dma->tx_saved_len > 0) {
 			/*
 			 * if this transmit is not finished, we should stop
