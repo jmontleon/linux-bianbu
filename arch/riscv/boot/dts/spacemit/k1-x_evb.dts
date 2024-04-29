@@ -710,10 +710,14 @@
 &usbdrd3 {
 	status = "disabled";
 	dwc3@c0a00000 {
-		maximum-speed = "high-speed";
-		dr_mode = "peripheral";
-		phy_type = "utmi_wide";
+		dr_mode = "host";
+		phy_type = "utmi";
+		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
+		snps,dis_u2_susphy_quirk;
+		snps,dis_u3_susphy_quirk;
+		snps,dis-del-phy-power-chg-quirk;
+		snps,dis-tx-ipgap-linecheck-quirk;
 	};
 };
 
