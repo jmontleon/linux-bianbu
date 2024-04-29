@@ -655,7 +655,7 @@
 &usbdrd3 {
 	status = "okay";
 	dwc3@c0a00000 {
-		dr_mode = "host";
+		dr_mode = "otg";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
@@ -666,6 +666,8 @@
 		snps,dis_u3_susphy_quirk;
 		snps,dis_rxdet_inp3_quirk;
 		snps,xhci-trb-ent-quirk;
+		usb-role-switch;
+		role-switch-default-mode = "peripheral";
 	};
 };
 
