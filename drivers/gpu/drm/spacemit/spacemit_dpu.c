@@ -293,9 +293,6 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 				   struct drm_atomic_state *old_state)
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
-	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
-	struct spacemit_hw_device *hwdev = priv->hwdev;
-	int result;
 
 	DRM_INFO("%s(power on)\n", __func__);
 	trace_spacemit_crtc_atomic_enable(dpu->dev_id);
@@ -306,12 +303,6 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 		spacemit_dpu_free_bootloader_mem();
 	}
 
-	if (hwdev->is_hdmi && (!IS_ERR_OR_NULL(dpu->hdmi_reset))) {
-		result = reset_control_deassert(dpu->hdmi_reset);
-		if (result < 0) {
-			DRM_INFO("Failed to deassert hdmi: %d\n", result);
-		}
-	}
 	pm_runtime_get_sync(dpu->dev);
 
 #ifdef CONFIG_SPACEMIT_DEBUG
@@ -327,9 +318,6 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 	struct drm_device *drm = dpu->crtc.dev;
-	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
-	struct spacemit_hw_device *hwdev = priv->hwdev;
-	int result;
 
 	DRM_INFO("%s(power off)\n", __func__);
 	trace_spacemit_crtc_atomic_disable(dpu->dev_id);
@@ -342,12 +330,6 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 #endif
 
 	pm_runtime_put(dpu->dev);
-	if (hwdev->is_hdmi && (!IS_ERR_OR_NULL(dpu->hdmi_reset))) {
-		result = reset_control_assert(dpu->hdmi_reset);
-		if (result < 0) {
-			DRM_INFO("Failed to assert hdmi: %d\n", result);
-		}
-	}
 
 	spin_lock_irq(&drm->event_lock);
 	if (crtc->state->event) {
@@ -647,7 +629,7 @@ int spacemit_dpu_run(struct drm_crtc *crtc,
 {
 	struct spacemit_dpu *dpu = crtc_to_dpu(crtc);
 
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_DEBUG("%s() type %d \n", __func__, dpu->type);
 	trace_spacemit_dpu_run(dpu->dev_id);
 
 	if (unlikely(spacemit_dpu_logo_booton))
@@ -661,6 +643,7 @@ int spacemit_dpu_run(struct drm_crtc *crtc,
 
 int spacemit_dpu_stop(struct spacemit_dpu *dpu)
 {
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 	trace_spacemit_dpu_stop(dpu->dev_id);
 
 	if (dpu->core && dpu->core->stop)
@@ -796,6 +779,7 @@ static int spacemit_dpu_bind(struct device *dev, struct device *master, void *da
 #ifdef CONFIG_SPACEMIT_DEBUG
 	struct dpu_clk_context *clk_ctx = NULL;
 #endif
+	DRM_DEBUG("%s()\n", __func__);
 
 	ret = spacemit_dpu_irqs_init(dpu, np, pdev);
 	if (ret)
@@ -866,37 +850,6 @@ static void spacemit_dpu_unbind(struct device *dev, struct device *master,
 
 	DRM_DEBUG("%s()\n", __func__);
 
-	if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
-		result = reset_control_assert(dpu->esc_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to assert esc_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
-		result = reset_control_assert(dpu->lcd_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to assert lcd_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
-		result = reset_control_assert(dpu->mclk_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to assert mclk_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
-		result = reset_control_assert(dpu->dsi_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to assert dsi_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
-		result = reset_control_assert(dpu->hdmi_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to assert hdmi_reset: %d\n", result);
-		}
-	}
-
 	pm_runtime_disable(dev);
 	of_reserved_mem_device_release(dpu->dev);
 	drm_crtc_cleanup(&dpu->crtc);
@@ -923,6 +876,7 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 #endif
 	const char *str;
 	u32 dpu_id;
+	u32 dpu_type;
 	int result;
 
 	DRM_DEBUG("%s()\n", __func__);
@@ -942,6 +896,10 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	if (of_property_read_u32(np, "pipeline-id", &dpu_id))
 		return -EINVAL;
 	dpu->dev_id = dpu_id;
+
+	if (of_property_read_u32(np, "type", &dpu_type))
+		return -EINVAL;
+	dpu->type = dpu_type;
 
 	if (!of_property_read_string(np, "ip", &str)) {
 		dpu->core = dpu_core_ops_attach(str);
@@ -966,25 +924,33 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	}
 #endif
 
-	dpu->dsi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "dsi_reset");
-	if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
-		DRM_DEV_DEBUG(dev, "not found dsi_reset\n");
-	}
-	dpu->mclk_reset = devm_reset_control_get_optional_shared(&pdev->dev, "mclk_reset");
-	if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
-		DRM_DEV_DEBUG(dev, "not found mclk_reset\n");
-	}
-	dpu->lcd_reset = devm_reset_control_get_optional_shared(&pdev->dev, "lcd_reset");
-	if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
-		DRM_DEV_DEBUG(dev, "not found lcd_reset\n");
-	}
-	dpu->esc_reset = devm_reset_control_get_optional_shared(&pdev->dev, "esc_reset");
-	if (IS_ERR_OR_NULL(dpu->esc_reset)) {
-		DRM_DEV_DEBUG(dev, "not found esc_reset\n");
-	}
-	dpu->hdmi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "hdmi_reset");
-	if (IS_ERR_OR_NULL(dpu->hdmi_reset)) {
-		DRM_DEV_DEBUG(dev, "not found hdmi_reset\n");
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
+
+	if (dpu->type == DSI) {
+		dpu->dsi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "dsi_reset");
+		if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
+			DRM_DEV_DEBUG(dev, "not found dsi_reset\n");
+		}
+		dpu->mclk_reset = devm_reset_control_get_optional_shared(&pdev->dev, "mclk_reset");
+		if (IS_ERR_OR_NULL(dpu->mclk_reset)) {
+			DRM_DEV_DEBUG(dev, "not found mclk_reset\n");
+		}
+		dpu->esc_reset = devm_reset_control_get_optional_shared(&pdev->dev, "esc_reset");
+		if (IS_ERR_OR_NULL(dpu->esc_reset)) {
+			DRM_DEV_DEBUG(dev, "not found esc_reset\n");
+		}
+		dpu->lcd_reset = devm_reset_control_get_optional_shared(&pdev->dev, "lcd_reset");
+		if (IS_ERR_OR_NULL(dpu->lcd_reset)) {
+			DRM_DEV_DEBUG(dev, "not found lcd_reset\n");
+		}
+	} else if (dpu->type == HDMI) {
+		dpu->hdmi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "hdmi_reset");
+		if (IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+			DRM_DEV_DEBUG(dev, "not found hdmi_reset\n");
+		}
+	} else {
+		DRM_DEV_ERROR(dev, "can't find dpu type %d\n", dpu->type);
+		return -ENODEV;
 	}
 
 	// reset dpu
@@ -1002,37 +968,6 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	if (spacemit_dpu_logo_booton)
 		pm_runtime_get_sync(&pdev->dev);
 
-	if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
-		result = reset_control_deassert(dpu->dsi_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to deassert dsi_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
-		result = reset_control_deassert(dpu->mclk_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to deassert mclk_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
-		result = reset_control_deassert(dpu->esc_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to deassert esc_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
-		result = reset_control_deassert(dpu->lcd_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to deassert lcd_reset: %d\n", result);
-		}
-	}
-	if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
-		result = reset_control_deassert(dpu->hdmi_reset);
-		if (result < 0) {
-			DRM_DEV_INFO(dev, "Failed to deassert hdmi_reset: %d\n", result);
-		}
-	}
-
 	dpu->is_probed = true;
 
 	return component_add(dev, &dpu_component_ops);
@@ -1047,12 +982,51 @@ static int spacemit_dpu_remove(struct platform_device *pdev)
 static int dpu_rt_pm_suspend(struct device *dev)
 {
 	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
+	// struct spacemit_drm_private *priv;
+	// struct spacemit_hw_device *hwdev;
+	// priv = dpu->crtc.dev->dev_private;
+	// hwdev = priv->hwdev;
+	int result;
 
-	if (!dpu->is_probed)
-		return 0;
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
 	if (dpu->core && dpu->core->disable_clk)
 		dpu->core->disable_clk(dpu);
+
+	if (dpu->type == HDMI) {
+		if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+			result = reset_control_assert(dpu->hdmi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert hdmi_reset: %d\n", result);
+			}
+		}
+	} else if (dpu->type == DSI) {
+
+		if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
+			result = reset_control_assert(dpu->lcd_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert lcd_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
+			result = reset_control_assert(dpu->esc_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert esc_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
+			result = reset_control_assert(dpu->mclk_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert mclk_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
+			result = reset_control_assert(dpu->dsi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert dsi_reset: %d\n", result);
+			}
+		}
+	}
 
 	return 0;
 }
@@ -1060,9 +1034,47 @@ static int dpu_rt_pm_suspend(struct device *dev)
 static int dpu_rt_pm_resume(struct device *dev)
 {
 	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
+	// struct spacemit_drm_private *priv;
+	// struct spacemit_hw_device *hwdev;
+	// priv = dpu->crtc.dev->dev_private;
+	// hwdev = priv->hwdev;
+	int result;
 
-	if (!dpu->is_probed)
-		return 0;
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
+
+	if (dpu->type == HDMI) {
+		if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+			result = reset_control_deassert(dpu->hdmi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert hdmi_reset: %d\n", result);
+			}
+		}
+	} else if (dpu->type == DSI){
+		if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
+			result = reset_control_deassert(dpu->dsi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert dsi_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
+			result = reset_control_deassert(dpu->mclk_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert mclk_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
+			result = reset_control_deassert(dpu->esc_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert esc_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
+			result = reset_control_deassert(dpu->lcd_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert lcd_reset: %d\n", result);
+			}
+		}
+	}
 
 	if (dpu->core && dpu->core->enable_clk)
 		dpu->core->enable_clk(dpu);

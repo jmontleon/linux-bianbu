@@ -3,6 +3,10 @@
 #ifndef SPACEMIT_DT_BINDINGS_DISPLAY_DPU_H
 #define SPACEMIT_DT_BINDINGS_DISPLAY_DPU_H
 
+/* DPU type */
+#define HDMI            0
+#define DSI             1
+
 /* DPU sub component */
 #define ONLINE0		0
 #define ONLINE1		1

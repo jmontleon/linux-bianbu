@@ -472,6 +472,29 @@ static int dpu_update_bw(struct spacemit_dpu *dpu, uint64_t bw)
 	return 0;
 }
 
+static int dpu_finish_uboot(struct spacemit_dpu *dpu)
+{
+	void __iomem *base;
+
+	if (dpu->type == HDMI) {
+		base = (void __iomem *)ioremap(0xC0440000, 0x2A000);
+		writel(0x00, base + 0x560);
+		writel(0x01, base + 0x56c);
+		udelay(100);
+		iounmap(base);
+	} else if (dpu->type == DSI) {
+		base = (void __iomem *)ioremap(0xc0340000, 0x2A000);
+		writel(0x00, base + 0x560);
+		writel(0x01, base + 0x56c);
+		udelay(100);
+		iounmap(base);
+	} else {
+		return 0;
+	}
+
+	return 0;
+}
+
 static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 {
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
@@ -479,8 +502,28 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 	struct drm_display_mode *mode = &crtc->mode;
 	uint64_t clk_val;
 	uint64_t set_clk_val;
-	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
-	struct spacemit_hw_device *hwdev = priv->hwdev;
+	struct spacemit_drm_private *priv;
+	struct spacemit_hw_device *hwdev;
+
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
+
+	if (!dpu->is_probed) {
+		if (dpu->type == HDMI) {
+			clk_prepare_enable(clk_ctx->hmclk);
+		} else if (dpu->type == DSI) {
+			clk_prepare_enable(clk_ctx->pxclk);
+			clk_prepare_enable(clk_ctx->mclk);
+			clk_prepare_enable(clk_ctx->hclk);
+			clk_prepare_enable(clk_ctx->escclk);
+			clk_prepare_enable(clk_ctx->bitclk);
+		}
+		udelay(10);
+		dpu_finish_uboot(dpu);
+		return 0;
+	}
+
+	priv = dpu->crtc.dev->dev_private;
+	hwdev = priv->hwdev;
 
 	if (hwdev->is_hdmi) {
 		clk_prepare_enable(clk_ctx->hmclk);
@@ -490,15 +533,16 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 			clk_val = clk_round_rate(clk_ctx->hmclk, DPU_MCLK_DEFAULT);
 			if (dpu_mclk_exclusive_get()) {
 				clk_set_rate(clk_ctx->hmclk, clk_val);
-				DRM_DEBUG("mclk=%lld\n", clk_val);
+				DRM_DEBUG("set hdmi mclk=%lld\n", clk_val);
 				dpu_mclk_exclusive_put();
 			}
 		}
 
 		clk_val = clk_get_rate(clk_ctx->hmclk);
-		DRM_INFO("hmclk=%lld\n", clk_val);
-	} else {
+		DRM_INFO("get hdmi mclk=%lld\n", clk_val);
 
+		udelay(10);
+	} else {
 		clk_prepare_enable(clk_ctx->pxclk);
 		clk_prepare_enable(clk_ctx->mclk);
 		clk_prepare_enable(clk_ctx->hclk);
@@ -513,7 +557,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 			clk_val = clk_get_rate(clk_ctx->pxclk);
 			if(clk_val != set_clk_val){
 				clk_set_rate(clk_ctx->pxclk, set_clk_val);
-				DRM_DEBUG("pxclk=%lld\n", clk_val);
+				DRM_DEBUG("set pxclk=%lld\n", clk_val);
 			}
 		}
 
@@ -522,7 +566,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 			clk_val = clk_round_rate(clk_ctx->mclk, DPU_MCLK_DEFAULT);
 			if (dpu_mclk_exclusive_get()) {
 				clk_set_rate(clk_ctx->mclk, clk_val);
-				DRM_DEBUG("mclk=%lld\n", clk_val);
+				DRM_DEBUG("set mclk=%lld\n", clk_val);
 				dpu_mclk_exclusive_put();
 			}
 		}
@@ -531,7 +575,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		if(clk_val != DPU_ESCCLK_DEFAULT){
 			clk_val = clk_round_rate(clk_ctx->escclk, DPU_ESCCLK_DEFAULT);
 			clk_set_rate(clk_ctx->escclk, clk_val);
-			DRM_DEBUG("escclk=%lld\n", clk_val);
+			DRM_DEBUG("set escclk=%lld\n", clk_val);
 		}
 
 		clk_val = clk_get_rate(clk_ctx->bitclk);
@@ -539,19 +583,21 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		if(clk_val != set_clk_val){
 			clk_val = clk_round_rate(clk_ctx->bitclk, set_clk_val);
 			clk_set_rate(clk_ctx->bitclk, clk_val);
-			DRM_DEBUG("bitclk=%lld\n", clk_val);
+			DRM_DEBUG("set bitclk=%lld\n", clk_val);
 		}
 
 		clk_val = clk_get_rate(clk_ctx->pxclk);
-		DRM_INFO("pxclk=%lld\n", clk_val);
+		DRM_INFO("get pxclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->mclk);
-		DRM_INFO("mclk=%lld\n", clk_val);
+		DRM_INFO("get mclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->hclk);
-		DRM_INFO("hclk=%lld\n", clk_val);
+		DRM_INFO("get hclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->escclk);
-		DRM_INFO("escclk=%lld\n", clk_val);
+		DRM_INFO("get escclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->bitclk);
-		DRM_INFO("bitclk=%lld\n", clk_val);
+		DRM_INFO("get bitclk=%lld\n", clk_val);
+
+		udelay(10);
 	}
 
 	trace_dpu_enable_clocks(dpu->dev_id);
@@ -562,10 +608,28 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 static int dpu_disable_clocks(struct spacemit_dpu *dpu)
 {
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
-	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
-	struct spacemit_hw_device *hwdev = priv->hwdev;
+	struct spacemit_drm_private *priv;
+	struct spacemit_hw_device *hwdev;
+
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
 	trace_dpu_disable_clocks(dpu->dev_id);
+
+	if (!dpu->is_probed) {
+		if (dpu->type == HDMI) {
+			clk_disable_unprepare(clk_ctx->hmclk);
+		} else if (dpu->type == DSI) {
+			clk_disable_unprepare(clk_ctx->pxclk);
+			clk_disable_unprepare(clk_ctx->mclk);
+			clk_disable_unprepare(clk_ctx->hclk);
+			clk_disable_unprepare(clk_ctx->escclk);
+			clk_disable_unprepare(clk_ctx->bitclk);
+		}
+		return 0;
+	}
+
+	priv = dpu->crtc.dev->dev_private;
+	hwdev = priv->hwdev;
 
 	if (hwdev->is_hdmi) {
 		clk_disable_unprepare(clk_ctx->hmclk);
@@ -1359,11 +1423,11 @@ static void saturn_init_regs(struct spacemit_dpu *dpu)
 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, eof1_irq_mask, 1);
 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, underflow1_irq_mask, 1);
 
-	if (hwdev->is_hdmi) {
-		dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, disp_ready_man_en, 1);
-		val = dpu_read_reg(hwdev, OUTCTRL_TOP_X_REG, base, value32[31]);
-		DRM_INFO("%s read OUTCTRL_TOP_X_REG value32[31] 0x%x", __func__, val);
-	}
+	// if (hwdev->is_hdmi) {
+	// 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, disp_ready_man_en, 1);
+	// 	val = dpu_read_reg(hwdev, OUTCTRL_TOP_X_REG, base, value32[31]);
+	// 	DRM_INFO("%s read OUTCTRL_TOP_X_REG value32[31] 0x%x", __func__, val);
+	// }
 
 	dpu_write_reg(hwdev, DPU_CTL_REG, DPU_CTRL_BASE_ADDR, ctl2_video_mod, 0x1);
 	dpu_write_reg(hwdev, DPU_CTL_REG, DPU_CTRL_BASE_ADDR, ctl2_dbg_mod, 0x0);
@@ -1480,11 +1544,13 @@ static int dpu_init(struct spacemit_dpu *dpu)
 
 	// modified hdmi and mipi dsi qos
 	value = readl_relaxed(ciu_addr + 0x011c);
-	DRM_INFO("%s ciu offset 0x011c:0x%x\n", __func__, value);
+	DRM_DEBUG("%s ciu offset 0x011c:0x%x\n", __func__, value);
+	value = readl_relaxed(ciu_addr + 0x0124);
+	DRM_DEBUG("%s ciu offset 0x0124:0x%x\n", __func__, value);
 	writel(value | 0xffff, ciu_addr + 0x0124);
 	udelay(2);
 	value = readl_relaxed(ciu_addr + 0x0124);
-	DRM_INFO("%s ciu offset 0x0124:0x%x\n", __func__, value);
+	DRM_DEBUG("%s ciu offset 0x0124:0x%x\n", __func__, value);
 
 	saturn_init_regs(dpu);
 	saturn_setup_dma_top(dpu);
@@ -1628,7 +1694,7 @@ static void dpu_run(struct drm_crtc *crtc,
 	saturn_ctrl_cfg_ready(dpu, true);
 
 	if (unlikely(dpu->is_1st_f)) {
-		DRM_INFO("DPU %d Start!\n", dpu->dev_id);
+		DRM_INFO("DPU type %d id %d Start!\n", dpu->type, dpu->dev_id);
 		dpu->is_1st_f = false;
 		saturn_ctrl_sw_start(dpu, true);
 	}
