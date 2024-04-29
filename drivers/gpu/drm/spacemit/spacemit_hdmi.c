@@ -66,6 +66,9 @@ struct spacemit_hdmi {
 	struct drm_connector	connector;
 	struct drm_encoder encoder;
 
+	struct reset_control *hdmi_reset;
+	struct clk *hdmi_mclk;
+
 	unsigned int tmds_rate;
 
 	bool edid_done;
@@ -838,7 +841,27 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	else
 		hdmi->use_no_edid = false;
 
+	hdmi->hdmi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "hdmi_reset");
+	if (IS_ERR_OR_NULL(hdmi->hdmi_reset)) {
+		DRM_INFO("Failed to found hdmi_reset\n");
+	}
+
+	hdmi->hdmi_mclk = of_clk_get_by_name(dev->of_node, "hmclk");
+	if (IS_ERR(hdmi->hdmi_mclk)) {
+		DRM_INFO("Failed to found hdmi mclk\n");
+	}
+
+	dev_set_drvdata(dev, hdmi);
+
 	pm_runtime_enable(&pdev->dev);
+
+	if (!IS_ERR_OR_NULL(hdmi->hdmi_reset)) {
+		ret = reset_control_deassert(hdmi->hdmi_reset);
+		if (ret < 0) {
+			DRM_INFO("Failed to deassert hdmi_reset\n");
+		}
+	}
+
 	pm_runtime_get_sync(&pdev->dev);
 
 	irq = platform_get_irq(pdev, 0);
@@ -852,8 +875,6 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	hdmi->edid_done = false;
 
 	ret = spacemit_hdmi_register(drm, hdmi);
-
-	dev_set_drvdata(dev, hdmi);
 
 	ret = devm_request_threaded_irq(dev, irq, spacemit_hdmi_hardirq,
 					spacemit_hdmi_irq, IRQF_SHARED,
@@ -875,6 +896,7 @@ static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+	int ret;
 
 	DRM_INFO("%s() \n", __func__);
 
@@ -882,6 +904,12 @@ static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 	hdmi->encoder.funcs->destroy(&hdmi->encoder);
 
 	pm_runtime_put_sync(&pdev->dev);
+	if (!IS_ERR_OR_NULL(hdmi->hdmi_reset)) {
+		ret = reset_control_assert(hdmi->hdmi_reset);
+		if (ret < 0) {
+			DRM_INFO("Failed to assert hdmi_reset\n");
+		}
+	}
 	pm_runtime_disable(dev);
 }
 
@@ -906,6 +934,43 @@ static int spacemit_hdmi_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int hdmi_rt_pm_resume(struct device *dev)
+{
+	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+	uint64_t clk_val;
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	clk_prepare_enable(hdmi->hdmi_mclk);
+
+	clk_val = clk_get_rate(hdmi->hdmi_mclk);
+	DRM_INFO("get hdmi mclk=%lld\n", clk_val);
+	if(clk_val != DPU_MCLK_DEFAULT){
+		clk_val = clk_round_rate(hdmi->hdmi_mclk, DPU_MCLK_DEFAULT);
+		clk_set_rate(hdmi->hdmi_mclk, clk_val);
+		DRM_INFO("set hdmi mclk=%lld\n", clk_val);
+	}
+
+	return 0;
+}
+
+static int hdmi_rt_pm_suspend(struct device *dev)
+{
+	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	clk_disable_unprepare(hdmi->hdmi_mclk);
+
+	return 0;
+}
+
+static const struct dev_pm_ops hdmi_pm_ops = {
+	SET_RUNTIME_PM_OPS(hdmi_rt_pm_suspend,
+			hdmi_rt_pm_resume,
+			NULL)
+};
+
 static const struct of_device_id spacemit_hdmi_dt_ids[] = {
 	{ .compatible = "spacemit,hdmi",
 	},
@@ -919,6 +984,7 @@ struct platform_driver spacemit_hdmi_driver = {
 	.driver = {
 		.name = "spacemit-hdmi-drv",
 		.of_match_table = spacemit_hdmi_dt_ids,
+		.pm = &hdmi_pm_ops,
 	},
 };
 
