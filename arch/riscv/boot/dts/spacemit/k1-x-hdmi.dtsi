@@ -20,6 +20,8 @@
 		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
 		pipeline-id = <ONLINE2>;
 		ip = "spacemit-saturn";
+		type = <HDMI>;
+		clk,pm-runtime,no-sleep;
 		status = "disabled";
 
 		dpu_online2_hdmi_out: endpoint@0 {
@@ -38,7 +40,10 @@
 		interrupts = <136>;
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
+		resets = <&reset RESET_HDMI>;
+		reset-names= "hdmi_reset";
 		power-domains = <&power K1X_PMU_HDMI_PWR_DOMAIN>;
+		clk,pm-runtime,no-sleep;
 		status = "disabled";
 
 		port {
