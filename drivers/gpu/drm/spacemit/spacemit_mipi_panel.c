@@ -653,8 +653,6 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 
 	drm_panel_add(&panel->base);
 
-	backlight_enable(panel->base.backlight);
-
 	slave->lanes = panel->info.lanes;
 	slave->format = panel->info.format;
 	slave->mode_flags = panel->info.mode_flags;
