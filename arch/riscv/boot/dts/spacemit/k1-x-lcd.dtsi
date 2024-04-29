@@ -28,6 +28,8 @@
 		pipeline-id = <ONLINE2>;
 		ip = "spacemit-saturn";
 		spacemit-dpu-min-mclk = <40960000>;
+		type = <DSI>;
+		clk,pm-runtime,no-sleep;
 		status = "disabled";
 
 		dpu_online2_dsi_out: endpoint@0 {
