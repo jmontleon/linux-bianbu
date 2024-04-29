@@ -125,6 +125,7 @@ struct spacemit_dpu {
 	struct work_struct work_update_bw;
 	struct dpu_mmu_tbl mmu_tbl;
 	int dev_id;
+	int type;
 	bool enable_dump_reg;
 	bool enable_dump_fps;
 	bool enable_auto_fc;
