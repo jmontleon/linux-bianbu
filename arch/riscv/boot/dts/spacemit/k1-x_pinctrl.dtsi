@@ -658,6 +658,12 @@
         >;
     };
 
+    pinctrl_rpwm2_0: rpwm2_0_grp {
+        pinctrl-single,pins = <
+            K1X_PADCONF(GPIO_79,    MUX_MODE2, (EDGE_NONE | PULL_DOWN | PAD_3V_DS4))   /* rcpu_pwm2 */
+        >;
+    };
+
     pinctrl_sspa0_0: sspa0_0_grp {
         pinctrl-single,pins =<
             K1X_PADCONF(GPIO_118,    MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))   /* sspa0_clk */
