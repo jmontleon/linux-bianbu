@@ -260,6 +260,10 @@ static struct platform_driver pwm_driver = {
 	.id_table	= pwm_id_table,
 };
 
-module_platform_driver(pwm_driver);
+static int k1x_pwm_driver_init(void)
+{
+	return platform_driver_register(&pwm_driver);
+}
+late_initcall_sync(k1x_pwm_driver_init);
 
 MODULE_LICENSE("GPL v2");
