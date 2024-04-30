@@ -171,6 +171,10 @@ DEFINE_SPINLOCK(g_cru_lock);
 #define RCPU_CAN_CLK_RST		0x4c
 /* end of RCPU register offset */
 
+/* RCPU2 register offset */
+#define RCPU2_PWM_CLK_RST		0x08
+/* end of RCPU2 register offset */
+
 struct spacemit_k1x_clk k1x_clock_controller;
 
 //apbs
@@ -1118,6 +1122,15 @@ static SPACEMIT_CCU_DIV_MUX_GATE(rcan_clk, "rcan_clk", rcan_parent_names,
 static SPACEMIT_CCU_GATE_NO_PARENT(rcan_bus_clk, "rcan_bus_clk", NULL,
 	BASE_TYPE_RCPU, RCPU_CAN_CLK_RST,
 	BIT(2), BIT(2), 0x0, 0);
+//rcpu2
+static const char *rpwm_parent_names[] = {
+	"pll1_aud_245p7", "pll1_aud_24p5"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm_clk, "rpwm_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
 
 static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.hws	= {
@@ -1307,6 +1320,7 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_RCPU_HDMIAUDIO]	= &rhdmi_audio_clk.common.hw,
 		[CLK_RCPU_CAN] 		= &rcan_clk.common.hw,
 		[CLK_RCPU_CAN_BUS]	= &rcan_bus_clk.common.hw,
+		[CLK_RCPU2_PWM] 	= &rpwm_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
@@ -1384,6 +1398,9 @@ int ccu_common_init(struct clk_hw * hw, struct spacemit_k1x_clk *clk_info)
 		break;
 	case BASE_TYPE_RCPU:
 		common->base = clk_info->rcpu_base;
+		break;
+	case BASE_TYPE_RCPU2:
+		common->base = clk_info->rcpu2_base;
 		break;
 	default:
 		common->base = clk_info->apbc_base;
@@ -1499,6 +1516,12 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 		clk_info->rcpu_base = of_iomap(np, 8);
 		if (!clk_info->rcpu_base) {
 			pr_err("failed to map rcpu registers\n");
+			goto out;
+		}
+
+		clk_info->rcpu2_base = of_iomap(np, 9);
+		if (!clk_info->rcpu2_base) {
+			pr_err("failed to map rcpu2 registers\n");
 			goto out;
 		}
 	}
