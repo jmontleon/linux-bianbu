@@ -132,6 +132,10 @@
 #define RCPU_CAN_CLK_RST		0x4c
 /* end of RCPU register offset */
 
+/* RCPU2 register offset */
+#define RCPU2_PWM_CLK_RST		0x08
+/* end of RCPU2 register offset */
+
 enum spacemit_reset_base_type{
 	RST_BASE_TYPE_MPMU       = 0,
 	RST_BASE_TYPE_APMU       = 1,
@@ -143,6 +147,7 @@ enum spacemit_reset_base_type{
 	RST_BASE_TYPE_AUDC       = 7,
 	RST_BASE_TYPE_APBC2      = 8,
 	RST_BASE_TYPE_RCPU       = 9,
+	RST_BASE_TYPE_RCPU2      = 10,
 };
 
 struct spacemit_reset_signal {
@@ -172,6 +177,7 @@ struct spacemit_reset {
 	void __iomem *audio_ctrl_base;
 	void __iomem *apbc2_base;
 	void __iomem *rcpu_base;
+	void __iomem *rcpu2_base;
 	const struct spacemit_reset_signal *signals;
 };
 
@@ -285,6 +291,8 @@ static const struct spacemit_reset_signal
 	//RCPU
 	[RESET_RCPU_HDMIAUDIO] 	= { RCPU_HDMI_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 	[RESET_RCPU_CAN] 	= { RCPU_CAN_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
+	//RCPU2
+	[RESET_RCPU2_PWM] 	= { RCPU2_PWM_CLK_RST, BIT(2)|BIT(0), BIT(0), BIT(2), RST_BASE_TYPE_RCPU2 },
 };
 
 static struct spacemit_reset *to_spacemit_reset(
@@ -327,6 +335,9 @@ static u32 spacemit_reset_read(struct spacemit_reset *reset,
 			break;
 		case RST_BASE_TYPE_RCPU:
 			base = reset->rcpu_base;
+			break;
+		case RST_BASE_TYPE_RCPU2:
+			base = reset->rcpu2_base;
 			break;
 		default:
 			base = reset->apbc_base;
@@ -371,6 +382,9 @@ static void spacemit_reset_write(struct spacemit_reset *reset, u32 value,
 			break;
 		case RST_BASE_TYPE_RCPU:
 			base = reset->rcpu_base;
+			break;
+		case RST_BASE_TYPE_RCPU2:
+			base = reset->rcpu2_base;
 			break;
 		default:
 			base = reset->apbc_base;
@@ -500,6 +514,12 @@ static void spacemit_reset_init(struct device_node *np)
 		reset->rcpu_base = of_iomap(np, 8);
 		if (!reset->rcpu_base) {
 			pr_err("failed to map rcpu registers\n");
+			goto out;
+		}
+
+		reset->rcpu2_base = of_iomap(np, 9);
+		if (!reset->rcpu2_base) {
+			pr_err("failed to map rcpu2 registers\n");
 			goto out;
 		}
 	}
