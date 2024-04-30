@@ -115,6 +115,8 @@
 #define	RESET_RCPU_HDMIAUDIO 101
 #define	RESET_RCPU_CAN       102
 
-#define	RESET_NUMBER       103
+#define	RESET_RCPU2_PWM      103
+
+#define	RESET_NUMBER         104
 
 #endif /* __DT_BINDINGS_RESET_SAPCEMIT_K1X_H__ */
