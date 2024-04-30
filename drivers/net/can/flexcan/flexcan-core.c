@@ -34,9 +34,17 @@
 #include <linux/regulator/consumer.h>
 
 #include "flexcan.h"
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#include <linux/rpmsg.h>
+#define STARTUP_MSG			"startup"
+#define IRQUP_MSG			"irqon"
+#endif
 
 #define DRV_NAME			"flexcan"
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static unsigned long long private_data[1];
+#endif
 /* 8 for RX fifo and 2 error handling */
 #define FLEXCAN_NAPI_WEIGHT		(8 + 2)
 
@@ -291,6 +299,13 @@ struct flexcan_regs {
 		u32 rx_smb1_fd[18];	/* 0xfb8 */
 	);
 };
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+struct instance_data {
+	struct rpmsg_device *rpdev;
+	struct net_device *dev;
+};
+#endif
 
 static_assert(sizeof(struct flexcan_regs) ==  0x4 * 18 + 0xfb8);
 
@@ -1771,6 +1786,37 @@ static int flexcan_open(struct net_device *dev)
 
 	can_rx_offload_enable(&priv->offload);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if(dev->irq != -1) {
+		err = request_irq(dev->irq, flexcan_irq, IRQF_SHARED, dev->name, dev);
+		if (err)
+			goto out_can_rx_offload_disable;
+
+		if (priv->devtype_data.quirks & FLEXCAN_QUIRK_NR_IRQ_3) {
+			err = request_irq(priv->irq_boff,
+				  flexcan_irq, IRQF_SHARED, dev->name, dev);
+			if (err)
+				goto out_free_irq;
+
+			err = request_irq(priv->irq_err,
+				  flexcan_irq, IRQF_SHARED, dev->name, dev);
+			if (err)
+				goto out_free_irq_boff;
+		}
+	} else {
+		struct instance_data *idata = (struct instance_data*)private_data[0];
+		struct rpmsg_device *rpdev;
+		int ret;
+
+		rpdev = idata->rpdev;
+		idata->dev = dev;
+		ret = rpmsg_send(rpdev->ept, STARTUP_MSG, strlen(STARTUP_MSG));
+		if (ret) {
+			dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+			return ret;
+		}
+	}
+#else
 	err = request_irq(dev->irq, flexcan_irq, IRQF_SHARED, dev->name, dev);
 	if (err)
 		goto out_can_rx_offload_disable;
@@ -1786,6 +1832,7 @@ static int flexcan_open(struct net_device *dev)
 		if (err)
 			goto out_free_irq_boff;
 	}
+#endif
 
 	if (priv->devtype_data.quirks & FLEXCAN_QUIRK_SECONDARY_MB_IRQ) {
 		err = request_irq(priv->irq_secondary_mb,
@@ -2157,9 +2204,18 @@ static int flexcan_probe(struct platform_device *pdev)
 		return PTR_ERR(reset);
 	}
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (!of_get_property(pdev->dev.of_node, "rcpu-can", NULL)) {
+		irq = platform_get_irq(pdev, 0);
+		if (irq <= 0)
+			return -ENODEV;
+	} else
+		irq = -1;
+#else
+ 	irq = platform_get_irq(pdev, 0);
+ 	if (irq <= 0)
+ 		return -ENODEV;
+#endif
 
 	regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(regs))
@@ -2467,7 +2523,69 @@ static struct platform_driver flexcan_driver = {
 	.id_table = flexcan_id_table,
 };
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static struct rpmsg_device_id rpmsg_driver_rcan_id_table[] = {
+	{ .name	= "can-service", .driver_data = 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_rcan_id_table);
+
+static int rpmsg_rcan_client_cb(struct rpmsg_device *rpdev, void *data,
+		int len, void *priv, u32 src)
+{
+	struct instance_data *idata = dev_get_drvdata(&rpdev->dev);
+	struct net_device *dev = idata->dev;
+	int ret;
+
+	flexcan_irq(0, (void*)dev);
+	ret = rpmsg_send(rpdev->ept, IRQUP_MSG, strlen(IRQUP_MSG));
+	if (ret) {
+		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+
+static int rpmsg_rcan_client_probe(struct rpmsg_device *rpdev)
+{
+	struct instance_data *idata;
+
+	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
+					rpdev->src, rpdev->dst);
+
+	idata = devm_kzalloc(&rpdev->dev, sizeof(*idata), GFP_KERNEL);
+	if (!idata)
+		return -ENOMEM;
+
+	dev_set_drvdata(&rpdev->dev, idata);
+	idata->rpdev = rpdev;
+
+	private_data[0] = (unsigned long long)idata;
+
+	platform_driver_register(&flexcan_driver);
+
+	return 0;
+}
+
+static void rpmsg_rcan_client_remove(struct rpmsg_device *rpdev)
+{
+	dev_info(&rpdev->dev, "rpmsg rcan client driver is removed\n");
+	platform_driver_unregister(&flexcan_driver);
+}
+
+static struct rpmsg_driver rpmsg_rcan_client = {
+	.drv.name	= KBUILD_MODNAME,
+	.id_table	= rpmsg_driver_rcan_id_table,
+	.probe		= rpmsg_rcan_client_probe,
+	.callback	= rpmsg_rcan_client_cb,
+	.remove		= rpmsg_rcan_client_remove,
+};
+module_rpmsg_driver(rpmsg_rcan_client);
+#else
 module_platform_driver(flexcan_driver);
+#endif
 
 MODULE_AUTHOR("Sascha Hauer <kernel@pengutronix.de>, "
 	      "Marc Kleine-Budde <kernel@pengutronix.de>");
