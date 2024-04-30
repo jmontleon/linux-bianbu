@@ -1571,6 +1571,16 @@
 			status = "disabled";
 		};
 
+		rpwm2: pwm@c0888300 {
+			compatible = "spacemit,k1x-pwm";
+			reg = <0x0 0xc0888300 0x0 0x10>;
+			#pwm-cells = <1>;
+			clocks = <&ccu CLK_RCPU2_PWM>;
+			resets = <&reset RESET_RCPU2_PWM>;
+			k1x,pwm-disable-fd;
+			status = "disabled";
+		};
+
 		timer0: timer@d4014000 {
 			compatible = "spacemit,soc-timer";
 			reg = <0x0 0xd4014000 0x0 0xc8>;

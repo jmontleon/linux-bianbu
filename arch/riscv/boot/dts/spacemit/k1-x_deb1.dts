@@ -989,3 +989,9 @@
 		sound-dai = <&es8326>;
 	};
 };
+
+&rpwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rpwm2_0>;
+	status = "okay";
+};
