@@ -475,21 +475,27 @@ static int dpu_update_bw(struct spacemit_dpu *dpu, uint64_t bw)
 static int dpu_finish_uboot(struct spacemit_dpu *dpu)
 {
 	void __iomem *base;
+	void __iomem *hdmi;
 	u32 value;
 
 	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
 	if (dpu->type == HDMI) {
 		base = (void __iomem *)ioremap(0xC0440000, 0x2A000);
-		// hdmi dpu int regs
-		writel(0x00, base + 0x910);
-		writel(0x00, base + 0x938);
-		//writel(0x00, base + 0x960);
+		hdmi = (void __iomem *)ioremap(0xC0400500, 0x200);
 
 		// hdmi dpu ctl regs
 		writel(0x00, base + 0x560);
 		writel(0x01, base + 0x56c);
 		// writel(0x00, base + 0x58c);
+
+		// hdmi dpu int regs
+		writel(0x00, base + 0x910);
+		writel(0x00, base + 0x938);
+		//writel(0x00, base + 0x960);
+
+		// hdmi close pll clock
+		writel(0x00, hdmi + 0xe4);
 
 		value = readl_relaxed(base + 0x910);
 		DRM_DEBUG("%s hdmi int reg4 0x910:0x%x\n", __func__, value);
@@ -506,17 +512,19 @@ static int dpu_finish_uboot(struct spacemit_dpu *dpu)
 
 		udelay(100);
 		iounmap(base);
+		iounmap(hdmi);
 	} else if (dpu->type == DSI) {
 		base = (void __iomem *)ioremap(0xc0340000, 0x2A000);
-		// mipi dsi dpu int regs
-		writel(0x00, base + 0x910);
-		writel(0x00, base + 0x938);
-		//writel(0x00, base + 0x960);
 
 		// mipi dsi dpu ctl regs
 		writel(0x00, base + 0x560);
 		writel(0x01, base + 0x56c);
 		// writel(0x00, base + 0x58c);
+
+		// mipi dsi dpu int regs
+		writel(0x00, base + 0x910);
+		writel(0x00, base + 0x938);
+		//writel(0x00, base + 0x960);
 
 		value = readl_relaxed(base + 0x910);
 		DRM_DEBUG("%s mipi dsi int reg4 0x910:0x%x\n", __func__, value);
