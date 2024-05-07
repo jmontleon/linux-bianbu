@@ -528,7 +528,7 @@ static int spa_wdt_restart_handler(struct notifier_block *this, unsigned long mo
 	spa_enable_wdt_clk(info);
 
 	spa_wdt_write(info, WDT_WSR, 0x0);
-	spa_wdt_set_timeout(&info->wdt_dev, 10);
+	spa_wdt_write(info, WDT_WMR, 0x1);
 	spa_wdt_write(info, WDT_WMER, 0x3);
 	spa_wdt_write(info, WDT_WCR, 0x1);
 
