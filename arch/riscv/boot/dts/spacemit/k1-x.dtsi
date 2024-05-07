@@ -826,7 +826,7 @@
 		};
 
 		uart3: uart@d4017200 {
-			compatible = "spcaemit,pxa-uart";
+			compatible = "spacemit,pxa-uart";
 			reg = <0x0 0xd4017200 0x0 0x100>;
 			interrupt-parent = <&intc>;
 			interrupts = <45>;
