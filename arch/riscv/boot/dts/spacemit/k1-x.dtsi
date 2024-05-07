@@ -45,7 +45,7 @@
 			model = "Spacemit(R) X60";
 			reg = <0>;
 			status = "okay";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -73,7 +73,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -101,7 +101,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -129,7 +129,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -157,7 +157,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -185,7 +185,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -213,7 +213,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
@@ -241,7 +241,7 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcvsu_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
 			riscv,cbom-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
