@@ -456,6 +456,29 @@ static void spacemit_drm_shutdown(struct platform_device *pdev)
 	drm_atomic_helper_shutdown(drm);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int spacemit_drm_suspend(struct device *dev)
+{
+	struct spacemit_drm_private *priv = dev_get_drvdata(dev);
+	struct drm_device *drm = priv->ddev;
+
+	return drm_mode_config_helper_suspend(drm);
+}
+
+static int spacemit_drm_resume(struct device *dev)
+{
+	struct spacemit_drm_private *priv = dev_get_drvdata(dev);
+	struct drm_device *drm = priv->ddev;
+
+	return drm_mode_config_helper_resume(drm);
+}
+#endif
+
+static const struct dev_pm_ops spacemit_drm_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(spacemit_drm_suspend,
+				spacemit_drm_resume)
+};
+
 static const struct of_device_id drm_match_table[] = {
 	{
 		.compatible = "spacemit,saturn-hdmi",
@@ -477,6 +500,7 @@ static struct platform_driver spacemit_drm_driver = {
 	.driver = {
 		.name = "spacemit-drm-drv",
 		.of_match_table = drm_match_table,
+		.pm = &spacemit_drm_pm_ops,
 	},
 };
 
