@@ -545,13 +545,12 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 
 	pll_reg(hdmi, pixel_clock, bit_depth);
 	writel(0x3, hdmi->regs + 0xe4);
-	udelay(200);
-
 	value = readl_relaxed(hdmi->regs + 0xe4);
 	DRM_INFO("%s() hdmi pll lock status 0x%x\n", __func__, value);
 	// while ( (value & 0x10000) != 0) {
 	// 	value = readl_relaxed(hdmi->regs + 0xe4);
 	// }
+	udelay(100);
 
 	value = 0x3018C000| bit_depth;
 	writel(value, hdmi->regs + 0x28);
@@ -620,9 +619,12 @@ static void spacemit_hdmi_encoder_disable(struct drm_encoder *encoder)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
 	struct spacemit_dpu *dpu = crtc_to_dpu(encoder->crtc);
+	u32 value = 0;
 	DRM_INFO("%s()\n", __func__);
 
 	spacemit_dpu_stop(dpu);
+	writel(0x00, hdmi->regs + 0xe4);
+	udelay(100);
 	spacemit_hdmi_set_pwr_mode(hdmi, LOWER_PWR);
 }
 
