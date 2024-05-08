@@ -139,6 +139,7 @@ struct k1x_pcie {
 	int			port_id;
 	int			num_lanes;
 	int			link_gen;
+	bool			link_is_up;
 	struct irq_domain	*irq_domain;
 	enum dw_pcie_device_mode mode;
 	struct page             *msi_page;
@@ -645,6 +646,16 @@ static int k1x_pcie_establish_link(struct dw_pcie *pci)
 
 	printk("ltssm enable\n");
 	return 0;
+}
+
+static void k1x_pcie_downstream_dev_to_L1(struct k1x_pcie *k1x)
+{
+	struct dw_pcie  *pci = k1x->pci;
+	u32 reg;
+
+	reg = k1x_pcie_phy_ahb_readl(k1x, K1X_PHY_AHB_IRQ_EN);
+	reg |= (1 << 10);
+	k1x_pcie_phy_ahb_writel(k1x, K1X_PHY_AHB_IRQ_EN, reg);
 }
 
 /*
@@ -1358,41 +1369,23 @@ static const struct dw_pcie_ops dw_pcie_ops = {
 #ifdef CONFIG_PM_SLEEP
 static void k1x_pcie_disable_phy(struct k1x_pcie *k1x)
 {
-	int phy_count = k1x->phy_count;
+	u32 reg;
 
-	while (phy_count--) {
-		phy_power_off(k1x->phy[phy_count]);
-		phy_exit(k1x->phy[phy_count]);
-	}
+	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	reg &= ~(0x3f);
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
 }
 
 static int k1x_pcie_enable_phy(struct k1x_pcie *k1x)
 {
-	int phy_count = k1x->phy_count;
-	int ret;
-	int i;
+	u32 reg;
 
-	for (i = 0; i < phy_count; i++) {
-		ret = phy_init(k1x->phy[i]);
-		if (ret < 0)
-			goto err_phy;
+	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	reg |= 0x3f;
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
 
-		ret = phy_power_on(k1x->phy[i]);
-		if (ret < 0) {
-			phy_exit(k1x->phy[i]);
-			goto err_phy;
-		}
-	}
-
+	init_phy(k1x);
 	return 0;
-
-err_phy:
-	while (--i >= 0) {
-		phy_power_off(k1x->phy[i]);
-		phy_exit(k1x->phy[i]);
-	}
-
-	return ret;
 }
 #endif
 
@@ -1613,8 +1606,26 @@ static int k1x_pcie_resume(struct device *dev)
 static int k1x_pcie_suspend_noirq(struct device *dev)
 {
 	struct k1x_pcie *k1x = dev_get_drvdata(dev);
+	struct dw_pcie  *pci = k1x->pci;
+	u32 reg;
 
+	k1x->link_is_up = dw_pcie_link_up(pci);
+	dev_info(dev, "link is %s\n", k1x->link_is_up ? "up" : "down");
+
+	k1x_pcie_downstream_dev_to_L1(k1x);
+
+	/* set Perst# (fundamental reset) gpio low state*/
+	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	reg |= PCIE_RC_PERST;
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
+
+	k1x_pcie_stop_link(pci);
 	k1x_pcie_disable_phy(k1x);
+
+	/* soft reset */
+	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
+	reg |= (1 << 0);
+	k1x_pcie_writel(k1x, PCIE_CTRL_LOGIC, reg);
 
 	return 0;
 }
@@ -1622,12 +1633,22 @@ static int k1x_pcie_suspend_noirq(struct device *dev)
 static int k1x_pcie_resume_noirq(struct device *dev)
 {
 	struct k1x_pcie *k1x = dev_get_drvdata(dev);
-	int ret;
+	struct dw_pcie  *pci = k1x->pci;
+	struct dw_pcie_rp *pp = &pci->pp;
+	u32 reg;
 
-	ret = k1x_pcie_enable_phy(k1x);
-	if (ret) {
-		dev_err(dev, "failed to enable phy\n");
-		return ret;
+	/* soft no reset */
+	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
+	reg &= ~(1 << 0);
+	k1x_pcie_writel(k1x, PCIE_CTRL_LOGIC, reg);
+
+	k1x_pcie_enable_phy(k1x);
+	k1x_pcie_host_init(pp);
+	dw_pcie_setup_rc(pp);
+
+	if (k1x->link_is_up) {
+		k1x_pcie_establish_link(pci);
+		dw_pcie_wait_for_link(pci);
 	}
 
 	return 0;
