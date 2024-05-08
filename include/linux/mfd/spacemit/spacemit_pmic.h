@@ -82,16 +82,16 @@ struct pin_config_desc {
 
 /* rtc */
 union rtc_ctl_desc {
-	unsigned char val;
+	unsigned int val;
 	struct {
-		unsigned char crystal_en:1;
-		unsigned char out_32k_en:1;
-		unsigned char rtc_en:1;
-		unsigned char rtc_clk_sel:1;
-		unsigned char tick_type:1;
-		unsigned char alarm_en:1;
-		unsigned char tick_en:1;
-		unsigned char reserved:1;
+		unsigned int crystal_en:1;
+		unsigned int out_32k_en:1;
+		unsigned int rtc_en:1;
+		unsigned int rtc_clk_sel:1;
+		unsigned int tick_type:1;
+		unsigned int alarm_en:1;
+		unsigned int tick_en:1;
+		unsigned int reserved:25;
 	} bits;
 };
 
