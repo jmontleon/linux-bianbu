@@ -266,14 +266,15 @@ static int done(struct mv_ep *ep, struct mv_req *req, int status)
 
 	udc = (struct mv_udc *)ep->udc;
 
+	/* Removed the req from mv_ep->queue */
+	list_del_init(&req->queue);
+
 	if (req->req.dma == DMA_ADDR_INVALID && req->mapped == 0) {
 		dev_info(&udc->dev->dev, "%s request %p already unmapped",
 					ep->name, req);
+		WARN_ON_ONCE(1);
 		return -ESHUTDOWN;
 	}
-
-	/* Removed the req from fsl_ep->queue */
-	list_del_init(&req->queue);
 
 	/* req.status should be set as -EINPROGRESS in ep_queue() */
 	if (req->req.status == -EINPROGRESS)
