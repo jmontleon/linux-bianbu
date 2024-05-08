@@ -263,6 +263,13 @@
 		interrupts = <50 2>;
 		status = "okay";
 	};
+
+	battery: battery@b {
+		compatible = "sbs,sbs-battery";
+		reg = <0x0b>;
+		sbs,i2c-retry-count = <2>;
+		sbs,poll-retry-count = <1>;
+	};
 };
 
 &i2c6 {
