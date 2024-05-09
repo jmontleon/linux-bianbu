@@ -583,6 +583,11 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			// IPASON XC242-J
 			bit_depth = EIGHT_BPP;
 			DRM_INFO("%s() 8bpc \n", __func__);
+		} else if ((hdmi_data->edid[8] == 0x05) && (hdmi_data->edid[9] == 0xe3) &&
+				(hdmi_data->edid[10] == 0x90) && (hdmi_data->edid[11] == 0x24)) {
+			// AOC Q2490W1
+			bit_depth = EIGHT_BPP;
+			DRM_INFO("%s() 8bpc \n", __func__);
 		}
 	}
 
