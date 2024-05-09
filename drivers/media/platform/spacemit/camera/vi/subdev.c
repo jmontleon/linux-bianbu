@@ -159,7 +159,7 @@ long spm_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		return v4l2_subdev_call(sd, pad, set_fmt, NULL, format);
 		break;
 	default:
-		cam_err_ratelimited("%s(%s) unknown ioctl(%d)", __func__, sc_subdev->name, cmd);
+		cam_warn("%s(%s) unknown ioctl(%d)", __func__, sc_subdev->name, cmd);
 		return -ENOIOCTLCMD;
 	}
 	return 0;
