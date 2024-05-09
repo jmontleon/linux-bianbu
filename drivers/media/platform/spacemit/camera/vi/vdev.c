@@ -1610,7 +1610,7 @@ static long spm_vdev_vidioc_default(struct file *file,
 		spm_vdev_debug_dump(sc_vnode, debug_dump->reason);
 		break;
 	default:
-		cam_err("unknown ioctl cmd(%d).", cmd);
+		cam_warn("unknown ioctl cmd(%d).", cmd);
 		return -ENOIOCTLCMD;
 	}
 
