@@ -967,10 +967,38 @@ static int hdmi_rt_pm_suspend(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+
+static int hdmi_drv_pm_suspend(struct device *dev)
+{
+	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	clk_disable_unprepare(hdmi->hdmi_mclk);
+
+	return 0;
+}
+
+static int hdmi_drv_pm_resume(struct device *dev)
+{
+	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	clk_prepare_enable(hdmi->hdmi_mclk);
+
+	return 0;
+}
+
+#endif
+
 static const struct dev_pm_ops hdmi_pm_ops = {
 	SET_RUNTIME_PM_OPS(hdmi_rt_pm_suspend,
 			hdmi_rt_pm_resume,
 			NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(hdmi_drv_pm_suspend,
+				hdmi_drv_pm_resume)
 };
 
 static const struct of_device_id spacemit_hdmi_dt_ids[] = {
