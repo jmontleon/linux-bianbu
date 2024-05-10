@@ -1417,8 +1417,7 @@ static void saturn_init_regs(struct spacemit_dpu *dpu)
 	struct drm_display_mode *mode = &crtc->mode;
 	u8 channel = dpu->dev_id;
 	u16 vfp, vbp, vsync, hfp, hbp, hsync;
-
-	u32 val;
+	// u32 value;
 
 	hsync = mode->hsync_end - mode->hsync_start;
 	hbp = mode->htotal - mode->hsync_end;
@@ -1478,8 +1477,8 @@ static void saturn_init_regs(struct spacemit_dpu *dpu)
 
 	// if (hwdev->is_hdmi) {
 	// 	dpu_write_reg(hwdev, OUTCTRL_TOP_X_REG, base, disp_ready_man_en, 1);
-	// 	val = dpu_read_reg(hwdev, OUTCTRL_TOP_X_REG, base, value32[31]);
-	// 	DRM_INFO("%s read OUTCTRL_TOP_X_REG value32[31] 0x%x", __func__, val);
+	// 	value = dpu_read_reg(hwdev, OUTCTRL_TOP_X_REG, base, value32[31]);
+	// 	DRM_INFO("%s read OUTCTRL_TOP_X_REG value32[31] 0x%x", __func__, value);
 	// }
 
 	dpu_write_reg(hwdev, DPU_CTL_REG, DPU_CTRL_BASE_ADDR, ctl2_video_mod, 0x1);
