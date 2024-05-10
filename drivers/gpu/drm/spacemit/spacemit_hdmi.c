@@ -574,7 +574,7 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 		// 08H, 09H: ID Manufacturer Nanme
 		// 0AH, 0BH: ID Product Code
 		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
-			(hdmi_data->edid[10] == 0x88) && (hdmi_data->edid[11] == 0x23)) {
+			((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
 			// Lecoo HU20238FB0
 			bit_depth = EIGHT_BPP;
 			DRM_INFO("%s() 8bpc \n", __func__);
