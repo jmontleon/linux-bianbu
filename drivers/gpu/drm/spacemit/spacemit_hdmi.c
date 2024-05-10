@@ -624,7 +624,6 @@ static void spacemit_hdmi_encoder_disable(struct drm_encoder *encoder)
 {
 	struct spacemit_hdmi *hdmi = encoder_to_spacemit_hdmi(encoder);
 	struct spacemit_dpu *dpu = crtc_to_dpu(encoder->crtc);
-	u32 value = 0;
 	DRM_INFO("%s()\n", __func__);
 
 	spacemit_dpu_stop(dpu);
