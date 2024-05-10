@@ -14,7 +14,7 @@
 
 #define RESET_REG_VALUE 0x55a
 #define RESET_REG_VALUE1 0x55f
-static char *rebootcmd = "bootloader";
+static char *rebootcmd = "fastboot";
 static char *shellcmd = "uboot";
 
 struct spacemit_reboot_ctrl {

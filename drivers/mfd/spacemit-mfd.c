@@ -27,6 +27,19 @@ SY8810L_MFD_CELL;
 SY8810L_REGMAP_CONFIG;
 SY8810L_MFD_MATCH_DATA;
 
+struct restart_config_info
+{
+	const char *cmd_para;
+	uint32_t value;
+};
+
+static const struct restart_config_info config_info[] = {
+	// enter uboot fastboot mode after restart
+	{"fastboot", 1},
+	// enter uboot shell after restart
+	{"uboot", 2},
+};
+
 static const struct of_device_id spacemit_pmic_of_match[] = {
 	{ .compatible = "spacemit,spm8821" , .data = (void *)&spm8821_mfd_match_data },
 	{ .compatible = "spacemit,pm853" , .data = (void *)&pm853_mfd_match_data },
@@ -57,8 +70,18 @@ static void spacemit_pm_power_off(void)
 
 static int spacemit_restart_notify(struct notifier_block *this, unsigned long mode, void *cmd)
 {
-	int ret;
+	int i, ret;
 	struct spacemit_pmic *pmic = (struct spacemit_pmic *)match_data->ptr;
+
+	if (NULL != cmd) {
+		for (i = 0; i < ARRAY_SIZE(config_info); i++) {
+			if (0 == strcmp(cmd, config_info[i].cmd_para)) {
+				regmap_update_bits(pmic->regmap, match_data->non_reset.reg,
+						match_data->non_reset.bit, config_info[i].value);
+				break;
+			}
+		}
+	}
 
 	ret = regmap_update_bits(pmic->regmap, match_data->reboot.reg,
 			match_data->reboot.bit, match_data->reboot.bit);
