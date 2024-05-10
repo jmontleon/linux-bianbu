@@ -650,7 +650,6 @@ static int k1x_pcie_establish_link(struct dw_pcie *pci)
 
 static void k1x_pcie_downstream_dev_to_L1(struct k1x_pcie *k1x)
 {
-	struct dw_pcie  *pci = k1x->pci;
 	u32 reg;
 
 	reg = k1x_pcie_phy_ahb_readl(k1x, K1X_PHY_AHB_IRQ_EN);
