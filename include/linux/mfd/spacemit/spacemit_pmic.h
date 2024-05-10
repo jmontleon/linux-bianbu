@@ -186,6 +186,12 @@ struct mfd_match_data {
 		unsigned int reg;
 		unsigned char bit;
 	} reboot;
+
+	/* value will be kept in register while reset pmic  */
+	struct {
+		unsigned int reg;
+		unsigned char bit;
+	} non_reset;
 };
 
 /* regulator: match data */
