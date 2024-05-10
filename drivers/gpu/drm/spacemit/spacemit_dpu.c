@@ -843,7 +843,6 @@ static void spacemit_dpu_unbind(struct device *dev, struct device *master,
 	void *data)
 {
 	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
-	int result;
 #ifdef CONFIG_SPACEMIT_DEBUG
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 #endif
@@ -877,7 +876,6 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	const char *str;
 	u32 dpu_id;
 	u32 dpu_type;
-	int result;
 
 	DRM_DEBUG("%s()\n", __func__);
 
