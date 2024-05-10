@@ -22,7 +22,7 @@ enum SPM8821_reg {
 	SPM8821_ID_SWITCH1,
 };
 
-#define SPACEMIT_SPM8821_MAX_REG	0xA8
+#define SPACEMIT_SPM8821_MAX_REG	0xB0
 
 #define SPM8821_BUCK_VSEL_MASK		0xff
 #define SMP8821_BUCK_EN_MASK		0x1
@@ -79,6 +79,9 @@ enum SPM8821_reg {
 #define SPM8821_PWR_CTRL2		0x7e
 #define SPM8821_SW_SHUTDOWN_BIT_MSK	0x4
 #define SPM8821_SW_RESET_BIT_MSK	0x2
+
+#define SPM8821_NON_RESET_REG		0xAB
+#define SPM8821_RESTART_CFG_BIT_MSK	0x3
 
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
@@ -764,6 +767,10 @@ static struct mfd_match_data spm8821_mfd_match_data = {		\
 	.reboot = {						\
 		.reg = SPM8821_PWR_CTRL2,			\
 		.bit = SPM8821_SW_RESET_BIT_MSK,		\
+	},							\
+	.non_reset = {						\
+		.reg = SPM8821_NON_RESET_REG,			\
+		.bit = SPM8821_RESTART_CFG_BIT_MSK,		\
 	},							\
 };
 
