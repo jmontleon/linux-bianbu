@@ -940,7 +940,7 @@ static const struct snd_soc_component_driver spacemit_snd_dma_component = {
 	.hw_free	   = spacemit_snd_pcm_hw_free,
 	.trigger	   = spacemit_snd_pcm_trigger,
 	.pointer	   = spacemit_snd_pcm_pointer,
-	.pcm_construct = spacemit_snd_pcm_new
+	.pcm_construct = spacemit_snd_pcm_new,
 };
 
 static const struct snd_soc_component_driver spacemit_snd_dma_component_hdmi = {
@@ -1021,7 +1021,7 @@ static struct platform_driver spacemit_snd_dma_pdrv = {
 		.of_match_table = of_match_ptr(spacemit_snd_dma_ids),
 	},
 	.probe = spacemit_snd_dma_pdev_probe,
-	.remove = spacemit_snd_dma_pdev_remove
+	.remove = spacemit_snd_dma_pdev_remove,
 };
 
 #if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
@@ -1038,7 +1038,11 @@ void spacemit_snd_unregister_dmaclient_pdrv(void)
 }
 EXPORT_SYMBOL(spacemit_snd_unregister_dmaclient_pdrv);
 #else
-module_platform_driver(spacemit_snd_dma_pdrv);
+static int spacemit_snd_pcm_init(void)
+{
+	return platform_driver_register(&spacemit_snd_dma_pdrv);
+}
+late_initcall_sync(spacemit_snd_pcm_init);
 #endif
 
 MODULE_DESCRIPTION("SPACEMIT ASoC PCM Platform Driver");

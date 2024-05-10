@@ -367,7 +367,11 @@ static struct platform_driver asoc_simple_card = {
 	.remove = asoc_simple_card_remove,
 };
 
-module_platform_driver(asoc_simple_card);
+static int spacemit_snd_card_init(void)
+{
+	return platform_driver_register(&asoc_simple_card);
+}
+late_initcall_sync(spacemit_snd_card_init);
 
 MODULE_DESCRIPTION("SPACEMIT ASoC Machine Driver");
 MODULE_LICENSE("GPL");
