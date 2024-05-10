@@ -391,6 +391,7 @@
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_110 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_115 2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_118 2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_125 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
                 &range GPIO_127 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 	>;
@@ -448,6 +449,7 @@
 		&pinctrl 90 GPIO_90 1
 		&pinctrl 110 GPIO_110 1
 		&pinctrl 115 GPIO_115 2
+		&pinctrl 118 GPIO_118 2
 		&pinctrl 125 GPIO_125 1
                 &pinctrl 127 GPIO_127 1
 	>;
