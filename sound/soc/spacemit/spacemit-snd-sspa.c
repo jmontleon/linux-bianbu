@@ -270,7 +270,11 @@ void spacemit_snd_unregister_sspa_pdrv(void)
 }
 EXPORT_SYMBOL(spacemit_snd_unregister_sspa_pdrv);
 #else
-module_platform_driver(spacemit_snd_sspa_pdrv);
+static int spacemit_snd_sspa_init(void)
+{
+	return platform_driver_register(&spacemit_snd_sspa_pdrv);
+}
+late_initcall_sync(spacemit_snd_sspa_init);
 #endif
 
 MODULE_DESCRIPTION("SPACEMIT ASoC SSPA Driver");
