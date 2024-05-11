@@ -1012,6 +1012,7 @@ static const struct of_device_id spacemit_snd_dma_ids[] = {
 	{ .compatible = "spacemit,spacemit-snd-dma0", },
 	{ .compatible = "spacemit,spacemit-snd-dma1", },
 	{ .compatible = "spacemit,spacemit-snd-dma-hdmi", },
+	{},
 };
 #endif
 
