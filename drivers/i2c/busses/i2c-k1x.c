@@ -1344,10 +1344,12 @@ xfer_retry:
 							spacemit_i2c->timeout);
 		if (unlikely(time_left == 0)) {
 			dev_alert(spacemit_i2c->dev, "msg completion timeout\n");
+			synchronize_irq(spacemit_i2c->irq);
+			disable_irq(spacemit_i2c->irq);
 			spacemit_i2c_bus_reset(spacemit_i2c);
 			spacemit_i2c_reset(spacemit_i2c);
 			ret = -ETIMEDOUT;
-			goto err_xfer;
+			goto timeout_xfex;
 		}
 	}
 
@@ -1358,6 +1360,7 @@ err_xfer:
 err_recover:
 	disable_irq(spacemit_i2c->irq);
 
+timeout_xfex:
 	/* disable spacemit i2c */
 	spacemit_i2c_disable(spacemit_i2c);
 
