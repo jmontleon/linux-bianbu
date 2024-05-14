@@ -133,6 +133,7 @@ struct k1x_pcie {
 	void __iomem		*phy_addr;		/* DT phy_addr */
 	void __iomem		*conf0_addr;		/* DT conf0_addr */
 	void __iomem		*phy0_addr;		/* DT phy0_addr */
+	u32			pcie_rcal;
 	int			phy_count;	/* DT phy-names count */
 	struct phy		**phy;
 	int pcie_init_before_kernel;
@@ -368,7 +369,6 @@ void porta_rterm(struct k1x_pcie *k1x)
 	{
 		//rd_data = REG32(0xC0B10000 + 0x21 * 4);
 		rd_data = k1x_pcie_phy0_reg_readl(k1x, (0x21 * 4));
-		printk("porta redonly_reg2: %08x\n", rd_data);
 	} while (((rd_data >> 10) & 0x1) == 0); // waiting PCIe portA readonly_reg2[2] r_tune_done==1
 }
 
@@ -487,6 +487,7 @@ static int init_phy(struct k1x_pcie *k1x)
 		pcie_rcal = k1x_pcie_phy0_reg_readl(k1x,  (0x21 << 2));
 	}
 
+	k1x->pcie_rcal = pcie_rcal;
 	rterm_force(k1x, pcie_rcal);
 
 	printk("Now int init_puphy...\n");
@@ -1377,13 +1378,113 @@ static void k1x_pcie_disable_phy(struct k1x_pcie *k1x)
 
 static int k1x_pcie_enable_phy(struct k1x_pcie *k1x)
 {
-	u32 reg;
+	u32 reg, val, rd_data;
+
+	printk("Now k1x_pcie_enable_phy in resume...\n");
 
 	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
 	reg |= 0x3f;
 	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
 
-	init_phy(k1x);
+	rterm_force(k1x, k1x->pcie_rcal);
+
+	val = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	val &= 0xbfffffff;
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, val);
+
+	// set refclk model
+	val = k1x_pcie_phy_reg_readl(k1x, (0x17 << 2));
+	val |= (0x1 << 10);
+	k1x_pcie_phy_reg_writel(k1x, (0x17 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, (0x17 << 2));
+	val &= ~(0x3 << 8);
+	k1x_pcie_phy_reg_writel(k1x, (0x17 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, 0x400 + (0x17 << 2));
+	val |= (0x1 << 10);
+	k1x_pcie_phy_reg_writel(k1x, 0x400 + (0x17 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, 0x400 + (0x17 << 2));
+	val &= ~(0x3 << 8);
+	k1x_pcie_phy_reg_writel(k1x, 0x400+ (0x17 << 2), val);
+#ifndef PCIE_REF_CLK_OUTPUT
+	// receiver mode
+	REG32(PCIE_PUPHY_REG_BASE + (0x17 << 2)) |= 0x2 << 8;
+	REG32(PCIE_PUPHY_REG_BASE + 0x400 + (0x17 << 2)) |= 0x2 << 8;
+#ifdef PCIE_SEL_24M_REF_CLK
+	val = k1x_pcie_phy_reg_readl(k1x, (0x12 << 2));
+	val &= 0xffff0fff;
+	k1x_pcie_phy_reg_writel(k1x, (0x12 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, (0x12 << 2));
+	val |= 0x00002000;
+	k1x_pcie_phy_reg_writel(k1x, (0x12 << 2), val);
+#endif
+#else
+	// driver mode
+	val = k1x_pcie_phy_reg_readl(k1x, (0x17 << 2));
+	val |= 0x1 << 8;
+	k1x_pcie_phy_reg_writel(k1x, (0x17 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, 0x400 + (0x17 << 2));
+	val |= 0x1 << 8;
+	k1x_pcie_phy_reg_writel(k1x, 0x400 + (0x17 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, (0x12 << 2));
+	val &= 0xffff0fff;
+	k1x_pcie_phy_reg_writel(k1x, (0x12 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, (0x12 << 2));
+	val |= 0x00002000;
+	k1x_pcie_phy_reg_writel(k1x, (0x12 << 2), val);
+
+	val = k1x_pcie_phy_reg_readl(k1x, (0x13 << 2));
+	val |= (0x1 << 4);
+	k1x_pcie_phy_reg_writel(k1x, (0x13 << 2), val);
+
+	if (k1x->port_id == 0x0) {
+		//REG32(0xC0B10000+(0x14<<2)) |= (0x1<<3);//pll_reg9[3] en_rterm,only enable in receiver mode
+		val = k1x_pcie_phy0_reg_readl(k1x,  (0x14 << 2));
+		val |= (0x1 << 3);
+		k1x_pcie_phy0_reg_writel(k1x,  (0x14 << 2), val);
+	}
+#endif
+
+	// pll_reg1 of lane0, disable ssc pll_reg4[3:0]=4'h0
+	val = k1x_pcie_phy_reg_readl(k1x, (0x12 << 2));
+	val &= 0xfff0ffff;
+	k1x_pcie_phy_reg_writel(k1x, (0x12 << 2), val);
+
+	// PU_ADDR_CLK_CFG of lane0
+	val = k1x_pcie_phy_reg_readl(k1x, (0x02 << 2));
+	val = 0x00000B78;
+	k1x_pcie_phy_reg_writel(k1x, (0x02 << 2), val);
+
+	 // PU_ADDR_CLK_CFG of lane1
+	val = k1x_pcie_phy_reg_readl(k1x, 0x400 + (0x02 << 2));
+	val = 0x00000B78;
+	k1x_pcie_phy_reg_writel(k1x, 0x400 + (0x02 << 2), val);
+
+	// force rcv done
+	val = k1x_pcie_phy_reg_readl(k1x, (0x06 << 2));
+	val = 0x00000400;
+	k1x_pcie_phy_reg_writel(k1x, (0x06 << 2), val);
+
+	// force rcv done
+	val = k1x_pcie_phy_reg_readl(k1x, 0x400 + (0x06 << 2));
+	val = 0x00000400;
+	k1x_pcie_phy_reg_writel(k1x, 0x400 + (0x06 << 2), val);
+
+	// waiting pll lock
+	printk("waiting pll lock...\n");
+	do
+	{
+		rd_data = k1x_pcie_phy_reg_readl(k1x, 0x8);
+	} while ((rd_data & 0x1) == 0);
+
+	printk("Now finish enable phy....\n");
+
 	return 0;
 }
 #endif
