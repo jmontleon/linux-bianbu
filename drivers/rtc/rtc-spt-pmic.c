@@ -132,7 +132,7 @@ static int spt_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	tm->tm_sec = v[0] & rtc->desc->cnt_s.msk;
 	tm->tm_min = v[1] & rtc->desc->cnt_mi.msk;
 	tm->tm_hour = v[2] & rtc->desc->cnt_h.msk;
-	tm->tm_mday = (v[3] & rtc->desc->cnt_d.msk);
+	tm->tm_mday = (v[3] & rtc->desc->cnt_d.msk) + 1;
 	tm->tm_mon = (v[4] & rtc->desc->cnt_mo.msk);
 	tm->tm_year = (v[5] & rtc->desc->cnt_y.msk) + 100;
 
@@ -203,7 +203,7 @@ static int spt_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		}
 
 		ret = regmap_write_bits(rtc->regmap, rtc->desc->cnt_d.reg,
-				rtc->desc->cnt_d.msk, tm->tm_mday);
+				rtc->desc->cnt_d.msk, tm->tm_mday - 1);
 		if (ret) {
 			dev_err(rtc->dev, "failed to update day: %d\n", ret);
 			return -EINVAL;
@@ -269,7 +269,7 @@ static int spt_rtc_set_time(struct device *dev, struct rtc_time *tm)
 		if ((v[0] == (rtc->desc->cnt_s.msk & tm->tm_sec)) &&
 			(v[1] == (rtc->desc->cnt_mi.msk & tm->tm_min)) &&
 			(v[2] == (rtc->desc->cnt_h.msk & tm->tm_hour)) &&
-			(v[3] == (rtc->desc->cnt_d.msk & tm->tm_mday)) &&
+			((v[3] + 1) == (rtc->desc->cnt_d.msk & tm->tm_mday)) &&
 			(v[4] == (rtc->desc->cnt_mo.msk & tm->tm_mon)) &&
 			(v[5] == (rtc->desc->cnt_y.msk & (tm->tm_year - 100))))
 			break;
@@ -335,7 +335,7 @@ static int spt_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	alrm->time.tm_sec = v[0] & rtc->desc->alarm_s.msk;
 	alrm->time.tm_min = v[1] & rtc->desc->alarm_mi.msk;
 	alrm->time.tm_hour = v[2] & rtc->desc->alarm_h.msk;
-	alrm->time.tm_mday = (v[3] & rtc->desc->alarm_d.msk);
+	alrm->time.tm_mday = (v[3] & rtc->desc->alarm_d.msk) + 1;
 	alrm->time.tm_mon = (v[4] & rtc->desc->alarm_mo.msk);
 	alrm->time.tm_year = (v[5] & rtc->desc->alarm_y.msk) + 100;
 
@@ -412,7 +412,7 @@ static int spt_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alrm)
 	}
 
 	ret = regmap_write_bits(rtc->regmap, rtc->desc->alarm_d.reg,
-			rtc->desc->alarm_d.msk, alrm->time.tm_mday);
+			rtc->desc->alarm_d.msk, alrm->time.tm_mday - 1);
 	if (ret) {
 		dev_err(rtc->dev, "failed to update alarm day: %d\n", ret);
 		return -EINVAL;
