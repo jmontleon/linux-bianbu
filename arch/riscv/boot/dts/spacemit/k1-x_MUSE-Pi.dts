@@ -839,6 +839,12 @@
 	};
 };
 
+&spi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ssp3_0>;
+	status = "disabled";
+};
+
 &pwm_bl {
 	pwms = <&pwm14 2000>;
 	brightness-levels = <
