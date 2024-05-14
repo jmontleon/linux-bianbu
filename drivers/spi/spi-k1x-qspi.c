@@ -402,7 +402,9 @@ static int qspi_set_func_clk(struct k1x_qspi *qspi)
 		dev_err(qspi->dev, "can not find the bus clock\n");
 		return -EINVAL;
 	}
-	clk_prepare_enable(qspi->bus_clk);
+
+	clk_disable_unprepare(qspi->bus_clk);
+	clk_disable_unprepare(qspi->clk);
 
 	ret = clk_set_rate(qspi->clk, qspi->max_hz);
 	if (ret) {
@@ -416,24 +418,13 @@ static int qspi_set_func_clk(struct k1x_qspi *qspi)
 		return ret;
 	}
 
+	clk_prepare_enable(qspi->bus_clk);
+
 	dev_dbg(qspi->dev, "bus clock %dHz, PMUap reg[0x%08x]:0x%08x\n",
 		qspi->max_hz, qspi->pmuap_reg, qspi_readl(qspi, qspi->pmuap_addr));
 
 	return 0;
 }
-
-static int qspi_controller_reset(struct k1x_qspi *qspi)
-{
-	qspi->resets = devm_reset_control_array_get_optional_exclusive(qspi->dev);
-	if (IS_ERR(qspi->resets)) {
-		dev_err(qspi->dev, "Failed to get qspi's resets\n");
-		return PTR_ERR(qspi->resets);
-	}
-
-	reset_control_deassert(qspi->resets);
-	return 0;
-}
-
 
 static void qspi_config_mfp(struct k1x_qspi *qspi)
 {
@@ -1327,14 +1318,19 @@ static int k1x_qspi_host_init(struct k1x_qspi *qspi)
 	void __iomem *base = qspi->io_map;
 	u32 reg;
 
+	qspi->resets = devm_reset_control_array_get_optional_exclusive(qspi->dev);
+	if (IS_ERR(qspi->resets)) {
+		dev_err(qspi->dev, "Failed to get qspi's resets\n");
+		return PTR_ERR(qspi->resets);
+	}
+
 	/* config mfp */
 	qspi_config_mfp(qspi);
 
+	reset_control_assert(qspi->resets);
 	/* set PMUap */
 	qspi_set_func_clk(qspi);
-
-	/* reset qspi controller */
-	qspi_controller_reset(qspi);
+	reset_control_deassert(qspi->resets);
 
 	/* rest qspi */
 	qspi_reset(qspi);
