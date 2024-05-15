@@ -169,6 +169,7 @@
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
+	spacemit,i2c-fast-mode;
 	status = "okay";
 
 	eeprom@50{
