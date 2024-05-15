@@ -669,7 +669,11 @@ static struct platform_driver spacemit_rproc_driver = {
 	},
 };
 
-module_platform_driver(spacemit_rproc_driver);
+static __init int spacemit_rproc_driver_init(void)
+{
+	return platform_driver_register(&spacemit_rproc_driver);
+}
+subsys_initcall(spacemit_rproc_driver_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("sapcemit remote processor control driver");
