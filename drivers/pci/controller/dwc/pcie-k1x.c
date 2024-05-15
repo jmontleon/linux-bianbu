@@ -34,6 +34,7 @@
 
 #define	K1X_PHY_AHB_IRQ_EN              0x0000
 #define	IRQ_EN						BIT(0)
+#define	PME_TURN_OFF					BIT(5)
 
 #define	K1X_PHY_AHB_IRQSTATUS_INTX      0x0008
 #define	INTA						BIT(6)
@@ -75,6 +76,7 @@
 #define	LTSSM_EN					BIT(6)
 /* Perst input value in ep mode */
 #define	PCIE_PERST_IN					BIT(7)
+#define	PCIE_AUX_PWR_DET				BIT(9)
 /* Perst GPIO en in RC mode 1: perst# low, 0: perst# high */
 #define	PCIE_RC_PERST					BIT(12)
 /* Wake# GPIO in EP mode 1: Wake# low, 0: Wake# high */
@@ -89,6 +91,9 @@
 #define	K1X_PHY_AHB_LINK_STS				0x0004
 #define	SMLH_LINK_UP					BIT(1)
 #define	RDLH_LINK_UP					BIT(12)
+#define   PCIE_CLIENT_DEBUG_LTSSM_MASK			GENMASK(11, 6)
+#define   PCIE_CLIENT_DEBUG_LTSSM_L1			(BIT(10) | BIT(8))
+#define   PCIE_CLIENT_DEBUG_LTSSM_L2			(BIT(10) | BIT(8) | BIT(6))
 
 #define ADDR_INTR_STATUS1       			0x0018
 #define ADDR_INTR_ENABLE1 				0x001C
@@ -124,6 +129,8 @@
 
 #define PCIE_ELBI_EP_MSI_REASON         0x018
 
+#define PCIE_LINK_IS_L2(x) \
+	(((x) & PCIE_CLIENT_DEBUG_LTSSM_MASK) == PCIE_CLIENT_DEBUG_LTSSM_L2)
 struct k1x_pcie {
 	struct dw_pcie		*pci;
 	void __iomem		*base;		/* DT k1x_conf */
@@ -647,15 +654,6 @@ static int k1x_pcie_establish_link(struct dw_pcie *pci)
 
 	printk("ltssm enable\n");
 	return 0;
-}
-
-static void k1x_pcie_downstream_dev_to_L1(struct k1x_pcie *k1x)
-{
-	u32 reg;
-
-	reg = k1x_pcie_phy_ahb_readl(k1x, K1X_PHY_AHB_IRQ_EN);
-	reg |= (1 << 10);
-	k1x_pcie_phy_ahb_writel(k1x, K1X_PHY_AHB_IRQ_EN, reg);
 }
 
 /*
@@ -1627,7 +1625,7 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 			return -ENODEV;
 
 		reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
-		reg |= DEVICE_TYPE_RC;
+		reg |= (DEVICE_TYPE_RC | PCIE_AUX_PWR_DET);
 		k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
 
 		reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
@@ -1669,6 +1667,31 @@ err_clk:
 }
 
 #ifdef CONFIG_PM_SLEEP
+static int k1x_pcie_wait_l2(struct k1x_pcie *k1x)
+{
+	u32 value;
+	u32 reg;
+	int err;
+
+	reg = k1x_pcie_phy_ahb_readl(k1x, K1X_PHY_AHB_IRQ_EN);
+	reg |= PME_TURN_OFF;
+	k1x_pcie_phy_ahb_writel(k1x, K1X_PHY_AHB_IRQ_EN, reg);
+	udelay(1);
+	reg = k1x_pcie_phy_ahb_readl(k1x, K1X_PHY_AHB_IRQ_EN);
+	reg &= ~PME_TURN_OFF;
+	k1x_pcie_phy_ahb_writel(k1x, K1X_PHY_AHB_IRQ_EN, reg);
+
+	err = readl_poll_timeout(k1x->phy_ahb + K1X_PHY_AHB_LINK_STS,
+				 value, PCIE_LINK_IS_L2(value), 20,
+				 jiffies_to_usecs(5 * HZ));
+	if (err) {
+		pr_err("PCIe link enter L2 timeout!\n");
+		return err;
+	}
+
+	return 0;
+}
+
 static int k1x_pcie_suspend(struct device *dev)
 {
 	struct k1x_pcie *k1x = dev_get_drvdata(dev);
@@ -1712,7 +1735,8 @@ static int k1x_pcie_suspend_noirq(struct device *dev)
 	k1x->link_is_up = dw_pcie_link_up(pci);
 	dev_info(dev, "link is %s\n", k1x->link_is_up ? "up" : "down");
 
-	k1x_pcie_downstream_dev_to_L1(k1x);
+	if (k1x->link_is_up)
+		k1x_pcie_wait_l2(k1x);
 
 	/* set Perst# (fundamental reset) gpio low state*/
 	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
