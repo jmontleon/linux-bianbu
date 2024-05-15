@@ -145,6 +145,12 @@
 		gpios = <&gpio 49 0>;
 		vin-supply = <&ldo_8>;
 	};
+
+	spacemit_lid:spacemit_lid {
+		compatible = "spacemit,k1x-lid";
+		scan-interval-ms = <1000>;
+		lid-gpios     = <&gpio 74 0>;
+	};
 };
 
 &uart0 {
