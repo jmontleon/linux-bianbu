@@ -21,6 +21,12 @@ config SPACEMIT_REBOOT_CONTROL
 	help
 	  Spacemit reboot into fastboot mode
 
+config SPACEMIT_LID_CONTROL
+	tristate "Spacemit lid control"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  Spacemit screen lid control
+
 config SPACEMI_K1X_DMA_RANGE
 	tristate "Spacemit dram range driver for k1x"
 	depends on SOC_SPACEMIT_K1X
