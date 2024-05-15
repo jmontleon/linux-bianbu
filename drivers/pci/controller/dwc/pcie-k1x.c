@@ -258,7 +258,7 @@ static int porta_init_done = 0;
 // wait porta rterm done
 void porta_rterm(struct k1x_pcie *k1x)
 {
-	int rd_data;
+	int rd_data, count;
 	u32 val;
 
 	//REG32(PMUA_REG_BASE + 0x3CC) = 0x4000003f;
@@ -372,10 +372,15 @@ void porta_rterm(struct k1x_pcie *k1x)
 	k1x_pcie_phy_reg_writel(k1x, (0x6 * 4), val);
 
 	// wait pm0 rterm done
+	count = 0;
 	do
 	{
 		//rd_data = REG32(0xC0B10000 + 0x21 * 4);
 		rd_data = k1x_pcie_phy0_reg_readl(k1x, (0x21 * 4));
+		if (count++ > 5000) {
+			printk(KERN_WARNING "read pcie0 phy rd_data time out.\n");
+			break;
+		}
 	} while (((rd_data >> 10) & 0x1) == 0); // waiting PCIe portA readonly_reg2[2] r_tune_done==1
 }
 
@@ -468,6 +473,7 @@ static int init_phy(struct k1x_pcie *k1x)
 {
 	u32 rd_data, pcie_rcal;
 	u32 val = 0;
+	int count;
 
 	printk("Now init Rterm...\n");
 	printk("pcie prot id = %d, porta_init_done = %d\n", k1x->port_id, porta_init_done);
@@ -486,9 +492,14 @@ static int init_phy(struct k1x_pcie *k1x)
 			pcie_rcal = k1x_pcie_phy0_reg_readl(k1x,  (0x21 << 2));
 		}
 	} else {
+		count = 0;
 		do {
 			//rd_data = REG32(0xC0B10000 + 0x21 * 4);
 			rd_data = k1x_pcie_phy0_reg_readl(k1x,  (0x21 * 4));
+			if (count++ > 5000) {
+				printk(KERN_WARNING "read pcie0 phy rd_data time out.\n");
+				break;
+			}
 		} while (((rd_data >> 10) & 0x1) == 0);
 		//pcie_rcal = REG32(0xC0B10000 + (0x21 << 2));
 		pcie_rcal = k1x_pcie_phy0_reg_readl(k1x,  (0x21 << 2));
@@ -588,9 +599,14 @@ static int init_phy(struct k1x_pcie *k1x)
 
 	// waiting pll lock
 	printk("waiting pll lock...\n");
+	count = 0;
 	do
 	{
 		rd_data = k1x_pcie_phy_reg_readl(k1x, 0x8);
+		if (count++ > 5000) {
+			printk(KERN_WARNING "read pcie%d phy rd_data time out.\n", k1x->port_id);
+			break;
+		}
 	} while ((rd_data & 0x1) == 0);
 
 	if (k1x->port_id == 0)
@@ -639,7 +655,7 @@ static int k1x_pcie_establish_link(struct dw_pcie *pci)
 				break;
 			udelay(10);
 			cnt += 1;
-		}while(1);
+		}while(cnt < 300000);
 	}
 
 	if (dw_pcie_link_up(pci)) {
@@ -1377,6 +1393,7 @@ static void k1x_pcie_disable_phy(struct k1x_pcie *k1x)
 static int k1x_pcie_enable_phy(struct k1x_pcie *k1x)
 {
 	u32 reg, val, rd_data;
+	int count;
 
 	printk("Now k1x_pcie_enable_phy in resume...\n");
 
@@ -1476,9 +1493,14 @@ static int k1x_pcie_enable_phy(struct k1x_pcie *k1x)
 
 	// waiting pll lock
 	printk("waiting pll lock...\n");
+	count = 0;
 	do
 	{
 		rd_data = k1x_pcie_phy_reg_readl(k1x, 0x8);
+		if (count++ > 5000) {
+			printk(KERN_WARNING "read pcie%d phy rd_data time out.\n", k1x->port_id);
+			break;
+		}
 	} while ((rd_data & 0x1) == 0);
 
 	printk("Now finish enable phy....\n");
