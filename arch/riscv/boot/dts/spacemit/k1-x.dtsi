@@ -1102,7 +1102,7 @@
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
-			spacemit,i2c-fast-mode;
+			/* spacemit,i2c-fast-mode; */
 			/* spacemit,i2c-high-mode; */
 			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
 			spacemit,i2c-clk-rate = <32000000>;
@@ -1134,7 +1134,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1166,7 +1166,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1196,7 +1196,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
@@ -1260,7 +1260,7 @@
                         dma-names = "rx", "tx";
                         */
                         spacemit,dma-disable;
-                        spacemit,i2c-fast-mode;
+                        /* spacemit,i2c-fast-mode; */
                         /* spacemit,i2c-high-mode; */
                         spacemit,i2c-master-code = /bits/ 8 <0x0e>;
                         spacemit,i2c-clk-rate = <32000000>;
