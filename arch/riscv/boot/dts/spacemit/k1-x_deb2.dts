@@ -933,6 +933,10 @@
 	temperature = <115000>;
 };
 
+&sound_hdmi {
+	status = "okay";
+};
+
 &watchdog {
 	spa,wdt-enable-restart-handler;
 };
