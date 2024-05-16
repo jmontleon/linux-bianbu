@@ -299,7 +299,6 @@ static irqreturn_t mmp_pdma_chan_handler(int irq, void *dev_id)
 
 	if (pchan)
 		tasklet_schedule(&pchan->tasklet);
-	tasklet_schedule(&phy->vchan->tasklet);
 
 	return IRQ_HANDLED;
 }
