@@ -508,7 +508,7 @@ static int dpu_finish_uboot(struct spacemit_dpu *dpu)
 		value = readl_relaxed(base + 0x56c);
 		DRM_DEBUG("%s hdmi ctl reg27 0x56c:0x%x\n", __func__, value);
 		value = readl_relaxed(base + 0x58c);
-		DRM_DEBUG("%s hdmi ctl reg35 0x56c:0x%x\n", __func__, value);
+		DRM_DEBUG("%s hdmi ctl reg35 0x58c:0x%x\n", __func__, value);
 
 		udelay(100);
 		iounmap(base);
@@ -537,7 +537,7 @@ static int dpu_finish_uboot(struct spacemit_dpu *dpu)
 		value = readl_relaxed(base + 0x56c);
 		DRM_DEBUG("%s mipi dsi ctl reg27 0x56c:0x%x\n", __func__, value);
 		value = readl_relaxed(base + 0x58c);
-		DRM_DEBUG("%s mipi dsi ctl reg35 0x56c:0x%x\n", __func__, value);
+		DRM_DEBUG("%s mipi dsi ctl reg35 0x58c:0x%x\n", __func__, value);
 
 		udelay(100);
 		iounmap(base);
