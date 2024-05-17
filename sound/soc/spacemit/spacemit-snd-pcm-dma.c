@@ -118,8 +118,7 @@ static int spacemit_snd_dma_init(struct device *paraent, struct spacemit_snd_soc
 
 static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
-			    SNDRV_PCM_INFO_BATCH |
-			    SNDRV_PCM_INFO_PAUSE,
+			    SNDRV_PCM_INFO_BATCH,
 	.formats          = SNDRV_PCM_FMTBIT_S16_LE,
 	.rates            = SNDRV_PCM_RATE_48000,
 	.rate_min         = SNDRV_PCM_RATE_48000,
@@ -135,8 +134,7 @@ static const struct snd_pcm_hardware spacemit_snd_pcm_hardware = {
 
 static const struct snd_pcm_hardware spacemit_snd_pcm_hardware_hdmi = {
 	.info		  = SNDRV_PCM_INFO_INTERLEAVED |
-			    SNDRV_PCM_INFO_BATCH |
-			    SNDRV_PCM_INFO_PAUSE,
+			    SNDRV_PCM_INFO_BATCH,
 	.formats	  = SNDRV_PCM_FMTBIT_S16_LE,
 	.rates		  = SNDRV_PCM_RATE_48000,
 	.rate_min	  = SNDRV_PCM_RATE_48000,
