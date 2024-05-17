@@ -36,6 +36,8 @@ LIST_HEAD(dpu_core_head);
 
 static int spacemit_dpu_init(struct spacemit_dpu *dpu);
 static int spacemit_dpu_uninit(struct spacemit_dpu *dpu);
+static int dpu_pm_suspend(struct device *dev);
+static int dpu_pm_resume(struct device *dev);
 
 static int spacemit_crtc_atomic_check_color_matrix(struct drm_crtc *crtc,
 					  struct drm_crtc_state *state)
@@ -303,7 +305,10 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 		spacemit_dpu_free_bootloader_mem();
 	}
 
-	pm_runtime_get_sync(dpu->dev);
+	if (!pm_runtime_status_suspended(dpu->dev))
+		dpu_pm_resume(dpu->dev);
+	else
+		pm_runtime_get_sync(dpu->dev);
 
 #ifdef CONFIG_SPACEMIT_DEBUG
 	dpu->is_working = true;
@@ -329,7 +334,10 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 	dpu->is_working = false;
 #endif
 
-	pm_runtime_put(dpu->dev);
+	if (!pm_runtime_status_suspended(dpu->dev))
+		dpu_pm_suspend(dpu->dev);
+	else
+		pm_runtime_put_sync(dpu->dev);
 
 	spin_lock_irq(&drm->event_lock);
 	if (crtc->state->event) {
@@ -977,13 +985,104 @@ static int spacemit_dpu_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dpu_pm_suspend(struct device *dev)
+{
+	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
+	int result;
+
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
+
+	if (dpu->core && dpu->core->disable_clk)
+		dpu->core->disable_clk(dpu);
+
+	if (dpu->type == HDMI) {
+		if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+			result = reset_control_assert(dpu->hdmi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert hdmi_reset: %d\n", result);
+			}
+		}
+	} else if (dpu->type == DSI) {
+
+		if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
+			result = reset_control_assert(dpu->lcd_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert lcd_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
+			result = reset_control_assert(dpu->esc_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert esc_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
+			result = reset_control_assert(dpu->mclk_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert mclk_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
+			result = reset_control_assert(dpu->dsi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to assert dsi_reset: %d\n", result);
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int dpu_pm_resume(struct device *dev)
+{
+	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
+	int result;
+
+	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
+
+	if (dpu->type == HDMI) {
+		if (!IS_ERR_OR_NULL(dpu->hdmi_reset)) {
+			result = reset_control_deassert(dpu->hdmi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert hdmi_reset: %d\n", result);
+			}
+		}
+	} else if (dpu->type == DSI){
+		if (!IS_ERR_OR_NULL(dpu->dsi_reset)) {
+			result = reset_control_deassert(dpu->dsi_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert dsi_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->mclk_reset)) {
+			result = reset_control_deassert(dpu->mclk_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert mclk_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->esc_reset)) {
+			result = reset_control_deassert(dpu->esc_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert esc_reset: %d\n", result);
+			}
+		}
+		if (!IS_ERR_OR_NULL(dpu->lcd_reset)) {
+			result = reset_control_deassert(dpu->lcd_reset);
+			if (result < 0) {
+				DRM_INFO("Failed to deassert lcd_reset: %d\n", result);
+			}
+		}
+	}
+
+	if (dpu->core && dpu->core->enable_clk)
+		dpu->core->enable_clk(dpu);
+
+	return 0;
+}
+
 static int dpu_rt_pm_suspend(struct device *dev)
 {
 	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
-	// struct spacemit_drm_private *priv;
-	// struct spacemit_hw_device *hwdev;
-	// priv = dpu->crtc.dev->dev_private;
-	// hwdev = priv->hwdev;
 	int result;
 
 	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
@@ -1032,10 +1131,6 @@ static int dpu_rt_pm_suspend(struct device *dev)
 static int dpu_rt_pm_resume(struct device *dev)
 {
 	struct spacemit_dpu *dpu = dev_get_drvdata(dev);
-	// struct spacemit_drm_private *priv;
-	// struct spacemit_hw_device *hwdev;
-	// priv = dpu->crtc.dev->dev_private;
-	// hwdev = priv->hwdev;
 	int result;
 
 	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
