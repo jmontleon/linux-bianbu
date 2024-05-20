@@ -47,6 +47,7 @@ struct ehci_hcd_mv {
 	struct reset_control *reset;
 	struct regulator *vbus_otg;
 
+	bool reset_on_resume;
 };
 
 static int ehci_otg_enable(struct device *dev, struct ehci_hcd_mv *ehci_mv, bool enable)
@@ -220,6 +221,8 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ehci_mv);
 	ehci_mv->pdata = pdata;
 	ehci_mv->hcd = hcd;
+	ehci_mv->reset_on_resume = of_property_read_bool(pdev->dev.of_node,
+		"spacemit,reset-on-resume");
 
 	ehci_mv->clk = devm_clk_get(&pdev->dev, NULL);
 	if (IS_ERR(ehci_mv->clk)) {
@@ -426,6 +429,14 @@ static int mv_ehci_suspend(struct device *dev)
 	if (ret)
 		return ret;
 	usb_phy_shutdown(ehci_mv->phy);
+
+	if (ehci_mv->reset_on_resume) {
+		ret = reset_control_assert(ehci_mv->reset);
+		if (ret)
+			return ret;
+		dev_info(dev, "Will reset controller and phy on resume\n");
+	}
+
 	clk_disable_unprepare(ehci_mv->clk);
 	dev_dbg(dev, "pm suspend: disable clks and phy\n");
 	return ret;
@@ -443,6 +454,14 @@ static int mv_ehci_resume(struct device *dev)
 		dev_err(dev, "Failed to enable clock");
 		return ret;
 	}
+
+	if (ehci_mv->reset_on_resume) {
+		dev_info(dev, "Resetting controller and phy\n");
+		ret = reset_control_deassert(ehci_mv->reset);
+		if (ret)
+			return ret;
+	}
+
 	ret = usb_phy_init(ehci_mv->phy);
 	if (ret) {
 		dev_err(dev, "Failed to init phy\n");
@@ -450,7 +469,7 @@ static int mv_ehci_resume(struct device *dev)
 		return ret;
 	}
 	dev_dbg(dev, "pm resume: do EHCI resume\n");
-	ehci_resume(hcd, false);
+	ehci_resume(hcd, ehci_mv->reset_on_resume);
 	return 0;
 }
 #else
