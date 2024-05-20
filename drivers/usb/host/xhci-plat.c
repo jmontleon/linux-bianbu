@@ -253,6 +253,11 @@ int xhci_plat_probe(struct platform_device *pdev, struct device *sysdev, const s
 		if (device_property_read_bool(tmpdev, "xhci-sg-trb-cache-size-quirk"))
 			xhci->quirks |= XHCI_SG_TRB_CACHE_SIZE_QUIRK;
 
+		#if defined(CONFIG_SOC_SPACEMIT_K1X)
+		if (device_property_read_bool(tmpdev, "reset-on-resume"))
+			xhci->quirks |= XHCI_RESET_ON_RESUME;
+		#endif
+
 		device_property_read_u32(tmpdev, "imod-interval-ns",
 					 &xhci->imod_interval);
 	}
