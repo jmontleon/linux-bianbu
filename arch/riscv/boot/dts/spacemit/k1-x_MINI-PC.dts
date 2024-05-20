@@ -140,7 +140,6 @@
 		io-supply = <&dcdc_3>;
 		io_voltage = <1800000>;
 		pwr-gpios  = <&gpio 67 0>;
-		power-always-on;
 		status = "okay";
 
 		wlan_pwrseq: wlan-pwrseq {
