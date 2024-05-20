@@ -29,8 +29,6 @@ static int mv_usb2_phy_init(struct usb_phy *phy)
 	clk_enable(mv_phy->clk);
 
 	// make sure the usb controller is not under reset process before any configuration
-	udelay(50);
-	writel(0xbec4, base + USB2_PHY_REG26); //24M ref clk
 	udelay(150);
 
 	loops = USB2D_CTRL_RESET_TIME_MS * 1000;
@@ -43,18 +41,19 @@ static int mv_usb2_phy_init(struct usb_phy *phy)
 		udelay(50);
 	} while(--loops);
 
-	if (loops == 0)
-		pr_info("Wait PHY_REG01[PLLREADY] timeout\n");
+	if (loops == 0) {
+		pr_err("Wait PHY_REG01[PLLREADY] timeout\n");
+		return -ETIMEDOUT;
+	}
 
 	//release usb2 phy internal reset and enable clock gating
 	writel(0x60ef, base + USB2_PHY_REG01);
 	writel(0x1c, base + USB2_PHY_REG0D);
 
-	//select HS parallel data path
-	temp = readl(base + USB2_PHY_REG06);
-	// temp |= USB2_CFG_HS_SRC_SEL;
-	temp &= ~(USB2_CFG_HS_SRC_SEL);
-	writel(temp, base + USB2_PHY_REG06);
+	temp = readl(base + USB2_ANALOG_REG14_13);
+	temp &= ~(USB2_ANALOG_HSDAC_ISEL_MASK);
+	temp |= USB2_ANALOG_HSDAC_ISEL_15_INC | USB2_ANALOG_HSDAC_IREG_EN;
+	writel(temp, base + USB2_ANALOG_REG14_13);
 
 	/* auto clear host disc*/
 	temp = readl(base + USB2_PHY_REG04);
