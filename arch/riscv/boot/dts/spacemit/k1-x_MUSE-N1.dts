@@ -649,6 +649,7 @@
 
 &usbdrd3 {
 	status = "okay";
+	reset-on-resume;
 	dwc3@c0a00000 {
 		dr_mode = "otg";
 		phy_type = "utmi";
