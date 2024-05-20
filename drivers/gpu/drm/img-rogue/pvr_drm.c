@@ -259,6 +259,7 @@ int pvr_drm_load(struct drm_device *ddev, unsigned long flags)
 	if (!ddev->dev->dma_parms)
 		ddev->dev->dma_parms = &priv->dma_parms;
 	dma_set_max_seg_size(ddev->dev, DMA_BIT_MASK(32));
+	dma_set_mask(ddev->dev, DMA_BIT_MASK(40));
 
 	mutex_lock(&g_device_mutex);
 
