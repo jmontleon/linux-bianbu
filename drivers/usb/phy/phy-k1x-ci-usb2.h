@@ -21,6 +21,15 @@
 #define USB2_PHY_REG06			0x18
 #define USB2_CFG_HS_SRC_SEL		(0x1 << 0)
 
+#define USB2_ANALOG_REG14_13		0xa4
+#define USB2_ANALOG_HSDAC_IREG_EN       (0x1 << 4)
+#define USB2_ANALOG_HSDAC_ISEL_MASK     (0xf)
+#define USB2_ANALOG_HSDAC_ISEL_11_INC   (0xb)
+#define USB2_ANALOG_HSDAC_ISEL_25_INC   (0xf)
+#define USB2_ANALOG_HSDAC_ISEL_15_INC   (0xc)
+#define USB2_ANALOG_HSDAC_ISEL_17_INC   (0xd)
+#define USB2_ANALOG_HSDAC_ISEL_22_INC   (0xe)
+
 #define USB2D_CTRL_RESET_TIME_MS	50
 
 struct mv_usb2_phy {
