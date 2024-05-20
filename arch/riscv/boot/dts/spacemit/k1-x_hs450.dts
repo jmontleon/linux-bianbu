@@ -660,6 +660,7 @@
 };
 
 &ehci1 {
+	spacemit,reset-on-resume;
 	status = "okay";
 };
 
