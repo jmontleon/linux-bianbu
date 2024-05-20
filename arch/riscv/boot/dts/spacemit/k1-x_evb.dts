@@ -696,6 +696,7 @@
 
 &ehci {
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	spacemit,reset-on-resume;
 	status = "disabled";
 };
 
@@ -706,6 +707,7 @@
 &ehci1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&usbp1_vbus>;
+	spacemit,reset-on-resume;
 	status = "okay";
 };
 
