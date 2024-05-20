@@ -1268,7 +1268,7 @@ PVRSRV_ERROR PVRSRVLookupHandleUnlocked(PVRSRV_HANDLE_BASE *psBase,
 	eError = GetHandleData(psBase, &psHandleData, hHandle, eType);
 	if (unlikely(eError != PVRSRV_OK))
 	{
-		PVR_DPF((PVR_DBG_ERROR,
+		PVR_DPF((PVR_DBG_WARNING,
 			 "%s: Error looking up handle (%s) for base %p of type %s. Handle %p, type %s",
 			 __func__,
 			 PVRSRVGetErrorString(eError),
@@ -1276,7 +1276,7 @@ PVRSRV_ERROR PVRSRVLookupHandleUnlocked(PVRSRV_HANDLE_BASE *psBase,
 			 HandleBaseTypeToString(psBase->eType),
 			 (void*) hHandle,
 			 HandleTypeToString(eType)));
-#if defined(DEBUG) || defined(PVRSRV_NEED_PVR_DPF)
+#if defined(DEBUG) //|| defined(PVRSRV_NEED_PVR_DPF)
 		OSDumpStack();
 #endif
 		return eError;

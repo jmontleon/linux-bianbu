@@ -118,7 +118,7 @@ static int pvr_devices_register(void)
 		 */
 		.dma_mask = DMA_BIT_MASK(40),
 #else
-		.dma_mask = DMA_BIT_MASK(32),
+		.dma_mask = DMA_BIT_MASK(40),
 #endif
 	};
 	unsigned int i;
