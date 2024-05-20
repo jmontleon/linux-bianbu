@@ -88,7 +88,7 @@
 			39 01 00 02 C2 08
 			39 01 00 02 C4 10
 			39 01 00 02 CC 00
-			//39 01 00 03 11 b2 41//EDFAULT:0X40,????BISTB
+			// 39 01 00 02 B2 41 // BIST pattern
 			39 01 00 02 B0 02
 			39 01 00 02 C0 00
 			39 01 00 02 C1 0A
@@ -143,7 +143,7 @@
 
 		display-timings {
 			timing0 {
-				clock-frequency = <156400000>;
+				clock-frequency = <143000000>;
 				hactive = <1200>;
 				hfront-porch = <80>;
 				hback-porch = <40>;
