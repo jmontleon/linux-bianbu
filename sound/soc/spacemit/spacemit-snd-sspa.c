@@ -178,8 +178,23 @@ static void spacemit_dma_params_init(struct resource *res, struct snd_dmaengine_
 	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 }
 
+static int spacemit_sspa_suspend(struct snd_soc_component *component)
+{
+	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	reset_control_assert(priv->rst);
+	return 0;
+}
+
+static int spacemit_sspa_resume(struct snd_soc_component *component)
+{
+	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	reset_control_deassert(priv->rst);
+	return 0;
+}
 static const struct snd_soc_component_driver spacemit_snd_sspa_component = {
 	.name		= "spacemit-snd-sspa",
+	.suspend	= spacemit_sspa_suspend,
+	.resume		= spacemit_sspa_resume,
 };
 
 static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
