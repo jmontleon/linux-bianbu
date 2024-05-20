@@ -33,6 +33,7 @@ struct dwc3_spacemit {
 	struct clk		*clks[DWC3_SPACEMIT_MAX_CLOCKS];
 	int			num_clks;
 	int			suspend_clk_idx;
+	bool		reset_on_resume;
 };
 
 static int dwc3_spacemit_init(struct dwc3_spacemit *data)
@@ -109,6 +110,8 @@ static int dwc3_spacemit_probe(struct platform_device *pdev)
 		goto populate_err;
 	}
 
+	spacemit->reset_on_resume = device_property_read_bool(&pdev->dev, "reset-on-resume");
+
 	if (node) {
 		ret = of_platform_populate(node, NULL, NULL, dev);
 		if (ret) {
@@ -178,8 +181,14 @@ MODULE_DEVICE_TABLE(of, spacemit_dwc3_match);
 static int dwc3_spacemit_suspend(struct device *dev)
 {
 	struct dwc3_spacemit *spacemit = dev_get_drvdata(dev);
-	int i;
+	int i, ret;
 
+	if (spacemit->reset_on_resume){
+		ret = reset_control_assert(spacemit->resets);
+		if (ret)
+			return ret;
+		dev_info(spacemit->dev, "Will reset controller and phy on resume\n");
+	}
 	for (i = spacemit->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(spacemit->clks[i]);
 
@@ -200,6 +209,12 @@ static int dwc3_spacemit_resume(struct device *dev)
 		}
 	}
 
+	if (spacemit->reset_on_resume){
+		dev_info(spacemit->dev, "Resetting controller and phy\n");
+		ret = reset_control_deassert(spacemit->resets);
+		if (ret)
+			return ret;
+	}
 	return 0;
 }
 
