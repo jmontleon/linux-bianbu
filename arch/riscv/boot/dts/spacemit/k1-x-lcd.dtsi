@@ -6,6 +6,8 @@
 		compatible = "spacemit,saturn-le";
 		reg = <0 0xC0340000 0 0x2A000>;
 		ports = <&dpu_online2_dsi>;
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 	};
 
 	dpu_online2_dsi: port@c0340000 {
