@@ -33,7 +33,7 @@ static struct page *__alloc_largest_available(size_t size,
 		if (max_order < order)
 			continue;
 
-		gfp_flags = (/*GFP_HIGHUSER*/__GFP_DMA32 | __GFP_ZERO |
+		gfp_flags = (GFP_HIGHUSER | __GFP_ZERO |
 				__GFP_COMP | __GFP_RECLAIM);
 
 		page = alloc_pages(gfp_flags, order);
