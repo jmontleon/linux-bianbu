@@ -6,6 +6,8 @@
 		compatible = "spacemit,saturn-hdmi";
 		reg = <0 0xc0440000 0 0x2A000>;
 		ports = <&dpu_online2_hdmi>;
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 	};
 
 	dpu_online2_hdmi: port@c0440000 {
@@ -13,6 +15,8 @@
 		interrupt-parent = <&intc>;
 		interrupts = <139>, <138>;
 		interrupt-names = "ONLINE_IRQ", "OFFLINE_IRQ";
+		interconnects = <&dram_range1>;
+		interconnect-names = "dma-mem";
 		clocks = <&ccu CLK_HDMI>;
 		clock-names = "hmclk";
 		resets = <&reset RESET_HDMI>;
