@@ -530,21 +530,45 @@ static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block,
 	return 0;
 }
 
+void hdmi_write_bits(struct spacemit_hdmi *hdmi, u16 offset, u32 value, u32 mask, u32 shifts)
+{
+	u32 reg_val;
+
+	reg_val = readl_relaxed(hdmi->regs + (offset));
+	reg_val &= ~(mask << shifts);
+	reg_val |= (value << shifts);
+	writel_relaxed(reg_val, hdmi->regs + (offset));
+}
+
 void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 	u32 value = 0;
 	int color_depth = bit_depth == EIGHT_BPP ? 4 : 5;
 
+	u32 good_phase = 0x00;
+	u32 bias_current = 0x01;
+	u32 bias_risistor = 0x07;
+
 	DRM_DEBUG("%s()\n", __func__);
 
-	writel(0xEE40410F, hdmi->regs + 0xe0);
-	DRM_DEBUG("%s() hdmi 0xe0 0x%x\n", __func__, 0xEE40410F);
+	// hdmi config
+	hdmi_writeb(hdmi, 0xe8, 0x20200000);
+	hdmi_writeb(hdmi, 0xec, 0x508d425a);
+	hdmi_writeb(hdmi, 0xf0, 0x861);
 
-	value = 0x0000000d | color_depth << 4;
+	writel(0xAE5C410F, hdmi->regs + 0xe0);
+	hdmi_write_bits(hdmi, 0xe0, bias_current, 0x03, 29);
+	hdmi_write_bits(hdmi, 0xe0, bias_risistor, 0x0F, 18);
+	hdmi_write_bits(hdmi, 0xe0, good_phase, 0x03, 14);
+	// writel(0xEE40410F, hdmi->regs + 0xe0);
+	// value = readl_relaxed(hdmi->regs + 0xe0);
+	// DRM_DEBUG("%s() hdmi 0xe0 0x%x\n", __func__, value);
+
+	value = 0x0000000d | (color_depth << 4);
 	writel(value, hdmi->regs + 0x34);
 	DRM_DEBUG("%s() hdmi 0x34 0x%x\n", __func__, value);
 
 	pll_reg(hdmi, pixel_clock, bit_depth);
-	writel(0x3, hdmi->regs + 0xe4);
+	writel(0x03, hdmi->regs + 0xe4);
 	value = readl_relaxed(hdmi->regs + 0xe4);
 	DRM_INFO("%s() hdmi pll lock status 0x%x\n", __func__, value);
 	// while ( (value & 0x10000) != 0) {
@@ -552,7 +576,8 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 	// }
 	udelay(100);
 
-	value = 0x3018C000| bit_depth;
+	// value = 0x3018C000 | bit_depth;
+	value = 0x1C208000 | bit_depth;
 	writel(value, hdmi->regs + 0x28);
 	DRM_DEBUG("%s() hdmi 0x28 0x%x\n", __func__, value);
 }
@@ -560,36 +585,9 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
-	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
-	int bit_depth = TEN_BPP;
+	int bit_depth = EIGHT_BPP;
 
 	DRM_DEBUG("%s() \n", __func__);
-
-	// hdmi config
-	hdmi_writeb(hdmi, 0xe8, 0x20200000);
-	hdmi_writeb(hdmi, 0xec, 0x508d425a);
-	hdmi_writeb(hdmi, 0xf0, 0x861);
-
-	if (hdmi->edid_done) {
-		// 08H, 09H: ID Manufacturer Nanme
-		// 0AH, 0BH: ID Product Code
-		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
-			((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
-			// Lecoo HU20238FB0
-			bit_depth = EIGHT_BPP;
-			DRM_INFO("%s() 8bpc \n", __func__);
-		} else if ((hdmi_data->edid[8] == 0x26) && (hdmi_data->edid[9] == 0x01) &&
-			   (hdmi_data->edid[10] == 0x12) && (hdmi_data->edid[11] == 0x24)) {
-			// IPASON XC242-J
-			bit_depth = EIGHT_BPP;
-			DRM_INFO("%s() 8bpc \n", __func__);
-		} else if ((hdmi_data->edid[8] == 0x05) && (hdmi_data->edid[9] == 0xe3) &&
-				(hdmi_data->edid[10] == 0x90) && (hdmi_data->edid[11] == 0x24)) {
-			// AOC Q2490W1
-			bit_depth = EIGHT_BPP;
-			DRM_INFO("%s() 8bpc \n", __func__);
-		}
-	}
 
 	hdmi_init(hdmi, hdmi->previous_mode.clock, bit_depth);
 
