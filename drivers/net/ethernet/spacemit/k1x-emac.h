@@ -90,6 +90,7 @@
 #define MAC_TRANSMIT_JABBER_SIZE			0x0110
 #define MAC_RECEIVE_JABBER_SIZE				0x0114
 #define MAC_ADDRESS_CONTROL				0x0118
+#define MAC_MDIO_CLK_DIV				0x011C
 #define MAC_ADDRESS1_HIGH				0x0120
 #define MAC_ADDRESS1_MED				0x0124
 #define MAC_ADDRESS1_LOW				0x0128
@@ -193,6 +194,8 @@
 #define MREGBIT_FULL_DUPLEX_MODE			BIT(2)
 #define MREGBIT_RESET_RX_STAT_COUNTERS			BIT(3)
 #define MREGBIT_RESET_TX_STAT_COUNTERS			BIT(4)
+#define MREGBIT_UNICAST_WAKEUP_MODE			BIT(8)
+#define MREGBIT_MAGIC_PACKET_WAKEUP_MODE		BIT(9)
 
 /* MAC_TRANSMIT_CONTROL (0x0104) register bit info */
 #define MREGBIT_TRANSMIT_ENABLE				BIT(0)
@@ -630,14 +633,16 @@ struct emac_hw_stats {
 	spinlock_t	stats_lock;
 };
 
+struct emac_priv;
 struct emac_hw_ptp {
-        void (*config_hw_tstamping) (void __iomem *base, u32 enable, u8 rx_ptp_type, u32 ptp_msg_id);
-        u32 (*config_systime_increment)(void __iomem *base, u32 ptp_clock, u32 adj_clock);
-        int (*init_systime) (void __iomem *base, u64 set_ns);
-        int (*adjust_systime) (void __iomem *base,  u32 ns, bool is_neg);
-        u64 (*get_systime)(void __iomem *base);
-        u64 (*get_tx_timestamp)(void __iomem *base);
-        u64 (*get_rx_timestamp)(void __iomem *base);
+	void (*config_hw_tstamping) (struct emac_priv *priv, u32 enable,
+					u8 rx_ptp_type, u32 ptp_msg_id);
+	u32 (*config_systime_increment)(struct emac_priv *priv, u32 ptp_clock,
+					u32 adj_clock);
+	int (*init_systime) (struct emac_priv *priv, u64 set_ns);
+	u64 (*get_phc_time)(struct emac_priv *priv);
+	u64 (*get_tx_timestamp)(struct emac_priv *priv);
+	u64 (*get_rx_timestamp)(struct emac_priv *priv);
 };
 
 struct emac_priv {
@@ -691,6 +696,9 @@ struct emac_priv {
 	int hwts_tx_en;
 	int hwts_rx_en;
 	struct emac_hw_ptp *hwptp;
+	struct delayed_work systim_overflow_work;
+	struct cyclecounter cc;
+	struct timecounter tc;
 };
 
 
