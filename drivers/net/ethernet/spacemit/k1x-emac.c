@@ -460,7 +460,7 @@ static void emac_get_tx_hwtstamp(struct emac_priv *priv,
 		return;
 
 	/* get the valid tstamp */
-	ns = priv->hwptp->get_tx_timestamp(priv->iobase);
+	ns = priv->hwptp->get_tx_timestamp(priv);
 
 	memset(&shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
 	shhwtstamp.hwtstamp = ns_to_ktime(ns);
@@ -491,7 +491,7 @@ static void emac_get_rx_hwtstamp(struct emac_priv *priv, struct emac_rx_desc *p,
 
 	/* Check if timestamp is available */
 	if (p->ptp_pkt && p->rx_timestamp) {
-		ns = priv->hwptp->get_rx_timestamp(priv->iobase);
+		ns = priv->hwptp->get_rx_timestamp(priv);
 		netdev_dbg(priv->ndev, "get valid RX hw timestamp %llu\n", ns);
 		shhwtstamp = skb_hwtstamps(skb);
 		memset(shhwtstamp, 0, sizeof(struct skb_shared_hwtstamps));
@@ -612,23 +612,23 @@ static int emac_hwtstamp_ioctl(struct net_device *dev, struct ifreq *ifr)
 	priv->hwts_tx_en = config.tx_type == HWTSTAMP_TX_ON;
 
 	if (!priv->hwts_tx_en && !priv->hwts_rx_en)
-		priv->hwptp->config_hw_tstamping(priv->iobase, 0, 0, 0);
+		priv->hwptp->config_hw_tstamping(priv, 0, 0, 0);
 	else {
 
-		priv->hwptp->config_hw_tstamping(priv->iobase, 1, rx_ptp_type, ptp_event_msg_id);
+		priv->hwptp->config_hw_tstamping(priv, 1, rx_ptp_type, ptp_event_msg_id);
 
 		/* initialize system time */
 		ktime_get_real_ts64(&now);
-		priv->hwptp->init_systime(priv->iobase, timespec64_to_ns(&now));
+		priv->hwptp->init_systime(priv, timespec64_to_ns(&now));
 
 		/* program Increment reg */
-		priv->hwptp->config_systime_increment(priv->iobase, priv->ptp_clk_rate, priv->ptp_clk_rate);
+		priv->hwptp->config_systime_increment(priv, priv->ptp_clk_rate, priv->ptp_clk_rate);
 
-		ns_ptp = priv->hwptp->get_systime(priv->iobase);
+		ns_ptp = priv->hwptp->get_phc_time(priv);
 		ktime_get_real_ts64(&now);
 		/* check the diff between ptp timer and system time */
 		if (abs(timespec64_to_ns(&now) - ns_ptp) > 5000)
-			priv->hwptp->init_systime(priv->iobase, timespec64_to_ns(&now));
+			priv->hwptp->init_systime(priv, timespec64_to_ns(&now));
 	}
 	return copy_to_user(ifr->ifr_data, &config,
 			    sizeof(struct hwtstamp_config)) ? -EFAULT : 0;
