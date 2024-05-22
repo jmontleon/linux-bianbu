@@ -39,8 +39,17 @@
 #define DEFAULT_ETH_TYPE		(0x88F7)
 
 
-void emac_hw_timestamp_config(void __iomem *ioaddr, u32 enable, u8 rx_ptp_type, u32 ptp_msg_id)
+#define EMAC_SYSTIM_OVERFLOW_PERIOD	(HZ * 60 * 60 * 4)
+
+#define to_emacpriv(_ptp) container_of(_ptp, struct emac_priv, ptp_clock_ops)
+
+#define INCVALUE_100MHZ		10
+#define INCVALUE_SHIFT_100MHZ	17
+#define INCPERIOD_100MHZ	1
+
+void emac_hw_timestamp_config(struct emac_priv *priv, u32 enable, u8 rx_ptp_type, u32 ptp_msg_id)
 {
+	void __iomem *ioaddr = priv->iobase;
 	u32 val;
 
 	if (enable) {
@@ -64,8 +73,10 @@ void emac_hw_timestamp_config(void __iomem *ioaddr, u32 enable, u8 rx_ptp_type, 
 		writel(0, ioaddr + PTP_1588_CTRL);
 }
 
-u32 emac_hw_config_systime_increment(void __iomem *ioaddr, u32 ptp_clock, u32 adj_clock)
+u32 emac_hw_config_systime_increment(struct emac_priv *priv, u32 ptp_clock,
+                                        u32 adj_clock)
 {
+	void __iomem *ioaddr = priv->iobase;
 	u32 incr_val;
 	u32 incr_period;
 	u32 val;
@@ -77,8 +88,8 @@ u32 emac_hw_config_systime_increment(void __iomem *ioaddr, u32 ptp_clock, u32 ad
 	 *  increment period should be 1m
 	 */
 	if (ptp_clock == adj_clock) {
-		incr_val = div_u64(1000000000ULL, ptp_clock);
-		incr_period = 1;
+		incr_val = INCVALUE_100MHZ << INCVALUE_SHIFT_100MHZ;
+		incr_period = INCPERIOD_100MHZ;
 	} else {
 		def_period = div_u64(1000000000ULL, ptp_clock);
 		period = div_u64(1000000000ULL, adj_clock);
@@ -95,74 +106,96 @@ u32 emac_hw_config_systime_increment(void __iomem *ioaddr, u32 ptp_clock, u32 ad
 	return 0;
 }
 
-int emac_hw_adjust_systime(void __iomem *ioaddr, u32 ns, bool is_neg)
+u64 emac_hw_get_systime(struct emac_priv *priv)
 {
-	u32 val = 0;
+	void __iomem *ioaddr = priv->iobase;
+	u64 systimel, systimeh;
+	u64 systim;
 
 	/* update system time adjust low register */
-	writel(ns, ioaddr + SYS_TIME_ADJ_LOW);
-
+	systimel = readl(ioaddr + SYS_TIME_GET_LOW);
+	systimeh = readl(ioaddr + SYS_TIME_GET_HI);
 	/* perform system time adjust */
-	if (is_neg)
-		val |= SYS_TIME_IS_NEG;
+	systim = (systimeh << 32) | systimel;
 
-	writel(val, ioaddr + SYS_TIME_ADJ_HI);
-	return 0;
+	return systim;
 }
 
-u64 emac_hw_get_systime(void __iomem *ioaddr)
+u64 emac_hw_get_phc_time(struct emac_priv *priv)
 {
-	u64 lns;
-	u64 hns;
+	unsigned long flags;
+	u64 cycles, ns;
+
+	spin_lock_irqsave(&priv->ptp_lock, flags);
+	/* first read system time low register */
+	cycles = emac_hw_get_systime(priv);
+	ns = timecounter_cyc2time(&priv->tc, cycles);
+
+	spin_unlock_irqrestore(&priv->ptp_lock, flags);
+
+	return ns;
+}
+
+u64 emac_hw_get_tx_timestamp(struct emac_priv *priv)
+{
+	void __iomem *ioaddr = priv->iobase;
+	unsigned long flags;
+	u64 systimel, systimeh;
+	u64 systim;
+	u64 ns;
 
 	/* first read system time low register */
-	lns = readl(ioaddr + SYS_TIME_GET_LOW);
-	hns = readl(ioaddr + SYS_TIME_GET_HI);
+	systimel = readl(ioaddr + TX_TIMESTAMP_LOW);
+	systimeh = readl(ioaddr + TX_TIMESTAMP_HI);
+	systim = (systimeh << 32) | systimel;
 
-	return ((hns << 32) | lns);
+	spin_lock_irqsave(&priv->ptp_lock, flags);
+
+	ns = timecounter_cyc2time(&priv->tc, systim);
+	spin_unlock_irqrestore(&priv->ptp_lock, flags);
+	return ns;
 }
 
-u64 emac_hw_get_tx_timestamp(void __iomem *ioaddr)
+u64 emac_hw_get_rx_timestamp(struct emac_priv *priv)
 {
-	u64 lns;
-	u64 hns;
+	void __iomem *ioaddr = priv->iobase;
+	unsigned long flags;
+	u64 systimel, systimeh;
+	u64 systim;
+	u64 ns;
 
 	/* first read system time low register */
-	lns = readl(ioaddr + TX_TIMESTAMP_LOW);
-	hns = readl(ioaddr + TX_TIMESTAMP_HI);
+	systimel = readl(ioaddr + RX_TIMESTAMP_LOW);
+	systimeh = readl(ioaddr + RX_TIMESTAMP_HI);
+	systim = (systimeh << 32) | systimel;
 
-	return ((hns << 32) | lns);
+	spin_lock_irqsave(&priv->ptp_lock, flags);
+
+	ns = timecounter_cyc2time(&priv->tc, systim);
+	spin_unlock_irqrestore(&priv->ptp_lock, flags);
+	return ns;
 }
 
-u64 emac_hw_get_rx_timestamp(void __iomem *ioaddr)
+/**
+ * emac_cyclecounter_read - read raw cycle counter (used by time counter)
+ * @cc: cyclecounter structure
+ **/
+static u64 emac_cyclecounter_read(const struct cyclecounter *cc)
 {
-	u64 lns;
-	u64 hns;
+	struct emac_priv *priv = container_of(cc, struct emac_priv, cc);
 
-	/* first read system time low register */
-	lns = readl(ioaddr + RX_TIMESTAMP_LOW);
-	hns = readl(ioaddr + RX_TIMESTAMP_HI);
-
-	return ((hns << 32) | lns);
+	return emac_hw_get_systime(priv);
 }
-
-int emac_hw_init_systime(void __iomem *ioaddr, u64 set_ns)
-{
-	u64 cur_ns;
-	s32 adj;
-	int neg_adj = 0;
-
-	cur_ns = emac_hw_get_systime(ioaddr);
-
-	adj = ((set_ns & SYS_TIME_LOW_MSK) - (cur_ns & SYS_TIME_LOW_MSK));
-	if (adj < 0) {
-		neg_adj = 1;
-		adj = -adj;
-	}
 	/* according to spec , set system time upper register and adjust time */
-	writel(set_ns >> 32, ioaddr + SYS_TIME_GET_HI);
+int emac_hw_init_systime(struct emac_priv *priv, u64 set_ns)
+{
+	unsigned long flags;
 
-	emac_hw_adjust_systime(ioaddr, adj, neg_adj);
+	spin_lock_irqsave(&priv->ptp_lock, flags);
+
+	timecounter_init(&priv->tc, &priv->cc, set_ns);
+
+	spin_unlock_irqrestore(&priv->ptp_lock, flags);
 
 	return 0;
 }
@@ -171,8 +204,7 @@ struct emac_hw_ptp emac_hwptp = {
 	.config_hw_tstamping = emac_hw_timestamp_config,
 	.config_systime_increment = emac_hw_config_systime_increment,
 	.init_systime = emac_hw_init_systime,
-	.adjust_systime = emac_hw_adjust_systime,
-	.get_systime = emac_hw_get_systime,
+	.get_phc_time = emac_hw_get_phc_time,
 	.get_tx_timestamp = emac_hw_get_tx_timestamp,
 	.get_rx_timestamp = emac_hw_get_rx_timestamp,
 };
@@ -187,33 +219,35 @@ struct emac_hw_ptp emac_hwptp = {
  */
 static int emac_adjust_freq(struct ptp_clock_info *ptp, s32 ppb)
 {
-	struct emac_priv *priv =
-	    container_of(ptp, struct emac_priv, ptp_clock_ops);
+	struct emac_priv *priv = to_emacpriv(ptp);
+	void __iomem *ioaddr = priv->iobase;
 	unsigned long flags;
-	u32 diff, addend;
+	u32 addend, incvalue;
 	int neg_adj = 0;
 	u64 adj;
 
+	if ((ppb > ptp->max_adj) || (ppb <= -1000000000))
+		return -EINVAL;
 	if (ppb < 0) {
 		neg_adj = 1;
 		ppb = -ppb;
 	}
 
-	addend = priv->ptp_clk_rate;
-	adj = addend;
-	adj *= ppb;
+	spin_lock_irqsave(&priv->ptp_lock, flags);
 
+	incvalue = INCVALUE_100MHZ << INCVALUE_SHIFT_100MHZ;
+	adj = incvalue;
+	adj *= ppb;
+	adj = div_u64(adj, 1000000000);
 	/*
 	 * ppb = (Fnew - F0)/F0
 	 * diff = F0 * ppb
 	 */
 
-	diff = div_u64(adj, 1000000000ULL);
-	addend = neg_adj ? (addend - diff) : (addend + diff);
-
-	spin_lock_irqsave(&priv->ptp_lock, flags);
-
-	priv->hwptp->adjust_systime(priv->iobase, diff, neg_adj);
+	addend = neg_adj ? (incvalue - adj) : (incvalue + adj);
+	pr_debug("emac_adjust_freq: new inc_val=%d ppb=%d\n", addend, ppb);
+	addend = (addend | (INCPERIOD_100MHZ << INCR_PERIOD_OFST));
+	writel(addend, ioaddr + PTP_INRC_ATTR);
 
 	spin_unlock_irqrestore(&priv->ptp_lock, flags);
 
@@ -238,28 +272,12 @@ static int emac_adjust_fine(struct ptp_clock_info *ptp, long scaled_ppm)
  */
 static int emac_adjust_time(struct ptp_clock_info *ptp, s64 delta)
 {
-	struct emac_priv *priv =
-	    container_of(ptp, struct emac_priv, ptp_clock_ops);
+	struct emac_priv *priv = to_emacpriv(ptp);
 	unsigned long flags;
-	int neg_adj = 0;
-	u64 ns;
-
-	if (delta < 0) {
-		neg_adj = 1;
-		delta = -delta;
-	}
-
 
 	spin_lock_irqsave(&priv->ptp_lock, flags);
-	if (delta > SYS_TIME_LOW_MSK) {
-		ns = priv->hwptp->get_systime(priv->iobase);
-		ns = neg_adj ? (ns - delta) : (ns + delta);
-		emac_hw_init_systime(priv->iobase, ns);
-	} else {
-		priv->hwptp->adjust_systime(priv->iobase, delta, neg_adj);
-	}
 
-
+	timecounter_adjtime(&priv->tc, delta);
 
 	spin_unlock_irqrestore(&priv->ptp_lock, flags);
 
@@ -275,16 +293,16 @@ static int emac_adjust_time(struct ptp_clock_info *ptp, s64 delta)
  * Description: this function will read the current time from the
  * hardware clock and store it in @ts.
  */
-static int emac_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
+static int emac_phc_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
 {
-	struct emac_priv *priv =
-	    container_of(ptp, struct emac_priv, ptp_clock_ops);
+	struct emac_priv *priv = to_emacpriv(ptp);
 	unsigned long flags;
-	u64 ns = 0;
+	u64 cycles, ns;
 
 	spin_lock_irqsave(&priv->ptp_lock, flags);
 
-	ns = priv->hwptp->get_systime(priv->iobase);
+	cycles = emac_hw_get_systime(priv);
+	ns = timecounter_cyc2time(&priv->tc, cycles);
 
 	spin_unlock_irqrestore(&priv->ptp_lock, flags);
 
@@ -302,30 +320,42 @@ static int emac_get_time(struct ptp_clock_info *ptp, struct timespec64 *ts)
  * Description: this function will set the current time on the
  * hardware clock.
  */
-static int emac_set_time(struct ptp_clock_info *ptp,
+static int emac_phc_set_time(struct ptp_clock_info *ptp,
 			   const struct timespec64 *ts)
 {
-	struct emac_priv *priv =
-	    container_of(ptp, struct emac_priv, ptp_clock_ops);
+	struct emac_priv *priv = to_emacpriv(ptp);
 	unsigned long flags;
-	u64 set_ns = 0;
+	u64 ns;
 
-	set_ns = timespec64_to_ns(ts);
+	ns = timespec64_to_ns(ts);
 
 	spin_lock_irqsave(&priv->ptp_lock, flags);
 
-	priv->hwptp->init_systime(priv->iobase, set_ns);
+	timecounter_init(&priv->tc, &priv->cc, ns);
 
 	spin_unlock_irqrestore(&priv->ptp_lock, flags);
 
 	return 0;
 }
 
+static void emac_systim_overflow_work(struct work_struct *work)
+{
+	struct emac_priv *priv = container_of(work, struct emac_priv,
+						     systim_overflow_work.work);
+	struct timespec64 ts;
+	u64 ns;
+	ns = timecounter_read(&priv->tc);
+	ts = ns_to_timespec64(ns);
+	pr_debug("SYSTIM overflow check at %lld.%09lu\n",
+	      (long long) ts.tv_sec, ts.tv_nsec);
+	schedule_delayed_work(&priv->systim_overflow_work,
+			     EMAC_SYSTIM_OVERFLOW_PERIOD);
+}
 /* structure describing a PTP hardware clock */
 static struct ptp_clock_info emac_ptp_clock_ops = {
 	.owner = THIS_MODULE,
 	.name = "emac_ptp_clock",
-	.max_adj = 100000000,
+	.max_adj = 1000000000,
 	.n_alarm = 0,
 	.n_ext_ts = 0,
 	.n_per_out = 0,
@@ -333,8 +363,8 @@ static struct ptp_clock_info emac_ptp_clock_ops = {
 	.pps = 0,
 	.adjfine = emac_adjust_fine,
 	.adjtime = emac_adjust_time,
-	.gettime64 = emac_get_time,
-	.settime64 = emac_set_time,
+	.gettime64 = emac_phc_get_time,
+	.settime64 = emac_phc_set_time,
 };
 
 /**
@@ -345,9 +375,18 @@ static struct ptp_clock_info emac_ptp_clock_ops = {
  */
 void emac_ptp_register(struct emac_priv *priv)
 {
+	unsigned long flags;
+	priv->cc.read = emac_cyclecounter_read;
+	priv->cc.mask = CYCLECOUNTER_MASK(64);
+	priv->cc.mult = 1;
+	priv->cc.shift = INCVALUE_SHIFT_100MHZ;
 	spin_lock_init(&priv->ptp_lock);
 	priv->ptp_clock_ops = emac_ptp_clock_ops;
 
+	INIT_DELAYED_WORK(&priv->systim_overflow_work,
+			  emac_systim_overflow_work);
+	schedule_delayed_work(&priv->systim_overflow_work,
+			      EMAC_SYSTIM_OVERFLOW_PERIOD);
 	priv->ptp_clock = ptp_clock_register(&priv->ptp_clock_ops,
 					     NULL);
 	if (IS_ERR(priv->ptp_clock)) {
@@ -355,7 +394,13 @@ void emac_ptp_register(struct emac_priv *priv)
 		priv->ptp_clock = NULL;
 	} else if (priv->ptp_clock)
 		netdev_info(priv->ndev, "registered PTP clock\n");
+	else
+		netdev_info(priv->ndev, "PTP_1588_CLOCK maybe not enabled\n");
 
+	spin_lock_irqsave(&priv->ptp_lock, flags);
+	timecounter_init(&priv->tc, &priv->cc,
+			 ktime_to_ns(ktime_get_real()));
+	spin_unlock_irqrestore(&priv->ptp_lock, flags);
 	priv->hwptp = &emac_hwptp;
 }
 
@@ -367,6 +412,7 @@ void emac_ptp_register(struct emac_priv *priv)
  */
 void emac_ptp_unregister(struct emac_priv *priv)
 {
+	cancel_delayed_work_sync(&priv->systim_overflow_work);
 	if (priv->ptp_clock) {
 		ptp_clock_unregister(priv->ptp_clock);
 		priv->ptp_clock = NULL;
