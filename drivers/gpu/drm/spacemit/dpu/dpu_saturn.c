@@ -220,8 +220,6 @@ static int dpu_parse_dt(struct spacemit_dpu *dpu, struct device_node *np)
 {
 	struct dpu_clk_context *clk_ctx = &dpu->clk_ctx;
 
-
-
 	clk_ctx->pxclk = of_clk_get_by_name(np, "pxclk");
 	if (IS_ERR(clk_ctx->pxclk)) {
 		pr_debug("%s, read pxclk failed from dts!\n", __func__);
@@ -260,6 +258,10 @@ static int dpu_parse_dt(struct spacemit_dpu *dpu, struct device_node *np)
 
 	if (of_property_read_u32(np, "spacemit-dpu-bitclk", &dpu->bitclk))
 		dpu->bitclk = DPU_BITCLK_DEFAULT;
+
+	if (of_property_read_u32(np, "spacemit-dpu-escclk", &dpu->escclk))
+		dpu->escclk = DPU_ESCCLK_DEFAULT;
+
 	return 0;
 }
 
@@ -625,8 +627,9 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		}
 
 		clk_val = clk_get_rate(clk_ctx->escclk);
-		if(clk_val != DPU_ESCCLK_DEFAULT){
-			clk_val = clk_round_rate(clk_ctx->escclk, DPU_ESCCLK_DEFAULT);
+		set_clk_val = dpu->escclk;
+		if(clk_val != set_clk_val){
+			clk_val = clk_round_rate(clk_ctx->escclk, set_clk_val);
 			clk_set_rate(clk_ctx->escclk, clk_val);
 			DRM_DEBUG("set escclk=%lld\n", clk_val);
 		}

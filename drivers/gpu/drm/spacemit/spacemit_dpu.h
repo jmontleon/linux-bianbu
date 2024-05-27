@@ -141,6 +141,7 @@ struct spacemit_dpu {
 	uint64_t cur_bw;
 	struct drm_property *color_matrix_property;
 	uint32_t bitclk;
+	uint32_t escclk;
 	struct reset_control *dsi_reset;
 	struct reset_control *mclk_reset;
 	struct reset_control *lcd_reset;

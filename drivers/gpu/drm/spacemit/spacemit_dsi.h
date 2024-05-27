@@ -150,7 +150,8 @@ struct spacemit_mipi_info {
 	unsigned int work_mode; /*command_mode, video_mode*/
 	unsigned int rgb_mode;
 	unsigned int lane_number;
-	unsigned int phy_freq;
+	unsigned int phy_bit_clock;
+	unsigned int phy_esc_clock;
 	unsigned int split_enable;
 	unsigned int eotp_enable;
 
