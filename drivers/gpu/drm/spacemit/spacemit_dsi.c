@@ -265,11 +265,18 @@ static void spacemit_dsi_get_mipi_info(struct device_node *lcd_node, struct spac
 	else
 		mipi_info->lane_number = val;
 
-	ret = of_property_read_u32(lcd_node, "phy-freq", &val);
+	ret = of_property_read_u32(lcd_node, "phy-bit-clock", &val);
 	if (ret)
-		DRM_ERROR("of get mipi phy-freq failed\n");
+		mipi_info->phy_bit_clock = DPHY_BITCLK_DEFAULT;
 	else
-		mipi_info->phy_freq = val;
+		mipi_info->phy_bit_clock = val;
+
+
+	ret = of_property_read_u32(lcd_node, "phy-esc-clock", &val);
+	if (ret)
+		mipi_info->phy_esc_clock = DPHY_ESCCLK_DEFAULT;
+	else
+		mipi_info->phy_esc_clock = val;
 
 	ret = of_property_read_u32(lcd_node, "split-enable", &val);
 	if (ret)

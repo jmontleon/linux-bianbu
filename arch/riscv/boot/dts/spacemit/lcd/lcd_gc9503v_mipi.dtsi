@@ -5,11 +5,10 @@
 		dsi-work-mode = <1>; /* video burst mode*/
 		dsi-lane-number = <4>;
 		dsi-color-format = "rgb888";
-		phy-bit-clock = <911000>;	/* kbps */
-		phy-escape-clock = <52000>;/* kHz */
 		width-mm = <72>;
 		height-mm = <126>;
 		use-dcs-write;
+
 		/*mipi info*/
 		height = <640>;
 		width = <480>;
@@ -23,7 +22,7 @@
 		work-mode = <0>;
 		rgb-mode = <3>;
 		lane-number = <2>;
-		phy-freq = <341000>;
+		phy-bit-clock = <341000000>;
 		split-enable = <0>;
 		eotp-enable = <0>;
 		burst-mode = <2>;
