@@ -680,6 +680,9 @@ static void dsi_open_dphy(struct spacemit_dsi_device* device_ctx, bool ready)
 	dphy_config->base_addr = device_ctx->base_addr;
 	//dphy_config->phy_freq = device_ctx->bit_clk_rate / 1000;
 	//dphy_config->esc_clk = device_ctx->esc_clk_rate / 1000;
+	dphy_config->phy_freq = mipi_info->phy_bit_clock / 1000;
+	dphy_config->esc_clk = mipi_info->phy_esc_clock / 1000;
+
 	if(mipi_info->split_enable)
 		dphy_config->lane_num = mipi_info->lane_number >> 1;
 	else
@@ -711,6 +714,8 @@ int spacemit_dsi_open(struct spacemit_dsi_device* device_ctx, bool ready)
 #ifdef LCD_IS_READY
 	return 0;
 #endif
+
+	DRM_DEBUG("%s() \n", __func__);
 
 	if((NULL == device_ctx) || (NULL == mipi_info)){
 		pr_err("%s: Invalid param\n", __func__);
