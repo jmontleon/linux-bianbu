@@ -188,6 +188,10 @@ static int spacemit_sspa_suspend(struct snd_soc_component *component)
 static int spacemit_sspa_resume(struct snd_soc_component *component)
 {
 	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	u32 value = 0;
+	value = readl_relaxed(priv->base_hdmi);
+	value |= BIT(0);
+	writel(value, priv->base_hdmi);
 	reset_control_deassert(priv->rst);
 	return 0;
 }
