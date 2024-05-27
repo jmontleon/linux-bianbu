@@ -16,6 +16,9 @@
 
 #include "spacemit_lib.h"
 
+#define DPHY_BITCLK_DEFAULT	614400000
+#define DPHY_ESCCLK_DEFAULT	51200000
+
 enum spacemit_dphy_lane_map {
 	DPHY_LANE_MAP_0123 = 0,
 	DPHY_LANE_MAP_0312 = 1,
