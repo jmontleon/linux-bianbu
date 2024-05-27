@@ -130,11 +130,12 @@ static void dphy_set_bit_clk_src(void __iomem *base_addr, uint32_t bit_clk_src,
 
 static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 {
-	uint32_t bitclk;
+	uint32_t bitclk, lpx_clk, lpx_time, ta_get, ta_go;
 	int ui, wakeup, reg;
-	int hs_prep, hs_zero, hs_trail, hs_exit, ck_zero, ck_trail;
+	int hs_prep, hs_zero, hs_trail, hs_exit, ck_zero, ck_trail, ck_exit;
 	int esc_clk, esc_clk_t;
 	struct spacemit_dphy_timing *phy_timing;
+	uint32_t value;
 
 	if(NULL == dphy_ctx) {
 		pr_err("%s: Invalid param!\n", __func__);
@@ -143,22 +144,21 @@ static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 
 	phy_timing = &(dphy_ctx->dphy_timing);
 
+	DRM_DEBUG("%s() phy_freq %d esc_clk %d \n", __func__, dphy_ctx->phy_freq, dphy_ctx->esc_clk);
+
 	esc_clk = dphy_ctx->esc_clk/1000;
 	esc_clk_t = 1000/esc_clk;
 
 	bitclk = dphy_ctx->phy_freq / 1000;
 	ui = 1000/bitclk + 1;
-#if 0
-	/*Jessica: Why +1?, should be -1?*/
+
 	lpx_clk = (phy_timing->lpx_constant + phy_timing->lpx_ui * ui) / esc_clk_t + 1;
 	lpx_time = lpx_clk * esc_clk_t;
 
 	/* Below is for NT35451 */
 	ta_get = lpx_time * 5 / esc_clk_t - 1;
 	ta_go = lpx_time * 4 / esc_clk_t - 1;
-#endif
 
-	/*Jessica: Why no wakeup_ui?*/
 	wakeup = phy_timing->wakeup_constant;
 	wakeup = wakeup / esc_clk_t + 1;
 
@@ -191,56 +191,55 @@ static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 
 	ck_trail = phy_timing->ck_trail_constant + phy_timing->ck_trail_ui * ui;
 	ck_trail = ck_trail / esc_clk_t + 1;
-#if 0
+
 	ck_exit = hs_exit;
 
 	reg = (hs_exit << CFG_DPHY_TIME_HS_EXIT_SHIFT)
 		| (hs_trail << CFG_DPHY_TIME_HS_TRAIL_SHIFT)
 		| (hs_zero << CFG_DPHY_TIME_HS_ZERO_SHIFT)
 		| (hs_prep << CFG_DPHY_TIME_HS_PREP_SHIFT);
-#endif
-	pr_debug("%s: dphy timing 0 :0x%x\n", __func__, reg);
+
+	DRM_DEBUG("%s dphy time0 hs_exit %d hs_trail %d hs_zero %d hs_prep %d reg 0x%x\n", __func__, hs_exit, hs_trail, hs_zero, hs_prep, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x40 , 0x01000000);
 #else
-	//dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_0, reg);
-	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_0, 0x06010603);
+	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_0, reg);
+	// dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_0, 0x06010603);
 #endif
-#if 0
+
 	reg = (ta_get << CFG_DPHY_TIME_TA_GET_SHIFT)
 		| (ta_go << CFG_DPHY_TIME_TA_GO_SHIFT)
 		| (wakeup << CFG_DPHY_TIME_WAKEUP_SHIFT);
-#endif
-	pr_debug("%s: dphy timing 1 :0x%x\n", __func__, reg);
+
+	DRM_INFO("%s dphy time1 ta_get %d ta_go %d wakeup %d reg 0x%x\n", __func__, ta_get, ta_go, wakeup, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x44, 0x0403001F);
 #else
-	//dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_1, reg);
-	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_1, 0x130fcd98);
+	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_1, reg);
+	// dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_1, 0x130fcd98);
 #endif
-#if 0
 	reg = (ck_exit << CFG_DPHY_TIME_CLK_EXIT_SHIFT)
 		| (ck_trail << CFG_DPHY_TIME_CLK_TRAIL_SHIFT)
 		| (ck_zero << CFG_DPHY_TIME_CLK_ZERO_SHIFT)
 		| (lpx_clk << CFG_DPHY_TIME_CLK_LPX_SHIFT);
-#endif
-	pr_debug("%s: dphy timing 2 :0x%x\n", __func__, reg);
+
+	DRM_INFO("%s dphy time2 ck_exit %d ck_trail %d ck_zero %d lpx_clk %d reg 0x%x\n", __func__, ck_exit, ck_trail, ck_zero, lpx_clk, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x48, 0x02010500);
 #else
-	//dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_2, reg);
-	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_2, 0x06040c04);
+	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_2, reg);
+	// dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_2, 0x06040c04);
 #endif
-#if 0
+
 	reg = (lpx_clk << CFG_DPHY_TIME_LPX_SHIFT)
 		| phy_timing->req_ready << CFG_DPHY_TIME_REQRDY_SHIFT;
-#endif
-	pr_debug("%s: dphy timing 3 :0x%x\n", __func__, reg);
+
+	DRM_INFO("%s dphy time3 lpx_clk %d req_ready %d reg 0x%x\n", __func__, lpx_clk, phy_timing->req_ready, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x4c, 0x001F);
 #else
-	//dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_3, reg);
-	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_3, 0x43c);
+	dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_3, reg);
+	// dsi_write(dphy_ctx->base_addr, DSI_PHY_TIME_3, 0x43c);
 #endif
 	/* calculated timing on brownstone:
 	 * DSI_PHY_TIME_0 0x06080204
@@ -248,6 +247,15 @@ static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 	 * DSI_PHY_TIME_2 0x603130a
 	 * DSI_PHY_TIME_3 0xa3c
 	 */
+
+	value = dsi_read(dphy_ctx->base_addr, DSI_PHY_TIME_0);
+	DRM_DEBUG("%s() DSI_PHY_TIME_0 offset 0x%x value 0x%x\n", __func__, DSI_PHY_TIME_0, value);
+	value = dsi_read(dphy_ctx->base_addr, DSI_PHY_TIME_1);
+	DRM_DEBUG("%s() DSI_PHY_TIME_1 offset 0x%x value 0x%x\n", __func__, DSI_PHY_TIME_1, value);
+	value = dsi_read(dphy_ctx->base_addr, DSI_PHY_TIME_2);
+	DRM_DEBUG("%s() DSI_PHY_TIME_2 offset 0x%x value 0x%x\n", __func__, DSI_PHY_TIME_2, value);
+	value = dsi_read(dphy_ctx->base_addr, DSI_PHY_TIME_3);
+	DRM_DEBUG("%s() DSI_PHY_TIME_3 offset 0x%x value 0x%x\n", __func__, DSI_PHY_TIME_3, value);
 }
 
 static void dphy_get_setting(struct spacemit_dphy_ctx *dphy_ctx, struct device_node *np)
