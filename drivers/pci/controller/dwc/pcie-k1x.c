@@ -160,6 +160,7 @@ struct k1x_pcie {
 	struct reset_control *reset;
 
 	struct	gpio_desc *perst_gpio; /* for PERST# in RC mode*/
+	int pwr_on_gpio;
 };
 
 struct k1x_pcie_of_data {
@@ -1529,6 +1530,19 @@ static const struct of_device_id of_k1x_pcie_match[] = {
 	{},
 };
 
+static int k1x_power_on(struct k1x_pcie *k1x, int on)
+{
+	bool status = on ? 1 : 0;
+
+	if (k1x->pwr_on_gpio <= 0) {
+		return 0;
+	}
+
+	dev_info(k1x->pci->dev, "set power on gpio %d to %d\n", k1x->pwr_on_gpio, status);
+	gpio_direction_output(k1x->pwr_on_gpio, status);
+	return 0;
+}
+
 static int __init k1x_pcie_probe(struct platform_device *pdev)
 {
 	u32 reg;
@@ -1607,6 +1621,11 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 		k1x->num_lanes = 1;
 	}
 
+	k1x->pwr_on_gpio = of_get_named_gpio(np, "k1x,pwr_on", 0);
+	if (k1x->pwr_on_gpio <= 0) {
+		dev_info(dev, "has no power on gpio.\n");
+	}
+
 	/* pcie0 and usb use combo phy and reset */
 	if (k1x->port_id == 0) {
 		k1x->reset = devm_reset_control_array_get_shared(dev);
@@ -1653,6 +1672,9 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 		reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
 		reg |= PCIE_IGNORE_PERSTN;
 		k1x_pcie_writel(k1x, PCIE_CTRL_LOGIC, reg);
+
+		/* power on the interface */
+		k1x_power_on(k1x, 1);
 
 		ret = k1x_add_pcie_port(k1x, pdev);
 		if (ret < 0)
@@ -1768,6 +1790,9 @@ static int k1x_pcie_suspend_noirq(struct device *dev)
 	k1x_pcie_stop_link(pci);
 	k1x_pcie_disable_phy(k1x);
 
+	/* power off the interface */
+	k1x_power_on(k1x, 0);
+
 	/* soft reset */
 	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
 	reg |= (1 << 0);
@@ -1787,6 +1812,9 @@ static int k1x_pcie_resume_noirq(struct device *dev)
 	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
 	reg &= ~(1 << 0);
 	k1x_pcie_writel(k1x, PCIE_CTRL_LOGIC, reg);
+
+	/* power on the interface */
+	k1x_power_on(k1x, 1);
 
 	k1x_pcie_enable_phy(k1x);
 	k1x_pcie_host_init(pp);
