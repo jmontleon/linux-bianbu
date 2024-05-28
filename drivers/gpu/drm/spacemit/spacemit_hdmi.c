@@ -550,11 +550,6 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 
 	DRM_DEBUG("%s()\n", __func__);
 
-	// hdmi config
-	hdmi_writeb(hdmi, 0xe8, 0x20200000);
-	hdmi_writeb(hdmi, 0xec, 0x508d425a);
-	hdmi_writeb(hdmi, 0xf0, 0x861);
-
 	writel(0xAE5C410F, hdmi->regs + 0xe0);
 	hdmi_write_bits(hdmi, 0xe0, bias_current, 0x03, 29);
 	hdmi_write_bits(hdmi, 0xe0, bias_risistor, 0x0F, 18);
@@ -585,15 +580,50 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 			   struct drm_display_mode *mode)
 {
+	void __iomem *ciu = (void __iomem *)ioremap(0xD4282C00, 0x200);
+	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
 	int bit_depth = EIGHT_BPP;
+	u32 value;
 
 	DRM_DEBUG("%s() \n", __func__);
+
+	// ciu chip id
+	value = readl_relaxed(ciu);
+	if (value == 0xa08501) {
+		// default 10bpc
+		bit_depth = TEN_BPP;
+		if (hdmi->edid_done) {
+			// 08H, 09H: ID Manufacturer Nanme
+			// 0AH, 0BH: ID Product Code
+			if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
+				((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
+				// Lecoo HU20238FB0
+				bit_depth = EIGHT_BPP;
+			} else if ((hdmi_data->edid[8] == 0x26) && (hdmi_data->edid[9] == 0x01) &&
+				(hdmi_data->edid[10] == 0x12) && (hdmi_data->edid[11] == 0x24)) {
+				// IPASON XC242-J
+				bit_depth = EIGHT_BPP;
+			} else if ((hdmi_data->edid[8] == 0x05) && (hdmi_data->edid[9] == 0xe3) &&
+					(hdmi_data->edid[10] == 0x90) && (hdmi_data->edid[11] == 0x24)) {
+				// AOC Q2490W1
+				bit_depth = EIGHT_BPP;
+			}
+		}
+	}
+
+	if (bit_depth == EIGHT_BPP) {
+		DRM_INFO("%s() id 0x%x, hdmi 8bpc \n", __func__, value);
+	} else if (bit_depth == TEN_BPP) {
+		DRM_INFO("%s() id 0x%x, hdmi 10bpc \n", __func__, value);
+	}
 
 	hdmi_init(hdmi, hdmi->previous_mode.clock, bit_depth);
 
 	spacemit_hdmi_config_video_timing(hdmi, mode);
 	spacemit_hdmi_config_video_avi(hdmi, mode);
 	spacemit_hdmi_config_video_vsi(hdmi, mode);
+
+	iounmap(ciu);
 
 	return 0;
 }
