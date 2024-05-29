@@ -1879,13 +1879,12 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	}
 
 	ret = devm_request_irq(spacemit_i2c->dev, spacemit_i2c->irq, spacemit_i2c_int_handler,
-			IRQF_NO_SUSPEND | IRQF_ONESHOT,
+			IRQF_NO_SUSPEND | IRQF_NO_AUTOEN,
 			dev_name(spacemit_i2c->dev), spacemit_i2c);
 	if (ret) {
 		dev_err(spacemit_i2c->dev, "failed to request irq\n");
 		goto err_out;
 	}
-	disable_irq(spacemit_i2c->irq);
 
 	ret = spacemit_i2c_prepare_dma(spacemit_i2c);
 	if (ret) {
