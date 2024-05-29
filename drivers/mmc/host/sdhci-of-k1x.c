@@ -1100,7 +1100,7 @@ static int spacemit_sw_rx_select_window(struct sdhci_host *host, u32 opcode)
 		if ((max - min) >= rxtuning->window_limit) {
 			tmp.max_delay = max;
 			tmp.min_delay = min;
-			tmp.type = MIDDLE_WINDOW;
+			tmp.type = pdata->rxtuning.window_type;
 			for (i = 0; i < CANDIDATE_WIN_NUM; i++) {
 				len = rxtuning->windows[i].max_delay - rxtuning->windows[i].min_delay;
 				if ((tmp.max_delay - tmp.min_delay) > len) {
@@ -1140,11 +1140,11 @@ static int spacemit_sw_rx_select_delay(struct sdhci_host *host)
 			continue;
 
 		if (window->type == LEFT_WINDOW) {
+			tuning->select_delay[tuning->select_delay_num++] = min + win_len / 4;
 			tuning->select_delay[tuning->select_delay_num++] = min + win_len / 3;
-			tuning->select_delay[tuning->select_delay_num++] = min + win_len / 2;
 		} else if (window->type == RIGHT_WINDOW) {
 			tuning->select_delay[tuning->select_delay_num++] = max - win_len / 4;
-			tuning->select_delay[tuning->select_delay_num++] = min - win_len / 3;
+			tuning->select_delay[tuning->select_delay_num++] = max - win_len / 3;
 		} else {
 			tuning->select_delay[tuning->select_delay_num++] = mid;
 			tuning->select_delay[tuning->select_delay_num++] = mid + win_len / 4;
@@ -1454,6 +1454,12 @@ static void spacemit_get_of_property(struct sdhci_host *host,
 		pdata->rxtuning.window_limit = (u8)property;
 	else
 		pdata->rxtuning.window_limit = RX_TUNING_WINDOW_THRESHOLD;
+
+	/* read rx tuning window type */
+	if (!of_property_read_u32(np, "spacemit,rx_tuning_type", &property))
+		pdata->rxtuning.window_type = (u8)property;
+	else
+		pdata->rxtuning.window_type = MIDDLE_WINDOW;
 
 	/* tx tuning dline_reg */
 	if (!of_property_read_u32(np, "spacemit,tx_dline_reg", &property))
