@@ -52,6 +52,7 @@ struct rx_tuning {
 	u32 card_cid[4];
 	u8 window_limit;
 	u8 tuning_fail;
+	u8 window_type;
 };
 
 /*
