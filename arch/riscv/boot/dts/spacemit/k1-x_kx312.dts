@@ -212,7 +212,6 @@
 &hdmi{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hdmi_0>;
-	use-no-edid;
 	status = "okay";
 };
 
