@@ -40,7 +40,7 @@
 
 
 struct hdmi_data_info {
-	uint8_t edid[128];
+	uint8_t edid[EDID_LENGTH];
 	int vic;
 	bool sink_has_audio;
 	unsigned int enc_in_format;
@@ -409,7 +409,7 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 	value |= SPACEMIT_HDMI_DDC_DONE;
 
 	hdmi_writeb(hdmi, 0xc, value);
-	udelay(5);
+	udelay(100);
 
 	DRM_DEBUG("hdmi_i2c_read --%u\r\n", length);
 
@@ -459,6 +459,7 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 		DRM_INFO("%s wait hdmi ddc command done timeout\n", __func__);
 		return -1;
 	}
+	udelay(100);
 
 	DRM_DEBUG("hdmi_i2c_write --%u\r\n", length);
 
@@ -469,13 +470,23 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 int edid_read (struct spacemit_hdmi *hdmi){
 	int i;
 	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
+	uint8_t offset;
+	int result;
 
 	DRM_DEBUG("%s()\n", __func__);
 
-	if (0 == hdmi_i2c_write(hdmi, 0x50, hdmi_data->edid, 1))
-		hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid, EDID_LENGTH);
-	else
-		return -1;
+	for(i = 0; i < 8; i++) {
+		offset = i * 16;
+		result = hdmi_i2c_write(hdmi, 0x50, &offset, 1);
+		if (result < 0)
+			break;
+		hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid + offset, 16);
+	}
+
+	if (result < 0) {
+		memset(hdmi_data->edid, 0x00, EDID_LENGTH);
+		return result;
+	}
 
 	for(i = 0; i < EDID_LENGTH; i += 4){
 		DRM_INFO("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
