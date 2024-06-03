@@ -36,6 +36,7 @@
 #include <linux/io.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/major.h>
 #include <linux/kdev_t.h>
 #ifdef CONFIG_OF
