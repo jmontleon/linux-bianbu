@@ -565,7 +565,7 @@ int k1xisp_cdevs_create(void)
 	g_isp_cdevice.cdev_num = devNum;
 	g_isp_cdevice.cdev_major = MAJOR(devNum);
 
-	g_isp_cdevice.isp_class = class_create(THIS_MODULE, K1X_ISP_DEV_NAME);
+	g_isp_cdevice.isp_class = class_create(K1X_ISP_DEV_NAME);
 	if (IS_ERR(g_isp_cdevice.isp_class)) {
 		ret = PTR_ERR(g_isp_cdevice.isp_class);
 		goto ERR_STEP1;
