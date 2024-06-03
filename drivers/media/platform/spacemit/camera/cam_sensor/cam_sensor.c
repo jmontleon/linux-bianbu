@@ -1148,7 +1148,7 @@ static int cam_snr_drv_init(void)
 
 	camsnr_major = MAJOR(dev_id);
 
-	camsnr_class = class_create(THIS_MODULE, DRIVER_NAME);
+	camsnr_class = class_create(DRIVER_NAME);
 	if (IS_ERR(camsnr_class)) {
 		cam_err("%s: camsnr_class is error", __func__);
 		ret = PTR_ERR(camsnr_class);
