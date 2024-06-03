@@ -643,10 +643,10 @@ static SPACEMIT_CCU_GATE_NO_PARENT(onewire_clk, "onewire_clk", NULL,
 	BASE_TYPE_APBC, APBC_ONEWIRE_CLK_RST,
 	0x3, 0x3, 0x0, 0);
 
-static SPACEMIT_CCU_GATE_FACTOR(i2s_sysclk, "i2s_sysclk", "pll1_d16_153p6",
+static SPACEMIT_CCU_GATE_FACTOR(i2s_sysclk, "i2s_sysclk", "pll1_d8_307p2",
 	BASE_TYPE_MPMU, MPMU_ISCCR,
 	BIT(31), BIT(31), 0x0,
-	50, 1, 0);
+	200, 1, 0);
 static SPACEMIT_CCU_GATE_FACTOR(i2s_bclk, "i2s_bclk", "i2s_sysclk",
 	BASE_TYPE_MPMU, MPMU_ISCCR,
 	BIT(29), BIT(29), 0x0,
