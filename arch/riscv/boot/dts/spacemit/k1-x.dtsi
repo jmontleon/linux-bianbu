@@ -445,13 +445,6 @@
 			clock-output-names = "clk_32k";
 		};
 
-		pll_clk_timer: clock-pll_clk_timer {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <52000000>;
-			clock-output-names = "pll_clk_timer";
-		};
-
 		pll_clk_cluster0: clock-pll_clk_cluster0 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
@@ -464,7 +457,7 @@
 			compatible = "fixed-clock";
 			clock-frequency = <10000000>;
 			clock-output-names = "pll_clk_cluster1";
-		};		
+		};
 	};
 
 	reserved-memory {
@@ -532,6 +525,7 @@
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
+		dma-noncoherent;
 		ranges;
 
 		/* dram mapping for dma/usb/sdh/audio/crypto for ex. */
@@ -832,15 +826,15 @@
 			interrupts = <45>;
 			clocks = <&ccu CLK_UART3>, <&ccu CLK_SLOW_UART>;
 			clock-names = "func", "gate";
- 			clk-fpga = <14750000>;
+			clk-fpga = <14750000>;
 			resets = <&reset RESET_UART3>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
- 			status = "disabled";
- 		};
+			status = "disabled";
+		};
 
 		uart4: uart@d4017300 {
 			compatible = "spacemit,pxa-uart";
@@ -941,8 +935,8 @@
 			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
- 			status = "disabled";
- 		};
+			status = "disabled";
+		};
 
 		mailbox: mailbox@d4013400 {
 			compatible = "spacemit,k1-x-mailbox";
@@ -1097,8 +1091,8 @@
 			clocks = <&ccu CLK_TWSI0>;
 			resets = <&reset RESET_TWSI0>;
 			/*
-			dmas = <&pdma0 AP2_I2C0_RX 1
-				&pdma0 AP2_I2C0_TX 1>;
+			dmas = <&pdma0 DMA_I2C0_RX 1
+				&pdma0 DMA_I2C0_TX 1>;
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
@@ -1110,106 +1104,101 @@
 			spacemit,i2c-wcr = <0x142a>;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
 
-                i2c1: i2c@d4011000 {
-                        compatible = "spacemit,k1x-i2c";
-                        spacemit,adapter-id = <1>;
-                        reg = <0x0 0xd4011000 0x0 0x38>;
-                        /* usually i2c client has only 1 reg field */
-                        #address-cells = <1>;
-                        #size-cells = <0>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <37>;
-                        clocks = <&ccu CLK_TWSI1>;
-                        resets = <&reset RESET_TWSI1>;
-                        /*
-                        dmas = <&pdma0 AP2_I2C1_RX 1
-                                &pdma0 AP2_I2C1_TX 1>;
-                        dma-names = "rx", "tx";
-                        */
-                        spacemit,dma-disable;
-                        /* spacemit,i2c-fast-mode; */
-                        /* spacemit,i2c-high-mode; */
-                        spacemit,i2c-master-code = /bits/ 8 <0x0e>;
-                        spacemit,i2c-clk-rate = <32000000>;
-                        spacemit,i2c-lcr = <0x82c469f>;
-                        spacemit,i2c-wcr = <0x142a>;
-                        /* apb clock: 26MHz or 52MHz */
-                        spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
-			interconnect-names = "dma-mem";
-                        status = "disabled";
-                };
-
-                i2c2: i2c@d4012000 {
-                        compatible = "spacemit,k1x-i2c";
-                        spacemit,adapter-id = <2>;
-                        reg = <0x0 0xd4012000 0x0 0x38>;
-                        /* usually i2c client has only 1 reg field */
-                        #address-cells = <1>;
-                        #size-cells = <0>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <38>;
-                        clocks = <&ccu CLK_TWSI2>;
-                        resets = <&reset RESET_TWSI2>;
-                        /*
-                        dmas = <&pdma0 AP2_I2C2_RX 1
-                                &pdma0 AP2_I2C2_TX 1>;
-                        dma-names = "rx", "tx";
-                        */
-                        spacemit,dma-disable;
-                        /* spacemit,i2c-fast-mode; */
-                        /* spacemit,i2c-high-mode; */
-                        spacemit,i2c-master-code = /bits/ 8 <0x0e>;
-                        spacemit,i2c-clk-rate = <32000000>;
-                        spacemit,i2c-lcr = <0x82c469f>;
-                        spacemit,i2c-wcr = <0x142a>;
-                        /* apb clock: 26MHz or 52MHz */
-                        spacemit,apb_clock = <52000000>;
+		i2c1: i2c@d4011000 {
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <1>;
+			reg = <0x0 0xd4011000 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <37>;
+			clocks = <&ccu CLK_TWSI1>;
+			resets = <&reset RESET_TWSI1>;
+			/*
+			dmas = <&pdma0 DMA_I2C1_RX 1
+				&pdma0 DMA_I2C1_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-                        status = "disabled";
-                };
+			status = "disabled";
+		};
 
-                i2c3: i2c@f0614000 {
-                        compatible = "spacemit,k1x-i2c";
-                        spacemit,adapter-id = <3>;
-                        reg = <0x0 0xf0614000 0x0 0x38>;
-                        /* usually i2c client has only 1 reg field */
-                        #address-cells = <1>;
-                        #size-cells = <0>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <39>;
-                        /*
-                        dmas = <&pdma0 AP2_I2C3_RX 1
-                                &pdma0 AP2_I2C3_TX 1>;
-                        dma-names = "rx", "tx";
-                        */
-                        spacemit,dma-disable;
-                        /* spacemit,i2c-fast-mode; */
-                        /* spacemit,i2c-high-mode; */
-                        spacemit,i2c-master-code = /bits/ 8 <0x0e>;
-                        spacemit,i2c-clk-rate = <32000000>;
-                        spacemit,i2c-lcr = <0x82c469f>;
-                        spacemit,i2c-wcr = <0x142a>;
-                        /* apb clock: 26MHz or 52MHz */
-                        spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+		i2c2: i2c@d4012000 {
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <2>;
+			reg = <0x0 0xd4012000 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <38>;
+			clocks = <&ccu CLK_TWSI2>;
+			resets = <&reset RESET_TWSI2>;
+			/*
+			dmas = <&pdma0 DMA_I2C2_RX 1
+				&pdma0 DMA_I2C2_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-                        status = "disabled";
-                };
+			status = "disabled";
+		};
+
+		i2c3: i2c@f0614000 {
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <3>;
+			reg = <0x0 0xf0614000 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <39>;
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
+			interconnects = <&dram_range0>;
+			interconnect-names = "dma-mem";
+			status = "disabled";
+		};
 
 		i2c4: i2c@d4012800 {
 			compatible = "spacemit,k1x-i2c";
@@ -1221,10 +1210,10 @@
 			interrupt-parent = <&intc>;
 			interrupts = <40>;
 			clocks = <&ccu CLK_TWSI4>;
-                        resets = <&reset RESET_TWSI4>;
+			resets = <&reset RESET_TWSI4>;
 			/*
-			dmas = <&pdma0 AP2_I2C4_RX 1
-				&pdma0 AP2_I2C4_TX 1>;
+			dmas = <&pdma0 DMA_I2C4_RX 1
+				&pdma0 DMA_I2C4_TX 1>;
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
@@ -1236,44 +1225,44 @@
 			spacemit,i2c-wcr = <0x142a>;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
 
-                i2c5: i2c@d4013800 {
-                        compatible = "spacemit,k1x-i2c";
-                        spacemit,adapter-id = <5>;
-                        reg = <0x0 0xd4013800 0x0 0x38>;
-                        /* usually i2c client has only 1 reg field */
-                        #address-cells = <1>;
-                        #size-cells = <0>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <41>;
-                        clocks = <&ccu CLK_TWSI5>;
-                        resets = <&reset RESET_TWSI5>;
-                        /*
-                        dmas = <&pdma0 AP2_I2C5_RX 1
-                                &pdma0 AP2_I2C5_TX 1>;
-                        dma-names = "rx", "tx";
-                        */
-                        spacemit,dma-disable;
-                        /* spacemit,i2c-fast-mode; */
-                        /* spacemit,i2c-high-mode; */
-                        spacemit,i2c-master-code = /bits/ 8 <0x0e>;
-                        spacemit,i2c-clk-rate = <32000000>;
-                        spacemit,i2c-lcr = <0x82c469f>;
-                        spacemit,i2c-wcr = <0x142a>;
-                        /* apb clock: 26MHz or 52MHz */
-                        spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+		i2c5: i2c@d4013800 {
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <5>;
+			reg = <0x0 0xd4013800 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <41>;
+			clocks = <&ccu CLK_TWSI5>;
+			resets = <&reset RESET_TWSI5>;
+			/*
+			dmas = <&pdma0 DMA_I2C5_RX 1
+				&pdma0 DMA_I2C5_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-                        status = "disabled";
-                };
+			status = "disabled";
+		};
 
 		i2c6: i2c@d4018800 {
 			compatible = "spacemit,k1x-i2c";
@@ -1285,10 +1274,10 @@
 			interrupt-parent = <&intc>;
 			interrupts = <70>;
 			clocks = <&ccu CLK_TWSI6>;
-                        resets = <&reset RESET_TWSI6>;
+			resets = <&reset RESET_TWSI6>;
 			/*
-			dmas = <&pdma0 AP_I2C6_RX 1
-				&pdma0 AP_I2C6_TX 1>;
+			dmas = <&pdma0 DMA_I2C6_RX 1
+				&pdma0 DMA_I2C6_TX 1>;
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
@@ -1300,8 +1289,8 @@
 			spacemit,i2c-wcr = <0x142a>;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
@@ -1317,10 +1306,10 @@
 			interrupt-parent = <&intc>;
 			interrupts = <18>;
 			clocks = <&ccu CLK_TWSI7>;
-                        resets = <&reset RESET_TWSI7>;
+			resets = <&reset RESET_TWSI7>;
 			/*
-			dmas = <&pdma0 AP_I2C7_RX 1
-				&pdma0 AP_I2C7_TX 1>;
+			dmas = <&pdma0 DMA_I2C7_RX 1
+				&pdma0 DMA_I2C7_TX 1>;
 			dma-names = "rx", "tx";
 			*/
 			spacemit,dma-disable;
@@ -1332,44 +1321,44 @@
 			spacemit,i2c-wcr = <0x142a>;
 			/* apb clock: 26MHz or 52MHz */
 			spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
 
 		i2c8: i2c@d401d800 {
-                        compatible = "spacemit,k1x-i2c";
-                        spacemit,adapter-id = <8>;
-                        reg = <0x0 0xd401d800 0x0 0x38>;
-                        /* usually i2c client has only 1 reg field */
-                        #address-cells = <1>;
-                        #size-cells = <0>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <19>;
-                        clocks = <&ccu CLK_TWSI8>;
-                        resets = <&reset RESET_TWSI8>;
-                        /*
-                        dmas = <&pdma0 AP_I2C8_RX 1
-                                &pdma0 AP_I2C8_TX 1>;
-                        dma-names = "rx", "tx";
-                        */
-                        spacemit,dma-disable;
-                        /* spacemit,i2c-fast-mode; */
-                        /* spacemit,i2c-high-mode; */
-                        spacemit,i2c-master-code = /bits/ 8 <0x0e>;
-                        spacemit,i2c-clk-rate = <32000000>;
-                        spacemit,i2c-lcr = <0x82c469f>;
-                        spacemit,i2c-wcr = <0x142a>;
-                        /* apb clock: 26MHz or 52MHz */
-                        spacemit,apb_clock = <52000000>;
-                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
-                        cpuidle,pm-runtime,sleep;
+			compatible = "spacemit,k1x-i2c";
+			spacemit,adapter-id = <8>;
+			reg = <0x0 0xd401d800 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupt-parent = <&intc>;
+			interrupts = <19>;
+			clocks = <&ccu CLK_TWSI8>;
+			resets = <&reset RESET_TWSI8>;
+			/*
+			dmas = <&pdma0 DMA_I2C8_RX 1
+				&pdma0 DMA_I2C8_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			cpuidle,pm-runtime,sleep;
 			interconnects = <&dram_range0>;
 			interconnect-names = "dma-mem";
-                        status = "disabled";
-                };
+			status = "disabled";
+		};
 
 		pwm0: pwm@d401a000 {
 			compatible = "spacemit,k1x-pwm";
@@ -1600,6 +1589,84 @@
 				spacemit,timer-counter-id = <0>;
 				status = "ok";
 			};
+		};
+
+		timer1: timer@d4016000 {
+			compatible = "spacemit,soc-timer";
+			reg = <0x0 0xd4016000 0x0 0xc8>;
+			spacemit,timer-id = <1>;
+			spacemit,timer-fastclk-frequency = <12800000>;
+			spacemit,timer-apb-frequency = <52000000>;
+			spacemit,timer-frequency = <12800000>;
+			clocks = <&ccu CLK_TIMERS2>;
+			resets = <&reset RESET_TIMERS2>;
+			status = "disabled";
+
+			counter0 {
+				compatible = "spacemit,timer-match";
+				interrupts = <26>;
+				interrupt-parent = <&intc>;
+				spacemit,timer-counter-id = <0>;
+				status = "disabled";
+			};
+		};
+
+		watchdog: watchdog@d4080000 {
+			compatible = "spacemit,soc-wdt";
+			clocks = <&ccu CLK_WDT>;
+			resets = <&reset RESET_WDT>;
+			reg = <0x0 0xd4080000 0x0 0xff>,
+				<0x0 0xd4050000 0x0 0x1024>;
+			interrupts = <35>;
+			interrupt-parent = <&intc>;
+			spa,wdt-disabled;
+			status = "ok";
+		};
+
+		reboot: handler@d4282f90 {
+			compatible = "spacemit,k1x-reboot";
+			reg = <0x0 0xd4282f90 0x0 0x4>;
+			status = "ok";
+		};
+
+		rtc: rtc@d4010000 {
+			compatible = "mrvl,mmp-rtc";
+			reg = <0x0 0xd4010000 0x0 0x100>;
+			interrupt-parent = <&intc>;
+			interrupts = <21>, <22>;
+			interrupt-names = "rtc 1Hz", "rtc alarm";
+			clocks = <&ccu CLK_RTC>;
+			resets = <&reset RESET_RTC>;
+			status = "disabled";
+		};
+
+		flexcan0: fdcan@d4028000 {
+			compatible = "spacemit,k1x-flexcan";
+			reg = <0x0 0xd4028000 0x0 0x4000>;
+			interrupts = <16>;
+			interrupt-parent = <&intc>;
+			clocks = <&ccu CLK_CAN0>,<&ccu CLK_CAN0_BUS>;
+			clock-names = "per","ipg";
+			resets = <&reset RESET_CAN0>;
+			fsl,clk-source = <0>;
+			interconnects = <&dram_range0>;
+			interconnect-names = "dma-mem";
+			status = "disabled";
+		};
+
+		flexcan1: fdcan@c0870000 {
+			compatible = "spacemit,k1x-flexcan";
+			reg = <0x0 0xc0870000 0x0 0x4000>;
+			interrupt-parent = <&intc>;
+			clock-frequency = <20000000>;
+			fsl,clk-source = <0>;
+			clocks = <&ccu CLK_RCPU_CAN>,<&ccu CLK_RCPU_CAN_BUS>;
+			clock-names = "per","ipg";
+			resets = <&reset RESET_RCPU_CAN>;
+			interconnects = <&dram_range0>;
+			interconnect-names = "dma-mem";
+			rcpu-can;
+			status = "disabled";
 		};
 
 		gpio: gpio@d4019000 {
@@ -2009,7 +2076,7 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 			ranges = <0x01000000 0x0 0xa0002000 0 0xa0002000 0x0 0x100000>,
-				<0x02000000 0x0 0xa0102000 0 0xa0102000 0x0 0x10000000>;
+				 <0x02000000 0x0 0xa0102000 0 0xa0102000 0x0 0x10000000>;
 			interconnects = <&dram_range2>;
 			interconnect-names = "dma-mem";
 
@@ -2043,10 +2110,10 @@
 			k1x,qspi-sfb1ad = <0x100000>;
 			k1x,qspi-sfb2ad = <0x100000>;
 			clocks = <&ccu CLK_QSPI>,
-				<&ccu CLK_QSPI_BUS>;
+				 <&ccu CLK_QSPI_BUS>;
 			clock-names = "qspi_clk", "qspi_bus_clk";
 			resets = <&reset RESET_QSPI>,
-				<&reset RESET_QSPI_BUS>;
+				 <&reset RESET_QSPI_BUS>;
 			reset-names = "qspi_reset", "qspi_bus_reset";
 			k1x,qspi-pmuap-reg = <0xd4282860>;
 			k1x,qspi-mpmu-acgr-reg = <0xd4051024>;
@@ -2065,25 +2132,25 @@
 			status = "disabled";
 		};
 
-                thermal: thermal@d4018000 {
-                        compatible = "spacemit,k1x-tsensor";
-                        reg = <0x0 0xd4018000 0x0 0x100>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <61>;
-                        clocks = <&ccu CLK_TSEN>;
-                        clock-names = "thermal_core";
-                        resets = <&reset RESET_TSEN>;
-                        reset-names = "tsen_reset";
+		thermal: thermal@d4018000 {
+			compatible = "spacemit,k1x-tsensor";
+			reg = <0x0 0xd4018000 0x0 0x100>;
+			interrupt-parent = <&intc>;
+			interrupts = <61>;
+			clocks = <&ccu CLK_TSEN>;
+			clock-names = "thermal_core";
+			resets = <&reset RESET_TSEN>;
+			reset-names = "tsen_reset";
 			/* bjt-tsensor map:
-			 * bjt0: local,         bjt1: top,
-			 * bjt2: gpu,           bjt3: cluster0,
+			 * bjt0: local,		bjt1: top,
+			 * bjt2: gpu,		bjt3: cluster0,
 			 * bjt4: cluster1,
 			 */
 			sensor_range = <0x3 0x4>;
 			/* emergent_reboot_threshold = <110>; */
-                        #thermal-sensor-cells = <1>;
-                        status = "okay";
-                };
+			#thermal-sensor-cells = <1>;
+			status = "okay";
+		};
 
 		thermal-zones {
 			cluster0_thermal {
@@ -2114,9 +2181,6 @@
 				cooling-maps {
 					map0 {
 						trip = <&cls0_trip0>;
-/*
-						cooling-device = <&{/cpus/cpu@3/thermal-hotplug} 0 1>;
-*/
 						cooling-device = <&cpu_0 1 2>,
 								 <&cpu_1 1 2>,
 								 <&cpu_2 1 2>,
@@ -2125,9 +2189,6 @@
 
 					map1 {
 						trip = <&cls0_trip1>;
-/*
-						cooling-device = <&{/cpus/cpu@3/thermal-hotplug} 0 1>;
-*/
 						cooling-device = <&cpu_0 3 3>,
 								 <&cpu_1 3 3>,
 								 <&cpu_2 3 3>,
@@ -2164,9 +2225,6 @@
 				cooling-maps {
 					map0 {
 						trip = <&cls1_trip0>;
-/*
-						cooling-device = <&{/cpus/cpu@7/thermal-hotplug} 0 1>;
-*/
 						cooling-device = <&cpu_4 1 2>,
 								 <&cpu_5 1 2>,
 								 <&cpu_6 1 2>,
@@ -2175,9 +2233,6 @@
 
 					map1 {
 						trip = <&cls1_trip1>;
-/*
-						cooling-device = <&{/cpus/cpu@7/thermal-hotplug} 0 1>;
-*/
 						cooling-device = <&cpu_4 3 3>,
 								 <&cpu_5 3 3>,
 								 <&cpu_6 3 3>,
@@ -2377,7 +2432,7 @@
 	hdmi_sspa: spacemit_snd_sspa {
 		compatible = "spacemit,spacemit-snd-sspa";
 		reg = <0 0xc0883900 0 0x300>,
-			<0 0xc0882000 0 0x50>;
+		      <0 0xc0882000 0 0x50>;
 		clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
 		resets = <&reset RESET_RCPU_HDMIAUDIO>;
 		assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
