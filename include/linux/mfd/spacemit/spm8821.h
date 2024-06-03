@@ -643,7 +643,6 @@ static const struct regmap_irq_chip spm8821_irq_chip = {	\
 	.mask_base = SPM8821_E_EN_REG_BASE,			\
 	.ack_base = SPM8821_E_STATUS_REG_BASE,			\
 	.init_ack_masked = true,				\
-	.mask_invert = true,					\
 };
 
 /* power-key */
