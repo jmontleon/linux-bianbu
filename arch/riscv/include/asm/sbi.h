@@ -453,6 +453,10 @@ void sbi_shutdown(void);
 void sbi_send_ipi(unsigned int cpu);
 int sbi_remote_fence_i(const struct cpumask *cpu_mask);
 
+#if defined(CONFIG_SOC_SPACEMIT_K1PRO) || defined(CONFIG_SOC_SPACEMIT_K1X)
+void sbi_flush_local_dcache_all(void);
+#endif
+
 int sbi_remote_sfence_vma_asid(const struct cpumask *cpu_mask,
 				unsigned long start,
 				unsigned long size,
