@@ -304,7 +304,7 @@ static int c_show(struct seq_file *m, void *v)
 {
 	unsigned long cpu_id = (unsigned long)v - 1;
 	struct riscv_cpuinfo *ci = per_cpu_ptr(&riscv_cpuinfo, cpu_id);
-	struct device_node *node;
+	struct device_node *node = of_get_cpu_node(cpu_id, NULL);
 	const char *compat, *model;
 
 	seq_printf(m, "processor\t: %lu\n", cpu_id);
@@ -317,19 +317,17 @@ static int c_show(struct seq_file *m, void *v)
 	print_mmu(m);
 
 	if (acpi_disabled) {
-		node = of_get_cpu_node(cpu_id, NULL);
-
 		if (!of_property_read_string(node, "compatible", &compat) &&
 		    strcmp(compat, "riscv"))
 			seq_printf(m, "uarch\t\t: %s\n", compat);
 
-		of_node_put(node);
 	}
 
 	seq_printf(m, "mvendorid\t: 0x%lx\n", ci->mvendorid);
 	seq_printf(m, "marchid\t\t: 0x%lx\n", ci->marchid);
 	seq_printf(m, "mimpid\t\t: 0x%lx\n", ci->mimpid);
 	seq_puts(m, "\n");
+	of_node_put(node);
 
 	return 0;
 }
