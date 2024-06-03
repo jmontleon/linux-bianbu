@@ -2249,7 +2249,7 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
 		IS_ENABLED(CONFIG_SOC_SPACEMIT_K1PRO)) {
 		ret = dma_set_mask_and_coherent(dwc->sysdev, DMA_BIT_MASK(40));
 		if (ret)
-			goto disable_clks;
+			goto err_disable_clks;
 	}
 
 	/*
@@ -2269,7 +2269,7 @@ int dwc3_core_probe(const struct dwc3_probe_data *data)
 	if (IS_ENABLED(CONFIG_SOC_SPACEMIT_K1X)) {
 		ret = dma_set_mask_and_coherent(dwc->sysdev, DMA_BIT_MASK(32));
 		if (ret)
-			goto disable_clks;
+			goto err_disable_clks;
 	}
 
 	spin_lock_init(&dwc->lock);
