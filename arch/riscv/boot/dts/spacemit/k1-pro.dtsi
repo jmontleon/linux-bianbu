@@ -330,15 +330,15 @@
 			riscv,ndev = <159>;
 		};
 
-                broadcast_timer: broadcast_timer@2cfa0000 {
-                        compatible = "snps,dw-apb-timer";
-                        reg = <0x0 0x2cfa0000 0x0 0x14>;
-                        interrupt-parent = <&intc>;
-                        interrupts = <16>;
-                        clock-frequency = "50000000";
-                        resets = <&reset RESET_TIMER>;
-                        status = "okay";
-                };
+		broadcast_timer: broadcast_timer@2cfa0000 {
+			compatible = "snps,dw-apb-timer";
+			reg = <0x0 0x2cfa0000 0x0 0x14>;
+			interrupt-parent = <&intc>;
+			interrupts = <16>;
+			clock-frequency = "50000000";
+			resets = <&reset RESET_TIMER>;
+			status = "okay";
+		};
 
 		/* Normal serial, log */
 		uart0: serial@2cea0000 {
@@ -374,7 +374,7 @@
 			/*clock-frequency = <10000000>;
 			clocks = <&ccu CLK_IR>;*/
 			status = "disabled";
-                };
+		};
 
 		dma: dma-controller@2ce40000 {
 			compatible = "spacemit,k1pro-axi-dma";
@@ -600,6 +600,14 @@
 				reg = <0x61>;
 				status = "okay";
 			};
+			tlv320aic3101: tlv320aic3101@18 {
+				compatible = "ti,tlv320aic3x";
+				reg = <0x18>;
+				#sound-dai-cells = <0>;
+				ai3x-ocmv = <1>;
+				ai3x-micbias-vg = <2>;
+				status = "disabled";
+			};
 		};
 
 		i2c1: i2c@2cee4000 {
@@ -684,10 +692,10 @@
 			status = "disabled";
 		};
 
-                eth0: ethernet@2cc00000 {
+		eth0: ethernet@2cc00000 {
 			compatible = "spacemit,k1-pro-ethqos";
 			reg = <0x00 0x2cc00000 0x0 0x10000
-				   0x00 0x2f028004 0x0 0x4>;
+			       0x00 0x2f028004 0x0 0x4>;
 			reg-names = "stmmaceth", "sys_gmac_cfg";
 			interrupt-parent = <&intc>;
 			interrupts = <132>;
@@ -754,7 +762,71 @@
 			interrupts = <120>;
 			interrupt-parent = <&intc>;
 			resets = <&reset RESET_VPU>;
-                        status = "disabled";
+			status = "disabled";
+		};
+
+		i2s0_mst: i2s0_mst@2cfe0000{
+			compatible = "snps,designware-i2s-master";
+			reg = <0x0 0x2cfe0000 0x0 0x4000>;
+			clocks = <&ccu CLK_I2S0_EN>,
+				 <&ccu CLK_I2S0_MCLK>,
+				 <&ccu CLK_I2S0_BCLK>,
+				 <&ccu CLK_I2S0_MCLK_OUT>;
+			clock-names = "i2s_en", "i2s_mclk_div",
+				"i2s_bclk_div", "i2s_mclk_out";
+			resets = <&reset RESET_I2S0>;
+			reset-names = "i2s_rst";
+			dmas = <&dma 20 0>, <&dma 52 0>;
+			dma-names = "tx", "rx";
+			mclk-fs = <256>;
+			fifo-empty-threshold = <2>;
+			#sound-dai-cells = <0>;
+			status = "disabled";
+		};
+		i2s0_slv: i2s0_slv@2cfe0000{
+			compatible = "snps,designware-i2s-slave";
+			reg = <0x0 0x2cfe0000 0x0 0x4000>;
+			resets = <&reset RESET_I2S0>;
+			reset-names = "i2s_rst";
+			dmas = <&dma 21 0>, <&dma 53 0>;
+			dma-names = "tx", "rx";
+			#sound-dai-cells = <0>;
+			status = "disabled";
+		};
+		i2s1_mst: i2s1_mst@2cfe4000{
+			compatible = "snps,designware-i2s4x-master";
+			reg = <0x0 0x2cfe4000 0x0 0x4000>;
+			clocks = <&ccu CLK_I2S1_EN>,
+				 <&ccu CLK_I2S1_MCLK>,
+				 <&ccu CLK_I2S1_BCLK>,
+				 <&ccu CLK_I2S1_MCLK_OUT>;
+			clock-names = "i2s_en", "i2s_mclk_div",
+				"i2s_bclk_div", "i2s_mclk_out";
+			resets = <&reset RESET_I2S1>;
+			reset-names = "i2s_rst";
+			dmas = <&dma 22 0>, <&dma 54 0>;
+			dma-names = "tx", "rx";
+			mclk-fs = <256>;
+			fifo-empty-threshold = <2>;
+			#sound-dai-cells = <0>;
+			status = "disabled";
+		};
+		sound0: sound0@1 {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "I2S-Sound-Card";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+			simple-audio-card,dai-link@0 {
+				reg = <0>;
+				format = "i2s";
+				cpu {
+					sound-dai = <&i2s0_mst>;
+				};
+				codec {
+					sound-dai = <&tlv320aic3101>;
+				};
+			};
 		};
 	};
 

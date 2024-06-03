@@ -14,7 +14,7 @@
 		#size-cells = <0>;
 		timebase-frequency = <50000000>;
 
-    };
+	};
 
 	memory@0 {
 		device_type = "memory";
@@ -35,7 +35,7 @@
 };
 
 &uart0 {
-    clock-frequency = <50000000>;
+	clock-frequency = <50000000>;
 	status = "okay";
 };
 
@@ -53,21 +53,21 @@
 };
 
 &qspi0 {
-       pinctrl-names = "default";
-       pinctrl-0 = <&pinctrl_qspi0>;
-       num-cs = <4>;
-       status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_qspi0>;
+	num-cs = <4>;
+	status = "okay";
 
-       flash@0 {
-               compatible = "jedec,spi-nor";
-               reg = <0>;
-               spi-max-frequency = <6250000>;
-               m25p,fast-read;
-               spi-tx-bus-width = <1>;
-               spi-rx-bus-width = <4>;
-               broken-flash-reset;
-               status = "disabled";
-       };
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <6250000>;
+		m25p,fast-read;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		broken-flash-reset;
+		status = "disabled";
+	};
 };
 
 &qspi1 {
@@ -85,27 +85,27 @@
 };
 
 &eth0 {
-       phy-mode = "rmii";
-       pinctrl-names = "default";
-       pinctrl-0 = <&pinctrl_gmac>;
-       rx-clk-delay = <0x00>; /* for RGMII */
-       tx-clk-delay = <0x00>; /* for RGMII */
-       phy-handle = <&phy_88E1111_0>;
-       status = "okay";
+	phy-mode = "rmii";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gmac>;
+	rx-clk-delay = <0x00>; /* for RGMII */
+	tx-clk-delay = <0x00>; /* for RGMII */
+	phy-handle = <&phy_88E1111_0>;
+	status = "okay";
 
-       mdio0 {
-               #address-cells = <1>;
-               #size-cells = <0>;
-               compatible = "snps,dwmac-mdio";
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
 
-               phy_88E1111_0: ethernet-phy@0 {
-                       reg = <0x7>;
-               };
-       };
+		phy_88E1111_0: ethernet-phy@0 {
+			reg = <0x7>;
+		};
+	};
 };
 
 &pcie5 {
-      status = "disabled";
+	status = "disabled";
 };
 
 &esos_rproc {
@@ -113,7 +113,7 @@
 };
 
 &vpu {
-        status = "disabled";
+	status = "disabled";
 };
 
 &cpu_0 {

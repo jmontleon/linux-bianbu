@@ -204,7 +204,7 @@
 };
 
 &i2c4 {
-        pinctrl-names = "default";
+	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
 
 	clock-frequency = <400000>;
@@ -360,14 +360,6 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			spacemit,npins = <6>;
-/**
- *			led_pins: led-pins {
- *				pins = "PIN3";
- *				function = "sleep";
- *				bias-disable = <0>;
- *				drive-open-drain = <0x1>;
- *			};
- */
 		};
 
 		pwr_key: key {
@@ -393,48 +385,48 @@
 		&range GPIO_115 2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_118 2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_125 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
-                &range GPIO_127 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
+		&range GPIO_127 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 	>;
 
 	pinctrl_gmac0: gmac0_grp {
 		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_00,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rxdv */
-			K1X_PADCONF(GPIO_01,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d0 */
-			K1X_PADCONF(GPIO_02,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d1 */
-			K1X_PADCONF(GPIO_03,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_clk */
-			K1X_PADCONF(GPIO_04,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d2 */
-			K1X_PADCONF(GPIO_05,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d3 */
-			K1X_PADCONF(GPIO_06,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d0 */
-			K1X_PADCONF(GPIO_07,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d1 */
-			K1X_PADCONF(GPIO_08,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx */
-			K1X_PADCONF(GPIO_09,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d2 */
-			K1X_PADCONF(GPIO_10,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d3 */
-			K1X_PADCONF(GPIO_11,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_en */
-			K1X_PADCONF(GPIO_12,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac0_mdc */
-			K1X_PADCONF(GPIO_13,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac0_mdio */
-			K1X_PADCONF(GPIO_14,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_int_n */
-			K1X_PADCONF(GPIO_45,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_clk_ref */
+			K1X_PADCONF(GPIO_00, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rxdv */
+			K1X_PADCONF(GPIO_01, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d0 */
+			K1X_PADCONF(GPIO_02, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d1 */
+			K1X_PADCONF(GPIO_03, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_clk */
+			K1X_PADCONF(GPIO_04, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d2 */
+			K1X_PADCONF(GPIO_05, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d3 */
+			K1X_PADCONF(GPIO_06, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d0 */
+			K1X_PADCONF(GPIO_07, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d1 */
+			K1X_PADCONF(GPIO_08, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx */
+			K1X_PADCONF(GPIO_09, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d2 */
+			K1X_PADCONF(GPIO_10, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d3 */
+			K1X_PADCONF(GPIO_11, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_en */
+			K1X_PADCONF(GPIO_12, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdc */
+			K1X_PADCONF(GPIO_13, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdio */
+			K1X_PADCONF(GPIO_14, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_int_n */
+			K1X_PADCONF(GPIO_45, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_clk_ref */
 		>;
 	};
 
 	pinctrl_gmac1: gmac1_grp {
 		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_29,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_rxdv */
-			K1X_PADCONF(GPIO_30,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_rx_d0 */
-			K1X_PADCONF(GPIO_31,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_rx_d1 */
-			K1X_PADCONF(GPIO_32,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_rx_clk */
-			K1X_PADCONF(GPIO_33,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_rx_d2 */
-			K1X_PADCONF(GPIO_34,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_rx_d3 */
-			K1X_PADCONF(GPIO_35,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_tx_d0 */
-			K1X_PADCONF(GPIO_36,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_tx_d1 */
-			K1X_PADCONF(GPIO_37,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_tx */
-			K1X_PADCONF(GPIO_38,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_tx_d2 */
-			K1X_PADCONF(GPIO_39,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_tx_d3 */
-			K1X_PADCONF(GPIO_40,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_tx_en */
-			K1X_PADCONF(GPIO_41,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_mdc */
-			K1X_PADCONF(GPIO_42,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac1_mdio */
-			K1X_PADCONF(GPIO_43,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_int_n */
-			K1X_PADCONF(GPIO_46,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac1_clk_ref */
+			K1X_PADCONF(GPIO_29, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rxdv */
+			K1X_PADCONF(GPIO_30, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d0 */
+			K1X_PADCONF(GPIO_31, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d1 */
+			K1X_PADCONF(GPIO_32, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_clk */
+			K1X_PADCONF(GPIO_33, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d2 */
+			K1X_PADCONF(GPIO_34, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d3 */
+			K1X_PADCONF(GPIO_35, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d0 */
+			K1X_PADCONF(GPIO_36, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d1 */
+			K1X_PADCONF(GPIO_37, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_tx */
+			K1X_PADCONF(GPIO_38, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d2 */
+			K1X_PADCONF(GPIO_39, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d3 */
+			K1X_PADCONF(GPIO_40, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_en */
+			K1X_PADCONF(GPIO_41, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdc */
+			K1X_PADCONF(GPIO_42, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdio */
+			K1X_PADCONF(GPIO_43, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_int_n */
+			K1X_PADCONF(GPIO_46, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_clk_ref */
 		>;
 	};
 };
@@ -444,14 +436,14 @@
 		&pinctrl 49 GPIO_49 2
 		&pinctrl 58 GPIO_58 1
 		&pinctrl 63 GPIO_63 5
-                &pinctrl 75 GPIO_75 1
-                &pinctrl 79 GPIO_79 1
+		&pinctrl 75 GPIO_75 1
+		&pinctrl 79 GPIO_79 1
 		&pinctrl 90 GPIO_90 1
 		&pinctrl 110 GPIO_110 1
 		&pinctrl 115 GPIO_115 2
 		&pinctrl 118 GPIO_118 2
 		&pinctrl 125 GPIO_125 1
-                &pinctrl 127 GPIO_127 1
+		&pinctrl 127 GPIO_127 1
 	>;
 };
 
@@ -590,7 +582,7 @@
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
-        /* store forward mode */
+	/* store forward mode */
 	tx-threshold = <1518>;
 	rx-threshold = <12>;
 	tx-ring-num = <1024>;
