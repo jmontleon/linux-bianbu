@@ -2458,7 +2458,7 @@
 		resets = <&reset RESET_SSPA0>;
 		reset-names = "sspa-rst";
 		assigned-clocks = <&ccu CLK_SSPA0>;
-		assigned-clock-rates = <3072000>;
+		assigned-clock-rates = <1536000>;
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
 		status = "disabled";
 	};
@@ -2473,7 +2473,7 @@
 		resets = <&reset RESET_SSPA1>;
 		reset-names = "sspa-rst";
 		assigned-clocks = <&ccu CLK_SSPA1>;
-		assigned-clock-rates = <3072000>;
+		assigned-clock-rates = <1536000>;
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
 		status = "disabled";
 	};
