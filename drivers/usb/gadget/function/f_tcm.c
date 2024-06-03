@@ -249,6 +249,7 @@ static int bot_send_write_request(struct usbg_cmd *cmd)
 	int ret;
 
 	init_completion(&cmd->write_complete);
+	cmd->write_aborted = false;
 	cmd->fu = fu;
 
 	if (!cmd->data_len) {
@@ -264,11 +265,15 @@ static int bot_send_write_request(struct usbg_cmd *cmd)
 	if (ret)
 		goto cleanup;
 	ret = usb_ep_queue(fu->ep_out, fu->bot_req_out, GFP_KERNEL);
-	if (ret)
-		pr_err("%s(%d)\n", __func__, __LINE__);
+	if (ret) {
+		pr_err("%s(%d): %d\n", __func__, __LINE__, ret);
+		goto cleanup;
+	}
 
 	wait_for_completion(&cmd->write_complete);
-	target_execute_cmd(se_cmd);
+	if (!cmd->write_aborted)
+		target_execute_cmd(se_cmd);
+
 cleanup:
 	return ret;
 }
@@ -833,6 +838,7 @@ static int uasp_send_write_request(struct usbg_cmd *cmd)
 	int ret;
 
 	init_completion(&cmd->write_complete);
+	cmd->write_aborted = false;
 	cmd->fu = fu;
 
 	iu->tag = cpu_to_be16(cmd->tag);
@@ -864,9 +870,13 @@ static int uasp_send_write_request(struct usbg_cmd *cmd)
 			pr_err("%s(%d)\n", __func__, __LINE__);
 	}
 
+	if (ret)
+		goto cleanup;
+
 	wait_for_completion(&cmd->write_complete);
 
-	target_execute_cmd(se_cmd);
+	if (!cmd->write_aborted)
+		target_execute_cmd(se_cmd);
 cleanup:
 	return ret;
 }
@@ -1105,7 +1115,7 @@ static void usbg_data_write_cmpl(struct usb_ep *ep, struct usb_request *req)
 		stream->cmd = NULL;
 		target_put_sess_cmd(se_cmd);
 		transport_generic_free_cmd(&cmd->se_cmd, 0);
-		return;
+		goto abort_completion;
 	}
 
 	if (req->status) {
@@ -1129,10 +1139,14 @@ cleanup:
 	if (cmd->state == UASP_QUEUE_COMMAND &&
 		cmd->tmr_rsp == RC_OVERLAPPED_TAG) {
 		uasp_send_tm_response(cmd);
-		return;
+		goto abort_completion;
 	}
 	transport_send_check_condition_and_sense(se_cmd,
 			TCM_CHECK_CONDITION_ABORT_CMD, 0);
+abort_completion:
+	cmd->write_aborted = true;
+	complete(&cmd->write_complete);
+	return;
 }
 
 static int usbg_prepare_w_request(struct usbg_cmd *cmd, struct usb_request *req)

@@ -75,6 +75,7 @@ struct usbg_cmd {
 	struct se_cmd se_cmd;
 	void *data_buf; /* used if no sg support available */
 	struct f_uas *fu;
+	bool write_aborted;
 	struct completion write_complete;
 	struct kref ref;
 
