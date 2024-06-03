@@ -524,8 +524,8 @@
 
 	pinctrl_rcpu: pinctrl_rcpu_grp {
 		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
-			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
+			K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
+			K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
 		>;
 	};
 };
@@ -684,7 +684,7 @@
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
-        /* store forward mode */
+	/* store forward mode */
 	tx-threshold = <1518>;
 	rx-threshold = <12>;
 	tx-ring-num = <1024>;
