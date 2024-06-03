@@ -1896,7 +1896,7 @@ static void gtp_shutdown(struct i2c_client *client)
 	return;
 }
 
-static int gtp_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int gtp_probe(struct i2c_client *client)
 {
 	int ret = -1;
 	struct goodix_ts_data *ts;
