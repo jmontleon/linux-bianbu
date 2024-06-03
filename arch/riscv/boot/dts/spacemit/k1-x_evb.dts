@@ -478,20 +478,20 @@
 
 	usbp1_vbus: usbp1_vbus {
 		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))  /* drive_vbus1_iso */
+			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* drive_vbus1_iso */
 		>;
 	};
 
 	gpio80_pmx_func0: gpio80_pmx_func0 {
 		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_80, MUX_MODE0, (EDGE_BOTH | PULL_UP | PAD_3V_DS4))  /* mmc cd */
+			K1X_PADCONF(GPIO_80, MUX_MODE0, (EDGE_BOTH | PULL_UP | PAD_3V_DS4))	/* mmc cd */
 		>;
 	};
 
 	pinctrl_rcpu: pinctrl_rcpu_grp {
 		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))   /* r_uart0_tx */
-			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))   /* r_uart0_rx */
+			K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
+			K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
 		>;
 	};
 };
@@ -638,7 +638,7 @@
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
-        /* store forward mode */
+	/* store forward mode */
 	tx-threshold = <1518>;
 	rx-threshold = <12>;
 	tx-ring-num = <1024>;
@@ -834,8 +834,8 @@
 };
 
 &cpu_0 {
-       clst0-supply = <&edcdc_1>;
-       vin-supply-names = "clst0";
+	clst0-supply = <&edcdc_1>;
+	vin-supply-names = "clst0";
 };
 
 &clst0_core_opp_table {

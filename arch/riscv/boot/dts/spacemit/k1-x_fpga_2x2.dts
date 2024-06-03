@@ -220,14 +220,6 @@
 			#gpio-cells = <2>;
 
 			spacemit,npins = <6>;
-/**
- *			led_pins: led-pins {
- *				pins = "PIN3";
- *				function = "sleep";
- *				bias-disable = <0>;
- *				drive-open-drain = <0x1>;
- *			};
- */
 		};
 	};
 };
