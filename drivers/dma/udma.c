@@ -218,7 +218,7 @@ static int dma_mmap(struct file *file, struct vm_area_struct *vma)
 
 	vma->vm_ops		= &dma_vm_ops;
 	vma->vm_private_data	= dma_info;
-	vma->vm_flags		|= VM_DONTCOPY;
+	vm_flags_set(vma, VM_DONTCOPY);
 
 	list_add(&dma_info->list, &dmabuf_list);
 	return 0;
@@ -392,7 +392,7 @@ static int dma_init(void)
 	if (dma_major < 0)
 		return dma_major;
 
-	dma_class = class_create(THIS_MODULE, DEVICE_NAME);
+	dma_class = class_create(DEVICE_NAME);
 	if (IS_ERR(dma_class))
 		return -1;
 
