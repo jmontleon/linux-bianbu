@@ -304,6 +304,11 @@ unsigned long ccu_mix_calc_best_rate(struct clk_hw *hw, unsigned long rate, u32 
 	return best_rate;
 }
 
+static int ccu_mix_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
+{
+	return 0;
+}
+
 static int ccu_mix_set_rate(struct clk_hw *hw, unsigned long rate,
 			   unsigned long parent_rate)
 {
@@ -482,6 +487,7 @@ const struct clk_ops ccu_mix_ops = {
 	.is_enabled	 = ccu_mix_is_enabled,
 	.get_parent	 = ccu_mix_get_parent,
 	.set_parent	 = ccu_mix_set_parent,
+	.determine_rate = ccu_mix_determine_rate,
 	.round_rate  = ccu_mix_round_rate,
 	.recalc_rate = ccu_mix_recalc_rate,
 	.set_rate	 = ccu_mix_set_rate,
