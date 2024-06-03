@@ -21,6 +21,54 @@
 #define CELL	"#sound-dai-cells"
 #define PREFIX	"simple-audio-card,"
 
+
+int spacemit_simple_hw_params(struct snd_pcm_substream *substream,
+		struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
+	struct snd_soc_dai *sdai;
+	struct asoc_simple_priv *priv = snd_soc_card_get_drvdata(rtd->card);
+	struct simple_dai_props *props = simple_priv_to_props(priv, rtd->num);
+	unsigned int mclk, mclk_fs = 0;
+	int i, ret;
+
+	if (props->mclk_fs)
+		mclk_fs = props->mclk_fs;
+
+	if (mclk_fs) {
+		struct snd_soc_component *component;
+		mclk = params_rate(params) * mclk_fs;
+
+		/* Ensure sysclk is set on all components in case any
+			* (such as platform components) are missed by calls to
+			* snd_soc_dai_set_sysclk.
+			*/
+		for_each_rtd_components(rtd, i, component) {
+			ret = snd_soc_component_set_sysclk(component, 0, 0,
+				mclk, SND_SOC_CLOCK_IN);
+			if (ret && ret != -ENOTSUPP)
+				return ret;
+		}
+
+		for_each_rtd_codec_dais(rtd, i, sdai) {
+			ret = snd_soc_dai_set_sysclk(sdai, 0, mclk, SND_SOC_CLOCK_IN);
+			if (ret && ret != -ENOTSUPP)
+				return ret;
+		}
+
+		for_each_rtd_cpu_dais(rtd, i, sdai) {
+			ret = snd_soc_dai_set_sysclk(sdai, 0, mclk, SND_SOC_CLOCK_OUT);
+			if (ret && ret != -ENOTSUPP)
+				return ret;
+		}
+	}
+	return 0;
+}
+
+static const struct snd_soc_ops simple_ops = {
+	.hw_params      = spacemit_simple_hw_params,
+};
+
 static int asoc_simple_parse_dai(struct device_node *node,
 		struct snd_soc_dai_link_component *dlc,
 		int *is_single_link)
@@ -161,6 +209,7 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	char prop[128];
 	char *prefix = "";
 	int ret, single_cpu;
+	unsigned int val = 0;
 
 	if (is_top_level_node)
 		prefix = PREFIX;
@@ -220,6 +269,12 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 		dai_link->init = asoc_simple_card_jack_init;
 	}
 
+	dai_link->ops = &simple_ops;
+	if (!of_property_read_u32(node, "spacemit,mclk-fs", &val)) {
+		priv->dai_props->mclk_fs = val;
+	} else {
+		priv->dai_props->mclk_fs = 256;
+	}
 	asoc_simple_canonicalize_cpu(dai_link->cpus, single_cpu);
 	asoc_simple_canonicalize_platform(dai_link->platforms, dai_link->cpus);
 

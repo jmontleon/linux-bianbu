@@ -85,6 +85,7 @@ struct sspa_priv {
 	int dai_id_pre;
 	int running_cnt;
 	struct platform_device *i2splatdev;
+	unsigned int sysclk;
 };
 
 static void i2s_sspa_write_reg(struct ssp_device *sspa, u32 reg, u32 val)
@@ -117,6 +118,15 @@ static void i2s_sspa_shutdown(struct snd_pcm_substream *substream,
 static int i2s_sspa_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 				    int clk_id, unsigned int freq, int dir)
 {
+	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(cpu_dai);
+
+	if (sspa_priv->running_cnt)
+		return 0;
+
+	if (sspa_priv->sysclk == freq)
+		return 0;
+
+	sspa_priv->sysclk = freq;
 	return 0;
 }
 
@@ -207,13 +217,35 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 	struct ssp_device *sspa = sspa_priv->sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
+	unsigned int mclk_fs, val, target;
 
-	pr_debug("%s, format=0x%x\n", __FUNCTION__, params_format(params));
 	dma_params = &sspa_priv->dma_params[substream->stream];
 	dma_params->addr = (sspa->phys_base + DATAR);
 	dma_params->maxburst = 32;
 	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	snd_soc_dai_set_dma_data(cpu_dai, substream, dma_params);
+
+	if (sspa_priv->running_cnt)
+		return 0;
+
+	mclk_fs = sspa_priv->sysclk / (params_rate(params));
+	switch (mclk_fs) {
+	case 64:
+		target = SYSCLK_BASE_156M | 0 << 27| 4 << 15 | 200; //64fs
+		break;
+	case 128:
+		target = SYSCLK_BASE_156M | 1 << 27| 8 << 15 | 200; //128fs
+		break;
+	case 256:
+		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		break;
+	default:
+		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		break;
+	}
+	val = __raw_readl(sspa->pmumain + ISCCR1);
+	val = val & ~0x5FFFFFFF;
+	__raw_writel(val | target, sspa->pmumain + ISCCR1);
 	return 0;
 }
 
@@ -274,9 +306,6 @@ static int i2s_sspa_probe(struct snd_soc_dai *dai)
 	struct sspa_priv *priv = dev_get_drvdata(dai->dev);
 	struct ssp_device *sspa = priv->sspa;
 	unsigned int sspa_clk = 0;
-	pr_debug("%s\n", __FUNCTION__);
-	//init clock
-	__raw_writel((SYSCLK_BASE_156M | BITCLK_DIV_468| FRAME_48K_I2S | 200), sspa->pmumain + ISCCR1);
 
 	if (dai->id == 0)
 	{
