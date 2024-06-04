@@ -980,8 +980,10 @@
 	status = "okay";
 };
 
-&sound_es8326 {
+&sound_codec {
 	status = "okay";
+	simple-audio-card,name = "snd-es8326";
+	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
 		sound-dai = <&es8326>;
 	};
