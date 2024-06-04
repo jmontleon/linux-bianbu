@@ -5,6 +5,8 @@
 
 #include "k1-x.dtsi"
 #include "k1-x_pinctrl.dtsi"
+#include "lcd/lcd_lt9711_dp_1920x1080.dtsi"
+#include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 
 / {
@@ -271,6 +273,35 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm14_1>;
 	status = "disabled";
+};
+
+&dpu_online2_dsi {
+	memory-region = <&dpu_resv>;
+	spacemit-dpu-bitclk = <1000000000>;
+	spacemit-dpu-escclk = <76800000>;
+	dsi_1v2-supply = <&ldo_5>;
+	vin-supply-names = "dsi_1v2";
+	status = "okay";
+};
+
+&dsi2 {
+	status = "okay";
+
+	panel2: panel2@0 {
+		status = "ok";
+		compatible = "spacemit,mipi-panel2";
+		reg = <0>;
+
+		gpios-reset = <81>;
+		gpios-dc = <82 83>;
+		id = <2>;
+		delay-after-reset = <10>;
+		force-attached = "lcd_lt9711_dp_1920x1080";
+	};
+};
+
+&lcds {
+	status = "okay";
 };
 
 &dpu_online2_hdmi {
