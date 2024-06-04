@@ -2510,9 +2510,8 @@
 		};
 	};
 
-	sound_es8326: snd-card@1 {
+	sound_codec: snd-card@1 {
 		compatible = "spacemit,simple-audio-card";
-		simple-audio-card,name = "snd-es8326";
 		simple-audio-card,format = "i2s";
 		status = "disabled";
 		spacemit,init-jack;
