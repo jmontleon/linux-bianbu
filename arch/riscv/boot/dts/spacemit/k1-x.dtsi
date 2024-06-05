@@ -2218,7 +2218,7 @@
 			status = "okay";
 		};
 
-		thermal-zones {
+		thermal_zones: thermal-zones {
 			cluster0_thermal {
 				polling-delay = <0>;
 				polling-delay-passive = <0>;
