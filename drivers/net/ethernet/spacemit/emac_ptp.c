@@ -220,6 +220,14 @@ static int emac_adjust_freq(struct ptp_clock_info *ptp, s32 ppb)
 	return 0;
 }
 
+static int emac_adjust_fine(struct ptp_clock_info *ptp, long scaled_ppm)
+{
+	s32 ppb;
+
+	ppb = scaled_ppm_to_ppb(scaled_ppm);
+	return emac_adjust_freq(ptp, ppb);
+}
+
 /**
  * emac_adjust_time
  *
@@ -323,7 +331,7 @@ static struct ptp_clock_info emac_ptp_clock_ops = {
 	.n_per_out = 0,
 	.n_pins = 0,
 	.pps = 0,
-	.adjfreq = emac_adjust_freq,
+	.adjfine = emac_adjust_fine,
 	.adjtime = emac_adjust_time,
 	.gettime64 = emac_get_time,
 	.settime64 = emac_set_time,
