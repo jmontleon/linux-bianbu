@@ -311,13 +311,14 @@
 		};
 	};
 
-	es8326@19{
+	es8326: es8326@19{
 		compatible = "everest,es8326";
 		reg = <0x19>;
 		#sound-dai-cells = <0>;
-		interrupt-parent = <&gpio>;
-		interrupts = <126 1>;
-		spk-ctl-gpio = <&gpio 127 0>;
+		hp-detect-gpio = <&gpio 58 0>;
+		mic-detect-gpio = <&gpio 114 0>;
+		everest,mic1-src = [00];
+		everest,mic2-src = [00];
 		status = "okay";
 	};
 };
@@ -742,4 +743,13 @@
 
 &sound_hdmi {
 	status = "okay";
+};
+
+&sound_codec {
+	status = "okay";
+	simple-audio-card,name = "snd-es8326";
+	spacemit,mclk-fs = <64>;
+	simple-audio-card,codec {
+		sound-dai = <&es8326>;
+	};
 };
