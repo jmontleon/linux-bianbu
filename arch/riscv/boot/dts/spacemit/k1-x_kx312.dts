@@ -156,9 +156,26 @@
 	};
 };
 
+&pinctrl {
+	pinctrl_uart3_0: uart3_0_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_81,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))      /* uart3_txd */
+			K1X_PADCONF(GPIO_82,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))      /* uart3_rxd */
+			/* K1X_PADCONF(GPIO_83,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))*/  /* uart3_cts_n */
+			/* K1X_PADCONF(GPIO_84,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))*/  /* uart3_rts_n */
+		>;
+	};
+};
+
 &uart0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart0_2>;
+	status = "okay";
+};
+
+&uart3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart3_0>;
 	status = "okay";
 };
 
