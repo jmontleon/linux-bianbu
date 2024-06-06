@@ -538,7 +538,7 @@
 				regulator-name = "ldo5";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
-				regulator-boot-on;
+				regulator-always-on;
 
 				regulator-state-mem {
 					regulator-off-in-suspend;
