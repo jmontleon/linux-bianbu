@@ -267,7 +267,7 @@ static int va2pa(void *va, size_t size, va2pa_t **va2pa)
 		pg_offset = offset_in_page(vaddr);
 		pg_address = pte_pfn(__pte(pte_val(*pte))) << PAGE_SHIFT;
 		paddr = pg_address | pg_offset;
-
+		pte_unmap(pte);
 		if ((old_pfn + PAGE_SIZE) == pg_address) {
 			p[j].size += (PAGE_SIZE - (vaddr - (vaddr & PAGE_MASK)));
 			total += (PAGE_SIZE - (vaddr - (vaddr & PAGE_MASK)));
@@ -310,6 +310,7 @@ static int dma_memcpy(dma_addr_t dst, dma_addr_t src, size_t size)
 						size,
 						DMA_CTRL_ACK | DMA_PREP_INTERRUPT);
 	if (!dma_tx){
+		mutex_unlock(&dma_mutex);
 		dev_err(dma_dev->dev, "Failed to prepare DMA memcpy");
 		return -1;
 	}
@@ -317,6 +318,7 @@ static int dma_memcpy(dma_addr_t dst, dma_addr_t src, size_t size)
 	dma_tx->callback		= dma_callback_func;//set call back function
 	dma_tx->callback_param		= NULL;
 	if (dma_submit_error(dma_tx->tx_submit(dma_tx))){
+		mutex_unlock(&dma_mutex);
 		dev_err(dma_dev->dev, "Failed to do DMA tx_submit");
 		return -1;
 	}
