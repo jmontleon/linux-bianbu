@@ -400,7 +400,7 @@ static int asoc_i2s_sspa_probe(struct platform_device *pdev)
 	struct resource *res;
 	u8 dai_id = 0;
 
-	printk("enter %s\n", __FUNCTION__);
+	pr_debug("enter %s\n", __FUNCTION__);
 	priv = devm_kzalloc(&pdev->dev,
 				sizeof(struct sspa_priv), GFP_KERNEL);
 	if (!priv) {
@@ -484,7 +484,7 @@ static struct platform_driver asoc_i2s_sspa_driver = {
 #if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
 int spacemit_snd_register_i2s_pdrv(void)
 {
-	printk("%s\n", __FUNCTION__);
+	pr_debug("%s\n", __FUNCTION__);
 	return platform_driver_register(&asoc_i2s_sspa_driver);
 }
 

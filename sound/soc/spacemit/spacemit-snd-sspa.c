@@ -100,7 +100,7 @@ static int mmp_sspa_hw_params(struct snd_pcm_substream *substream,
 	struct snd_dmaengine_dai_dma_data *dma_params;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		printk("%s, format=0x%x\n", __FUNCTION__, params_format(params));
+		pr_debug("%s, format=0x%x\n", __FUNCTION__, params_format(params));
 		dma_params = sspa_priv->dma_params;
 		dma_params->maxburst = 32;
 		dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
