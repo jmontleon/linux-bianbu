@@ -2075,7 +2075,7 @@ static int serial_pxa_probe_dt(struct platform_device *pdev, struct uart_pxa_por
 
 #ifdef CONFIG_PM
 	if (of_property_read_u32(np, "edge-wakeup-pin", &sport->edge_wakeup_gpio)) {
-		dev_info(&pdev->dev, "no edge-wakeup-pin defined\n");
+		dev_dbg(&pdev->dev, "no edge-wakeup-pin defined\n");
 	}
 #endif
 	sport->device_ctrl_rts = of_property_read_bool(np, "device-control-rts");
@@ -2239,7 +2239,7 @@ static int serial_pxa_probe(struct platform_device *dev)
 
 	serial_pxa_ports[sport->port.line] = sport;
 	uart_add_one_port(&serial_pxa_reg, &sport->port);
-	dev_info(&dev->dev, "uart clk_rate: %lu\n", clk_get_rate(sport->fclk));
+	dev_dbg(&dev->dev, "uart clk_rate: %lu\n", clk_get_rate(sport->fclk));
 	platform_set_drvdata(dev, sport);
 
 #ifdef CONFIG_PM
