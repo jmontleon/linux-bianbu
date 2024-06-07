@@ -361,7 +361,7 @@ void porta_rterm(struct k1x_pcie *k1x)
 	//REG32(0xC0B10000 + (0x06 << 2)) = 0x00000400; // force rcv done
 	val = 0x00000400;
 	k1x_pcie_phy0_reg_writel(k1x, (0x06 << 2), val);
-	printk("Now waiting portA resister tuning done...\n");
+	pr_debug("Now waiting portA resister tuning done...\n");
 
 	// force PCIE mpu_u3/pu_rx_lfps
 	//REG32(PCIE_PUPHY_REG_BASE + 0x6 * 4) |= (0x1 << 17) | (0x1 << 15);
@@ -376,7 +376,7 @@ void porta_rterm(struct k1x_pcie *k1x)
 		//rd_data = REG32(0xC0B10000 + 0x21 * 4);
 		rd_data = k1x_pcie_phy0_reg_readl(k1x, (0x21 * 4));
 		if (count++ > 5000) {
-			printk(KERN_WARNING "read pcie0 phy rd_data time out.\n");
+			pr_err("read pcie0 phy rd_data time out.\n");
 			break;
 		}
 	} while (((rd_data >> 10) & 0x1) == 0); // waiting PCIe portA readonly_reg2[2] r_tune_done==1
@@ -389,8 +389,8 @@ void rterm_force(struct k1x_pcie *k1x, u32 pcie_rcal)
 	u32 val = 0;
 
 	lane = k1x->num_lanes;
-	printk("pcie_rcal = 0x%08x\n", pcie_rcal);
-	printk("pcie port id = %d, lane num = %d\n", k1x->port_id, lane);
+	pr_debug("pcie_rcal = 0x%08x\n", pcie_rcal);
+	pr_debug("pcie port id = %d, lane num = %d\n", k1x->port_id, lane);
 
 	// 2.write pma0 rterm value LSB[3:0](read0nly1[3:0]) to lane0/1 rx_reg1
 	for (i = 0; i < lane; i++)
@@ -473,8 +473,8 @@ static int init_phy(struct k1x_pcie *k1x)
 	u32 val = 0;
 	int count;
 
-	printk("Now init Rterm...\n");
-	printk("pcie prot id = %d, porta_init_done = %d\n", k1x->port_id, porta_init_done);
+	pr_debug("Now init Rterm...\n");
+	pr_debug("pcie prot id = %d, porta_init_done = %d\n", k1x->port_id, porta_init_done);
 	if (k1x->port_id != 0) {
 	    if (porta_init_done == 0) {
 			porta_rterm(k1x);
@@ -495,7 +495,7 @@ static int init_phy(struct k1x_pcie *k1x)
 			//rd_data = REG32(0xC0B10000 + 0x21 * 4);
 			rd_data = k1x_pcie_phy0_reg_readl(k1x,  (0x21 * 4));
 			if (count++ > 5000) {
-				printk(KERN_WARNING "read pcie0 phy rd_data time out.\n");
+				pr_err("read pcie0 phy rd_data time out.\n");
 				break;
 			}
 		} while (((rd_data >> 10) & 0x1) == 0);
@@ -506,7 +506,7 @@ static int init_phy(struct k1x_pcie *k1x)
 	k1x->pcie_rcal = pcie_rcal;
 	rterm_force(k1x, pcie_rcal);
 
-	printk("Now int init_puphy...\n");
+	pr_debug("Now int init_puphy...\n");
 	val = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
 	val &= 0xbfffffff;
 	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, val);
@@ -588,20 +588,20 @@ static int init_phy(struct k1x_pcie *k1x)
 	k1x_pcie_phy_reg_writel(k1x, (0x06 << 2), val);
 
 	// waiting pll lock
-	printk("waiting pll lock...\n");
+	pr_debug("waiting pll lock...\n");
 	count = 0;
 	do
 	{
 		rd_data = k1x_pcie_phy_reg_readl(k1x, 0x8);
 		if (count++ > 5000) {
-			printk(KERN_WARNING "read pcie%d phy rd_data time out.\n", k1x->port_id);
+			pr_err("read pcie%d phy rd_data time out.\n", k1x->port_id);
 			break;
 		}
 	} while ((rd_data & 0x1) == 0);
 
 	if (k1x->port_id == 0)
 		porta_init_done = 0x1;
-	printk("Now finish init_puphy....\n");
+	pr_debug("Now finish init_puphy....\n");
 	return 0;
 }
 
@@ -658,7 +658,7 @@ static int k1x_pcie_establish_link(struct dw_pcie *pci)
 	reg &= ~APP_HOLD_PHY_RST;
 	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
 
-	printk("ltssm enable\n");
+	pr_debug("ltssm enable\n");
 	return 0;
 }
 
@@ -853,7 +853,7 @@ void k1x_pcie_msix_addr_alloc(struct dw_pcie_rp *pp)
 	}
 	msi_target = (u64)k1x->msix_addr;
 
-	pr_info("(u64)pp->msix_addr =%llx\n", (u64)k1x->msix_addr);
+	pr_debug("(u64)pp->msix_addr =%llx\n", (u64)k1x->msix_addr);
 	reg = k1x_pcie_phy_ahb_readl(k1x, ADDR_MSI_RECV_CTRL);
 	reg |= MSIX_MON_EN;
 	k1x_pcie_phy_ahb_writel(k1x, ADDR_MSI_RECV_CTRL, reg);
@@ -882,7 +882,7 @@ void k1x_pcie_msi_addr_alloc(struct dw_pcie_rp *pp)
 	}
 	msi_target = (u64)pp->msi_data;
 
-	pr_info("(u64)pp->msi_data =%llx\n", (u64)pp->msi_data);
+	pr_debug("(u64)pp->msi_data =%llx\n", (u64)pp->msi_data);
 	/* Program the msi_data */
 	dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_LO, lower_32_bits(msi_target));
 	dw_pcie_writel_dbi(pci, PCIE_MSI_ADDR_HI, upper_32_bits(msi_target));
@@ -1006,7 +1006,7 @@ static int k1x_pcie_host_init(struct dw_pcie_rp *pp)
 
 	/* read the link status register, get the current speed */
 	reg = dw_pcie_readw_dbi(pci, EXP_CAP_ID_OFFSET + PCI_EXP_LNKSTA);
-	pr_info("Link up, Gen%i\n", reg & PCI_EXP_LNKSTA_CLS);
+	pr_debug("Link up, Gen%i\n", reg & PCI_EXP_LNKSTA_CLS);
 
 	k1x_pcie_enable_msi_interrupts(k1x);
 
@@ -1385,7 +1385,7 @@ static int k1x_pcie_enable_phy(struct k1x_pcie *k1x)
 	u32 reg, val, rd_data;
 	int count;
 
-	printk("Now k1x_pcie_enable_phy in resume...\n");
+	pr_debug("Now k1x_pcie_enable_phy in resume...\n");
 
 	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
 	reg |= 0x3f;
@@ -1474,18 +1474,18 @@ static int k1x_pcie_enable_phy(struct k1x_pcie *k1x)
 	k1x_pcie_phy_reg_writel(k1x, (0x06 << 2), val);
 
 	// waiting pll lock
-	printk("waiting pll lock...\n");
+	pr_debug("waiting pll lock...\n");
 	count = 0;
 	do
 	{
 		rd_data = k1x_pcie_phy_reg_readl(k1x, 0x8);
 		if (count++ > 5000) {
-			printk(KERN_WARNING "read pcie%d phy rd_data time out.\n", k1x->port_id);
+			pr_err("read pcie%d phy rd_data time out.\n", k1x->port_id);
 			break;
 		}
 	} while ((rd_data & 0x1) == 0);
 
-	printk("Now finish enable phy....\n");
+	pr_debug("Now finish enable phy....\n");
 
 	return 0;
 }
