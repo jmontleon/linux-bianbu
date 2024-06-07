@@ -643,15 +643,15 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		}
 
 		clk_val = clk_get_rate(clk_ctx->pxclk);
-		DRM_INFO("get pxclk=%lld\n", clk_val);
+		DRM_DEBUG("get pxclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->mclk);
-		DRM_INFO("get mclk=%lld\n", clk_val);
+		DRM_DEBUG("get mclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->hclk);
-		DRM_INFO("get hclk=%lld\n", clk_val);
+		DRM_DEBUG("get hclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->escclk);
-		DRM_INFO("get escclk=%lld\n", clk_val);
+		DRM_DEBUG("get escclk=%lld\n", clk_val);
 		clk_val = clk_get_rate(clk_ctx->bitclk);
-		DRM_INFO("get bitclk=%lld\n", clk_val);
+		DRM_DEBUG("get bitclk=%lld\n", clk_val);
 
 		udelay(10);
 	}
