@@ -420,8 +420,10 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	struct rproc *rproc;
 
 	ret = rproc_of_parse_firmware(dev, 0, &fw_name);
-	if (ret < 0 && ret != -EINVAL)
+	if (ret < 0 && ret != -EINVAL) {
+		dev_err(dev, "failed to get fw_name: %s\n", fw_name);
 		return ret;
+	}
 
 	rproc = devm_rproc_alloc(dev, np->name, &spacemit_rproc_ops,
 				fw_name, sizeof(*priv));
