@@ -211,7 +211,7 @@ static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 		| (ta_go << CFG_DPHY_TIME_TA_GO_SHIFT)
 		| (wakeup << CFG_DPHY_TIME_WAKEUP_SHIFT);
 
-	DRM_INFO("%s dphy time1 ta_get %d ta_go %d wakeup %d reg 0x%x\n", __func__, ta_get, ta_go, wakeup, reg);
+	DRM_DEBUG("%s dphy time1 ta_get %d ta_go %d wakeup %d reg 0x%x\n", __func__, ta_get, ta_go, wakeup, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x44, 0x0403001F);
 #else
@@ -223,7 +223,7 @@ static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 		| (ck_zero << CFG_DPHY_TIME_CLK_ZERO_SHIFT)
 		| (lpx_clk << CFG_DPHY_TIME_CLK_LPX_SHIFT);
 
-	DRM_INFO("%s dphy time2 ck_exit %d ck_trail %d ck_zero %d lpx_clk %d reg 0x%x\n", __func__, ck_exit, ck_trail, ck_zero, lpx_clk, reg);
+	DRM_DEBUG("%s dphy time2 ck_exit %d ck_trail %d ck_zero %d lpx_clk %d reg 0x%x\n", __func__, ck_exit, ck_trail, ck_zero, lpx_clk, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x48, 0x02010500);
 #else
@@ -234,7 +234,7 @@ static void dphy_set_timing(struct spacemit_dphy_ctx *dphy_ctx)
 	reg = (lpx_clk << CFG_DPHY_TIME_LPX_SHIFT)
 		| phy_timing->req_ready << CFG_DPHY_TIME_REQRDY_SHIFT;
 
-	DRM_INFO("%s dphy time3 lpx_clk %d req_ready %d reg 0x%x\n", __func__, lpx_clk, phy_timing->req_ready, reg);
+	DRM_DEBUG("%s dphy time3 lpx_clk %d req_ready %d reg 0x%x\n", __func__, lpx_clk, phy_timing->req_ready, reg);
 #ifdef DPTC_DPHY_TEST
 	dptc_dsi_write(0x4c, 0x001F);
 #else
