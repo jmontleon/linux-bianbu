@@ -1695,7 +1695,7 @@ static int jpu_probe(struct platform_device *pdev)
 	cpuid = 0;
 	cpumask_set_cpu(cpuid, &mask);
 	irq_set_affinity(jdev->s_jpu_irq, &mask);
-	dev_notice(jdev->jdev, "driver probe successfully\n");
+	dev_dbg(jdev->jdev, "driver probe successfully\n");
 	return 0;
 err0:
 	return -1;
@@ -1730,7 +1730,7 @@ static int jpu_remove(struct platform_device *pdev)
 #endif
 	sysfs_remove_groups(&pdev->dev.kobj, jpu_frequency_group);
 
-	dev_notice(jdev->jdev, "driver removed\n");
+	dev_dbg(jdev->jdev, "driver removed\n");
 
 	return 0;
 }
