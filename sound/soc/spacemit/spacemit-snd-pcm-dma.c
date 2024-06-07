@@ -707,7 +707,7 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 	struct snd_card *card = rtd->card->snd_card;
 	struct snd_pcm *pcm = rtd->pcm;
 
-	printk("%s enter, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
+	pr_debug("%s enter, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
 
 	if (!component) {
 		pr_err("%s: coundn't find component %s\n", __FUNCTION__, DRV_NAME);
@@ -721,7 +721,7 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 	}
 	if (dev->dmadata->dma_id == DMA_HDMI) {
 		chan_num = 1;
-		printk("%s playback_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
+		pr_debug("%s playback_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
 	}else{
 		chan_num = 2;
 	}
@@ -786,7 +786,7 @@ static void spacemit_snd_pcm_remove(struct snd_soc_component *component)
 	int chan_num;
 	struct spacemit_snd_soc_device *dev = snd_soc_component_get_drvdata(component);
 
-	pr_info("%s enter\n", __FUNCTION__);
+	pr_debug("%s enter\n", __FUNCTION__);
 
 	if (dev->dmadata->dma_id == DMA_HDMI) {
 		chan_num = 1;
@@ -943,12 +943,12 @@ static int spacemit_snd_dma_pdev_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	printk("%s enter: dev name %s\n", __func__, dev_name(&pdev->dev));
+	pr_debug("%s enter: dev name %s\n", __func__, dev_name(&pdev->dev));
 
 	if (of_device_is_compatible(np, "spacemit,spacemit-snd-dma-hdmi")){
 		device->dmadata->dma_id = DMA_HDMI;
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		printk("%s, start=0x%lx, end=0x%lx\n", __FUNCTION__, (unsigned long)res->start, (unsigned long)res->end);
+		pr_debug("%s, start=0x%lx, end=0x%lx\n", __FUNCTION__, (unsigned long)res->start, (unsigned long)res->end);
 		priv.phy_addr = res->start;
 		priv.buf_base = devm_ioremap_resource(&pdev->dev, res);
 		if (IS_ERR(priv.buf_base)) {
@@ -1000,7 +1000,7 @@ static struct platform_driver spacemit_snd_dma_pdrv = {
 #if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
 int spacemit_snd_register_dmaclient_pdrv(void)
 {
-	printk("%s enter\n", __FUNCTION__);
+	pr_debug("%s enter\n", __FUNCTION__);
 	return platform_driver_register(&spacemit_snd_dma_pdrv);
 }
 EXPORT_SYMBOL(spacemit_snd_register_dmaclient_pdrv);
