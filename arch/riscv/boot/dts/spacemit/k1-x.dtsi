@@ -1567,6 +1567,7 @@
 			clocks = <&ccu CLK_RCPU2_PWM>;
 			resets = <&reset RESET_RCPU2_PWM>;
 			k1x,pwm-disable-fd;
+			rcpu-pwm;
 			status = "disabled";
 		};
 
