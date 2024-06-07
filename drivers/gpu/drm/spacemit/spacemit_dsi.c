@@ -462,7 +462,7 @@ static int spacemit_dsi_connector_get_modes(struct drm_connector *connector)
 {
 	struct spacemit_dsi *dsi = connector_to_dsi(connector);
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	return drm_panel_get_modes(dsi->panel, connector);
 }
@@ -473,7 +473,7 @@ spacemit_dsi_connector_mode_valid(struct drm_connector *connector,
 {
 	enum drm_mode_status mode_status = MODE_OK;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	return mode_status;
 }
@@ -496,7 +496,7 @@ static struct drm_connector_helper_funcs spacemit_dsi_connector_helper_funcs = {
 static enum drm_connector_status
 spacemit_dsi_connector_detect(struct drm_connector *connector, bool force)
 {
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	return connector_status_connected;
 }
@@ -633,7 +633,7 @@ static void spacemit_dsi_unbind(struct device *dev,
 			struct device *master, void *data)
 {
 	/* do nothing */
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 }
 
