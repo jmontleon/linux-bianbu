@@ -57,6 +57,7 @@ struct pxa_pwm_chip {
 	void __iomem	*mmio_base;
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	int dcr_fd; /* Controller PWM_DCR FD feature */
+	int rcpu_pwm; /* PWM in rcpu domain */
 #endif
 };
 
@@ -211,9 +212,15 @@ static int pwm_probe(struct platform_device *pdev)
 			pc->dcr_fd = 0;
 		else
 			pc->dcr_fd = 1;
+		if(of_get_property(pdev->dev.of_node, "rcpu-pwm", NULL))
+			pc->rcpu_pwm = 1;
+		else
+			pc->rcpu_pwm = 0;
 	}
-	else
+	else {
 		pc->dcr_fd = 0;
+		pc->rcpu_pwm = 0;
+	}
 #endif
 
 	pc->clk = devm_clk_get(&pdev->dev, NULL);
@@ -242,6 +249,8 @@ static int pwm_probe(struct platform_device *pdev)
 		goto err_rst;
 	}
 
+	platform_set_drvdata(pdev, pc);
+
 	return 0;
 
 err_rst:
@@ -249,9 +258,34 @@ err_rst:
 	return ret;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int pxa_pwm_suspend_noirq(struct device *dev)
+{
+	return 0;
+}
+
+static int pxa_pwm_resume_noirq(struct device *dev)
+{
+	struct pxa_pwm_chip *pc = dev_get_drvdata(dev);
+
+	/* if pwm in rcpu domain, deassert reset first before apply the old state */
+	if(pc->rcpu_pwm)
+		reset_control_deassert(pc->reset);
+	return 0;
+}
+#endif
+
+static const struct dev_pm_ops pxa_pwm_pm_qos = {
+	.suspend_noirq = pxa_pwm_suspend_noirq,
+	.resume_noirq = pxa_pwm_resume_noirq,
+};
+
 static struct platform_driver pwm_driver = {
 	.driver		= {
 		.name	= "pxa25x-pwm",
+#ifdef CONFIG_PM_SLEEP
+		.pm	= &pxa_pwm_pm_qos,
+#endif
 		.of_match_table = pwm_of_match,
 	},
 	.probe		= pwm_probe,
