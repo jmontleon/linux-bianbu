@@ -489,7 +489,7 @@ int edid_read (struct spacemit_hdmi *hdmi){
 	}
 
 	for(i = 0; i < EDID_LENGTH; i += 4){
-		DRM_INFO("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
+		DRM_DEBUG("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
 			hdmi_data->edid[i], hdmi_data->edid[i+1], hdmi_data->edid[i+2], hdmi_data->edid[i+3]);
 	}
 
@@ -576,7 +576,7 @@ void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
 	pll_reg(hdmi, pixel_clock, bit_depth);
 	writel(0x03, hdmi->regs + 0xe4);
 	value = readl_relaxed(hdmi->regs + 0xe4);
-	DRM_INFO("%s() hdmi pll lock status 0x%x\n", __func__, value);
+	DRM_DEBUG("%s() hdmi pll lock status 0x%x\n", __func__, value);
 	// while ( (value & 0x10000) != 0) {
 	// 	value = readl_relaxed(hdmi->regs + 0xe4);
 	// }
@@ -702,7 +702,7 @@ spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 	int ret;
 	enum drm_connector_status status;
 
-	DRM_INFO("%s() \n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
 
 	ret = pm_runtime_get_sync(hdmi->dev);
 	if (ret < 0) {
@@ -731,13 +731,13 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 	struct edid *edid;
 	uint32_t value;
 
-	DRM_INFO("%s() \n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
 
 	if (hdmi->use_no_edid)
 		return drm_add_modes_noedid(connector, 1920, 1080);
 
 	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
-	DRM_INFO("%s() hdmi status 0x%x\n", __func__, value);
+	DRM_DEBUG("%s() hdmi status 0x%x\n", __func__, value);
 	value &= ~(SPACEMIT_HDMI_DDC_OTHER_MASK | SPACEMIT_HDMI_DDC_DONE_MASK);
 	value |= (SPACEMIT_HDMI_HPD_IQR | SPACEMIT_HDMI_DDC_DONE | SPACEMIT_HDMI_DDC_NACK);
 	hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
@@ -864,7 +864,7 @@ static int spacemit_hdmi_bind(struct device *dev, struct device *master,
 	int irq;
 	int ret;
 
-	DRM_INFO("%s() \n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
 
 	hdmi = devm_kzalloc(dev, sizeof(*hdmi), GFP_KERNEL);
 	if (!hdmi)
@@ -943,7 +943,7 @@ static void spacemit_hdmi_unbind(struct device *dev, struct device *master,
 	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
 	int ret;
 
-	DRM_INFO("%s() \n", __func__);
+	DRM_DEBUG("%s() \n", __func__);
 
 	hdmi->connector.funcs->destroy(&hdmi->connector);
 	hdmi->encoder.funcs->destroy(&hdmi->encoder);
@@ -989,7 +989,7 @@ static int hdmi_rt_pm_resume(struct device *dev)
 	clk_prepare_enable(hdmi->hdmi_mclk);
 
 	clk_val = clk_get_rate(hdmi->hdmi_mclk);
-	DRM_INFO("get hdmi mclk=%lld\n", clk_val);
+	DRM_DEBUG("get hdmi mclk=%lld\n", clk_val);
 	if(clk_val != DPU_MCLK_DEFAULT){
 		clk_val = clk_round_rate(hdmi->hdmi_mclk, DPU_MCLK_DEFAULT);
 		clk_set_rate(hdmi->hdmi_mclk, clk_val);
