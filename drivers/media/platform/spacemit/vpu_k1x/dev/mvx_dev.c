@@ -301,6 +301,35 @@ static irqreturn_t irq_top(int irq,
 	return ret;
 }
 
+static void mvx_pm_disable_clk(struct device *dev)
+{
+	struct clk* clock;
+	struct mvx_dev_ctx *ctx;
+
+	ctx = dev_get_drvdata(dev);
+	clock = ctx->clock;
+
+	if (!IS_ERR_OR_NULL(clock))
+	{
+		clk_disable_unprepare(clock);
+	}
+}
+
+static void mvx_pm_enable_clk(struct device *dev)
+{
+	struct clk* clock;
+	struct mvx_dev_ctx *ctx;
+
+	ctx = dev_get_drvdata(dev);
+	clock = ctx->clock;
+
+	if (!IS_ERR_OR_NULL(clock))
+	{
+		clk_prepare_enable(clock);
+	}
+}
+
+
 static int mvx_dev_probe(struct device *dev,
 			 struct resource *iores,
 			 struct resource *irqres)
@@ -330,6 +359,7 @@ static int mvx_dev_probe(struct device *dev,
 		goto exit_reset;
 
 	reset_control_deassert(ctx->rst);
+	clk_set_rate(ctx->clock, 819200000);
 
 	/* Setup client ops callbacks. */
 	ctx->client_ops.get_hw_ver = get_hw_ver;
@@ -456,6 +486,7 @@ static int mvx_dev_remove(struct mvx_dev_ctx *ctx)
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
 		debugfs_remove_recursive(ctx->dentry);
 
+	mvx_pm_disable_clk(ctx->dev);
 	reset_control_assert(ctx->rst);
 
 	devm_kfree(ctx->dev, ctx);
@@ -544,57 +575,27 @@ static void reset_hw(struct device *dev)
 
 static int b_backto_active;
 
-#if 0
-static void mvx_pm_disable_clk(struct device *dev)
-{
-    struct clk* clock;
-    struct mvx_dev_ctx *ctx;
-
-    ctx = dev_get_drvdata(dev);
-    clock = ctx->clock;
-
-    if (!IS_ERR_OR_NULL(clock))
-    {
-        clk_disable_unprepare(clock);
-    }
-}
-
-static void mvx_pm_enable_clk(struct device *dev)
-{
-    struct clk* clock;
-    struct mvx_dev_ctx *ctx;
-
-    ctx = dev_get_drvdata(dev);
-    clock = ctx->clock;
-
-    if (!IS_ERR_OR_NULL(clock))
-    {
-        clk_prepare_enable(clock);
-    }
-}
-#endif
-
 static int mvx_pm_poweron(struct device *dev)
 {
-    struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+	struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
 
 	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweron");
-    //mvx_pm_enable_clk(dev);
-    reset_hw(dev);
-    mvx_sched_resume(&ctx->scheduler);
+	mvx_pm_enable_clk(dev);
+	reset_hw(dev);
+	mvx_sched_resume(&ctx->scheduler);
 
-    return 0;
+	return 0;
 }
 
 static int mvx_pm_poweroff(struct device *dev)
 {
-    struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
+	struct mvx_dev_ctx *ctx = dev_get_drvdata(dev);
 
-    MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweroff");
-    mvx_sched_suspend(&ctx->scheduler);
-    //mvx_pm_disable_clk(dev);
+	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_poweroff");
+	mvx_sched_suspend(&ctx->scheduler);
+	mvx_pm_disable_clk(dev);
 
-    return 0;
+	return 0;
 }
 
 static int mvx_pm_suspend(struct device *dev)
@@ -627,15 +628,15 @@ static int mvx_pm_resume(struct device *dev)
 static int mvx_pm_runtime_suspend(struct device *dev)
 {
 	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_suspend");
-	//mvx_pm_disable_clk(dev);
+	mvx_pm_disable_clk(dev);
 	return 0;
 }
 
 static int mvx_pm_runtime_resume(struct device *dev)
 {
 	MVX_LOG_PRINT(&mvx_log_dev, MVX_LOG_INFO, "mvx_pm_runtime_resume");
-	//mvx_pm_enable_clk(dev);
-	//reset_hw(dev);
+	mvx_pm_enable_clk(dev);
+	reset_hw(dev);
 
     return 0;
 }
