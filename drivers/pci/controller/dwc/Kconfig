@@ -474,7 +474,7 @@ config PCI_K1X
 config PCI_K1X_HOST
 	bool "Spacemit K1X PCIe Controller - Host Mode"
 	depends on SOC_SPACEMIT_K1X
-	depends on PCI && PCI_MSI_IRQ_DOMAIN
+	depends on PCI && PCI_MSI
 	depends on OF && HAS_IOMEM
 	select PCIE_DW_HOST
 	select PCI_K1X
