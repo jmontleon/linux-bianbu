@@ -1305,8 +1305,11 @@ static int k1x_qspi_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 		if (op->data.nbytes > qspi->tx_unit_size)
 			op->data.nbytes = qspi->tx_unit_size;
 	} else {
-		if (op->data.nbytes > qspi->rx_unit_size)
+		if (op->data.nbytes > qspi->rx_unit_size) {
 			op->data.nbytes = qspi->rx_unit_size;
+		} else if (op->data.nbytes > qspi->rx_buf_size - 4 && !IS_ALIGNED(op->data.nbytes, 4)) {
+			op->data.nbytes = qspi->rx_buf_size - 4;
+		}
 	}
 	mutex_unlock(&qspi->lock);
 
