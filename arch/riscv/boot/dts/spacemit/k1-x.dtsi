@@ -2276,13 +2276,11 @@
 			interrupts = <74>;
 			clocks = <&ccu CLK_VPU>;
 			clock-names = "vpu_clk";
-			assigned-clocks = <&ccu CLK_VPU>;
-			assigned-clock-parents = <&ccu CLK_PLL1_819>;
-			assigned-clock-rates = <819200000>;
 			power-domains = <&power K1X_PMU_VPU_PWR_DOMAIN>;
 			resets = <&reset RESET_VPU>;
 			interconnects = <&dram_range1>;
 			interconnect-names = "dma-mem";
+			clk,pm-runtime,no-sleep;
 			status = "okay";
 		};
 
