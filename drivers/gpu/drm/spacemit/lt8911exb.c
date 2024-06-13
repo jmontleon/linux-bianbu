@@ -18,12 +18,9 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/media-bus-format.h>
-
 #include <linux/atomic.h>
 #include <linux/workqueue.h>
-
 #include <asm/unaligned.h>
-
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
@@ -41,12 +38,12 @@
 #define EDID_SEG_SIZE	256
 #define EDID_LEN	16
 
-// #define _Test_Pattern_
-
 #define MIPI_DSI_1920x1080  1
 #define MIPI_DSI_1920x1200  0
 
-#define _uart_debug_
+// #define _test_pattern_
+// #define _read_edid_
+// #define _uart_debug_
 #define _eDP_2G7_
 #define _link_train_enable_
 
@@ -72,13 +69,13 @@ static int Nvid_Val[] = {0x0080, 0x0800};
 static int MIPI_Timing[] =
 // hfp,	hs,	hbp,	hact,	htotal,	vfp,	vs,	vbp,	vact,	vtotal,	pixel_CLK/10000
 
-//1920x1080
+// 1920x1080
 #if MIPI_DSI_1920x1080
 // {48, 32, 200, 1920, 2200, 3, 6, 31, 1080, 1120, 14784};     // boe config for linux
 {48, 32, 200, 1920, 2200, 3, 6, 31, 1080, 1120, 14285};     // boe config for linux
 #endif
 
-//1920x1200
+// 1920x1200
 #if MIPI_DSI_1920x1200
 // {16, 16, 298, 1920, 2250, 3, 14, 19, 1200, 1236, 16684};     // boe config for linux
 {16, 16, 298, 1920, 2250, 3, 14, 19, 1200, 1236, 15360};     // boe config for linux
@@ -108,7 +105,7 @@ bool EDID_Reply = 0;
 bool	ScrambleMode = 0;
 
 static const struct drm_display_mode lt8911exb_panel_modes[] = {
-//1920x1080
+// 1920x1080
 #if MIPI_DSI_1920x1080
 	{
 		.clock = 142857143 / 1000,
@@ -141,7 +138,6 @@ static const struct drm_display_mode lt8911exb_panel_modes[] = {
 
 };
 
-
 enum
 {
 	_Level0_ = 0,	// 27.8 mA	0x83/0x00
@@ -151,12 +147,12 @@ enum
 	_Level4_,	// 21.4 mA	0x82/0x80
 	_Level5_,	// 18.2 mA	0x82/0x40
 	_Level6_,	// 16.6 mA	0x82/0x20
-	_Level7_,	// 15mA	0x82/0x00	// level 1
+	_Level7_,	// 15 mA	0x82/0x00	// level 1
 	_Level8_,	// 12.8mA	0x81/0x00	// level 2
 	_Level9_,	// 11.2mA	0x80/0xe0	// level 3
 	_Level10_,	// 9.6mA	0x80/0xc0	// level 4
-	_Level11_,	// 8mA	0x80/0xa0	// level 5
-	_Level12_,	// 6mA	0x80/0x80	// level 6
+	_Level11_,	// 8mA		0x80/0xa0	// level 5
+	_Level12_,	// 6mA		0x80/0x80	// level 6
 };
 
 u8	Swing_Setting1[] = {0x83, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0x81, 0x80, 0x80, 0x80, 0x80};
@@ -176,12 +172,10 @@ struct lt8911exb {
 	struct mipi_dsi_device *dsi0;
 	struct mipi_dsi_device *dsi1;
 
-	//bool ac_mode;
-	struct gpio_desc *reset_gpio;   //reset
-	struct gpio_desc *enable_gpio;  //power
-	struct gpio_desc *standby_gpio;  //standby
-
-	struct gpio_desc *bl_gpio;  //backlight
+	struct gpio_desc *reset_gpio;	//reset
+	struct gpio_desc *enable_gpio;	//power
+	struct gpio_desc *standby_gpio;	//standby
+	struct gpio_desc *bl_gpio;	//backlight
 
 	bool power_on;
 	bool sleep;
@@ -201,25 +195,20 @@ struct lt8911exb {
 	bool init_work_pending;
 };
 
-
 static const struct regmap_config lt8911exb_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = 0xff,
 };
 
-
 static struct lt8911exb *panel_to_lt8911exb(struct drm_panel *panel)
 {
 	return container_of(panel, struct lt8911exb, base);
 }
 
-
-//--------------------------------------enable function-------------------------------//
-
 void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
 {
-	unsigned int tmp;
+	__maybe_unused unsigned int tmp;
 
 	regmap_write(lt8911exb->regmap, 0xff, 0xd0);
 	regmap_write(lt8911exb->regmap, 0x0d, (MIPI_Timing[vtotal] / 256));
@@ -230,14 +219,14 @@ void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x12, (MIPI_Timing[htotal] % 256));	//htotal
 	regmap_write(lt8911exb->regmap, 0x13, (MIPI_Timing[hact] / 256));
 	regmap_write(lt8911exb->regmap, 0x14, (MIPI_Timing[hact] % 256));	//hactive
-	regmap_write(lt8911exb->regmap, 0x15, (MIPI_Timing[vs] % 256));	//vsa
-	regmap_write(lt8911exb->regmap, 0x16, (MIPI_Timing[hs] % 256));	//hsa
+	regmap_write(lt8911exb->regmap, 0x15, (MIPI_Timing[vs] % 256));		//vsa
+	regmap_write(lt8911exb->regmap, 0x16, (MIPI_Timing[hs] % 256));		//hsa
 	regmap_write(lt8911exb->regmap, 0x17, (MIPI_Timing[vfp] / 256));
 	regmap_write(lt8911exb->regmap, 0x18, (MIPI_Timing[vfp] % 256));	//vfp
 	regmap_write(lt8911exb->regmap, 0x19, (MIPI_Timing[hfp] / 256));
 	regmap_write(lt8911exb->regmap, 0x1a, (MIPI_Timing[hfp] % 256));	//hfp
 
-
+#ifdef _uart_debug_
 	DRM_INFO("------\n");
 	DRM_INFO("MIPI_Timing[vtotal] / 256 = %d\n", MIPI_Timing[vtotal] / 256);
 	DRM_INFO("MIPI_Timing[vtotal]  256 = %d\n", MIPI_Timing[vtotal] % 256);
@@ -256,7 +245,6 @@ void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
 	DRM_INFO("MIPI_Timing[hfp] / 256 = %d\n", MIPI_Timing[hfp] / 256);
 	DRM_INFO("MIPI_Timing[hfp]  256 = %d\n", MIPI_Timing[hfp] % 256);
 	DRM_INFO("------\n");
-
 
 	regmap_read(lt8911exb->regmap, 0x0d, &tmp);
 	DRM_DEBUG_ATOMIC("0x0d = %d\n",tmp);
@@ -290,11 +278,12 @@ void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
 	DRM_DEBUG_ATOMIC("0x19 = %d\n",tmp);
 	regmap_read(lt8911exb->regmap, 0x1a, &tmp);
 	DRM_DEBUG_ATOMIC("0x1a = %d\n",tmp);
+#endif
 }
 
 void lt8911exb_edp_video_cfg(struct lt8911exb *lt8911exb)
 {
-	unsigned int tmp;
+	__maybe_unused unsigned int tmp;
 
 	regmap_write(lt8911exb->regmap, 0xff, 0xa8);
 	regmap_write(lt8911exb->regmap, 0x2d, 0x88);	// MSA from register
@@ -314,6 +303,7 @@ void lt8911exb_edp_video_cfg(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x15, (MIPI_Timing[vact] / 256));
 	regmap_write(lt8911exb->regmap, 0x16, (MIPI_Timing[vact] % 256));
 
+#ifdef _uart_debug_
 	DRM_INFO("------\n");
 	DRM_INFO("(u8)( MIPI_Timing[htotal] / 256 ) = %d\n", (MIPI_Timing[htotal] / 256));
 	DRM_INFO("(u8)( MIPI_Timing[htotal]  256 ) = %d\n", (MIPI_Timing[htotal] % 256));
@@ -366,14 +356,16 @@ void lt8911exb_edp_video_cfg(struct lt8911exb *lt8911exb)
 	DRM_DEBUG_ATOMIC("0x15 = %d\n",tmp);
 	regmap_read(lt8911exb->regmap, 0x16, &tmp);
 	DRM_DEBUG_ATOMIC("0x16 = %d\n",tmp);
+#endif
 }
 
 void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 {
+#ifdef _read_edid_
 	u8 i, j;
 	unsigned int reg;
 
-	DRM_INFO("lt8911exb_read_edid\n");
+	DRM_INFO("%s()\n", __func__);
 
 	regmap_write(lt8911exb->regmap, 0xff, 0xac );
 	regmap_write(lt8911exb->regmap, 0x00, 0x20 ); //Soft Link train
@@ -408,7 +400,7 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 			regmap_write(lt8911exb->regmap, 0x2b, 0x50 );
 			regmap_write(lt8911exb->regmap, 0x2b, 0x0f );
 			regmap_write(lt8911exb->regmap, 0x2c, 0x00 ); //start Aux read edid
-			mdelay(50);                         //more than 50ms
+			mdelay(50);                                   //more than 50ms
 
 			regmap_read(lt8911exb->regmap, 0x39, &reg);
 			DRM_INFO("lt8911exb_read_edid 0x39 0x%x\n", reg);
@@ -429,16 +421,16 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 				return;
 			}
 		}
-#if 0
+
 		for( i = 0; i < 128; i++ ) //print edid data
 		{
 			if( ( i % 16 ) == 0 )
 			{
-				printk( "\n" );
+				DRM_INFO( "\n" );
 			}
-			printk( "%x", EDID_DATA[i] );
+			DRM_INFO( "%x", EDID_DATA[i] );
 		}
-#endif
+
 
 		EDID_Timing[hfp] = (EDID_DATA[0x41] & 0xC0) * 4 + EDID_DATA[0x3e];
 		EDID_Timing[hs] = (EDID_DATA[0x41] & 0x30) * 16 + EDID_DATA[0x3f];
@@ -451,14 +443,15 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 		EDID_Timing[vact] = (EDID_DATA[0x3d] & 0xf0) * 16 + EDID_DATA[0x3b];
 		EDID_Timing[vtotal] = (EDID_DATA[0x3d] & 0xf0 ) * 16 + EDID_DATA[0x3b] + ((EDID_DATA[0x3d] & 0x03) * 0x100 + EDID_DATA[0x3c]);
 		EDID_Timing[pclk_10khz] = EDID_DATA[0x37] * 0x100 + EDID_DATA[0x36];
-		printk( "eDP Timing = { H_FP / H_pluse / H_BP / H_act / H_tol / V_FP / V_pluse / V_BP / V_act / V_tol / D_CLK };" );
-		printk( "eDP Timing = { %d       %d       %d     %d     %d     %d      %d       %d     %d    %d    %d };\n",
+		DRM_INFO( "eDP Timing = { H_FP / H_pluse / H_BP / H_act / H_tol / V_FP / V_pluse / V_BP / V_act / V_tol / D_CLK };" );
+		DRM_INFO( "eDP Timing = { %d       %d       %d     %d     %d     %d      %d       %d     %d    %d    %d };\n",
 				(u32)EDID_Timing[hfp],(u32)EDID_Timing[hs],(u32)EDID_Timing[hbp],(u32)EDID_Timing[hact],(u32)EDID_Timing[htotal],
 				(u32)EDID_Timing[vfp],(u32)EDID_Timing[vs],(u32)EDID_Timing[vbp],(u32)EDID_Timing[vact],(u32)EDID_Timing[vtotal],(u32)EDID_Timing[pclk_10khz]);
 	}
 
 	return;
 
+#endif
 }
 
 void lt8911exb_setup(struct lt8911exb *lt8911exb)
@@ -469,7 +462,7 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 	u16 Temp16;
 	u32 chip_read = 0x00;
 
-	DRM_INFO("\r\n lt8911exb_setup");
+	DRM_DEBUG("\r\n lt8911exb_setup");
 
 	/* init */
 	regmap_write(lt8911exb->regmap, 0xff, 0x81); // Change Reg bank
@@ -584,13 +577,13 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 
 	/*stage2 hs mode*/
 	// regmap_write(lt8911exb->regmap, 0x1e, 0x0A); //regmap_write(lt8911exb->regmap, 0x1e, 0x01 );                             // 0x11
-	DRM_INFO("\r\n lt8911exb_setup 0X1e 0x0a");
+	DRM_DEBUG("\r\n lt8911exb_setup 0X1e 0x0a");
 	regmap_write(lt8911exb->regmap, 0x1e, 0x0a);
 	regmap_write(lt8911exb->regmap, 0x23, 0xf0);	// 0x80
 
 	regmap_write(lt8911exb->regmap, 0x2b, 0x80);	// 0xa0
 
-#ifdef _Test_Pattern_
+#ifdef _test_pattern_
 	regmap_write(lt8911exb->regmap, 0x26, (pcr_m | 0x80));
 #else
 
@@ -683,10 +676,10 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 		mdelay(5);
 		regmap_read(lt8911exb->regmap, 0x37, &chip_read);
 		if (chip_read & 0x02) {
-			DRM_INFO("\r\n LT8911 tx pll locked");
+			DRM_DEBUG("\r\n LT8911 tx pll locked");
 			break;
 		} else {
-			DRM_INFO("\r\n LT8911 tx pll unlocked");
+			DRM_DEBUG("\r\n LT8911 tx pll unlocked");
 			regmap_write(lt8911exb->regmap, 0xff, 0x81);
 			regmap_write(lt8911exb->regmap, 0x09, 0xfc);
 			regmap_write(lt8911exb->regmap, 0x09, 0xfd);
@@ -721,7 +714,7 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 	/*eDP Tx Digital */
 	regmap_write(lt8911exb->regmap, 0xff, 0xa8); // Change Reg bank
 
-#ifdef _Test_Pattern_
+#ifdef _test_pattern_
 
 	regmap_write(lt8911exb->regmap, 0x24, 0x50); // bit2 ~ bit 0 : test panttern image mode
 	regmap_write(lt8911exb->regmap, 0x25, 0x70); // bit6 ~ bit 4 : test Pattern color
@@ -767,7 +760,7 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 		regmap_write(lt8911exb->regmap, 0xa1, 0x02 ); // DP scramble mode;
 	}
 
-//	regmap_write(lt8911exb->regmap, 0x17, 0xf0 ); // 0xf0:Close scramble; 0xD0 : Open scramble
+	//regmap_write(lt8911exb->regmap, 0x17, 0xf0 ); // 0xf0:Close scramble; 0xD0 : Open scramble
 
 	regmap_write(lt8911exb->regmap, 0xff, 0x81);
 	regmap_write(lt8911exb->regmap, 0x09, 0x7d);
@@ -793,11 +786,11 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 		DRM_DEBUG_ATOMIC("1-2 reg = %d\n",reg);
 
 
-		DRM_INFO( "\r\nvideo check: mipi byteclk = %d ", reg ); // mipi byteclk = reg * 1000
-		DRM_INFO( "\r\nvideo check: mipi bitrate = %d ", reg * 8); // mipi byteclk = reg * 1000
-		DRM_INFO( "\r\nvideo check: mipi pclk = %d ", reg /3 * 4 * 1000); // mipi byteclk = reg * 1000
+		DRM_DEBUG( "\r\nvideo check: mipi byteclk = %d ", reg ); // mipi byteclk = reg * 1000
+		DRM_DEBUG( "\r\nvideo check: mipi bitrate = %d ", reg * 8); // mipi byteclk = reg * 1000
+		DRM_DEBUG( "\r\nvideo check: mipi pclk = %d ", reg /3 * 4 * 1000); // mipi byteclk = reg * 1000
 	} else {
-		DRM_INFO( "\r\nvideo check: mipi clk unstable" );
+		DRM_DEBUG( "\r\nvideo check: mipi clk unstable" );
 	}
 
 	/* mipi vtotal check*/
@@ -810,7 +803,7 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 	reg = reg * 256 + temp2;
 	DRM_DEBUG_ATOMIC("2-1 reg = %d\n",reg);
 
-	DRM_INFO( "\r\nvideo check: Vtotal =  %d", reg);
+	DRM_DEBUG( "\r\nvideo check: Vtotal =  %d", reg);
 
 	/* mipi word count check*/
 	regmap_write(lt8911exb->regmap, 0xff, 0xd0);
@@ -826,7 +819,7 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 	DRM_DEBUG_ATOMIC( "\r\n3-1 reg  = %d ", reg );
 
 
-	DRM_INFO( "\r\nvideo check: Hact(word counter) =  %d", reg);
+	DRM_DEBUG( "\r\nvideo check: Hact(word counter) =  %d", reg);
 
 	/* mipi Vact check*/
 	//reg	   = LT8911EXB_IIC_Read_byte( 0x85 );
@@ -838,7 +831,7 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 	reg = reg * 256 + temp2;
 	DRM_DEBUG_ATOMIC( "\r\n4-1 reg  = %d ", reg );
 
-	DRM_INFO( "\r\nvideo check: Vact = %d", reg);
+	DRM_DEBUG( "\r\nvideo check: Vact = %d", reg);
 
 }
 
@@ -904,7 +897,6 @@ unsigned int DpcdRead( struct lt8911exb *lt8911exb, u32 Address )
 	regmap_write(lt8911exb->regmap, 0x2c, 0x00);	//start Aux read edid
 
 	mdelay(50);	//more than 10ms
-	//reg = LT8911EXB_IIC_Read_byte( 0x25 );
 	regmap_read(lt8911exb->regmap, 0x25, &reg);
 	if ((reg & 0x0f) == 0x0c) {
 		regmap_read(lt8911exb->regmap, 0x39, &temp);
@@ -935,7 +927,7 @@ void lt8911exb_link_train(struct lt8911exb *lt8911exb)
 
 	regmap_write(lt8911exb->regmap, 0xff, 0x85);
 
-//	regmap_write(lt8911exb->regmap, 0x17, 0xf0 ); // turn off scramble
+	//regmap_write(lt8911exb->regmap, 0x17, 0xf0 ); // turn off scramble
 
 	if (ScrambleMode) {
 		regmap_write(lt8911exb->regmap, 0xa1, 0x82); // eDP scramble mode;
@@ -999,16 +991,11 @@ void lt8911exb_reset(struct lt8911exb *lt8911exb)
 	}
 
 	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-
 	usleep_range(100*1000, 150*1000); //150ms
 	gpiod_direction_output(lt8911exb->reset_gpio, 0);
-
 	usleep_range(100*1000, 150*1000); //150ms
 	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-
 	usleep_range(100*1000, 150*1000); //150ms
-	// gpiod_direction_input(lt8911exb->reset_gpio);
-	// usleep_range(100*1000, 150*1000); //150ms
 }
 
 void LT8911EX_TxSwingPreSet(struct lt8911exb *lt8911exb)
@@ -1031,25 +1018,20 @@ void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 {
 #ifdef _link_train_enable_
 	u8	i;
-	//u8	val;
 	unsigned int val;
-	//int ret;
 
 	regmap_write(lt8911exb->regmap, 0xff, 0xac);
 	for (i = 0; i < 10; i++) {
-		//val = LT8911EXB_IIC_Read_byte( 0x82 );
 		regmap_read(lt8911exb->regmap, 0x82, &val);
-		DRM_INFO("\r\n0x82: 0x%x", val);
+		DRM_DEBUG("\r\n0x82: 0x%x", val);
 		if (val & 0x20) {
 			if ((val & 0x1f) == 0x1e) {
 #ifdef _uart_debug_
-				//   DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: edp link train successed: 0x%bx", val);
 				DRM_INFO("\r\nedp link train successed: 0x%x", val);
 #endif
 				return;
 			} else {
 #ifdef _uart_debug_
-				//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: edp link train failed: 0x%bx", val);
 				DRM_INFO("\r\nedp link train failed: 0x%x", val);
 #endif
 				regmap_write(lt8911exb->regmap, 0xff, 0xac);
@@ -1061,16 +1043,13 @@ void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 				regmap_write(lt8911exb->regmap, 0x14, 0x84);
 				mdelay(50);
 				regmap_write(lt8911exb->regmap, 0x14, 0xc0);
-				//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: Enable eDP video output while linktrian fail");
 			}
 
 #ifdef _uart_debug_
 
-			//val = LT8911EXB_IIC_Read_byte( 0x83 );
 			regmap_read(lt8911exb->regmap, 0x83, &val);
 			//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: panel link rate: 0x%bx",val);
 			DRM_INFO( "\r\npanel link rate: 0x%x", val );
-			//val = LT8911EXB_IIC_Read_byte( 0x84 );
 			regmap_read(lt8911exb->regmap, 0x84, &val);
 			//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: panel link count: 0x%bx",val);
 			DRM_INFO( "\r\npanel link count:0x%x ", val);
@@ -1092,24 +1071,22 @@ void LT8911EX_link_train_result(struct lt8911exb *lt8911exb)
 	unsigned int temp;
 	regmap_write(lt8911exb->regmap, 0xff, 0xac);
 	for (i = 0; i < 10; i++) {
-		//reg = LT8911EXB_IIC_Read_byte( 0x82 );
 		regmap_read(lt8911exb->regmap, 0x82, &reg);
-		//  Debug_DispStrNum( "\r\n0x82 = ", reg );
-		DRM_INFO( "\r\n0x82 = 0x%x", reg );
+		DRM_DEBUG( "\r\n0x82 = 0x%x", reg );
 		if (reg & 0x20) {
 			if((reg & 0x1f) == 0x1e) {
-				DRM_INFO("\r\nLink train success, 0x82 = 0x%x", reg);
+				DRM_DEBUG("\r\nLink train success, 0x82 = 0x%x", reg);
 			} else {
-				DRM_INFO("\r\nLink train fail, 0x82 = 0x%x", reg);
+				DRM_DEBUG("\r\nLink train fail, 0x82 = 0x%x", reg);
 			}
 
 			regmap_read(lt8911exb->regmap, 0x83, &temp);
-			DRM_INFO("\r\npanel link rate: 0x%x", temp);
+			DRM_DEBUG("\r\npanel link rate: 0x%x", temp);
 			regmap_read(lt8911exb->regmap, 0x84, &temp);
-			DRM_INFO("\r\npanel link count: 0x%x", temp);
+			DRM_DEBUG("\r\npanel link count: 0x%x", temp);
 			return;
 		} else {
-			DRM_INFO("\r\nlink trian on going...");
+			DRM_DEBUG("\r\nlink trian on going...");
 		}
 		mdelay(100);
 	}
@@ -1136,11 +1113,7 @@ void PCR_Status(struct lt8911exb *lt8911exb)	// for debug
 #endif
 }
 
-
-//--------------------------------------enable function-------------------------------//
-
-
-static int lt8911exb_i2c_test(struct lt8911exb *lt8911exb)
+static int lt8911exb_chip_id(struct lt8911exb *lt8911exb)
 {
     u8 retry = 0;
     unsigned int chip_id_h = 0, chip_id_m = 0, chip_id_l = 0;
@@ -1165,12 +1138,7 @@ static int lt8911exb_i2c_test(struct lt8911exb *lt8911exb)
         regmap_read(lt8911exb->regmap, 0x01, &chip_id_m);
         regmap_read(lt8911exb->regmap, 0x02, &chip_id_h);
         // LT8911EXB i2c test success chipid: 0xe0517
-        dev_info(lt8911exb->dev, "LT8911EXB i2c test success chipid: 0x%x%x%x\n", chip_id_h, chip_id_m, chip_id_l);
-
-//        if (chip_id_h == 0 && chip_id_l == 0) {
-//            dev_err(&client->dev, "LT8911EXB i2c test failed time %d\n", retry);
-//            continue;
-//        }
+        DRM_DEBUG("LT8911EXB i2c test success chipid: 0x%x%x%x\n", chip_id_h, chip_id_m, chip_id_l);
 
         ret = 0;
         break;
@@ -1183,46 +1151,18 @@ static int lt8911exb_panel_enable(struct drm_panel *panel)
 {
 	struct lt8911exb *lt8911exb = panel_to_lt8911exb(panel);
 
-	DRM_INFO(" %s() \n", __func__);
+	DRM_INFO("%s()\n", __func__);
 
-	#if 0
 	gpiod_direction_output(lt8911exb->enable_gpio, 1);
 	usleep_range(100*1000, 150*1000); //150ms
+	gpiod_direction_output(lt8911exb->standby_gpio, 1);
+	usleep_range(100*1000, 150*1000); //150ms
 
-	lt8911exb_reset(lt8911exb);
-	lt8911exb_i2c_test(lt8911exb);
-	lt8911exb_edp_video_cfg(lt8911exb);	//void lt8911exb_edp_video_cfg( void )
-	lt8911exb_setup(lt8911exb);	//void LT8911EXB_init( void )
-
-	ScrambleMode = 0;
-
-	LT8911EX_TxSwingPreSet(lt8911exb);
-	lt8911exb_link_train(lt8911exb);	//void LT8911EX_link_train( void )
-	LT8911EXB_LinkTrainResultCheck(lt8911exb);
-	LT8911EX_link_train_result(lt8911exb);
-	lt8911exb_video_check(lt8911exb); //just for Check MIPI Input	//void LT8911EXB_video_check( void )
-
-	// DRM_DEBUG_ATOMIC("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
-	DRM_INFO("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
-
-	PCR_Status(lt8911exb);
-	#endif
+	gpiod_direction_output(lt8911exb->bl_gpio, 1);
 
 	schedule_delayed_work(&lt8911exb->init_work,
-				msecs_to_jiffies(5000));
+				msecs_to_jiffies(2000));
 	lt8911exb->init_work_pending = true;
-
-
-	#if 0
-	// gpiod_direction_output(lt8911exb->enable_gpio, LT8911_LOW);
-	gpiod_direction_output(lt8911exb->enable_gpio, 0);
-
-	usleep_range(100*1000, 150*1000); //150ms
-	// gpiod_direction_output(lt8911exb->enable_gpio, LT8911_HIGH);
-	gpiod_direction_output(lt8911exb->enable_gpio, 1);
-
-	usleep_range(100*1000, 150*1000); //150ms
-	#endif
 
 	return 0;
 }
@@ -1231,8 +1171,12 @@ static int lt8911exb_panel_disable(struct drm_panel *panel)
 {
 	struct lt8911exb *lt8911exb = panel_to_lt8911exb(panel);
 
-	DRM_INFO(" %s() \n", __func__);
+	DRM_INFO("%s()\n", __func__);
 
+	gpiod_direction_output(lt8911exb->bl_gpio, 0);
+
+	gpiod_direction_output(lt8911exb->standby_gpio, 0);
+	usleep_range(100*1000, 150*1000); //150ms
 	gpiod_direction_output(lt8911exb->enable_gpio, 0);
 	usleep_range(100*1000, 150*1000); //150ms
 
@@ -1250,7 +1194,7 @@ static int lt8911exb_panel_get_modes(struct drm_panel *panel,
 	unsigned int i, num = 0;
 	static const u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 
-	DRM_INFO(" %s() \n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	for (i = 0; i < ARRAY_SIZE(lt8911exb_panel_modes); i++) {
 		const struct drm_display_mode *m = &lt8911exb_panel_modes[i];
@@ -1303,14 +1247,14 @@ static void init_work_func(struct work_struct *work)
 	struct lt8911exb *lt8911exb = container_of(work, struct lt8911exb,
 						init_work.work);
 
-	DRM_INFO(" %s() \n", __func__);
+	DRM_DEBUG(" %s() \n", __func__);
 
 	gpiod_direction_output(lt8911exb->enable_gpio, 1);
 	usleep_range(100*1000, 150*1000); //150ms
 
 	lt8911exb_reset(lt8911exb);
 
-	lt8911exb_i2c_test(lt8911exb);
+	lt8911exb_chip_id(lt8911exb);
 
 	lt8911exb_edp_video_cfg(lt8911exb);
 	lt8911exb_setup(lt8911exb);
@@ -1324,8 +1268,7 @@ static void init_work_func(struct work_struct *work)
 	LT8911EX_link_train_result(lt8911exb);
 	lt8911exb_video_check(lt8911exb); //just for Check MIPI Input
 
-	// DRM_DEBUG_ATOMIC("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
-	DRM_INFO("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
+	DRM_DEBUG("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
 
 	PCR_Status(lt8911exb);
 
@@ -1342,18 +1285,17 @@ static int lt8911exb_probe(struct i2c_client *client)
 
 	struct device_node *lcd_node;
 	int rc;
-	// const void *p;
 	const char *str;
 	char lcd_path[60];
 	const char *lcd_name;
 
 	struct mipi_dsi_device_info info = {
 		.type = IT8911_DSI_DRIVER_NAME,
-		.channel = 0, //0,
+		.channel = 0,
 		.node = NULL,
 	};
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "Failed check I2C functionality");
@@ -1401,12 +1343,7 @@ static int lt8911exb_probe(struct i2c_client *client)
 		return PTR_ERR(lt8911exb->reset_gpio);
 	}
 
-	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-	usleep_range(100*1000, 150*1000); //150ms
-	gpiod_direction_output(lt8911exb->reset_gpio, 0);
-	usleep_range(100*1000, 150*1000); //150ms
-	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-	usleep_range(100*1000, 150*1000); //150ms
+	lt8911exb_reset(lt8911exb);
 
 	lt8911exb->bl_gpio = devm_gpiod_get_optional(dev, "bl",
 						GPIOD_IN);
@@ -1419,7 +1356,7 @@ static int lt8911exb_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, lt8911exb);
 
 	//check i2c communicate
-	ret = lt8911exb_i2c_test(lt8911exb);    //void LT8911EX_ChipID( void )
+	ret = lt8911exb_chip_id(lt8911exb);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed communicate with IC use I2C\n");
 		return ret;
@@ -1429,13 +1366,9 @@ static int lt8911exb_probe(struct i2c_client *client)
 	if (!endpoint)
 		return -ENODEV;
 
-	DRM_INFO(" %s() endpoint %s\n", __func__, endpoint->full_name);
-
 	dsi_host_node = of_graph_get_remote_port_parent(endpoint);
 	if (!dsi_host_node)
 		goto error;
-
-	DRM_INFO(" %s() dsi_host_node %s\n", __func__, dsi_host_node->full_name);
 
 	rc = of_property_read_string(dsi_host_node, "force-attached", &str);
 	if (!rc)
@@ -1451,7 +1384,6 @@ static int lt8911exb_probe(struct i2c_client *client)
 
 	DRM_INFO("%pOF: find %s node\n", dsi_host_node, lcd_name);
 
-
 	host = of_find_mipi_dsi_host_by_node(dsi_host_node);
 	of_node_put(dsi_host_node);
 	if (!host) {
@@ -1460,7 +1392,7 @@ static int lt8911exb_probe(struct i2c_client *client)
 	}
 
 	drm_panel_init(&lt8911exb->base, dev, &lt8911exb_panel_funcs,
-			DRM_MODE_CONNECTOR_eDP);//DRM_MODE_CONNECTOR_eDP	DRM_MODE_CONNECTOR_DSI
+			DRM_MODE_CONNECTOR_DSI);
 
 	/* This appears last, as it's what will unblock the DSI host
 	 * driver's component bind function.
@@ -1472,7 +1404,6 @@ static int lt8911exb_probe(struct i2c_client *client)
 	if (!info.node)
 		goto error;
 	of_node_put(endpoint);
-
 
 	lt8911exb->dsi = mipi_dsi_device_register_full(host, &info);
 	if (IS_ERR(lt8911exb->dsi)) {
@@ -1493,7 +1424,7 @@ static void lt8911exb_remove(struct i2c_client *client)
 {
 	struct lt8911exb *lt8911exb = i2c_get_clientdata(client);
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	mipi_dsi_detach(lt8911exb->dsi);
 
@@ -1528,11 +1459,9 @@ static int lt8911exb_dsi_probe(struct mipi_dsi_device *dsi)
 {
 	int ret;
 
-
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	dsi->lanes = 4;
-
 	dsi->mode_flags = (MIPI_DSI_MODE_VIDEO |
 				MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
 				MIPI_DSI_MODE_LPM);
@@ -1547,9 +1476,18 @@ static int lt8911exb_dsi_probe(struct mipi_dsi_device *dsi)
 	return ret;
 }
 
+static const struct of_device_id spacemit_edp_of_match[] = {
+	{ .compatible = "spacemit,edp-panel" },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, spacemit_edp_of_match);
+
 static struct mipi_dsi_driver lt8911exb_dsi_driver = {
-	.driver.name = IT8911_DSI_DRIVER_NAME,
 	.probe = lt8911exb_dsi_probe,
+	.driver = {
+		.name = IT8911_DSI_DRIVER_NAME,
+		.of_match_table = spacemit_edp_of_match,
+	},
 };
 
 
@@ -1558,7 +1496,6 @@ static int __init init_lt8911exb(void)
 	int err;
 
 	DRM_INFO("%s()\n", __func__);
-
 	mipi_dsi_driver_register(&lt8911exb_dsi_driver);
 	err = i2c_add_driver(&lt8911exb_driver);
 
@@ -1570,7 +1507,6 @@ module_init(init_lt8911exb);
 static void __exit exit_lt8911exb(void)
 {
 	DRM_INFO("%s()\n", __func__);
-
 	i2c_del_driver(&lt8911exb_driver);
 	mipi_dsi_driver_unregister(&lt8911exb_dsi_driver);
 }
