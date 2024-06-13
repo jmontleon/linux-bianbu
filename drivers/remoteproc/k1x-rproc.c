@@ -22,7 +22,10 @@
 #include <linux/sched/prio.h>
 #include <linux/rpmsg.h>
 #include <linux/pm_qos.h>
+#include <linux/delay.h>
 #include <linux/syscore_ops.h>
+#include <linux/pm_domain.h>
+#include <linux/spacemit/platform_pm_ops.h>
 #include "remoteproc_internal.h"
 
 #define MAX_MEM_BASE	2
@@ -124,12 +127,6 @@ static int spacemit_rproc_prepare(struct rproc *rproc)
 
 	/* enable the power-switch and the clk */
 	pm_runtime_get_sync(priv->dev);
-
-	/**
-	* do not disable the clk & power-switch of the rcpu, it will be done
-	* by rcpu itself
-	* */
-	dev_pm_qos_update_request(&greq, 0);
 
 	/* Register associated reserved memory regions */
 	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
@@ -388,23 +385,146 @@ module_rpmsg_driver(rpmsg_rcpu_pm_client);
 
 static int rproc_syscore_suspend(void)
 {
+	/* reset the rcpu */
+	reset_control_assert(gcore_reset);
+
 	return 0;
 }
 
 static void rproc_syscore_resume(void)
 {
-	/* reset the rcpu */
-	reset_control_assert(gcore_reset);
 	reset_control_deassert(gcore_reset);
-	/**
-	 * only open the power-swith
-	* */
-	dev_pm_qos_update_request(&greq, DEV_PM_QOS_PM_DOMAIN_GATE);
 }
 
 static struct syscore_ops rproc_syscore_ops = {
 	.suspend = rproc_syscore_suspend,
 	.resume = rproc_syscore_resume,
+};
+
+#define RCPU_ENTER_LOW_PWR_MODE		"$"
+
+static int rproc_platform_late(void)
+{
+	int ret;
+	unsigned int val;
+	struct rproc *rproc;
+	struct spacemit_rproc *srproc;
+	struct rproc_mem_entry *rcpu_snapshots_mem;
+	struct platform_device *pdev;
+	struct generic_pm_domain *genpd;
+
+	pdev = (struct platform_device *)rpmsg_rcpu_pwr_management_id_table[0].driver_data;
+
+	rproc = dev_get_drvdata(&pdev->dev);
+	srproc = rproc->priv;
+
+	/* send msg to rcpu to let it enter low power mode */
+	ret = rpmsg_send(srproc->rpdev->ept, RCPU_ENTER_LOW_PWR_MODE,
+			strlen(RCPU_ENTER_LOW_PWR_MODE));
+
+	rcpu_snapshots_mem = rproc_find_carveout_by_name(rproc, "rcpu_mem_snapshots");
+	if (!rcpu_snapshots_mem) {
+		pr_err("Failed to find the rcpu_mem_snapshots\n");
+		return -1;
+	}
+
+	while (1) {
+		/* will be wrotten by rpcu */
+		val = readl(rcpu_snapshots_mem->va);
+		if (val == 1)
+			break;
+	}
+
+	/* wait the rcpu enter wfi */
+	mdelay(10);
+
+	genpd = pd_to_genpd(pdev->dev.pm_domain);
+
+	pdev->dev.power.wakeup_path = false;
+
+	/* close the clk & power-switch */
+	genpd->domain.ops.suspend_noirq(&pdev->dev);
+
+	return 0;
+}
+
+static void rproc_platfrom_wake(void)
+{
+	unsigned int val;
+	struct rproc *rproc;
+	struct spacemit_rproc *srproc;
+	struct rproc_mem_entry *rcpu_sram_mem, *rcpu_snapshots_mem;
+	struct platform_device *pdev;
+	struct generic_pm_domain *genpd;
+
+	pdev = (struct platform_device *)rpmsg_rcpu_pwr_management_id_table[0].driver_data;
+
+	rproc = dev_get_drvdata(&pdev->dev);
+	srproc = rproc->priv;
+
+	genpd = pd_to_genpd(pdev->dev.pm_domain);
+	/* enable the clk & power-switch */
+	genpd->domain.ops.resume_noirq(&pdev->dev);
+
+	/* enable ipc2ap clk & reset--> rcpu side */
+	writel(0xff, srproc->base[BOOTC_MEM_BASE_OFFSET] + ESOS_AON_PER_CLK_RST_CTL_REG);
+
+	/* set ddr map */
+	writel(srproc->ddr_remap_base, srproc->base[SYSCTRL_MEM_BASE_OFFSET] + ESOS_DDR_REGMAP_BASE_REG_OFFSET);
+
+	rcpu_sram_mem = rproc_find_carveout_by_name(rproc, "mem");
+	if (!rcpu_sram_mem) {
+		pr_err("Failed to find the rcpu_mem_0\n");
+		return;
+	}
+
+	rcpu_snapshots_mem = rproc_find_carveout_by_name(rproc, "rcpu_mem_snapshots");
+	if (!rcpu_snapshots_mem) {
+		pr_err("Failed to find the rcpu_mem_snapshots\n");
+		return;
+	}
+
+	/* copy the code */
+	memcpy((void *)rcpu_sram_mem->va,
+			(void *)((u32 *)rcpu_snapshots_mem->va + 1),
+			rcpu_sram_mem->len - sizeof(u32));
+
+	/* luaching up rpcu */	
+	writel(1, srproc->base[BOOTC_MEM_BASE_OFFSET] + ESOS_BOOTUP_REG_OFFSET);
+	
+	while (1) {
+		/* will be wrotten by rpcu */
+		val = readl(rcpu_snapshots_mem->va);
+		if (val == 2)
+			break;
+	}
+
+	memset((void *)rcpu_snapshots_mem->va, 0, rcpu_snapshots_mem->len);
+}
+
+static struct platfrom_pm_ops rproc_platform_pm_ops = {
+	.prepare_late = rproc_platform_late,
+	.wake = rproc_platfrom_wake,
+};
+
+static int spacemit_rproc_suspend(struct device *dev)
+{
+	/* this code do nothing but pretect the power & clk of audio 
+	 * from closing in noirq process when system suspend
+	 * */
+	device_set_wakeup_path(dev);
+
+	return 0;
+}
+
+static int spacemit_rproc_resume(struct device *dev)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops spacemit_rproc_pm_ops = {
+	.suspend = spacemit_rproc_suspend,
+	.resume = spacemit_rproc_resume,
 };
 #endif
 
@@ -497,6 +617,8 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	rpmsg_rcpu_pwr_management_id_table[0].driver_data = (unsigned long long)pdev;
 
 	register_syscore_ops(&rproc_syscore_ops);
+
+	register_platform_pm_ops(&rproc_platform_pm_ops);
 #endif
 
 	rproc->auto_boot = true;
@@ -546,101 +668,6 @@ static const struct of_device_id spacemit_rproc_of_match[] = {
 };
 
 MODULE_DEVICE_TABLE(of, spacemit_rproc_of_match);
-
-#ifdef CONFIG_PM_SLEEP
-
-#define RCPU_ENTER_LOW_PWR_MODE		"$"
-
-static int spacemit_rproc_suspend(struct device *dev)
-{
-	int ret;
-	unsigned int val;
-	struct rproc *rproc;
-	struct spacemit_rproc *srproc;
-	struct rproc_mem_entry *rcpu_snapshots_mem;
-
-	rproc = dev_get_drvdata(dev);
-	srproc = rproc->priv;
-
-	/* send msg to rcpu to let it enter low power mode */
-	ret = rpmsg_send(srproc->rpdev->ept, RCPU_ENTER_LOW_PWR_MODE,
-			strlen(RCPU_ENTER_LOW_PWR_MODE));
-
-	rcpu_snapshots_mem = rproc_find_carveout_by_name(rproc, "rcpu_mem_snapshots");
-	if (!rcpu_snapshots_mem) {
-		pr_err("Failed to find the rcpu_mem_snapshots\n");
-		return -1;
-	}
-
-	while (1) {
-		/* will be wrotten by rpcu */
-		val = readl(rcpu_snapshots_mem->va);
-		if (val == 1)
-			break;
-	}
-
-	return 0;
-}
-
-static int spacemit_rproc_resume(struct device *dev)
-{
-	unsigned int val;
-	struct rproc *rproc;
-	struct spacemit_rproc *srproc;
-	struct rproc_mem_entry *rcpu_sram_mem, *rcpu_snapshots_mem;
-
-	rproc = dev_get_drvdata(dev);
-	srproc = rproc->priv;
-
-	/*
-	 * when suspend, do not close the clk & power-switch, it will be
-	 * done by rcpu itself.
-	 * */
-	dev_pm_qos_update_request(&greq, 0);
-
-	/* enable ipc2ap clk & reset--> rcpu side */
-	writel(0xff, srproc->base[BOOTC_MEM_BASE_OFFSET] + ESOS_AON_PER_CLK_RST_CTL_REG);
-
-	/* set ddr map */
-	writel(srproc->ddr_remap_base, srproc->base[SYSCTRL_MEM_BASE_OFFSET] + ESOS_DDR_REGMAP_BASE_REG_OFFSET);
-
-	rcpu_sram_mem = rproc_find_carveout_by_name(rproc, "mem");
-	if (!rcpu_sram_mem) {
-		pr_err("Failed to find the rcpu_mem_0\n");
-		return -1;
-	}
-
-	rcpu_snapshots_mem = rproc_find_carveout_by_name(rproc, "rcpu_mem_snapshots");
-	if (!rcpu_snapshots_mem) {
-		pr_err("Failed to find the rcpu_mem_snapshots\n");
-		return -1;
-	}
-
-	/* copy the code */
-	memcpy((void *)rcpu_sram_mem->va,
-			(void *)((u32 *)rcpu_snapshots_mem->va + 1),
-			rcpu_sram_mem->len - sizeof(u32));
-
-	/* luaching up rpcu */	
-	writel(1, srproc->base[BOOTC_MEM_BASE_OFFSET] + ESOS_BOOTUP_REG_OFFSET);
-	
-	while (1) {
-		/* will be wrotten by rpcu */
-		val = readl(rcpu_snapshots_mem->va);
-		if (val == 2)
-			break;
-	}
-
-	memset((void *)rcpu_snapshots_mem->va, 0, rcpu_snapshots_mem->len);
-
-	return 0;
-}
-
-static const struct dev_pm_ops spacemit_rproc_pm_ops = {
-	.suspend = spacemit_rproc_suspend,
-	.resume = spacemit_rproc_resume,
-};
-#endif
 
 static void spacemit_rproc_shutdown(struct platform_device *pdev)
 {
