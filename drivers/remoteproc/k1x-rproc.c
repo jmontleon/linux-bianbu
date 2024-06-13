@@ -621,10 +621,14 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	register_platform_pm_ops(&rproc_platform_pm_ops);
 #endif
 
-	rproc->auto_boot = true;
 	ret = devm_rproc_add(dev, rproc);
 	if (ret) {
 		dev_err(dev, "rproc_add failed\n");
+	}
+
+	ret = rproc_boot(rproc);
+	if (ret) {
+		dev_err(dev, "rproc_boot failed\n");
 	}
 
 	return ret;
@@ -658,6 +662,7 @@ static int spacemit_rproc_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_PM_SLEEP
 	unregister_rpmsg_driver(&rpmsg_rcpu_pm_client);
+	unregister_platform_pm_ops(&rproc_platform_pm_ops);
 #endif
 	return 0;
 }
@@ -702,7 +707,7 @@ static __init int spacemit_rproc_driver_init(void)
 {
 	return platform_driver_register(&spacemit_rproc_driver);
 }
-subsys_initcall(spacemit_rproc_driver_init);
+device_initcall(spacemit_rproc_driver_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("sapcemit remote processor control driver");
