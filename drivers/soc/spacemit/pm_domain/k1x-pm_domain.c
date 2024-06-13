@@ -255,12 +255,6 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 		}
 	}
 
-	if (spd->pm_index == K1X_PMU_AUD_PWR_DOMAIN) {
-		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, &val);
-		val |= (1 << AP_POWER_CTRL_AUDIO_AUTH_OFFSET);
-		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, val);
-	}
-
 	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
 	if (val & (1 << spd->param.bit_pwr_stat)) {
 		if (!spd->param.use_hw) {
@@ -354,13 +348,6 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 	if (loop < 0) {
 		pr_err("power-on domain: %d, error\n", spd->pm_index);
 		return -EBUSY;
-	}
-
-	/* for audio power domain, we should let the rcpu handle it, and disable force power on */
-	if (spd->pm_index == K1X_PMU_AUD_PWR_DOMAIN) {
-		regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, &val);
-		val &= ~((1 << AP_POWER_CTRL_AUDIO_AUTH_OFFSET) | (1 << FORCE_AUDIO_POWER_ON_OFFSET));
-		regmap_write(gpmu->regmap[APMU_REGMAP_INDEX], APMU_AUDIO_CLK_RES_CTRL, val);
 	}
 
 	return 0;
@@ -705,9 +692,13 @@ static int spacemit_pm_add_one_domain(struct spacemit_pmu *pmu, struct device_no
 	pd->genpd.dev_ops.start = spacemit_genpd_start;
 
 	/* audio power-domain is power-on by default */
-	if (id == K1X_PMU_AUD_PWR_DOMAIN)
+	if (id == K1X_PMU_AUD_PWR_DOMAIN) {
+		/* set this flag has nothing affect, just do not want the framework disable
+		 * the clk & power in noirq callback when system suspend.
+		 * */
+		pd->genpd.flags |= GENPD_FLAG_ACTIVE_WAKEUP;
 		pm_genpd_init(&pd->genpd, NULL, false);
-	else
+	} else
 		pm_genpd_init(&pd->genpd, NULL, true);
 
 	pmu->domains[id] = pd;
