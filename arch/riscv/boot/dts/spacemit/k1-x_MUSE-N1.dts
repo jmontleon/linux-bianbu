@@ -236,6 +236,11 @@
 				regulator-max-microvolt = <3450000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <650000>;
+				};
 			};
 
 			dcdc_2: DCDC_REG2 {
