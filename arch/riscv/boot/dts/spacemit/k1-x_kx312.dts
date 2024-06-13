@@ -195,7 +195,7 @@
 
 	edp_panel: panel@0 {
 			status = "ok";
-			// compatible = "spacemit,edp-panel";
+			compatible = "spacemit,edp-panel";
 	};
 
 };
