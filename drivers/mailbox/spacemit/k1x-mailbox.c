@@ -16,10 +16,18 @@
 #include <linux/reset.h>
 #include <linux/spinlock.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
 #include "../mailbox.h"
 #include "k1x_mailbox.h"
 
 #define mbox_dbg(mbox, ...)	dev_dbg((mbox)->controller.dev, __VA_ARGS__)
+
+#define DEV_PM_QOS_CLK_GATE            1
+#define DEV_PM_QOS_REGULATOR_GATE      2
+#define DEV_PM_QOS_PM_DOMAIN_GATE      4
+#define DEV_PM_QOS_DEFAULT             7
+
+static struct dev_pm_qos_request greq;
 
 static irqreturn_t spacemit_mbox_irq(int irq, void *dev_id)
 {
@@ -173,12 +181,16 @@ static int spacemit_mailbox_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(dev);
+	dev_pm_qos_add_request(dev, &greq, DEV_PM_QOS_MAX_FREQUENCY,
+			DEV_PM_QOS_CLK_GATE | DEV_PM_QOS_PM_DOMAIN_GATE);
 	pm_runtime_get_sync(dev);
+	/* do not disable the clk of mailbox when suspend */
+	dev_pm_qos_update_request(&greq, DEV_PM_QOS_PM_DOMAIN_GATE);
 	pm_runtime_get_noresume(dev);
 
 	/* request irq */
 	ret = devm_request_irq(dev, platform_get_irq(pdev, 0),
-			       spacemit_mbox_irq, 0, dev_name(dev), mbox);
+			       spacemit_mbox_irq, IRQF_NO_SUSPEND, dev_name(dev), mbox);
 	if (ret) {
 		dev_err(dev, "Failed to register IRQ handler: %d\n", ret);
 		return -EINVAL;
