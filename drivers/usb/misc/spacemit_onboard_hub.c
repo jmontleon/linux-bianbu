@@ -111,6 +111,7 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 {
 	struct spacemit_hub_priv *spacemit;
 	struct device *dev = &pdev->dev;
+	int ret;
 
 	dev_info(&pdev->dev, "%s\n", DRIVER_VERSION);
 
@@ -132,12 +133,17 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 	spacemit->suspend_power_on =
 		device_property_read_bool(dev, "suspend_power_on");
 
+	pm_runtime_enable(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_get_sync(dev);
+
 	spacemit->hub_gpios = devm_gpiod_get_array_optional(
 		&pdev->dev, "hub",
 		spacemit->hub_gpio_active_low ? GPIOD_OUT_HIGH : GPIOD_OUT_LOW);
 	if (IS_ERR(spacemit->hub_gpios)) {
 		dev_err(&pdev->dev, "failed to retrieve hub-gpios from dts\n");
-		return PTR_ERR(spacemit->hub_gpios);
+		ret = PTR_ERR(spacemit->hub_gpios);
+		goto err_rpm;
 	}
 
 	spacemit->vbus_gpios = devm_gpiod_get_array_optional(
@@ -145,7 +151,8 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 		spacemit->vbus_gpio_active_low ? GPIOD_OUT_HIGH : GPIOD_OUT_LOW);
 	if (IS_ERR(spacemit->vbus_gpios)) {
 		dev_err(&pdev->dev, "failed to retrieve vbus-gpios from dts\n");
-		return PTR_ERR(spacemit->vbus_gpios);
+		ret = PTR_ERR(spacemit->vbus_gpios);
+		goto err_rpm;
 	}
 
 	platform_set_drvdata(pdev, spacemit);
@@ -159,6 +166,11 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 	spacemit_hub_debugfs_init(spacemit);
 
 	return 0;
+err_rpm:
+	pm_runtime_disable(dev);
+	pm_runtime_put_sync(dev);
+	pm_runtime_put_noidle(dev);
+	return ret;
 }
 
 static int spacemit_hub_remove(struct platform_device *pdev)
@@ -169,6 +181,9 @@ static int spacemit_hub_remove(struct platform_device *pdev)
 	spacemit_hub_configure(spacemit, false);
 	mutex_destroy(&spacemit->hub_mutex);
 	dev_info(&pdev->dev, "onboard usb hub driver exit, disable hub\n");
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 	return 0;
 }
 
