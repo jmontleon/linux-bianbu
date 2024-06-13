@@ -197,6 +197,7 @@ struct mfd_match_data {
 /* regulator: match data */
 struct regulator_match_data {
 	int nr_desc;
+	int sleep_reg_offset;
 	const struct regulator_desc *desc;
 	const char *name;
 };
