@@ -17,6 +17,31 @@
 #include <linux/gpio/consumer.h>
 #include <linux/mfd/spacemit/spacemit_pmic.h>
 
+static struct regulator_match_data *match_data;
+
+static int spacemit_regulator_set_suspend_voltage(struct regulator_dev *rdev, int uV)
+{
+	unsigned int reg;
+
+	int sel = regulator_map_voltage_linear_range(rdev, uV, uV);
+
+	if (sel < 0)
+		return -EINVAL;
+
+	/* means that we will disable this vol in suspend */
+	if (uV == rdev->constraints->max_uV)
+		/* BUCK will set 0xff to close the power */
+		sel = rdev->desc->vsel_mask;
+	else if (uV == rdev->constraints->min_uV)
+		/* LDO will set zero to close the power */
+		sel = 0;
+
+	reg = rdev->desc->vsel_reg + match_data->sleep_reg_offset;
+
+	return regmap_update_bits(rdev->regmap, reg,
+			rdev->desc->vsel_mask, sel);
+}
+
 static const struct regulator_ops pmic_dcdc_ldo_ops = {
 	.list_voltage		= regulator_list_voltage_linear_range,
 	.map_voltage		= regulator_map_voltage_linear_range,
@@ -26,6 +51,7 @@ static const struct regulator_ops pmic_dcdc_ldo_ops = {
 	.enable			= regulator_enable_regmap,
 	.disable		= regulator_disable_regmap,
 	.is_enabled		= regulator_is_enabled_regmap,
+	.set_suspend_voltage	= spacemit_regulator_set_suspend_voltage,
 };
 
 static const struct regulator_ops pmic_switch_ops = {
@@ -57,7 +83,6 @@ static int spacemit_regulator_probe(struct platform_device *pdev)
 	struct spacemit_pmic *pmic = dev_get_drvdata(pdev->dev.parent);
 	struct i2c_client *client;
 	const struct of_device_id *of_id;
-	struct regulator_match_data *match_data;
 	struct regulator_dev *regulator_dev;
 	int i;
 
