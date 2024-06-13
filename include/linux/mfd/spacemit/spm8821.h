@@ -83,6 +83,8 @@ enum SPM8821_reg {
 #define SPM8821_NON_RESET_REG		0xAB
 #define SPM8821_RESTART_CFG_BIT_MSK	0x3
 
+#define SPM8821_SLEEP_REG_OFFSET	0x1
+
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
 		.reg_bits = 8,	\
@@ -104,7 +106,7 @@ enum SPM8821_reg {
 #define SPM8821_BUCK_LINER_RANGE					\
 static const struct linear_range spm8821_buck_ranges[] = {		\
         REGULATOR_LINEAR_RANGE(500000, 0x0, 0xaa, 5000),		\
-        REGULATOR_LINEAR_RANGE(1375000, 0xab, 0xfe, 25000),		\
+        REGULATOR_LINEAR_RANGE(1375000, 0xab, 0xff, 25000),		\
 };
 
 
@@ -789,6 +791,7 @@ static struct regulator_match_data spm8821_regulator_match_data = {	\
 	.nr_desc = ARRAY_SIZE(spm8821_reg),				\
 	.desc = spm8821_reg,						\
 	.name = "spm8821",						\
+	.sleep_reg_offset = SPM8821_SLEEP_REG_OFFSET,			\
 };
 
 #endif /* __SPM8821_H__ */
