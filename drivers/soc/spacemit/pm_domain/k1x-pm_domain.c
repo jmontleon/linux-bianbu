@@ -473,8 +473,9 @@ static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct devic
 		dev_pm_qos_remove_notifier(dev, &pos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
 		while (--pos->rgr_count >= 0)
 			devm_regulator_put(pos->rgr[pos->rgr_count]);
-		list_del(&pos->qos_node);
 	}
+
+	list_del(&pos->qos_node);
 }
 
 static int spacemit_cpuidle_qos_notfier_call(struct notifier_block *nb, unsigned long action, void *data)
