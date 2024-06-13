@@ -264,6 +264,10 @@ static int dwc3_spacemit_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, spacemit);
 
+	pm_runtime_enable(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_get_sync(dev);
+
 	spacemit->irq = platform_get_irq(pdev, 0);
 	if (spacemit->irq < 0) {
 		dev_err(dev, "missing IRQ resource\n");
@@ -339,6 +343,9 @@ irq_err:
 	of_platform_depopulate(&pdev->dev);
 populate_err:
 	dwc3_spacemit_exit(spacemit);
+	pm_runtime_disable(dev);
+	pm_runtime_put_sync(dev);
+	pm_runtime_put_noidle(dev);
 	return ret;
 }
 
@@ -354,6 +361,9 @@ static int dwc3_spacemit_remove(struct platform_device *pdev)
 	}
 	of_platform_depopulate(&pdev->dev);
 	dwc3_spacemit_exit(spacemit);
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 
 	return 0;
 }
