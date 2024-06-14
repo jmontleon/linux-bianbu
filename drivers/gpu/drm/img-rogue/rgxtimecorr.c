@@ -428,7 +428,7 @@ static inline IMG_UINT32 _RGXGPUFreqGetIndex(RGX_GPU_DVFS_TABLE *psGpuDVFSTable,
 
 	i--;
 
-	PVR_DPF((PVR_DBG_ERROR, "GPU frequency table in the driver is full! "
+	PVR_DPF((PVR_DBG_WARNING, "GPU frequency table in the driver is full! "
 	         "Table size should be increased! Overriding last entry (%u) with %u",
 	         paui32GPUFrequencies[i], ui32CoreClockSpeed));
 
