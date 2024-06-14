@@ -1779,6 +1779,7 @@ static int fe_dwt_subdev_pad_set_fmt(struct v4l2_subdev *sd,
 			sd_format.format.code = MEDIA_BUS_FMT_YVYU8_1_5X8;
 		sd_format.format.width = dwt->pad_fmts[PAD_OUT].format.width;
 		sd_format.format.height = dwt->pad_fmts[PAD_OUT].format.height;
+		sd_format.stream = 0;
 		remote_sd_in = media_entity_to_v4l2_subdev(remote_pad_in->entity);
 		ret = v4l2_subdev_call(remote_sd_in, pad, set_fmt, NULL, &sd_format);
 		if (ret) {

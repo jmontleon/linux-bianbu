@@ -365,14 +365,19 @@ static int spm_mlink_apply_format_forward(struct media_entity *me)
 		remote_sd = media_entity_to_v4l2_subdev(remote_me);
 		fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		fmt.pad = source_pad_id;
+		fmt.stream = 0;
+
 		ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &fmt);
 		if (ret && ret != -ENOIOCTLCMD) {
-			cam_err("%s get pad(%d) fmt from %s failed.", __func__,
-				source_pad_id, media_entity_name(me));
+			cam_err("%s get pad(%d) fmt from %s failed. (%d)", __func__,
+				source_pad_id, media_entity_name(me), ret);
+
 			return ret;
 		}
+
 		fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 		fmt.pad = sink_pad_id;
+		fmt.stream = 0;
 		cam_dbg("set format(%dx%d mbus_code=0x%08x) to %s pad%d.",
 			fmt.format.width, fmt.format.height, fmt.format.code,
 			media_entity_name(remote_me), fmt.pad);
