@@ -736,7 +736,7 @@ static struct crypto_alg *spacemit_crypto_larval_wait(struct crypto_alg *alg)
 	struct crypto_larval *larval = (void *)alg;
 	long timeout;
 
-	if (!static_branch_likely(&crypto_boot_test_finished))
+	if (!crypto_boot_test_finished())
 		spacemit_crypto_start_test(larval);
 
 	timeout = wait_for_completion_killable_timeout(
