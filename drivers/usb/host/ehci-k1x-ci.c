@@ -285,7 +285,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	if (usb_disabled())
 		return -ENODEV;
 
-	hcd = usb_create_hcd(&mv_ehci_hc_driver, &pdev->dev, "mv ehci");
+	hcd = usb_create_hcd(&mv_ehci_hc_driver, &pdev->dev, dev_name(dev));
 	if (!hcd)
 		return -ENOMEM;
 
