@@ -2513,7 +2513,9 @@ static struct drm_driver nulldisp_drm_driver = {
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0) */
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(5, 9, 0) */
 	.gem_prime_import_sg_table	= nulldisp_gem_prime_import_sg_table,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 31))
 	.gem_prime_mmap			= nulldisp_gem_prime_mmap,
+#endif
 	.gem_prime_import		= drm_gem_prime_import,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
 	.gem_prime_res_obj		= nulldisp_gem_prime_res_obj,

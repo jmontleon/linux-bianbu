@@ -172,7 +172,12 @@ static struct nlpvrdpy *nlpvrdpy_lookup(u32 minor)
 	return nlpvrdpy;
 }
 
-static int nlpvrdpy_pre_cmd(const struct genl_ops *ops,
+static int nlpvrdpy_pre_cmd(
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 31))
+				const struct genl_split_ops *ops,
+#else
+				const struct genl_ops *ops,
+#endif
 				struct sk_buff *skb,
 				struct genl_info *info)
 {
@@ -219,8 +224,12 @@ err_unlock:
 	nlpvrdpy_unlock(nlpvrdpy);
 	return ret;
 }
-
-static void nlpvrdpy_post_cmd(const struct genl_ops *ops,
+static void nlpvrdpy_post_cmd(
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 31))
+				const struct genl_split_ops *ops,
+#else
+				const struct genl_ops *ops,
+#endif
 				struct sk_buff *skb,
 				struct genl_info *info)
 {
