@@ -1823,6 +1823,9 @@
 			spacemit,otg-force-a-bus-req;
 			clocks = <&ccu CLK_USB_AXI>;
 			resets = <&reset RESET_USB_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy>;
 			status = "disabled";
 		};
@@ -1855,7 +1858,6 @@
 			clocks = <&ccu CLK_USB_AXI>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
-			regulator,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy>;
 			usb-otg = <&otg>;
@@ -1881,6 +1883,9 @@
 			spacemit,otg-force-a-bus-req;
 			clocks = <&ccu CLK_USB_P1>;
 			resets = <&reset RESET_USBP1_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy1>;
 			status = "disabled";
 		};
@@ -1913,7 +1918,6 @@
 			clocks = <&ccu CLK_USB_P1>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
-			regulator,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy1>;
 			usb-otg = <&otg1>;
@@ -1943,6 +1947,9 @@
 
 		usb3hub: usb3hub@0 {
 			compatible = "spacemit,usb3-hub";
+			power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "disabled";
 		};
 
@@ -1955,6 +1962,9 @@
 			reset-names = "ctl_rst";
 			clocks = <&ccu CLK_USB30>;
 			clock-names = "usbdrd30";
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			phys = <&combphy PHY_TYPE_USB3>;
 			phy-names = "usb3-phy";
 			usb-phy = <&usb2phy>;
