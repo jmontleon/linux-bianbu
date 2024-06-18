@@ -19,6 +19,8 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/rfkill.h>
+#include <linux/property.h>
+#include <linux/of_device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include "spacemit-pwrseq.h"
