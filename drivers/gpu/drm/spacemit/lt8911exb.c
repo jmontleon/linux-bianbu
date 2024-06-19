@@ -1331,8 +1331,7 @@ static void init_work_func(struct work_struct *work)
 
 }
 
-static int lt8911exb_probe(struct i2c_client *client,
-			const struct i2c_device_id *id)
+static int lt8911exb_probe(struct i2c_client *client)
 {
 	struct lt8911exb *lt8911exb;
 	struct device *dev = &client->dev;
