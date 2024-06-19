@@ -6,6 +6,7 @@
  */
 
 #include "linux/dma-direction.h"
+#include <linux/kernel.h>
 #include <linux/dma-mapping.h>
 #include <linux/fs.h>
 #include <linux/module.h>
@@ -1242,7 +1243,7 @@ int spacemit_aes_ecb_encrypt(int index, const unsigned char *pt,unsigned char *c
 {
 	symmetric_key skey1;
 	skey1.rijndael.Nr=len;
-	memcpy(skey1.rijndael.eK,key,sizeof(skey1.rijndael.eK));
+	memcpy(skey1.rijndael.eK,key,min(len, sizeof(skey1.rijndael.eK)));
 
 	return ce_aes_process_nblocks_noalign(index, pt,ct,blocks, &skey1,NULL,E_AES_ECB,NULL, E_AES_ENCRYPT);
 }
@@ -1252,7 +1253,7 @@ int spacemit_aes_ecb_decrypt(int index, const unsigned char *ct,unsigned char *p
 {
 	symmetric_key skey1;
 	skey1.rijndael.Nr=len;
-	memcpy(skey1.rijndael.dK,key,sizeof(skey1.rijndael.dK));
+	memcpy(skey1.rijndael.dK,key,min(len, sizeof(skey1.rijndael.dK)));
 
 	return ce_aes_process_nblocks_noalign(index, ct,pt,blocks, &skey1,NULL,E_AES_ECB,NULL, E_AES_DECRYPT);
 }
@@ -1262,7 +1263,7 @@ int spacemit_aes_cbc_encrypt(int index, const unsigned char *pt,unsigned char *c
 {
 	symmetric_key skey1;
 	skey1.rijndael.Nr=len;
-	memcpy(skey1.rijndael.eK,key,sizeof(skey1.rijndael.eK));
+	memcpy(skey1.rijndael.eK,key,min(len, sizeof(skey1.rijndael.eK)));
 
 	return ce_aes_process_nblocks_noalign(index, pt,ct,blocks, &skey1,NULL,E_AES_CBC,IV,E_AES_ENCRYPT);
 }
@@ -1272,7 +1273,7 @@ int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *p
 {
 	symmetric_key skey1;
 	skey1.rijndael.Nr=len;
-	memcpy(skey1.rijndael.dK,key,sizeof(skey1.rijndael.dK));
+	memcpy(skey1.rijndael.dK,key,min(len, sizeof(skey1.rijndael.dK)));
 
 	return ce_aes_process_nblocks_noalign(index, ct,pt,blocks, &skey1,NULL,E_AES_CBC,IV,E_AES_DECRYPT);
 }
@@ -1285,10 +1286,10 @@ int spacemit_aes_xts_encrypt(int index, const unsigned char *pt, unsigned char *
 	symmetric_key skey1, skey2;
 
 	skey1.rijndael.Nr = len;
-	memcpy(skey1.rijndael.eK, key1, sizeof(skey1.rijndael.eK));
+	memcpy(skey1.rijndael.eK, key1, min(len, sizeof(skey1.rijndael.eK)));
 
 	skey2.rijndael.Nr = len;
-	memcpy(skey2.rijndael.eK, key2, sizeof(skey2.rijndael.eK));
+	memcpy(skey2.rijndael.eK, key2, min(len, sizeof(skey2.rijndael.eK)));
 
 	return ce_aes_process_nblocks_noalign(index, pt, ct, blocks, &skey1, &skey2,
 				E_AES_XTS, IV, E_AES_ENCRYPT);
@@ -1302,10 +1303,10 @@ int spacemit_aes_xts_decrypt(int index, const unsigned char *ct, unsigned char *
 	symmetric_key skey1, skey2;
 
 	skey1.rijndael.Nr = len;
-	memcpy(skey1.rijndael.dK, key1, sizeof(skey1.rijndael.dK));
+	memcpy(skey1.rijndael.dK, key1, min(len, sizeof(skey1.rijndael.dK)));
 
 	skey2.rijndael.Nr = len;
-	memcpy(skey2.rijndael.dK, key2, sizeof(skey2.rijndael.dK));
+	memcpy(skey2.rijndael.dK, key2, min(len, sizeof(skey2.rijndael.dK)));
 
 	return ce_aes_process_nblocks_noalign(index, ct, pt, blocks, &skey1, &skey2,
 				E_AES_XTS, IV, E_AES_DECRYPT);
