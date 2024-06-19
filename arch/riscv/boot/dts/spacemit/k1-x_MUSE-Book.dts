@@ -10,7 +10,7 @@
 #include "k1-x-hdmi.dtsi"
 
 / {
-	model = "k1-x_MUSE-Book";
+	model = "M1-MUSE-BOOK";
 	modules_usrload = "8852be";
 
 	cpus: cpus {
