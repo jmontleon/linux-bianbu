@@ -21,6 +21,10 @@ config SPACEMIT_MIPI_PANEL
 	tristate "MIPI Panel Support For Spacemit"
 	depends on DRM_SPACEMIT
 
+config SPACEMIT_HDMI
+	tristate "HDMI Support For Spacemit"
+	depends on DRM_SPACEMIT
+
 config DRM_LT8911EXB
 	tristate "Lontium LT8911EXB DSI to eDP"
 	default y

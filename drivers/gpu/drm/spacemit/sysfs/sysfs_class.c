@@ -20,7 +20,7 @@ int display_class_init(void)
 {
 	pr_info("display class register\n");
 
-	display_class = class_create(THIS_MODULE, "display");
+	display_class = class_create("display");
 	if (IS_ERR(display_class)) {
 		pr_err("Unable to create display class\n");
 		return PTR_ERR(display_class);

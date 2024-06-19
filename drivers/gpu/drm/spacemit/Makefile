@@ -4,7 +4,6 @@ spacemit-drm-y := 	spacemit_drm.o \
 				spacemit_cmdlist.o \
 				spacemit_dpu.o \
 				spacemit_planes.o \
-				spacemit_hdmi.o \
 				spacemit_dsi.o \
 				spacemit_wb.o \
 				spacemit_dphy.o \
@@ -27,6 +26,6 @@ spacemit-drm-y := 	spacemit_drm.o \
 
 obj-$(CONFIG_DRM_SPACEMIT) += spacemit-drm.o
 
-obj-$(CONFIG_DRM_LT8911EXB) += lt8911exb.o
-
 obj-$(CONFIG_SPACEMIT_MIPI_PANEL) += spacemit_mipi_panel.o
+obj-$(CONFIG_SPACEMIT_HDMI) += spacemit_hdmi.o
+obj-$(CONFIG_DRM_LT8911EXB) += lt8911exb.o
