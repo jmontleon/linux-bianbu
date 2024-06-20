@@ -28,12 +28,9 @@ struct riscv_isainfo {
 
 DECLARE_PER_CPU(struct riscv_cpuinfo, riscv_cpuinfo);
 
-DECLARE_PER_CPU(long, misaligned_access_speed);
-
 /* Per-cpu ISA extensions. */
 extern struct riscv_isainfo hart_isa[NR_CPUS];
 
-void check_unaligned_access(int cpu);
 void riscv_user_isa_enable(void);
 
 unsigned long riscv_get_elf_hwcap(void);
@@ -63,7 +60,7 @@ riscv_has_extension_likely(const unsigned long ext)
 			   "ext must be < RISCV_ISA_EXT_MAX");
 
 	if (IS_ENABLED(CONFIG_RISCV_ALTERNATIVE)) {
-		asm_volatile_goto(
+		asm goto(
 		ALTERNATIVE("j	%l[l_no]", "nop", 0, %[ext], 1)
 		:
 		: [ext] "i" (ext)
@@ -86,7 +83,7 @@ riscv_has_extension_unlikely(const unsigned long ext)
 			   "ext must be < RISCV_ISA_EXT_MAX");
 
 	if (IS_ENABLED(CONFIG_RISCV_ALTERNATIVE)) {
-		asm_volatile_goto(
+		asm goto(
 		ALTERNATIVE("nop", "j	%l[l_yes]", 0, %[ext], 1)
 		:
 		: [ext] "i" (ext)
