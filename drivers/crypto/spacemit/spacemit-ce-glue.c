@@ -65,10 +65,10 @@ static int ecb_encrypt(struct skcipher_request *req)
 			page_len = singal_len = total_len;
 
 		if(singal_len % AES_BLOCK_SIZE)
-			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+			singal_len = (page_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = start_srcsg,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len < page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -126,10 +126,10 @@ static int ecb_decrypt(struct skcipher_request *req)
 		else
 			page_len = singal_len = total_len;
 		if(singal_len % AES_BLOCK_SIZE)
-			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+			singal_len = (page_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = start_srcsg,len = 0;len<page_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len < page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -187,10 +187,10 @@ static int cbc_encrypt(struct skcipher_request *req)
 			page_len = singal_len = total_len;
 
 		if(singal_len % AES_BLOCK_SIZE)
-			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+			singal_len = (page_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = start_srcsg,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len < page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -248,10 +248,10 @@ static int cbc_decrypt(struct skcipher_request *req)
 		else
 			page_len = singal_len = total_len;
 		if(singal_len % AES_BLOCK_SIZE)
-			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+			singal_len = (page_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = start_srcsg,len = 0;len<page_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len < page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -310,10 +310,10 @@ static int xts_encrypt(struct skcipher_request *req)
 			page_len = singal_len = total_len;
 
 		if(singal_len % AES_BLOCK_SIZE)
-			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+			singal_len = (page_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = start_srcsg,len = 0;len<singal_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len < page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
@@ -372,10 +372,10 @@ static int xts_decrypt(struct skcipher_request *req)
 		else
 			page_len = singal_len = total_len;
 		if(singal_len % AES_BLOCK_SIZE)
-			singal_len = (total_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
+			singal_len = (page_len / AES_BLOCK_SIZE + 1) * AES_BLOCK_SIZE;
 
 		map_addr = in_buffer;
-		for(sg = start_srcsg,len = 0;len<page_len;len += sg->length)
+		for(sg = start_srcsg,len = 0;len < page_len;len += sg->length)
 		{
 			if(len != 0)
 				sg = sg_next(sg);
