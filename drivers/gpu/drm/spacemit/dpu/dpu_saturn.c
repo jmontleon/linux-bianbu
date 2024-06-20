@@ -594,7 +594,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		}
 
 		clk_val = clk_get_rate(clk_ctx->hmclk);
-		DRM_INFO("get hdmi mclk=%lld\n", clk_val);
+		DRM_DEBUG("get hdmi mclk=%lld\n", clk_val);
 
 		udelay(10);
 	} else {
