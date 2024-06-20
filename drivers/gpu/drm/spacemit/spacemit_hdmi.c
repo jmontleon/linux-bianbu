@@ -40,7 +40,7 @@
 
 
 struct hdmi_data_info {
-	uint8_t edid[EDID_LENGTH];
+	uint8_t edid[256];
 	int vic;
 	bool sink_has_audio;
 	unsigned int enc_in_format;
@@ -484,13 +484,26 @@ int edid_read (struct spacemit_hdmi *hdmi){
 	}
 
 	if (result < 0) {
-		memset(hdmi_data->edid, 0x00, EDID_LENGTH);
+		// memset(hdmi_data->edid, 0x00, EDID_LENGTH);
+		memset(hdmi_data->edid, 0x00, 256);
 		return result;
 	}
 
-	for(i = 0; i < EDID_LENGTH; i += 4){
-		DRM_DEBUG("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
-			hdmi_data->edid[i], hdmi_data->edid[i+1], hdmi_data->edid[i+2], hdmi_data->edid[i+3]);
+	if (hdmi_data->edid[0x7e] == 0x01) {
+		// extend edid
+		for(i = 8; i < 16; i++) {
+			offset = i * 16;
+			result = hdmi_i2c_write(hdmi, 0x50, &offset, 1);
+			if (result < 0)
+				break;
+			hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid + offset, 16);
+		}
+	}
+
+	for(i = 0; i < 256; i += 8){
+		DRM_DEBUG("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
+			hdmi_data->edid[i], hdmi_data->edid[i+1], hdmi_data->edid[i+2], hdmi_data->edid[i+3],
+			hdmi_data->edid[i+4], hdmi_data->edid[i+5], hdmi_data->edid[i+6], hdmi_data->edid[i+7]);
 	}
 
 	if ((hdmi_data->edid[0] == 0x00) && (hdmi_data->edid[1] == 0xff) && (hdmi_data->edid[2] == 0xff) &&
@@ -511,7 +524,7 @@ static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block,
 	uint32_t value;
 	int ret;
 
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_INFO("%s() len %zd\n", __func__, len);
 
 	if (len > 128)
 		return -EINVAL;
@@ -535,7 +548,7 @@ static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block,
 		}
 
 	} else {
-		memcpy(buf, hdmi_data->edid, len);
+		memcpy(buf, hdmi_data->edid + EDID_LENGTH, len);
 	}
 
 	return 0;
@@ -603,22 +616,21 @@ static int spacemit_hdmi_setup(struct spacemit_hdmi *hdmi,
 	if (value == 0xa08501) {
 		// default 10bpc
 		bit_depth = TEN_BPP;
-		if (hdmi->edid_done) {
-			// 08H, 09H: ID Manufacturer Nanme
-			// 0AH, 0BH: ID Product Code
-			if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
-				((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
-				// Lecoo HU20238FB0
-				bit_depth = EIGHT_BPP;
-			} else if ((hdmi_data->edid[8] == 0x26) && (hdmi_data->edid[9] == 0x01) &&
-				(hdmi_data->edid[10] == 0x12) && (hdmi_data->edid[11] == 0x24)) {
-				// IPASON XC242-J
-				bit_depth = EIGHT_BPP;
-			} else if ((hdmi_data->edid[8] == 0x05) && (hdmi_data->edid[9] == 0xe3) &&
-					(hdmi_data->edid[10] == 0x90) && (hdmi_data->edid[11] == 0x24)) {
-				// AOC Q2490W1
-				bit_depth = EIGHT_BPP;
-			}
+
+		// 08H, 09H: ID Manufacturer Nanme
+		// 0AH, 0BH: ID Product Code
+		if ((hdmi_data->edid[8] == 0x30) && (hdmi_data->edid[9] == 0xa3) &&
+			((hdmi_data->edid[10] == 0x88) || (hdmi_data->edid[10] == 0x89)) && (hdmi_data->edid[11] == 0x23)) {
+			// Lecoo HU20238FB0
+			bit_depth = EIGHT_BPP;
+		} else if ((hdmi_data->edid[8] == 0x26) && (hdmi_data->edid[9] == 0x01) &&
+			(hdmi_data->edid[10] == 0x12) && (hdmi_data->edid[11] == 0x24)) {
+			// IPASON XC242-J
+			bit_depth = EIGHT_BPP;
+		} else if ((hdmi_data->edid[8] == 0x05) && (hdmi_data->edid[9] == 0xe3) &&
+				(hdmi_data->edid[10] == 0x90) && (hdmi_data->edid[11] == 0x24)) {
+			// AOC Q2490W1
+			bit_depth = EIGHT_BPP;
 		}
 	}
 
@@ -742,6 +754,8 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 	value |= (SPACEMIT_HDMI_HPD_IQR | SPACEMIT_HDMI_DDC_DONE | SPACEMIT_HDMI_DDC_NACK);
 	hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
 	udelay(5);
+
+	hdmi->edid_done = false;
 
 	edid = drm_do_get_edid(connector, spacemit_hdmi_get_edid_block, hdmi);
 	if (edid) {
