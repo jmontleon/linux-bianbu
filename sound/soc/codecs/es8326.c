@@ -1345,9 +1345,6 @@ static const struct snd_soc_component_driver soc_component_dev_es8326 = {
 static int es8326_i2c_probe(struct i2c_client *i2c)
 {
 	struct es8326_priv *es8326;
-#ifdef SPACEMIT_CONFIG_CODEC_ES8326
-	enum of_gpio_flags flags;
-#endif
 	int ret;
 
 	es8326 = devm_kzalloc(&i2c->dev, sizeof(struct es8326_priv), GFP_KERNEL);
@@ -1384,10 +1381,9 @@ static int es8326_i2c_probe(struct i2c_client *i2c)
 	}
 
 #ifdef SPACEMIT_CONFIG_CODEC_ES8326
-	es8326->spk_ctl_gpio = of_get_named_gpio_flags(i2c->dev.of_node,
+	es8326->spk_ctl_gpio = of_get_named_gpio(i2c->dev.of_node,
 						       "spk-ctl-gpio",
-						       0,
-						       &flags);
+						       0);
 	if (es8326->spk_ctl_gpio < 0) {
 		dev_info(&i2c->dev, "Can not read property spk_ctl_gpio\n");
 		es8326->spk_ctl_gpio = -1;
@@ -1400,8 +1396,8 @@ static int es8326_i2c_probe(struct i2c_client *i2c)
 		}
 		es8326_enable_spk(es8326, false);
 	}
-	es8326->hp_gpio = of_get_named_gpio_flags(i2c->dev.of_node,
-					"hp-detect-gpio", 0, &flags);
+	es8326->hp_gpio = of_get_named_gpio(i2c->dev.of_node,
+					"hp-detect-gpio", 0);
 	if (es8326->hp_gpio < 0) {
 		dev_info(&i2c->dev, "Can not read property hp-detect-gpio\n");
 		es8326->hp_gpio = -1;
@@ -1415,8 +1411,8 @@ static int es8326_i2c_probe(struct i2c_client *i2c)
 			return ret;
 		}
 	}
-	es8326->mic_gpio = of_get_named_gpio_flags(i2c->dev.of_node,
-					"mic-detect-gpio", 0, &flags);
+	es8326->mic_gpio = of_get_named_gpio(i2c->dev.of_node,
+					"mic-detect-gpio", 0);
 	if (es8326->mic_gpio < 0) {
 		dev_info(&i2c->dev, "Can not read property mic-detect-gpio\n");
 		es8326->mic_gpio = -1;
