@@ -896,8 +896,11 @@ static void hdmi_reformat(void *dst, void *src, int len)
     };
 }
 
-static int spacemit_snd_pcm_copy(struct snd_soc_component *component, struct snd_pcm_substream *substream, int channel, 
-unsigned long hwoff, void __user *buf, unsigned long bytes){
+static int spacemit_snd_pcm_copy(struct snd_soc_component *component,
+                          struct snd_pcm_substream *substream,
+                          int channel, unsigned long hwoff,
+                          struct iov_iter *iter, unsigned long bytes)
+{
 	int ret = 0;
 	char *hwbuf;
 	char *hdmihw_area;
@@ -906,8 +909,8 @@ unsigned long hwoff, void __user *buf, unsigned long bytes){
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 #ifdef HDMI_REFORMAT_ENABLE
 		hwbuf = runtime->dma_area + hwoff;
-		if (copy_from_user(hwbuf, buf, bytes))
-			return -EFAULT;
+		if (copy_from_iter(hwbuf, bytes, iter) != bytes)
+                        return -EFAULT;
 		hdmihw_area = hdmiraw_dma_area_tmp + 2 * hwoff;
 		hdmi_reformat((int *)hdmihw_area, (short *)hwbuf, bytes_to_frames(substream->runtime, bytes));
 		memcpy((void *)(hdmiraw_dma_area + 2 * hwoff), (void *)hdmihw_area, bytes * 2);
@@ -915,14 +918,15 @@ unsigned long hwoff, void __user *buf, unsigned long bytes){
 		hwbuf = hdmiraw_dma_area + hwoff;
 		if (hwbuf == NULL)
 			pr_err("%s addr null !!!!!!!!!!!!\n", __func__);
-		if (copy_from_user(hwbuf, buf, bytes))
-			return -EFAULT;
+		if (copy_from_iter(hwbuf, bytes, iter) != bytes)
+                        return -EFAULT;
+
 #endif
 
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		hwbuf = runtime->dma_area + hwoff;
-		if (copy_to_user(buf, hwbuf, bytes))
-			return -EFAULT;
+		if (copy_to_iter(hwbuf, bytes, iter) != bytes)
+                        return -EFAULT;
 	}
 
 	return ret;
@@ -953,7 +957,7 @@ static const struct snd_soc_component_driver spacemit_snd_dma_component_hdmi = {
 	.trigger	   = spacemit_snd_pcm_trigger,
 	.pointer	   = spacemit_snd_pcm_hdmi_pointer,
 	.pcm_construct = spacemit_snd_pcm_new,
-	.copy_user		= spacemit_snd_pcm_copy,
+	.copy		= spacemit_snd_pcm_copy,
 };
 
 static int spacemit_snd_dma_pdev_probe(struct platform_device *pdev)
