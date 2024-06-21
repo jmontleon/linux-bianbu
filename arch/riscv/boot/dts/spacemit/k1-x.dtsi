@@ -2500,6 +2500,8 @@
 		compatible = "spacemit,simple-audio-card";
 		simple-audio-card,name = "snd-hdmi";
 		status = "disabled";
+		interconnects = <&dram_range0>;
+		interconnect-names = "dma-mem";
 		simple-audio-card,cpu {
 			sound-dai = <&hdmi_sspa>;
 		};
@@ -2515,6 +2517,8 @@
 		compatible = "spacemit,simple-audio-card";
 		simple-audio-card,format = "i2s";
 		status = "disabled";
+		interconnects = <&dram_range0>;
+		interconnect-names = "dma-mem";
 		spacemit,init-jack;
 		simple-audio-card,cpu {
 			sound-dai = <&i2s0>;
