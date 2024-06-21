@@ -330,6 +330,7 @@ static int i2s_sspa_probe(struct snd_soc_dai *dai)
 		SNDRV_PCM_FMTBIT_S32_LE)
 
 static const struct snd_soc_dai_ops i2s_sspa_dai_ops = {
+	.probe		= i2s_sspa_probe,
 	.startup	= i2s_sspa_startup,
 	.shutdown	= i2s_sspa_shutdown,
 	.trigger	= i2s_sspa_trigger,
@@ -342,7 +343,6 @@ static const struct snd_soc_dai_ops i2s_sspa_dai_ops = {
 static struct snd_soc_dai_driver i2s_sspa_dai[] = {
 	{
 		.name = "i2s-dai0",
-		.probe = i2s_sspa_probe,
 		.id = 0,
 		.playback = {
 			.channels_min = 1,
@@ -360,7 +360,6 @@ static struct snd_soc_dai_driver i2s_sspa_dai[] = {
 	},
 	{
 		.name = "i2s-dai1",
-		.probe = i2s_sspa_probe,
 		.id = 1,
 		.playback = {
 			.channels_min = 1,

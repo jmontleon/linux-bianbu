@@ -144,6 +144,7 @@ static int mmp_sspa_probe(struct snd_soc_dai *dai)
 }
 
 static const struct snd_soc_dai_ops mmp_sspa_dai_ops = {
+	.probe		= mmp_sspa_probe,
 	.startup	= mmp_sspa_startup,
 	.shutdown	= mmp_sspa_shutdown,
 	.trigger	= mmp_sspa_trigger,
@@ -159,7 +160,6 @@ static const struct snd_soc_dai_ops mmp_sspa_dai_ops = {
 static struct snd_soc_dai_driver spacemit_snd_sspa_dai[] = {
 	{
 		.name = "SSPA2",
-		.probe = mmp_sspa_probe,
 		.playback = {
 			.stream_name = "SSPA2 TX",
 			.channels_min = 2,
