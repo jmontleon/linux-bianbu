@@ -45,8 +45,16 @@
 			model = "Spacemit(R) X60";
 			reg = <0>;
 			status = "okay";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -73,8 +81,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -101,8 +117,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -129,8 +153,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -157,8 +189,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -185,8 +225,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -213,8 +261,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -241,8 +297,16 @@
 			status = "okay";
 			compatible = "riscv";
 			model = "Spacemit(R) X60";
-			riscv,isa = "rv64imafdcv_zicsr_zifencei_zicbom_zicboz_zicbop_zihintpause_zicond_zba_zbb_zbc_zbs_svpbmt_sstc_sscofpmf";
+			riscv,isa = "rv64imafdcv";
+			riscv,isa-base = "rv64i";
+			riscv,isa-extensions = "i", "m", "a", "f", "d", "c", "v",
+					"zicbom", "zicboz", "zicntr", "zicond",
+					"zicsr", "zifencei", "zihintpause", "zihpm",
+					"zfh", "zfhmin", "zba", "zbb", "zbc", "zbs",
+					"zkt", "zvfh", "zvfhmin", "zvkt", "sscofpmf",
+					"sstc", "svinval", "svnapot", "svpbmt" ;
 			riscv,cbom-block-size = <64>;
+			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
 			i-cache-sets = <512>;
@@ -466,7 +530,7 @@
 		ranges;
 
 		area_reserved@80000000 {
-			/* dram area is 0~2GB, and 4GB~, the 2GB~4GB is io area */			
+			/* dram area is 0~2GB, and 4GB~, the 2GB~4GB is io area */
 			reg = <0x0 0x80000000 0x0 0x40800000>;
 			no-map;
 		};
