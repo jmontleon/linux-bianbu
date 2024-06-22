@@ -481,7 +481,7 @@ static ssize_t rwnx_dbgfs_acsinfo_read(struct file *file,
     #ifdef CONFIG_RWNX_FULLMAC
     struct wiphy *wiphy = priv->wiphy;
     #endif //CONFIG_RWNX_FULLMAC
-    char buf[(SCAN_CHANNEL_MAX + 1) * 43];
+    char buf[(SCAN_CHANNEL_MAX + 1) * 40];
     int survey_cnt = 0;
     int len = 0;
     int band, chan_cnt;
@@ -494,7 +494,7 @@ static ssize_t rwnx_dbgfs_acsinfo_read(struct file *file,
     mutex_lock(&priv->dbgdump_elem.mutex);
 
     len += scnprintf(buf, min_t(size_t, sizeof(buf) - 1, count),
-                     "FREQ    TIME(ms)    BUSY(ms)    NOISE(dBm)\n");
+                     "FREQ   TIME(ms)   BUSY(ms)   NOISE(dBm)\n");
 
 
 	//#ifdef USE_5G
@@ -509,7 +509,7 @@ static ssize_t rwnx_dbgfs_acsinfo_read(struct file *file,
 
             if (p_survey_info->filled) {
                 len += scnprintf(&buf[len], min_t(size_t, sizeof(buf) - len - 1, count),
-                                 "%d    %03d         %03d         %d\n",
+                                 "%d   %03d        %03d        %d\n",
                                  p_chan->center_freq,
                                  p_survey_info->chan_time_ms,
                                  p_survey_info->chan_time_busy_ms,
