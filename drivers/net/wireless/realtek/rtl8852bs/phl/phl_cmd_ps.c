@@ -316,10 +316,10 @@ static void _set_ps_rson(struct cmd_ps *ps, u8 enter, char *rson)
 {
 	if (enter) {
 		_os_mem_set(phl_to_drvpriv(ps->phl_info), ps->enter_rson, 0, MAX_CMD_PS_RSON_LENGTH);
-		_os_mem_cpy(phl_to_drvpriv(ps->phl_info), ps->enter_rson, rson, MAX_CMD_PS_RSON_LENGTH);
+		_os_mem_cpy(phl_to_drvpriv(ps->phl_info), ps->enter_rson, rson, min(strlen(rson),MAX_CMD_PS_RSON_LENGTH));
 	} else {
 		_os_mem_set(phl_to_drvpriv(ps->phl_info), ps->leave_rson, 0, MAX_CMD_PS_RSON_LENGTH);
-		_os_mem_cpy(phl_to_drvpriv(ps->phl_info), ps->leave_rson, rson, MAX_CMD_PS_RSON_LENGTH);
+		_os_mem_cpy(phl_to_drvpriv(ps->phl_info), ps->leave_rson, rson, min(strlen(rson),MAX_CMD_PS_RSON_LENGTH));
 	}
 }
 
