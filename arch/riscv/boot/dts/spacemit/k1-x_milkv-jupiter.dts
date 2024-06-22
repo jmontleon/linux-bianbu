@@ -174,6 +174,14 @@
 			status = "okay";
 		};
 	};
+
+	fan: pwm-fan {
+		compatible = "pwm-fan";
+		pwms = <&rpwm2 10000>;
+		#cooling-cells = <2>;
+		cooling-levels = <0 64 128 192 255>;
+		status = "okay";
+	};
 };
 
 &uart0 {
@@ -382,6 +390,11 @@
 				regulator-max-microvolt = <3300000>;
 				regulator-ramp-delay = <5000>;
 				regulator-always-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <3300000>;
+				};
 			};
 
 			dcdc_5: DCDC_REG5 {
@@ -406,24 +419,45 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
 				regulator-boot-on;
+
+				/* set the min voltage means will disable this vol in suspend for ldo */
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_2: LDO_REG2 {
 				regulator-name = "ldo2";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_3: LDO_REG3 {
 				regulator-name = "ldo3";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_4: LDO_REG4 {
 				regulator-name = "ldo4";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			/* dldo */
@@ -432,18 +466,33 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
 				regulator-boot-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_6: LDO_REG6 {
 				regulator-name = "ldo6";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+			  };
 			};
 
 			ldo_7: LDO_REG7 {
 				regulator-name = "ldo7";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_8: LDO_REG8 {
@@ -663,8 +712,7 @@
 			)>;
 	spacemit,rx_dline_reg = <0x0>;
 	spacemit,rx_tuning_limit = <50>;
-	spacemit,rx_tuning_type = <0x0>;
-	spacemit,sdh-freq = <204800000>;
+	spacemit,sdh-freq = <375000000>;
 	status = "okay";
 };
 
@@ -978,6 +1026,81 @@
 	mbox-names = "vq0", "vq1";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
 	status = "okay";
+};
+
+&thermal {
+	sensor_range = <0x1 0x4>;
+};
+
+&thermal_zones {
+	top_thermal {
+		polling-delay = <0>;
+		polling-delay-passive = <0>;
+		thermal-sensors = <&thermal 1>;
+
+		trips {
+			top_trip0: top-trip0 {
+				temperature = <40000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			top_trip1: top-trip1 {
+				temperature = <55000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			top_trip2: top-trip2 {
+				temperature = <70000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+
+			top_trip3: top-trip3 {
+				temperature = <85000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			map0 {
+				trip = <&top_trip0>;
+				cooling-device = <&fan 0 1>;
+			};
+
+			map1 {
+				trip = <&top_trip1>;
+				cooling-device = <&fan 1 2>;
+			};
+
+			map2 {
+				trip = <&top_trip2>;
+				cooling-device = <&fan 2 3>;
+			};
+
+			map3 {
+				trip = <&top_trip3>;
+				cooling-device = <&fan 3 4>;
+			};
+		};
+	};
+
+	gpu_thermal {
+		polling-delay = <0>;
+		polling-delay-passive = <0>;
+		thermal-sensors = <&thermal 2>;
+
+		/* Just a placeholder */
+		trips {
+			gpu_trip0: gpu-trip0 {
+				temperature = <40000>;
+				hysteresis = <5000>;
+				type = "passive";
+			};
+		};
+	};
 };
 
 &cls0_trip2 {
