@@ -300,6 +300,19 @@ config KASAN_SHADOW_OFFSET
 	default 0xdfffffff00000000 if 64BIT
 	default 0xffffffff if 32BIT
 
+config ARCH_FORCE_MAX_ORDER
+	int "Order of maximal physically contiguous allocations"
+	default "11"
+	help
+	  The kernel page allocator limits the size of maximal physically
+	  contiguous allocations. The limit is called MAX_ORDER and it
+	  defines the maximal power of two of number of pages that can be
+	  allocated as a single contiguous block. This option allows
+	  overriding the default setting when ability to allocate very
+	  large blocks of physically contiguous memory is required.
+
+	  Don't change if unsure.
+
 config ARCH_FLATMEM_ENABLE
 	def_bool !NUMA
 
