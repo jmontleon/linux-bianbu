@@ -2601,7 +2601,7 @@ void halrf_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 		_os_sscanf(input[2], "%d", &val);
 		if (val >= HW_PHY_MAX)
 			val = HW_PHY_0;
-		halrf_chl_rfk_trigger(rf, val, true);
+		halrf_chl_rfk_trigger(rf, val, RFK_TYPE_FORCE_DO);
 		RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			 "RFK Trigger End !!!\n");
 	} else

@@ -26,7 +26,7 @@ u32 mac_fast_ch_sw(struct mac_ax_adapter *adapter, struct mac_ax_fast_ch_sw_para
 	struct h2c_buf *h2cbuf;
 	#endif
 
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cbuf)
 		return MACNPTR;
 

@@ -433,7 +433,7 @@ struct rtw_h2c_pkt *h2cb_alloc(struct mac_ax_adapter *adapter,
 	}
 #endif
 
-	h2cb = PLTFM_QUERY_H2C(buf_class);
+	h2cb = PLTFM_QUERY_H2C((enum h2c_buf_class)buf_class);
 
 	return h2cb;
 }
@@ -2918,7 +2918,7 @@ u32 mac_outsrc_h2c_common(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, (enum h2c_buf_class)hdr->type);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)hdr->type);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2981,7 +2981,7 @@ u32 mac_fw_log_cfg(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_log_cfg *log;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3047,7 +3047,7 @@ u32 mac_send_bcn_h2c(struct mac_ax_adapter *adapter,
 	struct fwcmd_bcn_upd_v1 *hdr;
 	u32 ret = MACSUCCESS;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3257,7 +3257,7 @@ u32 mac_ie_cam_upd(struct mac_ax_adapter *adapter,
 	#endif
 	u32 ret;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3449,7 +3449,7 @@ u32 mac_notify_fw_dbcc(struct mac_ax_adapter *adapter, u8 en)
 	u32 ret;
 	struct fwcmd_notify_dbcc *dbcc;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

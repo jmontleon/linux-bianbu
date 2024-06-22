@@ -87,7 +87,7 @@ u32 mac_fwcmd_lb(struct mac_ax_adapter *adapter, u32 len, u8 burst)
 	else
 		buf_class = H2CB_CLASS_LONG_DATA;
 
-	h2cb = h2cb_alloc(adapter, buf_class);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)buf_class);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3501,7 +3501,7 @@ u32 mac_fw_dbg_dle_cfg(struct mac_ax_adapter *adapter, bool lock)
 	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

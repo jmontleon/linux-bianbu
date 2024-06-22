@@ -52,7 +52,7 @@ u32 mac_nan_act_schedule_req(struct mac_ax_adapter *adapter, struct mac_ax_nan_s
 	}
 
     /*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -134,7 +134,7 @@ u32 mac_nan_bcn_req(struct mac_ax_adapter *adapter, struct mac_ax_nan_bcn *info)
 	}
 
     /*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -215,7 +215,7 @@ u32 mac_nan_func_ctrl(struct mac_ax_adapter *adapter, struct mac_ax_nan_func_inf
 	}
 
     /*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -304,7 +304,7 @@ u32 mac_nan_de_info(struct mac_ax_adapter *adapter, u8 status, u8 loc_bcast_sdf)
 	}
 
     /*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -368,7 +368,7 @@ u32 mac_nan_join_cluster(struct mac_ax_adapter *adapter, u8 is_allow)
 	}
 
     /*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -432,7 +432,7 @@ u32 mac_nan_pause_faw_tx(struct mac_ax_adapter *adapter, u32 id_map)
 	}
 
     /*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -496,7 +496,7 @@ u32 mac_nan_get_cluster_info(struct mac_ax_adapter *adapter,
 	}
 
 	/*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

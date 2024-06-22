@@ -3482,7 +3482,7 @@ static u32 h2c_dle_qta_change(struct mac_ax_adapter *adapter)
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

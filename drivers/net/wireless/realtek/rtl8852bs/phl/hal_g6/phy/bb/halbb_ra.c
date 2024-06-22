@@ -568,7 +568,7 @@ bool halbb_set_csi_rate(struct bb_info *bb, struct rtw_phl_stainfo_t *phl_sta_i)
 	ra_cfg->cr_tbl_sel = bb->hal_com->csi_para_ctrl_sel;
 	ra_cfg->band_num = phl_sta_i->rlink->hw_band;
 	ra_cfg->fixed_csi_rate_l = halbb_ss_mcs_2_mcs_ss_idx(bb,
-							     ra_sta_i->csi_rate.mode,
+							     (enum bb_mode_type)ra_sta_i->csi_rate.mode,
 							     ra_sta_i->csi_rate.ss,
 							     ra_sta_i->csi_rate.mcs_idx);
 

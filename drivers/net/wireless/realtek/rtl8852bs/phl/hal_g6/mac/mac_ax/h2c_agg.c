@@ -148,7 +148,7 @@ u32 mac_h2c_agg_tx(struct mac_ax_adapter *adapter)
 				continue;
 			}
 
-			agg_h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+			agg_h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 			if (!agg_h2cb) {
 				PLTFM_MSG_ERR("allocate agg_h2c fail\n");
 				ret = MACNOBUF;

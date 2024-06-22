@@ -27,7 +27,7 @@ u32 mac_upd_mudecision_para(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_mude_para_tblud *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -110,7 +110,7 @@ u32 mac_upd_ul_fixinfo(struct mac_ax_adapter *adapter,
 	struct rtw_phl_ul_macid_info *sta_info_2;
 	struct rtw_phl_ax_ulru_out_sta_ent *sta_ent;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -321,7 +321,7 @@ u32 mac_f2p_test_cmd(struct mac_ax_adapter *adapter,
 	struct mac_ax_tf_user_para *user;
 	struct mac_ax_tf_depend_user_para *dep_user;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -666,7 +666,7 @@ u32 mac_upd_dctl_info(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_dctlinfo_ud *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -792,7 +792,7 @@ u32 mac_upd_shcut_mhdr(struct mac_ax_adapter *adapter,
 	      is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)))
 		return MACNOTSUP;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1122,7 +1122,7 @@ u32 mac_upd_cctl_info(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_cctlinfo_ud *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1439,7 +1439,7 @@ u32 mac_set_fixmode_mib(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_fixmode_para_tblud *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1769,7 +1769,7 @@ u32 mac_bacam_info(struct mac_ax_adapter *adapter,
 	struct mac_ax_avl_std_bacam_info idx_info = {0x0};
 	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]h2cb_alloc\n");
 		return MACNPTR;
@@ -1893,7 +1893,7 @@ u32 mac_ss_dl_grp_upd(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_dl_grp_upd *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1986,7 +1986,7 @@ u32 mac_ss_ul_grp_upd(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_ul_grp_upd *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2046,7 +2046,7 @@ u32 mac_ss_ul_sta_upd(struct mac_ax_adapter *adapter,
 #endif
 	struct fwcmd_ss_ulsta_upd *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2115,7 +2115,7 @@ u32 mac_mu_sta_upd(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_mu_sta_upd *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2191,7 +2191,7 @@ u32 mac_wlaninfo_get(struct mac_ax_adapter *adapter,
 	#endif
 	struct fwcmd_wlaninfo_get *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2429,7 +2429,7 @@ u32 mac_fw_status_cmd(struct mac_ax_adapter *adapter,
 #endif
 	struct mac_ax_fwstatus_payload *tbl;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2570,7 +2570,7 @@ u32 mac_fw_ofdma_sts_en(struct mac_ax_adapter *adapter,
 	#endif
 	u32 *para;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 

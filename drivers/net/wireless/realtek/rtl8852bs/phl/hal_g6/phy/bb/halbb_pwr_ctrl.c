@@ -174,7 +174,7 @@ void halbb_set_pwr_macid_idx(struct bb_info *bb, u16 macid, s8 pwr, bool pwr_en,
 	}
 	
 	/* phy idx is one to one mapping to mac hw band idx */
-	hw_band = bb->bb_phy_idx;
+	hw_band = (enum phl_band_idx)bb->bb_phy_idx;
 	/* pwr : S(8,1)*/
 	ret_v |= rtw_hal_mac_write_msk_pwr_reg(bb->hal_com, hw_band, reg_ofst, mask_pwr, pwr);
 	ret_v |= rtw_hal_mac_write_msk_pwr_reg(bb->hal_com, hw_band, reg_ofst, mask_en, pwr_en);

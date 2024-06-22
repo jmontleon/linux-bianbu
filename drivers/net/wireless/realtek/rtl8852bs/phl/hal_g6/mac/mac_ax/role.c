@@ -1244,7 +1244,7 @@ static u32 mac_h2c_join_info(struct mac_ax_adapter *adapter,
 	sta.wifi_role = info->wifi_role;
 	sta.self_role = info->self_role;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1333,7 +1333,7 @@ static u32 mac_fw_role_maintain(struct mac_ax_adapter *adapter,
 	fwrole_main.band = info->band;
 	fwrole_main.port = info->port;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

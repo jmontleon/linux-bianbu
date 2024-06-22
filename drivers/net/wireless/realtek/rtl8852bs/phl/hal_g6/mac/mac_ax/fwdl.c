@@ -406,7 +406,7 @@ static u32 __fwhdr_download(struct mac_ax_adapter *adapter,
 	struct h2c_buf *h2cb;
 	#endif
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: h2cb_alloc fail\n", __func__);
 		return MACNPTR;
@@ -554,7 +554,7 @@ static u32 __sections_download(struct mac_ax_adapter *adapter,
 		else
 			pkt_len = residue_len;
 
-		h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 		if (!h2cb) {
 			PLTFM_MSG_ERR("[ERR]%s: ", __func__);
 			PLTFM_MSG_ERR("h2cb_alloc fail\n");

@@ -683,7 +683,7 @@ static u32 h2c_pkt_drop(struct mac_ax_adapter *adapter,
 #endif
 	struct fwcmd_pkt_drop *drop;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

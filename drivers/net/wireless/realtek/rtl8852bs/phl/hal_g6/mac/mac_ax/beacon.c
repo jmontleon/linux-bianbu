@@ -68,7 +68,7 @@ u32 mac_bcn_ofld_ctrl(struct mac_ax_adapter *adapter, struct mac_bcn_ofld_info *
 	u8 *buf, *iecam_buf;
 	u8 rst = 0, num = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -183,7 +183,7 @@ u32 mac_set_bcn_ignore_edcca(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb) {
 		PLTFM_MSG_ALWAYS("%s: h2cb_alloc fail.\n", __func__);
 		return MACNPTR;

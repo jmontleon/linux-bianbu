@@ -155,7 +155,7 @@ u32 mac_p2p_act_h2c(struct mac_ax_adapter *adapter,
 	}
 	adapter->sm.p2p_stat = MAC_AX_P2P_ACT_BUSY;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -292,7 +292,7 @@ u32 mac_p2p_macid_ctrl_h2c(struct mac_ax_adapter *adapter,
 	}
 	adapter->sm.p2p_stat = MAC_AX_P2P_ACT_BUSY;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

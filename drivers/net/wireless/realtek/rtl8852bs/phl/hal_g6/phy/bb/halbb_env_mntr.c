@@ -1459,7 +1459,7 @@ void halbb_clm_init(struct bb_info *bb)
 	if (bb->ic_type & BB_IC_AX_SERIES)
 		env->clm_input_opt = CLM_CCA_INIT;
 	else
-		env->clm_input_opt = BE_CLM_CCA_INIT;
+		env->clm_input_opt = (enum clm_opt_input)BE_CLM_CCA_INIT;
 
 	if ((bb->ic_type != BB_RTL8852A) && (bb->ic_type != BB_RTL8852B) &&
 	    (bb->ic_type != BB_RTL8851B)) {
@@ -1556,7 +1556,7 @@ void halbb_clm_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			if (bb->ic_type & BB_IC_AX_SERIES)
 				para.clm_input_opt = CLM_CCA_S80_S40_S20;
 			else
-				para.clm_input_opt = BE_CLM_CCA_S160_S80_S40_S20;
+				para.clm_input_opt = (enum clm_opt_input)BE_CLM_CCA_S160_S80_S40_S20;
 
 			if ((bb->ic_type != BB_RTL8852A) &&
 			    (bb->ic_type != BB_RTL8852B) &&
@@ -1569,7 +1569,7 @@ void halbb_clm_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			if (bb->ic_type & BB_IC_AX_SERIES)
 				para.clm_input_opt = (enum clm_opt_input)var[2];
 			else
-				para.clm_input_opt = (enum be_clm_opt_input)var[2];
+				para.clm_input_opt = (enum clm_opt_input)var[2];
 
 			if ((bb->ic_type != BB_RTL8852A) &&
 			    (bb->ic_type != BB_RTL8852B) &&
@@ -3795,7 +3795,7 @@ void halbb_env_mntr(struct bb_info *bb)
 		if (bb->ic_type & BB_IC_AX_SERIES)
 			para.clm_input_opt = CLM_CCA_S80_S40_S20;
 		else
-			para.clm_input_opt = BE_CLM_CCA_S160_S80_S40_S20;
+			para.clm_input_opt = (enum clm_opt_input)BE_CLM_CCA_S160_S80_S40_S20;
 
 		para.nhm_app = NHM_BACKGROUND;
 		para.nhm_incld_cca = NHM_EXCLUDE_CCA;
@@ -4198,7 +4198,7 @@ void halbb_env_mntr_dbg_trigger(struct bb_info *bb, u32 *_used, char *output,
 	if (bb->ic_type & BB_IC_AX_SERIES)
 		para.clm_input_opt = CLM_CCA_S80_S40_S20;
 	else
-		para.clm_input_opt = BE_CLM_CCA_S160_S80_S40_S20;
+		para.clm_input_opt = (enum clm_opt_input)BE_CLM_CCA_S160_S80_S40_S20;
 
 	/*nhm para*/
 	para.nhm_app = NHM_DBG_11K;

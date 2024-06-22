@@ -41,7 +41,7 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 	adapter->flash_info.erase_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.erasing = 0;
@@ -174,7 +174,7 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 	adapter->flash_info.read_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR; // Maybe set a timeout counter
 	pkt_len = LEN_FLASH_H2C_HDR;
@@ -316,7 +316,7 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 		else
 			pkt_len = residue_len;
 
-		h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 		if (!h2cb) {
 			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 			adapter->flash_info.writing = 0;
@@ -456,7 +456,7 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 	adapter->flash_info.erase_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.erasing = 0;
@@ -589,7 +589,7 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 	adapter->flash_info.read_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR; // Maybe set a timeout counter
 	pkt_len = LEN_FLASH_H2C_HDR;
@@ -731,7 +731,7 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 		else
 			pkt_len = residue_len;
 
-		h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 		if (!h2cb) {
 			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 			adapter->flash_info.writing = 0;

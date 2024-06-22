@@ -45,7 +45,7 @@ u32 mac_twt_info_upd_h2c(struct mac_ax_adapter *adapter,
 	struct fwcmd_twtinfo_upd *hdr;
 	u32 ret = MACSUCCESS;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -142,7 +142,7 @@ u32 mac_twt_act_h2c(struct mac_ax_adapter *adapter,
 	struct fwcmd_twt_stansp_upd *hdr;
 	u32 ret = MACSUCCESS;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -205,7 +205,7 @@ u32 mac_twt_staanno_h2c(struct mac_ax_adapter *adapter,
 		struct fwcmd_twt_announce_upd *hdr;
 		u32 ret = MACSUCCESS;
 
-		h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 		if (!h2cb)
 			return MACNPTR;
 
