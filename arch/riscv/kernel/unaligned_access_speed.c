@@ -312,6 +312,15 @@ static void check_vector_unaligned_access(struct work_struct *work __always_unus
 		cpu_relax();
 
 	/*
+	 * show the reason why cpu0 unaligned access is more efficient
+	 * than nonboot cores, the nonboot cores unalgined access is measured
+	 * concurrently.
+	 */
+	pr_info("The real ratio of byte access time to unaligned word access should refer to the value of CPU0\n");
+	pr_info("Cpu0 unaligned access is more efficient than nonboot cores, because of system bandwidth preemption.\n");
+	pr_info("Nonboot cpus' unaligned access ratio measured simultaneously, but cpu0's measure is separately\n");
+
+	/*
 	 * For a fixed amount of time, repeatedly try the function, and take
 	 * the best time in cycles as the measurement.
 	 */
