@@ -635,7 +635,7 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 #endif
 
 /* for phl illegal mac io access check*/
-#define CONFIG_MAC_REG_RW_CHK
+//#define CONFIG_MAC_REG_RW_CHK
 
 /* To enable the CONFIG_PHL_P2PPS definition in phl_config.h */
 #ifdef CONFIG_P2P_PS
