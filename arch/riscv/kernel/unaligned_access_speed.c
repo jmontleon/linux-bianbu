@@ -248,6 +248,15 @@ static int check_unaligned_access_speed_all_cpus(void)
 	smp_call_on_cpu(0, check_unaligned_access, bufs[0], true);
 
 	/*
+	 * show the reason why cpu0 unaligned access is more efficient
+	 * than nonboot cores, the nonboot cores unalgined access is measured
+	 * concurrently.
+	 */
+	pr_info("The real ratio of byte access time to unaligned word access should refer to the value of CPU0\n");
+	pr_info("Cpu0 unaligned access is more efficient than nonboot cores, because of system bandwidth preemption.\n");
+	pr_info("Nonboot cpus' unaligned access ratio measured simultaneously, but cpu0's measure is separately\n");
+
+	/*
 	 * Setup hotplug callbacks for any new CPUs that come online or go
 	 * offline.
 	 */
