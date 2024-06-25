@@ -403,9 +403,6 @@ static int qspi_set_func_clk(struct k1x_qspi *qspi)
 		return -EINVAL;
 	}
 
-	clk_disable_unprepare(qspi->bus_clk);
-	clk_disable_unprepare(qspi->clk);
-
 	ret = clk_set_rate(qspi->clk, qspi->max_hz);
 	if (ret) {
 		dev_err(qspi->dev, "fail to set clk, ret:%d\n", ret);
