@@ -591,6 +591,7 @@ spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_sub
 	struct dma_tx_state state;
 	enum dma_status status;
 	unsigned int buf_size;
+	unsigned int preriod_size;
 	unsigned int pos = 0;
 	unsigned long flags;
 
@@ -598,8 +599,9 @@ spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_sub
 	status = dmaengine_tx_status(dmadata->dma_chan, dmadata->cookie, &state);
 	if (status == DMA_IN_PROGRESS || status == DMA_PAUSED) {
 		buf_size = I2S_PERIOD_SIZE * I2S_PERIOD_COUNT * 4;
+		preriod_size = I2S_PERIOD_SIZE * 4;
 		if (state.residue > 0 && state.residue <= buf_size) {
-			pos = (buf_size - state.residue);
+			pos = ((buf_size - state.residue) / preriod_size) * preriod_size;
 		}
 		runtime->delay = bytes_to_frames(runtime, state.in_flight_bytes);
 	}
