@@ -123,6 +123,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_ES8375
 	imply SND_SOC_ES8389
 	imply SND_SOC_ES7134
+	imply SND_SOC_ES7210
 	imply SND_SOC_ES7241
 	imply SND_SOC_FRAMER
 	imply SND_SOC_FS210X
@@ -1179,6 +1180,9 @@ config SND_SOC_HDMI_CODEC
 
 config SND_SOC_ES7134
 	tristate "Everest Semi ES7134 CODEC"
+
+config SND_SOC_ES7210
+       tristate "Everest Semi ES7210 CODEC"
 
 config SND_SOC_ES7241
 	tristate "Everest Semi ES7241 CODEC"
