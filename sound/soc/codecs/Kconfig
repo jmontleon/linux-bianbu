@@ -113,6 +113,7 @@ config SND_SOC_ALL_CODECS
 	imply SND_SOC_DA732X
 	imply SND_SOC_DA9055
 	imply SND_SOC_DMIC
+	imply SND_SOC_ES8156
 	imply SND_SOC_ES8316
 	imply SND_SOC_ES8323
 	imply SND_SOC_ES8326
@@ -1161,6 +1162,10 @@ config SND_SOC_ES7241
 config SND_SOC_ES83XX_DSM_COMMON
 	depends on ACPI
 	tristate
+
+config SND_SOC_ES8156
+	tristate "Everest Semi ES8156 CODEC"
+	depends on I2C
 
 config SND_SOC_ES8311
 	tristate "Everest Semi ES8311 CODEC"
