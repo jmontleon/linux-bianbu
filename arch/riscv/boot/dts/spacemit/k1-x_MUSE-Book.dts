@@ -143,6 +143,21 @@
 		scan-interval-ms = <1000>;
 		lid-gpios     = <&gpio 74 0>;
 	};
+
+	rf_pwrseq: rf-pwrseq {
+		compatible = "spacemit,rf-pwrseq";
+		status = "okay";
+
+		wlan_pwrseq: wlan-pwrseq {
+			compatible = "spacemit,wlan-pwrseq";
+			regon-gpios     = <&gpio 76 0>;
+		};
+
+		bt_pwrseq: bt-pwrseq {
+			compatible = "spacemit,bt-pwrseq";
+			reset-gpios     = <&gpio 78 0>;
+		};
+	};
 };
 
 &pinctrl {
@@ -535,6 +550,8 @@
 		&range PRI_TCK  1 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_76  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
+		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -563,6 +580,8 @@
 		&pinctrl 63  GPIO_63  5
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
+		&pinctrl 76  GPIO_76  1
+		&pinctrl 78  GPIO_78  1
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 90  GPIO_90  3
 		&pinctrl 96  DVL0     2
