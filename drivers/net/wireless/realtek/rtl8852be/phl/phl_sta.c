@@ -4870,7 +4870,7 @@ enum rtw_phl_status
 phl_cmd_set_seciv_hdl(struct phl_info_t *phl_info, u8 *param)
 {
 	struct rtw_phl_stainfo_t *sta = (struct rtw_phl_stainfo_t *)param;
-	return rtw_hal_set_dctrl_tbl_seciv((void *)phl_info->hal, sta, sta->sec_iv);
+	return (enum rtw_phl_status)rtw_hal_set_dctrl_tbl_seciv((void *)phl_info->hal, sta, sta->sec_iv);
 }
 #endif
 

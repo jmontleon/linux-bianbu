@@ -611,10 +611,10 @@ exit:
 static enum rtw_edcca_mode rtw_edcca_mode_get_strictest(enum rtw_edcca_mode_t a, enum rtw_edcca_mode_t b)
 {
 	if (a >= RTW_EDCCA_MODE_NUM)
-		return b < RTW_EDCCA_MODE_NUM ? b : RTW_EDCCA_MODE_NUM;
+		return (enum rtw_edcca_mode)(b < RTW_EDCCA_MODE_NUM ? b : RTW_EDCCA_MODE_NUM);
 	if (b >= RTW_EDCCA_MODE_NUM)
-		return a < RTW_EDCCA_MODE_NUM ? a : RTW_EDCCA_MODE_NUM;
-	return rtw_max(a,b);
+		return (enum rtw_edcca_mode)(a < RTW_EDCCA_MODE_NUM ? a : RTW_EDCCA_MODE_NUM);
+	return (enum rtw_edcca_mode)rtw_max(a,b);
 }
 
 static void rtw_edcca_mode_update_by_regd_reqs(struct dvobj_priv *dvobj, bool req_lock)

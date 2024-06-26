@@ -22,11 +22,11 @@ _hal_set_each_pcicfg(enum rtw_pcie_bus_func_cap_t ctrl)
 	switch(ctrl) {
 
 		case RTW_PCIE_BUS_FUNC_DISABLE:
-			return MAC_AX_PCIE_DISABLE;
+			return (enum   mac_ax_pcie_func_ctrl)MAC_AX_PCIE_DISABLE;
 		case RTW_PCIE_BUS_FUNC_ENABLE:
-			return MAC_AX_PCIE_ENABLE;
+			return (enum   mac_ax_pcie_func_ctrl)MAC_AX_PCIE_ENABLE;
 		default:
-			return MAC_AX_PCIE_DEFAULT;
+			return (enum   mac_ax_pcie_func_ctrl)MAC_AX_PCIE_DEFAULT;
 	}
 
 }
@@ -47,9 +47,9 @@ static enum rtw_hal_status _hal_aspm_disable_8852be(struct hal_info_t *hal_info)
 	/* set ignore to others */
 	pcicfg.wake_ctrl = MAC_AX_PCIE_IGNORE;
 	pcicfg.crq_ctrl = MAC_AX_PCIE_IGNORE;
-	pcicfg.clkdly_ctrl = MAC_AX_PCIE_IGNORE;
-	pcicfg.l0sdly_ctrl = MAC_AX_PCIE_IGNORE;
-	pcicfg.l1dly_ctrl = MAC_AX_PCIE_IGNORE;
+	pcicfg.clkdly_ctrl = (enum mac_ax_pcie_clkdly)MAC_AX_PCIE_IGNORE;
+	pcicfg.l0sdly_ctrl = (enum mac_ax_pcie_l0sdly)MAC_AX_PCIE_IGNORE;
+	pcicfg.l1dly_ctrl = (enum mac_ax_pcie_l1dly)MAC_AX_PCIE_IGNORE;
 
 
 	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,

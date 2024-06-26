@@ -39,7 +39,7 @@ static u32 send_h2c_keep_alive(struct mac_ax_adapter *adapter,
 	struct fwcmd_keep_alive *fwcmd_kalive;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -101,7 +101,7 @@ static u32 send_h2c_disconnect_detect(struct mac_ax_adapter *adapter,
 	u32 ret = 0;
 	u32 tmp;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -170,7 +170,7 @@ static u32 send_h2c_wow_global(struct mac_ax_adapter *adapter,
 	struct fwcmd_wow_global *fwcmd_wow_glo;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -241,7 +241,7 @@ static u32 send_h2c_gtk_ofld(struct mac_ax_adapter *adapter,
 	struct fwcmd_gtk_ofld *fwcmd_gtk_ofl;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -315,7 +315,7 @@ static u32 send_h2c_arp_ofld(struct mac_ax_adapter *adapter,
 	struct fwcmd_arp_ofld *fwcmd_arp_ofl;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -378,7 +378,7 @@ static u32 send_h2c_ndp_ofld(struct mac_ax_adapter *adapter,
 	struct fwcmd_ndp_ofld *fwcmd_ndp_ofl;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -441,7 +441,7 @@ static u32 send_h2c_realwow(struct mac_ax_adapter *adapter,
 	struct fwcmd_realwow *fwcmd_realw;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -513,7 +513,7 @@ static u32 send_h2c_nlo(struct mac_ax_adapter *adapter,
 	u32 ret = 0;
 	u8 sh;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -582,7 +582,7 @@ static u32 send_h2c_wakeup_ctrl(struct mac_ax_adapter *adapter,
 	struct fwcmd_wakeup_ctrl *fwcmd_wakeup_ctr;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -648,7 +648,7 @@ static u32 send_h2c_negative_pattern(struct mac_ax_adapter *adapter,
 	struct fwcmd_negative_pattern *fwcmd_negative_patter;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -757,7 +757,7 @@ u32 mac_cfg_dev2hst_gpio(struct mac_ax_adapter *adapter,
 		return MACBUFSZ;
 	}
 
-	h2cb = h2cb_alloc(adapter, h2cb_type);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)h2cb_type);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -866,7 +866,7 @@ static u32 send_h2c_hst2dev_ctrl(struct mac_ax_adapter *adapter,
 	struct fwcmd_hst2dev_ctrl *fwcmd_hst2dev_ctr;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -936,7 +936,7 @@ static u32 send_h2c_wowcam_upd(struct mac_ax_adapter *adapter,
 	struct fwcmd_wow_cam_upd *fwcmd_wowcam_upd;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1624,7 +1624,7 @@ u32 _mac_request_aoac_report_rx_rdy(struct mac_ax_adapter *adapter)
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u32 val32;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 
 	if (!h2cb)
 		return MACNPTR;
@@ -1946,7 +1946,7 @@ u32 mac_cfg_wow_auto_test(struct mac_ax_adapter *adapter, u8 rxtest)
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 
 	if (!h2cb)
 		return MACNPTR;
@@ -2168,7 +2168,7 @@ u32 mac_proxyofld(struct mac_ax_adapter *adapter, struct rtw_hal_mac_proxyofld *
 	if (adapter->sm.proxy_st != MAC_AX_PROXY_IDLE)
 		return MACPROCERR;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2272,7 +2272,7 @@ u32 mac_proxy_mdns(struct mac_ax_adapter *adapter, struct rtw_hal_mac_proxy_mdns
 
 	// dump_bytes(adapter, (u8 *)&mdns, sizeof(struct rtw_hal_mac_proxy_mdns));
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2453,7 +2453,7 @@ u32 mac_proxy_ptcl_pattern(struct mac_ax_adapter *adapter,
 		return MACBUFSZ;
 	}
 
-	h2cb = h2cb_alloc(adapter, h2cb_type);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)h2cb_type);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2545,7 +2545,7 @@ u32 mac_magic_waker_filter(struct mac_ax_adapter *adapter,
 				parm->waker_addr_arr[i][4], parm->waker_addr_arr[i][5]);
 	}
 
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cbuf)
 		return MACNPTR;
 
@@ -2627,7 +2627,7 @@ u32 mac_tcp_keepalive(struct mac_ax_adapter *adapter,
 		return MACFUNCINPUT;
 	}
 
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cbuf)
 		return MACNPTR;
 

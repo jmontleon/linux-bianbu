@@ -309,7 +309,7 @@ phl_ps_cfg_pwr_lvl(struct phl_info_t *phl_info, u8 ps_mode, u8 cur_pwr_lvl, u8 r
 
 	if (cur_pwr_lvl == req_pwr_lvl) {
 		PHL_TRACE(COMP_PHL_PS, _PHL_WARNING_, "[PS], %s(): pwr lvl is not change!\n", __func__);
-		return RTW_HAL_STATUS_SUCCESS;
+		return (enum rtw_phl_status)RTW_HAL_STATUS_SUCCESS;
 	}
 
 	_ps_ntfy_before_pwr_cfg(phl_info, ps_mode, cur_pwr_lvl, req_pwr_lvl);
@@ -432,7 +432,7 @@ phl_ps_ips_cfg(struct phl_info_t *phl_info, struct ps_cfg *cfg, u8 en)
 	ips_info.en = en;
 	ips_info.macid = cfg->macid;
 
-	return rtw_hal_ps_ips_cfg(phl_info->hal, &ips_info);
+	return (enum rtw_phl_status)rtw_hal_ps_ips_cfg(phl_info->hal, &ips_info);
 }
 
 enum rtw_phl_status

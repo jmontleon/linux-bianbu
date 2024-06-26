@@ -652,7 +652,7 @@ u32 hw_sch_tx_en_h2c_pkt(struct mac_ax_adapter *adapter, u8 band,
 
 	adapter->sm.sch_tx_en_ofld = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1432,7 +1432,7 @@ static u32 h2c_usr_edca(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1508,7 +1508,7 @@ static u32 h2c_usr_tx_rpt(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1840,7 +1840,7 @@ u32 tx_duty_h2c(struct mac_ax_adapter *adapter,
 
 	size = sizeof(struct fwcmd_tx_duty);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 

@@ -2409,7 +2409,7 @@ u32 mac_disable_rf_ofld_by_info(struct mac_ax_adapter *adapter,
 
 	adapter->sm.disable_rf = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

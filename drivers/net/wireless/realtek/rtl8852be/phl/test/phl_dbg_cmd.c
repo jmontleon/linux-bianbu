@@ -296,7 +296,7 @@ _phl_dbg_cmd_switch_chbw(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		chdef.bw = (enum channel_width)bw;
 		chdef.offset = (enum chan_offset)offset;
 
-		rtw_hal_set_ch_bw(phl_info->hal, (u8)band_idx, &chdef, false, false, false);
+		rtw_hal_set_ch_bw(phl_info->hal, (u8)band_idx, &chdef, RFK_TYPE_FORCE_NOT_DO, false, false);
 
 	} while (0);
 }

@@ -143,7 +143,7 @@ void halbb_set_tx_path_by_cmac_tbl(struct bb_info *bb, u8 macid, enum bb_path tx
 	BB_DBG(bb, DBG_PATH_DIV, "STA[%d] : path_sel= [%s]\n", macid,
 	       (tx_path_sel == BB_PATH_A) ? "A" : "B");
 	/*BB_PATH != RF_PATH*/
-	tx_path_sel = (tx_path_sel == BB_PATH_A) ? RF_PATH_A : RF_PATH_B;
+	tx_path_sel = (enum bb_path)((tx_path_sel == BB_PATH_A) ? RF_PATH_A : RF_PATH_B);
 	cfg = halbb_cfg_cmac_tx_ant(bb, (enum rf_path)tx_path_sel);
 
 	halbb_set_cctrl_tbl(bb, macid, cfg);

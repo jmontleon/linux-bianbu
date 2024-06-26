@@ -222,7 +222,7 @@ u32 mac_upd_sec_infotbl(struct mac_ax_adapter *adapter,
 	struct mac_ax_sec_cam_info *s_info;
 
 	/*h2c access*/
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

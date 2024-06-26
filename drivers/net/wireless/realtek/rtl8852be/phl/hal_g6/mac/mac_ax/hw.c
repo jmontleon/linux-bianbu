@@ -1115,7 +1115,7 @@ u32 macid_pause(struct mac_ax_adapter *adapter,
 	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1235,7 +1235,7 @@ u32 macid_pause_sleep(struct mac_ax_adapter *adapter,
 
 	adapter->sm.macid_pause_sleep = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 

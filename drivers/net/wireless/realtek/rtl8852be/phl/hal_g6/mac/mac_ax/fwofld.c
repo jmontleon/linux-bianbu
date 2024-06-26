@@ -401,7 +401,7 @@ u32 mac_write_ofld(struct mac_ax_adapter *adapter)
 
 	adapter->sm.write_h2c = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -598,7 +598,7 @@ u32 mac_conf_ofld(struct mac_ax_adapter *adapter)
 
 	adapter->sm.conf_h2c = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -685,7 +685,7 @@ u32 mac_read_pkt_ofld(struct mac_ax_adapter *adapter, u8 id)
 
 	adapter->sm.pkt_ofld = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -766,7 +766,7 @@ u32 mac_del_pkt_ofld(struct mac_ax_adapter *adapter, u8 id)
 
 	adapter->sm.pkt_ofld = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -868,7 +868,7 @@ u32 mac_add_pkt_ofld(struct mac_ax_adapter *adapter, u8 *pkt, u16 len, u8 *id)
 		PLTFM_MSG_ERR("pkt ofld size %d, exceed LDATA Q size, abort\n", len);
 		return MACBUFSZ;
 	}
-	h2cb = h2cb_alloc(adapter, h2cb_type);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)h2cb_type);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -980,7 +980,7 @@ u32 mac_dump_efuse_ofld(struct mac_ax_adapter *adapter, u32 efuse_size,
 			return MACBUFALLOC;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1186,7 +1186,7 @@ u32 mac_read_ofld(struct mac_ax_adapter *adapter)
 
 	adapter->sm.read_h2c = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1271,7 +1271,7 @@ u32 mac_general_pkt_ids(struct mac_ax_adapter *adapter,
 	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1764,7 +1764,7 @@ static u32 proc_cmd_ofld(struct mac_ax_adapter *adapter, u8 func)
 
 	PLTFM_MSG_TRACE("%s===>\n", __func__);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -2394,7 +2394,7 @@ u32 mac_add_scanofld_ch(struct mac_ax_adapter *adapter, struct mac_ax_scanofld_c
 		return MACNOITEM;
 	}
 
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cbuf) {
 		PLTFM_MUTEX_LOCK(&scanofld_info->drv_chlist_state_lock);
 		scanofld_info->drv_chlist_busy[band] = 0;
@@ -2608,7 +2608,7 @@ u32 mac_scanofld(struct mac_ax_adapter *adapter, struct mac_ax_scanofld_param *s
 		return MACBUFSZ;
 	}
 
-	h2cbuf = h2cb_alloc(adapter, h2cb_type);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)h2cb_type);
 	if (!h2cbuf) {
 		PLTFM_MUTEX_LOCK(&scanofld_info->fw_chlist_state_lock);
 		scanofld_info->fw_chlist_busy[band] = scanofld_info->last_fw_chlist_busy[band];
@@ -2749,7 +2749,7 @@ u32 mac_scanofld_hst_ctrl(struct mac_ax_adapter *adapter, u8 pri_ch, u8 ch_band,
 
 	ret = MACSUCCESS;
 
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cbuf)
 		return MACNPTR;
 
@@ -2916,7 +2916,7 @@ u32 mac_ch_switch_ofld(struct mac_ax_adapter *adapter, struct mac_ax_ch_switch_p
 	    adapter->sm.ch_switch != MAC_AX_CH_SWITCH_GET_RPT)
 		return MACPROCBUSY;
 	adapter->sm.ch_switch = MAC_AX_OFLD_H2C_SENDING;
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cbuf) {
 		adapter->sm.ch_switch = MAC_AX_OFLD_H2C_IDLE;
 		return MACNOBUF;
@@ -2980,7 +2980,7 @@ u32 mac_cfg_bcn_filter(struct mac_ax_adapter *adapter, struct mac_ax_bcn_fltr cf
 	u8 *buffer;
 	struct fwcmd_cfg_bcnfltr *write_ptr;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3050,7 +3050,7 @@ u32 mac_bcn_filter_rssi(struct mac_ax_adapter *adapter, u8 macid, u8 size, u8 *r
 
 	append_size = (size + 3) & (~0x3);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3109,7 +3109,7 @@ u32 mac_bcn_filter_tp(struct mac_ax_adapter *adapter, u8 macid, u16 tx, u16 rx)
 	u8 *buffer;
 	struct fwcmd_ofld_tp *write_ptr;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3163,7 +3163,7 @@ u32 mac_host_efuse_rec(struct mac_ax_adapter *adapter, u32 host_id, u32 efuse_va
 	struct fwcmd_host_efuse_rec *hdr;
 	u32 ret = MACSUCCESS;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3262,7 +3262,7 @@ u32 mac_cfg_sensing_csi(struct mac_ax_adapter *adapter, struct rtw_hal_mac_sensi
 		PLTFM_MEMCPY(id_array, para->pkt_id, id_size);
 	}
 
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cbuf) {
 		PLTFM_MSG_ERR("[ERR][csi] h2cbuf malloc fail!\n");
 		PLTFM_FREE(id_array, id_size);
@@ -3401,7 +3401,7 @@ u32 mac_fwcpumgenq_test(struct mac_ax_adapter *adapter, u8 macid, u16 len, u8 *p
 	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -3462,7 +3462,7 @@ u32 mac_cfg_bcn_early_rpt(struct mac_ax_adapter *adapter, u8 band, u8 port, u8 e
 	#else
 	struct h2c_buf *h2cbuf;
 	#endif
-	h2cbuf = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cbuf)
 		return MACNOBUF;
 	buf = h2cb_put(h2cbuf, sizeof(struct fwcmd_bcnerlyrpt));
@@ -3557,7 +3557,7 @@ u32 mac_cfg_sta_csa(struct mac_ax_adapter *adapter,
 		return MACBUFSZ;
 	}
 
-	h2cbuf = h2cb_alloc(adapter, h2cb_type);
+	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)h2cb_type);
 	if (!h2cbuf) {
 		*sm_state = MAC_AX_STA_CSA_IDLE;
 		PLTFM_MSG_ERR("[STACSA] alloc h2cb fail\n");

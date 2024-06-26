@@ -297,11 +297,11 @@ u8 halbb_psd(struct bb_info *bb, enum igi_lv_sel igi_lv, u16 start_point,
 		BB_DBG(bb, DBG_DBG_API, "rtw_hal_rf_set_ch_bw PHY01 fail!\n");
 		return HALBB_SET_FAIL;
 	}
-	if(rtw_hal_rf_chl_rfk_trigger(hal_com, HW_PHY_0, true) != RTW_HAL_STATUS_SUCCESS) {
+	if(rtw_hal_rf_chl_rfk_trigger(hal_com, HW_PHY_0, RFK_TYPE_FORCE_DO) != RTW_HAL_STATUS_SUCCESS) {
 		BB_DBG(bb, DBG_DBG_API, "rtw_hal_rf_chl_rfk_trigger PHY0 fail!\n");
 		return HALBB_SET_FAIL;
 	}
-	if(rtw_hal_rf_chl_rfk_trigger(hal_com, HW_PHY_1, true) != RTW_HAL_STATUS_SUCCESS) {
+	if(rtw_hal_rf_chl_rfk_trigger(hal_com, HW_PHY_1, RFK_TYPE_FORCE_DO) != RTW_HAL_STATUS_SUCCESS) {
 		BB_DBG(bb, DBG_DBG_API, "rtw_hal_rf_chl_rfk_trigger PHY1 fail!\n");
 		return HALBB_SET_FAIL;
 	}

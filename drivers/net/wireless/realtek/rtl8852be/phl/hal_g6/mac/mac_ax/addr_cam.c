@@ -308,7 +308,7 @@ u32 mac_upd_addr_cam(struct mac_ax_adapter *adapter,
 	u8 ctlinfo_aidx_off;
 
 	if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
-		h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 		if (!h2cb)
 			return MACNPTR;
 		buf = h2cb_put(h2cb, sizeof(struct fwcmd_addrcam_info));

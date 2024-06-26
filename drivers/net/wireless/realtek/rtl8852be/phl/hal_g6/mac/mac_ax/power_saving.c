@@ -72,7 +72,7 @@ static u32 send_h2c_lps_parm(struct mac_ax_adapter *adapter,
 	struct fwcmd_lps_parm *fwcmd_lps;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -706,7 +706,7 @@ static u32 send_h2c_ips_cfg(struct mac_ax_adapter *adapter,
 	struct fwcmd_ips_cfg *fwcmd_ips;
 	u32 ret;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -922,7 +922,7 @@ u32 mac_cfg_ps_advance_parm(struct mac_ax_adapter *adapter,
 			 __func__, parm->macid, parm->trxtimeouttimeset, parm->trxtimeouttimeval);
 	PLTFM_MSG_ALWAYS("%s: EnSmartPsDtimRx(%d)!\n", __func__, parm->ensmartpsdtimrx);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -987,7 +987,7 @@ static u32 send_h2c_pw_cfg(struct mac_ax_adapter *adapter,
 	struct fwcmd_periodic_wake *fwcmd_pw;
 	u32 ret = 0;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1084,7 +1084,7 @@ u32 send_h2c_req_pwr_state(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1283,7 +1283,7 @@ u32 send_h2c_req_pwr_lvl(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1379,7 +1379,7 @@ u32 send_h2c_lps_option_cfg(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 
@@ -1458,7 +1458,7 @@ u32 send_h2c_tbtt_tuning(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
 	if (!h2cb)
 		return MACNPTR;
 

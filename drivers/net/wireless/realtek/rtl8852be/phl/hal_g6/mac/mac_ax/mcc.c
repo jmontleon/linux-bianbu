@@ -34,7 +34,7 @@ u32 mac_reset_mcc_group(struct mac_ax_adapter *adapter, u8 group)
 	adapter->sm.mcc_group[group] = MAC_AX_MCC_EMPTY;
 	adapter->sm.mcc_request[group] = MAC_AX_MCC_REQ_IDLE;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -122,7 +122,7 @@ u32 mac_add_mcc(struct mac_ax_adapter *adapter, struct mac_ax_mcc_role *info)
 
 	adapter->sm.mcc_group[info->group] = MAC_AX_MCC_STATE_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -231,7 +231,7 @@ u32 mac_start_mcc(struct mac_ax_adapter *adapter,
 
 	adapter->sm.mcc_group[info->group] = MAC_AX_MCC_STATE_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -320,7 +320,7 @@ u32 mac_stop_mcc(struct mac_ax_adapter *adapter, u8 group, u8 macid,
 
 	adapter->sm.mcc_group[group] = MAC_AX_MCC_STATE_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -400,7 +400,7 @@ u32 mac_del_mcc_group(struct mac_ax_adapter *adapter, u8 group,
 
 	adapter->sm.mcc_group[group] = MAC_AX_MCC_STATE_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -472,7 +472,7 @@ u32 mac_mcc_request_tsf(struct mac_ax_adapter *adapter, u8 group,
 
 	adapter->sm.mcc_request[group] = MAC_AX_MCC_REQ_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -545,7 +545,7 @@ u32 mac_mcc_macid_bitmap(struct mac_ax_adapter *adapter, u8 group,
 
 	adapter->sm.mcc_request[group] = MAC_AX_MCC_REQ_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -620,7 +620,7 @@ u32 mac_mcc_sync_enable(struct mac_ax_adapter *adapter, u8 group,
 
 	adapter->sm.mcc_request[group] = MAC_AX_MCC_REQ_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
@@ -689,7 +689,7 @@ u32 mac_mcc_set_duration(struct mac_ax_adapter *adapter,
 
 	adapter->sm.mcc_request[info->group] = MAC_AX_MCC_REQ_H2C_SENT;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_DATA);
+	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
 	if (!h2cb) {
 		PLTFM_MSG_ERR("[ERR]%s: H2C alloc fail\n", __func__);
 		return MACNPTR;
