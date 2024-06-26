@@ -16,6 +16,7 @@
 
 #include <drv_types.h>
 #include <platform_ops.h>
+#include <linux/pm_wakeirq.h>
 extern struct rtw_intf_ops sdio_ops;
 
 #ifndef CONFIG_SDIO_HCI
@@ -171,6 +172,7 @@ static u8 gpio_hostwakeup_alloc_irq(_adapter *padapter)
 {
 	int err;
 	u32 status = 0;
+	struct device *dev = dvobj_to_dev(padapter->dvobj);
 
 	if (oob_irq == 0) {
 		RTW_INFO("oob_irq ZERO!\n");
@@ -197,6 +199,8 @@ static u8 gpio_hostwakeup_alloc_irq(_adapter *padapter)
 	} else
 		RTW_INFO("allocate gpio irq %d ok\n", oob_irq);
 
+	device_init_wakeup(dev, true);
+	dev_pm_set_wake_irq(dev, oob_irq);
 #ifndef CONFIG_PLATFORM_ARM_SUN8I
 	enable_irq_wake(oob_irq);
 #endif
@@ -205,10 +209,13 @@ static u8 gpio_hostwakeup_alloc_irq(_adapter *padapter)
 
 static void gpio_hostwakeup_free_irq(_adapter *padapter)
 {
+	struct device *dev = dvobj_to_dev(padapter->dvobj);
 
 	if (oob_irq == 0)
 		return;
 
+	dev_pm_clear_wake_irq(dev);
+	device_init_wakeup(dev, false);
 #ifndef CONFIG_PLATFORM_ARM_SUN8I
 	disable_irq_wake(oob_irq);
 #endif
@@ -1017,6 +1024,9 @@ static int __init rtw_drv_entry(void)
 #endif /* CONFIG_RTKM */
 
 	rtw_android_wifictrl_func_add();
+#ifdef CONFIG_GPIO_WAKEUP
+	platform_wifi_get_oob_irq(&oob_irq);
+#endif
 
 	ret = platform_wifi_power_on();
 	if (ret) {

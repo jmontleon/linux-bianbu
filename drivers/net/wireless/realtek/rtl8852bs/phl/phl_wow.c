@@ -1971,7 +1971,7 @@ enum rtw_phl_status phl_wow_ps_pwr_cfg(struct phl_wow_info *wow_info, bool enter
 	struct phl_info_t *phl_info = wow_info->phl_info;
 
 	if (wow_info->ps_pwr_lvl == PS_PWR_LVL_PWRON)
-		return hstatus;
+		return (enum rtw_phl_status)hstatus;
 
 	if (wow_info->op_mode == RTW_WOW_OP_DISCONNECT_STBY) {
 		hstatus = rtw_hal_ps_pwr_lvl_cfg(phl_info->phl_com, phl_info->hal,
@@ -2059,7 +2059,7 @@ enum rtw_phl_status rtw_phl_cfg_wow_set_sw_gpio_mode(void *phl, struct rtw_wow_g
 
 	wow_gpio->dev2hst_gpio = info->dev2hst_gpio;
 	wow_gpio->dev2hst_gpio_mode = info->dev2hst_gpio_mode;
-	phl_status = rtw_hal_set_sw_gpio_mode(phl_info->phl_com, phl_info->hal
+	phl_status = (enum rtw_phl_status)rtw_hal_set_sw_gpio_mode(phl_info->phl_com, phl_info->hal
 		, wow_gpio->dev2hst_gpio_mode, wow_gpio->dev2hst_gpio);
 
 	PHL_INFO("%s, gpio=%d, gpio_mode=%d\n", __FUNCTION__
@@ -2078,7 +2078,7 @@ enum rtw_phl_status rtw_phl_cfg_wow_sw_gpio_ctrl(void *phl, struct rtw_wow_gpio_
 	FUNCIN();
 
 	wow_gpio->dev2hst_high = info->dev2hst_high;
-	phl_status = rtw_hal_sw_gpio_ctrl(phl_info->phl_com, phl_info->hal
+	phl_status = (enum rtw_phl_status)rtw_hal_sw_gpio_ctrl(phl_info->phl_com, phl_info->hal
 		, wow_gpio->dev2hst_high, wow_gpio->dev2hst_gpio);
 
 	PHL_INFO("%s, gpio=%d, output=%d\n", __FUNCTION__

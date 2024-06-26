@@ -161,7 +161,7 @@ endif
 EXTRA_CFLAGS += -DRTW_NETWORK_LINK_MAX=$(RTW_NETWORK_LINK_MAX)
 EXTRA_CFLAGS += -DDTYPE=$(DTYPE)
 ######################## Wake On Lan ##########################
-CONFIG_WOWLAN = n
+CONFIG_WOWLAN = y
 # CONFIG_WAKE_TYPE definition:
 #    bit0: magic packet
 #    bit1: unicast packet (default pattern match)
@@ -172,7 +172,7 @@ CONFIG_WAKEUP_TYPE = 0x0f
 #bit0: disBBRF off, #bit1: Wireless remote controller (WRC)
 CONFIG_SUSPEND_TYPE = 0
 CONFIG_WOW_STA_MIX = n
-CONFIG_GPIO_WAKEUP = n
+CONFIG_GPIO_WAKEUP = y
 # Please contact with RTK support team first. After getting the agreement from RTK support team, 
 # you are just able to modify the CONFIG_WAKEUP_GPIO_IDX with customized requirement.
 CONFIG_WAKEUP_GPIO_IDX = default
