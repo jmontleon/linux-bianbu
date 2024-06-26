@@ -609,10 +609,8 @@ static int at24_probe(struct i2c_client *client)
 	bool i2c_fn_i2c, i2c_fn_block;
 	unsigned int i, num_addresses;
 	struct at24_data *at24;
-	bool full_power;
 	struct regmap *regmap;
 	bool writable;
-	u8 test_byte;
 	int err;
 
 	i2c_fn_i2c = i2c_check_functionality(client->adapter, I2C_FUNC_I2C);
@@ -791,8 +789,6 @@ static int at24_probe(struct i2c_client *client)
 
 static void at24_remove(struct i2c_client *client)
 {
-	struct at24_data *at24 = i2c_get_clientdata(client);
-
 	pm_runtime_disable(&client->dev);
 	if (acpi_dev_state_d0(&client->dev)) {
 		pm_runtime_set_suspended(&client->dev);
