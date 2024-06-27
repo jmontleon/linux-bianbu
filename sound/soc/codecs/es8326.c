@@ -264,6 +264,10 @@ static bool es8326_volatile_register(struct device *dev, unsigned int reg)
 static const struct regmap_config es8326_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	.use_single_read = true,
+	.use_single_write = true,
+#endif
 	.max_register = 0xff,
 	.volatile_reg = es8326_volatile_register,
 	.cache_type = REGCACHE_RBTREE,
