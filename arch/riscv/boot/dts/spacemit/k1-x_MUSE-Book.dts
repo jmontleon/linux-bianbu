@@ -664,10 +664,8 @@
 	status = "okay";
 };
 
-&udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
-	spacemit,udc-mode = <MV_USB_MODE_UDC>;
+&ehci {
+	spacemit,reset-on-resume;
 	status = "okay";
 };
 
