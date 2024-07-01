@@ -572,6 +572,12 @@
 			K1X_PADCONF(GPIO_46, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_clk_ref */
 		>;
 	};
+
+	pinctrl_wlan_wakeup: wlan_wakeup_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_FALL | PULL_DOWN | PAD_3V_DS2))   /* wifi edge detect */
+		>;
+	};
 };
 
 &gpio{
