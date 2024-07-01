@@ -30,7 +30,7 @@ struct wlan_pwrseq {
 	u32 power_on_delay_ms;
 
 	struct gpio_desc *regon;
-	struct gpio_desc *hostwake;
+	int irq;
 
 	struct mutex wlan_mutex;
 };
@@ -59,16 +59,15 @@ EXPORT_SYMBOL_GPL(spacemit_wlan_set_power);
 int spacemit_wlan_get_oob_irq(void)
 {
 	struct wlan_pwrseq *pwrseq = pdata;
-	int host_oob_irq = 0;
 
-	if (!pwrseq || IS_ERR(pwrseq->hostwake))
+	if (!pwrseq)
 		return 0;
 
-	host_oob_irq = gpiod_to_irq(pwrseq->hostwake);
-	if (host_oob_irq < 0)
-		dev_err(pwrseq->dev, "map hostwake gpio to virq failed\n");
-
-	return host_oob_irq;
+	if (pwrseq->irq <= 0){
+		dev_err(pwrseq->dev, "get oob irq failed\n");
+		return 0;
+	}
+	return pwrseq->irq;
 }
 EXPORT_SYMBOL_GPL(spacemit_wlan_get_oob_irq);
 
@@ -80,7 +79,7 @@ int spacemit_wlan_get_oob_irq_flags(void)
 	if (!pwrseq)
 		return 0;
 
-	oob_irq_flags = (IRQF_TRIGGER_HIGH | IRQF_SHARED | IRQF_NO_SUSPEND);
+	oob_irq_flags = (IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND);
 
 	return oob_irq_flags;
 }
@@ -128,11 +127,9 @@ static int spacemit_wlan_probe(struct platform_device *pdev)
 		return PTR_ERR(pwrseq->regon);
 	}
 
-	pwrseq->hostwake = devm_gpiod_get(dev, "hostwake", GPIOD_IN);
-	if (IS_ERR(pwrseq->hostwake) &&
-		PTR_ERR(pwrseq->hostwake) != -ENOENT &&
-		PTR_ERR(pwrseq->hostwake) != -ENOSYS) {
-		return PTR_ERR(pwrseq->hostwake);
+	pwrseq->irq = platform_get_irq(pdev, 0);
+	if (pwrseq->irq < 0){
+		dev_err(pwrseq->dev, "get hostwake irq failed, ignore wow\n");
 	}
 
 	if(device_property_read_u32(dev, "power-on-delay-ms",
