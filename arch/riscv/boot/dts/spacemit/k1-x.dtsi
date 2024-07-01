@@ -698,8 +698,9 @@
 		};
 
 		pinctrl: pinctrl@d401e000 {
-			compatible = "pinconf-single";
-			reg = <0x0 0xd401e000 0x0 0x400>;
+			compatible = "pinconf-single-aib";
+			reg = <0x0 0xd401e000 0x0 0x400>,
+				<0x0 0xd4019800 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 			#pinctrl-cells = <2>;
@@ -707,6 +708,16 @@
 
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0xff77>;
+
+			clocks = <&ccu CLK_AIB>;
+			clock-names = "clk_aib";
+			resets = <&reset RESET_AIB>;
+			reset-names = "aib_rst";
+
+			interrupt-parent = <&intc>;
+			interrupts = <60>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 
 			range: gpio-range {
 				#pinctrl-single,gpio-range-cells = <3>;
