@@ -41,7 +41,8 @@
 /* wakeup set */
 /* pmic */
 #define WAKEUP_SOURCE_WAKEUP_7	7
-
+/* gpio */
+#define WAKEUP_SOURCE_WAKEUP_2	2
 
 #define PM_QOS_BLOCK_C1		0x0 /* core wfi */
 #define PM_QOS_BLOCK_C2		0x2 /* core power off */
@@ -809,6 +810,11 @@ static int acpr_per_suspend(void)
 	/* enable pmic wakeup */
 	regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
 	apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_7);
+	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
+
+	/* enable pinctrl edge detect wakeup */
+	regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
+	apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_2);
 	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
 
 	return 0;
