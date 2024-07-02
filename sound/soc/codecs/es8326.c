@@ -882,7 +882,11 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 			#endif
 			goto exit;
 		}
+		#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+		if ((es8326->jack->status & SND_JACK_HEADSET) == SND_JACK_HEADSET) {
+		#else
 		if (es8326->jack->status & SND_JACK_HEADSET) {
+		#endif
 			/* detect button */
 			dev_dbg(comp->dev, "button pressed\n");
 			queue_delayed_work(system_wq, &es8326->button_press_work, 10);
