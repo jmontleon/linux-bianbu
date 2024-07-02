@@ -23,6 +23,7 @@
 		rgb-mode = <3>;
 		lane-number = <4>;
 		phy-bit-clock = <1000000000>;
+		phy-esc-clock = <76800000>;
 		split-enable = <0>;
 		eotp-enable = <0>;
 		burst-mode = <2>;
