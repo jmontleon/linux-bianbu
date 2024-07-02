@@ -285,19 +285,30 @@
 };
 
 &dsi2 {
+	force-attached = "lcd_lt9711_dp_1920x1080";
 	status = "okay";
 
-	panel2: panel2@0 {
-		status = "ok";
-		compatible = "spacemit,mipi-panel2";
-		reg = <0>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-		gpios-reset = <81>;
-		gpios-dc = <82 83>;
-		id = <2>;
-		delay-after-reset = <10>;
-		force-attached = "lcd_lt9711_dp_1920x1080";
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dsi1_output: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&lt9711_in>;
+			};
+		};
 	};
+
+	dp_panel: panel@0 {
+			status = "okay";
+			compatible = "spacemit,dp-panel";
+	};
+
 };
 
 &lcds {
@@ -373,7 +384,21 @@
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
-	status = "disabled";
+	clock-frequency = <100000>;
+	status = "okay";
+
+	lt9711_i2c@41 {
+		compatible = "lontium,lt9711";
+		reg = <0x41>;
+		status = "okay";
+
+		port {
+				lt9711_in: endpoint {
+					remote-endpoint = <&dsi1_output>;
+				};
+		};
+	};
+
 };
 
 &i2c6 {
