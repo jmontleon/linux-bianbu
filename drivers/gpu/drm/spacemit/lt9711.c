@@ -34,6 +34,8 @@
 #include <drm/display/drm_dp_aux_bus.h>
 #include <drm/display/drm_dp_helper.h>
 
+#include "spacemit_dsi.h"
+
 #define IT9711_DSI_DRIVER_NAME "spacemit-dp-drv"
 #define MIPI_DSI_1920x1080  1
 
@@ -58,10 +60,10 @@ static const struct drm_display_mode lt9711_panel_modes[] = {
 struct lt9711 {
 	struct device *dev;
 	struct drm_bridge bridge;
-	struct drm_connector connector;
+	struct drm_connector *connector;
+	struct spacemit_dsi_device *spacemit_dsi;
 
 	struct regmap *regmap;
-
 	struct gpio_desc *reset_gpio;
 
 	struct i2c_client *client;
@@ -69,9 +71,8 @@ struct lt9711 {
 	struct mipi_dsi_device *dsi;
 
 	enum drm_connector_status status;
-
-	struct delayed_work init_work;
-	bool init_work_pending;
+	struct delayed_work detect_work;
+	bool detect_work_pending;
 };
 
 static const struct regmap_config lt9711_regmap_config = {
@@ -98,14 +99,16 @@ static int lt9711_i2c_detect(struct lt9711 *lt9711)
 			dev_err(lt9711->dev, "LT9711 i2c detect write addr:0xff failed\n");
 			continue;
 		}
-		usleep_range(100*1000, 150*1000); //150ms
 
 		regmap_read(lt9711->regmap, 0xd6, &status);
 		// LT9711 i2c detect success status: 0xee
-		DRM_INFO("LT9711 i2c detect success status: 0x%x\n", status);
+		DRM_DEBUG("LT9711 i2c detect success status: 0x%x\n", status);
 
 		if (0xee == status)
-			ret = 0;
+			lt9711->status = connector_status_connected;
+		else
+			lt9711->status = connector_status_disconnected;
+
 		break;
 	}
 
@@ -114,27 +117,16 @@ static int lt9711_i2c_detect(struct lt9711 *lt9711)
 
 static int lt9711_panel_enable(struct drm_panel *panel)
 {
-	struct lt9711 *lt9711 = panel_to_lt9711(panel);
-
-	DRM_INFO(" %s() \n", __func__);
-
-	schedule_delayed_work(&lt9711->init_work,
-				msecs_to_jiffies(1000));
-	lt9711->init_work_pending = true;
+	// struct lt9711 *lt9711 = panel_to_lt9711(panel);
+	DRM_DEBUG(" %s() \n", __func__);
 
 	return 0;
 }
 
 static int lt9711_panel_disable(struct drm_panel *panel)
 {
-	struct lt9711 *lt9711 = panel_to_lt9711(panel);
-
-	DRM_INFO(" %s() \n", __func__);
-
-	if (lt9711->init_work_pending) {
-		cancel_delayed_work_sync(&lt9711->init_work);
-		lt9711->init_work_pending = false;
-	}
+	// struct lt9711 *lt9711 = panel_to_lt9711(panel);
+	DRM_DEBUG(" %s() \n", __func__);
 
 	return 0;
 }
@@ -142,6 +134,7 @@ static int lt9711_panel_disable(struct drm_panel *panel)
 static int lt9711_panel_get_modes(struct drm_panel *panel,
 				struct drm_connector *connector)
 {
+	// struct lt9711 *lt9711 = panel_to_lt9711(panel);
 	unsigned int i, num = 0;
 	static const u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 
@@ -188,15 +181,35 @@ static const struct drm_panel_funcs lt9711_panel_funcs = {
 	.get_modes = lt9711_panel_get_modes,
 };
 
-static void init_work_func(struct work_struct *work)
+static void detect_work_func(struct work_struct *work)
 {
 	struct lt9711 *lt9711 = container_of(work, struct lt9711,
-						init_work.work);
-	DRM_DEBUG(" %s() \n", __func__);
+						detect_work.work);
+	int ret;
 
-	lt9711_i2c_detect(lt9711);
+	//check i2c communicate
+	ret = lt9711_i2c_detect(lt9711);
+	if (ret < 0) {
+		DRM_INFO("detect DP failed communicate with IC use I2C\n");
+	}
 
+	if (lt9711->spacemit_dsi) {
+		DRM_DEBUG(" %s() connector status %d\n", __func__, lt9711->spacemit_dsi->connector_status);
+		lt9711->spacemit_dsi->connector_status = lt9711->status;
+
+		if (lt9711->spacemit_dsi->previous_connector_status != lt9711->spacemit_dsi->connector_status) {
+			if (lt9711->connector) {
+				DRM_INFO(" %s() detect DP connector hpd event\n", __func__);
+				lt9711->spacemit_dsi->previous_connector_status = lt9711->spacemit_dsi->connector_status;
+				drm_helper_hpd_irq_event(lt9711->connector->dev);
+			}
+		}
+	}
+
+	schedule_delayed_work(&lt9711->detect_work,
+				msecs_to_jiffies(2000));
 }
+
 
 static int lt9711_probe(struct i2c_client *client)
 {
@@ -232,6 +245,9 @@ static int lt9711_probe(struct i2c_client *client)
 
 	lt9711->dev = &client->dev;
 	lt9711->client = client;
+	lt9711->connector = NULL;
+	lt9711->spacemit_dsi = NULL;
+	lt9711->status = connector_status_disconnected;
 
 	//regmap i2c , maybe useless
 	lt9711->regmap = devm_regmap_init_i2c(client, &lt9711_regmap_config);
@@ -279,7 +295,7 @@ static int lt9711_probe(struct i2c_client *client)
 	}
 
 	drm_panel_init(&lt9711->base, dev, &lt9711_panel_funcs,
-			DRM_MODE_CONNECTOR_DSI);
+			DRM_MODE_CONNECTOR_DisplayPort);
 
 	/* This appears last, as it's what will unblock the DSI host
 	 * driver's component bind function.
@@ -299,7 +315,10 @@ static int lt9711_probe(struct i2c_client *client)
 		return PTR_ERR(lt9711->dsi);
 	}
 
-	INIT_DELAYED_WORK(&lt9711->init_work, init_work_func);
+	INIT_DELAYED_WORK(&lt9711->detect_work, detect_work_func);
+	schedule_delayed_work(&lt9711->detect_work,
+				msecs_to_jiffies(2000));
+	lt9711->detect_work_pending = true;
 
 	return 0;
 error:
@@ -313,10 +332,16 @@ static void lt9711_remove(struct i2c_client *client)
 
 	DRM_DEBUG("%s()\n", __func__);
 
+	if (lt9711->detect_work_pending) {
+		cancel_delayed_work_sync(&lt9711->detect_work);
+		lt9711->detect_work_pending = false;
+	}
+
+	lt9711->connector = NULL;
+	lt9711->spacemit_dsi = NULL;
+
 	mipi_dsi_detach(lt9711->dsi);
-
 	drm_panel_remove(&lt9711->base);
-
 	mipi_dsi_device_unregister(lt9711->dsi);
 }
 
@@ -345,6 +370,10 @@ static struct i2c_driver lt9711_driver = {
 static int lt9711_dsi_probe(struct mipi_dsi_device *dsi)
 {
 	int ret;
+	struct mipi_dsi_host *host;
+	struct drm_panel *panel;
+	struct spacemit_dsi *mipi_dsi;
+	struct lt9711 *lt9711;
 
 	DRM_DEBUG("%s()\n", __func__);
 
@@ -358,6 +387,19 @@ static int lt9711_dsi_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0) {
 		dev_err(&dsi->dev, "failed to attach dsi to host\n");
 		mipi_dsi_device_unregister(dsi);
+	} else {
+		host = dsi->host;
+		mipi_dsi = host_to_dsi(host);
+
+		panel = mipi_dsi->panel;
+		lt9711 = panel_to_lt9711(panel);
+
+		mipi_dsi->ctx.dsi_subconnector = SPACEMIT_DSI_SUBCONNECTOR_DP;
+		mipi_dsi->ctx.previous_connector_status = lt9711->status;
+		mipi_dsi->ctx.connector_status = mipi_dsi->ctx.previous_connector_status;
+
+		lt9711->connector = &mipi_dsi->connector;
+		lt9711->spacemit_dsi = &mipi_dsi->ctx;
 	}
 
 	return ret;
