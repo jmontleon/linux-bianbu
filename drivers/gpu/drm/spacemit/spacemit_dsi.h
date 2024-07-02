@@ -182,6 +182,13 @@ struct spacemit_dsi_rx_buf {
 	uint8_t data[MAX_RX_DATA_COUNT];
 };
 
+enum spacemit_dsi_subconnector {
+	SPACEMIT_DSI_SUBCONNECTOR_MIPI_DSI   = 0,
+	SPACEMIT_DSI_SUBCONNECTOR_HDMI       = 1,
+	SPACEMIT_DSI_SUBCONNECTOR_DP         = 2,
+	SPACEMIT_DSI_SUBCONNECTOR_eDP        = 3,
+};
+
 struct spacemit_dsi_device {
 	uint16_t id;
 	void __iomem *base_addr;
@@ -189,7 +196,10 @@ struct spacemit_dsi_device {
 	struct spacemit_mipi_info mipi_info;
 	struct videomode vm;
 	struct spacemit_dphy *phy;
-	int status;
+	enum spacemit_dsi_status status;
+	enum drm_connector_status previous_connector_status;
+	enum drm_connector_status connector_status;
+	enum spacemit_dsi_subconnector dsi_subconnector;
 };
 
 struct dsi_core_ops {
@@ -216,12 +226,18 @@ struct spacemit_dsi {
 	struct spacemit_dsi_device ctx;
 };
 
-
 extern struct list_head dsi_core_head;
 
 #define dsi_core_ops_register(entry) \
 	disp_ops_register(entry, &dsi_core_head)
 #define dsi_core_ops_attach(str) \
 	disp_ops_attach(str, &dsi_core_head)
+
+#define encoder_to_dsi(encoder) \
+	container_of(encoder, struct spacemit_dsi, encoder)
+#define host_to_dsi(host) \
+	container_of(host, struct spacemit_dsi, host)
+#define connector_to_dsi(connector) \
+	container_of(connector, struct spacemit_dsi, connector)
 
 #endif /* _SPACEMIT_DSI_H_ */
