@@ -19,13 +19,6 @@
 #include "spacemit_dsi.h"
 #include "sysfs/sysfs_display.h"
 
-#define encoder_to_dsi(encoder) \
-	container_of(encoder, struct spacemit_dsi, encoder)
-#define host_to_dsi(host) \
-	container_of(host, struct spacemit_dsi, host)
-#define connector_to_dsi(connector) \
-	container_of(connector, struct spacemit_dsi, connector)
-
 LIST_HEAD(dsi_core_head);
 
 static void spacemit_dsi_encoder_enable(struct drm_encoder *encoder)
@@ -496,9 +489,14 @@ static struct drm_connector_helper_funcs spacemit_dsi_connector_helper_funcs = {
 static enum drm_connector_status
 spacemit_dsi_connector_detect(struct drm_connector *connector, bool force)
 {
-	DRM_DEBUG("%s()\n", __func__);
+	struct spacemit_dsi *dsi = connector_to_dsi(connector);
 
-	return connector_status_connected;
+	DRM_DEBUG("%s() dsi subconnector type %d status %d\n", __func__, dsi->ctx.dsi_subconnector, dsi->ctx.connector_status);
+
+	if (SPACEMIT_DSI_SUBCONNECTOR_DP == dsi->ctx.dsi_subconnector)
+		return dsi->ctx.connector_status;
+	else
+		return connector_status_connected;
 }
 
 static void spacemit_dsi_connector_destroy(struct drm_connector *connector)
@@ -524,11 +522,13 @@ static int spacemit_dsi_connector_init(struct drm_device *drm, struct spacemit_d
 	struct drm_connector *connector = &dsi->connector;
 	int ret;
 
+	DRM_DEBUG("%s()\n", __func__);
+
 	connector->polled = DRM_CONNECTOR_POLL_HPD;
 
 	ret = drm_connector_init(drm, connector,
-				 &spacemit_dsi_atomic_connector_funcs,
-				 DRM_MODE_CONNECTOR_DSI);
+				&spacemit_dsi_atomic_connector_funcs,
+				DRM_MODE_CONNECTOR_DSI);
 	if (ret) {
 		DRM_ERROR("drm_connector_init() failed\n");
 		return ret;
@@ -574,7 +574,7 @@ static int __maybe_unused spacemit_dsi_bridge_attach(struct spacemit_dsi *dsi)
 static irqreturn_t spacemit_dsi_isr(int irq, void *data)
 {
 	struct spacemit_dsi *dsi = data;
-	pr_debug("%s: dsi Enter\n", __func__);
+	DRM_DEBUG("%s: dsi Enter\n", __func__);
 
 	if (dsi->core && dsi->core->isr)
 		dsi->core->isr(&dsi->ctx);
@@ -605,6 +605,8 @@ static int spacemit_dsi_bind(struct device *dev, struct device *master, void *da
 	struct drm_device *drm = data;
 	struct spacemit_dsi *dsi = dev_get_drvdata(dev);
 	int ret;
+
+	DRM_DEBUG("%s()\n", __func__);
 
 	ret = spacemit_dsi_encoder_init(drm, dsi);
 	if (ret)
@@ -677,6 +679,10 @@ static int spacemit_dsi_context_init(struct spacemit_dsi *dsi, struct device_nod
 		DRM_ERROR("dsi ctrl reg base ioremap failed\n");
 		return -ENODEV;
 	}
+
+	ctx->dsi_subconnector = SPACEMIT_DSI_SUBCONNECTOR_MIPI_DSI;
+	ctx->previous_connector_status = connector_status_connected;
+	ctx->connector_status = connector_status_connected;
 
 	if (!of_property_read_u32(np, "dev-id", &tmp))
 		ctx->id = tmp;
