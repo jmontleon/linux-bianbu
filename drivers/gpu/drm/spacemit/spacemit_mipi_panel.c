@@ -14,7 +14,6 @@
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
 
-#include "spacemit_bootloader.h"
 #include "spacemit_mipi_panel.h"
 #include "spacemit_dsi.h"
 #include "sysfs/sysfs_display.h"
@@ -140,9 +139,6 @@ static int spacemit_panel_unprepare(struct drm_panel *p)
 void spacemit_prepare_regulator (struct spacemit_panel *panel){
 	int ret = 0;
 
-	if (unlikely(spacemit_dpu_logo_booton))
-		return;
-
 	if (panel->vdd_2v8 != NULL) {
 		ret = regulator_enable(panel->vdd_2v8);
 		if (ret)
@@ -184,9 +180,6 @@ static int spacemit_panel_prepare(struct drm_panel *p)
 	if(panel->gpio_bl != INVALID_GPIO) {
 		gpio_direction_output(panel->gpio_bl, 1);
 	}
-
-	if (unlikely(spacemit_dpu_logo_booton))
-		goto out;
 
 	gpio_direction_output(panel->gpio_reset, 1);
 	for (; i < panel->reset_toggle_cnt; i++) {
@@ -237,10 +230,6 @@ static int spacemit_panel_enable(struct drm_panel *p)
 		return 0;
 
 	DRM_INFO("%s()\n", __func__);
-
-	if (unlikely(spacemit_dpu_logo_booton))
-		goto out;
-
 
 	spacemit_panel_send_cmds(panel->slave,
 			     panel->info.cmds[CMD_CODE_INIT],
@@ -652,6 +641,7 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 	}
 
 	drm_panel_add(&panel->base);
+	backlight_disable(panel->base.backlight);
 
 	slave->lanes = panel->info.lanes;
 	slave->format = panel->info.format;
