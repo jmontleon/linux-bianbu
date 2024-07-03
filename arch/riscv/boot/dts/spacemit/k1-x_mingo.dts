@@ -557,7 +557,7 @@
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
 		usb-role-switch;
-		role-switch-default-mode = "peripheral";
+		role-switch-default-mode = "host";
 	};
 };
 
