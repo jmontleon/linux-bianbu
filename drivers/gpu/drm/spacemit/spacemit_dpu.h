@@ -132,7 +132,7 @@ struct spacemit_dpu {
 	struct timespec64 last_tm;
 
 	bool is_1st_f;
-	bool is_probed;
+	bool logo_booton;
 	struct dpu_clk_context clk_ctx;
 	uint64_t new_mclk;		/* new frame mclk */
 	uint64_t cur_mclk;		/* current frame mclk */
