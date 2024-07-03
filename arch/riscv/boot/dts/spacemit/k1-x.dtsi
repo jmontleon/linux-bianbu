@@ -1866,6 +1866,7 @@
 			compatible = "spacemit,k1-x-dwc3";
 			#address-cells = <2>;
 			#size-cells = <2>;
+			reg = <0x0 0xd4282bc8 0x0 0x4>;
 			resets = <&reset RESET_USB3_0>;
 			reset-names = "ctl_rst";
 			clocks = <&ccu CLK_USB30>;
