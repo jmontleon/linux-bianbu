@@ -1742,7 +1742,7 @@ static int crypto_engine_probe(struct platform_device *pdev)
 		return PTR_ERR(ctrl->clk);
 	clk_prepare_enable(ctrl->clk);
 
-	ctrl->reset = devm_reset_control_get_optional(&pdev->dev, NULL);
+	ctrl->reset = devm_reset_control_get_optional_shared(&pdev->dev, NULL);
 	if(IS_ERR(ctrl->reset))
 		return PTR_ERR(ctrl->reset);
 	reset_control_deassert(ctrl->reset);
