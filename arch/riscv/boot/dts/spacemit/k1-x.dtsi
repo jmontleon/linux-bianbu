@@ -593,7 +593,7 @@
 		dma-noncoherent;
 		ranges;
 
-		/* dram mapping for dma/usb/sdh/audio/crypto for ex. */
+		/* dram mapping for usb/sdh for ex. */
 		dram_range0: dram_range@0 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
@@ -603,7 +603,7 @@
 			status = "okay";
 		};
 
-		/* dram mapping for vpu/gpu/v2d/jpu for ex. */
+		/* dram mapping for vpu/gpu/dpu for ex. */
 		dram_range1: dram_range@1 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
@@ -614,12 +614,46 @@
 			status = "okay";
 		};
 
+		/* dram mapping for pcie for ex. */
 		dram_range2: dram_range@2 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
 				     <0x0 0xb8000000 0x1 0x38000000 0x3 0x48000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for v2d/isp/csi/vi/cpp for ex. */
+		dram_range3: dram_range@3 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x0 0x80000000 0x1 0x00000000 0x1 0x80000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for dma&users for ex. */
+		dram_range4: dram_range@4 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x1 0x00000000 0x1 0x80000000 0x3 0x00000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for eth/crypto/jpu for ex. */
+		dram_range5: dram_range@5 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x0 0x80000000 0x1 0x00000000 0x0 0x80000000>;
 			#interconnect-cells = <0>;
 			status = "okay";
 		};
@@ -873,7 +907,7 @@
 			dmas = <&pdma0 DMA_UART0_RX 1
 				&pdma0 DMA_UART0_TX 1>;
 			dma-names = "rx", "tx";
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "ok";
 		};
@@ -890,7 +924,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -907,7 +941,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -924,7 +958,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -941,7 +975,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -958,7 +992,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -975,7 +1009,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -992,7 +1026,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1009,7 +1043,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1057,7 +1091,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "ok";
 		};
@@ -1089,7 +1123,7 @@
 			resets = <&reset RESET_SSPA0>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1110,7 +1144,7 @@
 			resets = <&reset RESET_SSPA1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1129,7 +1163,7 @@
 			resets = <&reset RESET_SEC_SSP2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1150,7 +1184,7 @@
 			resets = <&reset RESET_SSP3>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1182,7 +1216,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1214,7 +1248,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1246,7 +1280,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1271,7 +1305,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1303,7 +1337,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1335,7 +1369,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1367,7 +1401,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1399,7 +1433,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1431,7 +1465,7 @@
 			spacemit,apb_clock = <52000000>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1726,8 +1760,6 @@
 			clock-names = "per","ipg";
 			resets = <&reset RESET_CAN0>;
 			fsl,clk-source = <0>;
-			interconnects = <&dram_range0>;
-			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
 
@@ -1740,8 +1772,6 @@
 			clocks = <&ccu CLK_RCPU_CAN>,<&ccu CLK_RCPU_CAN_BUS>;
 			clock-names = "per","ipg";
 			resets = <&reset RESET_RCPU_CAN>;
-			interconnects = <&dram_range0>;
-			interconnect-names = "dma-mem";
 			rcpu-can;
 			status = "disabled";
 		};
@@ -1794,7 +1824,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range5>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -1818,7 +1848,7 @@
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range5>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -2204,7 +2234,7 @@
 			k1x,qspi-rx-dma = <1>;
 			dmas = <&pdma0 45 1>;
 			dma-names = "tx-dma";
-			interconnects = <&dram_range0>;
+			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
 		};
@@ -2371,7 +2401,7 @@
 			reset-names= "v2d_reset";
 			interrupt-parent = <&intc>;
 			interrupts = <86>;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range3>;
 			interconnect-names = "dma-mem";
 			status = "ok";
 		};
@@ -2397,7 +2427,7 @@
 			jpu,cclk-min-frequency = <409000000>;
 			jpu,cclk-default-frequency = <614000000>;
 			page-size = <4>;
-			interconnects = <&dram_range1>;
+			interconnects = <&dram_range5>;
 			interconnect-names = "dma-mem";
 			clk,pm-runtime,no-sleep;
 			status = "okay";
@@ -2432,6 +2462,8 @@
 			num-engines = <1>;
 			clocks = <&ccu CLK_AES>;
 			resets = <&reset RESET_AES>;
+			interconnects = <&dram_range5>;
+			interconnect-names = "dma-mem";
 			status = "okay";
 		};
 
@@ -2588,7 +2620,7 @@
 		compatible = "spacemit,simple-audio-card";
 		simple-audio-card,name = "snd-hdmi";
 		status = "disabled";
-		interconnects = <&dram_range0>;
+		interconnects = <&dram_range4>;
 		interconnect-names = "dma-mem";
 		simple-audio-card,cpu {
 			sound-dai = <&hdmi_sspa>;
@@ -2605,7 +2637,7 @@
 		compatible = "spacemit,simple-audio-card";
 		simple-audio-card,format = "i2s";
 		status = "disabled";
-		interconnects = <&dram_range0>;
+		interconnects = <&dram_range4>;
 		interconnect-names = "dma-mem";
 		spacemit,init-jack;
 		simple-audio-card,cpu {
