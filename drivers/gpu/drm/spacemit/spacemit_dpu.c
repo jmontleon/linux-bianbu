@@ -26,7 +26,6 @@
 #include "spacemit_dpu.h"
 #include "spacemit_gem.h"
 #include "spacemit_lib.h"
-#include "spacemit_bootloader.h"
 #include "dpu/dpu_saturn.h"
 #include "dpu/dpu_debug.h"
 #include "sysfs/sysfs_display.h"
@@ -298,13 +297,6 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	DRM_INFO("%s(power on)\n", __func__);
 	trace_spacemit_crtc_atomic_enable(dpu->dev_id);
-
-	/* If bootloader logo is boot on, release its resources first */
-	if (unlikely(spacemit_dpu_logo_booton)) {
-		dpu_pm_suspend(dpu->dev);
-		pm_runtime_put_sync(dpu->dev);
-		spacemit_dpu_free_bootloader_mem();
-	}
 
 	pm_runtime_get_sync(dpu->dev);
 	dpu_pm_resume(dpu->dev);
@@ -637,9 +629,6 @@ int spacemit_dpu_run(struct drm_crtc *crtc,
 	DRM_DEBUG("%s() type %d \n", __func__, dpu->type);
 	trace_spacemit_dpu_run(dpu->dev_id);
 
-	if (unlikely(spacemit_dpu_logo_booton))
-		spacemit_dpu_logo_booton = false;
-
 	if (dpu->core && dpu->core->run)
 		dpu->core->run(crtc, old_state);
 
@@ -784,7 +773,13 @@ static int spacemit_dpu_bind(struct device *dev, struct device *master, void *da
 #ifdef CONFIG_SPACEMIT_DEBUG
 	struct dpu_clk_context *clk_ctx = NULL;
 #endif
-	DRM_DEBUG("%s()\n", __func__);
+	DRM_INFO("%s()\n", __func__);
+
+	if (dpu->logo_booton) {
+		dpu_pm_suspend(&pdev->dev);
+		pm_runtime_put_sync(&pdev->dev);
+		dpu->logo_booton = false;
+	}
 
 	ret = spacemit_dpu_irqs_init(dpu, np, pdev);
 	if (ret)
@@ -893,7 +888,7 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	if (!dpu)
 		return -ENOMEM;
 	dpu->dev = dev;
-	dpu->is_probed = false;
+	dpu->logo_booton = true;
 	dev_set_drvdata(dev, dpu);
 
 	if (of_property_read_u32(np, "pipeline-id", &dpu_id))
@@ -956,25 +951,16 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	// reset dpu
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_get_sync(&pdev->dev);
-	dpu_pm_resume(&pdev->dev);
-	dpu_pm_suspend(&pdev->dev);
-	pm_runtime_put_sync(&pdev->dev);
-	msleep(10);
-
 	/*
 	 * To keep bootloader logo on, below operations must be
 	 * done in probe func as power domain framework will turn
 	 * on/off lcd power domain before/after probe func.
 	 */
-	if (spacemit_dpu_logo_booton) {
+	if (dpu->logo_booton) {
 		pm_runtime_get_sync(&pdev->dev);
 		dpu_pm_resume(&pdev->dev);
 	}
-
-	dpu->is_probed = true;
 
 	return component_add(dev, &dpu_component_ops);
 }
