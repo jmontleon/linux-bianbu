@@ -10,7 +10,6 @@ spacemit-drm-y := 	spacemit_drm.o \
 				spacemit_lib.o \
 				spacemit_gem.o \
 				spacemit_dmmu.o \
-				spacemit_bootloader.o \
 				sysfs/sysfs_class.o \
 				sysfs/sysfs_dpu.o \
 				sysfs/sysfs_dsi.o \

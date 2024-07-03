@@ -562,7 +562,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 
 	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
-	if (!dpu->is_probed) {
+	if (dpu->logo_booton) {
 		if (dpu->type == HDMI) {
 			clk_prepare_enable(clk_ctx->hmclk);
 		} else if (dpu->type == DSI) {
@@ -572,8 +572,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 			clk_prepare_enable(clk_ctx->escclk);
 			clk_prepare_enable(clk_ctx->bitclk);
 		}
-		udelay(10);
-		dpu_finish_uboot(dpu);
+		udelay(100);
 		return 0;
 	}
 
@@ -596,7 +595,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		clk_val = clk_get_rate(clk_ctx->hmclk);
 		DRM_DEBUG("get hdmi mclk=%lld\n", clk_val);
 
-		udelay(10);
+		udelay(100);
 	} else {
 		clk_prepare_enable(clk_ctx->pxclk);
 		clk_prepare_enable(clk_ctx->mclk);
@@ -612,7 +611,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 			clk_val = clk_get_rate(clk_ctx->pxclk);
 			if(clk_val != set_clk_val){
 				clk_set_rate(clk_ctx->pxclk, set_clk_val);
-				DRM_DEBUG("set pxclk=%lld\n", clk_val);
+				DRM_DEBUG("set pxclk=%lld\n", set_clk_val);
 			}
 		}
 
@@ -653,7 +652,7 @@ static int dpu_enable_clocks(struct spacemit_dpu *dpu)
 		clk_val = clk_get_rate(clk_ctx->bitclk);
 		DRM_DEBUG("get bitclk=%lld\n", clk_val);
 
-		udelay(10);
+		udelay(100);
 	}
 
 	trace_dpu_enable_clocks(dpu->dev_id);
@@ -671,7 +670,10 @@ static int dpu_disable_clocks(struct spacemit_dpu *dpu)
 
 	trace_dpu_disable_clocks(dpu->dev_id);
 
-	if (!dpu->is_probed) {
+	if (dpu->logo_booton) {
+
+		dpu_finish_uboot(dpu);
+
 		if (dpu->type == HDMI) {
 			clk_disable_unprepare(clk_ctx->hmclk);
 		} else if (dpu->type == DSI) {
