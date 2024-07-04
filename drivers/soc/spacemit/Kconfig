@@ -34,6 +34,15 @@ config SPACEMI_K1X_DMA_RANGE
 	  This driver is an empty shell, in order to make the dma-ranges function
           effective
 
+config SPACEMI_SOCINFO
+	tristate "Socinfo driver for spacemit SoCs"
+	depends on SOC_SPACEMIT && NVMEM_SPACEMIT_EFUSE
+	select MFD_SYSCON
+	select SOC_BUS
+	help
+	  Spacemit SoCs information driver, which get information from efuse and
+	  report to userspace.
+
 source "drivers/soc/spacemit/jpu/Kconfig"
 source "drivers/soc/spacemit/v2d/Kconfig"
 source "drivers/soc/spacemit/spacemit-rf/Kconfig"
