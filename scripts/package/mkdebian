@@ -220,6 +220,7 @@ Architecture: $debarch
 Description: Linux kernel, version ${KERNELRELEASE}
  This package contains the Linux kernel, modules and corresponding other
  files, version: ${KERNELRELEASE}.
+Depends: spacemit-flash-dtbs
 EOF
 
 if [ "${SRCARCH}" != um ]; then
