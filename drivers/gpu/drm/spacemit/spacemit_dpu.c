@@ -775,12 +775,6 @@ static int spacemit_dpu_bind(struct device *dev, struct device *master, void *da
 #endif
 	DRM_INFO("%s()\n", __func__);
 
-	if (dpu->logo_booton) {
-		dpu_pm_suspend(&pdev->dev);
-		pm_runtime_put_sync(&pdev->dev);
-		dpu->logo_booton = false;
-	}
-
 	ret = spacemit_dpu_irqs_init(dpu, np, pdev);
 	if (ret)
 		return ret;
@@ -960,6 +954,10 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	if (dpu->logo_booton) {
 		pm_runtime_get_sync(&pdev->dev);
 		dpu_pm_resume(&pdev->dev);
+		dpu_pm_suspend(&pdev->dev);
+		pm_runtime_put_sync(&pdev->dev);
+		dpu->logo_booton = false;
+		msleep(10);
 	}
 
 	return component_add(dev, &dpu_component_ops);
