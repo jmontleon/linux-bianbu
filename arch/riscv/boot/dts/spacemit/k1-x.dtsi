@@ -1794,8 +1794,9 @@
 
 		ehci: ehci@c0900100 {
 			compatible = "spacemit,mv-ehci";
-			reg = <0x0 0xc0900100 0x0 0x4000>;
-			interrupts = <105>;
+			reg = <0x0 0xc0900100 0x0 0x4000>,
+				  <0x0 0xd428287c 0x0 0x4>;
+			interrupts = <105>,<106>;
 			interrupt-parent = <&intc>;
 			spacemit,ehci-name = "mv-ehci";
 			spacemit,otg-force-a-bus-req;
@@ -1821,8 +1822,9 @@
 
 		ehci1: ehci1@c0980100 {
 			compatible = "spacemit,mv-ehci";
-			reg = <0x0 0xc0980100 0x0 0x4000>;
-			interrupts = <118>;
+			reg = <0x0 0xc0980100 0x0 0x4000>,
+				  <0x0 0xd4282bc4 0x0 0x4>;
+			interrupts = <118>,<148>;
 			interrupt-parent = <&intc>;
 			spacemit,ehci-name = "mv-ehci";
 			spacemit,otg-force-a-bus-req;
