@@ -186,11 +186,11 @@ static int ccu_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	union pllx_swcr1 swcr1;
 	union pllx_swcr3 swcr3;
 	bool found = false;
+	bool pll_enabled = false;
 
 	if (ccu_pll_is_enabled(hw)) {
-		pr_err("%s %s is enabled, ignore the setrate!\n",
-		       __func__, __clk_get_name(hw->clk));
-		return 0;
+		pll_enabled = true;
+		ccu_pll_disable(hw);
 	}
 
 	old_rate = __get_vco_freq(hw);
@@ -213,6 +213,8 @@ static int ccu_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		BUG_ON(!found);
 	} else {
 		pr_err("don't find freq table for pll\n");
+		if (pll_enabled)
+			ccu_pll_enable(hw);
 		return -EINVAL;
 	}
 
@@ -231,6 +233,9 @@ static int ccu_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	pll_writel_pll_swcr3(swcr3.v, p->common);
 
 	spin_unlock_irqrestore(p->common.lock, flags);
+
+	if (pll_enabled)
+		ccu_pll_enable(hw);
 
 	pr_debug("%s %s rate %lu->%lu!\n", __func__,
 		 __clk_get_name(hw->clk), old_rate, new_rate);
