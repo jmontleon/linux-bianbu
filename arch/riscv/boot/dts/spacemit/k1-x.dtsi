@@ -2435,6 +2435,19 @@
 			status = "okay";
 		};
 
+		efuse: fuse@f0702800 {
+			compatible = "simple-mfd";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 0x0 0xf0702800 0x400>;
+			status = "disabled";
+		};
+
+		socinfo: socinfo@0 {
+			compatible = "spacemit,socinfo-k1x";
+			status = "disabled";
+		};
+
 		ciu: ciu@d4282c00 {
 			compatible = "spacemit,aquila-ciu", "spacemit,ciu", "syscon";
 			reg = <0x0 0xd4282c00 0x0 0x2d0>;
