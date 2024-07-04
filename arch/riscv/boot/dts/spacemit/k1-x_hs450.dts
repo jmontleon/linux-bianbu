@@ -4,6 +4,7 @@
 /dts-v1/;
 
 #include "k1-x.dtsi"
+#include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
 #include "lcd/lcd_lt8911_edp_1920x1200.dtsi"
 #include "k1-x-lcd.dtsi"
