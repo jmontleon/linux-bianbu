@@ -1789,7 +1789,7 @@ phl_wifi_role_stop(struct phl_info_t *phl_info, struct rtw_wifi_role_t *wrole)
 void rtw_phl_wifi_role_free(void *phl, u8 role_idx)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
-	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	struct rtw_phl_com_t *phl_com = NULL;
 	struct rtw_wifi_role_t *wrole = NULL;
 
 	if (role_idx >= MAX_WIFI_ROLE_NUMBER) {
@@ -1797,6 +1797,12 @@ void rtw_phl_wifi_role_free(void *phl, u8 role_idx)
 		return;
 	}
 
+	if (!phl_info || !phl_info->phl_com) {
+		PHL_ERR("%s phl_info or phl_com is NULL\n", __func__);
+		return ;
+	}
+
+	phl_com = phl_info->phl_com;
 	wrole = &phl_com->wifi_roles[role_idx];
 
 	if (phl_wifi_role_stop(phl_info, wrole) != RTW_PHL_STATUS_SUCCESS) {
