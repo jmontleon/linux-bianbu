@@ -18,7 +18,6 @@
 #include <linux/reset.h>
 #include <linux/of_address.h>
 #include <linux/pm_wakeirq.h>
-#include <linux/syscore_ops.h>
 
 #define DWC3_LFPS_WAKE_STATUS		(1 << 29)
 #define DWC3_CDWS_WAKE_STATUS		(1 << 28)
@@ -44,7 +43,6 @@
 
 #define DWC3_SPACEMIT_MAX_CLOCKS	4
 
-static struct dwc3_spacemit *dwc3;
 
 struct dwc3_spacemit_driverdata {
 	const char		*clk_names[DWC3_SPACEMIT_MAX_CLOCKS];
@@ -239,28 +237,6 @@ static int dwc3_spacemit_exit(struct dwc3_spacemit *data)
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int dwc3_wake_suspend(void)
-{
-	struct dwc3_spacemit *spacemit = dwc3;
-	if(spacemit){
-		dwc3_spacemit_clear_wakeup_irqs(spacemit);
-		dwc3_spacemit_enable_wakeup_irqs(spacemit);
-	}
-	return 0;
-}
-
-static void dwc3_wake_resume(void)
-{
-	return;
-}
-
-static struct syscore_ops dwc3_wake_syscore_ops = {
-	.suspend = dwc3_wake_suspend,
-	.resume = dwc3_wake_resume,
-};
-#endif
-
 static int dwc3_spacemit_probe(struct platform_device *pdev)
 {
 	struct dwc3_spacemit	*spacemit;
@@ -350,10 +326,6 @@ static int dwc3_spacemit_probe(struct platform_device *pdev)
 
 	device_init_wakeup(dev, true);
 	dev_pm_set_wake_irq(dev, spacemit->irq);
-	dwc3 = spacemit;
-#ifdef CONFIG_PM_SLEEP
-	register_syscore_ops(&dwc3_wake_syscore_ops);
-#endif
 	return 0;
 
 irq_err:
@@ -366,9 +338,7 @@ populate_err:
 static int dwc3_spacemit_remove(struct platform_device *pdev)
 {
 	struct dwc3_spacemit	*spacemit = platform_get_drvdata(pdev);
-#ifdef CONFIG_PM_SLEEP
-	unregister_syscore_ops(&dwc3_wake_syscore_ops);
-#endif
+
 	dwc3_spacemit_disable_wakeup_irqs(spacemit);
 	dev_pm_clear_wake_irq(spacemit->dev);
 	device_init_wakeup(spacemit->dev, false);
@@ -421,6 +391,8 @@ static int dwc3_spacemit_suspend(struct device *dev)
 	for (i = spacemit->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(spacemit->clks[i]);
 
+	dwc3_spacemit_clear_wakeup_irqs(spacemit);
+	dwc3_spacemit_enable_wakeup_irqs(spacemit);
 	return 0;
 }
 
