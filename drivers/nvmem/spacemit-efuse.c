@@ -141,6 +141,7 @@ static int spacemit_efuse_probe(struct platform_device *pdev)
 	econfig->reg_read = spacemit_efuse_read;
 	econfig->size = resource_size(res);
 	econfig->priv = efuse;
+	econfig->add_legacy_fixed_of_cells = true;
 
 	nvmem = devm_nvmem_register(dev, econfig);
 	efuse->nvmem = nvmem;
