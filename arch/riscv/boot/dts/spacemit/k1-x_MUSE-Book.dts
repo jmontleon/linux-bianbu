@@ -9,6 +9,7 @@
 #include "lcd/lcd_lt8911_edp_1920x1080.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
+#include "k1-x_opp_table.dtsi"
 
 / {
 	model = "M1-MUSE-BOOK";
@@ -763,23 +764,6 @@
 	default-brightness-level = <128>;
 
 	status = "okay";
-};
-
-&cpu_0 {
-	clst0-supply = <&dcdc_1>;
-	vin-supply-names = "clst0";
-};
-
-&clst0_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
-};
-
-&clst1_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
 };
 
 &rcpu {
