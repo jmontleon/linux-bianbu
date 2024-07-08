@@ -63,9 +63,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu0_intc: interrupt-controller {
@@ -99,9 +97,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu1_intc: interrupt-controller {
@@ -135,9 +131,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu2_intc: interrupt-controller {
@@ -171,9 +165,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C0_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst0_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu3_intc: interrupt-controller {
@@ -207,9 +199,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu4_intc: interrupt-controller {
@@ -243,9 +233,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu5_intc: interrupt-controller {
@@ -279,9 +267,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu6_intc: interrupt-controller {
@@ -315,9 +301,7 @@
 			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
-			clocks = <&ccu CLK_CPU_C1_CORE>;
 			cpu-idle-states = <&CPU_NONRET> /*, <&CLUSTER_NONRET>, <&TOP_NONRET> */;
-			operating-points-v2 = <&clst1_core_opp_table>;
 			#cooling-cells = <2>;
 
 			cpu7_intc: interrupt-controller {
@@ -376,99 +360,6 @@
 				exit-latency-us = <1200>;
 				min-residency-us = <2800>;
 				wakeup-latency-us = <1600>;
-			};
-		};
-
-		clst0_core_opp_table: opp_table0 {
-			compatible = "operating-points-v2";
-			opp-shared;
-
-			clocks = <&ccu CLK_CPU_C0_ACE>, <&ccu CLK_CPU_C0_TCM>, <&ccu CLK_CCI550>;
-			clock-names = "ace","tcm", "cci";
-			cci-hz = /bits/ 64 <614000000>;
-
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				tcm-hz = /bits/ 64 <800000000>;
-				ace-hz = /bits/ 64 <800000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1228800000 {
-				opp-hz = /bits/ 64 <1228800000>;
-				tcm-hz = /bits/ 64 <614400000>;
-				ace-hz = /bits/ 64 <614400000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1000000000 {
-				opp-hz = /bits/ 64 <1000000000>;
-				tcm-hz = /bits/ 64 <500000000>;
-				ace-hz = /bits/ 64 <500000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				opp-microvolt = <950000>;
-				tcm-hz = /bits/ 64 <409500000>;
-				ace-hz = /bits/ 64 <409500000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp614400000 {
-				opp-hz = /bits/ 64 <614400000>;
-				tcm-hz = /bits/ 64 <307200000>;
-				ace-hz = /bits/ 64 <307200000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-		};
-
-		clst1_core_opp_table: opp_table1 {
-			compatible = "operating-points-v2";
-			opp-shared;
-
-			clocks = <&ccu CLK_CPU_C1_ACE>, <&ccu CLK_CCI550>;
-			clock-names = "ace", "cci";
-			cci-hz = /bits/ 64 <614000000>;
-
-			opp1600000000 {
-				opp-hz = /bits/ 64 <1600000000>;
-				ace-hz = /bits/ 64 <800000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1228800000 {
-				opp-hz = /bits/ 64 <1228800000>;
-				ace-hz = /bits/ 64 <614400000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp1000000000 {
-				opp-hz = /bits/ 64 <1000000000>;
-				ace-hz = /bits/ 64 <500000000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp819000000 {
-				opp-hz = /bits/ 64 <819000000>;
-				ace-hz = /bits/ 64 <409500000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
-			};
-
-			opp614400000 {
-				opp-hz = /bits/ 64 <614400000>;
-				ace-hz = /bits/ 64 <307200000>;
-				opp-microvolt = <950000>;
-				clock-latency-ns = <200000>;
 			};
 		};
 	};

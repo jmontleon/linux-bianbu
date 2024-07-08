@@ -6,6 +6,7 @@
 #include "k1-x.dtsi"
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
+#include "k1-x_opp_table.dtsi"
 
 / {
 	model = "spacemit k1-x mingo board";
@@ -587,23 +588,6 @@
 		m25p,fast-read;
 		broken-flash-reset;
 		status = "okay";
-	};
-};
-
-&cpu_0 {
-	clst0-supply = <&dcdc_1>;
-	vin-supply-names = "clst0";
-};
-
-&clst0_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
-};
-
-&clst1_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
 	};
 };
 
