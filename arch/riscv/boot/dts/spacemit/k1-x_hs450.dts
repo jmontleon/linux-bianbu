@@ -9,6 +9,7 @@
 #include "lcd/lcd_lt8911_edp_1920x1200.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
+#include "k1-x_opp_table.dtsi"
 
 / {
 	model = "spacemit k1-x hs450 board";
@@ -736,20 +737,35 @@
 };
 
 &cpu_0 {
-	clst0-supply = <&edcdc_1>;
-	vin-supply-names = "clst0";
+	clst-supply = <&edcdc_1>;
 };
 
-&clst0_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
+&cpu_1 {
+	clst-supply = <&edcdc_1>;
 };
 
-&clst1_core_opp_table {
-	opp1600000000 {
-		opp-microvolt = <1050000>;
-	};
+&cpu_2 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_3 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_4 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_5 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_6 {
+	clst-supply = <&edcdc_1>;
+};
+
+&cpu_7 {
+	clst-supply = <&edcdc_1>;
 };
 
 &rcpu {
