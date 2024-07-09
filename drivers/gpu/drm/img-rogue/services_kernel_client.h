@@ -284,6 +284,11 @@ struct _PVRSRV_DEVICE_NODE_ *SyncCheckpointGetAssociatedDevice(PSYNC_CHECKPOINT_
 @Return         struct workqueue_struct ptr on success, NULL otherwise.
 */ /**************************************************************************/
 struct workqueue_struct *NativeSyncGetFenceStatusWq(void);
+/*************************************************************************/ /*!
+@Function       NativeSyncGetFenceCtxDestroyWq
+@Return         struct workqueue_struct ptr on success, NULL otherwise.
+*/ /**************************************************************************/
+struct workqueue_struct *NativeSyncGetFenceCtxDestroyWq(void);
 #endif
 
 #endif /* __SERVICES_KERNEL_CLIENT__ */
