@@ -582,6 +582,7 @@ IMG_UINT32 OSStringUINT32ToStr(IMG_CHAR *pszBuf, size_t uSize,
 
 #if defined(SUPPORT_NATIVE_FENCE_SYNC) || defined(SUPPORT_BUFFER_SYNC)
 static struct workqueue_struct *gpFenceStatusWq;
+static struct workqueue_struct *gpFenceCtxDestroyWq;
 
 static PVRSRV_ERROR _NativeSyncInit(void)
 {
@@ -593,12 +594,21 @@ static PVRSRV_ERROR _NativeSyncInit(void)
 		return PVRSRV_ERROR_INIT_FAILURE;
 	}
 
+	gpFenceCtxDestroyWq = create_freezable_workqueue("pvr_fence_context_destroy");
+	if (!gpFenceCtxDestroyWq)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to create foreign fence context destruction workqueue",
+				 __func__));
+		return PVRSRV_ERROR_INIT_FAILURE;
+	}
+
 	return PVRSRV_OK;
 }
 
 static void _NativeSyncDeinit(void)
 {
 	destroy_workqueue(gpFenceStatusWq);
+	destroy_workqueue(gpFenceCtxDestroyWq);
 }
 
 struct workqueue_struct *NativeSyncGetFenceStatusWq(void)
@@ -612,6 +622,19 @@ struct workqueue_struct *NativeSyncGetFenceStatusWq(void)
 	}
 
 	return gpFenceStatusWq;
+}
+
+struct workqueue_struct *NativeSyncGetFenceCtxDestroyWq(void)
+{
+	if (!gpFenceCtxDestroyWq)
+	{
+#if defined(DEBUG)
+		PVR_ASSERT(gpFenceCtxDestroyWq);
+#endif
+		return NULL;
+	}
+
+	return gpFenceCtxDestroyWq;
 }
 #endif
 
