@@ -189,14 +189,20 @@ u32 pvr_fence_dump_info_on_stalled_ufos(struct pvr_fence_context *fctx,
 					u32 nr_ufos,
 					u32 *vaddrs);
 
+#if defined(SUPPORT_NATIVE_FENCE_SYNC) || defined(SUPPORT_BUFFER_SYNC)
 static inline void pvr_fence_cleanup(void)
 {
 	/*
 	 * Ensure all PVR fence contexts have been destroyed, by flushing
 	 * the global workqueue.
 	 */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 36))
+	flush_workqueue(NativeSyncGetFenceCtxDestroyWq());
+#else
 	flush_scheduled_work();
+#endif
 }
+#endif
 
 #if defined(PVR_FENCE_DEBUG)
 #define PVR_FENCE_CTX_TRACE(c, fmt, ...)                                   \
