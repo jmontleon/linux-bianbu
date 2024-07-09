@@ -57,10 +57,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
@@ -93,10 +93,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
@@ -129,10 +129,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
@@ -165,10 +165,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst0_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C0_CORE>;
@@ -201,10 +201,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
@@ -237,10 +237,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
@@ -273,10 +273,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
@@ -309,10 +309,10 @@
 			riscv,cboz-block-size = <64>;
 			i-cache-block-size = <64>;
 			i-cache-size = <32768>;
-			i-cache-sets = <512>;
+			i-cache-sets = <128>;
 			d-cache-block-size = <64>;
 			d-cache-size = <32768>;
-			d-cache-sets = <512>;
+			d-cache-sets = <128>;
 			next-level-cache = <&clst1_l2_cache>;
 			mmu-type = "riscv,sv39";
 			clocks = <&ccu CLK_CPU_C1_CORE>;
@@ -332,7 +332,7 @@
 			cache-block-size = <64>;
 			cache-level = <2>;
 			cache-size = <524288>;
-			cache-sets = <1024>;
+			cache-sets = <512>;
 			cache-unified;
 		};
 
@@ -341,7 +341,7 @@
 			cache-block-size = <64>;
 			cache-level = <2>;
 			cache-size = <524288>;
-			cache-sets = <1024>;
+			cache-sets = <512>;
 			cache-unified;
 		};
 
