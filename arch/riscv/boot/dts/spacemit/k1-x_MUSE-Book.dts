@@ -250,7 +250,7 @@
 		#size-cells = <1>;
 
 		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
-		status = "disabled";
+		status = "okay";
 
 		mac_address0: mac_address0@0 {
 			reg = <0x0 6>;
