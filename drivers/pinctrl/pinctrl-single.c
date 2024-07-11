@@ -1822,10 +1822,6 @@ static int pcs_probe(struct platform_device *pdev)
 	struct pcs_device *pcs;
 	const struct pcs_soc_data *soc;
 	int ret;
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-	unsigned val;
-	void __iomem *mem_base;
-#endif
 
 	soc = of_device_get_match_data(&pdev->dev);
 	if (WARN_ON(!soc))
