@@ -34,31 +34,17 @@
 #define HDMI_TXDATA              0x80
 #define HDMI_PERIOD_SIZE         480
 
-#define L_CH                            0
-#define R_CH                            1
 #define SAMPLE_PRESENT_FLAG_OFFSET      31
 #define AUDIO_FRAME_START_BIT_OFFSET    30
-#define SAMPLE_FLAT_BIT_OFFSET          29
-#define NOT_USED_OFFSET                 28
 #define PARITY_BIT_OFFSET               27
 #define CHANNEL_STATUS_OFFSET           26
-#define USER_DATA_OFFSET                25
 #define VALID_OFFSET                    24
-
-#define IEC958_AES0_CONSUMER            (0<<0)	/* 0 = consumer, 1 = professional */
-#define IEC958_AES0_AUDIO               (0<<1)	/* 0 = audio, 1 = non-audio */
-#define IEC958_AES3_CON_FS_48000        (2<<0)	/* 48kHz */
-#define IEC958_AES0_CON_NOT_COPYRIGHT   (1<<2)	/* 0 = copyright, 1 = not copyright */
-#define IEC958_AES0_CON_EMPHASIS_NONE   (0<<3)	/* none emphasis */
-#define IEC958_AES1_CON_GENERAL         (0x00)
-#define IEC958_AES2_CON_SOURCE_UNSPEC   (0<<0)	/* unspecified */
-#define IEC958_AES2_CON_CHANNEL_UNSPEC  (0<<4)	/* unspecified */
-#define IEC958_AES3_CON_CLOCK_1000PPM   (0<<4)	/* 1000 ppm */
-#define IEC958_AES4_CON_WORDLEN_24_20   (5<<1)	/* 24-bit or 20-bit */
-#define IEC958_AES4_CON_MAX_WORDLEN_24  (1<<0)	/* 0 = 20-bit, 1 = 24-bit */
 
 #define CS_CTRL1 ((1 << SAMPLE_PRESENT_FLAG_OFFSET) | (1 << AUDIO_FRAME_START_BIT_OFFSET))
 #define CS_CTRL2 ((1 << SAMPLE_PRESENT_FLAG_OFFSET) | (0 << AUDIO_FRAME_START_BIT_OFFSET))
+
+#define CS_SAMPLING_FREQUENCY           25
+#define CS_MAX_SAMPLE_WORD              32
 
 #define P2(n) n, n^1, n^1, n
 #define P4(n) P2(n), P2(n^1), P2(n^1), P2(n)
@@ -96,11 +82,9 @@ struct hdmi_codec_priv {
     uint32_t srate;
     uint32_t channels;
     uint8_t iec_offset;
-    uint8_t ch_sn;
-    uint8_t cs[24];
 };
 
-struct hdmi_codec_priv hdmi_ptr = {0};
+static struct hdmi_codec_priv hdmi_ptr = {0};
 static const bool ParityTable256[256] =
 {
     P6(0), P6(1), P6(1), P6(0)
@@ -623,18 +607,7 @@ spacemit_snd_pcm_hdmi_pointer(struct snd_soc_component *component, struct snd_pc
 	struct spacemit_snd_dmadata *dmadata = substream->runtime->private_data;
 	return bytes_to_frames(substream->runtime, dmadata->pos);
 }
-static void hdmi_create_cs(struct hdmi_codec_priv *hdmi_priv)
-{
-    uint8_t *cs;
-    memset(hdmi_priv->cs, 0, sizeof(hdmi_priv->cs));
-    cs = hdmi_priv->cs;
-    cs[0] = IEC958_AES0_CONSUMER | IEC958_AES0_AUDIO | IEC958_AES0_CON_NOT_COPYRIGHT | IEC958_AES0_CON_EMPHASIS_NONE;
-    cs[1] = IEC958_AES1_CON_GENERAL;
-    cs[2] = IEC958_AES2_CON_SOURCE_UNSPEC | IEC958_AES2_CON_CHANNEL_UNSPEC;
-    cs[3] = IEC958_AES3_CON_CLOCK_1000PPM | IEC958_AES3_CON_FS_48000;
-    cs[4] = IEC958_AES4_CON_WORDLEN_24_20 | IEC958_AES4_CON_MAX_WORDLEN_24;		//24bits
 
-}
 static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -677,10 +650,8 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 	substream->runtime->private_data = dmadata;
 
 	if (dmadata->dma_id == DMA_HDMI) {
-		hdmi_ptr.ch_sn = L_CH;
         hdmi_ptr.iec_offset = 0;
         hdmi_ptr.srate = 48000;
-        hdmi_create_cs(&hdmi_ptr);
 	}
 unlock:
 	spin_unlock_irqrestore(&dev->lock, flags);
@@ -704,7 +675,6 @@ static int spacemit_snd_pcm_close(struct snd_soc_component *component, struct sn
 	}
 	dmaengine_terminate_all(chan);
 	if (dmadata->dma_id == DMA_HDMI) {
-		hdmi_ptr.ch_sn = L_CH;
 		hdmi_ptr.iec_offset = 0;
 	}
 unlock:
@@ -830,72 +800,66 @@ static void spacemit_snd_pcm_remove(struct snd_soc_component *component)
 		dev->dmadata[i].dma_chan = NULL;
 	}
 }
-static void hdmi_set_cs_channel_sn(struct hdmi_codec_priv *hdmi_priv)
-{
-    hdmi_priv->cs[2] &= 0x0f;
-    if (hdmi_priv->ch_sn == L_CH) {
-        hdmi_priv->cs[2] |= (0x1 << 4);
-        hdmi_priv->ch_sn = R_CH;
-    } else if (hdmi_priv->ch_sn == R_CH)  {
-        hdmi_priv->cs[2] |= (0x2 << 4);
-        hdmi_priv->ch_sn = L_CH;
-    }
-}
-
-static uint32_t get_cs_bit(struct hdmi_codec_priv *hdmi_priv)
-{
-    unsigned long tmp = 0;
-    int cs_idx;
-    int bit_idx;
-    cs_idx = hdmi_priv->iec_offset >> 3;
-    bit_idx = hdmi_priv->iec_offset - (cs_idx << 3);
-
-    tmp = hdmi_priv->cs[cs_idx] >> bit_idx;
-
-    return (uint32_t)tmp&0x1;
-}
 
 static uint32_t parity_even(uint32_t sample)
 {
 	bool parity = 0;
-    sample ^= sample >> 16;
-    sample ^= sample >> 8;
-    parity = ParityTable256[sample & 0xff];
-    if (parity)
-        return 1;
-    else
-        return 0;
+	sample ^= sample >> 16;
+	sample ^= sample >> 8;
+	parity = ParityTable256[sample & 0xff];
+	if (parity)
+		return 1;
+	else
+		return 0;
+}
+
+static int32_t cal_cs_status_48kHz(int32_t offset)
+{
+	if ((offset == CS_SAMPLING_FREQUENCY) || (offset == CS_MAX_SAMPLE_WORD))
+	{
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 static void hdmi_reformat(void *dst, void *src, int len)
 {
-    uint32_t *dst32 = (uint32_t *)dst;
-    uint16_t *src16 = (uint16_t *)src;
-    struct hdmi_codec_priv *dw = &hdmi_ptr;
-    uint16_t frm_cnt = len;
-    uint32_t ctrl;
-    uint32_t sample,parity;
-    dw->channels = 2;
-    while (frm_cnt--) {
-        for (int i = 0; i < dw->channels; i++) {
-            hdmi_set_cs_channel_sn(dw);
-            if (dw->iec_offset == 0) {
-                ctrl = CS_CTRL1 | (get_cs_bit(dw) << CHANNEL_STATUS_OFFSET);
-            }  else {
-                ctrl = CS_CTRL2 | (get_cs_bit(dw) << CHANNEL_STATUS_OFFSET);
-            }
+	uint32_t *dst32 = (uint32_t *)dst;
+	uint16_t *src16 = (uint16_t *)src;
+	struct hdmi_codec_priv *dw = &hdmi_ptr;
+	uint16_t frm_cnt = len;
+	uint32_t ctrl;
+	uint32_t sample,parity;
+	dw->channels = 2;
+	while (frm_cnt--) {
+		for (int i = 0; i < dw->channels; i++) {
+			//bit 0-23
+			sample = ((uint32_t)(*src16++) << 8);
+			//bit 24
+			sample = sample | (1 << VALID_OFFSET);
+			//bit 26
+			sample = sample | (cal_cs_status_48kHz(dw->iec_offset) << CHANNEL_STATUS_OFFSET);
+			//bit 27
+			parity = parity_even(sample);
+			sample = sample | (parity << PARITY_BIT_OFFSET);
 
-            sample = ((uint32_t)(*src16++) << 8)| ctrl;
-            parity = parity_even(sample);
-            sample = sample | (parity << PARITY_BIT_OFFSET);
-            *dst32++ = sample;
-        }
+			//bit 30 31
+			if (dw->iec_offset == 0) {
+				ctrl = CS_CTRL1;
+			}  else {
+				ctrl = CS_CTRL2;
+			}
+			sample = sample | ctrl;
 
-        dw->iec_offset++;
-        if (dw->iec_offset >= 192){
-            dw->iec_offset = 0;
+			*dst32++ = sample;
 		}
-    };
+
+		dw->iec_offset++;
+		if (dw->iec_offset >= 192){
+			dw->iec_offset = 0;
+		}
+	}
 }
 
 static int spacemit_snd_pcm_copy(struct snd_soc_component *component,
