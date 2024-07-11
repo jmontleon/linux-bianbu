@@ -1245,14 +1245,11 @@ spacemit_i2c_xfer(struct i2c_adapter *adapt, struct i2c_msg msgs[], int num)
 	 * software power down command to pmic via i2c interface
 	 * with local irq disabled, so just enter PIO mode at once
 	*/
-	if (unlikely(irqs_disabled()
+	if (unlikely(spacemit_i2c_restart_notify == true
 #ifdef CONFIG_DEBUG_FS
 		|| spacemit_i2c->dbgfs_mode == SPACEMIT_I2C_MODE_PIO
 #endif
 		)) {
-
-		if(!spacemit_i2c_restart_notify)
-			dev_warn(spacemit_i2c->dev, "%s: i2c transfer called with irq off!\n", __func__);
 
 		spacemit_i2c->msgs = msgs;
 		spacemit_i2c->num = num;
