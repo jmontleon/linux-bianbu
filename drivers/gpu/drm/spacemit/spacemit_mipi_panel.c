@@ -194,7 +194,6 @@ static int spacemit_panel_prepare(struct drm_panel *p)
 	spacemit_drm_notifier_call_chain(DRM_PANEL_EVENT_BLANK, &noti_blank);
 	pr_info("mipi: UNBLANK!!\n");
 
-out:
 	/* update refcnt */
 	atomic_set(&panel->prepare_refcnt, 1);
 	return 0;
@@ -240,7 +239,7 @@ static int spacemit_panel_enable(struct drm_panel *p)
 				      msecs_to_jiffies(1000));
 		panel->esd_work_pending = true;
 	}
-out:
+
 	atomic_set(&panel->enable_refcnt, 1);
 	return 0;
 }
