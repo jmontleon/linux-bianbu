@@ -551,8 +551,12 @@ static int spacemit_snd_pcm_trigger(struct snd_soc_component *component, struct 
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		if (runtime->info & SNDRV_PCM_INFO_PAUSE)
 			dmaengine_pause(dmadata->dma_chan);
-		else
+		else {
 			dmaengine_terminate_async(dmadata->dma_chan);
+			dmadata->playback_data = 0;
+			dmadata->pos = 0;
+			spacemit_update_stream_status(dev, dmadata->stream, false);
+		}
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 	case SNDRV_PCM_TRIGGER_RESUME:
