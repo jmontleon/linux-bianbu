@@ -182,6 +182,34 @@ install_libc_headers () {
 	mv $pdir/usr/include/asm $pdir/usr/include/$host_arch/
 }
 
+install_tools(){
+	pdir=$1
+	version=$2
+
+	rm -rf $pdir
+
+	mkdir -p "$pdir/usr/lib/linux-tools/$version"
+	install -m755 $srctree/tools/perf/perf $pdir/usr/lib/linux-tools/$version
+}
+
+install_tools_common(){
+	pdir=$1
+
+	rm -rf $pdir
+
+	toolsbin=$pdir/usr/bin
+	toolssbin=$pdir/usr/sbin
+	toolsman=$pdir/usr/share/man
+
+	install -d $toolsbin
+	install -d $toolssbin
+	install -d $toolsman/man1
+	install -d $toolsman/man8
+
+	install -m755 $srctree/scripts/package/generic $toolsbin/perf
+	install -m644 $srctree/tools/perf/Documentation/*.1 $toolsman/man1
+}
+
 rm -f debian/files
 
 packages_enabled=$(dh_listpackages)
@@ -199,6 +227,10 @@ do
 		install_libc_headers debian/linux-libc-dev;;
 	linux-headers-*)
 		install_kernel_headers debian/linux-headers ${package#linux-headers-};;
+	linux-tools-common)
+		install_tools_common debian/linux-tools-common;;
+	linux-tools-*)
+		install_tools debian/linux-tools ${package#linux-tools-};;
 	esac
 done
 
@@ -213,6 +245,10 @@ do
 		create_package ${package} debian/linux-libc-dev;;
 	linux-headers-*)
 		create_package ${package} debian/linux-headers;;
+	linux-tools-common)
+		create_package ${package} debian/linux-tools-common;;
+	linux-tools-*)
+		create_package ${package} debian/linux-tools;;
 	esac
 done
 
