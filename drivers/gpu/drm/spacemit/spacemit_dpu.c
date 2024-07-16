@@ -26,6 +26,7 @@
 #include "spacemit_dpu.h"
 #include "spacemit_gem.h"
 #include "spacemit_lib.h"
+#include "spacemit_bootloader.h"
 #include "dpu/dpu_saturn.h"
 #include "dpu/dpu_debug.h"
 #include "sysfs/sysfs_display.h"
@@ -862,11 +863,12 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct spacemit_dpu *dpu;
 	struct device_node *np = dev->of_node;
-#ifdef MODULE
+	struct device_node *rmem_np;
+	struct device_node *fb_np;
 	struct reserved_mem rmem;
 	struct resource rsrv_mem;
 	int ret;
-#endif
+
 	const char *str;
 	u32 dpu_id;
 	u32 dpu_type;
@@ -901,20 +903,6 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	/* Clk dts nodes must be parsed in head of pm_runtime_xxx */
 	if (dpu->core && dpu->core->parse_dt)
 		dpu->core->parse_dt(dpu, np);
-
-#ifdef MODULE
-	np = of_find_compatible_node(NULL, NULL, "bootloader_logo");
-	if (np) {
-		ret = of_address_to_resource(np, 0, &rsrv_mem);
-		if (ret < 0) {
-			DRM_DEV_ERROR(dev, "no reserved memory resource find in bootloader_logo node\n");
-		} else {
-			rmem.base = rsrv_mem.start;
-			rmem.size = resource_size(&rsrv_mem);
-			spacemit_dpu_bootloader_mem_setup(&rmem);
-		}
-	}
-#endif
 
 	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
@@ -958,6 +946,23 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 		pm_runtime_put_sync(&pdev->dev);
 		dpu->logo_booton = false;
 		msleep(10);
+	}
+
+	rmem_np = of_find_node_by_name(NULL, "reserved-memory");
+	if (rmem_np) {
+		fb_np = of_find_node_by_name(rmem_np, "framebuffer");
+
+		if (fb_np) {
+			ret = of_address_to_resource(fb_np, 0, &rsrv_mem);
+			if (ret < 0) {
+				DRM_DEV_ERROR(dev, "no reserved memory resource find in reserved framebuffer node\n");
+			} else {
+				rmem.base = rsrv_mem.start;
+				rmem.size = resource_size(&rsrv_mem);
+
+				spacemit_dpu_free_bootloader_mem(&rmem);
+			}
+		}
 	}
 
 	return component_add(dev, &dpu_component_ops);
