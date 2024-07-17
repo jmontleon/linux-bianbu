@@ -239,12 +239,11 @@
 		compatible = "spacemit,mipi-panel2";
 		reg = <0>;
 
-		gpios-reset = <511>;
-		gpios-dc = <509 510>;
+		gpios-reset = <503>;
+		gpios-dc = <502 501>;
 		id = <2>;
 		delay-after-reset = <10>;
 		force-attached = "lcd_jd9365da_mipi_1280x800";
-		//force-attached = "lcd_gx09inx101_mipi";
 	};
 };
 
