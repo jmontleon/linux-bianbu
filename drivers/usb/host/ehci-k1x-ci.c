@@ -91,7 +91,6 @@ static void mv_ehci_clear_wakeup_irqs(struct ehci_hcd_mv *ehci_mv)
 {
 	u32 reg;
 	reg = readl(ehci_mv->wakeup_reg);
-	dev_dbg(ehci_mv->dev, "wakeup_reg: 0x%x\n", reg);
 	reg |= (USB_LINS0_WAKE_CLEAR | USB_LINS1_WAKE_CLEAR);
 	writel(reg, ehci_mv->wakeup_reg);
 }
@@ -99,6 +98,10 @@ static void mv_ehci_clear_wakeup_irqs(struct ehci_hcd_mv *ehci_mv)
 static irqreturn_t mv_ehci_wakeup_interrupt(int irq, void *_ehci_mv)
 {
 	struct ehci_hcd_mv *ehci_mv = _ehci_mv;
+	u32 reg;
+	reg = readl(ehci_mv->wakeup_reg);
+	dev_dbg(ehci_mv->dev, "wakeup_reg: 0x%x\n", reg);
+
 	mv_ehci_disable_wakeup_irqs(ehci_mv);
 	mv_ehci_clear_wakeup_irqs(ehci_mv);
 
