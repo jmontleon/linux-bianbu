@@ -75,7 +75,7 @@ static void dwc3_spacemit_enable_wakeup_irqs(struct dwc3_spacemit *spacemit)
 {
 	u32 reg;
 	reg = readl(spacemit->wakeup_reg);
-	reg |= (DWC3_LFPS_WAKE_MASK | DWC3_LINS0_WAKE_MASK | DWC3_WAKEUP_INT_MASK);
+	reg |= (DWC3_LFPS_WAKE_MASK | DWC3_LINS0_WAKE_MASK | DWC3_LINS1_WAKE_MASK);
 	writel(reg, spacemit->wakeup_reg);
 }
 
@@ -83,7 +83,7 @@ static void dwc3_spacemit_disable_wakeup_irqs(struct dwc3_spacemit *spacemit)
 {
 	u32 reg;
 	reg = readl(spacemit->wakeup_reg);
-	reg &= ~(DWC3_LFPS_WAKE_MASK | DWC3_LINS0_WAKE_MASK | DWC3_WAKEUP_INT_MASK);
+	reg &= ~(DWC3_LFPS_WAKE_MASK | DWC3_LINS0_WAKE_MASK | DWC3_LINS1_WAKE_MASK);
 	writel(reg, spacemit->wakeup_reg);
 }
 
@@ -91,14 +91,17 @@ static void dwc3_spacemit_clear_wakeup_irqs(struct dwc3_spacemit *spacemit)
 {
 	u32 reg;
 	reg = readl(spacemit->wakeup_reg);
-	dev_dbg(spacemit->dev, "wakeup_reg: 0x%x\n", reg);
-	reg |= (DWC3_LFPS_WAKE_CLEAR | DWC3_LINS0_WAKE_CLEAR);
+	reg |= (DWC3_LFPS_WAKE_CLEAR | DWC3_LINS0_WAKE_CLEAR | DWC3_LINS1_WAKE_CLEAR);
 	writel(reg, spacemit->wakeup_reg);
 }
 
 static irqreturn_t dwc3_spacemit_wakeup_interrupt(int irq, void *_spacemit)
 {
 	struct dwc3_spacemit	*spacemit = _spacemit;
+	u32 reg;
+	reg = readl(spacemit->wakeup_reg);
+	dev_dbg(spacemit->dev, "wakeup_reg: 0x%x\n", reg);
+
 	dwc3_spacemit_disable_wakeup_irqs(spacemit);
 	dwc3_spacemit_clear_wakeup_irqs(spacemit);
 
