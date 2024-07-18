@@ -247,6 +247,7 @@ static int dwc3_spacemit_probe(struct platform_device *pdev)
 	struct device_node	*node = dev->of_node;
 	const struct dwc3_spacemit_driverdata *driver_data;
 	struct resource		*res;
+	bool wakeup_source;
 	int			i, ret;
 
 	spacemit = devm_kzalloc(dev, sizeof(*spacemit), GFP_KERNEL);
@@ -327,8 +328,11 @@ static int dwc3_spacemit_probe(struct platform_device *pdev)
 		goto irq_err;
 	}
 
-	device_init_wakeup(dev, true);
-	dev_pm_set_wake_irq(dev, spacemit->irq);
+	wakeup_source = of_property_read_bool(dev->of_node, "wakeup-source");
+	if (wakeup_source) {
+		device_init_wakeup(dev, true);
+		dev_pm_set_wake_irq(dev, spacemit->irq);
+	}
 	return 0;
 
 irq_err:
@@ -341,10 +345,13 @@ populate_err:
 static int dwc3_spacemit_remove(struct platform_device *pdev)
 {
 	struct dwc3_spacemit	*spacemit = platform_get_drvdata(pdev);
+	bool do_wakeup = device_may_wakeup(&pdev->dev);
 
-	dwc3_spacemit_disable_wakeup_irqs(spacemit);
-	dev_pm_clear_wake_irq(spacemit->dev);
-	device_init_wakeup(spacemit->dev, false);
+	if (do_wakeup) {
+		dwc3_spacemit_disable_wakeup_irqs(spacemit);
+		dev_pm_clear_wake_irq(spacemit->dev);
+		device_init_wakeup(spacemit->dev, false);
+	}
 	of_platform_depopulate(&pdev->dev);
 	dwc3_spacemit_exit(spacemit);
 
@@ -382,6 +389,7 @@ MODULE_DEVICE_TABLE(of, spacemit_dwc3_match);
 static int dwc3_spacemit_suspend(struct device *dev)
 {
 	struct dwc3_spacemit *spacemit = dev_get_drvdata(dev);
+	bool do_wakeup = device_may_wakeup(dev);
 	int i, ret;
 
 	dwc3_spacemit_phy_setup(spacemit, false);
@@ -394,8 +402,10 @@ static int dwc3_spacemit_suspend(struct device *dev)
 	for (i = spacemit->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(spacemit->clks[i]);
 
-	dwc3_spacemit_clear_wakeup_irqs(spacemit);
-	dwc3_spacemit_enable_wakeup_irqs(spacemit);
+	if (do_wakeup) {
+		dwc3_spacemit_clear_wakeup_irqs(spacemit);
+		dwc3_spacemit_enable_wakeup_irqs(spacemit);
+	}
 	return 0;
 }
 
