@@ -261,6 +261,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	struct ehci_hcd_mv *ehci_mv;
 	struct resource *r;
 	int retval = -ENODEV;
+	bool wakeup_source;
 	u32 offset;
 
 	dev_dbg(&pdev->dev, "mv_ehci_probe: Enter ... \n");
@@ -434,8 +435,11 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		goto err_set_vbus;
 	}
 
-	device_init_wakeup(dev, true);
-	dev_pm_set_wake_irq(dev, ehci_mv->irq);
+	wakeup_source = of_property_read_bool(dev->of_node, "wakeup-source");
+	if (wakeup_source) {
+		device_init_wakeup(dev, true);
+		dev_pm_set_wake_irq(dev, ehci_mv->irq);
+	}
 
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
@@ -470,10 +474,13 @@ static int mv_ehci_remove(struct platform_device *pdev)
 {
 	struct ehci_hcd_mv *ehci_mv = platform_get_drvdata(pdev);
 	struct usb_hcd *hcd = ehci_mv->hcd;
+	bool do_wakeup = device_may_wakeup(&pdev->dev);
 
-	mv_ehci_disable_wakeup_irqs(ehci_mv);
-	dev_pm_clear_wake_irq(ehci_mv->dev);
-	device_init_wakeup(ehci_mv->dev, false);
+	if (do_wakeup) {
+		mv_ehci_disable_wakeup_irqs(ehci_mv);
+		dev_pm_clear_wake_irq(ehci_mv->dev);
+		device_init_wakeup(ehci_mv->dev, false);
+	}
 
 	if (hcd->rh_registered)
 		usb_remove_hcd(hcd);
@@ -540,8 +547,10 @@ static int mv_ehci_suspend(struct device *dev)
 	clk_disable_unprepare(ehci_mv->clk);
 	dev_dbg(dev, "pm suspend: disable clks and phy\n");
 
-	mv_ehci_clear_wakeup_irqs(ehci_mv);
-	mv_ehci_enable_wakeup_irqs(ehci_mv);
+	if (do_wakeup) {
+		mv_ehci_clear_wakeup_irqs(ehci_mv);
+		mv_ehci_enable_wakeup_irqs(ehci_mv);
+	}
 	return ret;
 }
 
