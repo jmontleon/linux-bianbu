@@ -800,6 +800,8 @@
 			dma-names = "rx", "tx";
 			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
+			reg-shift = <2>;
+			reg-io-width = <4>;
 			status = "ok";
 		};
 
