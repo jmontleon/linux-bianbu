@@ -1624,7 +1624,7 @@
 			interrupts = <35>;
 			interrupt-parent = <&intc>;
 			spa,wdt-disabled;
-			status = "ok";
+			status = "disabled";
 		};
 
 		reboot: handler@d4282f90 {
