@@ -29,6 +29,7 @@
 #define SPACEMIT_COMBPHY_USB_PLL_REG 0x8
 #define SPACEMIT_COMBPHY_USB_PLL_MASK 0x1
 #define SPACEMIT_COMBPHY_USB_PLL_VAL 0x1
+#define SPACEMIT_COMBPHY_USB_TERM_SHORT 0x3000
 
 struct spacemit_combphy_priv;
 
@@ -41,6 +42,7 @@ struct spacemit_combphy_priv {
 	void __iomem *puphy_base;
 	struct phy *phy;
 	u8 type;
+	bool suspend_term_quirk;
 };
 
 static inline void spacemit_reg_updatel(void __iomem *reg, u32 offset, u32 mask,
@@ -92,6 +94,10 @@ static int spacemit_combphy_init_usb(struct spacemit_combphy_priv *priv)
 	ret = spacemit_combphy_wait_ready(priv, SPACEMIT_COMBPHY_USB_PLL_REG,
 					  SPACEMIT_COMBPHY_USB_PLL_MASK,
 					  SPACEMIT_COMBPHY_USB_PLL_VAL);
+
+	if (priv->suspend_term_quirk) {
+		spacemit_reg_updatel(base, 0x18, 0, SPACEMIT_COMBPHY_USB_TERM_SHORT);
+	}
 
 	if (ret)
 		dev_err(priv->dev, "USB3 PHY init timeout!\n");
@@ -208,7 +214,7 @@ static int spacemit_combphy_probe(struct platform_device *pdev)
 		ret = PTR_ERR(priv->phy_sel);
 		return ret;
 	}
-
+	priv->suspend_term_quirk = device_property_read_bool(&pdev->dev, "suspend-term-quirk");
 	priv->dev = dev;
 	priv->type = PHY_NONE;
 
