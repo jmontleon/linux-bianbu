@@ -10,6 +10,7 @@
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
+#include "k1-x_thermal_cooling.dtsi"
 
 / {
 	model = "M1-MUSE-BOOK";
@@ -773,14 +774,6 @@
 	mbox-names = "vq0", "vq1";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
 	status = "okay";
-};
-
-&cls0_trip2 {
-	temperature = <115000>;
-};
-
-&cls1_trip2 {
-	temperature = <115000>;
 };
 
 &i2s0 {
