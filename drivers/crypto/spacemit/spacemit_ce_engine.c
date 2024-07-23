@@ -1734,6 +1734,12 @@ static int crypto_engine_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32));
+	if (ret) {
+		dev_err(dev, "Unable to set dma mask\n");
+		return ret;
+	}
+
 	in_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_in, DMA_TO_DEVICE, GFP_KERNEL);
 	out_buffer = dma_alloc_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, &dma_addr_out, DMA_FROM_DEVICE, GFP_KERNEL);
 	ctrl = kmalloc(sizeof(struct aes_clk_reset_ctrl), GFP_KERNEL);
