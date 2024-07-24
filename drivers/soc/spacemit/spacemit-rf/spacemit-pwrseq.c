@@ -234,7 +234,7 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 
 	if(device_property_read_u32(dev, "power-on-delay-ms",
 				 &pwrseq->power_on_delay_ms))
-		pwrseq->power_on_delay_ms = 10;
+		pwrseq->power_on_delay_ms = 100;
 
 	if(device_property_read_bool(dev, "power-always-on"))
 		pwrseq->always_on = true;
