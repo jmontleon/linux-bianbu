@@ -31,6 +31,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/reset.h>
+#include <linux/cpufreq.h>
 
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
@@ -1181,6 +1182,8 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 	struct mmc_ios ios = mmc->ios;
 	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
 	struct rx_tuning *rxtuning = &pdata->rxtuning;
+	struct cpufreq_policy *policy;
+	unsigned int clk_rate;
 
 	/*
 	 * Tuning is required for SDR50/SDR104, HS200/HS400 cards and
@@ -1229,6 +1232,22 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 		return 0;
 	}
 
+	/* specify cpu freq during tuning rx windows if current cpufreq exceed 1.6G */
+	if (pdata->rx_tuning_freq) {
+		clk_rate= cpufreq_generic_get(0);
+		if (clk_rate && (clk_rate != pdata->rx_tuning_freq)) {
+			policy = cpufreq_cpu_get(0);
+			if (policy) {
+				ret = cpufreq_driver_target(policy, pdata->rx_tuning_freq, 0);
+				pr_info("%s: change cpu frequency from %d to %d before tuning\n", mmc_hostname(mmc),
+					clk_rate, pdata->rx_tuning_freq);
+				if (ret)
+					pr_err("%s: failed to change cpu frequency before tuning, err: %d\n",
+						mmc_hostname(mmc), ret);
+			}
+		}
+	}
+
 	rxtuning->select_delay_num = 0;
 	rxtuning->current_delay_index = 0;
 	memset(rxtuning->windows, 0, sizeof(rxtuning->windows));
@@ -1242,13 +1261,14 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 	if (ret) {
 		pr_warn("%s: abort tuning, err:%d\n", mmc_hostname(mmc), ret);
 		rxtuning->tuning_fail = 1;
-		return ret;
+		goto restore_freq;
 	}
 
 	if (!spacemit_sw_rx_select_delay(host)) {
 		pr_warn("%s: fail to get delaycode\n", mmc_hostname(mmc));
 		rxtuning->tuning_fail = 1;
-		return -EIO;
+		ret = -EIO;
+		goto restore_freq;
 	}
 
 	/* step 3: set the delay code and store card cid */
@@ -1257,7 +1277,15 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 	rxtuning->tuning_fail = 0;
 	pr_info("%s: tuning done, use the firstly delay_code:%d\n",
 		mmc_hostname(mmc), rxtuning->select_delay[0]);
-	return 0;
+
+restore_freq:
+	if (pdata->rx_tuning_freq) {
+		if (clk_rate)
+			cpufreq_driver_target(policy, clk_rate, 0);
+		if (policy)
+			cpufreq_cpu_put(policy);
+	}
+	return ret;
 }
 
 static unsigned int spacemit_sdhci_clk_get_max_clock(struct sdhci_host *host)
@@ -1476,6 +1504,10 @@ static void spacemit_get_of_property(struct sdhci_host *host,
 		pdata->phy_driver_sel = (u8)property;
 	else
 		pdata->phy_driver_sel = PHY_DRIVE_SEL_DEFAULT;
+
+	/* read rx tuning cpufreq, unit 1000Hz */
+	if (!of_property_read_u32(np, "spacemit,rx_tuning_freq", &property))
+		pdata->rx_tuning_freq = property;
 
 	return;
 }
