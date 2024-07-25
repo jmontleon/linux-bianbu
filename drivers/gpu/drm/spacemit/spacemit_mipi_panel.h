@@ -77,6 +77,7 @@ struct spacemit_panel {
 	u32 gpio_reset;
 	u32 gpio_bl;
 	u32 gpio_dc[2];
+	u32 gpio_avdd[2];
 	atomic_t enable_refcnt;
 	atomic_t prepare_refcnt;
 	u32 reset_toggle_cnt;
