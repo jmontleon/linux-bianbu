@@ -6,7 +6,7 @@
 #include "k1-x.dtsi"
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
-#include "lcd/lcd_lt8911_edp_1920x1080.dtsi"
+#include "lcd/lcd_icnl9951r_mipi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
@@ -188,30 +188,34 @@
 
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
-	spacemit-dpu-bitclk = <933000000>;
+	spacemit-dpu-bitclk = <1000000000>;
+	spacemit-dpu-escclk = <76800000>;
 	dsi_1v2-supply = <&ldo_5>;
 	vin-supply-names = "dsi_1v2";
-	status = "disabled";
+	dsi_1v8-supply = <&ldo_11>;
+	vin-supply-names = "dsi_1v8";
+	status = "okay";
 };
 
 &dsi2 {
-	status = "disabled";
+	status = "okay";
 
 	panel2: panel2@0 {
 		status = "ok";
 		compatible = "spacemit,mipi-panel2";
 		reg = <0>;
 
-		//gpios-reset = <81>;
-		//gpios-dc = <82 83>;
+		gpios-reset = <30>;
+		gpios-dc = <34 42>;
+		gpios-bl = <31>;
 		id = <2>;
 		delay-after-reset = <10>;
-		force-attached = "lcd_gx09inx101_mipi";
+		force-attached = "lcd_icnl9951r_mipi";
 	};
 };
 
 &lcds {
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c2 {
