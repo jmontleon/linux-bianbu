@@ -118,8 +118,16 @@ static int spacemit_panel_unprepare(struct drm_panel *p)
 		gpio_direction_output(panel->gpio_bl, 0);
 	}
 	msleep(150);
+
 	gpio_direction_output(panel->gpio_dc[0], 0);
 	gpio_direction_output(panel->gpio_dc[1], 0);
+
+	if(INVALID_GPIO != panel->gpio_avdd[0]) {
+		gpio_direction_output(panel->gpio_avdd[0], 0);
+	}
+	if(INVALID_GPIO != panel->gpio_avdd[1]) {
+		gpio_direction_output(panel->gpio_avdd[1], 0);
+	}
 
 	if (panel->vdd_1v2) {
 		regulator_disable(panel->vdd_1v2);
@@ -175,6 +183,13 @@ static int spacemit_panel_prepare(struct drm_panel *p)
 
 	gpio_direction_output(panel->gpio_dc[0], 1);
 	gpio_direction_output(panel->gpio_dc[1], 1);
+
+	if(panel->gpio_avdd[0] != INVALID_GPIO) {
+		gpio_direction_output(panel->gpio_avdd[0], 1);
+	}
+	if(panel->gpio_avdd[1] != INVALID_GPIO) {
+		gpio_direction_output(panel->gpio_avdd[1], 1);
+	}
 
 	if(panel->gpio_bl != INVALID_GPIO) {
 		gpio_direction_output(panel->gpio_bl, 1);
@@ -606,6 +621,20 @@ static int spacemit_panel_probe(struct mipi_dsi_device *slave)
 		ret |= gpio_request(panel->gpio_dc[1], NULL);
 		if (ret) {
 			pr_err("gpio_dc request fail\n");
+			return ret;
+		}
+	}
+
+	ret = of_property_read_u32_array(dev->of_node, "gpios-avdd", panel->gpio_avdd, 2);
+	if (ret || !gpio_is_valid(panel->gpio_avdd[0]) || !gpio_is_valid(panel->gpio_avdd[1])) {
+		dev_dbg(dev, "Missing avdd property: gpios-avdd\n");
+		panel->gpio_avdd[0] = INVALID_GPIO;
+		panel->gpio_avdd[1] = INVALID_GPIO;
+	} else {
+		ret = gpio_request(panel->gpio_avdd[0], NULL);
+		ret |= gpio_request(panel->gpio_avdd[1], NULL);
+		if (ret) {
+			pr_err("gpio_avdd request fail\n");
 			return ret;
 		}
 	}
