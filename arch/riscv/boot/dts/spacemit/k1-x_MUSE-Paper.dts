@@ -191,9 +191,8 @@
 	spacemit-dpu-bitclk = <1000000000>;
 	spacemit-dpu-escclk = <76800000>;
 	dsi_1v2-supply = <&ldo_5>;
-	vin-supply-names = "dsi_1v2";
 	dsi_1v8-supply = <&ldo_11>;
-	vin-supply-names = "dsi_1v8";
+	vin-supply-names = "dsi_1v2", "dsi_1v8";
 	status = "okay";
 };
 
@@ -207,6 +206,7 @@
 
 		gpios-reset = <30>;
 		gpios-dc = <34 42>;
+		gpios-avdd = <35 36>;
 		gpios-bl = <31>;
 		id = <2>;
 		delay-after-reset = <10>;
