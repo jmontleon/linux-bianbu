@@ -144,7 +144,8 @@
 		//vdd_voltage = <3300000>;
 		io-supply = <&dcdc_3>;
 		io_voltage = <1800000>;
-		pwr-gpios  = <&gpio 67 0>;
+		pwr-gpios  = <&gpio 67 0>,
+			     <&gpio 03 0>;
 		status = "okay";
 
 		wlan_pwrseq: wlan-pwrseq {
@@ -503,6 +504,7 @@
 
 &pinctrl {
 	pinctrl-single,gpio-range = <
+		&range GPIO_03  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -516,6 +518,7 @@
 		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_89  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_91  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range DVL0     2 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -543,6 +546,7 @@
 
 &gpio{
 	gpio-ranges = <
+		&pinctrl 03  GPIO_03  1
 		&pinctrl 49  GPIO_49  2
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  5
@@ -551,7 +555,7 @@
 		&pinctrl 76  GPIO_76  1
 		&pinctrl 78  GPIO_78  1
 		&pinctrl 80  GPIO_80  4
-		&pinctrl 90  GPIO_90  3
+		&pinctrl 89  GPIO_89  4
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
 		&pinctrl 114 GPIO_114 3
@@ -646,7 +650,7 @@
 };
 
 &usbphy {
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci {
@@ -654,30 +658,39 @@
 	status = "disabled";
 };
 
+&udc {
+	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
+	spacemit,udc-mode = <MV_USB_MODE_UDC>;
+	status = "okay";
+};
+
 &usbphy1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci1 {
 	spacemit,reset-on-resume;
-	status = "disabled";
+	status = "okay";
 };
 
 &usb2phy {
-	status = "disabled";
+	status = "okay";
 };
 
 &combphy {
-	status = "disabled";
+	status = "okay";
 };
 
 &usb3hub {
 	hub-gpios = <&gpio 123 0>;	/* usb3 hub en */
-	status = "disabled";
+	vbus-gpios = <&gpio 89 0>,
+	     <&gpio 124 0>;
+	status = "okay";
 };
 
 &usbdrd3 {
-	status = "disabled";
+	status = "okay";
 	reset-on-resume;
 	dwc3@c0a00000 {
 		dr_mode = "host";
