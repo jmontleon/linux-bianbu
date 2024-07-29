@@ -47,7 +47,6 @@
 	csiphy2: csiphy@d4206000 {
 		compatible = "spacemit,csi-dphy";
 		cell-index = <2>;
-		spacemit,bifmode-enable;
 		reg = <0x0 0xd4206000 0x0 0x13f>;
 		reg-names = "csiphy-regs";
 		clocks = <&ccu CLK_CCIC3PHY>;
