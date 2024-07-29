@@ -928,6 +928,7 @@
 	status = "disabled";
 };
 &csiphy2 {
+	spacemit,bifmode-enable;
 
 	status = "okay";
 };
