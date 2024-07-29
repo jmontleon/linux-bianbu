@@ -818,6 +818,19 @@
 
 	status = "okay";
 };
+&csiphy0 {
+
+	status = "okay";
+};
+&csiphy1 {
+
+	status = "okay";
+};
+&csiphy2 {
+	spacemit,bifmode-enable;
+
+	status = "okay";
+};
 &ccic0 {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 };
