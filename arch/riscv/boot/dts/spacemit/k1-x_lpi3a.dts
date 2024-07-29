@@ -378,13 +378,14 @@
 	status = "okay";
 
 	touch@14 {
-		#gpio-cells = <2>;
 		compatible = "goodix,gt9271";
 		reg = <0x14>;
 
 		reset-gpios = <&ioexp2 0 GPIO_ACTIVE_HIGH>;
 		irq-gpios = <&gpio 74 GPIO_ACTIVE_HIGH>;
 		irq-flags = <2>;
+		interrupt-parent = <&gpio>;
+		interrupts = <74 2>;
 		AVDD28-supply = <&reg_tp_pwr_en>;
 
 		touchscreen-max-id = <11>;
