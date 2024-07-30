@@ -938,6 +938,13 @@ config INPUT_SPACEMIT_POWERKEY
 	  To compile this driver as a module, choose M here: the
 	  module will be called spacemit-pwrkey.
 
+config HALL_SENSOR_AS1911
+	tristate "Spacemit Hall Sensor Driver"
+	depends on INPUT
+	help
+	  Say Y here if you want to enable the Hall sensor AS1911 driver with
+	  interrupt support.
+
 config INPUT_RAVE_SP_PWRBUTTON
 	tristate "RAVE SP Power button Driver"
 	depends on RAVE_SP_CORE
