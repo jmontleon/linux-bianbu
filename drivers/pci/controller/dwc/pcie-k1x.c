@@ -469,7 +469,7 @@ void rterm_force(struct k1x_pcie *k1x, u32 pcie_rcal)
 
 static int init_phy(struct k1x_pcie *k1x)
 {
-	u32 rd_data, pcie_rcal;
+	u32 reg, rd_data, pcie_rcal;
 	u32 val = 0;
 	int count;
 
@@ -504,6 +504,27 @@ static int init_phy(struct k1x_pcie *k1x)
 	}
 
 	k1x->pcie_rcal = pcie_rcal;
+
+	/* disable ltssm and phy */
+	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	reg &= ~(0x7f);
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
+
+	/* soft reset */
+	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
+	reg |= (1 << 0);
+	k1x_pcie_writel(k1x, PCIE_CTRL_LOGIC, reg);
+
+	mdelay(2);
+	/* soft no reset */
+	reg = k1x_pcie_readl(k1x, PCIE_CTRL_LOGIC);
+	reg &= ~(1 << 0);
+	k1x_pcie_writel(k1x, PCIE_CTRL_LOGIC, reg);
+
+	reg = k1x_pcie_readl(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD);
+	reg |= 0x3f;
+	k1x_pcie_writel(k1x, PCIECTRL_K1X_CONF_DEVICE_CMD, reg);
+
 	rterm_force(k1x, pcie_rcal);
 
 	pr_debug("Now int init_puphy...\n");
