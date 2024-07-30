@@ -916,12 +916,12 @@
 	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
 	spacemit,udc-mode = <MV_USB_MODE_UDC>;
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci {
         spacemit,udc-mode = <MV_USB_MODE_HOST>;
-        status = "okay";
+        status = "disabled";
 };
 
 
