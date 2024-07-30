@@ -161,6 +161,17 @@
 			reset-gpios     = <&gpio 63 0>;
 		};
 	};
+
+	usb2hub: usb2hub {
+		compatible = "spacemit,usb3-hub";
+		vbus-gpios = <&gpio 91 0>;	/* for usb2 hub output vbus */
+		status = "okay";
+	};
+
+	hall_sensor: hall-sensor {
+		compatible = "spacemit,hall-sensor-as1911";
+		detect-gpio = <&gpio 74 0>;
+	};
 };
 
 &uart0 {
