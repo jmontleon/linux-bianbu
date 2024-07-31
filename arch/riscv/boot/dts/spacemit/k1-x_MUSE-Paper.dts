@@ -711,10 +711,6 @@
         status = "okay";
 };
 
-&sound_hdmi {
-	status = "okay";
-};
-
 &sound_codec {
 	status = "okay";
 	simple-audio-card,name = "snd-es8326";
