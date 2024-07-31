@@ -154,6 +154,8 @@ else
 fi
 sourcename=${KDEB_SOURCENAME:-linux-upstream}
 
+kernelgitver=$(git rev-parse --short HEAD)
+
 if [ "$ARCH" = "um" ] ; then
 	packagename=user-mode-linux
 else
@@ -217,6 +219,7 @@ Maintainer: $maintainer
 Rules-Requires-Root: no
 Build-Depends: bc, debhelper, rsync, kmod, cpio, bison, flex $extra_build_depends
 Homepage: https://www.kernel.org/
+XBS-Commit-Id: $kernelgitver
 
 Package: $packagename-$version
 Architecture: $debarch
