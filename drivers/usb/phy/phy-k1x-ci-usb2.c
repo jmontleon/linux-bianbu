@@ -70,6 +70,18 @@ static void mv_usb2_phy_shutdown(struct usb_phy *phy)
 	clk_disable(mv_phy->clk);
 }
 
+static int mv_usb2_phy_suspend(struct usb_phy *phy, int suspend)
+{
+	struct mv_usb2_phy *mv_phy = container_of(phy, struct mv_usb2_phy, phy);
+
+	if (suspend)
+		clk_disable(mv_phy->clk);
+	else
+		clk_enable(mv_phy->clk);
+
+	return 0;
+}
+
 static int mv_usb2_phy_connect_change(struct usb_phy *phy,
 					  enum usb_device_speed speed)
 {
@@ -123,6 +135,7 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 	mv_phy->phy.type = USB_PHY_TYPE_USB2;
 	mv_phy->phy.init = mv_usb2_phy_init;
 	mv_phy->phy.shutdown = mv_usb2_phy_shutdown;
+	mv_phy->phy.set_suspend = mv_usb2_phy_suspend;
 	mv_phy->phy.notify_disconnect = mv_usb2_phy_connect_change;
 	mv_phy->phy.notify_connect = mv_usb2_phy_connect_change;
 
