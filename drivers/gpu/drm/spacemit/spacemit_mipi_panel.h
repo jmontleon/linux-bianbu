@@ -4,8 +4,8 @@
  *
  */
 
-#ifndef _SPACEMIT_PANEL_H_
-#define _SPACEMIT_PANEL_H_
+#ifndef _SPACEMIT_MIPI_PANEL_H_
+#define _SPACEMIT_MIPI_PANEL_H_
 
 #include <drm/drm_print.h>
 #include <drm/drm_mipi_dsi.h>
@@ -17,6 +17,7 @@
 #include <linux/atomic.h>
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
+#include <soc/spacemit/spacemit_panel.h>
 
 #define INVALID_GPIO 0xFFFFFFFF
 
@@ -60,14 +61,6 @@ struct panel_info {
 	bool use_dcs;
 };
 
-/*  complete the definition of DRM Macros */
-enum{
-	DRM_PANEL_EARLY_EVENT_BLANK = 0,
-	DRM_PANEL_EVENT_BLANK,
-	DRM_PANEL_BLANK_UNBLANK,
-	DRM_PANEL_BLANK_POWERDOWN,
-};
-
 struct spacemit_panel {
 	int id;
 	struct device dev;
@@ -92,15 +85,10 @@ struct spacemit_panel {
 
 struct spacemit_drm_notifier_mipi
 {
-	void * blank;
+	void *blank;
 };
 
-
 static BLOCKING_NOTIFIER_HEAD(drm_notifier_list);
-
-int spacemit_drm_register_client(struct notifier_block *nb);
-
-int spacemit_drm_unregister_client(struct notifier_block *nb);
 
 int spacemit_drm_notifier_call_chain(unsigned long val, void *v);
 
