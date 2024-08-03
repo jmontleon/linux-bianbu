@@ -13,7 +13,6 @@
 #include <video/mipi_display.h>
 #include <video/of_display_timing.h>
 #include <video/videomode.h>
-
 #include "spacemit_mipi_panel.h"
 #include "spacemit_dsi.h"
 #include "sysfs/sysfs_display.h"
