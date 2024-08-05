@@ -466,7 +466,6 @@
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
-
 				regulator-state-mem {
 					regulator-off-in-suspend;
 					regulator-suspend-microvolt = <3300000>;
