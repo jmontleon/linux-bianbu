@@ -77,3 +77,4 @@ obj-y				+= keba/
 obj-y				+= amd-sbi/
 obj-$(CONFIG_MISC_RP1)		+= rp1/
 obj-y				+= tcm.o
+obj-$(CONFIG_ICM42607)		+= icm42607.o input-polldev.o
