@@ -44,6 +44,10 @@
 /* gpio */
 #define WAKEUP_SOURCE_WAKEUP_2	2
 
+/* usb & others */
+#define WAKEUP_SOURCE_WAKEUP_5	5
+static bool pmu_support_wakeup5 = false;
+
 #define PM_QOS_BLOCK_C1		0x0 /* core wfi */
 #define PM_QOS_BLOCK_C2		0x2 /* core power off */
 #define PM_QOS_BLOCK_M2		0x6 /* core l2 off */
@@ -817,6 +821,13 @@ static int acpr_per_suspend(void)
 	apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_2);
 	regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
 
+	/* enable usb/rcpu/ap2audio */
+	if (pmu_support_wakeup5) {
+		regmap_read(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, &apcr_per);
+		apcr_per |= (1 << WAKEUP_SOURCE_WAKEUP_5);
+		regmap_write(gpmu->regmap[MPMU_REGMAP_INDEX], MPMU_AWUCRM_REG, apcr_per);
+	}
+
 	return 0;
 }
 
@@ -865,6 +876,8 @@ static int spacemit_pm_domain_probe(struct platform_device *pdev)
 			return PTR_ERR(pmu->regmap[i]);
 		}
 	}
+
+	pmu_support_wakeup5 = of_property_read_bool(np, "pmu_wakeup5");
 
 	/* get number power domains */
 	err = of_property_read_u32(np, "domains", &pmu->number_domains);
