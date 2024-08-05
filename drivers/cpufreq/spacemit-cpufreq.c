@@ -394,7 +394,7 @@ free_cpumask:
 
 static int spacemit_dt_cpufreq_pre_probe(struct platform_device *pdev)
 {
-	int cpu;
+	int cpu, ret;
 	struct device_node *cpus;
 	struct device_node *product_id, *wafer_id;
 	u32 prop = 0;
@@ -423,9 +423,11 @@ static int spacemit_dt_cpufreq_pre_probe(struct platform_device *pdev)
 			if (prop <= FILTER_POINTS_0)
 				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
 			else if (prop <= FILTER_POINTS_1)
-				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_1);
+				ret = spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_1);
 			else
-				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_2);
+				ret = spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_2);
+			if (ret)
+				spacemit_dt_cpufreq_pre_early_init(&pdev->dev, cpu, FREQ_TABLE_0);
 		}
 	} else {
 		for_each_possible_cpu(cpu) {
