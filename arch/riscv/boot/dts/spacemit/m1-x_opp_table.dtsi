@@ -7,8 +7,8 @@
 		opp-shared;
 
 		clocks = <&ccu CLK_CPU_C0_ACE>, <&ccu CLK_CPU_C1_ACE>, <&ccu CLK_CPU_C0_TCM>,
-			<&ccu CLK_CCI550>, <&ccu CLK_PLL3>;
-		clock-names = "ace0","ace1","tcm","cci","pll3";
+			<&ccu CLK_CCI550>, <&ccu CLK_PLL3>, <&ccu CLK_CPU_C0_HI>, <&ccu CLK_CPU_C1_HI>;
+		clock-names = "ace0","ace1","tcm","cci","pll3", "c0hi", "c1hi";
 		cci-hz = /bits/ 64 <614000000>;
 
 		opp1800000000 {
@@ -65,8 +65,8 @@
 		opp-shared;
 
 		clocks = <&ccu CLK_CPU_C0_ACE>, <&ccu CLK_CPU_C1_ACE>, <&ccu CLK_CPU_C0_TCM>,
-			<&ccu CLK_CCI550>, <&ccu CLK_PLL3>;
-		clock-names = "ace0","ace1","tcm","cci","pll3";
+			<&ccu CLK_CCI550>, <&ccu CLK_PLL3>, <&ccu CLK_CPU_C0_HI>, <&ccu CLK_CPU_C1_HI>;
+		clock-names = "ace0","ace1","tcm","cci","pll3", "c0hi", "c1hi";
 		cci-hz = /bits/ 64 <614000000>;
 
 		opp1800000000 {
@@ -123,8 +123,8 @@
 		opp-shared;
 
 		clocks = <&ccu CLK_CPU_C0_ACE>, <&ccu CLK_CPU_C1_ACE>, <&ccu CLK_CPU_C0_TCM>,
-			<&ccu CLK_CCI550>, <&ccu CLK_PLL3>;
-		clock-names = "ace0","ace1","tcm","cci","pll3";
+			<&ccu CLK_CCI550>, <&ccu CLK_PLL3>, <&ccu CLK_CPU_C0_HI>, <&ccu CLK_CPU_C1_HI>;
+		clock-names = "ace0","ace1","tcm","cci","pll3", "c0hi", "c1hi";
 		cci-hz = /bits/ 64 <614000000>;
 
 		opp1800000000 {
