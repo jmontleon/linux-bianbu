@@ -936,36 +936,61 @@
 	status = "okay";
 };
 
-/* ov16a10 */
+/* MIPI CSI1, clk lane1 */
 &backsensor {
 	af_2v8-supply = <&ldo_3>;
 	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
+	pinmulti-enable;
 	pwdn-gpios = <&gpio 113 0>;
 	reset-gpios = <&gpio 111 0>;
+
+	pinctrl-names = "mclk_multi";
+	pinctrl-0 = <&pinctrl_camera0>;
 
 	status = "okay";
 };
 
+/* MIPI CSI3 data line2,3 clk lane2 */
 &backsensor_aux {
-	avdd_2v8-supply = <&ldo_2>;
-	dovdd_1v8-supply = <&ldo_7>;
-
-	pwdn-gpios = <&gpio 124 GPIO_ACTIVE_HIGH>;
-	reset-gpios = <&gpio 97 GPIO_ACTIVE_HIGH>;
-	status = "disabled";
-};
-
-&frontsensor {
+	af_2v8-supply = <&ldo_3>;
 	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
-	pwdn-gpios = <&gpio 124 GPIO_ACTIVE_HIGH>;
-	reset-gpios = <&gpio 97 GPIO_ACTIVE_HIGH>;
-	status = "disabled";
+	pwdn-gpios = <&gpio 124 0>;
+	reset-gpios = <&gpio 97 0>;
+
+	pinmulti-enable;
+	twsi-index = <0>;
+	clocks = <&ccu CLK_CAMM0>;
+	clock-names = "cam_mclk0";
+	pinctrl-names = "mclk_multi";
+	pinctrl-0 = <&pinctrl_camera0>;
+
+	status = "okay";
+};
+
+/* MIPI CSI3 data line0,1 clk lane3 */
+&frontsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	pinmulti-enable;
+	pwdn-gpios = <&gpio 124 0>;
+	reset-gpios = <&gpio 97 0>;
+
+	twsi-index = <0>;
+	clocks = <&ccu CLK_CAMM0>;
+	clock-names = "cam_mclk0";
+	pinctrl-names = "mclk_multi";
+	pinctrl-0 = <&pinctrl_camera0>;
+
+	status = "okay";
 };
 &csiphy0 {
 
