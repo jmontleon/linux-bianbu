@@ -247,6 +247,17 @@
 	status = "disabled";
 };
 
+&i2c5 {
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_i2c5_0>;
+        status = "okay";
+
+        icm42607@68 {
+                compatible = "invn,icm42607";
+                reg = <0x68>;
+        };
+};
+
 &i2c8 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c8>;
