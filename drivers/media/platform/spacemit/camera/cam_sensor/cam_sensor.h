@@ -34,6 +34,10 @@ struct cam_sensor_device {
 	struct gpio_desc *dptc;
 #endif
 	struct clk *mclk;
+	const char *mclk_name;
+	bool is_pinmulti;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pinctrl_state;
 
 	atomic_t usr_cnt;
 	struct mutex lock;	/* Protects streaming, format, interval */
