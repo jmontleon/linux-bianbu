@@ -1099,10 +1099,68 @@ static int camsnr_open(struct inode *inode, struct file *file)
 {
 	struct cam_sensor_device *msnr_dev =
 	    container_of(inode->i_cdev, struct cam_sensor_device, cdev);
+	u32 cell_id;
+	struct device *dev = NULL;
+	int ret;
 
-	cam_dbg("%s open %s%d, twsi_no %d\n", __func__, DRIVER_NAME, msnr_dev->id,
-		msnr_dev->twsi_no);
 	file->private_data = msnr_dev;
+
+	if (msnr_dev->is_pinmulti) {
+		dev = &msnr_dev->pdev->dev;
+		cell_id = msnr_dev->id;
+
+		// msnr_dev->pinctrl = devm_pinctrl_get (dev);
+		msnr_dev->pinctrl = pinctrl_get_select (dev, "mclk_multi");
+		if (IS_ERR(msnr_dev->pinctrl)) {
+			cam_err("unable to get sensor%d mclk pinctrl\n", cell_id);
+			return PTR_ERR(msnr_dev->pinctrl);
+		}
+
+		msnr_dev->pinctrl_state = pinctrl_lookup_state(msnr_dev->pinctrl, "mclk_multi");
+		if (IS_ERR(msnr_dev->pinctrl_state)) {
+			cam_err("unable to lookup sensor%d mclk pinctrl state\n", cell_id);
+			pinctrl_put(msnr_dev->pinctrl);
+			return PTR_ERR(msnr_dev->pinctrl_state);
+		}
+
+		pinctrl_select_state(msnr_dev->pinctrl, msnr_dev->pinctrl_state);
+
+		/* mclks */
+		msnr_dev->mclk = clk_get(dev, msnr_dev->mclk_name);
+		if (IS_ERR(msnr_dev->mclk)) {
+			cam_err("unable to get cam_mclk%d\n", cell_id);
+			return PTR_ERR(msnr_dev->mclk);
+		}
+
+		/* pwdn-gpios */
+		msnr_dev->pwdn = gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
+		if (IS_ERR(msnr_dev->pwdn)) {
+			cam_info("%s: unable to parse sensor%d pwdn gpio", __func__, cell_id);
+			return PTR_ERR(msnr_dev->pwdn);
+		} else {
+			ret = gpiod_direction_output(msnr_dev->pwdn, 0);
+			if (ret < 0) {
+				cam_err("%s: Failed to init sensor%d pwdn gpio", __func__, cell_id);
+				return ret;
+			}
+		}
+
+		/* rst-gpios */
+		msnr_dev->rst = gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+		if (IS_ERR(msnr_dev->rst)) {
+			cam_info("%s: unable to parse sensor%d reset gpio", __func__, cell_id);
+			return PTR_ERR(msnr_dev->rst);
+		} else {
+			ret = gpiod_direction_output(msnr_dev->rst, 0);
+			if (ret < 0) {
+				cam_err("%s: Failed to init sensor%d reset gpio", __func__, cell_id);
+				return ret;
+			}
+		}
+	}
+	cam_dbg("%s open %s%d, twsi_no %d, is_pinmulti %d\n", __func__, DRIVER_NAME, msnr_dev->id,
+		msnr_dev->twsi_no, msnr_dev->is_pinmulti);
+
 	return 0;
 }
 
@@ -1110,8 +1168,29 @@ static int camsnr_release(struct inode *inode, struct file *file)
 {
 	struct cam_sensor_device *msnr_dev =
 	    container_of(inode->i_cdev, struct cam_sensor_device, cdev);
-	cam_dbg("%s close %s%d, twsi_no %d\n", __func__, DRIVER_NAME, msnr_dev->id,
-		msnr_dev->twsi_no);
+
+	if (msnr_dev->is_pinmulti) {
+		pinctrl_put(msnr_dev->pinctrl);
+
+		/* mclks */
+		if (msnr_dev->mclk)
+			clk_put(msnr_dev->mclk);
+		msnr_dev->mclk = NULL;
+
+		/* pwdn-gpios */
+		if (msnr_dev->pwdn)
+			gpiod_put(msnr_dev->pwdn);
+		msnr_dev->pwdn = NULL;
+
+		/* rst-gpios */
+		if (msnr_dev->rst)
+			gpiod_put(msnr_dev->rst);
+		msnr_dev->rst = NULL;
+	}
+
+	cam_dbg("%s close %s%d, twsi_no %d, is_pinmulti %d\n", __func__, DRIVER_NAME, msnr_dev->id,
+		msnr_dev->twsi_no, msnr_dev->is_pinmulti);
+
 	return 0;
 }
 
@@ -1199,7 +1278,7 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 	struct device_node *of_node = NULL;
 	u32 cell_id, twsi_no, dphy_no;
 	int ret;
-	const char *mclk_name;
+	//const char *mclk_name;
 
 	SENSOR_DRIVER_CHECK_POINTER(sensor);
 	dev = &sensor->pdev->dev;
@@ -1239,25 +1318,6 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 	}
 	sensor->dphy_no = (u8) dphy_no;
 
-	ret = of_property_read_string(of_node, "clock-names", &mclk_name);
-	if (!ret) {
-		if (strcmp(mclk_name, "cam_mclk0") && strcmp(mclk_name, "cam_mclk1") && strcmp(mclk_name, "cam_mclk2")) {
-			cam_err("%s: error! only support cam_mclk0~2!", __func__);
-			return -EINVAL;
-		}
-	} else {
-		cam_err("%s: clock-names read failed", __func__);
-		return ret;
-	}
-
-	/* mclks */
-	sensor->mclk = devm_clk_get(dev, mclk_name);
-	if (IS_ERR(sensor->mclk)) {
-		cam_err("unable to get cam_mclk%d\n", cell_id);
-		ret = PTR_ERR(sensor->mclk);
-		goto st_err;
-	}
-
 	sensor->afvdd = devm_regulator_get(dev, "af_2v8");
 	if (IS_ERR(sensor->afvdd)) {
 		dev_warn(dev, "Failed to get regulator af_2v8\n");
@@ -1282,31 +1342,56 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		sensor->dvdd = NULL;
 	}
 
-	/* pwdn-gpios */
-	sensor->pwdn = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
-	if (IS_ERR(sensor->pwdn)) {
-		cam_info("%s: unable to parse sensor%d pwdn gpio", __func__, cell_id);
-		ret = PTR_ERR(sensor->pwdn);
+	ret = of_property_read_string(of_node, "clock-names", &sensor->mclk_name);
+	if (!ret) {
+		if (strcmp(sensor->mclk_name, "cam_mclk0") && strcmp(sensor->mclk_name, "cam_mclk1") && strcmp(sensor->mclk_name, "cam_mclk2")) {
+			cam_err("%s: error! only support cam_mclk0~2!", __func__);
+			return -EINVAL;
+		}
 	} else {
-		ret = gpiod_direction_output(sensor->pwdn, 0);
-		if (ret < 0) {
-			cam_err("%s: Failed to init sensor%d pwdn gpio", __func__, cell_id);
+		cam_err("%s: clock-names read failed", __func__);
+		return ret;
+	}
+
+	// mclk/pwdn/rst multiplex
+	sensor->is_pinmulti = of_property_read_bool(of_node, "pinmulti-enable");
+	cam_info("cam_sensor%d is_pinmulti: %d\n", sensor->id, sensor->is_pinmulti);
+	if (!sensor->is_pinmulti) {
+		/* mclks */
+		sensor->mclk = devm_clk_get(dev, sensor->mclk_name);
+		if (IS_ERR(sensor->mclk)) {
+			cam_err("unable to get cam_mclk%d\n", cell_id);
+			ret = PTR_ERR(sensor->mclk);
 			goto st_err;
+		}
+
+		/* pwdn-gpios */
+		sensor->pwdn = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
+		if (IS_ERR(sensor->pwdn)) {
+			cam_info("%s: unable to parse sensor%d pwdn gpio", __func__, cell_id);
+			ret = PTR_ERR(sensor->pwdn);
+		} else {
+			ret = gpiod_direction_output(sensor->pwdn, 0);
+			if (ret < 0) {
+				cam_err("%s: Failed to init sensor%d pwdn gpio", __func__, cell_id);
+				goto st_err;
+			}
+		}
+
+		/* rst-gpios */
+		sensor->rst = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
+		if (IS_ERR(sensor->rst)) {
+			cam_info("%s: unable to parse sensor%d reset gpio", __func__, cell_id);
+			ret = PTR_ERR(sensor->rst);
+		} else {
+			ret = gpiod_direction_output(sensor->rst, 0);
+			if (ret < 0) {
+				cam_err("%s: Failed to init sensor%d reset gpio", __func__, cell_id);
+				goto st_err;
+			}
 		}
 	}
 
-	/* rst-gpios */
-	sensor->rst = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
-	if (IS_ERR(sensor->rst)) {
-		cam_info("%s: unable to parse sensor%d reset gpio", __func__, cell_id);
-		ret = PTR_ERR(sensor->rst);
-	} else {
-		ret = gpiod_direction_output(sensor->rst, 0);
-		if (ret < 0) {
-			cam_err("%s: Failed to init sensor%d reset gpio", __func__, cell_id);
-			goto st_err;
-		}
-	}
 #ifdef CONFIG_ARCH_ZYNQMP
 	cam_dbg("dptc-gpios,cell_id =0x%x",cell_id);
 	/* dptc-gpios */
@@ -1375,7 +1460,7 @@ static int cam_sensor_probe(struct platform_device *pdev)
 	mutex_init(&msnr_dev->lock);
 
 	g_sdev[msnr_dev->id] = msnr_dev;
-	cam_dbg("camera sensor%d probed", msnr_dev->id);
+	cam_info("camera sensor%d probed", msnr_dev->id);
 
 	return ret;
 }
