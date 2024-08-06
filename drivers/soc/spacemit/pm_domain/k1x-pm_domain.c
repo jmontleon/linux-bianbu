@@ -475,11 +475,16 @@ static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct devic
 		pm_clk_destroy(dev);
 
 	if (pos->handle_regulator) {
-		dev_pm_qos_remove_notifier(dev, &pos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
 		while (--pos->rgr_count >= 0)
 			devm_regulator_put(pos->rgr[pos->rgr_count]);
 	}
 
+	if (pos->handle_pm_domain) {
+		atomic_freq_qos_remove_request(&pos->qos);
+	}
+
+	dev_pm_qos_remove_request(&pos->req);
+	dev_pm_qos_remove_notifier(dev, &pos->notifier, DEV_PM_QOS_MAX_FREQUENCY);
 	list_del(&pos->qos_node);
 }
 
