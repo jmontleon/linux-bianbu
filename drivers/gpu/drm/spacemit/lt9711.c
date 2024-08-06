@@ -64,7 +64,8 @@ struct lt9711 {
 	struct spacemit_dsi_device *spacemit_dsi;
 
 	struct regmap *regmap;
-	struct gpio_desc *reset_gpio;
+	struct gpio_desc *reset_gpio;	//reset
+	struct gpio_desc *enable_gpio;	//power
 
 	struct i2c_client *client;
 	struct drm_panel base;
@@ -256,7 +257,35 @@ static int lt9711_probe(struct i2c_client *client)
 		return PTR_ERR(lt9711->regmap);
 	}
 
+	lt9711->enable_gpio = devm_gpiod_get_optional(dev, "enable",
+						GPIOD_IN);
+	if (IS_ERR(lt9711->enable_gpio)) {
+		dev_err(lt9711->dev, "Failed get enable gpio\n");
+		return PTR_ERR(lt9711->enable_gpio);
+	}
+
+	lt9711->reset_gpio = devm_gpiod_get_optional(dev, "reset",
+						GPIOD_IN);
+	if (IS_ERR(lt9711->reset_gpio)) {
+		dev_err(lt9711->dev, "Failed get reset gpio\n");
+		return PTR_ERR(lt9711->reset_gpio);
+	}
+
+	//disable firstly
+	gpiod_direction_output(lt9711->enable_gpio, 0);
+	usleep_range(50*1000, 100*1000); //100ms
+	gpiod_direction_output(lt9711->enable_gpio, 1);
+	usleep_range(50*1000, 100*1000); //100ms
+
+	gpiod_direction_output(lt9711->reset_gpio, 1);
+	usleep_range(50*1000, 100*1000); //100ms
+	gpiod_direction_output(lt9711->reset_gpio, 0);
+	usleep_range(50*1000, 100*1000); //100ms
+	gpiod_direction_output(lt9711->reset_gpio, 1);
+	usleep_range(100*1000, 150*1000); //150ms
+
 	i2c_set_clientdata(client, lt9711);
+	dev_set_drvdata(dev, lt9711);
 
 	//check i2c communicate
 	ret = lt9711_i2c_detect(lt9711);
@@ -345,6 +374,50 @@ static void lt9711_remove(struct i2c_client *client)
 	mipi_dsi_device_unregister(lt9711->dsi);
 }
 
+#ifdef CONFIG_PM_SLEEP
+
+static int lt9711_drv_pm_suspend(struct device *dev)
+{
+	struct lt9711 *lt9711 = dev_get_drvdata(dev);
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	if (lt9711->detect_work_pending) {
+		cancel_delayed_work_sync(&lt9711->detect_work);
+		lt9711->detect_work_pending = false;
+	}
+
+	gpiod_direction_output(lt9711->enable_gpio, 0);
+	usleep_range(50*1000, 100*1000); //100ms
+
+	return 0;
+}
+
+static int lt9711_drv_pm_resume(struct device *dev)
+{
+	struct lt9711 *lt9711 = dev_get_drvdata(dev);
+
+	DRM_DEBUG("%s()\n", __func__);
+
+	gpiod_direction_output(lt9711->enable_gpio, 1);
+	usleep_range(50*1000, 100*1000); //100ms
+
+	if (!lt9711->detect_work_pending) {
+		schedule_delayed_work(&lt9711->detect_work,
+				msecs_to_jiffies(2000));
+		lt9711->detect_work_pending = true;
+	}
+
+	return 0;
+}
+
+#endif
+
+static const struct dev_pm_ops lt9711_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(lt9711_drv_pm_suspend,
+				lt9711_drv_pm_resume)
+};
+
 static struct i2c_device_id lt9711_id[] = {
 	{ "lontium,lt9711", 0 },
 	{}
@@ -361,6 +434,7 @@ static struct i2c_driver lt9711_driver = {
 	.driver = {
 		.name = "lt9711",
 		.of_match_table = lt9711_match_table,
+		.pm = &lt9711_pm_ops,
 	},
 	.probe = lt9711_probe,
 	.remove = lt9711_remove,
@@ -424,7 +498,7 @@ static int __init init_lt9711(void)
 {
 	int err;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	mipi_dsi_driver_register(&lt9711_dsi_driver);
 	err = i2c_add_driver(&lt9711_driver);
@@ -436,7 +510,7 @@ module_init(init_lt9711);
 
 static void __exit exit_lt9711(void)
 {
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 
 	i2c_del_driver(&lt9711_driver);
 	mipi_dsi_driver_unregister(&lt9711_dsi_driver);
