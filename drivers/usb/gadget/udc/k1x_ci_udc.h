@@ -174,7 +174,7 @@ struct mv_udc {
 	struct usb_gadget		gadget;
 	struct usb_gadget_driver	*driver;
 	spinlock_t			lock;
-	struct completion		*done;
+	struct completion		done;
 	struct platform_device		*dev;
 	int				irq;
 
