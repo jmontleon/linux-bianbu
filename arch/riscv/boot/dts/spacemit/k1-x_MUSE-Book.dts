@@ -158,6 +158,12 @@
 			reset-gpios     = <&gpio 78 0>;
 		};
 	};
+
+	charger: charger@b {
+		compatible = "sbs,sbs-charger-virtual";
+		battery-name = "sbs-5-000b";
+		power-supplies = <&battery>;
+	};
 };
 
 &pinctrl {
