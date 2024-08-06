@@ -130,6 +130,7 @@
 /* RCPU register offset */
 #define RCPU_HDMI_CLK_RST		0x2044
 #define RCPU_CAN_CLK_RST		0x4c
+#define RCPU_I2C0_CLK_RST		0x30
 /* end of RCPU register offset */
 
 /* RCPU2 register offset */
@@ -293,6 +294,7 @@ static const struct spacemit_reset_signal
 	[RESET_RCPU_CAN] 	= { RCPU_CAN_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 	//RCPU2
 	[RESET_RCPU2_PWM] 	= { RCPU2_PWM_CLK_RST, BIT(2)|BIT(0), BIT(0), BIT(2), RST_BASE_TYPE_RCPU2 },
+	[RESET_RCPU_I2C0] 	= { RCPU_I2C0_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 };
 
 static struct spacemit_reset *to_spacemit_reset(
