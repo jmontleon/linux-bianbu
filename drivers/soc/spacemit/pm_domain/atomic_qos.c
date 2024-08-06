@@ -274,3 +274,37 @@ int atomic_freq_qos_update_request(struct atomic_freq_qos_request *req, s32 new_
 
 	return atomic_freq_qos_apply(req, PM_QOS_UPDATE_REQ, new_value);
 }
+
+static inline int atomic_freq_qos_request_active(struct atomic_freq_qos_request *req)
+{
+	return !IS_ERR_OR_NULL(req->qos);
+}
+
+/**
+ * atomic_freq_qos_remove_request - Remove frequency QoS request from its list.
+ * @req: Request to remove.
+ *
+ * Remove the given frequency QoS request from the list of constraints it
+ * belongs to and recompute the effective constraint value for that list.
+ *
+ * Return 1 if the effective constraint value has changed, 0 if the effective
+ * constraint value has not changed, or a negative error code on failures.
+ */
+int atomic_freq_qos_remove_request(struct atomic_freq_qos_request *req)
+{
+	int ret;
+
+	if (!req)
+		return -EINVAL;
+
+	if (WARN(!atomic_freq_qos_request_active(req),
+		"%s() called for unknown object\n", __func__))
+		return -EINVAL;
+
+	ret = atomic_freq_qos_apply(req, PM_QOS_REMOVE_REQ, PM_QOS_DEFAULT_VALUE);
+	req->qos = NULL;
+	req->type = 0;
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(atomic_freq_qos_remove_request);
