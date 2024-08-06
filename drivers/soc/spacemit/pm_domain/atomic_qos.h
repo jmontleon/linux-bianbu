@@ -89,5 +89,7 @@ int atomic_freq_qos_add_request(struct atomic_freq_constraints *qos,
  */
 int atomic_freq_qos_update_request(struct atomic_freq_qos_request *req, s32 new_value);
 
+int atomic_freq_qos_remove_request(struct atomic_freq_qos_request *req);
+
 #endif
 
