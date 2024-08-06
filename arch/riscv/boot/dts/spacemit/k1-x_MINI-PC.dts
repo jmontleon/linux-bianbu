@@ -395,6 +395,9 @@
 		reg = <0x41>;
 		status = "okay";
 
+		reset-gpio = <&gpio 50 0>;
+		enable-gpio = <&gpio 83 0>;
+
 		port {
 				lt9711_in: endpoint {
 					remote-endpoint = <&dsi1_output>;
