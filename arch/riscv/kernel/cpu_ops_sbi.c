@@ -94,7 +94,7 @@ static int sbi_cpu_is_stopped(unsigned int cpuid)
 {
 	int rc;
 	unsigned long hartid = cpuid_to_hartid_map(cpuid);
-#ifndef CONFIG_ARM_SCMI_PROTOCOL
+#ifndef CONFIG_SOC_SPACEMIT_K1X
 	rc = sbi_hsm_hart_get_status(hartid);
 
 	if (rc == SBI_HSM_STATE_STOPPED)
