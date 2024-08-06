@@ -169,6 +169,7 @@ DEFINE_SPINLOCK(g_cru_lock);
 /* RCPU register offset */
 #define RCPU_HDMI_CLK_RST		0x2044
 #define RCPU_CAN_CLK_RST		0x4c
+#define RCPU_I2C0_CLK_RST		0x30
 /* end of RCPU register offset */
 
 /* RCPU2 register offset */
@@ -1135,6 +1136,15 @@ static SPACEMIT_CCU_DIV_MUX_GATE(rpwm_clk, "rpwm_clk", rpwm_parent_names,
 	BIT(1), BIT(1), 0x0,
 	0);
 
+static const char *ri2c_parent_names[] = {
+	"pll1_d40_61p44", "pll1_d96_25p6", "pll1_d192_12p8", "pll1_d768_3p2"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(ri2c0_clk, "ri2c0_clk", ri2c_parent_names,
+	BASE_TYPE_RCPU, RCPU_I2C0_CLK_RST,
+	8, 11, 4, 2,
+	0x6, 0x6, 0x0,
+	0);
+
 static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.hws	= {
 		[CLK_PLL2]		= &pll2.common.hw,
@@ -1324,6 +1334,7 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_RCPU_CAN] 		= &rcan_clk.common.hw,
 		[CLK_RCPU_CAN_BUS]	= &rcan_bus_clk.common.hw,
 		[CLK_RCPU2_PWM] 	= &rpwm_clk.common.hw,
+		[CLK_RCPU_I2C0] 	= &ri2c0_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
