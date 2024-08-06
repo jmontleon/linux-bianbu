@@ -5,7 +5,7 @@
  * Copyright (c) 2023 Spacemit Inc.
  */
 
-#include "linux/reset.h"
+#include <linux/reset.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -260,6 +260,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	struct ehci_hcd *ehci;
 	struct ehci_hcd_mv *ehci_mv;
 	struct resource *r;
+	struct device_link *link;
 	int retval = -ENODEV;
 	bool wakeup_source;
 	u32 offset;
@@ -345,6 +346,10 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		goto err_clear_drvdata;
 	}
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_noresume(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
+
 	retval = mv_ehci_enable(ehci_mv);
 	if (retval) {
 		dev_err(&pdev->dev, "enable ehci error: %d\n", retval);
@@ -385,7 +390,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	}
 
 	if (ehci_mv->mode == MV_USB_MODE_OTG) {
-		pr_info("ehci_mv  MV_USB_MODE_OTG ... \n");
+		dev_info(dev, "mode: MV_USB_MODE_OTG ...\n");
 		ehci_mv->otg = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-otg", 0);
 		if (IS_ERR(ehci_mv->otg)) {
 			retval = PTR_ERR(ehci_mv->otg);
@@ -397,7 +402,16 @@ static int mv_ehci_probe(struct platform_device *pdev)
 						"unable to find transceiver\n");
 			goto err_disable_clk_rst;
 		}
-
+		/* devm_usb_get_phy_by_phandle() doesn't create device link while
+		 * normal phy does. Add a link here to ensure correct pm order. */
+		link = device_link_add(dev, ehci_mv->otg->dev,
+				       DL_FLAG_STATELESS);
+		if (!link) {
+			dev_err(dev, "failed to create device link to %s\n",
+				dev_name(ehci_mv->otg->dev));
+			retval = -EINVAL;
+			goto err_disable_clk_rst;
+		}
 		retval = otg_set_host(ehci_mv->otg->otg, &hcd->self);
 		if (retval < 0) {
 			dev_err(&pdev->dev,
@@ -418,6 +432,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 				"failed to add hcd with err %d\n", retval);
 			goto err_set_vbus;
 		}
+		device_wakeup_enable(hcd->self.controller);
 	}
 
 	ehci_mv->irq = platform_get_irq(pdev, 1);
@@ -427,8 +442,9 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		goto err_set_vbus;
 	}
 
-	retval = devm_request_irq(dev, ehci_mv->irq, mv_ehci_wakeup_interrupt, IRQF_NO_SUSPEND,
-			"usb-wakeup", ehci_mv);
+	retval = devm_request_irq(dev, ehci_mv->irq, mv_ehci_wakeup_interrupt,
+				  IRQF_NO_SUSPEND | IRQF_SHARED, "usb-wakeup",
+				  ehci_mv);
 	if (retval) {
 		dev_err(dev, "failed to request IRQ #%d --> %d\n",
 				ehci_mv->irq, retval);
@@ -440,11 +456,6 @@ static int mv_ehci_probe(struct platform_device *pdev)
 		device_init_wakeup(dev, true);
 		dev_pm_set_wake_irq(dev, ehci_mv->irq);
 	}
-
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-	pm_suspend_ignore_children(dev, false);
-	pm_runtime_get_sync(dev);
 
 	dev_dbg(&pdev->dev,
 		 "successful find EHCI device with regs 0x%p irq %d"
@@ -532,9 +543,18 @@ static int mv_ehci_suspend(struct device *dev)
 	bool do_wakeup = device_may_wakeup(dev);
 	int ret;
 
+	/* OTG is not working in host mode thus hcd is stopped */
+	if (hcd->state == HC_STATE_HALT)
+		return 0;
+
 	ret = ehci_suspend(hcd, do_wakeup);
 	if (ret)
 		return ret;
+
+	/* OTG driver will handle these for us */
+	if (ehci_mv->mode == MV_USB_MODE_OTG)
+		goto disable_done;
+
 	usb_phy_shutdown(ehci_mv->phy);
 
 	if (ehci_mv->reset_on_resume) {
@@ -547,6 +567,7 @@ static int mv_ehci_suspend(struct device *dev)
 	clk_disable_unprepare(ehci_mv->clk);
 	dev_dbg(dev, "pm suspend: disable clks and phy\n");
 
+disable_done:
 	if (do_wakeup) {
 		mv_ehci_clear_wakeup_irqs(ehci_mv);
 		mv_ehci_enable_wakeup_irqs(ehci_mv);
@@ -560,6 +581,12 @@ static int mv_ehci_resume(struct device *dev)
 	struct ehci_hcd_mv *ehci_mv = platform_get_drvdata(pdev);
 	struct usb_hcd *hcd = ehci_mv->hcd;
 	int ret;
+
+	if (hcd->state == HC_STATE_HALT)
+		return 0;
+
+	if (ehci_mv->mode == MV_USB_MODE_OTG)
+		goto enable_done;
 
 	ret = clk_prepare_enable(ehci_mv->clk);
 	if (ret){
@@ -580,6 +607,8 @@ static int mv_ehci_resume(struct device *dev)
 		clk_disable_unprepare(ehci_mv->clk);
 		return ret;
 	}
+
+enable_done:
 	dev_dbg(dev, "pm resume: do EHCI resume\n");
 	ehci_resume(hcd, ehci_mv->reset_on_resume);
 	return 0;
