@@ -240,6 +240,15 @@ config CHARGER_SBS
 	help
 	  Say Y to include support for SBS compliant battery chargers.
 
+config CHARGER_SBS_VIRTUAL
+	tristate "Virtual SBS Compliant charger"
+	depends on POWER_SUPPLY
+	help
+	  Say Y to include support for a virtual SBS compliant battery charger.
+	  This driver provides a software interface for systems where charging
+	  is handled externally, but still need to report charging status
+	  through the kernel's power supply framework.
+
 config MANAGER_SBS
 	tristate "Smart Battery System Manager"
 	depends on I2C && I2C_MUX && GPIOLIB
