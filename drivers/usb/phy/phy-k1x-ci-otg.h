@@ -12,99 +12,16 @@
 #include <linux/reset.h>
 #include <linux/types.h>
 #include <linux/extcon.h>
+#include <linux/usb/otg.h>
+#include <linux/usb/role.h>
 
 /* Command Register Bit Masks */
 #define USBCMD_RUN_STOP			(0x00000001)
 #define USBCMD_CTRL_RESET		(0x00000002)
 
-/* otgsc Register Bit Masks */
-#define OTGSC_CTRL_VUSB_DISCHARGE		0x00000001
-#define OTGSC_CTRL_VUSB_CHARGE			0x00000002
-#define OTGSC_CTRL_OTG_TERM			0x00000008
-#define OTGSC_CTRL_DATA_PULSING			0x00000010
-#define OTGSC_STS_USB_ID			0x00000100
-#define OTGSC_STS_A_VBUS_VALID			0x00000200
-#define OTGSC_STS_A_SESSION_VALID		0x00000400
-#define OTGSC_STS_B_SESSION_VALID		0x00000800
-#define OTGSC_STS_B_SESSION_END			0x00001000
-#define OTGSC_STS_1MS_TOGGLE			0x00002000
-#define OTGSC_STS_DATA_PULSING			0x00004000
-#define OTGSC_INTSTS_USB_ID			0x00010000
-#define PORTSCX_PORT_PHCD			0x00800000
-#define OTGSC_INTSTS_A_VBUS_VALID		0x00020000
-#define OTGSC_INTSTS_A_SESSION_VALID		0x00040000
-#define OTGSC_INTSTS_B_SESSION_VALID		0x00080000
-#define OTGSC_INTSTS_B_SESSION_END		0x00100000
-#define OTGSC_INTSTS_1MS			0x00200000
-#define OTGSC_INTSTS_DATA_PULSING		0x00400000
-#define OTGSC_INTR_USB_ID			0x01000000
-#define OTGSC_INTR_A_VBUS_VALID			0x02000000
-#define OTGSC_INTR_A_SESSION_VALID		0x04000000
-#define OTGSC_INTR_B_SESSION_VALID		0x08000000
-#define OTGSC_INTR_B_SESSION_END		0x10000000
-#define OTGSC_INTR_1MS_TIMER			0x20000000
-#define OTGSC_INTR_DATA_PULSING			0x40000000
 
 #define CAPLENGTH_MASK		(0xff)
 
-/* Timer's interval, unit 10ms */
-#define T_A_WAIT_VRISE		100
-#define T_A_WAIT_BCON		2000
-#define T_A_AIDL_BDIS		100
-#define T_A_BIDL_ADIS		20
-#define T_B_ASE0_BRST		400
-#define T_B_SE0_SRP		300
-#define T_B_SRP_FAIL		2000
-#define T_B_DATA_PLS		10
-#define T_B_SRP_INIT		100
-#define T_A_SRP_RSPNS		10
-#define T_A_DRV_RSM		5
-
-enum otg_function {
-	OTG_B_DEVICE = 0,
-	OTG_A_DEVICE
-};
-
-enum mv_otg_timer {
-	A_WAIT_BCON_TIMER = 0,
-	OTG_TIMER_NUM
-};
-
-/* PXA OTG state machine */
-struct mv_otg_ctrl {
-	/* internal variables */
-	u8 a_set_b_hnp_en;	/* A-Device set b_hnp_en */
-	u8 b_srp_done;
-	u8 b_hnp_en;
-
-	/* OTG inputs */
-	u8 a_bus_drop;
-	u8 a_bus_req;
-	u8 a_clr_err;
-	u8 a_bus_resume;
-	u8 a_bus_suspend;
-	u8 a_conn;
-	u8 a_sess_vld;
-	u8 a_srp_det;
-	u8 a_vbus_vld;
-	u8 b_bus_req;		/* B-Device Require Bus */
-	u8 b_bus_resume;
-	u8 b_bus_suspend;
-	u8 b_conn;
-	u8 b_se0_srp;
-	u8 b_sess_end;
-	u8 b_sess_vld;
-	u8 id;
-	u8 a_suspend_req;
-
-	/*Timer event */
-	u8 a_aidl_bdis_timeout;
-	u8 b_ase0_brst_timeout;
-	u8 a_bidl_adis_timeout;
-	u8 a_wait_bcon_timeout;
-
-	struct timer_list timer[OTG_TIMER_NUM];
-};
 
 #define VUSBHS_MAX_PORTS	8
 
@@ -137,11 +54,13 @@ struct mv_otg_regs {
 struct mv_otg {
 	struct usb_phy phy;
 	struct usb_phy *outer_phy;
-	struct mv_otg_ctrl otg_ctrl;
+
+	/* set role lock */
+	spinlock_t lock;
 
 	/* base address */
 	void __iomem *cap_regs;
-	void __iomem *apmu_base;
+	void __iomem *wakeup_reg;
 	struct mv_otg_regs __iomem *op_regs;
 
 	struct platform_device *pdev;
@@ -152,28 +71,36 @@ struct mv_otg {
 	struct delayed_work work;
 	struct workqueue_struct *qwork;
 
-	spinlock_t wq_lock;
-
 	struct mv_usb_platform_data *pdata;
 	struct notifier_block notifier;
 	struct notifier_block notifier_charger;
 
-	struct pm_qos_request   qos_idle;
-	s32                     lpm_qos;
-
 	unsigned int active;
+	unsigned int host_remote_wakeup;
 	unsigned int clock_gating;
 	struct clk *clk;
 	struct reset_control *reset;
 	struct gpio_desc *vbus_gpio;
 	unsigned int charger_type;
 
+	/* user control otg support */
+	enum usb_dr_mode dr_mode;
 
 	/* for vbus detection */
 	struct extcon_specific_cable_nb vbus_dev;
 	/* for id detection */
 	struct extcon_specific_cable_nb id_dev;
 	struct extcon_dev *extcon;
+
+	struct usb_role_switch *role_sw;
+	enum usb_dr_mode role_switch_default_mode;
+
+#define MV_OTG_ROLE_UNDEFINED 0
+#define MV_OTG_ROLE_DEVICE_IDLE 1
+#define MV_OTG_ROLE_DEVICE_ACTIVE 2
+#define MV_OTG_ROLE_HOST_ACTIVE 3
+	u32 desired_otg_role;
+	u32 current_otg_role;
 
 	struct regulator *vbus_otg;
 };
