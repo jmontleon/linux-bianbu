@@ -10,7 +10,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/err.h>
-
+#include <linux/clk.h>
 #include "ccu_mix.h"
 
 #define TIMEOUT_LIMIT (20000) /* max timeout 10000us */
@@ -285,7 +285,7 @@ unsigned long ccu_mix_calc_best_rate(struct clk_hw *hw, unsigned long rate, u32 
 		parent = clk_hw_get_parent_by_index(hw, i);
 		if (!parent)
 			continue;
-		parent_rate = clk_hw_get_rate(parent);
+		parent_rate = clk_get_rate(clk_hw_get_clk(parent, common->name));
 
 		if(div)
 			div_max = 1 << div->width;
