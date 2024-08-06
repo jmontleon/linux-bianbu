@@ -59,13 +59,10 @@
 #define LOOPS(timeout)		((timeout) >> LOOPS_USEC_SHIFT)
 #define	ENUMERATION_DELAY	(2 * HZ)
 
-static DECLARE_COMPLETION(release_done);
 
 static const char driver_name[] = "mv_udc";
 static const char driver_desc[] = DRIVER_DESC;
 
-/* controller device global variable */
-static struct mv_udc   *the_controller;
 
 static int mv_udc_enable(struct mv_udc *udc);
 static void mv_udc_disable(struct mv_udc *udc);
@@ -2220,31 +2217,6 @@ static irqreturn_t mv_udc_irq(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static BLOCKING_NOTIFIER_HEAD(mv_udc_notifier_list);
-
-/* For any user that care about USB udc events, for example the charger*/
-int mv_udc_register_client(struct notifier_block *nb)
-{
-	struct mv_udc *udc = the_controller;
-	int ret = 0;
-
-	ret = blocking_notifier_chain_register(&mv_udc_notifier_list, nb);
-	if (ret)
-		return ret;
-
-	if (!udc)
-		return -ENODEV;
-
-	return 0;
-}
-EXPORT_SYMBOL(mv_udc_register_client);
-
-int mv_udc_unregister_client(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_unregister(&mv_udc_notifier_list, nb);
-}
-EXPORT_SYMBOL(mv_udc_unregister_client);
-
 static int mv_udc_vbus_notifier_call(struct notifier_block *nb,
 					unsigned long val, void *v)
 {
@@ -2279,7 +2251,7 @@ static void gadget_release(struct device *_dev)
 
 	udc = dev_get_drvdata(_dev);
 
-	complete(udc->done);
+	complete(&udc->done);
 }
 
 static int mv_udc_remove(struct platform_device *pdev)
@@ -2309,9 +2281,7 @@ static int mv_udc_remove(struct platform_device *pdev)
 	clk_unprepare(udc->clk);
 
 	/* free dev, wait for the release() finished */
-	wait_for_completion(udc->done);
-
-	the_controller = NULL;
+	wait_for_completion(&udc->done);
 
 	return 0;
 }
@@ -2348,8 +2318,6 @@ static int mv_udc_probe(struct platform_device *pdev)
 	struct resource *r;
 	size_t size;
 	struct device_node *np = pdev->dev.of_node;
-//	const __be32 *prop;
-//	unsigned int proplen;
 
 	pr_info("K1X_UDC: mv_udc_probe enter ...\n");
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
@@ -2364,9 +2332,7 @@ static int mv_udc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	the_controller = udc;
-
-	udc->done = &release_done;
+	init_completion(&udc->done);
 	udc->pdata = pdata;
 	spin_lock_init(&udc->lock);
 
@@ -2378,6 +2344,20 @@ static int mv_udc_probe(struct platform_device *pdev)
 		if (IS_ERR_OR_NULL(udc->transceiver)) {
 			dev_err(&pdev->dev, "failed to get usb-otg transceiver\n");
 			return -EPROBE_DEFER;
+		}
+	}
+
+	if (pdata->extern_attr & MV_USB_HAS_VBUS_DETECTION) {
+		if (of_property_read_bool(np, "extcon")) {
+			udc->extcon = extcon_get_edev_by_phandle(&pdev->dev, 0);
+			if (IS_ERR(udc->extcon)) {
+				dev_err(&pdev->dev, "couldn't get extcon device\n");
+				return -EPROBE_DEFER;
+			}
+			dev_info(&pdev->dev,"extcon_dev name: %s \n", extcon_get_edev_name(udc->extcon));
+		} else {
+			dev_err(&pdev->dev, "usb extcon cable is not exist\n");
+			return -EINVAL;
 		}
 	}
 
@@ -2513,29 +2493,10 @@ static int mv_udc_probe(struct platform_device *pdev)
 
 	eps_init(udc);
 
-	/*--------------------handle vbus-----------------------------*/
-	/* TODO: use device tree to parse extcon device name */
-	if (pdata->extern_attr & MV_USB_HAS_VBUS_DETECTION) {
-		if (of_property_read_bool(np, "extcon")) {
-			udc->extcon = extcon_get_edev_by_phandle(&pdev->dev, 0);
-			if (IS_ERR(udc->extcon)) {
-				dev_err(&pdev->dev, "couldn't get extcon device\n");
-				return -EPROBE_DEFER;
-			}
-			dev_dbg(&pdev->dev,"extcon_dev name: %s \n", extcon_get_edev_name(udc->extcon));
-		} else {
-			dev_err(&pdev->dev, "usb extcon cable is not exist\n");
-		}
-	}
-
-	if ((pdata->extern_attr & MV_USB_HAS_VBUS_DETECTION)
-	    || udc->transceiver)
+	if (udc->extcon || udc->transceiver)
 		udc->clock_gating = 1;
 
-	if ((pdata->extern_attr & MV_USB_HAS_VBUS_DETECTION)
-	    && udc->transceiver == NULL) {
-
-		//pr_info("udc: MV_USB_HAS_VBUS_DETECTION \n");
+	if (udc->extcon) {
 		udc->notifier.notifier_call = mv_udc_vbus_notifier_call;
 		retval = devm_extcon_register_notifier(&pdev->dev, udc->extcon, EXTCON_USB, &udc->notifier);
 		if (retval)
@@ -2556,6 +2517,8 @@ static int mv_udc_probe(struct platform_device *pdev)
 	  * When clock gating is supported, we can disable clk and phy.
 	  * If not, it means that VBUS detection is not supported, we
 	  * have to enable vbus active all the time to let controller work.
+	  * If we have otg transceiver, we cannot work as udc before vbus_session
+	  * is called with on.
 	  */
 	if (udc->clock_gating)
 		mv_udc_disable_internal(udc);
@@ -2597,7 +2560,6 @@ err_free_dma:
 			udc->ep_dqh, udc->ep_dqh_dma);
 err_disable_internal:
 	mv_udc_disable_internal(udc);
-	the_controller = NULL;
 	return retval;
 }
 
@@ -2659,7 +2621,7 @@ static const struct dev_pm_ops mv_udc_pm_ops = {
 
 static void mv_udc_shutdown(struct platform_device *pdev)
 {
-	struct mv_udc *udc = the_controller;
+	struct mv_udc *udc = platform_get_drvdata(pdev);
 
 	if (!udc)
 		return;
