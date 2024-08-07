@@ -76,6 +76,8 @@ static inline char*_os_strchr(const char *s, int c)
 #if 1
 #define _os_snprintf(s, sz, fmt, ...) snprintf(s, sz, fmt, ##__VA_ARGS__)
 #define _os_vsnprintf(str, size, fmt, args) vsnprintf(str, size, fmt, args)
+#define _os_va_start(args, fmt) va_start(args, fmt)
+#define _os_va_end(args) va_end(args)
 #else
 static int _os_snprintf(char *str, size_t size, const char *fmt, ...)
 {
@@ -686,7 +688,11 @@ static __inline int _os_event_wait(void *h, _os_event *event, u32 m_sec)
 			expire = MAX_SCHEDULE_TIMEOUT;
 	}
 	else {
+		#ifdef RTW_MAX_SCHEDULE_TIMEOUT
+		expire = msecs_to_jiffies(RTW_MAX_SCHEDULE_TIMEOUT);
+		#else
 		expire = MAX_SCHEDULE_TIMEOUT;
+		#endif /*RTW_MAX_SCHEDULE_TIMEOUT*/
 	}
 
 	expire = wait_for_completion_timeout(event, expire);

@@ -45,7 +45,8 @@ void halrf_wmac(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 	u32 ori_val, bit_shift;
 #if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	//u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	bool fw_ofld = rf->phl_com->dev_cap.io_ofld;
 	u32 rtn;
 
 #ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
@@ -104,7 +105,8 @@ void halrf_wreg(struct rf_info *rf, u32 addr, u32 mask, u32 val)
 	u32 ori_val, bit_shift;
 #if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+//	u32 fw_ofld = rf->phl_com->dev_cap.io_ofld; //rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	bool fw_ofld = rf->phl_com->dev_cap.io_ofld;
 	u32 rtn;
 #endif
 
@@ -203,7 +205,8 @@ void halrf_wrf(struct rf_info *rf, enum rf_path path, u32 addr, u32 mask, u32 va
 	
 #if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+//	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	bool fw_ofld = rf->phl_com->dev_cap.io_ofld;
 	u32 rtn;
 	u32 direct_addr, offset_write_rf[2] = {0xe000, 0xf000};
 
@@ -266,7 +269,8 @@ bool halrf_polling_bb(struct rf_info *rf, u32 addr, u32 mask, u32 val, u32 count
 	bool result = true;
 #if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+//	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	bool fw_ofld = rf->phl_com->dev_cap.io_ofld;
 	u32 rtn;
 
 #ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
@@ -318,7 +322,9 @@ bool halrf_polling_rf(struct rf_info *rf, u32 path, u32 addr, u32 mask, u32 val,
 	bool result = true;
 #if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+//	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	bool fw_ofld = rf->phl_com->dev_cap.io_ofld;
+
 	u32 rtn;
 
 #ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT
@@ -376,7 +382,8 @@ void halrf_delay_us(struct rf_info *rf, u32 count)
 {
 #if defined(HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(HALRF_CONFIG_FW_IO_OFLD_SUPPORT)
 	struct rtw_mac_cmd cmd = {0};
-	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+//	u32 fw_ofld = rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0);
+	bool fw_ofld = rf->phl_com->dev_cap.io_ofld;
 	u32 rtn;
 
 #ifdef HALRF_CONFIG_FW_DBCC_OFLD_SUPPORT

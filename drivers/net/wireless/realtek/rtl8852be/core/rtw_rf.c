@@ -2039,6 +2039,18 @@ void dump_cur_spt_op_class_ch(void *sel, struct rf_ctl_t *rfctl, bool detail)
 	RTW_PRINT_SEL(sel, "op_class number:%d\n", rfctl->cur_spt_op_class_num);
 }
 
+const u8 _rf_type_to_rf_path[] = {
+	1, /*RF_1T1R*/
+	2, /*RF_1T2R*/
+	2, /*RF_2T2R*/
+	3, /*RF_2T3R*/
+	4, /*RF_2T4R*/
+	3, /*RF_3T3R*/
+	4, /*RF_3T4R*/
+	4, /*RF_4T4R*/
+	4, /*RF_TYPE_MAX*/
+};
+
 const u8 _rf_type_to_rf_tx_cnt[] = {
 	1, /*RF_1T1R*/
 	1, /*RF_1T2R*/
@@ -2231,6 +2243,7 @@ s16 mb_of_ntx(u8 ntx)
 	if (ntx == 0 || ntx > 8) {
 		RTW_ERR("ntx=%u, out of range\n", ntx);
 		rtw_warn_on(1);
+		return 0;
 	}
 
 	return _mb_of_ntx[ntx - 1];

@@ -1434,56 +1434,6 @@ static void _hal_select_rxbd_mode(struct hal_info_t *hal,
 	}
 }
 
-static void hal_cfg_wow_txdma_8852be(struct hal_info_t *hal, u8 en)
-{
-	struct mac_ax_txdma_ch_map ch_map;
-
-	ch_map.ch0 = en ? MAC_AX_PCIE_ENABLE : MAC_AX_PCIE_DISABLE;
-	ch_map.ch1 = en ? MAC_AX_PCIE_ENABLE : MAC_AX_PCIE_DISABLE;
-	ch_map.ch2 = en ? MAC_AX_PCIE_ENABLE : MAC_AX_PCIE_DISABLE;
-	ch_map.ch3 = en ? MAC_AX_PCIE_ENABLE : MAC_AX_PCIE_DISABLE;
-	ch_map.ch4 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch5 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch6 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch7 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch8 = en ? MAC_AX_PCIE_ENABLE : MAC_AX_PCIE_DISABLE;
-	ch_map.ch9 = en ? MAC_AX_PCIE_ENABLE : MAC_AX_PCIE_DISABLE;
-	ch_map.ch10 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch11 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch12 = MAC_AX_PCIE_IGNORE;
-
-	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_mac_cfg_txdma(hal, &ch_map))
-		PHL_ERR("%s failure \n", __func__);
-
-}
-
-static u8 hal_poll_txdma_idle_8852be(struct hal_info_t *hal)
-{
-	struct mac_ax_txdma_ch_map ch_map;
-
-	ch_map.ch0 = MAC_AX_PCIE_ENABLE;
-	ch_map.ch1 = MAC_AX_PCIE_ENABLE;
-	ch_map.ch2 = MAC_AX_PCIE_ENABLE;
-	ch_map.ch3 = MAC_AX_PCIE_ENABLE;
-	ch_map.ch4 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch5 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch6 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch7 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch8 = MAC_AX_PCIE_ENABLE;
-	ch_map.ch9 = MAC_AX_PCIE_ENABLE;
-	ch_map.ch10 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch11 = MAC_AX_PCIE_IGNORE;
-	ch_map.ch12 = MAC_AX_PCIE_ENABLE;
-
-
-	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_mac_poll_txdma_idle(hal, &ch_map)) {
-
-		PHL_ERR("%s failure \n", __func__);
-
-		return false;
-	}
-	return true;
-}
 static void _hal_clear_trx_state(struct hal_info_t *hal)
 {
 	u32 value = 0;
@@ -1542,8 +1492,6 @@ void hal_trx_ops_init_8852be(void)
 	ops.get_rxbd_num = hal_get_rxbd_num_8852be;
 	ops.get_rxbuf_num = hal_get_rxbuf_num_8852be;
 	ops.get_rxbuf_size = hal_get_rxbuf_size_8852be;
-	ops.cfg_wow_txdma = hal_cfg_wow_txdma_8852be;
-	ops.poll_txdma_idle = hal_poll_txdma_idle_8852be;
 	ops.map_hw_tx_chnl = hal_mapping_hw_tx_chnl_8852be;
 	ops.qsel_to_tid = hal_qsel_to_tid_8852be;
 	ops.query_txch_hwband = hal_query_txch_hwband_8852be;

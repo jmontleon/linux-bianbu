@@ -224,8 +224,8 @@ rtw_phl_start_rx_ba_session(void *phl, struct rtw_phl_stainfo_t *sta,
 	void *drv_priv = phl_to_drvpriv(phl_info);
 	struct phl_tid_ampdu_rx *r;
 
-	PHL_INFO("Start rx BA session for sta=0x%p, tid=%u, buf_size=%u, timeout=%u\n",
-	         sta, tid, buf_size, timeout);
+	PHL_INFO("Start rx BA session for sta=0x%p, tid=%u, buf_size=%u, timeout=%u, ssn=0x%03x\n",
+	         sta, tid, buf_size, timeout, start_seq_num);
 
 	if (tid >= ARRAY_SIZE(sta->tid_rx)) {
 		PHL_WARN("tid(%u) index out of range (%u)\n", tid, (u32)ARRAY_SIZE(sta->tid_rx));

@@ -183,6 +183,10 @@ void halbb_dcr_init(struct bb_info *bb)
 	bf->ch_chk_cnt = 0;
 	bf->dyn_csi_rsp_dbg_en = 0;
 	bf->dcr_bw = CHANNEL_WIDTH_MAX;
+	bf->period_cnt = 0;
+	bf->cbl_lnk_cnt = 0;
+	bf->cbl_lnk_state = false;
+	bf->csi_on_chk = false;
 }
 
 void halbb_dcr_reset(struct bb_info *bb)
@@ -380,14 +384,82 @@ void halbb_dyn_csi_rsp_main(struct bb_info *bb)
 
 bool halbb_dcr_rssi_chk(struct bb_info *bb)
 {
+	struct bf_ch_raw_info *bf = &bb->bb_cmn_hooker->bf_ch_raw_i;
+	u32 id = bb->phl_com->id.id & 0xFFFF;
+	u8 band = bb->hal_com->band[0].cur_chandef.band;
+	enum channel_width bw = bb->hal_com->band[0].cur_chandef.bw;
 	u8 rssi_min = bb->bb_ch_i.rssi_min >> 1;
 	bool csi_enable = true;
 
-	/*When RSSI below -75 dBm, CSI feedback turned off*/
-	if (rssi_min < 35)
+	if (id != 0x409)
+		return true;
+
+	/*When RSSI below threshold, CSI feedback turned off*/
+	if ((band == BAND_ON_6G) && (bw == CHANNEL_WIDTH_160) && (rssi_min < 40) && (bf->cbl_lnk_state))
 		csi_enable = false;
+	else if ((band == BAND_ON_6G) && (bw == CHANNEL_WIDTH_80) && (rssi_min < 32) && (bf->cbl_lnk_state))
+		csi_enable = false;
+	else if ((band == BAND_ON_5G) && (rssi_min < 35))
+		csi_enable = false;
+	else
+		csi_enable = true;
 
 	return csi_enable;
+}
+
+void halbb_dcr_env_det(struct bb_info *bb)
+{
+	struct bf_ch_raw_info *bf = &bb->bb_cmn_hooker->bf_ch_raw_i;
+	struct bb_cmn_rpt_info	*cmn_rpt = &bb->bb_cmn_rpt_i;
+	struct bb_pkt_cnt_su_info *pkt_cnt = &cmn_rpt->bb_pkt_cnt_su_i;
+	struct bb_link_info	*link = &bb->bb_link_i;
+	u8 band = bb->hal_com->band[0].cur_chandef.band;
+	u32 id = bb->phl_com->id.id & 0xFFFF;
+	bool cbl_lnk_state = false;
+
+	/*BB_DBG(bb, DBG_DCR,
+	       "[START] is_link = %d, period_cnt = %d, cable_link = %d, pkt_cnt_1ss = %d, pkt_cnt_2ss = %d, cbl_lnk_cnt = %d, AP_num = %d, csi_on_chk = %d\n",
+	       link->is_linked, bf->period_cnt, bf->cbl_lnk_state,
+	       pkt_cnt->pkt_cnt_1ss, pkt_cnt->pkt_cnt_2ss, bf->cbl_lnk_cnt,
+	       bb->phl_com->phl_stats.bss_cnt, bf->csi_on_chk);*/
+
+	if (id != 0x409)
+		return;
+
+	if (!link->is_linked || band != BAND_ON_6G) {
+		if (link->first_disconnect) {
+			bf->period_cnt = 0;
+			bf->cbl_lnk_cnt = 0;
+			bf->cbl_lnk_state = false;
+			bf->csi_on_chk = false;
+		}
+		return;
+	}
+	if (bf->period_cnt >= 8) {
+		if (!bf->csi_on_chk) {
+			rtw_hal_mac_ax_init_bf_role(bb->hal_com, 0, bb->bb_phy_idx);
+			bf->csi_on_chk = true;
+		}
+		return;
+	}
+
+	/*turn off CSI feedback*/
+	rtw_hal_mac_ax_deinit_bfee(bb->hal_com, bb->bb_phy_idx);
+
+	if (pkt_cnt->pkt_cnt_1ss > pkt_cnt->pkt_cnt_2ss) {
+		bf->cbl_lnk_cnt += 1;
+	}
+
+	if (bf->cbl_lnk_cnt >= 2)
+		cbl_lnk_state = true;
+
+	bf->cbl_lnk_state = cbl_lnk_state;
+	bf->period_cnt += 1;
+
+	/*BB_DBG(bb, DBG_DCR,
+	       "[END] is_link = %d, period_cnt = %d, cable_link = %d, pkt_cnt_1ss = %d, pkt_cnt_2ss = %d, cbl_lnk_cnt = %d\n",
+	       link->is_linked, bf->period_cnt, bf->cbl_lnk_state,
+	       pkt_cnt->pkt_cnt_1ss, pkt_cnt->pkt_cnt_2ss, bf->cbl_lnk_cnt);*/
 }
 
 void halbb_dyn_csi_rsp_dbg(struct bb_info *bb, char input[][16], 

@@ -26,8 +26,8 @@
 #define __HALRF_8852B_H__
 #ifdef RF_8852B_SUPPORT
 
-#define RXDCK_VER_8852B 0x1
-#define RCK_VER_8852B 0x1
+#define RXDCK_VER_8852B 0x2
+#define RCK_VER_8852B 0x2
 
 void halrf_lo_test_8852b(struct rf_info *rf, bool is_on, enum rf_path path);
 u8 halrf_kpath_8852b(struct rf_info *rf, enum phl_phy_idx phy_idx);

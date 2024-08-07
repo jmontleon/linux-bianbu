@@ -99,6 +99,8 @@ u32 rtw_efuse_get_map_size(_adapter *padapter , u16 *size , enum rtw_efuse_phl_c
 
 u32 rtw_efuse_get_available_size(_adapter *padapter , u16 *size, u8 efuse_type);
 
+u8 rtw_efuse_read_map2shadow(_adapter *padapter, u8 efuse_type);
+
 u8 rtw_efuse_map_read(_adapter * adapter, u16 addr, u16 cnts, u8 *data, u8 efuse_type);
 
 u8 rtw_efuse_map_write(_adapter * adapter, u16 addr, u16 cnts, u8 *data, u8 efuse_type, u8 bpg);

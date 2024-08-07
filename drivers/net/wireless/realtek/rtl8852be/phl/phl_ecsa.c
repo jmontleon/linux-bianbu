@@ -36,7 +36,8 @@ _phl_ecsa_dump_param(
 
 enum rtw_phl_status
 _phl_ecsa_tx_pause(
-	struct phl_ecsa_ctrl_t *ecsa_ctrl
+	struct phl_ecsa_ctrl_t *ecsa_ctrl,
+	bool hw_pause
 )
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_SUCCESS;
@@ -52,14 +53,16 @@ _phl_ecsa_tx_pause(
 	if (RTW_PHL_STATUS_SUCCESS != status)
 		PHL_ERR("%s(): sw tx pause failure\n", __func__);
 
-	/* Disable hw tx all  */
-	if (rtw_hal_dfs_pause_tx(phl_info->hal, rlink->hw_band, true,  PAUSE_RSON_DFS) ==
-	    RTW_HAL_STATUS_SUCCESS) {
-		status = RTW_PHL_STATUS_SUCCESS;
-		PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "[ECSA] hw tx pause OK\n");
-	} else {
-		status = RTW_PHL_STATUS_FAILURE;
-		PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "[ECSA] hw tx pause fail\n");
+	if (hw_pause) {
+		/* Disable hw tx all */
+		if (rtw_hal_dfs_pause_tx(phl_info->hal, rlink->hw_band, true, PAUSE_RSON_DFS) ==
+		    RTW_HAL_STATUS_SUCCESS) {
+			status = RTW_PHL_STATUS_SUCCESS;
+			PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "[ECSA] hw tx pause OK\n");
+		} else {
+			status = RTW_PHL_STATUS_FAILURE;
+			PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "[ECSA] hw tx pause fail\n");
+		}
 	}
 
 	return status;
@@ -67,7 +70,8 @@ _phl_ecsa_tx_pause(
 
 enum rtw_phl_status
 _phl_ecsa_tx_resume(
-	struct phl_ecsa_ctrl_t *ecsa_ctrl
+	struct phl_ecsa_ctrl_t *ecsa_ctrl,
+	bool hw_pause
 )
 {
 	enum rtw_phl_status status = RTW_PHL_STATUS_SUCCESS;
@@ -76,14 +80,16 @@ _phl_ecsa_tx_resume(
 	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
 	struct phl_data_ctl_t ctl = {0};
 
-	/* Enable hw tx all  */
-	if (rtw_hal_dfs_pause_tx(phl_info->hal, rlink->hw_band, false, PAUSE_RSON_DFS) ==
-	    RTW_HAL_STATUS_SUCCESS) {
-		status = RTW_PHL_STATUS_SUCCESS;
-		PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "[ECSA] hw tx unpause OK\n");
-	} else {
-		status = RTW_PHL_STATUS_FAILURE;
-		PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "[ECSA] hw tx unpause fail\n");
+	if (hw_pause) {
+		/* Enable hw tx all  */
+		if (rtw_hal_dfs_pause_tx(phl_info->hal, rlink->hw_band, false, PAUSE_RSON_DFS) ==
+		    RTW_HAL_STATUS_SUCCESS) {
+			status = RTW_PHL_STATUS_SUCCESS;
+			PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "[ECSA] hw tx unpause OK\n");
+		} else {
+			status = RTW_PHL_STATUS_FAILURE;
+			PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_, "[ECSA] hw tx unpause fail\n");
+		}
 	}
 
 	/* sw tx resume */
@@ -103,10 +109,13 @@ _phl_ecsa_calculate_next_timer_ap(
 {
 	struct rtw_phl_com_t *phl_com = ecsa_ctrl->phl_com;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl_com->phl_priv;
+	#ifdef RTW_PHL_BCN
 	struct rtw_bcn_info_cmn *bcn_cmn = NULL;
+	#endif
 	u32 tsf_h = 0, tsf_l = 0;
 	u64 tsf = 0;
 	u32 beacon_period_us = 0, timeslot_us = 0, next_timeslot_us = 0;
+	u32 remain_us = 0; /* remain time before next TBTT */
 	u32 current_time_ms = _os_get_cur_time_ms();
 	struct rtw_wifi_role_link_t *rlink = ecsa_ctrl->rlink;
 
@@ -122,31 +131,39 @@ _phl_ecsa_calculate_next_timer_ap(
 	tsf = tsf << 32;
 	tsf |= tsf_l;
 
+	#ifdef RTW_PHL_BCN
 	bcn_cmn = &rlink->bcn_cmn;
 	beacon_period_us = bcn_cmn->bcn_interval * TU;
+	#else
+	beacon_period_us = 100 * TU;
+	#endif
 
 	timeslot_us = (u32)_os_modular64(tsf, beacon_period_us);
+	remain_us = beacon_period_us - timeslot_us;
 
-	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %d State = %x timeslot = %d\n",
-		  __FUNCTION__, current_time_ms, ecsa_ctrl->state, timeslot_us);
+	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
+		"%s: CurTimeMs = %u State = %x timeslot = %u remain_us = %u\n",
+		  __FUNCTION__, current_time_ms, ecsa_ctrl->state, timeslot_us, remain_us);
 
 	if(ecsa_ctrl->state == ECSA_STATE_START){
-		next_timeslot_us = beacon_period_us - timeslot_us + (2 * TU);
+		next_timeslot_us = remain_us + (2 * TU);
 	}
 	/* To make sure first ECSA IE show in Beacon */
 	else if(ecsa_ctrl->state == ECSA_STATE_UPDATE_FIRST_BCN_DONE){
-		next_timeslot_us = (beacon_period_us - timeslot_us -
-				    ECSA_UPDATE_BCN_BEFORE_TBTT_US);
-		ecsa_ctrl->expected_tbtt_ms = current_time_ms +
-				  (beacon_period_us - timeslot_us)/1000;
+		if (remain_us > ECSA_UPDATE_BCN_BEFORE_TBTT_US)
+			next_timeslot_us = (remain_us - ECSA_UPDATE_BCN_BEFORE_TBTT_US);
+		else
+			next_timeslot_us = remain_us;
+
+		ecsa_ctrl->expected_tbtt_ms = current_time_ms + (remain_us / 1000);
 	}
 	else if(ecsa_ctrl->state == ECSA_STATE_COUNT_DOWN){
 		if(ecsa_ctrl->ecsa_param.count == 1){
-			next_timeslot_us = (beacon_period_us - timeslot_us) +
+			next_timeslot_us = remain_us +
 					ECSA_SWITCH_TIME_AFTER_LAST_COUNT_DOWN;
 		}
 		else{
-			next_timeslot_us = (beacon_period_us - timeslot_us) +
+			next_timeslot_us = remain_us +
 					(beacon_period_us - ECSA_UPDATE_BCN_BEFORE_TBTT_US);
 
 			ecsa_ctrl->expected_tbtt_ms = current_time_ms +
@@ -154,7 +171,8 @@ _phl_ecsa_calculate_next_timer_ap(
 		}
 	}
 
-	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: Expected tbtt %d!\n", __FUNCTION__, ecsa_ctrl->expected_tbtt_ms);
+	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: Expected tbtt %u!\n",
+			__FUNCTION__, ecsa_ctrl->expected_tbtt_ms);
 	return next_timeslot_us/1000;
 }
 
@@ -171,7 +189,7 @@ _phl_ecsa_calculate_next_timer_sta(
 	u32 current_time_ms = 0;
 
 	current_time_ms = _os_get_cur_time_ms();
-	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %d State = %x\n",
+	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %u State = %x\n",
 		  __FUNCTION__, current_time_ms, ecsa_ctrl->state);
 
 	sta = rtw_phl_get_stainfo_self(phl_info, rlink);
@@ -229,7 +247,7 @@ void _phl_ecsa_state_change_ap(
 
 	SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_FG_MDL_ECSA);
 
-	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %d State = %x\n",
+	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %u State = %x\n",
 		  __FUNCTION__, _os_get_cur_time_ms(), ecsa_ctrl->state);
 
 	/* Protect ECSA state change to prevent timer callback racing */
@@ -298,7 +316,7 @@ void _phl_ecsa_state_change_sta(
 
 	SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_FG_MDL_ECSA);
 
-	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %d State = %x\n",
+	PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_, "%s: CurTimeMs = %u State = %x\n",
 		  __FUNCTION__, _os_get_cur_time_ms(), ecsa_ctrl->state);
 
 	/* Protect ECSA state change to prevent timer callback racing */
@@ -375,24 +393,28 @@ _phl_ecsa_cmd_abort_hdlr(
 	_os_cancel_timer(d, &ecsa_ctrl->timer);
 
 	/* ECSA AP abort handle */
-	if(IS_ECSA_TYPE_AP(ecsa_ctrl) &&
-	   ecsa_ctrl->ecsa_param.flag != 0){
-		ecsa_ctrl->state = ECSA_STATE_NONE;
-		CLEAR_STATUS_FLAG(ecsa_ctrl->ecsa_param.flag,
-				  ECSA_PARAM_FLAG_APPEND_BCN);
-		CLEAR_STATUS_FLAG(ecsa_ctrl->ecsa_param.flag,
-				  ECSA_PARAM_FLAG_APPEND_PROBERSP);
-		/* Update Bcn */
-		if(ops->update_beacon)
-			ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
+	if (IS_ECSA_TYPE_AP(ecsa_ctrl)) {
+		if (ecsa_ctrl->ecsa_param.mode == CHANNEL_SWITCH_MODE_STOP_TX)
+			_phl_ecsa_tx_resume(ecsa_ctrl, false);
+
+		if (ecsa_ctrl->ecsa_param.flag != 0) {
+			ecsa_ctrl->state = ECSA_STATE_NONE;
+			CLEAR_STATUS_FLAG(ecsa_ctrl->ecsa_param.flag,
+					  ECSA_PARAM_FLAG_APPEND_BCN);
+			CLEAR_STATUS_FLAG(ecsa_ctrl->ecsa_param.flag,
+					  ECSA_PARAM_FLAG_APPEND_PROBERSP);
+			/* Update Bcn */
+			if (ops->update_beacon)
+				ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
+	   	}
 	}
 
 	/* ECSA STA abort handle */
-	if(IS_ECSA_TYPE_STA(ecsa_ctrl)){
-		if(ecsa_ctrl->ecsa_param.mode == true)
-			_phl_ecsa_tx_resume(ecsa_ctrl);
+	if (IS_ECSA_TYPE_STA(ecsa_ctrl)) {
+		if (ecsa_ctrl->ecsa_param.mode == CHANNEL_SWITCH_MODE_STOP_TX)
+			_phl_ecsa_tx_resume(ecsa_ctrl, true);
 
-		if(ops->ecsa_complete)
+		if (ops->ecsa_complete)
 			ops->ecsa_complete(ops->priv, wifi_role);
 	}
 
@@ -466,8 +488,10 @@ _phl_ecsa_cmd_msg_hdlr(
 	struct phl_msg_attribute attr = {0};
 	struct rtw_phl_ecsa_ops *ops = &ecsa_ctrl->ops;
 	u32 current_time_ms = _os_get_cur_time_ms();
-	struct rtw_bcn_info_cmn *bcn_cmn = &rlink->bcn_cmn;
-	u32 beacon_period_ms = bcn_cmn->bcn_interval * TU / 1000;
+	#ifdef RTW_PHL_BCN
+	struct rtw_bcn_info_cmn *bcn_cmn;
+	#endif
+	u32 beacon_period_ms;
 	u8 countdown_n = 1;
 	struct rtw_chan_def chdef_to_switch = {0};
 
@@ -499,10 +523,17 @@ _phl_ecsa_cmd_msg_hdlr(
 					ops->update_beacon(ops->priv, wifi_role, ecsa_ctrl->rlink);
 			}
 
-			if(IS_ECSA_TYPE_STA(ecsa_ctrl) &&
-			   ecsa_ctrl->ecsa_param.mode == true){
-				_phl_ecsa_tx_pause(ecsa_ctrl);
+			if (ecsa_ctrl->ecsa_param.mode == CHANNEL_SWITCH_MODE_STOP_TX) {
+				PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
+					"%s: Tx pause!\n", __FUNCTION__);
+
+				/* AP mode should not pause hw tx, or beacon will hang */
+				if (IS_ECSA_TYPE_STA(ecsa_ctrl))
+					_phl_ecsa_tx_pause(ecsa_ctrl, true);
+				else
+					_phl_ecsa_tx_pause(ecsa_ctrl, false);
 			}
+
 			_phl_ecsa_calculate_next_timer(ecsa_ctrl);
 			break;
 		case MSG_EVT_ECSA_UPDATE_FIRST_BCN_DONE:
@@ -531,8 +562,14 @@ _phl_ecsa_cmd_msg_hdlr(
 				 * There may be delay time during msg delivery,
 				 * calulate the actual countdown value
 				 */
-				countdown_n = (u8)((current_time_ms-(ecsa_ctrl->expected_tbtt_ms))%beacon_period_ms+1);
+				#ifdef RTW_PHL_BCN
+				bcn_cmn = &rlink->bcn_cmn;
+				beacon_period_ms = bcn_cmn->bcn_interval * TU / 1000;
+				#else
+				beacon_period_ms = 100 * TU / 1000;
+				#endif
 
+				countdown_n = (u8)((current_time_ms - (ecsa_ctrl->expected_tbtt_ms)) / beacon_period_ms + 1);
 			}
 
 			PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
@@ -634,14 +671,20 @@ _phl_ecsa_cmd_msg_hdlr(
 		case MSG_EVT_ECSA_SWITCH_DONE:
 			PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
 				  "%s: MSG_EVT_ECSA_SWITCH_DONE\n", __FUNCTION__);
-			if(IS_ECSA_TYPE_STA(ecsa_ctrl) &&
-			   ecsa_ctrl->ecsa_param.mode == true){
-				SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_ECSA_CHECK_TX_RESUME);
-				status = phl_disp_eng_send_msg(phl_info, &nextmsg, &attr, NULL);
-				if(status != RTW_PHL_STATUS_SUCCESS)
-					PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_,
-						"%s: Send msg fail!\n", __FUNCTION__);
-				break;
+
+			if (ecsa_ctrl->ecsa_param.mode == CHANNEL_SWITCH_MODE_STOP_TX) {
+				if (IS_ECSA_TYPE_STA(ecsa_ctrl)) {
+					SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_ECSA_CHECK_TX_RESUME);
+					status = phl_disp_eng_send_msg(phl_info, &nextmsg, &attr, NULL);
+					if(status != RTW_PHL_STATUS_SUCCESS)
+						PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_,
+							"%s: Send msg fail!\n", __FUNCTION__);
+					break;
+				} else {
+					PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
+					  	  "%s: AP role Tx resume!\n", __FUNCTION__);
+					_phl_ecsa_tx_resume(ecsa_ctrl, false);
+				}
 			}
 
 			SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_ECSA_DONE);
@@ -657,7 +700,7 @@ _phl_ecsa_cmd_msg_hdlr(
 			PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
 				  "%s: MSG_EVT_ECSA_CHECK_TX_RESUME\n", __FUNCTION__);
 			if(IS_ECSA_TYPE_STA(ecsa_ctrl) &&
-			   ecsa_ctrl->ecsa_param.mode == true){
+			   ecsa_ctrl->ecsa_param.mode == CHANNEL_SWITCH_MODE_STOP_TX){
 				/*
 				 * TODO: If driver support DFS-slave with radar
 				 * detection, ECSA should tx un-pause directly
@@ -673,7 +716,7 @@ _phl_ecsa_cmd_msg_hdlr(
 				}
 				PHL_TRACE(COMP_PHL_ECSA, _PHL_INFO_,
 				  	  "%s: Tx resume!\n", __FUNCTION__);
-				_phl_ecsa_tx_resume(ecsa_ctrl);
+				_phl_ecsa_tx_resume(ecsa_ctrl, true);
 			}
 
 			SET_MSG_EVT_ID_FIELD(nextmsg.msg_id, MSG_EVT_ECSA_DONE);
@@ -835,31 +878,31 @@ rtw_phl_ecsa_cancel(
 
 	PHL_INFO("%s >> \n", __func__);
 
-	if(ecsa_ctrl == NULL){
+	if (ecsa_ctrl == NULL) {
 		status = RTW_PHL_STATUS_FAILURE;
 		goto exit;
 	}
 
-	if(ecsa_ctrl->state == ECSA_STATE_NONE) {
+	_os_spinlock(d, &(ecsa_ctrl->lock), _bh, NULL);
+	if (ecsa_ctrl->state == ECSA_STATE_NONE) {
+		_os_spinunlock(d, &(ecsa_ctrl->lock), _bh, NULL);
 		PHL_INFO("%s, skip (already ECSA_STATE_NONE)\n", __func__);
 		goto exit;
 	}
 
-	_os_cancel_timer(d, &ecsa_ctrl->timer);
+	_os_cancel_timer_async(d, &ecsa_ctrl->timer);
 
-	_os_spinlock(d, &(ecsa_ctrl->lock), _bh, NULL);
-	if(ecsa_ctrl->state > ECSA_STATE_WAIT_DELAY){
+	if (ecsa_ctrl->state > ECSA_STATE_WAIT_DELAY) {
 		status = phl_disp_eng_cancel_token_req(phl_info,
 		                                       ecsa_ctrl->rlink->hw_band,
 		                                       &ecsa_ctrl->req_hdl);
 
-		if(status != RTW_PHL_STATUS_SUCCESS){
+		if (status != RTW_PHL_STATUS_SUCCESS) {
 			PHL_TRACE(COMP_PHL_ECSA, _PHL_WARNING_,
 				"%s: ECSA cancel req fail!\n", __FUNCTION__);
 		}
 
-	}
-	else{
+	} else {
 		ecsa_ctrl->state = ECSA_STATE_NONE;
 	}
 	_os_spinunlock(d, &(ecsa_ctrl->lock), _bh, NULL);

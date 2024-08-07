@@ -263,7 +263,11 @@ _lps_state_judge_changed(struct cmd_ps *ps, u16 macid, u8 cur_state, u8 target_s
 		}
 	} else {
 		if (cur_state == PS_STATE_ENTERED || cur_state == PS_STATE_PROTO) {
-			if (_chk_rssi_diff_reach_thld(ps) ||
+			if (
+				#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+				phl_wdog_state_is_keep_alive(phl_info) ||
+				#endif
+				_chk_rssi_diff_reach_thld(ps) ||
 				_chk_bcn_offset_changed(ps) ||
 				rssi < ps_cap->lps_rssi_leave_threshold ||
 				phl_stats->tx_traffic.lvl != RTW_TFC_IDLE ||
@@ -532,6 +536,7 @@ enum rtw_phl_status _enter_ps(struct cmd_ps *ps, u8 ps_mode, u16 macid, bool sw_
 		cfg.listen_bcn_mode = ps_cap->lps_listen_bcn_mode;
 		cfg.smart_ps_mode = ps_cap->lps_smart_ps_mode;
 		cfg.bcnnohit_en = ps_cap->lps_bcnnohit_en;
+		cfg.lps_force_tx = ps_cap->lps_force_tx;
 	} else if (ps_mode == PS_MODE_IPS) {
 		cfg.macid = macid;
 		if (macid == PS_MACID_NONE)
@@ -985,11 +990,22 @@ static enum phl_mdl_ret_code _ps_mdl_stop(void *dispr, void *priv)
 	return ret;
 }
 
-static bool _chk_role_all_no_link(struct cmd_ps *ps)
+static bool _chk_role_all_idle(struct cmd_ps *ps)
 {
 	struct phl_info_t *phl_info = ps->phl_info;
 	u8 role_idx = 0;
 	bool ret = true;
+	struct hw_band_ctl_t *band_ctrl0 = get_band_ctrl(phl_info, HW_BAND_0);
+	struct hw_band_ctl_t *band_ctrl1 = get_band_ctrl(phl_info, HW_BAND_1);
+
+	if (band_ctrl0->cur_info.lsn_discov || band_ctrl1->cur_info.lsn_discov) {
+		ret = false;
+		PHL_INFO("[PS_CMD], %s(): band0 lsn_discov(%d), band1 lsn_discov(%d) return false! \n",
+		         __func__,
+		         band_ctrl0->cur_info.lsn_discov,
+		         band_ctrl1->cur_info.lsn_discov);
+		return ret;
+	}
 
 	for (role_idx = 0; role_idx < MAX_WIFI_ROLE_NUMBER; role_idx++) {
 		if (phl_info->phl_com->wifi_roles[role_idx].active == false)
@@ -1047,7 +1063,7 @@ static bool _chk_wrole_with_ps_mode(struct cmd_ps *ps,
 	}
 
 	if (target_mode == PS_MODE_IPS) {
-		if (_chk_role_all_no_link(ps)) {
+		if (_chk_role_all_idle(ps)) {
 			role = _get_role_of_ps_permitted(ps, PS_MODE_IPS);
 			if (role == NULL) {
 				PHL_TRACE(COMP_PHL_PS, _PHL_DEBUG_, "[PS_CMD], %s(): there is no suitable role to enter ips.\n", __func__);
@@ -1099,7 +1115,12 @@ static enum rtw_phl_status _stop_datapath(struct cmd_ps *ps)
 	if (phl_data_ctrler(ps->phl_info, &ctl, NULL) == RTW_PHL_STATUS_SUCCESS) {
 		ps->stop_datapath = true;
 		return RTW_PHL_STATUS_SUCCESS;
-	}
+	} 
+
+	/*to avoid stop_datapath not sync with phl_sw_tx_sts*/
+	ctl.id = PHL_MDL_POWER_MGNT;
+	ctl.cmd = PHL_DATA_CTL_SW_TX_RESUME;
+	phl_data_ctrler(ps->phl_info, &ctl, NULL);
 
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1275,6 +1296,15 @@ static bool _chk_lps_enter(struct cmd_ps *ps, u16 *macid)
 		/* check data path stop or not */
 		if (ps_cap->lps_pause_tx) {
 			if (!_is_datapath_active(ps)) {
+
+				if (!ps->stop_datapath) {
+					PHL_TRACE(COMP_PHL_PS, _PHL_WARNING_,
+						  "[PS_CMD], %s(): PHL_TX_STATUS_SW_PAUSE is inconsistent with stop_datapath(%d);pause_tx id(0x%x)!!\n",
+						  __func__,
+						  ps->stop_datapath,
+						  ps->phl_info->pause_tx_id);
+				}
+
 				return true;
 			} else {
 				if (_stop_datapath(ps) == RTW_PHL_STATUS_SUCCESS)
@@ -1760,18 +1790,11 @@ _mrc_mdl_msg_hdlr(struct cmd_ps *ps, struct phl_msg *msg)
 static bool _is_ignored_ser_evt(struct cmd_ps *ps, struct phl_msg *msg)
 {
 	u16 evt_id = MSG_EVT_ID_FIELD(msg->msg_id);
-	u8 state = 0;
 
-	if (MSG_EVT_SER_M9_L2_RESET == evt_id) {
-		return false;
-	} else if (MSG_EVT_SER_POLLING_CHK == evt_id) {
-		state = (u8)msg->rsvd[0].value;
-		PHL_TRACE(COMP_PHL_PS, _PHL_DEBUG_, "[PS_CMD], %s(): EVT_SER_POLLING_CHK - state(0x%X)\n",
-		          __func__, state);
-		if (!state) /* CMD_SER_NOT_OCCUR */
-			return false;
-	}
-	return true;
+	if (MSG_EVT_SER_M9_L2_RESET != evt_id)
+		return true;
+
+	return false;
 }
 
 static enum phl_mdl_ret_code
@@ -1866,6 +1889,7 @@ _general_mdl_msg_hdlr(struct cmd_ps *ps, struct phl_msg *msg)
 	case MSG_EVT_NOTIFY_HAL:
 	case MSG_EVT_ISSUE_BCN:
 	case MSG_EVT_STOP_BCN:
+	case MSG_EVT_EDCCA_CFG:
 	case MSG_EVT_SEC_KEY:
 	case MSG_EVT_ROLE_START:
 	case MSG_EVT_ROLE_CHANGE:
@@ -1876,6 +1900,7 @@ _general_mdl_msg_hdlr(struct cmd_ps *ps, struct phl_msg *msg)
 	case MSG_EVT_STA_CHG_STAINFO:
 	case MSG_EVT_TWT_STA_ACCEPT:
 	case MSG_EVT_TWT_STA_TEARDOWN:
+	case MSG_EVT_TWT_INFO_F_HDR:
 	case MSG_EVT_TWT_GET_TWT:
 	case MSG_EVT_GET_CUR_TSF:
 	case MSG_EVT_DFS_RD_IS_DETECTING:
@@ -1895,6 +1920,13 @@ _general_mdl_msg_hdlr(struct cmd_ps *ps, struct phl_msg *msg)
 	case MSG_EVT_SET_MACID_PKT_DROP:
 	case MSG_EVT_SET_UL_FIXINFO:
 	case MSG_EVT_SET_STA_SEC_IV:
+
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN
+	case MSG_EVT_CONNECT_END_DBCC_EN:
+	case MSG_EVT_DISCONNECT_END_DBCC_EN:
+	case MSG_EVT_CONNECT_CMD_DBCC_DIS:
+	case MSG_EVT_DISCONNECT_CMD_DBCC_EN:
+#endif
 		PHL_TRACE(COMP_PHL_PS, _PHL_INFO_, "[PS_CMD], %s(): MDL_ID(%d)-EVT_ID(%d) in %s phase.\n", __func__,
 			MSG_MDL_ID_FIELD(msg->msg_id), MSG_EVT_ID_FIELD(msg->msg_id),
 			(IS_MSG_IN_PRE_PHASE(msg->msg_id) ? "pre-protocol" : "post-protocol"));
@@ -2001,6 +2033,40 @@ _datapath_mdl_msg_hdlr(struct cmd_ps *ps, struct phl_msg *msg)
 	return ret;
 }
 
+static enum phl_mdl_ret_code
+_custom_mdl_msg_hdlr(struct cmd_ps *ps, struct phl_msg *msg)
+{
+	enum phl_mdl_ret_code ret = MDL_RET_CANNOT_IO;
+
+	switch (MSG_EVT_ID_FIELD(msg->msg_id)) {
+	case MSG_EVT_ANT_TOOL_OP_HDLR:
+		PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
+			  "[PS_CMD], %s(): MDL_ID(%d)-EVT_ID(%d) in %s phase.\n", __func__,
+			  MSG_MDL_ID_FIELD(msg->msg_id), MSG_EVT_ID_FIELD(msg->msg_id),
+			  (IS_MSG_IN_PRE_PHASE(msg->msg_id) ? "pre-protocol" : "post-protocol"));
+		if (IS_MSG_IN_PRE_PHASE(msg->msg_id))
+			ret = _ext_msg_pre_hdlr(ps, MSG_EVT_ID_FIELD(msg->msg_id));
+		else
+			ret = _ext_msg_post_hdlr(ps, MSG_EVT_ID_FIELD(msg->msg_id));
+		break;
+	default:
+		if (ps->cur_pwr_lvl != PS_PWR_LVL_PWRON) {
+			PHL_TRACE(COMP_PHL_PS, _PHL_WARNING_, "[PS_CMD], %s(): MDL_ID(%d)-EVT_ID(%d) get cannot I/O!\n",
+				  __func__,
+			 	  MSG_MDL_ID_FIELD(msg->msg_id),
+				  MSG_EVT_ID_FIELD(msg->msg_id));
+			ret = MDL_RET_CANNOT_IO;
+		} else {
+			ret = MDL_RET_SUCCESS;
+		}
+		break;
+	}
+
+	return ret;
+}
+
+
+
 /**
  * bypass msg of specific module
  * @msg: see phl_msg
@@ -2039,6 +2105,9 @@ _ps_mdl_hdl_external_evt(void *dispr, struct cmd_ps *ps, struct phl_msg *msg)
 		break;
 	case PHL_MDL_SER:
 		ret = _ser_mdl_msg_hdlr(ps, msg);
+		break;
+	case PHL_MDL_CUSTOM:
+		ret = _custom_mdl_msg_hdlr(ps, msg);
 		break;
 	/* handle ohters mdl here */
 	default:
@@ -2612,5 +2681,16 @@ enum rtw_phl_status phl_ps_hal_pwr_req(struct rtw_phl_com_t *phl_com, u8 src, bo
 				PHL_MDL_POWER_MGNT, &op_info);
 
 	return status;
+}
+#else
+void rtw_phl_ps_set_rt_cap(void *phl, u8 band_idx, bool ps_allow, enum phl_ps_rt_rson rt_rson)
+{
+	return;
+}
+
+enum rtw_phl_status
+rtw_phl_ps_set_rf_state(void *phl, u8 band_idx, enum rtw_rf_state rf_state)
+{
+	return RTW_PHL_STATUS_SUCCESS;
 }
 #endif

@@ -291,4 +291,9 @@ void rtw_hal_rf_set_tx_pwr_comp(struct hal_info_t *hal_info,
 void
 rtw_hal_rf_cfg_tx_by_bt_link(struct hal_info_t *hal_info , u8 is_bt_link);
 
+u32 rtw_hal_rf_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_msg *c2h_msg);
+
+enum rtw_hal_status
+rtw_hal_rf_ic_hw_setting_init(struct hal_info_t *hal_info);
+
 #endif /*_HAL_API_RF_H_*/

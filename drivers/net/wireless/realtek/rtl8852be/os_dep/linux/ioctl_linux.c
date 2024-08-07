@@ -1199,15 +1199,21 @@ static int rtw_wx_set_freq(struct net_device *dev,
 	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
 
 	if (wrqu->freq.m <= 1000) {
+		/* allow 2G/5G channels only */
+		enum band_type band = wrqu->freq.m <= 14 ? BAND_ON_24G : BAND_ON_5G;
+
 		if (wrqu->freq.flags == IW_FREQ_AUTO) {
-			if (rtw_chset_search_ch(adapter_to_chset(padapter), wrqu->freq.m) > 0) {
+			if (rtw_chset_search_bch(adapter_to_chset(padapter), band, wrqu->freq.m) > 0) {
+				padapter_link->mlmeextpriv.chandef.band = band;
 				padapter_link->mlmeextpriv.chandef.chan = wrqu->freq.m;
 				RTW_INFO("%s: channel is auto, set to channel %d\n", __func__, wrqu->freq.m);
 			} else {
+				padapter_link->mlmeextpriv.chandef.band = BAND_ON_24G;
 				padapter_link->mlmeextpriv.chandef.chan = 1;
 				RTW_INFO("%s: channel is auto, Channel Plan don't match just set to channel 1\n", __func__);
 			}
 		} else {
+			padapter_link->mlmeextpriv.chandef.band = band;
 			padapter_link->mlmeextpriv.chandef.chan = wrqu->freq.m;
 			RTW_INFO("%s: set to channel %d\n", __func__, padapter_link->mlmeextpriv.chandef.chan);
 		}
@@ -1616,7 +1622,7 @@ static int rtw_wx_get_range(struct net_device *dev,
 			continue;
 
 		range->freq[val].i = chset->chs[i].ChannelNum;
-		range->freq[val].m = rtw_ch2freq(chset->chs[i].ChannelNum) * 100000;
+		range->freq[val].m = rtw_bch2freq(chset->chs[i].band, chset->chs[i].ChannelNum) * 100000;
 		range->freq[val].e = 1;
 		val++;
 
@@ -3733,70 +3739,6 @@ exit:
 
 }
 
-extern int rtw_change_ifname(_adapter *padapter, const char *ifname);
-static int rtw_rereg_nd_name(struct net_device *dev,
-			     struct iw_request_info *info,
-			     union iwreq_data *wrqu, char *extra)
-{
-	int ret = 0;
-	_adapter *padapter = rtw_netdev_priv(dev);
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-	struct rereg_nd_name_data *rereg_priv = &padapter->rereg_nd_name_priv;
-	char new_ifname[IFNAMSIZ];
-
-	if (rereg_priv->old_ifname[0] == 0) {
-		char *reg_ifname;
-#ifdef CONFIG_CONCURRENT_MODE
-		if (padapter->isprimary)
-			reg_ifname = padapter->registrypriv.ifname;
-		else
-#endif
-			reg_ifname = padapter->registrypriv.if2name;
-
-		strncpy(rereg_priv->old_ifname, reg_ifname, IFNAMSIZ);
-		rereg_priv->old_ifname[IFNAMSIZ - 1] = 0;
-	}
-
-	/* RTW_INFO("%s wrqu->data.length:%d\n", __FUNCTION__, wrqu->data.length); */
-	if (wrqu->data.length > IFNAMSIZ)
-		return -EFAULT;
-
-	if (copy_from_user(new_ifname, wrqu->data.pointer, IFNAMSIZ))
-		return -EFAULT;
-
-	if (0 == strcmp(rereg_priv->old_ifname, new_ifname))
-		return ret;
-
-	RTW_INFO("%s new_ifname:%s\n", __FUNCTION__, new_ifname);
-	rtw_set_rtnl_lock_holder(dvobj, current);
-	ret = rtw_change_ifname(padapter, new_ifname);
-	rtw_set_rtnl_lock_holder(dvobj, NULL);
-	if (0 != ret)
-		goto exit;
-
-	if (_rtw_memcmp(rereg_priv->old_ifname, "disable%d", 9) == _TRUE) {
-		/* rtw_ips_mode_req(&padapter->pwrctrlpriv, rereg_priv->old_ips_mode); */
-	}
-
-	strncpy(rereg_priv->old_ifname, new_ifname, IFNAMSIZ);
-	rereg_priv->old_ifname[IFNAMSIZ - 1] = 0;
-
-	if (_rtw_memcmp(new_ifname, "disable%d", 9) == _TRUE) {
-
-		RTW_INFO("%s disable\n", __FUNCTION__);
-		/* free network queue for Android's timming issue */
-		rtw_free_network_queue(padapter, _TRUE);
-		rtw_free_mld_network_queue(padapter, _TRUE);
-
-		/* the interface is being "disabled", we can do deeper IPS */
-		/* rereg_priv->old_ips_mode = rtw_get_ips_mode_req(&padapter->pwrctrlpriv); */
-		/* rtw_ips_mode_req(&padapter->pwrctrlpriv, IPS_NORMAL); */
-	}
-exit:
-	return ret;
-
-}
-
 #ifdef DBG_CMD_QUEUE
 u8 dump_cmd_id = 0;
 #endif
@@ -5097,18 +5039,13 @@ static int rtw_del_sta(struct net_device *dev, struct ieee_param *param)
 
 		/* RTW_INFO("free psta=%p, aid=%d\n", psta, psta->phl_sta->aid); */
 
-		_rtw_spinlock_bh(&pstapriv->asoc_list_lock);
+		rtw_stapriv_asoc_list_lock(pstapriv);
 		if (rtw_is_list_empty(&psta->asoc_list) == _FALSE) {
-			rtw_list_delete(&psta->asoc_list);
-			pstapriv->asoc_list_cnt--;
-			#ifdef CONFIG_RTW_TOKEN_BASED_XMIT
-			if (psta->tbtx_enable)
-				pstapriv->tbtx_asoc_list_cnt--;
-			#endif
+			rtw_stapriv_asoc_list_del(pstapriv, psta);
 			updated = ap_free_sta(padapter, psta, _TRUE, WLAN_REASON_DEAUTH_LEAVING, _TRUE, _FALSE);
 
 		}
-		_rtw_spinunlock_bh(&pstapriv->asoc_list_lock);
+		rtw_stapriv_asoc_list_unlock(pstapriv);
 
 		associated_clients_update(padapter, updated, STA_INFO_UPDATE_ALL);
 
@@ -6770,7 +6707,8 @@ static int rtw_tdls_ch_switch(struct net_device *dev,
 	struct tdls_ch_switch *pchsw_info = &padapter->tdlsinfo.chsw_info;
 	u8 i, j;
 	struct sta_info *ptdls_sta = NULL;
-	u8 take_care_iqk;
+	u8 central_chnl;
+	struct rtw_chan_def chdef = {0};
 
 	RTW_INFO("[%s] %s %d\n", __FUNCTION__, extra, wrqu->data.length - 1);
 
@@ -6786,7 +6724,7 @@ static int rtw_tdls_ch_switch(struct net_device *dev,
 	if (ptdls_sta == NULL)
 		return ret;
 
-	pchsw_info->ch_sw_state |= TDLS_CH_SW_INITIATOR_STATE;
+	pchsw_info->ch_sw_state |= (TDLS_CH_SW_INITIATOR_STATE | TDLS_WAIT_CH_SW_LAUNCH_STATE);
 
 	if (ptdls_sta != NULL) {
 		if (pchsw_info->off_ch_num == 0)
@@ -6794,25 +6732,13 @@ static int rtw_tdls_ch_switch(struct net_device *dev,
 	} else
 		RTW_INFO("TDLS peer not found\n");
 
-	rtw_pm_set_lps(padapter, PM_PS_MODE_ACTIVE);
+	chdef.band = rtw_get_band_type(pchsw_info->off_ch_num);
+	chdef.chan = pchsw_info->off_ch_num;
+	chdef.bw = (pchsw_info->ch_offset) ? CHANNEL_WIDTH_40 : CHANNEL_WIDTH_20;
+	chdef.offset = pchsw_info->ch_offset;
+	central_chnl = rtw_phl_get_center_ch(&chdef);
 
-	rtw_hal_get_hwreg(padapter, HW_VAR_CH_SW_NEED_TO_TAKE_CARE_IQK_INFO, &take_care_iqk);
-	if (take_care_iqk == _TRUE) {
-		u8 central_chnl;
-		struct rtw_chan_def chdef = {0};
-
-		chdef.band = rtw_get_band_type(pchsw_info->off_ch_num);
-		chdef.chan = pchsw_info->off_ch_num;
-		chdef.bw = (pchsw_info->ch_offset) ? CHANNEL_WIDTH_40 : CHANNEL_WIDTH_20;
-		chdef.offset = pchsw_info->ch_offset;
-
-		central_chnl = rtw_phl_get_center_ch(&chdef);
-		if (rtw_hal_ch_sw_iqk_info_search(padapter, central_chnl, chdef.bw) >= 0)
-			rtw_tdls_cmd(padapter, ptdls_sta->phl_sta->mac_addr, TDLS_CH_SW_START);
-		else
-			rtw_tdls_cmd(padapter, ptdls_sta->phl_sta->mac_addr, TDLS_CH_SW_PREPARE);
-	} else
-		rtw_tdls_cmd(padapter, ptdls_sta->phl_sta->mac_addr, TDLS_CH_SW_START);
+	rtw_tdls_cmd(padapter, ptdls_sta->phl_sta->mac_addr, TDLS_CH_SW_PREPARE, 0);
 
 	/* issue_tdls_ch_switch_req(padapter, ptdls_sta); */
 	/* RTW_INFO("issue tdls ch switch req\n"); */
@@ -6856,11 +6782,13 @@ static int rtw_tdls_ch_switch_off(struct net_device *dev,
 	if (ptdls_sta == NULL)
 		return ret;
 
-	rtw_tdls_cmd(padapter, ptdls_sta->phl_sta->mac_addr, TDLS_CH_SW_END_TO_BASE_CHNL);
+	rtw_tdls_cmd(padapter, ptdls_sta->phl_sta->mac_addr, TDLS_CH_SW_END_TO_BASE_CHNL, 0);
 
-	pchsw_info->ch_sw_state &= ~(TDLS_CH_SW_INITIATOR_STATE |
-				     TDLS_CH_SWITCH_ON_STATE |
-				     TDLS_PEER_AT_OFF_STATE);
+	pchsw_info->ch_sw_state &= ~(TDLS_CH_SWITCH_PREPARE_STATE |
+				   TDLS_CH_SW_INITIATOR_STATE |
+				   TDLS_CH_SWITCH_ON_STATE |
+				   TDLS_PEER_AT_OFF_STATE |
+				   TDLS_WAIT_CH_SW_LAUNCH_STATE);
 	_rtw_memset(pchsw_info->addr, 0x00, ETH_ALEN);
 
 	ptdls_sta->ch_switch_time = 0;
@@ -6870,7 +6798,6 @@ static int rtw_tdls_ch_switch_off(struct net_device *dev,
 	_cancel_timer_ex(&ptdls_sta->stay_on_base_chnl_timer);
 	_cancel_timer_ex(&ptdls_sta->ch_sw_monitor_timer);
 
-	rtw_pm_set_lps(padapter, PM_PS_MODE_MAX);
 #endif /* CONFIG_TDLS_CH_SW */
 #endif /* CONFIG_TDLS */
 
@@ -6980,7 +6907,7 @@ static int rtw_tdls_pson(struct net_device *dev,
 
 	ptdls_sta = rtw_get_stainfo(&padapter->stapriv, mac_addr);
 
-	issue_nulldata_to_TDLS_peer_STA(padapter, ptdls_sta->padapter_link, ptdls_sta->phl_sta->mac_addr, 1, 3, MAX_WAIT_ACK_TIME);
+	issue_nulldata_to_TDLS_peer_STA(padapter, ptdls_sta, 1, 3, PS_ANNC_DRV_RETRY_INT_MS);
 
 #endif /* CONFIG_TDLS */
 
@@ -7007,7 +6934,7 @@ static int rtw_tdls_psoff(struct net_device *dev,
 	ptdls_sta = rtw_get_stainfo(&padapter->stapriv, mac_addr);
 
 	if (ptdls_sta)
-		issue_nulldata_to_TDLS_peer_STA(padapter, ptdls_sta->padapter_link, ptdls_sta->phl_sta->mac_addr, 0, 3, MAX_WAIT_ACK_TIME);
+		issue_nulldata_to_TDLS_peer_STA(padapter, ptdls_sta, 0, 3, PS_ANNC_DRV_RETRY_INT_MS);
 
 #endif /* CONFIG_TDLS */
 
@@ -8220,7 +8147,7 @@ static const struct iw_priv_args rtw_private_args[] = {
 #else
 	{SIOCIWFIRSTPRIV + 0x17, IW_PRIV_TYPE_CHAR | 1024 , 0 , "NULL"},
 #endif
-	{SIOCIWFIRSTPRIV + 0x18, IW_PRIV_TYPE_CHAR | IFNAMSIZ , 0 , "rereg_nd_name"},
+	{SIOCIWFIRSTPRIV + 0x18, IW_PRIV_TYPE_CHAR | 1024 , 0 , "NULL"},
 #ifdef CONFIG_MP_INCLUDED
 	{SIOCIWFIRSTPRIV + 0x1A, IW_PRIV_TYPE_CHAR | 1024, 0,  "NULL"},
 	{SIOCIWFIRSTPRIV + 0x1B, IW_PRIV_TYPE_CHAR | 128, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "NULL"},
@@ -8447,7 +8374,7 @@ static iw_handler rtw_private_handler[] = {
 #else
 	rtw_wx_priv_null,				/* 0x17 */
 #endif
-	rtw_rereg_nd_name,				/* 0x18 */
+	NULL,						/* 0x18 */
 	rtw_wx_priv_null,				/* 0x19 */
 #ifdef CONFIG_MP_INCLUDED
 	rtw_wx_priv_null,				/* 0x1A */

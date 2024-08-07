@@ -24,6 +24,7 @@ enum rtw_phl_status phl_ser_send_msg(void *phl, enum RTW_PHL_SER_NOTIFY_EVENT no
 void phl_ser_send_check(void *phl);
 
 #ifdef CONFIG_PHL_CMD_SER
+u8 rtw_phl_ser_inprogress(void *phl);
 enum rtw_phl_status
 phl_register_ser_module(struct phl_info_t *phl_info);
 #endif

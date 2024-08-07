@@ -114,6 +114,7 @@ halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
 				$(path_hm2)/hdr_conv_rx_$(mac_ic).o \
 				$(path_hm2)/hci_fc_$(mac_ic).o \
 				$(path_hm2)/dle_$(mac_ic).o \
+				$(path_hm2)/wowlan_$(mac_ic).o \
 
 halmac-$(usb) += 	$(path_hm2)/_usb_$(mac_ic).o
 halmac-$(pci) += 	$(path_hm2)/_pcie_$(mac_ic).o
@@ -149,6 +150,7 @@ halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
 				$(path_hm2)/hdr_conv_rx_$(mac_ic).o \
 				$(path_hm2)/hci_fc_$(mac_ic).o \
 				$(path_hm2)/dle_$(mac_ic).o \
+				$(path_hm2)/wowlan_$(mac_ic).o \
 
 halmac-$(usb) += 	$(path_hm2)/_usb_$(mac_ic).o
 halmac-$(pci) += 	$(path_hm2)/_pcie_$(mac_ic).o
@@ -185,6 +187,7 @@ halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
 				$(path_hm2)/hdr_conv_rx_$(mac_ic).o \
 				$(path_hm2)/hci_fc_$(mac_ic).o \
 				$(path_hm2)/dle_$(mac_ic).o \
+				$(path_hm2)/wowlan_$(mac_ic).o \
 
 halmac-$(usb) += 	$(path_hm2)/_usb_$(mac_ic).o
 halmac-$(pci) += 	$(path_hm2)/_pcie_$(mac_ic).o
@@ -222,6 +225,7 @@ halmac-y	+=	$(path_hm2_92xb)/pwr_seq_func_$(mac_ic_92xb).o \
 			$(path_hm2_92xb)/hdr_conv_rx_$(mac_ic_92xb).o \
 			$(path_hm2_92xb)/hci_fc_$(mac_ic_92xb).o \
 			$(path_hm2_92xb)/dle_$(mac_ic_92xb).o \
+			$(path_hm2_92xb)/wowlan_$(mac_ic_92xb).o \
 
 halmac-$(usb) += 	$(path_hm2_92xb)/_usb_$(mac_ic_92xb).o
 halmac-$(pci) += 	$(path_hm2_92xb)/_pcie_$(mac_ic_92xb).o
@@ -259,6 +263,7 @@ halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
 				$(path_hm2)/hdr_conv_rx_$(mac_ic).o \
 				$(path_hm2)/hci_fc_$(mac_ic).o \
 				$(path_hm2)/dle_$(mac_ic).o \
+				$(path_hm2)/wowlan_$(mac_ic).o \
 
 halmac-$(usb) += 	$(path_hm2)/_usb_$(mac_ic).o
 halmac-$(pci) += 	$(path_hm2)/_pcie_$(mac_ic).o
@@ -295,6 +300,7 @@ halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
 				$(path_hm2)/hdr_conv_rx_$(mac_ic).o \
 				$(path_hm2)/hci_fc_$(mac_ic).o \
 				$(path_hm2)/dle_$(mac_ic).o \
+				$(path_hm2)/wowlan_$(mac_ic).o \
 
 halmac-$(usb) += 	$(path_hm2)/_usb_$(mac_ic).o
 halmac-$(pci) += 	$(path_hm2)/_pcie_$(mac_ic).o
@@ -323,6 +329,42 @@ halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
 				$(path_hm2)/security_cam_$(mac_ic).o \
 				$(path_hm2)/trx_desc_$(mac_ic).o \
 				$(path_hm2)/tblupd_$(mac_ic).o \
+				$(path_hm2)/coex_$(mac_ic).o \
+				$(path_hm2)/phy_rpt_$(mac_ic).o \
+				$(path_hm2)/dbgpkg_$(mac_ic).o \
+				$(path_hm2)/efuse_$(mac_ic).o \
+				$(path_hm2)/hwamsdu_$(mac_ic).o \
+				$(path_hm2)/hdr_conv_rx_$(mac_ic).o \
+				$(path_hm2)/hci_fc_$(mac_ic).o \
+				$(path_hm2)/dle_$(mac_ic).o \
+				$(path_hm2)/wowlan_$(mac_ic).o \
+
+halmac-$(usb) += 	$(path_hm2)/_usb_$(mac_ic).o
+halmac-$(pci) += 	$(path_hm2)/_pcie_$(mac_ic).o
+halmac-$(sdio) += 	$(path_hm2)/_sdio_$(mac_ic).o
+# fw files
+path_fw := $(path_fw_d1)/rtl$(mac_ic)
+
+halmac-y	+=	$(path_fw)/hal$(mac_ic)_fw.o \
+				$(path_fw)/hal$(mac_ic)_fw_log.o
+endif
+
+# 8852bt Support
+ifeq ($(CONFIG_RTL8852BT), y)
+mac_ic := 8852bt
+# Level 2 directory
+path_hm2 := $(path_hm_d1)/mac_$(mac_ic)
+
+halmac-y	+=	$(path_hm2)/cmac_tx_$(mac_ic).o \
+				$(path_hm2)/fwcmd_$(mac_ic).o \
+				$(path_hm2)/gpio_$(mac_ic).o \
+				$(path_hm2)/init_$(mac_ic).o \
+				$(path_hm2)/mac_priv_$(mac_ic).o \
+				$(path_hm2)/pwr_seq_$(mac_ic).o \
+				$(path_hm2)/pwr_seq_func_$(mac_ic).o \
+				$(path_hm2)/trx_desc_$(mac_ic).o \
+				$(path_hm2)/tblupd_$(mac_ic).o \
+				$(path_hm2)/rrsr_$(mac_ic).o \
 				$(path_hm2)/coex_$(mac_ic).o \
 				$(path_hm2)/phy_rpt_$(mac_ic).o \
 				$(path_hm2)/dbgpkg_$(mac_ic).o \

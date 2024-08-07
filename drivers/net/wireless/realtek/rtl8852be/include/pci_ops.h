@@ -38,7 +38,7 @@
 void	PlatformClearPciPMEStatus(_adapter *adapter);
 
 #ifdef CONFIG_64BIT_DMA
-	u8	PlatformEnableDMA64(_adapter *adapter);
+u8 PlatformEnableDMA64(struct pci_dev *pdev);
 #endif
 #ifdef CONFIG_PCI_DYNAMIC_ASPM
 void rtw_pci_set_aspm_lnkctl(_adapter *padapter, u8 mode);

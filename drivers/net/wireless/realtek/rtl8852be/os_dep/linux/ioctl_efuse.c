@@ -125,7 +125,7 @@ static u8 rtw_efuse_fake2map(_adapter *padapter, u8 efuse_type)
 	return res;
 }
 
-static u8 rtw_efuse_read_map2shadow(_adapter *padapter, u8 efuse_type)
+u8 rtw_efuse_read_map2shadow(_adapter *padapter, u8 efuse_type)
 {
 	struct rtw_efuse_phl_arg *efuse_arg = NULL;
 	u8 res = _SUCCESS;
@@ -422,6 +422,8 @@ static u8 rtw_efuse_map_file_load(_adapter *padapter, u8 *filepath, u8 efuse_typ
 		RTW_INFO("efuse file path %s len %zu", filepath, strlen(filepath));
 
 		efuse_arg = _rtw_malloc(sizeof(struct rtw_efuse_phl_arg));
+		efuse_arg->status = RTW_PHL_STATUS_FAILURE;
+
 		if (efuse_arg) {
 			_rtw_memset((void *)efuse_arg, 0, sizeof(struct rtw_efuse_phl_arg));
 			_rtw_memcpy(efuse_arg->pfile_path, filepath, strlen(filepath));
@@ -450,7 +452,7 @@ static u8 rtw_efuse_mask_file_load(_adapter *padapter, u8 *filepath, u8 efuse_ty
 	if (filepath) {
 		RTW_INFO("efuse file path %s len %zu", filepath, strlen(filepath));
 		efuse_arg = _rtw_malloc(sizeof(struct rtw_efuse_phl_arg));
-		efuse_arg->status == RTW_PHL_STATUS_FAILURE;
+		efuse_arg->status = RTW_PHL_STATUS_FAILURE;
 
 		if (efuse_arg) {
 			_rtw_memset((void *)efuse_arg, 0, sizeof(struct rtw_efuse_phl_arg));
@@ -491,7 +493,8 @@ int rtw_ioctl_efuse_get(struct net_device *dev,
 		goto exit;
 	}
 
-	*(extra +  wrqu->data.length) = '\0';
+	*(extra + wrqu->data.length) = '\0';
+
 	pch = extra;
 	RTW_INFO("%s: in=%s\n", __FUNCTION__, extra);
 
@@ -936,6 +939,8 @@ exit:
 		rtw_mfree(pre_efuse_map, RTW_MAX_EFUSE_MAP_LEN);
 	if (!err)
 		wrqu->data.length = strlen(extra);
+
+	*(extra +  wrqu->data.length) = '\0';
 	RTW_INFO("%s: strlen(extra) =%zu\n", __FUNCTION__, strlen(extra));
 	if (copy_to_user(wrqu->data.pointer, extra, wrqu->data.length))
 		err = -EFAULT;
@@ -959,11 +964,11 @@ int rtw_ioctl_efuse_set(struct net_device *dev,
 	u8 *setrawdata = NULL;
 	char *pch, *ptmp, *token, *tmp[3] = {0x00, 0x00, 0x00};
 	u16 addr = 0xFF, cnts = 0, max_available_len = 0;
-	u16 wifimaplen;
+	u16 wifimaplen = 0;
 	int err = 0;
 	boolean bcmpchk = _TRUE;
 	u8 status = _SUCCESS;
-	u16 size;
+	u16 size = 0;
 	u8 bpg = true;
 
 	wrqu = (struct iw_point *)wdata;
@@ -1338,8 +1343,12 @@ int rtw_ioctl_efuse_file_map_load(struct net_device *dev,
 	_adapter *padapter= rtw_netdev_priv(dev);
 	struct mp_priv *pmp_priv = &padapter->mppriv;
 
+	if (rtw_do_mp_iwdata_len_chk(__func__, ( wrqu->data.length + 1)))
+		return -EFAULT;
+
 	if (copy_from_user(extra, wrqu->data.pointer, wrqu->data.length))
 		return -EFAULT;
+	extra[wrqu->data.length] = '\0';
 
 	rtw_efuse_file_map_path = extra;
 	if (rtw_is_file_readable(rtw_efuse_file_map_path) == _TRUE) {
@@ -1370,8 +1379,13 @@ int rtw_ioctl_efuse_file_mask_load(struct net_device *dev,
 	_adapter *padapter= rtw_netdev_priv(dev);
 	struct mp_priv *pmp_priv = &padapter->mppriv;
 
+
+	if (rtw_do_mp_iwdata_len_chk(__func__, ( wrqu->data.length + 1)))
+		return -EFAULT;
+
 	if (copy_from_user(extra, wrqu->data.pointer, wrqu->data.length))
 		return -EFAULT;
+	extra[wrqu->data.length] = '\0';
 
 	rtw_efuse_file_map_path = extra;
 	if (rtw_is_file_readable(rtw_efuse_file_map_path) == _TRUE) {
@@ -1403,8 +1417,12 @@ int rtw_ioctl_efuse_bt_file_map_load(struct net_device *dev,
 	_adapter *padapter= rtw_netdev_priv(dev);
 	struct mp_priv *pmp_priv = &padapter->mppriv;
 
+	if (rtw_do_mp_iwdata_len_chk(__func__, ( wrqu->data.length + 1)))
+		return -EFAULT;
+
 	if (copy_from_user(extra, wrqu->data.pointer, wrqu->data.length))
 		return -EFAULT;
+	extra[wrqu->data.length] = '\0';
 
 	rtw_efuse_file_map_path = extra;
 	if (rtw_is_file_readable(rtw_efuse_file_map_path) == _TRUE) {
@@ -1437,8 +1455,13 @@ int rtw_ioctl_efuse_bt_file_mask_load(struct net_device *dev,
 	_adapter *padapter= rtw_netdev_priv(dev);
 	struct mp_priv *pmp_priv = &padapter->mppriv;
 
+	if (rtw_do_mp_iwdata_len_chk(__func__, ( wrqu->data.length + 1)))
+		return -EFAULT;
+
 	if (copy_from_user(extra, wrqu->data.pointer, wrqu->data.length))
 		return -EFAULT;
+
+	extra[wrqu->data.length] = '\0';
 
 	rtw_efuse_file_map_path = extra;
 	if (rtw_is_file_readable(rtw_efuse_file_map_path) == _TRUE) {

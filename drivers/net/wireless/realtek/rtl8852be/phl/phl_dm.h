@@ -33,4 +33,15 @@ void phl_ltr_ctrl_watchdog(struct phl_info_t *phl_info);
 #endif
 #endif
 
+enum rtw_phl_status
+phl_edcca_cfg(struct phl_info_t *phl_info);
+enum rtw_phl_status
+phl_cmd_edcca_cfg_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
+rtw_phl_cmd_edcca_mode_cfg(void *phl,
+			   enum rtw_edcca_mode mode,
+                           enum phl_cmd_type cmd_type,
+                           u32 cmd_timeout);
+
 #endif /*_PHL_DM_H_*/

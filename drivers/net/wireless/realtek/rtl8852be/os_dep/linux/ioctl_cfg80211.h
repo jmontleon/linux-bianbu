@@ -90,13 +90,17 @@
 
 #if defined(CONFIG_DFS_MASTER) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0))
 #ifndef CONFIG_RTW_CFG80211_CAC_EVENT
-#define CONFIG_RTW_CFG80211_CAC_EVENT 0
+#define CONFIG_RTW_CFG80211_CAC_EVENT 1
 #endif
 #else
 #ifdef CONFIG_RTW_CFG80211_CAC_EVENT
 #undef CONFIG_RTW_CFG80211_CAC_EVENT
 #endif
 #define CONFIG_RTW_CFG80211_CAC_EVENT 0
+#endif
+
+#if CONFIG_RTW_CFG80211_CAC_EVENT && RTW_PER_ADAPTER_WIPHY
+#error "CONFIG_RTW_CFG80211_CAC_EVENT is not supported when enable RTW_PER_ADAPTER_WIPHY"
 #endif
 
 #if !defined(CONFIG_P2P) && RTW_P2P_GROUP_INTERFACE
@@ -386,7 +390,7 @@ u8 rtw_mgnt_tx_handler(_adapter *adapter, u8 *buf);
 void rtw_cfg80211_rx_p2p_action_public(_adapter *padapter, union recv_frame *rframe);
 void rtw_cfg80211_rx_action_p2p(_adapter *padapter, union recv_frame *rframe);
 void rtw_cfg80211_rx_action(_adapter *adapter, union recv_frame *rframe, const char *msg);
-void rtw_cfg80211_rx_mframe(_adapter *adapter, union recv_frame *rframe, const char *msg);
+int rtw_cfg80211_rx_mframe(_adapter *adapter, union recv_frame *rframe, const char *msg);
 void rtw_cfg80211_rx_probe_request(_adapter *padapter, union recv_frame *rframe);
 
 void rtw_cfg80211_external_auth_request(_adapter *padapter, union recv_frame *rframe);
@@ -467,7 +471,10 @@ void rtw_cfg80211_deinit_rfkill(struct wiphy *wiphy);
 #endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0))
-u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chdef, u8 ht, bool started);
+u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter,
+					struct _ADAPTER_LINK *alink,
+					struct rtw_chan_def *rtw_chdef,
+					u8 ht, bool started);
 #endif
 
 #if CONFIG_IEEE80211_BAND_6GHZ

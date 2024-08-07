@@ -20,7 +20,7 @@
 #include "../type.h"
 
 #define MAC_AX_GPIO_MIN 0
-#define RTW_MAC_GPIO_MAX 17
+#define RTW_MAC_GPIO_MAX 21
 
 /**
  * @enum pinmux_name

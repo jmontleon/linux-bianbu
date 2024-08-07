@@ -86,7 +86,23 @@ static __inline char *_os_strchr(const char *s, int c)
 			return NULL;
 	return (char *)s;
 }
+
+static __inline int _os_va_start(_os_va_list args, const char *format)
+{
+	return 0;
+}
+
+static __inline int _os_va_end(_os_va_list args)
+{
+	return 0;
+}
+
 static __inline int _os_snprintf(char *str, size_t size, const char *format, ...)
+{
+	return 0;
+}
+
+static __inline int _os_vsnprintf(char *str, size_t size, const char *format, _os_va_list args)
 {
 	return 0;
 }

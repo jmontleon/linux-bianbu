@@ -262,6 +262,27 @@ static enum rtw_phl_status phl_mp_rx_set_gain_offset(
 	return RTW_PHL_STATUS_SUCCESS;
 }
 
+static enum rtw_phl_status
+phl_mp_rx_set_rx_fltr(struct mp_context *mp, struct mp_rx_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+
+	/* Set rx fltr */
+	hal_status = rtw_hal_mp_rx_set_rx_fltr(mp,arg);
+
+	/* Record the result */
+	arg->cmd_ok = true;
+	arg->status = hal_status;
+
+	/* Transfer to report */
+	mp->rpt = arg;
+	mp->rpt_len = sizeof(struct mp_config_arg);
+	mp->buf = NULL;
+	mp->buf_len = 0;
+
+	return RTW_PHL_STATUS_SUCCESS;
+}
+
 enum rtw_phl_status mp_rx(struct mp_context *mp, struct mp_rx_arg *arg)
 {
 	enum rtw_phl_status phl_status = RTW_PHL_STATUS_FAILURE;
@@ -314,6 +335,10 @@ enum rtw_phl_status mp_rx(struct mp_context *mp, struct mp_rx_arg *arg)
 	case MP_RX_CMD_GET_RSSI_EX:
 		PHL_INFO("%s: CMD = MP_RX_CMD_GET_RSSI\n", __FUNCTION__);
 		phl_status = phl_mp_rx_get_rssi_ex(mp, arg);
+		break;
+	case MP_RX_CMD_SET_RX_FLTR:
+		PHL_INFO("%s: CMD = MP_RX_CMD_SET_RX_FLTR\n", __FUNCTION__);
+		phl_status = phl_mp_rx_set_rx_fltr(mp, arg);
 		break;
 	default:
 		PHL_WARN("%s: CMD NOT RECOGNIZED\n", __FUNCTION__);

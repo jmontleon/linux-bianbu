@@ -240,3 +240,31 @@ void phl_fun_monitor_end(u32 *start_t, const char *caller)
 		caller, phl_get_passing_time_us(*start_t));
 }
 #endif /* DBG_MONITOR_TIME */
+
+enum rtw_ac phl_tid_to_ac(u8 tid)
+{
+	enum rtw_ac ac = RTW_AC_MAX;
+
+	switch (tid) {
+	case 0:
+	case 3:
+		ac = RTW_AC_BE;
+		break;
+	case 1:
+	case 2:
+		ac = RTW_AC_BK;
+		break;
+	case 4:
+	case 5:
+		ac = RTW_AC_VI;
+		break;
+	case 6:
+	case 7:
+		ac = RTW_AC_VO;
+		break;
+	default:
+		PHL_WARN("%s: Invalid TID %d\n", __func__, tid);
+		break;
+	}
+	return ac;
+}

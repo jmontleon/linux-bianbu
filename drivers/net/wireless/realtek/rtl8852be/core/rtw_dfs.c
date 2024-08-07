@@ -1236,8 +1236,10 @@ apply:
 					return;
 				}
 
-				if (0) {
-					/* TODO: do CSA if supported */
+				if (rtw_hal_is_csa_support(m_iface) && !rtw_mr_is_ecsa_running(m_iface)) {
+					if (!rtw_hal_dfs_trigger_csa(m_iface, CSA_STA_DISCONNECT_ON_DFS,
+											band_idx, u_ch, u_bw, u_offset))
+						RTW_ERR(FUNC_HWBAND_FMT" trigger ECSA fail", FUNC_HWBAND_ARG(band_idx));
 				} else {
 					rtw_change_bss_bchbw_cmd(m_iface, RTW_CMDF_DIRECTLY
 						, ifbmp_m, ifbmp_s, REQ_BAND_NONE, REQ_CH_NONE, REQ_BW_ORI, REQ_OFFSET_NONE);

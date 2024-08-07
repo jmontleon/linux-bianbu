@@ -40,12 +40,12 @@
  * Work around Config
  */
 #define RTW_WKARD_DIS_PROBE_REQ_RPT_TO_HOSTAPD
+#define CONFIG_WKARD_ULMU
 
 #ifdef CONFIG_BTC
 #define RTK_WKARD_CORE_BTC_STBC_CAP
 #endif
 
-#define RTW_WKARD_LIMIT_MAX_TXAGG
 
 #define RTW_WKARD_PCI_DEVRM_DIS_INT
 
@@ -91,32 +91,59 @@
 #define CONFIG_RTW_REDUCE_MEM  /* Note: if CONFIG_RTW_REDUCE_MEM is not defined, MAX_PHL_RX_RING_ENTRY_NUM have no effect. */
 
 #ifdef CONFIG_RTW_REDUCE_MEM
+/* #define REDUCE_MEM_LV1 */ /* 4.8M */
+/* #define REDUCE_MEM_LV2 */ /* 4M */
+/* #define REDUCE_MEM_LV3 */ /* 7.5M */
 
+#ifdef REDUCE_MEM_LV1
+#undef CORE_RXBUF_NUM
+#define CORE_RXBUF_NUM 448
+#define CORE_RXBUF_SIZE 4096
+#define MAX_ASMDU_LEN 0
+#define NR_XMITFRAME            64
+#define MAX_TX_RING_NUM         64
+#elif defined (REDUCE_MEM_LV2)
+#undef CORE_RXBUF_NUM
+#define CORE_RXBUF_NUM 480
+#define CORE_RXBUF_SIZE 4096
+#define MAX_ASMDU_LEN 0
+#define NR_XMITFRAME            64
+#define MAX_TX_RING_NUM         64
+#undef CONFIG_TX_WD_NUM
+#define CONFIG_TX_WD_NUM	64
+#elif defined (REDUCE_MEM_LV3)
+#undef CORE_RXBUF_NUM
+#define CORE_RXBUF_NUM 576
 #define CORE_RXBUF_SIZE 8192
+#define MAX_ASMDU_LEN 1
+#define NR_XMITFRAME            64
+#define MAX_TX_RING_NUM         64
+#else
 #ifdef PLAT_RXBUF_NUM
 #define CORE_RXBUF_NUM PLAT_RXBUF_NUM
 #else
 #define CORE_RXBUF_NUM 1024
 #endif
-#define CORE_RPBUF_SIZE 192 /* 192: up to 42 agg num */
-#define CORE_RPBD_NUM 64
-#define CORE_RPBUF_NUM (CORE_RPBD_NUM + 32)
+#define CORE_RXBUF_SIZE 8192
 #define MAX_ASMDU_LEN 1
 /* HT -   0: 3839, 1: 7935  octets - Maximum A-MSDU Length
  * VHT - 0: 3895, 1: 7991, 2:11454  octets - Maximum MPDU Length
  */
-
 #ifdef PLAT_NR_XMITFRAME
 #define NR_XMITFRAME		PLAT_NR_XMITFRAME
 #else
 #define NR_XMITFRAME		512
 #endif
-
 #ifdef PLAT_MAX_TX_RING_NUM
 #define MAX_TX_RING_NUM		PLAT_MAX_TX_RING_NUM
 #else
 #define MAX_TX_RING_NUM		512
 #endif
+#endif
+
+#define CORE_RPBUF_SIZE 192 /* 192: up to 42 agg num */
+#define CORE_RPBD_NUM 64
+#define CORE_RPBUF_NUM (CORE_RPBD_NUM + 32)
 
 #define RTW_MAX_FRAG_NUM	1
 
@@ -216,13 +243,24 @@
 
 #ifdef CONFIG_POWER_SAVE
 	/* #define CONFIG_RTW_IPS */
-	/* #define CONFIG_RTW_LPS */
+	#define CONFIG_RTW_LPS
 	#ifdef CONFIG_RTW_IPS
 		#define CONFIG_FWIPS
 	#endif
 	#if defined(CONFIG_RTW_IPS) || defined(CONFIG_RTW_LPS)
 		#define CONFIG_PS_FW_DBG
 	#endif
+	#ifdef CONFIG_WOWLAN
+		#define CONFIG_RTW_IPS_WOW
+		#ifdef CONFIG_RTW_IPS_WOW
+			#define CONFIG_FWIPS_WOW
+		#endif /* CONFIG_RTW_IPS_WOW */
+		#define CONFIG_RTW_LPS_WOW
+	#endif /* CONFIG_WOWLAN */
+	#ifdef CONFIG_RTW_LPS
+	#define CONFIG_RTW_LPS_DEFAULT_OFF
+	#endif
+	/* #define CONFIG_HW_RADIO_ONOFF_DETECT */
 #endif /* CONFIG_POWER_SAVE */
 
 #ifdef CONFIG_WOWLAN
@@ -232,6 +270,11 @@
 
 	/*#define CONFIG_ANTENNA_DIVERSITY*/
 
+#ifdef CONFIG_GPIO_WAKEUP
+	#ifndef WAKEUP_GPIO_IDX
+		#define WAKEUP_GPIO_IDX	12	/* WIFI Chip Side */
+	#endif /*!WAKEUP_GPIO_IDX*/
+#endif /* CONFIG_GPIO_WAKEUP */
 
 /*#define CONFIG_PCI_ASPM*/
 #ifdef CONFIG_PCI_ASPM
@@ -275,7 +318,12 @@
 	#define CONFIG_TDLS_AUTOSETUP
 #endif
 	#define CONFIG_TDLS_AUTOCHECKALIVE
-	/* #define CONFIG_TDLS_CH_SW */ /* Not support yet */
+	/*
+	 * Enable "CONFIG_TDLS_CH_SW" by default,
+	 * however limit it to only work in wifi logo test mode
+	 * but not in normal mode currently
+	 */
+	#define CONFIG_TDLS_CH_SW
 #endif
 
 #define CONFIG_SKB_COPY	/* for amsdu */
@@ -305,16 +353,17 @@
  */
 #define CONFIG_SCAN_BACKOP_STA
 
-
-/*
- * Hareware/Firmware Related Config
- */
-#define CONFIG_TCP_CSUM_OFFLOAD_RX
+/* #define CONFIG_RTW_CSI_CHANNEL_INFO */
+#ifdef CONFIG_RTW_CSI_CHANNEL_INFO
+#define CONFIG_RTW_CSI_NETLINK
+#define CONFIG_CSI_TIMER_POLLING
+#endif
 
 /*
  * Interface  Related Config
  */
 /* #define CONFIG_RTW_FORCE_PCI_MSI_DISABLE */
+/* #define CONFIG_64BIT_DMA */
 
 /*
  * HAL  Related Config
@@ -475,11 +524,11 @@
 	/*#define CONFIG_RTW_RX_HDL_USE_WQ*/    /* RX Handler Workqueue */
 	/*#define CONFIG_RTW_EVENT_HDL_USE_WQ*/ /* EVENT Handler Workqueue */
 
-	/*#define CONFIG_CPU_SPECIFIC*/
+	#define CONFIG_CPU_SPECIFIC
 	#ifdef CONFIG_CPU_SPECIFIC /* Specific CPU */
 		#define CPU_ID_TX_HDL 1    /* bound to CPU1 */
 		#define CPU_ID_TX_AMSDU 3  /* bound to CPU3 */
-		#define CPU_ID_RX_HDL 0    /* bound to CPU0 */
+		#define CPU_ID_RX_HDL 4    /* bound to CPU0 */
 		#define CPU_ID_EVENT_HDL 2 /* bound to CPU2 */
 	#else /* not bound to any CPU, prefer the local CPU */
 		#define CPU_ID_TX_HDL WORK_CPU_UNBOUND

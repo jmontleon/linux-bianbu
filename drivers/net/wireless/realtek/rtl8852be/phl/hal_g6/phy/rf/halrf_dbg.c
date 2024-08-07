@@ -177,6 +177,10 @@ void halrf_support_ability(struct rf_info *rf, char input[][16], u32 *_used,
 			 "23. (( %s ))HAL_RF_RXDCK_TRACK\n",
 			 ((rf->support_ability & HAL_RF_RXDCK_TRACK) ? ("V") :
 			 (".")));
+		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+			 "31. (( %s ))HAL_RF_WATCHDOG\n",
+			 ((rf->support_ability & HAL_RF_WATCHDOG) ? ("V") :
+			 (".")));
 	} else {
 		if (value[1] == 1) /* enable */
 			rf->support_ability |= BIT(value[0]);
@@ -331,6 +335,12 @@ void _halrf_dpk_info(struct rf_info *rf, char input[][16], u32 *_used,
 	case CHIP_WIFI6_8852B:
 		ic_name = "8852B";
 		dpk_ver = DPK_VER_8852B;
+		break;
+#endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		ic_name = "8852BT";
+		dpk_ver = DPK_VER_8852BT;
 		break;
 #endif
 #ifdef RF_8852C_SUPPORT
@@ -721,6 +731,12 @@ void halrf_rx_dck_info(struct rf_info *rf, char input[][16], u32 *_used,
 		rxdck_ver = RXDCK_VER_8852B;
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		ic_name = "8852BT";
+		rxdck_ver = RXDCK_VER_8852BT;
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		ic_name = "8852C";
@@ -911,7 +927,7 @@ void halrf_rx_dck_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 	*_out_len = out_len;
 }
 
-void halrf_dack_info(struct rf_info *rf, char input[][16], u32 *_used,
+void halrf_dack_dbg_info(struct rf_info *rf, char input[][16], u32 *_used,
 			 char *output, u32 *_out_len)
 {
 	struct rtw_hal_com_t *hal_i = rf->hal_com;
@@ -1028,7 +1044,7 @@ void halrf_dack_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			 "DPK is Disabled!!\n");
 		halrf_dack_onoff(rf, false);
 	} else if (_os_strcmp(input[1], cmd[3]) == 0) {
-		halrf_dack_info(rf, input, &used, output, &out_len);
+		halrf_dack_dbg_info(rf, input, &used, output, &out_len);
 	} else if (_os_strcmp(input[1], cmd[4]) == 0){
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
 				 " DACKTrigger start!!\n");
@@ -1068,6 +1084,7 @@ void _halrf_tssi_info(struct rf_info *rf, char input[][16], u32 *_used,
 		tssi_ver = TSSI_VER_8852A;
 		break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		ic_name = "8852B";
@@ -1075,10 +1092,24 @@ void _halrf_tssi_info(struct rf_info *rf, char input[][16], u32 *_used,
 		break;
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		ic_name = "8852BT";
+		tssi_ver = TSSI_VER_8852BT;
+		break;
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		ic_name = "8852C";
 		tssi_ver = TSSI_VER_8852C;
+		break;
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	case CHIP_WIFI6_8852D:
+		ic_name = "8852D";
+		tssi_ver = TSSI_VER_8852D;
 		break;
 #endif
 
@@ -1099,6 +1130,12 @@ void _halrf_tssi_info(struct rf_info *rf, char input[][16], u32 *_used,
 	case CHIP_WIFI6_8852BP:
 		ic_name = "8852BP";
 		tssi_ver = TSSI_VER_8852BP;
+		break;
+#endif
+#ifdef RF_8851B_SUPPORT
+	case CHIP_WIFI6_8851B:
+		ic_name = "8851B";
+		tssi_ver = TSSI_VER_8851B;
 		break;
 #endif
 
@@ -1162,17 +1199,19 @@ void _halrf_tssi_info(struct rf_info *rf, char input[][16], u32 *_used,
 		 tssi_info->curr_tssi_efuse_cck_de[RF_PATH_B],
 		 tssi_info->curr_tssi_trim_de[RF_PATH_B]);
 
-	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s : DE(%d) = EFUSE(%d) + Trim(%d)\n",
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s : DE(%d) = EFUSE(%d) + Trim(%d) + ADCWA(%d)\n",
 		 "TSSI DE OFDM A",
 		 tssi_info->curr_tssi_ofdm_de[RF_PATH_A],
 		 tssi_info->curr_tssi_efuse_ofdm_de[RF_PATH_A],
-		 tssi_info->curr_tssi_trim_de[RF_PATH_A]);
+		 tssi_info->curr_tssi_trim_de[RF_PATH_A],
+		 tssi_info->tssi_de_160m_adc_wa_40m);
 
-	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s : DE(%d) = EFUSE(%d) + Trim(%d)\n",
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s : DE(%d) = EFUSE(%d) + Trim(%d) + ADCWA(%d)\n",
 		 "TSSI DE OFDM B",
 		 tssi_info->curr_tssi_ofdm_de[RF_PATH_B],
 		 tssi_info->curr_tssi_efuse_ofdm_de[RF_PATH_B],
-		 tssi_info->curr_tssi_trim_de[RF_PATH_B]);
+		 tssi_info->curr_tssi_trim_de[RF_PATH_B],
+		 tssi_info->tssi_de_160m_adc_wa_40m);
 
 	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = 0x%x / 0x%x\n",
 		 "Slope CCK Gain Diff A/B",
@@ -1306,6 +1345,11 @@ static void _halrf_iqk_info(struct rf_info *rf, char input[][16], u32 *_used,
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		ic_name = "8852B";
+		break;
+#endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		ic_name = "8852BT";
 		break;
 #endif
 #ifdef RF_8852C_SUPPORT
@@ -1531,17 +1575,19 @@ void halrf_pwr_table_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			 char *output, u32 *_out_len)
 {
 	struct halrf_pwr_info *pwr = &rf->pwr_info;
-	char *cmd[14] = {"-h", "rate", "limit", "limit_ru", "set_all",
+	char *cmd[17] = {"-h", "rate", "limit", "limit_ru", "set_default",
 			"set", "txshape", "constraint", "coex", "force_reg",
-			"rate_pwr_ctl", "pwr_lmt_6g", "antgain", "ant"};
+			"rate_pwr_ctl", "pwr_lmt_6g", "antgain", "ant", "max_rate_pwr",
+			"add_rate_pwr", "dpk_by_rate"};
 	u32 used = *_used;
 	u32 out_len = *_out_len;
 	u32 val = 0;
 	u32 tmp, tmp1, phy = HW_PHY_0;
 	u8 i;
+	s32 stmp;
 
 	if (_os_strcmp(input[1], cmd[0]) == 0) {
-		for (i = 1; i < 14; i++)
+		for (i = 1; i < 17; i++)
 			RF_DBG_CNSL(out_len, used, output + used, out_len - used,
 				 "  %s\n", cmd[i]);
 	} else if (_os_strcmp(input[1], cmd[1]) == 0) {
@@ -1571,6 +1617,15 @@ void halrf_pwr_table_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 
 		pwr->fix_power[RF_PATH_B] = false;
 		pwr->fix_power_dbm[RF_PATH_B] = 0;
+
+		pwr->max_tx_rate_power_en = false;
+		pwr->max_tx_rate_power[HW_PHY_0] = 0x0;
+		pwr->max_tx_rate_power[HW_PHY_1] = 0x0;
+
+		pwr->pwr_by_rate_bw_oft_en = false;
+		pwr->pwr_by_rate_bw_oft[0] = 0x0;
+		pwr->pwr_by_rate_bw_oft[1] = 0x0;
+		pwr->pwr_by_rate_bw_oft[2] = 0x0;
 
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "Reset Power by Rate, Power limit and Power Limit RU to Default\n");
@@ -1663,7 +1718,7 @@ void halrf_pwr_table_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 
 			for (i = 0; i < pwr->reg_6g_len; i++) {
 				RF_DBG_CNSL(out_len, used, output + used, out_len - used,
-					" %-30s = %s\n", "Set Force Reg 6G", pw_lmt_regu_type_str(pwr->reg_array_6g[i]));
+					" %-30s = %s\n", "Set Force Reg 6G", pw_lmt_regu_type_str_6g(pwr->reg_array_6g[i]));
 			}
 		} else if (_os_strcmp(input[2], subcmd[2]) == 0) {
 			_os_sscanf(input[3], "%d", &enable);
@@ -1677,6 +1732,7 @@ void halrf_pwr_table_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			reg[1] = (u8)tmp;
 			_os_sscanf(input[9], "%d", &tmp);
 			reg[2] = (u8)tmp;
+			/* TODO: reg is for all band? 6G is differ now... */
 
 			halrf_force_regulation(rf, (bool)enable,
 				reg, (u8)reg_2g_len,
@@ -1742,13 +1798,15 @@ void halrf_pwr_table_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
 			"Set Dynamic Ant Gain Control reg=%d  2g=%d  5g=%d  6g=%d\n",
 			regu, ag_2g, ag_5g, ag_6g);
+		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+			"reg=%d is PHL define, not halrf define !!!\n", regu);
 	} else if (_os_strcmp(input[1], cmd[13]) == 0) {
 		struct halrf_pwr_info *pwr = &rf->pwr_info;
 		struct rtw_tpu_info *tpu = &rf->hal_com->band[HW_PHY_0].rtw_tpu_i;
 		struct rtw_phl_ext_pwr_lmt_info *ext_pwr_info = &rf->hal_com->band[HW_PHY_0].rtw_tpu_i.ext_pwr_lmt_i;
 		u32 ext_pwr_lmt_en, ant_type;
 		u32 ant1, ant2, ext1, ext2;
-			
+
 		_os_sscanf(input[2], "%d", &ext_pwr_lmt_en);
 		_os_sscanf(input[3], "%d", &ant_type);
 		_os_sscanf(input[4], "%d", &ant1);
@@ -1792,7 +1850,47 @@ void halrf_pwr_table_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			tpu->ext_pwr_lmt_en, pwr->ant_type,
 			ext_pwr_info->ext_pwr_lmt_ant_2_4g[0], ext_pwr_info->ext_pwr_lmt_ant_2_4g[1],
 			ext_pwr_info->ext_pwr_lmt_2_4g[0], ext_pwr_info->ext_pwr_lmt_2_4g[1]);
-	} else
+	} else if (_os_strcmp(input[1], cmd[14]) == 0) {
+		_os_sscanf(input[2], "%d", &stmp);
+		
+		pwr->max_tx_rate_power[HW_PHY_0] = (s8)stmp;
+
+		pwr->max_tx_rate_power_en = true;
+
+		halrf_set_power(rf, HW_PHY_0, PWR_BY_RATE);
+
+		if (rf->hal_com->dbcc_en) {
+			pwr->max_tx_rate_power[HW_PHY_1] = (s8)stmp;
+			halrf_set_power(rf, HW_PHY_1, PWR_BY_RATE);
+		}
+
+		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+			" Set MAX TX Rate power = %s%d.%d\n",
+			halrf_pwr_is_minus(rf, (u32)stmp) ? "-" : "",
+			halrf_show_pwr_table(rf, (u32)stmp) / 10,
+			halrf_show_pwr_table(rf, (u32)stmp) % 10);
+	} else if (_os_strcmp(input[1], cmd[15]) == 0) {
+		_os_sscanf(input[2], "%d", &tmp);
+		
+		halrf_set_bw_power_by_rate_offset(rf, tmp);
+
+		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+			" Set Add TX Rate power = 0x%x\n", tmp);
+	} else if (_os_strcmp(input[1], cmd[16]) == 0) {
+		u32 vector_index, rate_index;
+		bool dpk_by_rate_on_off;
+		_os_sscanf(input[2], "%d", &vector_index);
+		_os_sscanf(input[3], "%d", &rate_index);
+		_os_sscanf(input[4], "%d", &phy);
+
+		dpk_by_rate_on_off = halrf_get_dpk_by_rate(rf, phy, vector_index, rate_index);
+
+		halrf_set_dpk_by_rate(rf, phy, vector_index, rate_index);
+
+		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+			"vector_index=%d   rate_index=%d   ======> dpk_by_rate_off = %d\n",
+			vector_index, rate_index, dpk_by_rate_on_off);
+	}  else
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used,
 				 " No CMD find!!\n");
 
@@ -1899,10 +1997,20 @@ void _halrf_gapk_info(struct rf_info *rf, char input[][16], u32 *_used,
 		rfk_init_ver = halrf_get_nctl_reg_ver(rf);
 		break;
 #endif
+
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		ic_name = "8852B";
 		txgapk_ver = TXGAPK_VER_8852B;
+		rf_para = halrf_get_radio_reg_ver(rf);
+		rfk_init_ver = halrf_get_nctl_reg_ver(rf);
+		break;
+#endif
+
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		ic_name = "8852BT";
+		txgapk_ver = TXGAPK_VER_8852BT;
 		rf_para = halrf_get_radio_reg_ver(rf);
 		rfk_init_ver = halrf_get_nctl_reg_ver(rf);
 		break;
@@ -2008,8 +2116,8 @@ void _halrf_gapk_info(struct rf_info *rf, char input[][16], u32 *_used,
 	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = %s\n",
 		 "TXGapK OK(last)", (txgapk_info->is_txgapk_ok) ? "TRUE" : "FALSE");
 
-	#if defined(RF_8852B_SUPPORT) || defined(RF_8852BP_SUPPORT)
-	if ((hal_i->chip_id == CHIP_WIFI6_8852B) || (hal_i->chip_id == CHIP_WIFI6_8852BP)) {
+	#if defined(RF_8852B_SUPPORT) || defined(RF_8852BT_SUPPORT) || defined(RF_8852BP_SUPPORT)
+	if ((hal_i->chip_id == CHIP_WIFI6_8852B) || (hal_i->chip_id == CHIP_WIFI6_8852BT) || (hal_i->chip_id == CHIP_WIFI6_8852BP)) {
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = %s\n",
 			"TXGapK d boundary check", (txgapk_info->d_bnd_ok) ? "PASS" : "FAILE");
 	}
@@ -2290,7 +2398,7 @@ void halrf_chl_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 		if (!(rf->support_ability & HAL_RF_DACK))
 			RF_DBG_CNSL(out_len, used, output + used, out_len - used, "DACK is Unsupported!!!\n");
 		else	
-			halrf_dack_info(rf, input, &used, output, &out_len);
+			halrf_dack_dbg_info(rf, input, &used, output, &out_len);
 		//IQK
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used,"\n------->\n[[IQK]] ====>\n");
 		if (!(rf->support_ability & HAL_RF_IQK))
@@ -2401,6 +2509,16 @@ void halrf_chl_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			dpk_ver = DPK_VER_8852B;
 			break;
 	#endif
+	#ifdef RF_8852BT_SUPPORT
+		case RF_RTL8852BT:
+			ic_name = "RF_RTL8852BT";
+			dack_ver = DACK_VER_8852BT;
+			rxdck_ver =  RXDCK_VER_8852BT;
+			txgapk_ver = TXGAPK_VER_8852BT;
+			tssi_ver = TSSI_VER_8852BT;
+			dpk_ver = DPK_VER_8852BT;
+			break;
+	#endif
 	#ifdef RF_8852C_SUPPORT
 		case RF_RTL8852C:
 			ic_name = "RF_RTL8852C";
@@ -2409,6 +2527,16 @@ void halrf_chl_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			txgapk_ver = TXGAPK_VER_8852C;
 			tssi_ver = TSSI_VER_8852C;
 			dpk_ver = DPK_VER_8852C;
+			break;
+	#endif
+	#ifdef RF_8852D_SUPPORT
+		case RF_RTL8852D:
+			ic_name = "RF_RTL8852D";
+			dack_ver = DACK_VER_8852D;
+			rxdck_ver =  RXDCK_VER_8852D;
+			txgapk_ver = TXGAPK_VER_8852D;
+			tssi_ver = TSSI_VER_8852D;
+			dpk_ver = DPK_VER_8852D;
 			break;
 	#endif
 	#ifdef RF_8832BR_SUPPORT
@@ -2459,6 +2587,16 @@ void halrf_chl_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			txgapk_ver = TXGAPK_VER_8832BRVT;
 			tssi_ver = TSSI_VER_8832BRVT;
 			dpk_ver = DPK_VER_8832BRVT;
+			break;
+	#endif
+	#ifdef RF_8851B_SUPPORT
+		case RF_RTL8851B:
+			ic_name = "RF_RTL8851B";
+			dack_ver = DACK_VER_8851B;
+			rxdck_ver =  RXDCK_VER_8851B;
+			txgapk_ver = TXGAPK_VER_8851B;
+			tssi_ver = TSSI_VER_8851B;
+			dpk_ver = DPK_VER_8851B;
 			break;
 	#endif
 
@@ -2608,12 +2746,15 @@ void halrf_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 void halrf_psd_cmd(struct rf_info *rf, char input[][16], u32 *_used, 
 			 char *output, u32 *_out_len)
 {
-	char *cmd[2] = {"-h", "get"};
-	u32 phy = 0, path = 0, gain = 0x1BF, iq_path = 0, avg = 32, fft = 1280, freq_dif, val;
-	u8 i;
+	struct halrf_psd_data *psd_info = &rf->psd;
+	char *cmd[3] = {"-h", "get", "get_all"};
+	u32 phy = 0, path = 0, gain = 0x1BF, iq_path = 0, avg = 32, fft = 1280, freq_dif = 0, val, i;
+	u32 rf0_tmp, psd_result_db;
+	u8 bw = rf->hal_com->band[phy].cur_chandef.bw;
+	u8 channel = rf->hal_com->band[phy].cur_chandef.center_ch;
 
 	if (_os_strcmp(input[1], cmd[0]) == 0) {
-		for (i = 1; i < 2; i++)
+		for (i = 1; i < 3; i++)
 			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				 "  %s\n", cmd[i]);
 	} else if (_os_strcmp(input[1], cmd[1]) == 0) {
@@ -2631,8 +2772,9 @@ void halrf_psd_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			
 			// init
 			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-				 " PSD init with path=%d, gain=0x%x, iq_path=%d, avg=%d, fft=%d, phy=%d\n", 
-				 	path, gain, iq_path, avg, fft, phy);
+				 " PSD init with path=%d, freq_dif=%d, gain=0x%x, iq_path=%d, avg=%d, fft=%d, phy=%d\n", 
+				 	path, freq_dif, gain, iq_path, avg, fft, phy);
+			rf0_tmp = halrf_rrf(rf, path, 0x0, 0xfffff);
 			halrf_psd_init(rf, phy, (u8)path, (u8)iq_path, avg, fft);
 			halrf_wrf(rf, path, 0x0, 0x07FE0, gain);
 
@@ -2640,12 +2782,244 @@ void halrf_psd_cmd(struct rf_info *rf, char input[][16], u32 *_used,
 			val = halrf_psd_get_point_data(rf, phy, freq_dif * fft / 160);
 			val = 1000 * phlrf_psd_log2base(rf, val) / 332; // 332 = 100 * log2 10
 			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-				 " PSD is %d.%02d dB at frequency %d MHz \n", val / 100, val % 100, freq_dif);
+				 " PSD is %d.%02d dB at center frequency %d MHz \n", val / 100, val % 100, freq_dif);
 
 			// restore
+			halrf_wrf(rf, path, 0x0, 0x07FE0, rf0_tmp);
 			halrf_psd_restore(rf, phy);
 			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				 " PSD restore\n");
+		}
+	} else if (_os_strcmp(input[1], cmd[2]) == 0) {
+		if (_os_strcmp(input[2], "-h") == 0)
+			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 " EX: echo rf psd get_all path(0\1)\n");
+		else {
+			// init
+			_os_sscanf(input[2], "%d", &path);
+
+			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 " PSD BW=%d, Chennel=%d\n", bw, channel);
+
+			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 " PSD init with path=%d, gain=0x%x, iq_path=%d, avg=%d, fft=%d, phy=%d\n", 
+				 	path, gain, iq_path, avg, fft, phy);
+
+			halrf_psd_init(rf, phy, (u8)path, (u8)iq_path, avg, fft);
+			rf0_tmp = halrf_rrf(rf, path, 0x0, 0xfffff);
+			halrf_wrf(rf, path, 0x0, 0x07FE0, gain);
+
+			//0x337E1
+			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 " PSD RF-%d 0x%x \n", path, halrf_rrf(rf, path, 0x0, 0xfffff));
+
+			// get psd
+			if (bw == CHANNEL_WIDTH_80) {
+				halrf_psd_query(rf, phy, 640, 320, 640, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+
+				halrf_psd_query(rf, phy, 640, 640, 960, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+			} else if (bw == CHANNEL_WIDTH_160) {
+				halrf_psd_query(rf, phy, 1280, 640, 960, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+
+				halrf_psd_query(rf, phy, 1280, 960, 1280, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+
+				halrf_psd_query(rf, phy, 1280, 1280, 1600, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+
+				halrf_psd_query(rf, phy, 1280, 1600, 1920, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+			} else {	 /*BW 20M, 40M*/ 
+				halrf_psd_query(rf, phy, 320, 160, 480, psd_info->psd_data);
+
+				for (i = 0; i < 320; i++) {
+					psd_result_db = 1000 * phlrf_psd_log2base(rf, psd_info->psd_data[i]) / 332; // 332 = 100 * log2 10
+
+					RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 		"%d.%02d\n", psd_result_db / 100, psd_result_db % 100);
+				}
+			}
+
+			// restore
+			halrf_wrf(rf, path, 0x0, 0x07FE0, rf0_tmp);
+			halrf_psd_restore(rf, phy);
+			RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 " PSD restore\n");
+		}
+	} else
+		RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				 " No CMD find!!\n");
+}
+
+void halrf_rt_rfk_info(struct rf_info *rf, char input[][16], u32 *_used,
+			 char *output, u32 *_out_len)
+{
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_rt_rpt *rpt = &rf->rf_rt_rpt;
+
+	u32 used = *_used;
+	u32 out_len = *_out_len;
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+		 "\n===============[real time RFK info]===============\n");
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x]\n",
+		 "S0 last CH",
+		 rpt->ch_info[0][0][0], rpt->ch_info[1][0][0], rpt->ch_info[2][0][0], rpt->ch_info[3][0][0],
+		rpt->ch_info[4][0][0], rpt->ch_info[5][0][0], rpt->ch_info[6][0][0], rpt->ch_info[7][0][0],
+		rpt->ch_info[8][0][0], rpt->ch_info[9][0][0]);
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x]\n",
+		 "S0 last CV",
+		rpt->ch_info[0][0][1], rpt->ch_info[1][0][1], rpt->ch_info[2][0][1], rpt->ch_info[3][0][1],
+		rpt->ch_info[4][0][1], rpt->ch_info[5][0][1], rpt->ch_info[6][0][1], rpt->ch_info[7][0][1],
+		rpt->ch_info[8][0][1], rpt->ch_info[9][0][1]);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x]\n",
+		 "S1 last CH",
+		rpt->ch_info[0][1][0], rpt->ch_info[1][1][0], rpt->ch_info[2][1][0], rpt->ch_info[3][1][0],
+		rpt->ch_info[4][1][0], rpt->ch_info[5][1][0], rpt->ch_info[6][1][0], rpt->ch_info[7][1][0],
+		rpt->ch_info[8][1][0], rpt->ch_info[9][1][0]
+		);
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x] [0x%03x]\n",
+		 "S1 last CV",
+		rpt->ch_info[0][1][1], rpt->ch_info[1][1][1], rpt->ch_info[2][1][1], rpt->ch_info[3][1][1],
+		rpt->ch_info[4][1][1], rpt->ch_info[5][1][1], rpt->ch_info[6][1][1], rpt->ch_info[7][1][1],
+		rpt->ch_info[8][1][1], rpt->ch_info[9][1][1]
+		);
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] \n",
+		 "S0 TSSI",
+		rpt->tssi_code[0][0], rpt->tssi_code[1][0], rpt->tssi_code[2][0], rpt->tssi_code[3][0],
+		rpt->tssi_code[4][0], rpt->tssi_code[5][0], rpt->tssi_code[6][0], rpt->tssi_code[7][0],
+		rpt->tssi_code[8][0], rpt->tssi_code[9][0]
+		);
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] [0x%x] \n",
+		 "S1 TSSI",
+		rpt->tssi_code[0][1], rpt->tssi_code[1][1], rpt->tssi_code[2][1], rpt->tssi_code[3][1],
+		rpt->tssi_code[4][1], rpt->tssi_code[5][1], rpt->tssi_code[6][1], rpt->tssi_code[7][1],
+		rpt->tssi_code[8][1], rpt->tssi_code[9][1]
+		);
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = %d / %d\n",
+		 "d-LCK/FW-LCK fail count", rpt->drv_lck_fail_count, rpt->fw_lck_fail_count);
+
+	*_used = used;
+	*_out_len = out_len;
+}
+
+void halrf_rfk_info(struct rf_info *rf, char input[][16], u32 *_used,
+			 char *output, u32 *_out_len)
+{
+	struct rtw_hal_com_t *hal_i = rf->hal_com;
+	struct halrf_rfk_dz_rpt *rpt = &rf->rfk_dz_rpt;
+
+	u32 used = *_used;
+	u32 out_len = *_out_len;
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+		 "\n===============[ALL RFK info]===============\n");
+
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "IQK_DZ_CODE", rpt->iqk_dz_code);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "DPK_DZ_CODE", rpt->dpk_dz_code);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "DACK_S0_DZ_CODE",rpt->dack_s0_dz_code);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "DACK_S1_DZ_CODE",rpt->dack_s1_dz_code);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "RXDCK_DZ_CODE",rpt->rxdck_dz_code);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "TXGAPK_DZ_CODE",rpt->txgapk_dz_code);
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-25s = [0x%x]\n",
+		 "TSSI_DZ_CODE",rpt->tssi_dz_code);
+
+	*_used = used;
+	*_out_len = out_len;
+}
+
+void halrf_dz_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used, 
+			 char *output, u32 *_out_len)
+{
+	u32 used = *_used;
+	u32 out_len = *_out_len;
+	char *cmd[3] = {"-h", "rtinfo", "rfkinfo"};
+	u8 i;
+
+	struct halrf_dack_info *dack = &rf->dack;
+	struct halrf_gapk_info *txgapk_info = &rf->gapk;
+	struct halrf_iqk_info *iqk_info = &rf->iqk;
+	struct halrf_tssi_info *tssi_info = &rf->tssi;
+	struct halrf_dpk_info *dpk = &rf->dpk;
+	struct halrf_rx_dck_info *rx_dck = &rf->rx_dck;
+
+	if (_os_strcmp(input[1], cmd[0]) == 0) {
+		for (i = 1; i < 3; i++)
+			RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+				 "  %s\n", cmd[i]);
+	} else if (_os_strcmp(input[1], cmd[1]) == 0) {
+		if (_os_strcmp(input[2], "-h") == 0)
+			RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+				 " EX: echo rf dz_dbg rtinfo\n");
+		else {
+			// halrf ex rt rfk info
+			halrf_ex_rt_rfk_info(rf);
+			halrf_rt_rfk_info(rf, input, &used, output, &out_len);
+			RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+				 " halrf ex rt rfk info\n");
+		}
+	} else if (_os_strcmp(input[1], cmd[2]) == 0) {
+		if (_os_strcmp(input[2], "-h") == 0)
+			RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+				 " EX: echo rf dz_dbg rfkinfo\n");
+		else {
+			RF_DBG_CNSL(out_len, used, output + used, out_len - used,
+				 " halrf ex rfk info\n");
+			// halrf ex rfk info
+			halrf_ex_rfk_info(rf);
+			halrf_rfk_info(rf, input, &used, output, &out_len);
+
 		}
 	}else
 		RF_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,

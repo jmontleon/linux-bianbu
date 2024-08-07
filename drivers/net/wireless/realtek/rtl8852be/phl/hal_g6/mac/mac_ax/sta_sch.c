@@ -206,6 +206,9 @@ static u32 wmm_vld_chk(struct mac_ax_adapter *adapter, u8 *vld, u8 wmm)
 	case MAC_AX_CHIP_ID_8852D:
 		wmm_num = STA_SCH_WMM_NUM_8852D;
 		break;
+	case MAC_AX_CHIP_ID_8852BT:
+		wmm_num = STA_SCH_WMM_NUM_8852BT;
+		break;
 	default:
 		return MACCHIPID;
 	}
@@ -243,6 +246,9 @@ static u32 ul_vld_chk(struct mac_ax_adapter *adapter, u8 *vld)
 		break;
 	case MAC_AX_CHIP_ID_8852D:
 		ul_support = STA_SCH_UL_SUPPORT_8852D;
+		break;
+	case MAC_AX_CHIP_ID_8852BT:
+		ul_support = STA_SCH_UL_SUPPORT_8852BT;
 		break;
 	default:
 		return MACCHIPID;

@@ -28,11 +28,33 @@
 #define WOW_GET_AOAC_RPT_C2H_CNT 1000
 #define WOW_GET_AOAC_RPT_C2H_DLY 100
 
+#define WOW_CPUIO_RX_CTRL_CNT 20
+#define WOW_CPUIO_RX_CTRL_DLY 1000
+
 #define WOW_STOPTRX_H2CREG_DW_SIZE 1 /* mapping to struct wow_stoptrx_h2creg */
 
 #define PROXY_MDNS_DUMP	0
+#define PROXY_SNMP_DUMP	1
 
 #define WOW_MAX_MACID 255
+
+#define WOW_POLL_DLY_US 50
+#define WOW_POLL_CNT 1000
+
+#define R_AX_DBG_WOW_REASON 0x815F
+#define R_AX_DBG_WOW_READY 0x815E
+#define MASK_DBG_WOW_READY 0xFF
+
+enum DBG_FW_WOW_CPU_IO_RX_STATE {
+	WOW_CPU_RX_DIS = 0,
+	WOW_CPU_RX_EN = 1
+};
+
+enum DBG_FW_WOWLAN_READY {
+	WOWLAN_NOT_READY = 0x00,
+	WOWLAN_SLEEP_READY = 0x01,
+	WOWLAN_RESUME_READY = 0x02
+};
 
 /**
  * @struct keep_alive
@@ -538,17 +560,6 @@ u32 mac_cfg_keep_alive(struct mac_ax_adapter *adapter,
  */
 
 /**
- * @brief get_wake_reason
- *
- * @param *adapter
- * @param *wowlan_wake_reason
- * @return Please Place Description here.
- * @retval u32
- */
-
-u32 get_wake_reason(struct mac_ax_adapter *adapter,
-		    u8 *wowlan_wake_reason);
-/**
  * @}
  */
 
@@ -723,6 +734,20 @@ u32 mac_cfg_wowcam_upd(struct mac_ax_adapter *adapter,
 
 u32 mac_get_wow_wake_rsn(struct mac_ax_adapter *adapter, u8 *wake_rsn,
 			 u8 *reset);
+
+/**
+ * @brief mac_cfg_fw_cpuio_rx
+ *
+ * @param *adapter
+ * @param sleep
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_cfg_fw_cpuio_rx(struct mac_ax_adapter *adapter, u8 sleep);
+
+/**
+ * @}
+ */
 
 /**
  * @addtogroup WakeOnWlan
@@ -927,6 +952,24 @@ u32 mac_proxy_mdns(struct mac_ax_adapter *adapter, struct rtw_hal_mac_proxy_mdns
  */
 u32 mac_proxy_ptcl_pattern(struct mac_ax_adapter *adapter,
 			   struct rtw_hal_mac_proxy_ptcl_pattern *cfg);
+/**
+ * @}
+ */
+
+/**
+ * @addtogroup WakeOnWlan
+ * @{
+ */
+
+/**
+ * @brief mac_proxy_snmp
+ *
+ * @param *adapter
+ * @param *cfg
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_proxy_snmp(struct mac_ax_adapter *adapter, struct rtw_hal_mac_proxy_snmp *cfg);
 /**
  * @}
  */

@@ -69,20 +69,6 @@
 #define EF_CV_OFSET 0x4
 #define EF_CV_MSK 0xF
 
-extern struct mac_bank_efuse_info bank_efuse_info;
-extern enum rtw_dv_sel dv_sel;
-
-/**
- * @struct mac_efuse_tbl
- * @brief mac_efuse_tbl
- *
- * @var mac_efuse_tbl::lock
- * Please Place Description here.
- */
-struct mac_efuse_tbl {
-	mac_ax_mutex lock;
-};
-
 /**
  * @struct mac_efuse_hidden_h2creg
  * @brief mac_efuse_hidden_h2creg
@@ -189,38 +175,6 @@ struct efuse_info {
 enum mac_checksum_offset {
 	chksum_offset_1 = 0x1AC,
 	chksum_offset_2 = 0x1AD,
-};
-
-/**
- * @struct mac_bank_efuse_info
- * @brief mac_bank_efuse_info
- *
- * @var mac_bank_efuse_info::phy_map
- * Please Place Description here.
- * @var mac_bank_efuse_info::log_map
- * Please Place Description here.
- * @var mac_bank_efuse_info::phy_map_valid
- * Please Place Description here.
- * @var mac_bank_efuse_info::log_map_valid
- * Please Place Description here.
- * @var mac_bank_efuse_info::efuse_end
- * Please Place Description here.
- * @var mac_bank_efuse_info::phy_map_size
- * Please Place Description here.
- * @var mac_bank_efuse_info::log_map_size
- * Please Place Description here.
- */
-struct mac_bank_efuse_info {
-	/* efuse_param */
-	u8 **phy_map;
-	u8 **log_map;
-	u8 *phy_map_valid;
-	u8 *log_map_valid;
-	u32 *efuse_end;
-	/* hw_info */
-	u32 *phy_map_size;
-	u32 *log_map_size;
-	u32 *efuse_start;
 };
 
 /**
@@ -1085,13 +1039,13 @@ void cfg_efuse_auto_ck(struct mac_ax_adapter *adapter, u8 enable);
  */
 
 /**
- * @brief efuse_tbl_init
+ * @brief efuse_info_init
  *
  * @param *adapter
  * @return Please Place Description here.
  * @retval u32
  */
-u32 efuse_tbl_init(struct mac_ax_adapter *adapter);
+u32 efuse_info_init(struct mac_ax_adapter *adapter);
 /**
  * @}
  */
@@ -1102,13 +1056,13 @@ u32 efuse_tbl_init(struct mac_ax_adapter *adapter);
  */
 
 /**
- * @brief efuse_tbl_exit
+ * @brief efuse_info_exit
  *
  * @param *adapter
  * @return Please Place Description here.
  * @retval u32
  */
-u32 efuse_tbl_exit(struct mac_ax_adapter *adapter);
+u32 efuse_info_exit(struct mac_ax_adapter *adapter);
 /**
  * @}
  */

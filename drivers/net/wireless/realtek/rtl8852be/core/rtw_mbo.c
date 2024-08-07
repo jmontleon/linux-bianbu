@@ -131,13 +131,18 @@ void rtw_mbo_ie_handler(_adapter *padapter, struct mbo_priv *mbopriv, const u8 *
 	uint total_len = 0;
 	u8 attribute_id = 0;
 	u8 attribute_len = 0;
+	u8 mbo_hdr_len = 6;
 	const u8 *p = pbuf;
 
 	if(!mbopriv)
 		return;
+	if (limit_len  > MBO_OCE_ELEMENT_MAX_LEN - mbo_hdr_len) {
+		RTW_ERR("[%s] mbo_oce_element array migh be overrun\n", __func__);
+		return ;
+	}
 
 	rtw_mbo_ie_init(padapter, mbopriv);
-	_rtw_memcpy(mbopriv->mbo_oce_element + 6, pbuf, limit_len);
+	_rtw_memcpy(mbopriv->mbo_oce_element + mbo_hdr_len, pbuf, limit_len);
 	mbopriv->mbo_oce_element[1] = limit_len + 4;
 
 	while (total_len <= limit_len) {
@@ -235,7 +240,7 @@ static u8 *rtw_mbo_attrs_get(u8 *pie,
 	u8 *p = NULL;
 	u32 offset, plen = 0;
 
-	if ((pie == NULL) || (limit <= 1))
+	if ((pie == NULL) || (limit > MAX_IE_SZ))
 		goto exit;
 
 	if ((p = rtw_mbo_ie_get(pie, &plen, limit)) == NULL)
@@ -647,11 +652,11 @@ void rtw_mbo_build_extended_cap(
 
 static void rtw_mbo_non_pref_chans_dump(struct npref_ch* pch)
 {
-	int i;
-	u8 buf[128] = {0};
+	int i, len = 0;
+	u8 buf[256] = {0}; /* max 60ch x 4byte */
 
 	for (i=0; i < pch->nm_of_ch; i++)
-		rtw_sprintf(buf, 128, "%s,%d", buf, pch->chs[i]);
+		len += rtw_sprintf(buf + strlen(buf), sizeof(buf) - len, "%d ", pch->chs[i]);
 
 	RTW_MBO_INFO("%s : op_class=%01x, ch=%s, preference=%d, reason=%d\n",
 		__func__, pch->op_class, buf, pch->preference, pch->reason);
@@ -834,8 +839,8 @@ int rtw_mbo_proc_non_pref_chans_get(
 	struct rf_ctl_t *prfctl = adapter_to_rfctl(padapter);
 	struct npref_ch_rtp *prpt = &(prfctl->ch_rtp);
 	struct npref_ch* pch;
-	int i,j;
-	u8 buf[32] = {0};
+	int i,j,len;
+	u8 buf[256] = {0};
 
 	RTW_PRINT_SEL(m, "op_class                     ch    preference    reason \n");
 	RTW_PRINT_SEL(m, "=======================================================\n");
@@ -846,14 +851,11 @@ int rtw_mbo_proc_non_pref_chans_get(
 	}
 
 	for (i=0; i < prpt->nm_of_rpt; i++) {
+		len = 0;
+		_rtw_memset(buf, 0, sizeof(buf));
 		pch = &prpt->ch_rpt[i];
-		buf[0]='\0';
-		for (j=0; j < pch->nm_of_ch; j++) {
-			if (j == 0)
-				rtw_sprintf(buf, 32, "%02u", pch->chs[j]);
-			else
-				rtw_sprintf(buf, 32, "%s,%02u", buf, pch->chs[j]);
-		}
+		for (j=0; j < pch->nm_of_ch; j++)
+			len = rtw_sprintf(buf + len, 256 - len, "%02u ", pch->chs[j]);
 
 		RTW_PRINT_SEL(m, "    %04u    %20s           %02u        %02u\n",
 			pch->op_class, buf, pch->preference, pch->reason);
@@ -910,7 +912,7 @@ int rtw_mbo_proc_cell_data_get(
 
 
 static void rtw_mbo_disassoc(_adapter *padapter, u8 *da,
-			u8 reason, u8 wait_ack)
+			u16 reason, u8 wait_ack)
 {
 	struct xmit_frame *pmgntframe;
 	struct pkt_attrib *pattrib;

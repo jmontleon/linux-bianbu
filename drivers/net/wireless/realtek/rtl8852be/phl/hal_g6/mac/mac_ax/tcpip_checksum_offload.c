@@ -19,50 +19,27 @@ u32 mac_tcpip_chksum_ofd(struct mac_ax_adapter *adapter,
 			 u8 en_tx_chksum_ofd, u8 en_rx_chksum_ofd)
 {
 	u32 ret = 0;
-	u8 *buf;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+	struct h2c_info h2c_info = {0};
 	struct mac_ax_en_tcpipchksum *content;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct mac_ax_en_tcpipchksum);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_TCPIP_CHKSUM_OFFLOAD_REG;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
 
-	buf = h2cb_put(h2cb, sizeof(struct mac_ax_en_tcpipchksum));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
-	}
+	content = (struct mac_ax_en_tcpipchksum *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!content)
+		return MACBUFALLOC;
 
-	content = (struct mac_ax_en_tcpipchksum *)buf;
 	content->en_tx_chksum_ofd = en_tx_chksum_ofd;
 	content->en_rx_chksum_ofd = en_rx_chksum_ofd;
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD,
-			      FWCMD_H2C_FUNC_TCPIP_CHKSUM_OFFLOAD_REG,
-			      0,
-			      1);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content);
 
-	if (ret)
-		goto fail;
-
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret)
-		goto fail;
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-fail:
-	h2cb_free(adapter, h2cb);
+	PLTFM_FREE(content, h2c_info.content_len);
 
 	return ret;
 }

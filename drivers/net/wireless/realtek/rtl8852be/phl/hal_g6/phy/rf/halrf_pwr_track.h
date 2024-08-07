@@ -25,7 +25,7 @@
 #define TSSI_EFUSE_NUM 32
 #define TSSI_BW_DIFF_EFUSE_NUM 14
 #define TSSI_HIDE_EFUSE_NUM 8
-#define TSSI_HIDE_EFUSE_NUM_6G 16
+#define TSSI_HIDE_EFUSE_NUM_6G 8
 #define AVG_THERMAL_NUM_TSSI 2
 #define MAX_CH_NUM 67
 #define TSSI_ALIMK_VAULE_NUM 8
@@ -68,6 +68,10 @@ enum halrf_tssi_alimk_band{
 	TSSI_ALIMK_5GM,
 	TSSI_ALIMK_5GH,
 	TSSI_ALIMK_MAX
+};
+
+enum halrf_tssi_dz {
+	DZ_TSSI_ALIMTK_TIMEOUT	= BIT(0),
 };
 
 struct halrf_pwr_track_info {
@@ -216,6 +220,10 @@ struct halrf_tssi_info{
 	s8 curr_tssi_ofdm_de_diff_80m[MAX_HALRF_PATH];
 	s8 curr_tssi_ofdm_de_diff_160m[MAX_HALRF_PATH];
 	s8 curr_tssi_trim_de[MAX_HALRF_PATH];
+	s8 tssi_de_160m_adc_wa_20m;
+	s8 tssi_de_160m_adc_wa_40m;
+	s8 tssi_de_160m_adc_wa_80m;
+	s8 tssi_de_160m_adc_wa_160m;
 	bool do_tssi;
 	bool base_thermal_check[MAX_HALRF_PATH];
 	u32 base_thermal[MAX_HALRF_PATH];

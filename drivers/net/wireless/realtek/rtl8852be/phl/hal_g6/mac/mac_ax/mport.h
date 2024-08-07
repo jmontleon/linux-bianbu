@@ -42,7 +42,7 @@
 #define MAX_BCN_ITVL 0x639C
 
 #define CHK_BCNQ_CNT 200
-#define BCNQ_EMP_CONT_CNT 2
+#define BCNQ_EMP_CONT_CNT 3
 
 #define LBK_PLCP_DLY_DEF 0x28
 #define LBK_PLCP_DLY_FPGA 0x46

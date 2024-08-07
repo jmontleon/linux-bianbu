@@ -133,7 +133,7 @@ const enum band_type _nl80211_band_to_rtw_band[] = {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0))
 	[NL80211_BAND_S1GHZ]	= BAND_MAX,	/* around 900MHz, supported by S1G PHYs */
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)) || (defined(__ANDROID_COMMON_KERNEL__) && LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 	[NL80211_BAND_LC]	= BAND_MAX,	/* light communication band (placeholder) */
 #endif
 };

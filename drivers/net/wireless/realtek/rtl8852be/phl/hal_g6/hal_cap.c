@@ -100,6 +100,8 @@ static void _hal_bus_cap_pre_decision(struct rtw_phl_com_t *phl_com,
 		bus_sw->tx_h2c_buf_num : bus_hw->tx_h2c_buf_num;
 	bus_cap->rx_buf_size = bus_sw->rx_buf_size ?
 		bus_sw->rx_buf_size : bus_hw->rx_buf_size;
+	bus_cap->rx_buf_align_size = bus_sw->rx_buf_align_size ?
+		bus_sw->rx_buf_align_size : bus_hw->rx_buf_align_size;
 	bus_cap->rx_buf_num = bus_sw->rx_buf_num ?
 		bus_sw->rx_buf_num : bus_hw->rx_buf_num;
 	bus_cap->in_token_num = bus_sw->in_token_num ?
@@ -218,6 +220,7 @@ static void _hal_ps_final_cap_decision(struct rtw_phl_com_t *phl_com,
 	ps_cap->defer_para.lps_ping_defer_time= ps_sw_cap->defer_para.lps_ping_defer_time;
 	ps_cap->defer_para.lps_dhcp_defer_time= ps_sw_cap->defer_para.lps_dhcp_defer_time;
 	ps_cap->lps_adv_cap = ps_sw_cap->lps_adv_cap;
+	ps_cap->lps_force_tx = ps_sw_cap->lps_force_tx;
 	ps_cap->lps_wow_en = ps_sw_cap->lps_wow_en;
 	ps_cap->lps_wow_awake_interval = ps_sw_cap->lps_wow_awake_interval;
 	ps_cap->lps_wow_listen_bcn_mode = ps_sw_cap->lps_wow_listen_bcn_mode;
@@ -231,6 +234,8 @@ static void _hal_ps_final_cap_decision(struct rtw_phl_com_t *phl_com,
 	ps_cap->lps_cap = (ps_sw_cap->lps_cap & ps_hw_cap->lps_cap);
 	ps_cap->lps_wow_cap = (ps_sw_cap->lps_wow_cap & ps_hw_cap->lps_wow_cap);
 	ps_cap->bcn_tracking = (ps_sw_cap->bcn_tracking & ps_hw_cap->bcn_tracking);
+	/* fw */
+	rtw_hal_ps_fw_cap_decision(phl_com, false);
 }
 
 static void _hal_edcca_final_cap_decision(struct rtw_phl_com_t *phl_com,
@@ -256,6 +261,36 @@ static void _hal_edcca_final_cap_decision(struct rtw_phl_com_t *phl_com,
 					(edcca_hw_cap->edcca_cbp_th_6g);
 }
 
+static void _hal_fw_log_final_cap_config(struct rtw_phl_com_t *phl_com)
+{
+	struct dev_cap_t *dev_cap = &phl_com->dev_cap;
+	struct dev_cap_t *dev_sw_cap = &phl_com->dev_sw_cap;
+
+	dev_cap->fw_log_info.level = dev_sw_cap->fw_log_info.level;
+	dev_cap->fw_log_info.output = dev_sw_cap->fw_log_info.output;
+	dev_cap->fw_log_info.comp = dev_sw_cap->fw_log_info.comp;
+	dev_cap->fw_log_info.comp_ext= dev_sw_cap->fw_log_info.comp_ext;
+}
+
+void rtw_hal_ps_fw_cap_decision(struct rtw_phl_com_t *phl_com, bool is_wow)
+{
+        struct rtw_ps_cap_t *ps_cap = &phl_com->dev_cap.ps_cap;
+        struct rtw_wcpu_mac_cap_t *ps_fw_cap = &phl_com->dev_cap.wcpu_cap.mac_ofld_cap;
+
+        if (!ps_fw_cap->lps_pg) {
+                PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
+                          "[PS], %s(): The FW does not support LPS_PG.\n", __func__);
+
+                if (!is_wow) {
+                        ps_cap->ips_cap &= ~PS_CAP_PWR_GATED;
+                        ps_cap->lps_cap &= ~PS_CAP_PWR_GATED;
+                } else {
+                        ps_cap->ips_wow_cap &= ~PS_CAP_PWR_GATED;
+                        ps_cap->lps_wow_cap &= ~PS_CAP_PWR_GATED;
+                }
+        }
+}
+
 void rtw_hal_fw_cap_pre_config(struct rtw_phl_com_t *phl_com, void *hal)
 {
 
@@ -269,6 +304,7 @@ void rtw_hal_fw_cap_pre_config(struct rtw_phl_com_t *phl_com, void *hal)
 	*/
 
 	dev_cap->fw_cap.fw_src = dev_sw_cap->fw_cap.fw_src;
+	dev_cap->fw_cap.fw_type = dev_sw_cap->fw_cap.fw_type;
 	dev_cap->fw_cap.dlram_en = dev_sw_cap->fw_cap.dlram_en;
 	dev_cap->fw_cap.dlrom_en = dev_sw_cap->fw_cap.dlrom_en;
 }
@@ -308,7 +344,9 @@ void rtw_hal_final_cap_decision(struct rtw_phl_com_t *phl_com, void *hal)
 	struct dev_cap_t *dev_cap = &phl_com->dev_cap;
 	struct dev_cap_t *dev_sw_cap = &phl_com->dev_sw_cap;
 	struct dev_cap_t *dev_hw_cap = &hal_com->dev_hw_cap;
+	struct rtw_wcpu_mac_cap_t *mac_ofld_cap = NULL;
 
+	mac_ofld_cap = &dev_cap->wcpu_cap.mac_ofld_cap;
 #ifdef RTW_WKARD_PHY_CAP
 	phy_cap[0].proto_sup = phy_sw[0].proto_sup;
 	phy_cap[1].proto_sup = phy_sw[1].proto_sup;
@@ -404,9 +442,10 @@ void rtw_hal_final_cap_decision(struct rtw_phl_com_t *phl_com, void *hal)
 		dev_cap->mcc_sup = true;
 #endif /*CONFIG_MCC_SUPPORT*/
 
-#ifdef CONFIG_PHL_TWT
-	dev_cap->twt_sup = (dev_sw_cap->twt_sup & dev_hw_cap->twt_sup);
-#endif /*CONFIG_PHL_TWT*/
+#ifdef CONFIG_PHL_NAN
+	if (dev_sw_cap->nan_sup && dev_hw_cap->nan_sup)
+		dev_cap->nan_sup = true;
+#endif /*CONFIG_MCC_SUPPORT*/
 
 	if (dev_sw_cap->hw_hdr_conv && dev_hw_cap->hw_hdr_conv)
 		dev_cap->hw_hdr_conv = true;
@@ -531,15 +570,55 @@ void rtw_hal_final_cap_decision(struct rtw_phl_com_t *phl_com, void *hal)
 #endif
 	dev_cap->nb_config = dev_sw_cap->nb_config;
 
+#ifdef CONFIG_PHL_IO_OFLD
+	dev_cap->io_ofld = dev_sw_cap->io_ofld &
+	                   dev_hw_cap->wcpu_cap.mac_ofld_cap.io_offload;
+#endif
+
 #ifdef CONFIG_PHL_SCANOFLD
 	dev_cap->scan_ofld = dev_sw_cap->scan_ofld &
 			     dev_hw_cap->wcpu_cap.mac_ofld_cap.scan_offload;
 #endif
+#ifdef CONFIG_PHL_CHSWOFLD
+	dev_cap->chsw_ofld = dev_sw_cap->chsw_ofld &
+				dev_hw_cap->wcpu_cap.mac_ofld_cap.chsw_offload;
+#endif
+
+#ifdef CONFIG_PHL_CHANNEL_INFO
+	dev_cap->sensing_csi = dev_sw_cap->sensing_csi &
+			     dev_hw_cap->wcpu_cap.mac_ofld_cap.sensing_csi;
+#endif
+
+#ifdef CONFIG_PHL_FW_DUMP_EFUSE
+	dev_cap->efuse_dump_ofld = dev_sw_cap->efuse_dump_ofld &
+	                           dev_hw_cap->wcpu_cap.mac_ofld_cap.efuse_dump_offload;
+
+	dev_cap->adie_efuse_dump_ofld = dev_sw_cap->adie_efuse_dump_ofld &
+	                                dev_hw_cap->wcpu_cap.mac_ofld_cap.adie_efuse_dump_offload;
+#endif
+
+#ifdef CONFIG_PHL_TWT
+	if ((dev_sw_cap->twt_sup & RTW_PHL_TWT_REQ_SUP) &&
+	    (mac_ofld_cap->twt_sta)) {
+		dev_cap->twt_sup |= RTW_PHL_TWT_REQ_SUP;
+	}
+	if ((dev_sw_cap->twt_sup & RTW_PHL_TWT_RSP_SUP) &&
+	    (mac_ofld_cap->twt_ap)) {
+		dev_cap->twt_sup |= RTW_PHL_TWT_RSP_SUP;
+	}
+	if ((dev_sw_cap->twt_sup & RTW_PHL_TWT_BC_SUP) &&
+	    (dev_cap->twt_sup)) {
+		dev_cap->twt_sup |= RTW_PHL_TWT_BC_SUP;
+	}
+#endif /*CONFIG_PHL_TWT*/
 
 	if (dev_hw_cap->antdiv_sup)
 		dev_cap->antdiv_sup = dev_sw_cap->antdiv_sup;
 	else
 		dev_cap->antdiv_sup = false;
+	_hal_fw_log_final_cap_config(phl_com);
+
+	dev_cap->disable_dyn_txpwr = dev_sw_cap->disable_dyn_txpwr;
 }
 
 /**

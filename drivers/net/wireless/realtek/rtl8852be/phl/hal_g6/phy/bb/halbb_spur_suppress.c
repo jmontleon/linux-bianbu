@@ -58,7 +58,11 @@ bool halbb_spur_location(struct bb_info *bb, u8 central_ch,
 		rpt = halbb_spur_location_8851b(bb, central_ch, bw, band, intf);
 		break;
 	#endif
-
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = halbb_spur_location_8922a(bb, central_ch, bw, band, intf);
+		break;
+	#endif
 	default:
 		break;
 	}
@@ -78,7 +82,11 @@ bool halbb_spur_location_for_CSI(struct bb_info *bb, u8 central_ch,
 		rpt = halbb_spur_location_for_CSI_8852c(bb, central_ch, bw, band, intf);
 		break;
 	#endif
-
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = halbb_spur_location_8922a(bb, central_ch, bw, band, intf);
+		break;
+	#endif
 	default:
 		break;
 	}
@@ -164,7 +172,7 @@ void halbb_nbi_tone_idx(struct bb_info *bb, u8 central_ch, u8 pri_ch,
 	u32 notch2_nbi_en_m[2] = {cr->path0_notch2_nbi_en_m, cr->path1_notch2_nbi_en_m};
 	bool spur_chk, notch2_chk = false;
 
-	if (path >= HALBB_MAX_PATH || path < RF_PATH_A)
+	if (path >= bb->num_rf_path)
 		return;
 
 	if ((bb->ic_type == BB_RTL8852A) || (bb->ic_type == BB_RTL8852B)) {
@@ -506,6 +514,39 @@ void halbb_cr_cfg_spur_init(struct bb_info *bb)
 		cr->path1_notch_nbi_frac_idx_m = PATH1_R_NBI_FRAC_IDX_C_M;
 		cr->path1_notch_nbi_en = PATH1_R_NBI_NOTCH_EN_C;
 		cr->path1_notch_nbi_en_m = PATH1_R_NBI_NOTCH_EN_C_M;
+		break;
+	#endif
+	#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		
+		cr->seg0_set1_csi_tone_idx = RXINT_R_SEG0_SET1_CSI_WGT_TONE_IDX_BE1;
+		cr->seg0_set1_csi_tone_idx_m = RXINT_R_SEG0_SET1_CSI_WGT_TONE_IDX_BE1_M;
+		cr->seg0_set1_csi_en = RXINT_R_SEG0_SET1_CSI_WGT_EN_BE1;
+		cr->seg0_set1_csi_en_m = RXINT_R_SEG0_SET1_CSI_WGT_EN_BE1_M;
+		cr->path0_notch_nbi_idx = PATH0_NOTCH_R_NBI_IDX_BE1;
+		cr->path0_notch_nbi_idx_m = PATH0_NOTCH_R_NBI_IDX_BE1_M;
+		cr->path0_notch_nbi_frac_idx = PATH0_NOTCH_R_NBI_FRAC_IDX_BE1;
+		cr->path0_notch_nbi_frac_idx_m = PATH0_NOTCH_R_NBI_FRAC_IDX_BE1_M;
+		cr->path0_notch_nbi_en = PATH0_NOTCH_R_NBI_NOTCH_EN_BE1;
+		cr->path0_notch_nbi_en_m = PATH0_NOTCH_R_NBI_NOTCH_EN_BE1_M;
+		cr->path1_notch_nbi_idx = PATH1_NOTCH_R_NBI_IDX_BE1;
+		cr->path1_notch_nbi_idx_m = PATH1_NOTCH_R_NBI_IDX_BE1_M;
+		cr->path1_notch_nbi_frac_idx = PATH1_NOTCH_R_NBI_FRAC_IDX_BE1;
+		cr->path1_notch_nbi_frac_idx_m = PATH1_NOTCH_R_NBI_FRAC_IDX_BE1_M;
+		cr->path1_notch_nbi_en = PATH1_NOTCH_R_NBI_NOTCH_EN_BE1;
+		cr->path1_notch_nbi_en_m = PATH1_NOTCH_R_NBI_NOTCH_EN_BE1_M;
+		cr->path0_notch2_nbi_idx = PATH0_NOTCH2_NOTCH_R_NBI_IDX_BE1;
+		cr->path0_notch2_nbi_idx_m = PATH0_NOTCH2_NOTCH_R_NBI_IDX_BE1_M;
+		cr->path0_notch2_nbi_frac_idx = PATH0_NOTCH2_NOTCH_R_NBI_FRAC_IDX_BE1;
+		cr->path0_notch2_nbi_frac_idx_m = PATH0_NOTCH2_NOTCH_R_NBI_FRAC_IDX_BE1_M;
+		cr->path0_notch2_nbi_en = PATH0_NOTCH2_NOTCH_R_NBI_NOTCH_EN_BE1;
+		cr->path0_notch2_nbi_en_m = PATH0_NOTCH2_NOTCH_R_NBI_NOTCH_EN_BE1_M;
+		cr->path1_notch2_nbi_idx = PATH1_NOTCH2_NOTCH_R_NBI_IDX_BE1;
+		cr->path1_notch2_nbi_idx_m = PATH1_NOTCH2_NOTCH_R_NBI_IDX_BE1_M;
+		cr->path1_notch2_nbi_frac_idx = PATH1_NOTCH2_NOTCH_R_NBI_FRAC_IDX_BE1;
+		cr->path1_notch2_nbi_frac_idx_m = PATH1_NOTCH2_NOTCH_R_NBI_FRAC_IDX_BE1_M;
+		cr->path1_notch2_nbi_en = PATH1_NOTCH2_NOTCH_R_NBI_NOTCH_EN_BE1;
+		cr->path1_notch2_nbi_en_m = PATH1_NOTCH2_NOTCH_R_NBI_NOTCH_EN_BE1_M;
 		break;
 	#endif
 

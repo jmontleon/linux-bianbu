@@ -33,6 +33,11 @@
 #define RPWM_DELAY_FOR_32K_TICK	64
 
 #define REQ_PWR_ST_XTAL_OFF_VAL	0x82ff0000
+
+#define MP_INTER_BCN_LPS_OP_PCIE	0x48151B2
+#define MP_INTER_BCN_LPS_OP_USB		0x4C151B2
+#define MP_INTER_BCN_LPS_OP_SDIO	0x48051B2
+
 /**
  * @enum last_rpwm_mode
  *
@@ -520,7 +525,7 @@ u32 mac_req_pwr_lvl_cfg(struct mac_ax_adapter *adapter,
  * @retval u32
  */
 u32 mac_lps_option_cfg(struct mac_ax_adapter *adapter,
-		       struct mac_lps_option *lps_option);
+		       struct rtw_mac_lps_option *lps_option);
 /**
  * @}
  * @}

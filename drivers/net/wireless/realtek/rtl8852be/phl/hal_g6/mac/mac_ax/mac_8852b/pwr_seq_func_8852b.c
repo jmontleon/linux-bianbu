@@ -353,6 +353,11 @@ u32 mac_pwr_on_sdio_8852b(struct mac_ax_adapter *adapter)
 	adapter->sm.plat = MAC_AX_PLAT_ON;
 	adapter->sm.io_st = MAC_AX_IO_ST_NORM;
 
+	/* get fv & cv */
+	ret = get_fv_info(adapter);
+	if (ret)
+		PLTFM_MSG_ERR("[ERR]get_fv_info error\n");
+
 	/*enable dmac , 0x8400*/
 	val32 = MAC_REG_R32(R_AX_DMAC_FUNC_EN);
 	MAC_REG_W32(R_AX_DMAC_FUNC_EN,
@@ -695,6 +700,11 @@ u32 mac_pwr_on_usb_8852b(struct mac_ax_adapter *adapter)
 	adapter->sm.pwr = MAC_AX_PWR_ON;
 	adapter->sm.plat = MAC_AX_PLAT_ON;
 	adapter->sm.io_st = MAC_AX_IO_ST_NORM;
+
+	/* get fv & cv */
+	ret = get_fv_info(adapter);
+	if (ret)
+		PLTFM_MSG_ERR("[ERR]get_fv_info error\n");
 
 	/*enable dmac , 0x8400*/
 	val32 = MAC_REG_R32(R_AX_DMAC_FUNC_EN);
@@ -1049,6 +1059,11 @@ u32 mac_pwr_on_pcie_8852b(struct mac_ax_adapter *adapter)
 	adapter->sm.pwr = MAC_AX_PWR_ON;
 	adapter->sm.plat = MAC_AX_PLAT_ON;
 	adapter->sm.io_st = MAC_AX_IO_ST_NORM;
+
+	/* get fv & cv */
+	ret = get_fv_info(adapter);
+	if (ret)
+		PLTFM_MSG_ERR("[ERR]get_fv_info error\n");
 
 	/*enable dmac , 0x8400*/
 	val32 = MAC_REG_R32(R_AX_DMAC_FUNC_EN);

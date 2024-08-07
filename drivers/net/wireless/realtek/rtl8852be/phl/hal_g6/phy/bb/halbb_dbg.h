@@ -162,6 +162,19 @@ enum bb_basic_dbg_info
 	BB_BASIC_DBG_09_DM_SUMMARY	= BIT9
 };
 
+enum FWBB_DBG_NUM {
+	BBDBG_NUM_RA_WRITE_CMAC_0 = 0,
+	BBDBG_NUM_RA_RATE_CHANGED_1 = 1,
+	BBDBG_NUM_RA_CAL_PARA_2 = 2,
+	BBDBG_NUM_RA_D_O_PARA_3 = 3,
+	BBDBG_NUM_RA_UP_DOWN_TH_4 = 4,
+	BBDBG_NUM_RA_TRY_RESULT_5 = 5,
+	BBDBG_NUM_RA_RATE_DOWN_6 = 6,
+	BBDBG_NUM_RA_RATE_FORCE_DOWN_7 = 7,
+	BBDBG_NUM_RA_RATE_UP_8 = 8,
+	BBDBG_NUM_RA_RATE_STAY_9 = 9
+};
+
 /*@--------------------------[Structure]-------------------------------------*/
 struct bb_dbg_cr_info {
 	u32 dbgport_ip;
@@ -184,7 +197,8 @@ struct bb_dbg_cr_info {
 	u32 bb_monitor1_m;
 	u32 mac_phy_intf_sel_phy1;
 	u32 mac_phy_intf_sel_phy1_m;
-	u32 mac_phy_txinfo[4];
+	u32 mac_phy_txinfo[6];
+	u32 mac_phy_txt2rct[2];
 	u32 mac_phy_txcomct[2];
 	u32 mac_phy_txusrct[4][2];
 	u32 mac_phy_txtimct;
@@ -192,15 +206,19 @@ struct bb_dbg_cr_info {
 	u32 mac_phy_siga_0;
 	u32 mac_phy_siga_1;
 	u32 mac_phy_vht_sigb_0;
+	u32 mac_phy_usig_1;
+	u32 mac_phy_usig_2;
 	u32 path_0_txpw;
 	u32 path_0_txpw_m;
 	u32 path_1_txpw;
 	u32 path_1_txpw_m;
+	u32 bmode_tx;
 };
 
 struct bb_tx_info {
 	/*From reg*/
 	u8 type;
+	u8 ppdu_var;
 	u8 tx_path_en;
 	u8 path_map;
 	u8 txcmd_num;
@@ -225,7 +243,10 @@ struct bb_tx_info {
 	u32 sig_a1;
 	u32 sig_a2;
 	u32 sig_b;
-	u32 txinfo[4];
+	u32 usig_1;
+	u32 usig_2;
+	u32 txinfo[6];
+	u32 txt2rct[2];
 	u32 txcomct[2];
 	u32 txusrct[4][2];
 	u32 txtimct;
@@ -242,6 +263,7 @@ struct bb_tx_info {
 };
 
 struct bb_ra_dbgreg {
+	u32 macid;
 	u32 cmac_tbl_id0;
 	u32 cmac_tbl_id1;
 	u32 per;
@@ -279,6 +301,7 @@ struct bb_ra_dbgreg {
 
 struct bb_dbg_info {
 	bool	cr_recorder_en;
+	bool	cr_mp_recorder_en;
 	bool	cr_init_hook_recorder_en;
 	bool	cr_fake_init_hook_en;
 	u32	cr_fake_init_hook_val;
@@ -341,4 +364,9 @@ void halbb_tx_info_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 void halbb_cmn_dbg(struct bb_info *bb, char input[][16], u32 *_used, char *output, u32 *_out_len);
 void halbb_dbg_setting_init(struct bb_info *bb);
 void halbb_cr_cfg_dbg_init(struct bb_info *bb);
+void halbb_mac_phy_intf_txcmd_txtp(struct bb_info *bb, u8 txcmd_num, char **txcmd);
+void halbb_mac_phy_intf_txcmd_txtp_7(struct bb_info *bb, u8 txcmd_num, char **txcmd);
+void halbb_mac_phy_intf_ppdu_type(struct bb_info *bb, u8 type, char **ppdu);
+void halbb_mac_phy_intf_ppdu_var_type_7(struct bb_info *bb, u8 ppdu_type, u8 ppdu_var, char **ppdu);
+u32 halbb_c2h_fw_dbg(struct bb_info *bb, u16 len, u8 *c2h);
 #endif

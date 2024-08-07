@@ -78,6 +78,8 @@ bool halbb_cfg_lbk_cck(struct bb_info *bb, bool lbk_en, bool is_dgt_lbk,
 		       enum rf_path tx_path, enum rf_path rx_path,
 		       enum channel_width bw, enum phl_phy_idx phy_idx);
 
+void halbb_tx_triangular_en(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx);
+
 bool halbb_set_txpwr_dbm(struct bb_info *bb, s16 pwr_dbm,
 			 enum phl_phy_idx phy_idx);
 

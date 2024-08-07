@@ -33,6 +33,9 @@ void rtw_hal_btc_radio_state_ntfy(void *hinfo, u8 rf_state);
 
 u32 rtw_hal_btc_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_msg *c2h_msg);
 void rtw_hal_btc_init_coex_cfg_ntfy(void *hinfo);
+
+void rtw_hal_btc_redownload_fw_ntfy(void *hinfo);
+
 bool rtw_hal_btc_proc_cmd(struct hal_info_t *hal_info, struct rtw_proc_cmd *incmd,
 						char *output, u32 out_len);
 u32 rtw_hal_btc_req_bt_slot_t(void *hinfo, enum phl_band_idx hw_band);

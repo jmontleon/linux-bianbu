@@ -70,7 +70,7 @@ struct recv_reorder_ctrl {
 	u8 tid;
 	u8 enable;
 	u16 indicate_seq;/* =wstart_b, init_value=0xffff */
-	u8 ampdu_size;
+	u16 ampdu_size;
 	unsigned long rec_abba_rsp_ack;
 
 	#ifdef CONFIG_RECV_REORDERING_CTRL
@@ -196,6 +196,9 @@ struct rx_pkt_attrib {
 #endif
 	u8	addr_cam_vld;
 	u16	macid;
+#ifdef CONFIG_TDLS
+	u8 is_tdls_frame;
+#endif
 };
 
 #ifdef CONFIG_RTW_MESH
@@ -270,15 +273,23 @@ accesser of recv_priv: rtw_recv_entry(dispatch / passive level); recv_thread(pas
 using enter_critical section to protect
 */
 
+#ifdef PRIVATE_R
+	/* total data rate index = 132 (refer to DESC_RATEHESS4MCS11 = 0x83) */
+	#define DESC_RATE_MAX 0x84
+#endif
+
 struct recv_info {
 	u64 rx_bytes;
 	u64 rx_pkts;
 	u64 rx_drop;
 
 #ifdef PRIVATE_R
-	// total data rate index = 84 (refer to DESC_RATEVHTSS4MCS9 = 0x53)
-	u64 rx_vo_pkt_count_per_data_rate[84];
+	u16 rx_vo_pkt_count_per_data_rate[DESC_RATE_MAX];
 	u64 rx_vo_pkt_retry_count;
+	/* @last_rx_uc_data counts unicast data packets, it will be reset if user reads it by proc */
+	u64 last_rx_uc_data;
+	/* @last_rx_uc_data_rate_avg sums receive data rate of unicast data packets */
+	u64 last_rx_uc_data_rate_avg;
 #endif
 	u64 dbg_rx_drop_count;
 	u64 dbg_rx_ampdu_drop_count;
@@ -455,9 +466,9 @@ struct recv_priv {
 bool rtw_rframe_del_wfd_ie(union recv_frame *rframe, u8 ies_offset);
 #ifdef RTW_PHL_RX
 extern void dump_recv_frame(_adapter *adapter, union recv_frame *prframe);
-extern sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame);
+extern sint validate_recv_frame(_adapter *adapter, union recv_frame **pprecv_frame);
 extern s32 rtw_core_rx_data_pre_process(_adapter *adapter, union recv_frame **prframe);
-extern s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame *prframe);
+extern s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame **pprframe);
 
 enum rtw_phl_status rtw_core_rx_process(void *drv_priv);
 void process_pwrbit_data(_adapter *padapter, union recv_frame *precv_frame, struct sta_info *psta);
@@ -639,6 +650,9 @@ u8 adapter_allow_bmc_data_rx(_adapter *adapter);
 #if 0
 s32 pre_recv_entry(union recv_frame *precvframe, u8 *pphy_status);
 #endif
+#ifdef PRIVATE_R
+u8 rtw_get_idx_by_rx_rate(u16 data_rate);
+#endif /* PRIVATE_R */
 void count_rx_stats(_adapter *padapter, union recv_frame *prframe, struct sta_info *sta);
 u8 rtw_init_lite_recv_resource(struct dvobj_priv *dvobj);
 void rtw_free_lite_recv_resource(struct dvobj_priv *dvobj);

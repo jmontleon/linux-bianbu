@@ -210,6 +210,7 @@ enum rtw_hal_status rtw_hal_mp_tx_plcp_gen(
 	return hal_status;
 }
 
+
 enum rtw_hal_status rtw_hal_mp_tx_pmac_packet(
 	struct mp_context *mp, struct mp_tx_arg *arg)
 {

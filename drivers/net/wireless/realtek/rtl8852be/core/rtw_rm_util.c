@@ -161,35 +161,14 @@ u8 rm_get_bcn_rsni(struct rm_obj *prm, struct wlan_network *pnetwork)
 }
 
 /* output: pwr (unit dBm) */
-int rm_get_tx_power(_adapter *adapter, enum rf_path path, enum MGN_RATE rate, s8 *pwr)
+int rm_get_tx_power(_adapter *adapter, enum band_type band, enum MGN_RATE rate, s8 *pwr)
 {
-#if 0 /*GEORGIA_TODO_FIXIT*/
+	struct dvobj_priv *devob = adapter_to_dvobj(adapter);
+	u8 rs = mgn_rate_to_rs(rate);
 
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-	struct hal_spec_t *hal_spec = GET_HAL_SPEC(dvobj);
-	HAL_DATA_TYPE *hal_data = GET_PHL_COM(dvobj);
-	int tx_num, band, bw, ch, n, rs;
-	u8 base;
-	s8 limt_offset = 127; /* max value of s8 */
-	s8 rate_offset;
-	s8 powr_offset;
-	int rate_pos;
+	*pwr = rtw_phl_get_power_by_rate_band(GET_PHL_INFO(devob), HW_BAND_0, _rate_mrate2phl(rate),
+					       IS_DCM_RATE_SECTION(rs) ? 1 : 0, 0, band);
 
-
-	band = hal_data->current_band_type;
-	bw = hal_data->current_channel_bw;
-	ch = hal_data->current_channel;
-
-	if (!HAL_SPEC_CHK_RF_PATH(hal_spec, band, path))
-		return -1;
-
-	if (HAL_IsLegalChannel(adapter, ch) == _FALSE) {
-		RTW_INFO("Illegal channel!!\n");
-		return -2;
-	}
-
-	*pwr = phy_get_tx_power_final_absolute_value(adapter, path, rate, bw, ch);
-#endif
 	return 0;
 }
 

@@ -116,6 +116,8 @@ u16 halbb_show_fraction_num(u32 frac_val, u8 bit_num);
 u16 halbb_ones_num_in_bitmap(u64 val, u8 size);
 u64 halbb_gen_mask_from_0(u8 mask_num);
 u64 halbb_gen_mask(u8 up_num, u8 low_num);
+u8 halbb_bitmask_lsb(struct bb_info *bb, u32 mask);
+u8 halbb_bitmask_msb(struct bb_info *bb, u32 mask);
 u32 halbb_cal_bit_shift(u32 bit_mask);
 s32 halbb_cnvrt_2_sign(u32 val, u8 bit_num);
 s64 halbb_cnvrt_2_sign_64(u64 val, u8 bit_num);

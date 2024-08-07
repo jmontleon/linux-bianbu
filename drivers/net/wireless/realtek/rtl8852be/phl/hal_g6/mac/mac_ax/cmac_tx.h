@@ -52,6 +52,15 @@
 #define MACTXEN_MAX	81
 #define MACTXEN_MIN	56
 
+#define TXOPLMT_SH 16
+#define TXOPLMT_MSK 0x7ff
+#define CW_SH 8
+#define CW_MSK 0xff
+#define AIFS_SH 0
+#define AIFS_MSK 0xff
+
+#define TXTIME_MAX	0xA5
+
 /*--------------------Define Enum------------------------------------*/
 
 /**

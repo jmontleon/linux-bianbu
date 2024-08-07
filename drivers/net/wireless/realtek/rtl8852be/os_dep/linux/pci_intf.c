@@ -69,11 +69,17 @@ struct pci_device_id rtw_pci_id_tbl[] = {
 #ifdef CONFIG_RTL8852BP
 	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xA85C), .driver_data = RTL8852BP},/*FPGA*/
 #endif
+#ifdef CONFIG_RTL8852BT
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xB520), .driver_data = RTL8852BT},/*FPGA*/
+#endif
 #ifdef CONFIG_RTL8851B
 	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xB851), .driver_data = RTL8851B},
 #endif
 #ifdef CONFIG_RTL8852C
 	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0xC852), .driver_data = RTL8852C},
+#endif
+#ifdef CONFIG_RTL8852D
+	{PCI_DEVICE(PCI_VENDER_ID_REALTEK, 0x885D), .driver_data = RTL8852D},
 #endif
 	{},
 };
@@ -403,12 +409,8 @@ static s32 rtw_pci_parse_configuration(struct pci_dev *pdev, struct dvobj_priv *
  * 2009/10/28 MH Enable rtl8192ce DMA64 function. We need to enable 0x719 BIT5
  *   */
 #ifdef CONFIG_64BIT_DMA
-u8 PlatformEnableDMA64(_adapter *adapter)
+u8 PlatformEnableDMA64(struct pci_dev *pdev)
 {
-	struct dvobj_priv *pdvobjpriv = adapter_to_dvobj(adapter);
-	PPCI_DATA pci_data = dvobj_to_pci(pdvobjpriv);
-	struct pci_dev	*pdev = pci_data->ppcidev;
-	
 	u8	bResult = _TRUE;
 	u8	value;
 
@@ -433,9 +435,6 @@ static irqreturn_t rtw_pci_interrupt(int irq, void *priv, struct pt_regs *regs)
 	PPCI_DATA pci_data = dvobj_to_pci(dvobj);
 	enum rtw_phl_status pstatus =  RTW_PHL_STATUS_SUCCESS;
 	unsigned long sp_flags;
-
-	if (pci_data->irq_enabled == 0)
-		return IRQ_HANDLED;
 
 	_rtw_spinlock_irq(&dvobj->phl_com->imr_lock, &sp_flags);
 	if (rtw_phl_recognize_interrupt(dvobj->phl)) {
@@ -515,13 +514,16 @@ static struct dvobj_priv *pci_dvobj_init(struct pci_dev *pdev,
 
 #ifdef CONFIG_64BIT_DMA
 	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
-		RTW_INFO("RTL819xCE: Using 64bit DMA\n");
 		err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
 		if (err != 0) {
 			RTW_ERR("Unable to obtain 64bit DMA for consistent allocations\n");
 			goto disable_picdev;
 		}
+		RTW_INFO("Using 64bit DMA\n");
 		pci_data->bdma64 = _TRUE;
+#if defined (CONFIG_RTL8852A) || defined (CONFIG_RTL8852B) || defined (CONFIG_RTL8852BP) || defined (CONFIG_RTL8852BT)
+		PlatformEnableDMA64(pdev);
+#endif
 	} else
 #endif
 	{
@@ -887,7 +889,7 @@ static void rtw_pci_primary_adapter_deinit(_adapter *padapter)
 
 #ifdef CONFIG_PLATFORM_AML_S905
 extern struct device *get_pcie_reserved_mem_dev(void);
-extern struct device * g_pcie_reserved_mem_dev;
+struct device * g_pcie_reserved_mem_dev;
 #endif
 
 #ifdef CONFIG_RTW_DEDICATED_CMA_POOL
@@ -990,6 +992,13 @@ static int rtw_dev_probe(struct pci_dev *pdev, const struct pci_device_id *pdid)
 	hostapd_mode_init(padapter);
 #endif
 
+#ifdef CONFIG_RTW_CSI_NETLINK
+	rtw_csi_nl_init(dvobj);
+#endif
+#ifdef CONFIG_CSI_TIMER_POLLING
+	rtw_csi_poll_init(dvobj);
+#endif
+
 	/* alloc irq */
 	if (pci_alloc_irq(dvobj) != _SUCCESS) {
 		RTW_ERR("pci_alloc_irq Failed!\n");
@@ -1064,6 +1073,12 @@ static void rtw_dev_remove(struct pci_dev *pdev)
 	rtw_phl_disable_interrupt(GET_PHL_INFO(dvobj));
 #endif
 
+#ifdef CONFIG_CSI_TIMER_POLLING
+	rtw_csi_poll_timer_cancel(dvobj);
+#endif
+#ifdef CONFIG_RTW_CSI_NETLINK
+	rtw_csi_nl_exit(dvobj);
+#endif
 	/* TODO: use rtw_os_ndevs_deinit instead at the first stage of driver's dev deinit function */
 	rtw_os_ndevs_unregister(dvobj);
 

@@ -89,14 +89,14 @@ struct bb_h2c_ra_cfg_info {
 	/*
 	@ Bit0 : CCK
 	@ Bit1 : OFDM
-	@ Bit2 : HT 
+	@ Bit2 : HT
 	@ Bit3 : VHT
 	@ Bit4 : HE
 	*/
 	u8 bw_cap:2;
-	
+
 	u8 macid;
-	
+
 	u8 dcm_cap:1;
 	u8 er_cap:1;
 	u8 init_rate_lv:2;
@@ -104,7 +104,7 @@ struct bb_h2c_ra_cfg_info {
 	u8 en_sgi:1;
 	u8 ldpc_cap:1;
 	u8 stbc_cap:1;
-	
+
 	u8 ss_num:3;
 	u8 giltf_cap:3;
 	u8 upd_bw_nss_mask:1;
@@ -140,13 +140,14 @@ struct bb_h2c_rssi_setting {
 	u8 rsvd1: 6;
 
 	u8 is_fixed_rate:1;
-	u8 fixed_rate:7;
+	u8 fixed_rate:6;
+	u8 fixed_is_mu:1;
 
 	u8 fixed_rate_md:2;
 	u8 fixed_giltf:3;
 	u8 fixed_bw:2;
 	u8 rsvd2_M:1;
-	
+
 	u8 rssi_b:7;
 	u8 endcmd:1;
 };
@@ -180,15 +181,15 @@ struct bb_h2c_rssi_setting_wifi7 {
 	u8 fixed_rate_md:2;
 	u8 fixed_giltf:3;
 	u8 fixed_bw:2;
-	u8 rsvd1_M:1;
-	
+	u8 fixed_is_mu:1;
+
 	u8 rssi_b:7;
 	u8 endcmd:1;
 };
 
 struct bb_h2c_ra_mask {
 	u8 macid;
-	
+
 	u8 mask_or_reveal:1;
 	u8 mask_rate:7;
 
@@ -201,21 +202,25 @@ struct bb_h2c_ra_mask {
 
 struct bb_h2c_ra_adjust {
 	u8 macid;
-	
+
 	u8 drv_shift_value:7;
 	u8 drv_shift_en:1;
+
+	u8 rsvd[2];
 };
 
 struct bb_h2c_ra_d_o_timer {
 	u8 macid;
-	
+
 	u8 d_o_timer_value:7;
 	u8 d_o_timer_en:1;
+
+	u8 rsvd[2];
 };
 
 struct bb_h2c_ra_shift_dafc_tc {
 	u8 enable;
-	
+
 	u8 init_fb_cnt[24]; /*1ss MCS0 ~ 2ss MCS11*/
 
 	u8 rsvd[3];
@@ -228,6 +233,43 @@ struct bb_h2c_mu_cfg {
 	u8 en_256q:1;
 	u8 en_1024q:1;
 	u8 rsvd3:6;
+};
+
+struct bb_h2c_ra_tx_info {
+	u16 macid;
+	u16 rsvd0;
+};
+
+struct halbb_c2h_dbg_rpt_wifi7 {
+	u8 per;
+	u8 rdr;
+	u8 r4;
+	u8 cls;
+	u8 rate_up_lmt_cnt;
+	u8 per_ma;
+	u8 var;
+	u8 d_o_n;
+	u8 d_o_p;
+	u8 rd_th;
+	u8 ru_th;
+	u8 try_per;
+	u8 try_rdr;
+	u8 try_r4;
+	u8 txrpt_tot;
+	u8 ra_timer;
+	u8 tot_disra_trying_return;
+	u8 r4_return;
+	u8 highest_rate;
+	u8 lowest_rate;
+	u32 macid:16;
+	u32 rsvd0:16;
+	u32 cmac_tbl;
+	u32 ra_mask_h;
+	u32 ra_mask_l;
+	u32 upd_all_h2c_0;
+	u32 upd_all_h2c_1;
+	u32 upd_all_h2c_2;
+	u32 upd_all_h2c_3;
 };
 
 struct halbb_ra_rpt_info {
@@ -248,7 +290,7 @@ struct halbb_ra_rpt_info {
 	u8 rpt_gi_ltf: 3;
 	u8 rpt_bw: 2;
 	u8 rpt_md_sel_M: 1;
-	
+
 	u8 rpt_bw_M: 1;
 	u8 rsvd0: 7;
 
@@ -279,18 +321,17 @@ struct halbb_txsts_info {
 	u8 tx_retry_vi_m;
 	u8 tx_retry_vo_l;
 	u8 tx_retry_vo_m;
-	
 
 	u8 tx_rate_l;
 	u8 tx_rate_m;
 	u8 retry_ratio;
 	u8 rsvd1;
-	
+
 	u8 tx_total_l;
 	u8 tx_total_m;
 	u8 rsvd2;
 	u8 rsvd3;
-	
+
 	u8 rsvd4;
 	u8 rsvd5;
 	u8 rsvd6;

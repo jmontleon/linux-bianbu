@@ -96,7 +96,6 @@ static void _phl_trigger_next_watchdog(struct phl_info_t *phl_info)
 {
 	struct phl_watchdog *wdog = &(phl_info->wdog);
 
-
 	if (wdog->state == WD_STATE_STARTED) {
 #ifdef PHL_WATCHDOG_REFINE
 		_phl_watchdog_sw_post(phl_info);
@@ -163,6 +162,9 @@ static void _phl_watchdog_sw_done(void *drv_priv, u8 *cmd, u32 cmd_len, enum rtw
 		if (psts != RTW_PHL_STATUS_FAILURE)
 			set_timer = false;
 	} else {
+		#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+		rtw_phl_set_wdog_state_keep_alive(phl_info, false, NULL);
+		#endif
 		PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s: skip watchdog\n",
 		          __FUNCTION__);
 	}
@@ -254,10 +256,29 @@ phl_watchdog_sw_cmd_hdl(struct phl_info_t *phl_info, enum rtw_phl_status psts)
 
 	return RTW_PHL_STATUS_SUCCESS;
 }
+
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+enum rtw_phl_status
+phl_keep_alive_hdl(struct phl_info_t *phl_info)
+{
+	struct phl_watchdog *wdog = &(phl_info->wdog);
+
+	if (phl_wdog_state_is_keep_alive(phl_info)) {
+		if (NULL != wdog->core_keep_alive)
+			wdog->core_keep_alive(phl_to_drvpriv(phl_info), &wdog->klive_param);
+	}
+
+	return RTW_PHL_STATUS_SUCCESS;
+}
+#endif
+
 #ifdef PHL_WATCHDOG_REFINE
 void rtw_phl_watchdog_init(void *phl,
                            u16 period,
                            void (*core_sw_wdog)(void *drv_priv),
+			   #ifdef CONFIG_POST_CORE_KEEP_ALIVE
+                           void (*core_keep_alive)(void *drv_priv, struct rtw_keep_alive_param *klive),
+			   #endif
                            void (*core_hw_wdog)(void *drv_priv),
                            void (*core_sw_post_wdog)(void *drv_priv))
 #else
@@ -272,9 +293,17 @@ void rtw_phl_watchdog_init(void *phl,
 
 	wdog->state = WD_STATE_INIT;
 	wdog->core_sw_wdog = core_sw_wdog;
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+	wdog->core_keep_alive = core_keep_alive;
+#endif
 	wdog->core_hw_wdog = core_hw_wdog;
 #ifdef PHL_WATCHDOG_REFINE
 	wdog->core_post_sw_wdog = core_sw_post_wdog;
+#endif
+
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+	/* Initialize keep alive param */
+	_os_mem_set(phl_to_drvpriv(phl_info), &wdog->klive_param, 0, sizeof(struct rtw_keep_alive_param));
 #endif
 
 	if (period > 0)
@@ -317,3 +346,41 @@ void rtw_phl_watchdog_stop(void *phl)
 
 	_os_cancel_timer(phl_to_drvpriv(phl_info), &wdog->wdog_timer);
 }
+
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+bool phl_wdog_state_is_keep_alive(struct phl_info_t *phl_info)
+{
+	struct phl_watchdog *wdog = &phl_info->wdog;
+
+	if (wdog->state == WD_STATE_KEEPALIVE)
+		return true;
+	else
+		return false;
+}
+
+enum rtw_phl_status rtw_phl_set_wdog_state_keep_alive(void *phl,
+						      bool enable, struct rtw_keep_alive_param *klive_param)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct phl_watchdog *wdog = &phl_info->wdog;
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+
+	if (enable && wdog->state == WD_STATE_STARTED) {
+		if (klive_param == NULL) {
+			psts = RTW_PHL_STATUS_FAILURE;
+		} else {
+			wdog->state = WD_STATE_KEEPALIVE;
+			_os_mem_cpy(phl_to_drvpriv(phl_info), &wdog->klive_param, klive_param, sizeof(struct rtw_keep_alive_param));
+			psts = RTW_PHL_STATUS_SUCCESS;
+		}
+	} else if (!enable) {
+		if (wdog->state == WD_STATE_KEEPALIVE) {
+			_os_mem_set(phl_to_drvpriv(phl_info), &wdog->klive_param, 0, sizeof(struct rtw_keep_alive_param));
+			wdog->state = WD_STATE_STARTED;
+		}
+		psts = RTW_PHL_STATUS_SUCCESS;
+	}
+
+	return psts;
+}
+#endif

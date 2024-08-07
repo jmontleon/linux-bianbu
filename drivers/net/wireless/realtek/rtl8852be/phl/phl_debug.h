@@ -112,7 +112,7 @@ struct dbg_mem_ctx {
 #undef PHL_TRACE
 #define PHL_TRACE(comp, level, fmt, ...)     \
 	do {\
-		if(((comp) & phl_log_components) && (level <= phl_log_level)) {\
+		if(((comp) & phl_log_components) && ((level) <= phl_log_level)) {\
 			_os_dbgdump(PHL_PREFIX fmt, ##__VA_ARGS__);\
 		} \
 	} while (0)

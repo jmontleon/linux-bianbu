@@ -35,6 +35,9 @@
 #if MAC_AX_8852D_SUPPORT
 #include "mac_8852d/mac_priv_8852d.h"
 #endif
+#if MAC_AX_8852BT_SUPPORT
+#include "mac_8852bt/mac_priv_8852bt.h"
+#endif
 
 u32 get_mac_ax_priv_size(void)
 {
@@ -80,6 +83,11 @@ struct mac_ax_priv_ops *mac_ax_get_priv_ops(struct mac_ax_adapter *adapter,
 #if MAC_AX_8852D_SUPPORT
 	case MAC_AX_CHIP_ID_8852D:
 		priv_ops = get_mac_8852d_priv_ops(intf);
+		break;
+#endif
+#if MAC_AX_8852BT_SUPPORT
+	case MAC_AX_CHIP_ID_8852BT:
+		priv_ops = get_mac_8852bt_priv_ops(intf);
 		break;
 #endif
 	default:

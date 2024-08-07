@@ -26,7 +26,7 @@
 #define __HALRF_DACK_8852B_H__
 #ifdef RF_8852B_SUPPORT
 
-#define DACK_VER_8852B 0x5
+#define DACK_VER_8852B 0x7
 
 void halrf_dack_recover_8852b(struct rf_info *rf,
 			      u8 offset,

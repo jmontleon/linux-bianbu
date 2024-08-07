@@ -107,6 +107,7 @@ _phl_chg_op_chdef_done(void *drv_priv, u8 *cmd, u32 cmd_len,
 			                     param->rlink,
 			                     psts);
 		}
+		_os_spinlock_free(drv_priv, &param->lock);
 		_os_kmem_free(drv_priv, cmd, cmd_len);
 		cmd = NULL;
 		PHL_INFO("%s.....\n", __func__);
@@ -115,12 +116,27 @@ _phl_chg_op_chdef_done(void *drv_priv, u8 *cmd, u32 cmd_len,
 
 static void _phl_chg_op_chdef_start_done(void *drv_priv, u8 *cmd, u32 cmd_len, enum rtw_phl_status status)
 {
-	if (cmd) {
-		struct chg_opch_param *param = (struct chg_opch_param *)cmd;
+	struct chg_opch_param *param = NULL;
 
-		param->cmd_start_sts = status;
-		PHL_INFO("%s.....\n", __func__);
+	if (!cmd)
+		return;
+	param = (struct chg_opch_param *)cmd;
+
+	_os_spinlock(drv_priv, &param->lock, _bh, NULL);
+	if (param->send_end_msg_fail) {
+		_os_spinunlock(drv_priv, &param->lock, _bh, NULL);
+		_os_spinlock_free(drv_priv, &param->lock);
+		_os_kmem_free(drv_priv, cmd, cmd_len);
+		cmd = NULL;
+		PHL_ERR("%s: Send MSG_EVT_CHG_OP_CH_DEF_END fail, Free para!!, Something went wrong!!\n",
+			__func__);
+		goto _exit;
 	}
+	param->cmd_start_sts = status;
+	param->start_msg_done = true;
+	_os_spinunlock(drv_priv, &param->lock, _bh, NULL);
+_exit:
+	PHL_INFO("%s.....\n", __func__);
 }
 
 enum rtw_phl_status
@@ -213,6 +229,7 @@ rtw_phl_cmd_chg_op_chdef(struct rtw_wifi_role_t *wrole,
 		PHL_ERR("%s: alloc param failed!\n", __func__);
 		goto _exit;
 	}
+	_os_spinlock_init(drv, &param->lock);
 	param->wrole = wrole;
 	param->rlink = rlink;
 	_os_mem_cpy(drv, &param->new_chdef, new_chdef,
@@ -235,6 +252,7 @@ rtw_phl_cmd_chg_op_chdef(struct rtw_wifi_role_t *wrole,
 			__func__);
 		if (!is_cmd_failure(psts)) {
 			/* Send cmd fail */
+			_os_spinlock_free(drv, &param->lock);
 			_os_kmem_free(drv, param, param_len);
 			psts = RTW_PHL_STATUS_FAILURE;
 		}
@@ -249,11 +267,21 @@ rtw_phl_cmd_chg_op_chdef(struct rtw_wifi_role_t *wrole,
 	                       cmd_wait ? PHL_CMD_WAIT : PHL_CMD_NO_WAIT,
 	                       cmd_timeout);
 	if (psts != RTW_PHL_STATUS_SUCCESS) {
-		PHL_INFO("%s: Fail to issue change op chdef start!!\n",
+		PHL_INFO("%s: Fail to issue change op chdef end!!\n",
 			__func__);
 		if (!is_cmd_failure(psts)) {
 			/* Send cmd fail */
-			_os_kmem_free(drv, param, param_len);
+			_os_spinlock(drv, &param->lock, _bh, NULL);
+			if (param->start_msg_done) {
+				_os_spinunlock(drv, &param->lock, _bh, NULL);
+				_os_spinlock_free(drv, &param->lock);
+				_os_kmem_free(drv, param, param_len);
+				psts = RTW_PHL_STATUS_FAILURE;
+				goto _exit;
+			} else {
+				param->send_end_msg_fail = true;
+			}
+			_os_spinunlock(drv, &param->lock, _bh, NULL);
 			psts = RTW_PHL_STATUS_FAILURE;
 		}
 		goto _exit;
@@ -714,11 +742,13 @@ _phl_chanctx_rmap_set(struct phl_info_t *phl_info,
 	if (!chanctx)
 		return RTW_PHL_STATUS_FAILURE;
 
-	#ifdef DBG_CHCTX_RMAP
-	if (chanctx->role_map & BIT(ridx))
+	if (chanctx->role_map & BIT(ridx)) {
 		PHL_ERR("wifi_role idx(%d) has in chanctx->role_map(0x%02x)\n",
 				ridx, chanctx->role_map);
-	#endif
+		_os_warn_on(1);
+		return RTW_PHL_STATUS_FAILURE;
+	}
+
 	chanctx->role_map |= BIT(ridx);
 	rlink->chanctx = chanctx;
 	return RTW_PHL_STATUS_SUCCESS;
@@ -866,7 +896,7 @@ static void _phl_upt_offset_by_chbw_24g(struct rtw_chan_def *n_chdef)
 		goto exit;
 
 	if (n_chdef->chan >= 1 && n_chdef->chan <= 4) {
-		n_chdef->offset = CHAN_OFFSET_UPPER;
+		offset = CHAN_OFFSET_UPPER;
 	}
 	else if (n_chdef->chan >= 5 && n_chdef->chan <= 9) {
 		if (n_chdef->offset == CHAN_OFFSET_UPPER || n_chdef->offset == CHAN_OFFSET_LOWER)
@@ -1178,9 +1208,8 @@ static void _phl_dump_mr_cc_info(struct phl_info_t *phl_info,
 		PHL_INFO("[CC-INFO] suggest opmode:%s\n", "NON");
 }
 
-bool rtw_phl_chanctx_chk(void *phl,
-                         struct rtw_wifi_role_t *wifi_role,
-                         struct rtw_wifi_role_link_t *rlink,
+bool rtw_phl_chanctx_chk_by_band(void *phl,
+                         u8 band_idx,
                          struct rtw_chan_def *new_chdef,
                          struct rtw_mr_chctx_info *mr_cc_info)
 {
@@ -1188,7 +1217,6 @@ bool rtw_phl_chanctx_chk(void *phl,
 	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
 	void *drv = phl_to_drvpriv(phl_info);
 	struct mr_ctl_t *mr_ctl = phlcom_to_mr_ctrl(phl_com);
-	u8 band_idx = rlink->hw_band;
 	bool is_ch_group = false;
 	struct hw_band_ctl_t *band_ctrl = &(mr_ctl->band_ctrl[band_idx]);
 	int chanctx_num = 0;
@@ -1329,6 +1357,14 @@ _exit:
 	PHL_DUMP_MR_EX(phl_info);
 	return is_ch_group;
 }
+bool rtw_phl_chanctx_chk(void *phl,
+                         struct rtw_wifi_role_t *wifi_role,
+                         struct rtw_wifi_role_link_t *rlink,
+                         struct rtw_chan_def *new_chdef,
+                         struct rtw_mr_chctx_info *mr_cc_info)
+{
+	return rtw_phl_chanctx_chk_by_band(phl, rlink->hw_band, new_chdef, mr_cc_info);
+}
 
 bool rtw_phl_adjust_chandef(void *phl,
 				  struct rtw_wifi_role_link_t *rlink,
@@ -1373,6 +1409,7 @@ static bool phl_chanctx_add(struct phl_info_t *phl_info,
 	struct rtw_chan_def *chandef = NULL;
 	_os_list *chan_ctx_list = &band_ctrl->chan_ctx_queue.queue;
 	bool is_ch_grouped = false;
+	bool rmap_chk_fail = false;
 	enum mr_op_mode sop_mode = MR_OP_NONE;
 	u8 band_role_num = 0;
 	int chanctx_num = 0;
@@ -1411,12 +1448,21 @@ static bool phl_chanctx_add(struct phl_info_t *phl_info,
 		if (is_ch_grouped) {
 			_phl_adjust_chandef(new_chdef, chandef, true);
 			_os_mem_cpy(drv, new_chdef, chandef, sizeof(struct rtw_chan_def));
-			_phl_chanctx_rmap_set(phl_info, wifi_role, rlink,
+			phl_sts = _phl_chanctx_rmap_set(phl_info, wifi_role, rlink,
 			                      &band_ctrl->chan_ctx_queue, chanctx);
+			if (phl_sts != RTW_PHL_STATUS_SUCCESS) {
+				rmap_chk_fail = true;
+				is_ch_grouped = false;
+				sop_mode = MR_OP_MAX;
+				/*band_ctrl->op_mode = sop_mode;*/
+			}
 			break;
 		}
 	}
 	_os_spinunlock(drv, &band_ctrl->chan_ctx_queue.lock, _bh, NULL);
+
+	if (rmap_chk_fail == true)
+		goto _exit;
 
 	if (is_ch_grouped == true) {/****** SCC or MCC ******/
 		PHL_INFO("%s grouped chan_def - hw_band_idx:%d band:%d chan:%d, bw:%d, offset:%d\n",
@@ -1676,6 +1722,7 @@ int rtw_phl_chanctx_del(void *phl,
 		_os_spinunlock(drv, &chan_ctx_queue->lock, _bh, NULL);
 
 		_os_kmem_free(drv, target_chanctx, sizeof(struct rtw_chan_ctx));
+		target_chanctx = NULL;
 
 	} else { /*multi roles on this chctx*/
 		phl_sts = _phl_chanctx_rmap_clr_with_lock(phl_info,
@@ -1715,7 +1762,7 @@ int rtw_phl_chanctx_del(void *phl,
 		#endif
 		band_ctrl->op_mode = (chctx_role_num == 1) ? MR_OP_SWR : MR_OP_SCC;
 	} else if (chctx_num == 2) {
-		if (chan_def)
+		if (chan_def && target_chanctx)
 			_os_mem_cpy(drv, chan_def, &target_chanctx->chan_def, sizeof(struct rtw_chan_def));
 		band_ctrl->op_mode = MR_OP_MCC;
 	}
@@ -2167,12 +2214,24 @@ rtw_phl_get_chandef_from_operating_class(
 	return ret;
 }
 
+#ifdef CONFIG_PHL_CHSWOFLD
 void rtw_phl_set_chsw_ofld_info(struct rtw_phl_com_t *phl_com,
 	bool chsw_ofld_en, bool rf_reload, bool skip_normal_watchdog)
 {
 	struct chsw_ofld_info_t *chsw_ofld_info = &phl_com->chsw_ofld_info;
 
-	chsw_ofld_info->chsw_ofld_en = chsw_ofld_en;
-	chsw_ofld_info->rf_reload = rf_reload;
-	chsw_ofld_info->skip_normal_watchdog = skip_normal_watchdog;
+	if (chsw_ofld_en) {
+		if (phl_com->dev_cap.chsw_ofld) {
+			chsw_ofld_info->chsw_ofld_en = true;
+			chsw_ofld_info->rf_reload = rf_reload;
+			chsw_ofld_info->skip_normal_watchdog = skip_normal_watchdog;
+			return;
+		} else {
+			PHL_WARN("%s: channel switch offload is not supported.\n", __FUNCTION__);
+		}
+	}
+	chsw_ofld_info->chsw_ofld_en = false;
+	chsw_ofld_info->rf_reload = false;
+	chsw_ofld_info->skip_normal_watchdog = false;
 }
+#endif

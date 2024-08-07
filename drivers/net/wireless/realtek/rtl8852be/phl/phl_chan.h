@@ -100,7 +100,9 @@ rtw_phl_get_chandef_from_operating_class(
 	struct rtw_chan_def *chan_def
 );
 
+#ifdef CONFIG_PHL_CHSWOFLD
 void rtw_phl_set_chsw_ofld_info(struct rtw_phl_com_t *phl_com,
 	bool chsw_ofld_en, bool rf_reload, bool skip_normal_watchdog);
+#endif
 
 #endif /*_PHL_CHANA_H_*/

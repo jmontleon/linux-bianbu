@@ -116,19 +116,16 @@ enum rtw_hal_status rtw_hal_get_wow_aoac_rpt(void *hal, struct rtw_aoac_report *
 	return hstatus;
 }
 
-#ifdef CONFIG_PCI_HCI
-enum rtw_hal_status rtw_hal_wow_cfg_txdma(void *hal, u8 en)
+enum rtw_hal_status rtw_hal_wow_cfg_txdma(void *hal, u8 state)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
 
-	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s : enable %d.\n", __func__, en);
+	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s : state %d.\n", __func__, state);
 
-	trx_ops->cfg_wow_txdma(hal_info, en);
+	rtw_hal_mac_cfg_txdma(hal_info, state);
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
-#endif
 
 enum rtw_hal_status
 rtw_hal_wow_cfg_nlo(void *hal, enum SCAN_OFLD_OP op, u16 mac_id,

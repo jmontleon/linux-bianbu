@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2021 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -67,10 +67,11 @@ void hal_mac_get_hwinfo(struct hal_info_t *hal, struct hal_spec_t *hal_spec)
 enum rtw_hal_status
 rtw_hal_mac_watchdog(struct hal_info_t *hal_info, struct rtw_phl_com_t *phl_com)
 {
-	#if 0
+
 	struct mac_ax_adapter *mac = (struct mac_ax_adapter *)hal_info->mac;
 	struct mac_ax_wdt_param param = {0};
 	u32 ret = 0;
+#if 0
 	struct mac_ax_resp_chk_cca resp_chk;
 
 	if (phl_com->edcca_mode)
@@ -101,7 +102,7 @@ rtw_hal_mac_watchdog(struct hal_info_t *hal_info, struct rtw_phl_com_t *phl_com)
 			PHL_ERR("[ERR]mac_resp_chk_cca(0) %d\n", ret);
 		}
 	}
-
+#endif
 	param.drv_ctrl.autok_wdt_ctrl = MAC_AX_PCIE_DEFAULT;
 	param.drv_ctrl.tp_wdt_ctrl = MAC_AX_PCIE_DEFAULT;
 	param.tp.tx_tp = (u16)(phl_com->phl_stats.tx_tp_kbits >> 10);
@@ -111,9 +112,6 @@ rtw_hal_mac_watchdog(struct hal_info_t *hal_info, struct rtw_phl_com_t *phl_com)
 
 	return (ret == MACSUCCESS) ?
 	       (RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
-	#else
-	return RTW_HAL_STATUS_SUCCESS;
-	#endif
 }
 
 enum rtw_hal_status
@@ -135,6 +133,9 @@ hal_mac_set_chip_id(struct rtw_hal_com_t *hal_com,
 	case MAC_AX_CHIP_ID_8852C:
 		hal_com->chip_id = CHIP_WIFI6_8852C;
 		break;
+	case MAC_AX_CHIP_ID_8852D:
+		hal_com->chip_id = CHIP_WIFI6_8852D;
+		break;
 	case MAC_AX_CHIP_ID_8192XB:
 		hal_com->chip_id = CHIP_WIFI6_8192XB;
 		break;
@@ -145,6 +146,32 @@ hal_mac_set_chip_id(struct rtw_hal_com_t *hal_com,
 	}
 	PHL_INFO("%s : hal_com->chip_id = %d\n", __FUNCTION__, hal_com->chip_id);
 	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_mac_cfg_txdma(struct hal_info_t *hal, u8 state)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal);
+	struct mac_ax_ops *hal_mac_ops = mac->ops;
+	u32 ret = 0;
+
+	ret = hal_mac_ops->intf_ops->ctrl_txdma(mac, state);
+
+	return (ret == MACSUCCESS) ?
+			(RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
+}
+
+enum rtw_hal_status rtw_hal_mac_poll_txdma_idle(struct hal_info_t *hal)
+{
+
+	struct mac_ax_adapter *mac = hal_to_mac(hal);
+	struct mac_ax_ops *hal_mac_ops = mac->ops;
+	u32 ret = 0;
+
+	ret = hal_mac_ops->intf_ops->poll_txdma_idle(mac);
+
+	return (ret == MACSUCCESS) ?
+			(RTW_HAL_STATUS_SUCCESS) : (RTW_HAL_STATUS_FAILURE);
+
 }
 
 #ifdef CONFIG_PCI_HCI
@@ -262,21 +289,6 @@ enum rtw_hal_status hal_mac_set_l2_leave(struct hal_info_t *hal_info)
 	return (ret == MACSUCCESS) ? (RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
 }
 
-enum rtw_hal_status rtw_hal_mac_poll_txdma_idle(struct hal_info_t *hal,
-					struct mac_ax_txdma_ch_map *ch_map)
-{
-
-	struct mac_ax_adapter *mac = hal_to_mac(hal);
-	struct mac_ax_ops *hal_mac_ops = mac->ops;
-	u32 ret = 0;
-
-	ret = hal_mac_ops->intf_ops->poll_txdma_ch_idle(mac, ch_map);
-
-	return (ret == MACSUCCESS) ?
-			(RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
-
-}
-
 enum rtw_hal_status rtw_hal_mac_poll_rxdma_idle(struct hal_info_t *hal,
 					struct mac_ax_rxdma_ch_map *ch_map)
 {
@@ -289,20 +301,6 @@ enum rtw_hal_status rtw_hal_mac_poll_rxdma_idle(struct hal_info_t *hal,
 	return (ret == MACSUCCESS) ?
 			(RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
 }
-enum rtw_hal_status rtw_hal_mac_cfg_txdma(struct hal_info_t *hal,
-					struct mac_ax_txdma_ch_map *ch_map)
-{
-	struct mac_ax_adapter *mac = hal_to_mac(hal);
-	struct mac_ax_ops *hal_mac_ops = mac->ops;
-	u32 ret = 0;
-
-	ret = hal_mac_ops->intf_ops->ctrl_txdma_ch(mac, ch_map);
-
-	return (ret == MACSUCCESS) ?
-			(RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
-
-}
-
 
 enum rtw_hal_status rtw_hal_mac_clr_bdidx(struct hal_info_t *hal)
 {
@@ -465,6 +463,31 @@ rtw_hal_mac_notify_rxdone(struct hal_info_t *hal, struct rx_base_desc *rxbd,
 		(RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
 }
 
+enum rtw_hal_status rtw_hal_mac_set_hci_speed(struct hal_info_t *hal_info,
+					u8 speed)
+{
+	struct mac_ax_adapter *mac = (struct mac_ax_adapter *)hal_info->mac;
+	struct mac_ax_ops *mac_api = mac->ops;
+	struct mac_ax_intf_ops *mac_intf_ops = mac_api->intf_ops;
+	u32 ret = 0;
+
+	ret = mac_intf_ops->set_pcie_speed(mac, speed);
+
+	return (ret == 0) ? (RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
+}
+
+enum rtw_hal_status
+rtw_hal_mac_get_hci_speed(struct hal_info_t *hal_info, u8 *speed)
+{
+	struct mac_ax_adapter *mac = (struct mac_ax_adapter *)hal_info->mac;
+	struct mac_ax_ops *mac_api = mac->ops;
+	struct mac_ax_intf_ops *mac_intf_ops = mac_api->intf_ops;
+	u32 ret = 0;
+
+	ret = mac_intf_ops->get_pcie_speed(mac, speed);
+
+	return (ret == 0) ? (RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
+}
 
 #endif
 
@@ -561,7 +584,94 @@ rtw_hal_mac_dbcc_hci_ctrl(struct hal_info_t *hal_info, enum phl_band_idx band_id
 	return (ret == MACSUCCESS) ?
 			(RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
 }
+
+enum rtw_hal_status rtw_hal_mac_set_hci_speed(struct hal_info_t *hal_info,
+					u8 speed)
+{
+	u32 ret = 0;
+
+	if(speed <= RTW_USB_SPEED_HIGH)
+		ret = rtw_hal_force_usb_switch(hal_info, USB_2_0);
+	else if(speed < RTW_USB_SPEED_MAX)
+		ret = rtw_hal_force_usb_switch(hal_info, USB_3_0);
+	PHL_INFO("%s (%d) !!\n", __FUNCTION__, speed);
+
+	return (ret == 0) ? (RTW_HAL_STATUS_SUCCESS): (RTW_HAL_STATUS_FAILURE);
+}
+
+enum rtw_hal_status
+rtw_hal_mac_get_hci_speed(struct hal_info_t *hal_info, u8 *speed)
+{
+	u32 mode = 0;
+
+	mode = hal_mac_get_cur_usb_mode(hal_info);
+
+	switch(mode) {
+		case USB_1_1:
+			*speed = RTW_USB_SPEED_FULL;
+			break;
+		case USB_2_0:
+			*speed = RTW_USB_SPEED_HIGH;
+			break;
+		case USB_3_0:
+			*speed = RTW_USB_SPEED_SUPER;
+			break;
+		default:
+			*speed = RTW_USB_SPEED_UNKNOWN;
+			break;
+	}
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
 #endif
+
+#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
+static void hal_mac_parse_rxd_checksume(struct rtw_hal_com_t *hal,
+				 struct rtw_r_meta_data *meta, u8 status)
+{
+	if ((status == MAC_AX_CHKSUM_OFD_IPV4_TCP_OK) ||
+	    (status == MAC_AX_CHKSUM_OFD_IPV6_TCP_OK) ||
+	    (status == MAC_AX_CHKSUM_OFD_IPV4_UDP_OK) ||
+	    (status == MAC_AX_CHKSUM_OFD_IPV6_UDP_OK))
+		meta->chksum_status = 0;
+	else
+		meta->chksum_status = 1;
+}
+
+/**
+ * rtw_hal_mac_chk_rx_tcpip_chksum_ofd() - check whether rx checsksum offload succeed or not.
+ * @hal: see hal_info_t
+ * @mdata: according to the result of RX checksum offload, we will set mdata->chksum_status to
+ * 	   corresponding value.
+ * 	   mdata->chksum_status = 0: RX checksum offload succeed.
+ * 	   mdata->chksum_status = 1: RX checksum offload failed.
+ * @status: an one byte variable that appends on the end of packet.
+ * 	    indicating the result of RX checksum offload, in function mac_chk_rx_tcpip_chksum_ofd,
+ * 	    we will determine whether the offload succeeds via status.
+ *
+ * The function calls hal mac api to determine whether RX checksum offload succeed or not.
+ * If successfully offload, we will notify OS not to calculate checksum.
+ * In case of linux, setting ip_summed = CHECKSUM_UNNECESSARY in function rtw_os_recv_indicate_pkt
+ * indicates OS not to calculate checksum.
+ *
+ * Return:
+ * 0: RX checksum offload succeed.
+ * 1: RX checksum offload failed.
+ */
+enum rtw_hal_status rtw_hal_mac_chk_rx_tcpip_chksum_ofd(struct hal_info_t *hal,
+							struct rtw_r_meta_data *mdata,
+							u8 status)
+{
+	u32 result;
+	struct mac_ax_adapter *mac = hal_to_mac(hal);
+	struct rtw_hal_com_t *hal_com = hal->hal_com;
+
+	result =  mac->ops->chk_rx_tcpip_chksum_ofd(mac, status);
+	hal_mac_parse_rxd_checksume(hal_com, mdata, result);
+
+	return (!mdata->chksum_status) ? (RTW_HAL_STATUS_SUCCESS) : (RTW_HAL_STATUS_FAILURE);
+}
+#endif /* CONFIG_PHL_CSUM_OFFLOAD_RX */
 
 #ifdef CONFIG_SDIO_HCI
 
@@ -720,6 +830,20 @@ void hal_mac_sdio_read_mem(struct rtw_hal_com_t *hal, u32 addr, u32 cnt, u8 *pme
 			return;
 	}
 	_read_register(hal, addr, cnt, pmem);
+}
+
+enum rtw_hal_status rtw_hal_mac_set_hci_speed(struct hal_info_t *hal_info,
+					u8 speed)
+{
+
+	return 0;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_get_hci_speed(struct hal_info_t *hal_info, u8 *speed)
+{
+
+	return 0;
 }
 
 #ifdef CONFIG_SDIO_INDIRECT_ACCESS
@@ -1019,21 +1143,17 @@ void hal_ser_l2_notify(void *phl, void *hal)
 
 static s32 hal_mac_sprintf(void *drv_adapter, char *buf, size_t size, const char *fmt, ...)
 {
-#if defined(PHL_PLATFORM_LINUX) || defined(PHL_PLATFORM_WINDOWS)
 	s32 ret;
-	va_list args;
+	_os_va_list args = {0};
 
-	va_start(args, fmt);
+	_os_va_start(args, fmt);
 	ret = _os_vsnprintf(buf, size, fmt, args);
 	if (ret >= 0)
 		ret = _os_strlen((u8 *)buf);
 
 	/* PHL_PRINT("[HAL_MMAC]%s", buf); */
-	va_end(args);
+	_os_va_end(args);
 	return ret;
-#else
-	return 0;
-#endif
 }
 
 static s32 hal_mac_strcmp(void *drv_adapter, const char *s1, const char *s2)
@@ -1125,6 +1245,19 @@ void hal_mac_msg_print(void *p, u8 dbg_level, s8 *fmt, ...)
 #endif
 }
 
+#ifdef CONFIG_PHL_DIAGNOSE
+static void hal_mac_diagnostic_event(struct rtw_hal_com_t *hal, u8 type,
+		u8 level, u8 version, u8 *buf, u32 len)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal->hal_priv;
+	struct mac_ax_adapter *mac = (struct mac_ax_adapter *)hal_info->mac;
+	struct rtw_phl_com_t *phl_com = (struct rtw_phl_com_t *)mac->phl_adapter;
+
+	rtw_phl_send_diag_hub_msg(phl_com, PHL_DIAG_EVT_MAC,
+				       type, level, version, buf, len);
+}
+#endif
+
 struct mac_ax_pltfm_cb rtw_plt_cb = {0};
 void rtw_plt_cb_init(void)
 {
@@ -1190,6 +1323,9 @@ void rtw_plt_cb_init(void)
 	rtw_plt_cb.rtl_strcpy = hal_mac_strcpy;
 	rtw_plt_cb.rtl_strpbrk = hal_mac_strpbrk;
 	rtw_plt_cb.rtl_strtoul = hal_mac_strtoul;
+#endif
+#ifdef CONFIG_PHL_DIAGNOSE
+	/* rtw_plt_cb.rtl_diagnostic_event = hal_mac_diagnostic_event; */
 #endif
 }
 
@@ -1382,19 +1518,6 @@ u32 rtw_hal_mac_deinit(struct rtw_phl_com_t *phl_com,
 	return hal_status;
 }
 
-#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
-void rtw_hal_mac_parse_rxd_checksume(struct rtw_hal_com_t *hal,
-					struct rtw_r_meta_data *meta, u8 status)
-{
-	if ((status == MAC_AX_CHKSUM_OFD_IPV4_TCP_OK) ||
-		(status == MAC_AX_CHKSUM_OFD_IPV6_TCP_OK) ||
-		(status == MAC_AX_CHKSUM_OFD_IPV4_UDP_OK) ||
-		(status == MAC_AX_CHKSUM_OFD_IPV6_UDP_OK))
-		meta->chksum_status = 0;
-	else
-		meta->chksum_status = 1;
-}
-#endif
 
 #ifdef CONFIG_SDIO_HCI
 void rtw_hal_mac_sdio_cfg(struct rtw_phl_com_t *phl_com,
@@ -1941,7 +2064,7 @@ int rtw_hal_mac_sdio_parse_rx(struct rtw_hal_com_t *hal,
 
 			status = *(ptr + offset);
 			result = mac->ops->chk_rx_tcpip_chksum_ofd(mac, status);
-			rtw_hal_mac_parse_rxd_checksume(hal, &pkt->meta, result);
+			hal_mac_parse_rxd_checksume(hal, &pkt->meta, result);
 			offset += 8;
 		}
 #endif /* CONFIG_PHL_CSUM_OFFLOAD_RX */
@@ -2215,6 +2338,32 @@ u32 rtw_hal_mac_get_scoreboard(struct rtw_hal_com_t *hal_com, u32 *value)
 
 	return (ops->get_hw_value(mac, MAC_AX_HW_GET_SCOREBOARD, value));
 }
+
+u32 rtw_hal_mac_set_grant_act(struct rtw_hal_com_t *hal_com, u8 *value)
+{
+	struct hal_info_t *hal = hal_com->hal_priv;
+	struct mac_ax_adapter *mac = hal_to_mac(hal);
+	struct mac_ax_ops *ops = mac->ops;
+	struct mac_ax_coex_gnt gnt_val = {0};
+
+	gnt_val.band0.gnt_bt_sw_en = value[0];
+	gnt_val.band0.gnt_bt = value[1];
+	gnt_val.band0.gnt_wl_sw_en = value[2];
+	gnt_val.band0.gnt_wl = value[3];
+
+	gnt_val.band1.gnt_bt_sw_en = value[4];
+	gnt_val.band1.gnt_bt = value[5];
+	gnt_val.band1.gnt_wl_sw_en = value[6];
+	gnt_val.band1.gnt_wl = value[7];
+
+	gnt_val.bt0.wlan_act_en = value[8];
+	gnt_val.bt0.wlan_act = value[9];
+	gnt_val.bt1.wlan_act_en = value[10];
+	gnt_val.bt1.wlan_act = value[11];
+
+	return (ops->set_hw_value(mac, MAC_AX_HW_SET_COEX_GNT, &gnt_val));
+}
+
 
 u32 rtw_hal_mac_set_grant(struct rtw_hal_com_t *hal_com, u8 *value)
 {
@@ -2527,7 +2676,9 @@ rtw_hal_mac_port_init(struct hal_info_t *hal_info,
 	struct mac_ax_port_init_para ppara = {0};
 	struct rtw_phl_stainfo_t *phl_sta;
 	u8 hw_port = rlink->hw_port;
+#ifdef RTW_PHL_BCN
 	u16 bcn_interval = (u16)rlink->bcn_cmn.bcn_interval;
+#endif
 	u8 bsscolor = rlink->protocol_cap.bsscolor;
 #ifdef DBG_DBCC_MONITOR_TIME
 	u32 start_t = 0;
@@ -2983,7 +3134,8 @@ rtw_hal_mac_delete_key(struct hal_info_t *hal_info, u8 macid, u8 type,
 	mac_err = mac->ops->sta_del_key(mac, macid, keyid, keytype);
 
 	if (mac_err != MACSUCCESS) {
-		PHL_ERR("%s : mac status %d.\n", __func__, mac_err);
+		PHL_TRACE(COMP_PHL_DBG, mac_err == MACKEYNOTEXT ? _PHL_INFO_ : _PHL_ERR_
+			, "%s : mac status %d.\n", __func__, mac_err);
 		return RTW_HAL_STATUS_FAILURE;
 	}
 
@@ -3289,6 +3441,58 @@ rtw_hal_mac_trx_init(void *mac, struct hal_init_info_t *init_info)
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
+enum rtw_hal_status
+rtw_hal_mac_loopback_set_trx_mode(struct hal_info_t *hal_info)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	struct mac_ax_ops *hal_mac_ops = mac->ops;
+	struct mac_ax_trx_info trx_info;
+	struct mac_ax_host_rpr_cfg *rpr_cfg = (struct mac_ax_host_rpr_cfg *)hal_info->rpr_cfg;
+
+	rpr_cfg->tmr_def = 1;
+	rpr_cfg->agg_def = 1;
+	rpr_cfg->txok_en = MAC_AX_FUNC_DEF;
+	rpr_cfg->rty_lmt_en = MAC_AX_FUNC_DEF;
+	rpr_cfg->lft_drop_en = MAC_AX_FUNC_DEF;
+	rpr_cfg->macid_drop_en = MAC_AX_FUNC_DEF;
+	trx_info.rpr_cfg = rpr_cfg;
+
+	trx_info.trx_mode = MAC_AX_TRX_LOOPBACK;
+	trx_info.qta_mode = MAC_AX_QTA_SCC;
+
+	if (hal_mac_ops->trx_init(mac, &trx_info))
+		return RTW_HAL_STATUS_MAC_INIT_FAILURE;
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status rtw_hal_mac_set_rxfltr_loopbk_mode(void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	struct mac_ax_rx_fltr_ctrl_t ctrl = {0};
+	struct mac_ax_rx_fltr_ctrl_t mask = {0};
+	u32 err;
+
+	ctrl.sniffer_mode = 1;
+	ctrl.acpt_crc32_err_pkt = 1;
+	ctrl.acpt_ftm_req_pkt = 0;
+	/* unit of pkt_len_fltr is 512 bytes */
+	ctrl.pkt_len_fltr = 0x1c00 >> 9;
+	ctrl.pkt_len_fltr += (0x1c00 & 0x7F) ? 1 : 0;
+
+	mask.acpt_crc32_err_pkt = 1;
+	mask.acpt_ftm_req_pkt = 1;
+	mask.pkt_len_fltr = 0x3F;
+
+
+	err = mac->ops->set_rx_fltr_opt(mac, &ctrl, &mask, (enum mac_ax_band)HW_BAND_0);
+	if (err)
+		return RTW_HAL_STATUS_FAILURE;
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
 void _hal_mac_get_ofld_cap(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info)
 {
 #ifdef CONFIG_FW_IO_OFLD_SUPPORT
@@ -3316,6 +3520,71 @@ void _hal_mac_get_ofld_cap(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal
 #endif
 }
 
+static enum rtw_fw_type
+_hal_mac_get_fw_type(struct rtw_phl_com_t *phl_com)
+{
+	enum rtw_fw_type fw_type = phl_com->dev_cap.fw_cap.fw_type;
+	if (fw_type != RTW_FW_MAX) {
+		PHL_INFO("%s : Override phl fw_type to %d.\n", __func__, fw_type);
+		return fw_type;
+	}
+
+#ifdef PHL_FEATURE_NIC
+#if defined(MAC_FW_CATEGORY_NIC) || defined(MAC_FW_CATEGORY_NIC_BPLUS)
+	return RTW_FW_NIC;
+#else
+	return RTW_FW_NIC_CE;
+#endif /*MAC_FW_CATEGORY_NIC || MAC_FW_CATEGORY_NIC_BPLUS*/
+#elif defined(PHL_FEATURE_AP)
+	return RTW_FW_AP;
+#else
+	return RTW_FW_MAX;
+#endif
+}
+
+enum rtw_hal_status
+rtw_hal_mac_set_resp_ack_chk_cca(struct hal_info_t *hal_info, u8 band, u8 en)
+{
+	struct mac_ax_resp_chk_cca resp_chk = {0};
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	u32 mac_status = 0;
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+
+	resp_chk.band = band;
+	resp_chk.resp_ack_chk_cca_en = en;
+	mac_status = mac->ops->set_hw_value(mac, MAC_AX_HW_SET_RESP_ACK_CHK_CCA, &resp_chk);
+
+	if (mac_status != MACSUCCESS) {
+		PHL_ERR("[rtw_hal_mac_set_resp_ack_chk_cca] : band(%d), en(%d), status(%d)\n",
+			mac_status,
+			band,
+			en);
+		hstatus = RTW_HAL_STATUS_FAILURE;
+	}
+
+	return hstatus;
+}
+
+
+enum rtw_hal_status
+rtw_hal_mac_sifs_chk_cca_en(struct hal_info_t *hal_info, u8 band, u8 en)
+{
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	u32 mac_status = 0;
+
+	mac_status = mac->ops->sifs_chk_cca_en(mac, band, en);
+	if (mac_status != MACSUCCESS) {
+		PHL_ERR("sifs_chk_cca_en, band(%d), en(%d), status(%d)\n",
+			band,
+			en,
+			mac_status);
+		hstatus = RTW_HAL_STATUS_FAILURE;
+	}
+
+	return hstatus;
+}
+
 enum rtw_hal_status
 rtw_hal_mac_hal_init(struct rtw_phl_com_t *phl_com,
 		     struct hal_info_t *hal_info,
@@ -3327,24 +3596,12 @@ rtw_hal_mac_hal_init(struct rtw_phl_com_t *phl_com,
 	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
 	struct mac_ax_fwdl_info fwdl_info = {0};
 	u32 mac_status = 0;
-	enum rtw_fw_type fw_type = RTW_FW_MAX;
-#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
+	enum rtw_fw_type fw_type = _hal_mac_get_fw_type(phl_com);
+#if defined(CONFIG_PHL_CSUM_OFFLOAD_RX) || defined(CONFIG_PHL_CSUM_OFFLOAD_TX)
 	u8 tx_chksum_offload = 0;
 	u8 rx_chksum_offload = 0;
 #endif
 	FUNCIN_WSTS(hstatus);
-
-#ifdef PHL_FEATURE_NIC
-#if defined(MAC_FW_CATEGORY_NIC) || defined(MAC_FW_CATEGORY_NIC_BPLUS)
-	fw_type = RTW_FW_NIC;
-#else
-	fw_type = RTW_FW_NIC_CE;
-#endif /*MAC_FW_CATEGORY_NIC || MAC_FW_CATEGORY_NIC_BPLUS*/
-#elif defined(PHL_FEATURE_AP)
-	fw_type = RTW_FW_AP;
-#else
-	fw_type  = RTW_FW_MAX;
-#endif
 
 	hstatus = hal_ops->hal_cfg_fw(phl_com, hal_info, init_info->ic_name, fw_type);
 	if(RTW_HAL_STATUS_SUCCESS != hstatus) {
@@ -3376,9 +3633,20 @@ rtw_hal_mac_hal_init(struct rtw_phl_com_t *phl_com,
 		PHL_ERR("%s : mac_status %d!\n", __func__, mac_status);
 	}
 
+	if (rtw_hal_mac_get_wcpu_cap(phl_com, hal_info) !=
+	    RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s : can't get fw capability.\n", __func__);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
 	_hal_mac_get_ofld_cap(phl_com, hal_info);
 #ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
 	rx_chksum_offload = 1;
+#endif
+#ifdef CONFIG_PHL_CSUM_OFFLOAD_TX
+	tx_chksum_offload = 1;
+#endif
+#if defined(CONFIG_PHL_CSUM_OFFLOAD_RX) || defined(CONFIG_PHL_CSUM_OFFLOAD_TX)
 	mac_status = mac->ops->tcpip_chksum_ofd(mac, tx_chksum_offload, rx_chksum_offload);
 	if (mac_status != MACSUCCESS)
 		PHL_ERR("%s : tcpip_chksum_ofd mac_status %d!!!!!!!\n", __func__, mac_status);
@@ -3413,21 +3681,10 @@ rtw_hal_mac_hal_fast_init(struct rtw_phl_com_t *phl_com,
 	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
 	struct mac_ax_fwdl_info fwdl_info = {0};
 	u32 mac_status = 0;
-	enum rtw_fw_type fw_type = RTW_FW_MAX;
+	enum rtw_fw_type fw_type = _hal_mac_get_fw_type(phl_com);
 
 	FUNCIN_WSTS(hstatus);
 
-#ifdef PHL_FEATURE_NIC
-	#if defined(MAC_FW_CATEGORY_NIC) || defined(MAC_FW_CATEGORY_NIC_BPLUS)
-	fw_type = RTW_FW_NIC;
-	#else
-	fw_type = RTW_FW_NIC_CE;
-	#endif /*MAC_FW_CATEGORY_NIC || MAC_FW_CATEGORY_NIC_BPLUS*/
-#elif defined(PHL_FEATURE_AP)
-	fw_type = RTW_FW_AP;
-#else
-	fw_type  = RTW_FW_MAX;
-#endif
 	hstatus = hal_ops->hal_cfg_fw(phl_com, hal_info, init_info->ic_name, fw_type);
 	if(RTW_HAL_STATUS_SUCCESS != hstatus) {
 		PHL_ERR("%s : Cfg FW Failed: %d!\n", __func__, hstatus);
@@ -3461,6 +3718,7 @@ rtw_hal_mac_hal_fast_init(struct rtw_phl_com_t *phl_com,
 		return RTW_HAL_STATUS_FAILURE;
 	}
 
+	hal_info->hal_com->cv = mac->hw_info->cv;
 	hstatus = RTW_HAL_STATUS_SUCCESS;
 	FUNCOUT_WSTS(hstatus);
 
@@ -4499,6 +4757,38 @@ rtw_hal_mac_fwdl(struct hal_info_t *hal_info, u8 *fw_buf, u32 fw_size)
 	}
 
 	hal_mac_print_fw_version(hal_info);
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_fwredl(struct hal_info_t *hal_info, u8 *fw_buf, u32 fw_size)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	u32 mac_err;
+
+	mac_err = mac->ops->fwredl(mac, fw_buf, fw_size);
+	if (mac_err != MACSUCCESS) {
+		PHL_ERR("%s : mac status %d.\n", __func__, mac_err);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	hal_mac_print_fw_version(hal_info);
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_query_fw_buff(struct hal_info_t *hal_info, enum rtw_fw_type cat, u8 **fw, u32 *fw_len)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	u32 mac_status;
+
+	mac_status = mac->ops->query_fw_buff(mac, cat, fw, fw_len);
+	if (mac_status != MACSUCCESS) {
+		PHL_ERR("%s : mac status %d.\n", __func__, mac_status);
+		return RTW_HAL_STATUS_FAILURE;
+	}
 
 	return RTW_HAL_STATUS_SUCCESS;
 }
@@ -5901,6 +6191,14 @@ rtw_hal_mac_cfg_sensing_csi(struct hal_info_t *hal_info,
 {
 	struct mac_ax_adapter *mac = (struct mac_ax_adapter *)hal_info->mac;
 	struct rtw_hal_mac_sensing_csi_param para = {0};
+	struct rtw_phl_com_t *phl_com = hal_info->phl_com;
+	struct dev_cap_t *dev_cap = &phl_com->dev_cap;
+
+	if (dev_cap->sensing_csi == false) {
+		PHL_ERR("%s not support sensing csi\n", __func__);
+		_os_warn_on(1);
+		return RTW_HAL_STATUS_FAILURE;
+	}
 
 	para.macid = macid;
 	para.en = en;
@@ -5911,7 +6209,7 @@ rtw_hal_mac_cfg_sensing_csi(struct hal_info_t *hal_info,
 	para.pkt_id = pkt_id;
 
 	if (mac->ops->cfg_sensing_csi(mac, &para) != MACSUCCESS) {
-		PHL_ERR("%s fault\n", __func__);
+		PHL_ERR("%s cfg_sensing_csi fail\n", __func__);
 		return RTW_HAL_STATUS_FAILURE;
 	}
 	return RTW_HAL_STATUS_SUCCESS;
@@ -7001,6 +7299,9 @@ rtw_hal_mac_lps_cfg(struct hal_info_t *hal_info,
 	ax_lps_info.awake_interval = lps_info->awake_interval;
 	ax_lps_info.smart_ps_mode = (enum mac_ax_smart_ps_mode)lps_info->smart_ps_mode;
 	ax_lps_info.bcnnohit_en = lps_info->bcnnohit_en;
+	ax_lps_info.dyn_tx_ant_num_en = lps_info->dyntxant_en;
+	ax_lps_info.max_tx_ant_num = lps_info->maxtxant;
+	ax_lps_info.lps_tx_ant_num = lps_info->lpstxant;
 
 	if (mac->ops->cfg_lps(mac, (u8)lps_info->macid, ax_ps_mode,
 		&ax_lps_info) == MACSUCCESS)
@@ -7138,6 +7439,13 @@ rtw_hal_mac_get_rx_cnt(struct hal_info_t *hal_info, u8 cur_phy_idx, u8 type_idx,
 	}
 
 	return ret;
+}
+
+void
+rtw_hal_mac_get_rx_cnt_info(void *hal, u8 cur_phy_idx, u8 type_idx, u32 *ret_value){
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	rtw_hal_mac_get_rx_cnt(hal_info, cur_phy_idx, type_idx, ret_value);
 }
 
 enum rtw_hal_status
@@ -7294,14 +7602,13 @@ rtw_hal_mac_set_sch_tx_en(struct rtw_hal_com_t *hal_com, u8 band_idx,
 }
 
 enum rtw_hal_status
-rtw_hal_tx_pause(struct rtw_hal_com_t *hal_com,
-		 u8 band_idx, bool tx_pause, enum tx_pause_rson rson)
+rtw_hal_pause_tx_fifo_sw(void *hal, u8 band_idx,
+                         bool tx_pause, enum tx_pause_rson rson)
 {
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
 	u16 *tx_off;
-	enum tx_pause_rson i;
-	u16 tx_cfg = 0;
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
-
 
 	tx_off = &hal_com->band[band_idx].tx_pause[rson];
 	if (tx_pause == true) {
@@ -7330,6 +7637,25 @@ rtw_hal_tx_pause(struct rtw_hal_com_t *hal_com,
 	} else {
 		*tx_off = 0;
 	}
+	hstatus = RTW_HAL_STATUS_SUCCESS;
+
+_error:
+	return hstatus;
+}
+
+enum rtw_hal_status
+rtw_hal_tx_pause(struct rtw_hal_com_t *hal_com,
+		 u8 band_idx, bool tx_pause, enum tx_pause_rson rson)
+{
+	u16 *tx_off;
+	enum tx_pause_rson i;
+	u16 tx_cfg = 0;
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
+
+	hstatus = rtw_hal_pause_tx_fifo_sw(hal_com->hal_priv, band_idx,
+						tx_pause, rson);
+	if (hstatus != RTW_HAL_STATUS_SUCCESS)
+		goto _error;
 
 	tx_off = hal_com->band[band_idx].tx_pause;
 	for (i = 0; (i < PAUSE_RSON_MAX) && (tx_cfg != RTW_TXEN_ALL); i++)
@@ -7420,30 +7746,42 @@ rtw_hal_mac_set_macid_grp_pause(struct rtw_hal_com_t *hal_com,
 	return hstatus;
 }
 
-enum rtw_hal_status
-rtw_hal_mac_set_macid_pause_sleep(struct rtw_hal_com_t *hal_com,
-                            u16 macid, bool pause, bool sleep)
+/**
+ * rtw_hal_mac_set_macid_pause_sleep - Control MACID pause/sleep
+ * @hal_com:	pointer of struct rtw_hal_com_t
+ * @macid:	sta macid for configuration
+ * @pause:	false: unpause, true: pause
+ * @sleep:	false: unsleep, true: sleep
+ *
+ * Control sta to behave as the table below
+ * pause / sleep : ACQ can Tx / MGQ can Tx
+ * false / false :   true     /    true
+ * false / true  :   false    /    false
+ * true  / false :   false    /    true
+ * true  / true  :   false    /    false
+ *
+ * Return RTW_HAL_STATUS_SUCCESS when setting is ok.
+ */
+enum rtw_hal_status rtw_hal_mac_set_macid_pause_sleep(struct rtw_hal_com_t *hal_com,
+						      u16 macid, bool pause, bool sleep)
 {
 	struct hal_info_t *hal = hal_com->hal_priv;
 	struct mac_ax_adapter *mac = hal_to_mac(hal);
 	struct mac_ax_ops *ops = mac->ops;
 	struct mac_ax_macid_pause_sleep_cfg cfg = {0};
+	u32 mac_status;
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
-	/*
-	** pause / sleep: ACQ can Tx / MGQ can Tx
-	**   0   /   0  :   True     /    True
-	**   0   /   1  :   False    /    False
-	**   1   /   0  :   False    /    True
-	**   1   /   1  :   False    /    False
-	*/
 
 	cfg.macid = (u8)macid;
 	cfg.pause = pause;
 	cfg.sleep = sleep;
 
 	PHL_INFO("%s macid:%d(%s/%s) \n", __func__, macid, pause ? "pause":"unpause", sleep ? "sleep":"unsleep");
-	if (ops->set_hw_value(mac, MAC_AX_HW_SET_ID_PAUSE_SLEEP, &cfg) != MACSUCCESS) {
-		PHL_ERR("%s failed\n", __func__);
+
+	mac_status = ops->set_hw_value(mac, MAC_AX_HW_SET_ID_PAUSE_SLEEP, &cfg);
+	if (mac_status != MACSUCCESS) {
+		PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "%s() : fail, status = %d.\n",
+			  __func__, mac_status);
 		hstatus = RTW_HAL_STATUS_FAILURE;
 	}
 
@@ -7481,7 +7819,11 @@ rtw_hal_mac_data_drop_once(struct rtw_hal_com_t *hal_com,
 	u16 macid = sta->macid;
 	u8 band = sta->rlink->hw_band;
 	u8 port = sta->rlink->hw_port;
+#ifdef RTW_PHL_BCN
 	u8 mbssid = sta->rlink->hw_mbssid;
+#else
+	u8 mbssid = 0;
+#endif
 	enum mac_ax_pkt_drop_sel sel = MAC_AX_PKT_DROP_SEL_INVALID;
 
 	sel = MAC_AX_PKT_DROP_SEL_MACID_BE_ONCE;
@@ -7676,7 +8018,7 @@ rtw_hal_mac_set_rxfltr_opt_by_mode(struct rtw_hal_com_t *hal_com,
 	struct mac_ax_rx_fltr_ctrl_t mask = {0};
 	u32 err;
 
-
+	PHL_INFO("%s band(%d), mode(%d) \n", __func__, band, mode);
 	switch (mode) {
 	case RX_FLTR_OPT_MODE_RESTORE:
 		break;
@@ -7800,6 +8142,26 @@ rtw_hal_mac_set_rxfltr_opt_by_mode(struct rtw_hal_com_t *hal_com,
 		#endif
 		break;
 
+	case RX_FLTR_OPT_MODE_LSN_DISCOV:
+		_hal_set_dft_rxfltr(&ctrl, &mask);
+
+		/* check unicast */
+		ctrl.acpt_a1_match_pkt = 1;
+		mask.acpt_a1_match_pkt = 1;
+		ctrl.uc_pkt_chk_cam_match = 0;
+		mask.uc_pkt_chk_cam_match = 1;
+
+		/* check broadcast (for probe req) */
+		ctrl.acpt_bc_pkt = 1;
+		mask.acpt_bc_pkt = 1;
+		ctrl.bc_pkt_chk_cam_match = 0;
+		mask.bc_pkt_chk_cam_match = 1;
+
+		/* disable bcn ckeck */
+		ctrl.bcn_chk_en = 0;
+		mask.bcn_chk_en = 1;
+
+		break;
 	case RX_FLTR_OPT_MODE_AP_NORMAL:
 		#if 1
 		_hal_set_dft_rxfltr(&ctrl, &mask);
@@ -7877,7 +8239,25 @@ rtw_hal_mac_set_rxfltr_opt_by_mode(struct rtw_hal_com_t *hal_com,
 		mask.acpt_ftm_req_pkt = 1;
 		#endif
 		break;
-
+#ifdef CONFIG_PHL_TEST_MP
+	case RX_FLTR_OPT_MODE_MP:
+		ctrl.acpt_a1_match_pkt = 1;
+		mask.acpt_a1_match_pkt = 1;
+		ctrl.acpt_bc_pkt = 1;
+		mask.acpt_bc_pkt = 1;
+		ctrl.acpt_mc_pkt = 1;
+		mask.acpt_mc_pkt = 1;
+		ctrl.uc_pkt_chk_cam_match = 1;
+		mask.uc_pkt_chk_cam_match = 1;
+		ctrl.bc_pkt_chk_cam_match = 1;
+		mask.bc_pkt_chk_cam_match = 1;
+		/* check beacon */
+		ctrl.bcn_chk_en = 1;
+		mask.bcn_chk_en = 1;
+		ctrl.bcn_chk_rule = 2; /* 2: A2&A3 match */
+		mask.bcn_chk_rule = 3;
+		break;
+#endif
 	}
 
 	err = mac->ops->set_rx_fltr_opt(mac, &ctrl, &mask, band);
@@ -8294,6 +8674,27 @@ rtw_hal_mac_get_edca(struct rtw_hal_com_t *hal_com,
 }
 
 #ifdef CONFIG_PHL_TWT
+static void
+_dump_mac_ax_twtact_para(struct mac_ax_twtact_para *para)
+{
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: act(%d), macid(%d), id(%d)\n",
+		__FUNCTION__, para->act, para->macid, para->id);
+}
+
+static void
+_dump_mac_ax_twt_para(struct mac_ax_twt_para *para)
+{
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: nego_tp(%d), act(%d), trig(%d), flow_tp(%d), proct(%d), flow_id(%d), id(%d)\n",
+		__FUNCTION__, para->nego_tp, para->act, para->trig,
+		para->flow_tp, para->proct, para->flow_id, para->id);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: wake_exp(%d), band(%d), port(%d), rsp_pm(%d), wake_unit(%d), impt(%d), twtulfixmode(%d)\n",
+		__FUNCTION__, para->wake_exp, para->band, para->port,
+		para->rsp_pm, para->wake_unit, para->impt, para->twtulfixmode);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: wake_man(%d), dur(%d), trgt_h(0x%08x), trgt_l(0x%08x)\n",
+		__FUNCTION__, para->wake_man, para->dur, para->trgt_h,
+		para->trgt_l);
+}
+
 enum rtw_hal_status
 rtw_hal_mac_twt_info_update(void *hal,
                             struct rtw_phl_twt_info twt_info,
@@ -8316,11 +8717,12 @@ rtw_hal_mac_twt_info_update(void *hal,
 			mac_twt_para.flow_id = 0;
 			break;
 		case RTW_PHL_BCAST_TWT:
+		case RTW_PHL_MANAGE_BCAST_TWT:
 			mac_twt_para.nego_tp = MAC_AX_TWT_NEGO_TP_BRC;
 			mac_twt_para.flow_id = twt_info.bcast_twt_id;
 			break;
 		default:
-			PHL_ERR("%s : Error TWT nego type %d\n", __func__, twt_info.nego_type);
+			PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s : Error TWT nego type %d\n", __func__, twt_info.nego_type);
 			return RTW_HAL_STATUS_FAILURE;
 	}
 	switch (action) {
@@ -8334,7 +8736,7 @@ rtw_hal_mac_twt_info_update(void *hal,
 			mac_twt_para.act = MAC_AX_TWT_ACT_TP_MOD;
 			break;
 		default:
-			PHL_ERR("%s : Error TWT action %d\n", __func__, action);
+			PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s : Error TWT action %d\n", __func__, action);
 			return RTW_HAL_STATUS_FAILURE;
 	}
 	mac_twt_para.trig = twt_info.trigger;
@@ -8352,12 +8754,12 @@ rtw_hal_mac_twt_info_update(void *hal,
 
 	mac_twt_para.band = rlink->hw_band;
 	mac_twt_para.port = rlink->hw_port;
-
+	_dump_mac_ax_twt_para(&mac_twt_para);
 	/* HalMac API to setup/delete TWT config*/
 	mac_status = mac->ops->twt_info_upd_h2c(mac, &mac_twt_para);
 	if (MACSUCCESS != mac_status){
-		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "rtw_hal_mac_twt_info_update(): mac_twt_info_upd_h2c fail(%d)\n",
-			mac_status);
+		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s: mac_twt_info_upd_h2c fail(%d)\n",
+			__FUNCTION__, mac_status);
 		return RTW_HAL_STATUS_FAILURE;
 	}
 
@@ -8394,11 +8796,12 @@ rtw_hal_mac_twt_sta_update(void *hal, u8 macid, u8 twt_id, u8 action)
 	}
 	mac_twtact_para.macid = macid;
 	mac_twtact_para.id = twt_id;
+	_dump_mac_ax_twtact_para(&mac_twtact_para);
 	/* Call HalMac API to setup/delete TWT STA config*/
 	mac_status = mac->ops->twt_act_h2c(mac, &mac_twtact_para);
 	if (MACSUCCESS != mac_status) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "rtw_hal_mac_twt_sta_update(): mac_twt_act_h2c fail(%d)\n",
-			mac_status);
+		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s: mac_twt_act_h2c fail(%d)\n",
+			__FUNCTION__, mac_status);
 		return RTW_HAL_STATUS_FAILURE;
 	}
 	return RTW_HAL_STATUS_SUCCESS;
@@ -8415,7 +8818,7 @@ rtw_hal_mac_twt_sta_announce(void *hal, u8 macid)
 	mac_twtanno_para.macid = macid;
 	mac_status = mac->ops->twt_anno_h2c(mac, &mac_twtanno_para);
 	if (MACSUCCESS != mac_status) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "rtw_hal_mac_twt_sta_announce(): mac_twt_anno_h2c fail(%d)\n",
+		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "rtw_hal_mac_twt_sta_announce(): mac_twt_anno_h2c fail(%d)\n",
 			mac_status);
 		return RTW_HAL_STATUS_FAILURE;
 	}
@@ -9164,6 +9567,10 @@ u32 rtw_hal_mac_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_
 		c2h_msg->u.twt_anno_rpt.macid[2] = (u8)c2h_rpt.u.twt_anno_rpt.macid2;
 		break;
 #endif
+	case MSG_EVT_BCN_EARLY_REPORT:
+		c2h_msg->u.bcn_erly_rpt.port = c2h_rpt.u.bcn_erly_rpt.port;
+		c2h_msg->u.bcn_erly_rpt.band = c2h_rpt.u.bcn_erly_rpt.band;
+		break;
 	}
 exit:
 	return retid;
@@ -9533,11 +9940,7 @@ rtw_hal_mac_read_log_efuse_bt_map(struct rtw_hal_com_t *hal_com, u8 *map)
 
 	if (mac->ops->dump_log_efuse_bt(mac,
 			MAC_AX_EFUSE_PARSER_MAP,
-			#ifdef CONFIG_PHL_FW_DUMP_EFUSE
-			MAC_AX_EFUSE_R_AUTO,
-			#else
 			MAC_AX_EFUSE_R_DRV,
-			#endif
 			map
 			) != MACSUCCESS) {
 		PHL_INFO("%s: Dump bt logical efuse fail!\n", __FUNCTION__);
@@ -9909,6 +10312,31 @@ enum rtw_hal_status rtw_hal_mac_get_tsf(struct hal_info_t *hal,
 	}
 	*tsf_h = val.tsf_h;
 	*tsf_l = val.tsf_l;
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+/**
+ * rtw_hal_mac_clear_rwptr - clear read/write pointer of HCI
+ * @hal:	pointer of struct hal_info_t
+ *
+ * Clear read/write pointer of HCI.
+ * For PCIE, the clr_hci_trx() would also reset bdram.
+ *
+ * Return RTW_HAL_STATUS_SUCCESS if clear read write pointer is ok,
+ * otherwise return RTW_HAL_STATUS_FAILURE.
+ */
+enum rtw_hal_status rtw_hal_mac_clear_rwptr(struct hal_info_t *hal)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal);
+	struct mac_ax_ops *hal_mac_ops = mac->ops;
+	u32 ret = 0;
+
+	ret = hal_mac_ops->intf_ops->clr_hci_trx(mac);
+	if (ret != MACSUCCESS) {
+		PHL_ERR("%s: clear read/write pointer of HCI fail! (%d)\n", __func__, ret);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
@@ -10425,17 +10853,30 @@ exit:
 }
 #endif /* CONFIG_MCC_SUPPORT */
 
-enum rtw_hal_status
-rtw_hal_mac_ch_switch_ofld(struct hal_info_t *hal_info,
-			u8 band_idx, u8 pri_ch, u8 central_ch,
-			enum band_type band, enum channel_width bw,
-			bool reload_rf)
+#ifdef CONFIG_PHL_CHSWOFLD
+/**
+ * rtw_hal_mac_ch_switch_ofld() - Offload ch switching and rf reloading to fw
+ * @hal_info:	struct hal_info_t *
+ * @band_idx:	band idx 0~1, 0x0: band0, 0x1: band1
+ * @pri_ch:	primary channel
+ * @central_ch:	center channel
+ * @band:	enum band_type
+ * @bw:		enum channel_width
+ * @reload_rf:	reload RF params is needed or not
+ *
+ * Return RTW_HAL_STATUS_SUCCESS when operation success.
+ */
+enum rtw_hal_status rtw_hal_mac_ch_switch_ofld(struct hal_info_t *hal_info,
+					       u8 band_idx, u8 pri_ch, u8 central_ch,
+					       enum band_type band, enum channel_width bw,
+					       bool reload_rf)
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 	struct mac_ax_ch_switch_parm chsw = {0};
 	struct mac_ax_ch_switch_rpt rpt = {0};
 	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
-	u16 loop_cnt = 0;
+	u32 cur_time = _os_get_cur_time_ms();
+	u32 passing_time;
 	u32 mac_status;
 
 	if (mac == NULL)
@@ -10449,49 +10890,77 @@ rtw_hal_mac_ch_switch_ofld(struct hal_info_t *hal_info,
 	chsw.reload_rf = reload_rf;
 
 	mac_status = mac->ops->ch_switch_ofld(mac, chsw);
-
 	if (mac_status != MACSUCCESS) {
-		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "rtw_hal_mac_ch_switch_ofld(): fault, status = %d.\n", mac_status);
+		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s: fault, status = %d.\n",
+			  __func__, mac_status);
 		goto exit;
 	}
-	do {
-		if (mac->ops->check_fwofld_done(mac, FW_OFLD_OP_CH_SWITCH) ==
-								MACSUCCESS)
-			break;
-		_os_delay_ms(hal_to_drvpriv(hal_info), 1);
-		loop_cnt++;
-	} while (loop_cnt < POLLING_HALMAC_CNT);
 
-	if (loop_cnt < POLLING_HALMAC_CNT) {
-		PHL_TRACE(COMP_PHL_MAC, _PHL_DEBUG_, "rtw_hal_mac_ch_switch_ofld(): polling ok, count(%d)\n", loop_cnt);
-		mac_status = mac->ops->get_ch_switch_rpt(mac, &rpt);
-		if (mac_status != MACSUCCESS) {
-			PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "rtw_hal_mac_ch_switch_ofld(): fault, status = %d.\n", mac_status);
+	while (1) {
+		mac_status = mac->ops->check_fwofld_done(mac, FW_OFLD_OP_CH_SWITCH);
+		passing_time = phl_get_passing_time_ms(cur_time);
+		if (mac_status == MACSUCCESS) {
+			PHL_TRACE(COMP_PHL_MAC, _PHL_DEBUG_, "%s: polling ok with duration %ums\n",
+				  __func__, passing_time);
+			break;
+		}
+
+		if (mac_status != MACPROCBUSY) {
+			PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_,
+				  "%s: operation %u failed in check_fwofld_done(), status = %d.\n",
+				  __func__, FW_OFLD_OP_CH_SWITCH, mac_status);
+			hal_status = RTW_HAL_STATUS_NOT_SUPPORT;
 			goto exit;
 		}
-		if (rpt.result != CHSW_OK)
-			PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "rtw_hal_mac_ch_switch_ofld(): chsw failed, result = %d.\n", rpt.result);
-		if (rpt.result == CHSW_OK || rpt.result == CHSW_STOPSER_FAIL_WARN
-				|| rpt.result == CHSW_RF_RELOAD_FAIL_WARN || rpt.result == CHSW_STARTSER_FAIL_WARN)
-			hal_status = RTW_HAL_STATUS_SUCCESS;
-	} else {
-		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "rtw_hal_mac_ch_switch_ofld(): polling timeout\n");
+
+		if (passing_time > MAX_POLLING_FW_STS_TIME) {
+			PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s: polling timeout (> %ums)!!!\n",
+				  __func__, MAX_POLLING_FW_STS_TIME);
+			hal_status = RTW_HAL_STATUS_TIMEOUT;
+			goto exit;
+		}
+
+		_os_delay_ms(hal_to_drvpriv(hal_info), 1);
 	}
+
+	mac_status = mac->ops->get_ch_switch_rpt(mac, &rpt);
+	if (mac_status != MACSUCCESS) {
+		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "%s: get_ch_switch_rpt() fault, status = %d.\n",
+			  __func__, mac_status);
+		goto exit;
+	}
+	if (rpt.result != CHSW_OK)
+		PHL_TRACE(COMP_PHL_MAC, _PHL_WARNING_, "%s: chsw failed, result = %d.\n",
+			  __func__, rpt.result);
+	if (rpt.result == CHSW_OK || rpt.result == CHSW_STOPSER_FAIL_WARN
+	    || rpt.result == CHSW_RF_RELOAD_FAIL_WARN || rpt.result == CHSW_STARTSER_FAIL_WARN)
+		hal_status = RTW_HAL_STATUS_SUCCESS;
+
 exit:
 	return hal_status;
 }
+#endif
 
+/**
+ * rtw_hal_mac_cfg_bcn_early_rpt() - Set bcn early rpt
+ * @hal_info:	struct hal_info_t *
+ * @band:	band idx 0~1, 0x0: band0, 0x1: band1
+ * @port:	port idx 0~4
+ * @en:		0x0: disable rpt, 0x1: enable rpt
+ *
+ * Return RTW_HAL_STATUS_SUCCESS when setting is ok.
+ */
 enum rtw_hal_status
-rtw_hal_mac_cfg_bcn_early_rpt(struct hal_info_t *hal_info, u8 band, u8 port, struct rtw_bcn_early_rpt_param *param)
+rtw_hal_mac_cfg_bcn_early_rpt(struct hal_info_t *hal_info, u8 band, u8 port, u8 en)
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 	u32 mac_status;
 	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
 
-	mac_status = mac->ops->cfg_bcn_early_rpt(mac, band, port, param->en);
+	mac_status = mac->ops->cfg_bcn_early_rpt(mac, band, port, en);
 	if (mac_status != MACSUCCESS) {
 		PHL_TRACE(COMP_PHL_MAC, _PHL_ERR_, "rtw_hal_mac_cfg_bcn_early_rpt(en=%d): fault, status = %d.\n",
-			param->en, mac_status);
+			  en, mac_status);
 		goto exit;
 	}
 	hal_status = RTW_HAL_STATUS_SUCCESS;
@@ -11237,3 +11706,146 @@ rtw_hal_mac_set_usr_edca(struct hal_info_t *hal_info,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 
+
+enum rtw_hal_status
+rtw_hal_mac_txagg_timeout_thrhold(struct hal_info_t *hal_info)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	struct mac_ax_host_rpr_cfg rpr_cfg = {0};
+
+	rpr_cfg.txok_en = MAC_AX_FUNC_DEF;
+	rpr_cfg.rty_lmt_en = MAC_AX_FUNC_DEF;
+	rpr_cfg.lft_drop_en = MAC_AX_FUNC_DEF;
+	rpr_cfg.macid_drop_en = MAC_AX_FUNC_DEF;
+	rpr_cfg.tmr_def = 1;
+	rpr_cfg.agg_def = 1;
+	rpr_cfg.tmr = 0x10;
+
+	if (MACSUCCESS !=
+		mac->ops->set_hw_value(mac, MAC_AX_HW_SET_HOST_RPR, &rpr_cfg))
+		return RTW_HAL_STATUS_FAILURE;
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_fw_general_io_test(struct hal_info_t *hal_info)
+{
+	/*struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+
+	if (MACSUCCESS !=
+		mac->ops->fw_general_io_test(mac))
+		return RTW_HAL_STATUS_FAILURE;
+
+	wait for halmac API update*/
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_get_freerun_cnt(struct rtw_hal_com_t *hal_com, enum phl_band_idx hw_band,
+			    u32 *freerun_cnt_h, u32 *freerun_cnt_l)
+{
+
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	struct mac_ax_freerun val;
+	u32 err = 0;
+
+	val.band = hw_band;
+
+	err = mac->ops->get_hw_value(mac, MAC_AX_HW_GET_FREERUN_CNT, &val);
+	if (err)
+		return RTW_HAL_STATUS_FAILURE;
+
+	*freerun_cnt_h = val.freerun_h;
+	*freerun_cnt_l = val.freerun_l;
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+
+enum rtw_hal_status
+rtw_hal_mac_reset_freerun_cnt(struct rtw_hal_com_t *hal_com, enum phl_band_idx hw_band)
+{
+
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	u32 err = 0;
+
+	err = mac->ops->set_hw_value(mac, MAC_AX_HW_SET_FREERUN_RST, &hw_band);
+	if (err)
+		return RTW_HAL_STATUS_FAILURE;
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_sr_update(struct rtw_hal_com_t *hal_com,
+                      void *sr_info,
+                      u8 hw_band)
+{
+	struct hal_info_t *hal_info = hal_com->hal_priv;
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	struct mac_ax_ops *ops = mac->ops;
+	u32 err = 0;
+
+	err = ops->sr_update(mac, (struct rtw_mac_ax_sr_info *)sr_info,
+	                     (enum mac_ax_band) hw_band);
+
+	if (err) {
+		PHL_INFO("%s: failure, status = %d\n", __func__, err);
+		return RTW_HAL_STATUS_FAILURE;
+	}
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
+enum rtw_hal_status
+rtw_hal_mac_set_aspm_test(struct hal_info_t *hal_info)
+{
+	struct mac_ax_adapter *mac = hal_to_mac(hal_info);
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+	u32 mac_err = MACSUCCESS;
+	u16 loop_cnt = 0;
+	u32 aspm_status_code = 0;
+	/* H2C */
+	 mac_err = mac->ops->test_l12(mac);
+	if (mac_err != MACSUCCESS) {
+		PHL_INFO("%s, test_l12 fail status(%d)\n", __func__, mac_err);
+		return RTW_HAL_STATUS_MAC_API_FAILURE;
+	}
+
+	/* wait for C2H*/
+	do {
+		 mac_err = mac->ops->get_test_l12_done(mac);
+		if (mac_err == MACSUCCESS)
+			break;
+		PHL_INFO("%s, get_test_l12_done status(%d)\n", __func__, mac_err);
+		_os_delay_ms(hal_to_drvpriv(hal_info), POLLING_HALMAC_TIME);
+		loop_cnt++;
+	} while (loop_cnt < 200);
+	if (loop_cnt < 200) {
+		PHL_INFO("%s, polling ok, count(%d)\n", __func__, loop_cnt);
+
+	} else {
+		PHL_INFO("%s, polling timeout\n", __func__);
+		hal_status = RTW_HAL_STATUS_FAILURE;
+		return hal_status;
+	}
+
+	/* check aspm result */
+	if(mac->ops->get_test_l12_rpt(mac , &aspm_status_code) == MACSUCCESS) {
+		if(aspm_status_code != 0) {
+			PHL_INFO("%s, rpt result failed! status(%d)\n", __func__, aspm_status_code);
+			hal_status = RTW_HAL_STATUS_FAILURE;
+		} else {
+			PHL_INFO("%s, rpt result succeed!\n", __func__);
+		}
+	} else {
+		PHL_INFO("%s, get l12 rpt fail\n", __func__);
+		hal_status = RTW_HAL_STATUS_FAILURE;
+	}
+
+	return RTW_HAL_STATUS_SUCCESS;
+}

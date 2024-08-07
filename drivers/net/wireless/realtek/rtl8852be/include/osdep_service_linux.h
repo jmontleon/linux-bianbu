@@ -154,9 +154,11 @@
 
 /*
  * MLD related linux kernel patch in
- * Android Common Kernel android13-5.15(5.15.41)
+ * Android Common Kernel android13-5.15
+ * refs/heads/common-android13-5.15-2023-04 (5.15.94)
+ * refs/heads/android13-5.15-lts (5.15.106)
  */
-#if (defined(__ANDROID_COMMON_KERNEL__) && (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41)))
+#if (defined(__ANDROID_COMMON_KERNEL__) && (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94)))
         #define CONFIG_MLD_KERNEL_PATCH
 #endif
 
@@ -342,6 +344,10 @@ __inline static void _rtw_spinunlock_bh(_lock *plock)
 	spin_unlock_bh(plock);
 }
 
+__inline static int _rtw_spin_is_locked(_lock *plock)
+{
+	return spin_is_locked(plock);
+}
 
 /*lock - semaphore*/
 typedef struct	semaphore _sema;
@@ -502,6 +508,8 @@ typedef void *thread_context;
 struct thread_hdl{
 	_thread_hdl_ thread_handler;
 	u8 thread_status;
+	u8 cpu_id;
+	u8 en_assign_cpuid;
 };
 #define THREAD_STATUS_STARTED BIT(0)
 #define THREAD_STATUS_STOPPED BIT(1)
@@ -526,6 +534,27 @@ static inline void rtw_thread_exit(_completion *comp)
 	kthread_complete_and_exit(comp, 0);
 #endif
 }
+
+#ifdef CONFIG_PHL_CPU_BALANCE_THREAD
+static inline _thread_hdl_ rtw_thread_cpu_start(int (*threadfn)(void *data),
+			void *data, const char namefmt[], u8 cpu_id, u8 en_cpuid)
+{
+	_thread_hdl_ _rtw_thread = NULL;
+
+	_rtw_thread = kthread_create(threadfn, data, namefmt);
+	if (IS_ERR(_rtw_thread)) {
+		WARN_ON(!_rtw_thread);
+		_rtw_thread = NULL;
+	}
+	else {
+		/* Specific CPU */
+		if(en_cpuid == _TRUE)
+			kthread_bind(_rtw_thread, cpu_id);
+		wake_up_process(_rtw_thread);
+	}
+	return _rtw_thread;
+}
+#endif /*CONFIG_PHL_CPU_BALANCE_THREAD*/
 
 static inline _thread_hdl_ rtw_thread_start(int (*threadfn)(void *data),
 			void *data, const char namefmt[])
@@ -812,10 +841,7 @@ static inline void _init_workitem_cpu(_workitem_cpu *pwork, void *pfunc, void *c
 #ifdef CONFIG_CPU_SPECIFIC
 	pwork->pwkq = alloc_workqueue(pwork->work_name, WQ_HIGHPRI, 0);
 #else
-	if (strcmp(pwork->work_name, "TX_HDL") == 0)
-		pwork->pwkq = alloc_workqueue(pwork->work_name, WQ_MEM_RECLAIM | WQ_UNBOUND, 0);
-	else
-		pwork->pwkq = alloc_workqueue(pwork->work_name, WQ_MEM_RECLAIM | WQ_HIGHPRI | WQ_UNBOUND, 0);
+	pwork->pwkq = alloc_workqueue(pwork->work_name, WQ_MEM_RECLAIM | WQ_HIGHPRI | WQ_UNBOUND, 0);
 #endif
 }
 
@@ -1084,7 +1110,6 @@ static inline void rtw_dump_stack(void)
 	dump_stack();
 }
 #define rtw_bug_on(condition) BUG_ON(condition)
-#define rtw_warn_on(condition) WARN_ON(condition)
 #define RTW_DIV_ROUND_UP(n, d)	DIV_ROUND_UP(n, d)
 #define rtw_sprintf(buf, size, format, arg...) snprintf(buf, size, format, ##arg)
 
@@ -1136,5 +1161,13 @@ static inline void rtw_dump_stack(void)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0))
 #define dev_addr_mod(dev, offset, addr, len) _rtw_memcpy(&dev->dev_addr[offset], addr, len)
 #endif
+
+#define rtw_warn_on(condition) \
+	do { \
+		if (condition) { \
+			WARN_ON(1); \
+			ATOMIC_INC((ATOMIC_T *)&rtw_warn_on_cnt); \
+		} \
+	} while (0)
 
 #endif /* __OSDEP_LINUX_SERVICE_H_ */

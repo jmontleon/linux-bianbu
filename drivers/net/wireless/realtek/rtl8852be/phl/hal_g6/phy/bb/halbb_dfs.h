@@ -81,7 +81,6 @@ struct bb_dfs_info {
 	//u8 chrp_cnt;
 	//u8 chrp_th;
 	u32 chrp_srt_t;
-	u8 n_cnfd_lvl;
 	u8 lng_rdr_cnt;
 	u8 chrp_rdr_cnt;
 	u8 lng_rdr_cnt_pre;
@@ -119,7 +118,6 @@ struct bb_dfs_info {
 	bool is_mic_w56;
 	bool l_rdr_exst_flag;
 	bool chrp_obsrv_flag;
-	bool n_cnfd_flag;
 	bool n_seq_flag;
 //============= Used by TW DFS ==============//
 	bool chrp_obsrv_flag_sg1;
@@ -136,13 +134,13 @@ struct bb_dfs_info {
 	bool dbg_swdet_prnt_en;
 	bool dbg_trivil_prnt_en;
 	bool dbg_brk_prnt_en;
+	bool mask_fake_rpt_en;
 	u8 fk_dfs_num_th;
 	u8 dfs_tp_th;
 	u8 dfs_idle_prd_th;
 
 	u16 dfs_fa_th;
 	u8 dfs_nhm_th;
-	u8 dfs_n_cnfd_lvl_th;
 
 	bool dfs_dyn_setting_en;
 
@@ -172,7 +170,8 @@ struct bb_dfs_info {
 	u16 pw_lng_chrp_diff_th;
 	u16 pri_diff_th;
 	u16 pw_max_th;
-	u16 invalid_lng_pulse_th;
+	u16 invalid_lng_pulse_h_th;
+	u16 invalid_lng_pulse_l_th;
 
 	u16 min_pw_shrt[DFS_RDR_TYP_NUM];
 	u16 min_pw_lng;

@@ -110,14 +110,17 @@ enum rtw_hal_status rtw_hal_fw_log_cfg(void *halcom, u8 op, u8 type, u32 value)
 	return rtw_hal_mac_fw_log_cfg(hal_com, &fl_cfg);
 }
 
-void hal_fw_en_basic_log(struct rtw_hal_com_t *hal_com)
+void hal_fw_en_basic_log(struct rtw_hal_com_t *hal_com,
+                         struct mac_ax_fw_log* fw_log_info)
 {
 	rtw_hal_fw_log_cfg(hal_com, FL_CFG_OP_SET, FL_CFG_TYPE_LEVEL,
-				FL_LV_LOUD);
+				fw_log_info->level);
 	rtw_hal_fw_log_cfg(hal_com, FL_CFG_OP_SET, FL_CFG_TYPE_OUTPUT,
-				FL_OP_C2H);
+				fw_log_info->output);
 	rtw_hal_fw_log_cfg(hal_com, FL_CFG_OP_SET, FL_CFG_TYPE_COMP,
-				FL_COMP_TASK);
+				fw_log_info->comp);
+	rtw_hal_fw_log_cfg(hal_com, FL_CFG_OP_SET, FL_CFG_TYPE_COMP_EXT,
+				fw_log_info->comp_ext);
 }
 
 enum rtw_hal_status rtw_hal_en_fw_log(void *hal, u32 comp, bool en)
@@ -185,6 +188,7 @@ rtw_hal_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 	struct rtw_fw_info_t *fw_info = &phl_com->fw_info;
+	u32 start_t = 0;
 
 	FUNCIN_WSTS(hal_status);
 
@@ -212,7 +216,11 @@ rtw_hal_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
 	}
 
 	if (fw_info->dlram_en && fw_info->fw_src != RTW_FW_SRC_EXTNAL) {
+		start_t = _os_get_cur_time_us();
 		hal_status = rtw_hal_mac_enable_fw(hal_info, fw_info->fw_type);
+		PHL_INFO("%s : fw_type: %d, FWDL Total Cost Time: %u us\n",
+			 __func__, fw_info->fw_type,
+			 phl_get_passing_time_us(start_t));
 		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
 			PHL_ERR("rtw_hal_mac_enable_fw fail!\n");
 			return hal_status;
@@ -223,6 +231,13 @@ rtw_hal_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
 		PHL_ERR("%s : can't get fw capability.\n", __func__);
 		return RTW_HAL_STATUS_FAILURE;
 	}
+
+#ifdef CONFIG_POWER_SAVE
+	if (fw_info->fw_type == RTW_FW_WOWLAN)
+		rtw_hal_ps_fw_cap_decision(phl_com, true);
+	else
+		rtw_hal_ps_fw_cap_decision(phl_com, false);
+#endif /* CONFIG_POWER_SAVE */
 
 	rtw_hal_rf_config_radio_to_fw(hal_info);
 
@@ -236,6 +251,37 @@ rtw_hal_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
 		PHL_ERR("%s: reset pkt ofld state fail!\n", __func__);
 
 	_hal_send_fwdl_hub_msg(phl_com, (!hal_status) ? true : false);
+	#ifdef CONFIG_BTCOEX
+	rtw_hal_btc_redownload_fw_ntfy(hal_info);
+	#endif /* CONFIG_BTCOEX */
+	FUNCOUT_WSTS(hal_status);
+
+	return hal_status;
+}
+
+enum rtw_hal_status
+rtw_hal_pg_redownload_fw(struct rtw_phl_com_t *phl_com, void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+	struct rtw_fw_info_t *fw_info = &phl_com->fw_info;
+	u8 *fw_buff = NULL;
+	u32 fw_size = 0;
+
+	FUNCIN_WSTS(hal_status);
+
+	if (fw_info->fw_src == RTW_FW_SRC_EXTNAL) {
+		fw_buff = fw_info->ram_buff;
+		fw_size = fw_info->ram_size;
+	} else {
+		hal_status = rtw_hal_mac_query_fw_buff(hal_info,
+						fw_info->fw_type,
+						&fw_buff, &fw_size);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS)
+			return RTW_HAL_STATUS_FAILURE;
+	}
+
+	hal_status = rtw_hal_mac_fwredl(hal_info, fw_buff, fw_size);
 
 	FUNCOUT_WSTS(hal_status);
 

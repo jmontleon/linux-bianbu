@@ -17,52 +17,28 @@
 #if MAC_AX_FW_REG_OFLD
 u32 mac_hdr_conv_en(struct mac_ax_adapter *adapter, u8 en_hdr_conv)
 {
-			u32 ret = 0;
-			u8 *buf;
-#if MAC_AX_PHL_H2C
-			struct rtw_h2c_pkt *h2cb;
-#else
-			struct h2c_buf *h2cb;
-#endif
-			struct mac_ax_en_hdr_conv *content;
+	u32 ret = 0;
+	struct h2c_info h2c_info = {0};
+	struct mac_ax_en_hdr_conv *content;
 
-			h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
-			if (!h2cb)
-				return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_shcut_update);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = WCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_EN_MAC_HDR_CONV;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
 
-			buf = h2cb_put(h2cb, sizeof(struct mac_ax_en_hdr_conv));
-			if (!buf) {
-				ret = MACNOBUF;
-				goto fail;
-			}
+	content = (struct mac_ax_en_hdr_conv *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!content)
+		return MACBUFALLOC;
+	content->enable = en_hdr_conv;
 
-			content = (struct mac_ax_en_hdr_conv *)buf;
-			content->enable = en_hdr_conv;
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content);
 
-			ret = h2c_pkt_set_hdr(adapter, h2cb,
-					      FWCMD_TYPE_H2C,
-					      FWCMD_H2C_CAT_MAC,
-					      FWCMD_H2C_CL_FW_OFLD,
-					      FWCMD_H2C_FUNC_EN_MAC_HDR_CONV,
-					      0,
-					      1);
+	PLTFM_FREE(content, h2c_info.content_len);
 
-			if (ret)
-				goto fail;
-
-			ret = h2c_pkt_build_txd(adapter, h2cb);
-			if (ret)
-				goto fail;
-
-#if MAC_AX_PHL_H2C
-			ret = PLTFM_TX(h2cb);
-#else
-			ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-fail:
-			h2cb_free(adapter, h2cb);
-
-			return ret;
+	return ret;
 }
 #else
 u32 mac_hdr_conv_en(struct mac_ax_adapter *adapter, u8 en_hdr_conv)
@@ -71,10 +47,11 @@ u32 mac_hdr_conv_en(struct mac_ax_adapter *adapter, u8 en_hdr_conv)
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 
 	if (en_hdr_conv) {
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val = MAC_REG_R32(R_AX_HDR_SHCUT_SETTING);
 			val |= (B_AX_MAC_MPDU_PROC_EN |
 				B_AX_SHCUT_LLC_WR_LOCK |
@@ -98,10 +75,11 @@ MAC_AX_8852D_SUPPORT || MAC_AX_1115E_SUPPORT)
 		}
 #endif
 	} else {
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val = MAC_REG_R32(R_AX_HDR_SHCUT_SETTING);
 			val &= (~(B_AX_MAC_MPDU_PROC_EN |
 				  B_AX_SHCUT_LLC_WR_LOCK |
@@ -170,15 +148,16 @@ u32 mac_hdr_conv_tx_set_eth_type(struct mac_ax_adapter *adapter,
 	switch (eth_type_idx) {
 	case R_AX_ETH_TYPE_IDX_0:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_ETH_TYPE0;
 			msk = B_AX_SHUT_ETH_TYPE0_MSK;
 			sh = B_AX_SHUT_ETH_TYPE0_SH;
@@ -188,15 +167,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_ETH_TYPE_IDX_1:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_ETH_TYPE0;
 			msk = B_AX_SHUT_ETH_TYPE1_MSK;
 			sh = B_AX_SHUT_ETH_TYPE1_SH;
@@ -206,15 +186,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_ETH_TYPE_IDX_2:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_ETH_TYPE1;
 			msk = B_AX_SHUT_ETH_TYPE2_MSK;
 			sh = B_AX_SHUT_ETH_TYPE2_SH;
@@ -249,15 +230,16 @@ u32 mac_hdr_conv_tx_get_eth_type(struct mac_ax_adapter *adapter,
 	switch (eth_type_idx) {
 	case R_AX_ETH_TYPE_IDX_0:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_ETH_TYPE0;
 			msk = B_AX_SHUT_ETH_TYPE0_MSK;
 			sh = B_AX_SHUT_ETH_TYPE0_SH;
@@ -267,15 +249,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_ETH_TYPE_IDX_1:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_ETH_TYPE0;
 			msk = B_AX_SHUT_ETH_TYPE1_MSK;
 			sh = B_AX_SHUT_ETH_TYPE1_SH;
@@ -285,15 +268,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_ETH_TYPE_IDX_2:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_ETH_TYPE1;
 			msk = B_AX_SHUT_ETH_TYPE2_MSK;
 			sh = B_AX_SHUT_ETH_TYPE2_SH;
@@ -327,15 +311,16 @@ u32 mac_hdr_conv_tx_set_oui(struct mac_ax_adapter *adapter,
 	switch (oui_idx) {
 	case R_AX_OUI_IDX_0:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI0;
 			msk = B_AX_SHUT_ETH_OUI0_MSK;
 			sh = B_AX_SHUT_ETH_OUI0_SH;
@@ -346,15 +331,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_OUI_IDX_1:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI1;
 			msk = B_AX_SHUT_ETH_OUI1_MSK;
 			sh = B_AX_SHUT_ETH_OUI1_SH;
@@ -365,15 +351,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_OUI_IDX_2:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI2;
 			msk = B_AX_SHUT_ETH_OUI2_MSK;
 			sh = B_AX_SHUT_ETH_OUI2_SH;
@@ -384,15 +371,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_OUI_IDX_3:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI3;
 			msk = B_AX_SHUT_ETH_OUI3_MSK;
 			sh = B_AX_SHUT_ETH_OUI3_SH;
@@ -431,15 +419,16 @@ u32 mac_hdr_conv_tx_get_oui(struct mac_ax_adapter *adapter,
 	switch (oui_idx) {
 	case R_AX_OUI_IDX_0:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI0;
 			msk = B_AX_SHUT_ETH_OUI0_MSK;
 			sh = B_AX_SHUT_ETH_OUI0_SH;
@@ -450,15 +439,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_OUI_IDX_1:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI1;
 			msk = B_AX_SHUT_ETH_OUI1_MSK;
 			sh = B_AX_SHUT_ETH_OUI1_SH;
@@ -469,15 +459,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_OUI_IDX_2:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI2;
 			msk = B_AX_SHUT_ETH_OUI2_MSK;
 			sh = B_AX_SHUT_ETH_OUI2_SH;
@@ -488,15 +479,16 @@ MAC_AX_8852D_SUPPORT)
 	break;
 	case R_AX_OUI_IDX_3:
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT  || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			reg = R_AX_SHCUT_LLC_OUI3;
 			msk = B_AX_SHUT_ETH_OUI3_MSK;
 			sh = B_AX_SHUT_ETH_OUI3_SH;

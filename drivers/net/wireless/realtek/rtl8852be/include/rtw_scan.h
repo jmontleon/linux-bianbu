@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -192,6 +192,7 @@ struct ss_res {
 	int bss_cnt;
 	u8 activate_ch_cnt;
 	#ifdef CONFIG_CMD_SCAN
+	_lock scan_param_lock;
 	struct rtw_phl_scan_param *scan_param;
 	#endif
 	struct submit_ctx sctx;
@@ -199,7 +200,7 @@ struct ss_res {
 	u16 scan_ch_ms;
 
 	u8 rx_ampdu_accept;
-	u8 rx_ampdu_size;
+	u16 rx_ampdu_size;
 #if 0
 	int channel_idx;
 	u8 force_ssid_scan;
@@ -284,7 +285,7 @@ void rtw_survey_cmd_callback(_adapter  *padapter, struct cmd_obj *pcmd);
 #ifdef CONFIG_IOCTL_CFG80211
 u8 rtw_phl_remain_on_ch_cmd(_adapter *padapter, u64 cookie, struct wireless_dev *wdev,
 	struct ieee80211_channel *ch, u8 ch_type, unsigned int duration,
-	struct back_op_param *bkop_parm, u8 is_p2p);
+	struct back_op_param *bkop_parm);
 #endif
 
 u32 rtw_parse_reduced_nb_rpt(_adapter *adapter, u8 *ies, u32 ies_len,

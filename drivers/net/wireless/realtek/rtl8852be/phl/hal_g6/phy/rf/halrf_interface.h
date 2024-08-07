@@ -25,7 +25,8 @@
 #ifndef __HALRF_INTERFACE_H__
 #define __HALRF_INTERFACE_H__
 
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
+//#ifdef CONFIG_FW_IO_OFLD_SUPPORT
+#ifdef CONFIG_PHL_IO_OFLD
 #define HALRF_CONFIG_FW_IO_OFLD_SUPPORT
 #endif
 
@@ -115,6 +116,7 @@
 #define halrf_bb_ctrl_rx_cca(rf, cca_en, phy_idx) rtw_hal_bb_ctrl_rx_cca((rf)->hal_com, cca_en, phy_idx)
 #define halrf_bb_ctrl_cck_en(rf, cck_en, phy_idx) rtw_hal_bb_ctrl_cck_en((rf)->hal_com, cck_en, phy_idx)
 #define halrf_bb_query_cck_en(rf, phy_idx) rtw_hal_bb_query_cck_en((rf)->hal_com, phy_idx)
+#define halrf_bb_adc_cfg(rf, bw, path, phy_idx) rtw_hal_bb_adc_cfg((rf)->hal_com, bw, path, phy_idx)
 
 #define halrf_mutex_init(rf, mutex) hal_mutex_init((rf)->hal_com, mutex)
 #define halrf_mutex_deinit(rf, mutex) hal_mutex_deinit((rf)->hal_com, mutex)

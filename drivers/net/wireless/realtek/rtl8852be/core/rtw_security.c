@@ -2684,7 +2684,9 @@ u32 rtw_bip_verify(enum security_type gmcs, u16 pkt_len,
 	ClearPwrMgt(BIP_AAD);
 	ClearMData(BIP_AAD);
 	/* conscruct AAD, copy address 1 to address 3 */
-	_rtw_memcpy(BIP_AAD + 2, pwlanhdr->addr1, 18);
+	_rtw_memcpy(BIP_AAD + 2, pwlanhdr->addr1, 6);
+	_rtw_memcpy(BIP_AAD + 2 + 6, pwlanhdr->addr2, 6);
+	_rtw_memcpy(BIP_AAD + 2 + 6 + 6, pwlanhdr->addr3, 6);
 
 	if (rtw_calculate_bip_mic(gmcs, whdr_pos,
 			pkt_len, key, BIP_AAD, ori_len, mic) == _FAIL)

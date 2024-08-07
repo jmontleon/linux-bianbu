@@ -380,7 +380,8 @@ struct rtw_dlru_fixtbl_univrsl {
 	u8 ru_swp_flg: 1;
 	u8 rsvd0: 7;
 
-	u32 rsvd3;
+	u16 ch20_with_data;
+	u16 rsvd2;
 	struct rtw_dlfix_sta_i_ext sta[HALBB_MAX_RU_STA_NUM];
 
 	struct rtw_rupos_fixtbl rupos_tbl;
@@ -534,12 +535,13 @@ struct rtw_ba_tbl_info {
 };
 
 struct rtw_sw_grp_bitmap {
-	u8 macid;
+	u16 macid;
 
 	u8 en_upd_dl_swgrp:1;
 	u8 en_upd_ul_swgrp:1;
 	u8 cmdend:1; // add for determine whether last user or not
 	u8 rsvd1:5;
+	u8 rsvd2;
 
 	u32 dl_sw_grp_bitmap;
 	u32 ul_sw_grp_bitmap;
@@ -550,17 +552,16 @@ struct rtw_sw_grp_set {
 };
 
 struct rtw_dl_macid_cfg {
-	u32 macid: 8;
+	u32 macid: 16;
 	u32 dl_su_rate_cfg: 1;
 	u32 dl_su_rate: 9;
 	u32 dl_su_bw: 2;
 	u32 dl_su_pwr_cfg: 1;
-	u32 dl_su_pwr: 6;
-	u32 rsvd0: 5;
+	u32 rsvd0: 3;
 
 	u32 gi_ltf_4x8_support: 1;
 	u32 gi_ltf_1x8_support: 1;
-	u32 rsvd1: 6;
+	u32 dl_su_pwr: 6;
 	u32 dl_su_info_en: 1;
 	u32 rsvd2: 2;
 	u32 dl_su_gi_ltf: 3;
@@ -657,21 +658,36 @@ struct rtw_macid_info {
 };
 
 struct rtw_ul_macid_cfg {
-	u32 macid: 8;
+	u32 macid: 16;
 	u32 endcmd: 1;
-	u32 rsvd0: 23;
+	u32 rsvd0: 15;
 
 	u32 ul_su_info_en: 1;
-	u32 ul_su_bw: 2;
 	u32 ul_su_gi_ltf: 3;
+	u32 rsvd1: 2;
 	u32 ul_su_doppler_ctrl: 2;
 	u32 ul_su_dcm: 1;
 	u32 ul_su_ss: 3;
 	u32 ul_su_mcs: 4;
-	u32 rsvd2: 5;
+	u32 ul_su_bw: 3;
 	u32 ul_su_stbc: 1;
 	u32 ul_su_coding: 1;
+	u32 rsvd2: 2;
 	u32 ul_su_rssi_m: 9;
+
+	u32 fix_ru_pos: 1;
+	u32 fix_rate: 1;
+	u32 fix_dbw: 1;
+	u32 fix_giltf: 1;
+	u32 fix_tgt_rssi: 1;
+	u32 fix_coding: 1;
+	u32 rsvd3: 2;
+	u32 rsvd4: 8;
+	u32 tx_mode_ul: 2;
+	u32 rsvd5: 2;
+	u32 rsvd6: 3;
+	u32 ps160: 1;
+	u32 ru_pos: 8;
 };
 
 struct rtw_ul_macid_set {
@@ -679,19 +695,18 @@ struct rtw_ul_macid_set {
 };
 
 struct rtw_csiinfo_cfg {
-	u32 macid: 8;
-	u32 csi_info_bitmap: 8;
-	u32 rsvd0: 16;
+	u32 macid: 16;
+	u32 csi_info_bitmap: 16;
 };
 
 struct rtw_cqi_info {
-	u32 macid: 8;
+	u32 macid: 16;
 	u32 fw_cqi_flag: 1; /* UL or DL*/
 	u32 ru_rate_table_row_idx: 4; /* UL or DL*/
 	u32 ul_dl: 1; /*1'b0 means UL, 1'b1 means DL */
 	u32 endcmd: 1;
 	u32 rsvd0: 1;
-	u32 rsvd1: 16;
+	u32 rsvd1: 8;
 
 	s8 cqi_diff_table[19]; /* UL or DL*/
 	u8 rsvd2;

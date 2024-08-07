@@ -467,6 +467,13 @@ u8 halbb_get_rxb_idx(struct bb_info *bb, enum rf_path path)
 	return rxb_idx;
 }
 
+u8 halbb_get_dig_igi(struct bb_info *bb)
+{
+	struct bb_dig_info *bb_dig = &bb->bb_dig_i;
+
+	return bb_dig->dig_state_h_i.igi_fa_rssi;
+}
+
 u8 halbb_igi_by_edcca(struct bb_info *bb, u8 igi)
 {
 #ifdef HALBB_EDCCA_SUPPORT
@@ -1397,7 +1404,7 @@ void halbb_tdma_dig(struct bb_info *bb) {
 		halbb_dig_noisy_lv_decision(bb);
 		halbb_dig_igi_ofst_by_env(bb);
 		/* IGI and boundary decision */
-		bb_dig_u->igi_fa_rssi = halbb_dig_igi_bound_decision(bb);
+		bb_dig->p_cur_dig_unit->igi_fa_rssi = halbb_dig_igi_bound_decision(bb);
 #ifdef BB_8852A_2_SUPPORT
 		/* IGI decision */
 		igi_update_en_h = halbb_dig_gaincode_update_en_8852a(bb);
@@ -1411,7 +1418,7 @@ void halbb_tdma_dig(struct bb_info *bb) {
 		halbb_dig_noisy_lv_decision(bb);
 		halbb_dig_igi_ofst_by_env(bb);
 		/* IGI and boundary decision */
-		bb_dig_u->igi_fa_rssi = halbb_dig_igi_bound_decision(bb);
+		bb_dig->p_cur_dig_unit->igi_fa_rssi = halbb_dig_igi_bound_decision(bb);
 #ifdef BB_8852A_2_SUPPORT
 		/* IGI decision */
 		igi_update_en_l = halbb_dig_gaincode_update_en_8852a(bb);
@@ -1507,10 +1514,7 @@ void halbb_tdmadig_callback(void *context)
 
 	timer->timer_state = BB_TIMER_IDLE;
 
-	if (bb->phl_com->hci_type == RTW_HCI_PCIE)
-		halbb_tdmadig_io_en(bb);
-	else
-		rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
+	rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
 }
 
 void halbb_dig_timer_init(struct bb_info *bb)
@@ -1550,14 +1554,14 @@ void halbb_set_dig_pause_val(struct bb_info *bb, u32 *buf, u8 val_len)
 	if (bb->ic_type == BB_RTL8852A) {
 		if ((buf[1] == PAUSE_OFDM_CCK) && (bb->hal_com->cv < CCV)) {
 			BB_DIG_DBG(bb, DIG_DBG_LV0, "[52A] igi_en=1\n");
-			halbb_gaincode_by_rssi_8852a(bb, &gaincode, RSSI_MAX - (u8)buf[0]);
+			halbb_gaincode_by_rssi_8852a(bb, &gaincode, RSSI_MAX - (u8)buf[0] + margin);
 		}
 		halbb_dig_set_igi_cr_8852a(bb, gaincode);
 	}
 #endif
 
 	/* write pd lower bound anyway */
-	target_pwr = MIN_2((u8)buf[0] + margin, RSSI_MAX);
+	target_pwr = MIN_2((u8)buf[0], RSSI_MAX);
 	halbb_set_pd_lower_bound(bb, target_pwr, cbw, bb->bb_phy_idx);
 	if (buf[1] == PAUSE_OFDM)
 		target_pwr = 0;
@@ -2198,6 +2202,52 @@ void halbb_cr_cfg_dig_init(struct bb_info *bb)
 		break;
 
 #endif
+#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->path0_lna_init_idx = PATH0_R_LNA_IDX_INIT_BE1;
+		cr->path0_lna_init_idx_m = PATH0_R_LNA_IDX_INIT_BE1_M;
+		cr->path1_lna_init_idx = PATH1_R_LNA_IDX_INIT_BE1;
+		cr->path1_lna_init_idx_m = PATH1_R_LNA_IDX_INIT_BE1_M;
+		cr->path0_tia_init_idx = PATH0_R_TIA_IDX_INIT_BE1;
+		cr->path0_tia_init_idx_m = PATH0_R_TIA_IDX_INIT_BE1_M;
+		cr->path1_tia_init_idx = PATH1_R_TIA_IDX_INIT_BE1;
+		cr->path1_tia_init_idx_m = PATH1_R_TIA_IDX_INIT_BE1_M;
+		cr->path0_rxb_init_idx = PATH0_R_RXIDX_INIT_BE1;
+		cr->path0_rxb_init_idx_m = PATH0_R_RXIDX_INIT_BE1_M;
+		cr->path1_rxb_init_idx = PATH1_R_RXIDX_INIT_BE1;
+		cr->path1_rxb_init_idx_m = PATH1_R_RXIDX_INIT_BE1_M;
+		cr->seg0r_pd_spatial_reuse_en_a = SEG0R_PD_SPATIAL_REUSE_EN_BE1;
+		cr->seg0r_pd_spatial_reuse_en_a_m = SEG0R_PD_SPATIAL_REUSE_EN_BE1_M;
+		cr->seg0r_pd_lower_bound_a = SEG0R_PD_LOWER_BOUND_BE1;
+		cr->seg0r_pd_lower_bound_a_m = SEG0R_PD_LOWER_BOUND_BE1_M;
+		cr->path0_p20_follow_by_pagcugc_en_a = PATH0_P20_R_FOLLOW_BY_PAGCUGC_EN_BE1;
+		cr->path0_p20_follow_by_pagcugc_en_a_m = PATH0_P20_R_FOLLOW_BY_PAGCUGC_EN_BE1_M;
+		cr->path0_s20_follow_by_pagcugc_en_a = PATH0_S20_R_FOLLOW_BY_PAGCUGC_EN_BE1;
+		cr->path0_s20_follow_by_pagcugc_en_a_m = PATH0_S20_R_FOLLOW_BY_PAGCUGC_EN_BE1_M;
+		cr->path1_p20_follow_by_pagcugc_en_a = PATH1_P20_R_FOLLOW_BY_PAGCUGC_EN_BE1;
+		cr->path1_p20_follow_by_pagcugc_en_a_m = PATH1_P20_R_FOLLOW_BY_PAGCUGC_EN_BE1_M;
+		cr->path1_s20_follow_by_pagcugc_en_a = PATH1_S20_R_FOLLOW_BY_PAGCUGC_EN_BE1;
+		cr->path1_s20_follow_by_pagcugc_en_a_m = PATH1_S20_R_FOLLOW_BY_PAGCUGC_EN_BE1_M;
+		cr->cca_rssi_lmt_en_a = CCA_RSSI_LMT_EN_BE1;
+		cr->cca_rssi_lmt_en_a_m = CCA_RSSI_LMT_EN_BE1_M;
+		cr->rssi_nocca_low_th_a = RSSI_NOCCA_LOW_TH_BE1;
+		cr->rssi_nocca_low_th_a_m = RSSI_NOCCA_LOW_TH_BE1_M;
+		cr->path0_dig_mode_en_a = PATH0_R_DIG_MODE_EN_BE1;
+		cr->path0_dig_mode_en_a_m = PATH0_R_DIG_MODE_EN_BE1_M;
+		cr->path0_igi_for_dig_a = PATH0_R_IGI_FOR_DIG_BE1;
+		cr->path0_igi_for_dig_a_m = PATH0_R_IGI_FOR_DIG_BE1_M;
+		cr->path0_backoff_wb_gain_a = PATH0_R_BACKOFF_WB_GAIN_BE1;
+		cr->path0_backoff_wb_gain_a_m = PATH0_R_BACKOFF_WB_GAIN_BE1_M;
+		cr->path1_dig_mode_en_a = PATH1_R_DIG_MODE_EN_BE1;
+		cr->path1_dig_mode_en_a_m = PATH1_R_DIG_MODE_EN_BE1_M;
+		cr->path1_igi_for_dig_a = PATH1_R_IGI_FOR_DIG_BE1;
+		cr->path1_igi_for_dig_a_m = PATH1_R_IGI_FOR_DIG_BE1_M;
+		cr->path1_backoff_wb_gain_a = PATH1_R_BACKOFF_WB_GAIN_BE1;
+		cr->path1_backoff_wb_gain_a_m = PATH1_R_BACKOFF_WB_GAIN_BE1_M;
+		break;
+
+#endif
+
 
 	default:
 		BB_WARNING("[%s] BBCR Hook FAIL!\n", __func__);

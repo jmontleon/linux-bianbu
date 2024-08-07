@@ -34,6 +34,43 @@
 
 #ifdef HALBB_ANT_DIV_SUPPORT
 
+bool halbb_antdiv_abort(struct bb_info *bb)
+{
+	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
+	struct bb_link_info *bb_link = &bb->bb_link_i;
+
+	/* Early return */
+	if (bb->pause_ability & BB_ANT_DIV) {
+		BB_DBG(bb, DBG_ANT_DIV, "Return ant diversity pause!\n");
+		if (bb_ant_div->antdiv_mode == FIX_MAIN_ANT)
+			BB_DBG(bb, DBG_ANT_DIV, "Pause Antenna at (( MAIN ))\n");
+		else if (bb_ant_div->antdiv_mode == FIX_AUX_ANT)
+			BB_DBG(bb, DBG_ANT_DIV, "Pause Antenna at (( AUX ))\n");
+		else 
+			BB_DBG(bb, DBG_ANT_DIV, "Pause Antenna at pre ANT.\n");
+		return true;
+	}
+	if (phl_is_mp_mode(bb->phl_com)) {
+		BB_DBG(bb, DBG_ANT_DIV, "Early return - MP mode\n");
+		return true;
+	}
+	if (!(bb->support_ability & BB_ANT_DIV)) {
+		BB_DBG(bb, DBG_ANT_DIV, "Early return - Not support antenna diversity\n");
+		return true;
+	}
+	if (!(bb_link->is_linked) || !(bb_link->is_one_entry_only)) {
+		BB_DBG(bb, DBG_ANT_DIV, "Early return - is_linked=%d, one_entry_only=%d\n",
+			  bb_link->is_linked, bb_link->is_one_entry_only);
+		return true;
+	}
+	if (bb_link->at_least_one_bfee) {
+		BB_DBG(bb, DBG_ANT_DIV, "Early return - at least one macid rx bfee=%d\n",
+		       bb_link->at_least_one_bfee);
+		return true;
+	}
+	return false;
+}
+
 void halbb_antdiv_reset_training_stat(struct bb_info *bb)
 {
 	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
@@ -64,12 +101,16 @@ void halbb_antdiv_reg_init(struct bb_info *bb)
 	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
 	struct bb_link_info *bb_link = &bb->bb_link_i;
 	struct bb_antdiv_cr_info *cr = &bb->bb_ant_div_i.bb_antdiv_cr_i;
+	struct rtw_phl_com_t *phl = bb->phl_com;
+	struct dev_cap_t *dev = &phl->dev_cap;
 
 	/* dis r_ant_train_en */
 	halbb_set_reg_cmn(bb, cr->path0_r_ant_train_en, cr->path0_r_ant_train_en_m, 0x0, HW_PHY_0);
 
 	/* force r_tx_ant_sel instead of from FW CMAC table */
-	halbb_set_reg_cmn(bb, cr->path0_r_tx_ant_sel, cr->path0_r_tx_ant_sel_m, 0x0, HW_PHY_0);
+	if (!(dev->rfe_type > 50)) { // only iFEM can set TX ant by r_tx_antdix, eFEM set by RFE control source ZERO
+		halbb_set_reg_cmn(bb, cr->path0_r_tx_ant_sel, cr->path0_r_tx_ant_sel_m, 0x0, HW_PHY_0);
+	}
 
 	/* r_trsw_tx_extend = 0us */
 	halbb_set_reg_cmn(bb, 0x728, 0xf, 0x0, HW_PHY_0);
@@ -98,8 +139,8 @@ void halbb_antdiv_reg_init(struct bb_info *bb)
 	else if (bb->ic_type == BB_RTL8851B) {
 		/*RFE control, GPIO set by halrf*/
 		/*51B two pin control swtich*/ /*set BB RFE control pin*/
-		//halbb_gpio_setting(bb, 16, BB_PATH_A, true, ANTSEL_0);
-		//halbb_gpio_setting(bb, 17, BB_PATH_A, false, ANTSEL_0);
+		//halbb_gpio_setting(bb, 16, BB_PATH_A, false, ANTSEL_0);
+		//halbb_gpio_setting(bb, 17, BB_PATH_A, true, ANTSEL_0);
 		/*Set MAC GPIO*/
 		//rtw_hal_mac_set_gpio_func(bb->hal_com, RTW_MAC_GPIO_WL_RFE_CTRL, 16);
 		//rtw_hal_mac_set_gpio_func(bb->hal_com, RTW_MAC_GPIO_WL_RFE_CTRL, 17);
@@ -115,7 +156,8 @@ void halbb_antdiv_init(struct bb_info *bb)
 
 	BB_DBG(bb, DBG_ANT_DIV, "%s ======>\n", __func__);
 
-	if ((bb->support_ability & BB_ANT_DIV) || (phl_is_mp_mode(bb->phl_com) &&
+	if ((bb->support_ability & BB_ANT_DIV) || (dev->antdiv_sup == true) ||
+		(phl_is_mp_mode(bb->phl_com) &&
 		((bb->ic_type == BB_RTL8851B) && ((dev->rfe_type % 3) == 2)))) {
 		/* HW reg. init to set mux & ctrler for antdiv */
 		halbb_antdiv_reg_init(bb);
@@ -165,11 +207,18 @@ void halbb_antdiv_init(struct bb_info *bb)
 	bb_ant_div->target_ant_tp = ANTDIV_INIT;
 	bb_ant_div->target_ant_rssi =  ANTDIV_INIT;
 	bb_ant_div->training_ant = ANTDIV_INIT;
-	bb_ant_div->pre_target_ant = MAIN_ANT;
+	bb_ant_div->pre_target_ant = ANTDIV_INIT;
 
 	halbb_antdiv_reset(bb);
 
 	BB_DBG(bb, DBG_INIT, "Init ant_diversity timer");
+}
+
+u8 halbb_antdiv_get_targetant(struct bb_info *bb)
+{
+	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
+
+	return bb_ant_div->target_ant;
 }
 
 u8 halbb_antdiv_sel_tx_ant_by_ext_pwr_lmt(struct bb_info *bb)
@@ -234,12 +283,37 @@ void halbb_antdiv_set_tx_ant(struct bb_info *bb, u8 ant)
 	#endif
 }
 
+void halbb_antdiv_fix_ant(struct bb_info *bb, u8 ant)
+{
+	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
+
+	if (bb->support_ability & BB_ANT_DIV) {
+		if (ant == MAIN_ANT) {
+			bb_ant_div->antdiv_mode = FIX_MAIN_ANT;
+			halbb_antdiv_set_ant(bb, MAIN_ANT);
+			bb_ant_div->target_ant = MAIN_ANT;
+			bb_ant_div->pre_target_ant = MAIN_ANT;
+		} else if (ant == AUX_ANT) {
+			bb_ant_div->antdiv_mode = FIX_AUX_ANT;
+			halbb_antdiv_set_ant(bb, AUX_ANT);
+			bb_ant_div->target_ant = AUX_ANT;
+			bb_ant_div->pre_target_ant = AUX_ANT;
+		} else {
+			bb_ant_div->antdiv_mode = AUTO_ANT;
+		}
+	} else {
+		return;
+	}
+}
+
 void halbb_antdiv_set_ant(struct bb_info *bb, u8 ant)
 {
 	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
 	struct bb_link_info *bb_link = &bb->bb_link_i;
 	struct bb_antdiv_cr_info *cr = &bb->bb_ant_div_i.bb_antdiv_cr_i;
 	struct rtw_hal_com_t *hal = bb->hal_com;
+	struct rtw_phl_com_t *phl = bb->phl_com;
+	struct dev_cap_t *dev = &phl->dev_cap;
 	u8 band = bb->hal_com->band[0].cur_chandef.band;
 	u8 default_ant, optional_ant;
 	u8 tx_ant = 0;
@@ -250,20 +324,18 @@ void halbb_antdiv_set_ant(struct bb_info *bb, u8 ant)
 		if (ant == MAIN_ANT) {
 			default_ant = ANT1_2G;
 			optional_ant = ANT2_2G;
-			if (bb->ic_sub_type == BB_IC_SUB_TYPE_8192XB_8192XB) {  //92XB A-Die only can swtich ant by RF.
+			if (bb->ic_sub_type == BB_IC_SUB_TYPE_8192XB_8192XB && dev->rfe_type == 50) {  //92XB A-Die only can swtich ant by RF.
 				//halbb_write_rf_reg(bb, RF_PATH_A, 0x2, 0x20000, 0x0);
 				//halbb_write_rf_reg(bb, RF_PATH_A, 0x2, 0x8000, 0x0);
-				//rtw_hal_rf_set_ant_main_or_aux(hal->hal_priv, RF_PATH_A, true);
-				;
+				rtw_hal_rf_set_ant_main_or_aux(hal->hal_priv, RF_PATH_A, true);
 			}
 		} else {
 			default_ant = ANT2_2G;
 			optional_ant = ANT1_2G;
-			if (bb->ic_sub_type == BB_IC_SUB_TYPE_8192XB_8192XB) {
+			if (bb->ic_sub_type == BB_IC_SUB_TYPE_8192XB_8192XB && dev->rfe_type == 50) {
 				//halbb_write_rf_reg(bb, RF_PATH_A, 0x2, 0x20000, 0x1);
 				//halbb_write_rf_reg(bb, RF_PATH_A, 0x2, 0x8000, 0x1);
-				//rtw_hal_rf_set_ant_main_or_aux(hal->hal_priv, RF_PATH_A, false);
-				;
+				rtw_hal_rf_set_ant_main_or_aux(hal->hal_priv, RF_PATH_A, false);
 			}
 		}
 
@@ -300,6 +372,38 @@ void halbb_antdiv_set_ant(struct bb_info *bb, u8 ant)
 		}
 
 		halbb_antdiv_set_tx_ant(bb, tx_ant);
+	}
+}
+
+void halbb_set_antdiv_pause_val(struct bb_info *bb, u32 *val_buf, u8 val_len)
+{
+	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
+	struct bb_link_info *bb_link = &bb->bb_link_i;
+	struct bb_antdiv_cr_info *cr = &bb->bb_ant_div_i.bb_antdiv_cr_i;
+	u8 i = 0, pause_result = 0;
+	u32 val = 0;
+
+	if (val_len != 1) {
+		BB_DBG(bb, DBG_ANT_DIV, "[Error][AntDiv]Need val_len=1\n");
+		return;
+	}
+	BB_DBG(bb, DBG_ANT_DIV, "[%s] len=%d, val[0]=0x%x\n", __func__, val_len, val_buf[0]);
+
+	 if (val_buf[0] == MAIN_ANT) {
+	 	BB_DBG(bb, DBG_ANT_DIV, "[Pause Antiv in Main ANT.\n");
+		halbb_antdiv_set_ant(bb, MAIN_ANT);
+		bb_ant_div->antdiv_mode = FIX_MAIN_ANT;
+		bb_ant_div->target_ant = MAIN_ANT;
+		bb_ant_div->pre_target_ant = MAIN_ANT;
+	} else if (val_buf[0] == AUX_ANT) {
+		BB_DBG(bb, DBG_ANT_DIV, "[Pause Antiv in AUX ANT.\n");
+		halbb_antdiv_set_ant(bb, AUX_ANT);
+		bb_ant_div->antdiv_mode = FIX_AUX_ANT;
+		bb_ant_div->target_ant = AUX_ANT;
+		bb_ant_div->pre_target_ant = AUX_ANT;
+	} else {
+		BB_DBG(bb, DBG_ANT_DIV, "[Pause Antiv in pre ANT.\n");
+		bb_ant_div->antdiv_mode = AUTO_ANT;
 	}
 }
 
@@ -487,11 +591,11 @@ void halbb_antdiv_get_highest_mcs(struct bb_info *bb)
 					aux_max_idx = i;
 				}
 			} else if (bb_ant_div->tp_decision_method == TP_HIGHEST_DOMINATION) {
-				if (bb_rate_i->main_pkt_cnt_he[i] > 0) {
+				if (bb_rate_i->main_pkt_cnt_he[i] > bb_ant_div->tp_lb) {
 					main_max_cnt = bb_rate_i->main_pkt_cnt_he[i];
 					main_max_idx = i;
 				}
-				if (bb_rate_i->aux_pkt_cnt_he[i] > 0) {
+				if (bb_rate_i->aux_pkt_cnt_he[i] > bb_ant_div->tp_lb) {
 					aux_max_cnt = bb_rate_i->aux_pkt_cnt_he[i];
 					aux_max_idx = i;
 				}
@@ -549,11 +653,11 @@ void halbb_antdiv_get_highest_mcs(struct bb_info *bb)
 					aux_max_idx = i;
 				}
 			} else if (bb_ant_div->tp_decision_method == TP_HIGHEST_DOMINATION) {
-				if (bb_rate_i->main_pkt_cnt_vht[i] > 0) {
+				if (bb_rate_i->main_pkt_cnt_vht[i] > bb_ant_div->tp_lb) {
 					main_max_cnt = bb_rate_i->main_pkt_cnt_vht[i];
 					main_max_idx = i;
 				}
-				if (bb_rate_i->aux_pkt_cnt_vht[i] > 0) {
+				if (bb_rate_i->aux_pkt_cnt_vht[i] > bb_ant_div->tp_lb) {
 					aux_max_cnt = bb_rate_i->aux_pkt_cnt_vht[i];
 					aux_max_idx = i;
 				}
@@ -610,11 +714,11 @@ void halbb_antdiv_get_highest_mcs(struct bb_info *bb)
 					aux_max_idx = i;
 				}
 			} else if (bb_ant_div->tp_decision_method == TP_HIGHEST_DOMINATION) {
-				if (bb_rate_i->main_pkt_cnt_ht[i] > 0) {
+				if (bb_rate_i->main_pkt_cnt_ht[i] > bb_ant_div->tp_lb) {
 					main_max_cnt = bb_rate_i->main_pkt_cnt_ht[i];
 					main_max_idx = i;
 				}
-				if (bb_rate_i->aux_pkt_cnt_ht[i] > 0) {
+				if (bb_rate_i->aux_pkt_cnt_ht[i] > bb_ant_div->tp_lb) {
 					aux_max_cnt = bb_rate_i->aux_pkt_cnt_ht[i];
 					aux_max_idx = i;
 				}
@@ -1108,31 +1212,10 @@ void halbb_antenna_diversity(struct bb_info *bb)
 	u8 rssi, rssi_pre;
 
 	BB_DBG(bb, DBG_ANT_DIV, "%s ======>\n", __func__);
-
 	BB_DBG(bb, DBG_ANT_DIV, "RFE_TYPE = %d\n", dev->rfe_type);
 
-	/* Early return */
-	if (phl_is_mp_mode(bb->phl_com)) {
-		BB_DBG(bb, DBG_ANT_DIV, "Early return - MP mode\n");
+	if (halbb_antdiv_abort(bb))
 		return;
-	}
-
-	if (!(bb->support_ability & BB_ANT_DIV)) {
-		BB_DBG(bb, DBG_ANT_DIV, "Early return - Not support antenna diversity\n");
-		return;
-	}
-
-	if (!(bb_link->is_linked) || !(bb_link->is_one_entry_only)) {
-		BB_DBG(bb, DBG_ANT_DIV, "Early return - is_linked=%d, one_entry_only=%d\n",
-			  bb_link->is_linked, bb_link->is_one_entry_only);
-		return;
-	}
-
-	if (bb_link->at_least_one_bfee) {
-		BB_DBG(bb, DBG_ANT_DIV, "Early return - at least one macid rx bfee=%d\n",
-		       bb_link->at_least_one_bfee);
-		return;
-	}
 
 	halbb_antdiv_get_rssi(bb);
 	rssi = rssi_stat->rssi_final >> 1;
@@ -1350,7 +1433,7 @@ void halbb_antdiv_get_cn_stat(struct bb_info *bb)
 	}
 }
 
-void halbb_antdiv_get_rate_stat(struct bb_info *bb)
+void halbb_antdiv_get_rate_stat(struct bb_info *bb, struct physts_rxd *desc, enum channel_width rx_bw)
 {
 	struct bb_cmn_rpt_info	*cmn_rpt = &bb->bb_cmn_rpt_i;
 	//struct bb_pkt_cnt_su_info *pkt_cnt = &cmn_rpt->bb_pkt_cnt_su_i;
@@ -1359,6 +1442,8 @@ void halbb_antdiv_get_rate_stat(struct bb_info *bb)
 	struct bb_antdiv_info *bb_ant_div = &bb->bb_ant_div_i;
 	struct bb_antdiv_rate_info *bb_rate_i = &bb_ant_div->bb_rate_i;
 	struct bb_link_info *bb_link = &bb->bb_link_i;
+	enum channel_width bw_curr; /*max bw in current link mode*/
+	u8 band_idx;
 	u8 ofst = rate_i->idx;
 
 	/* Only get stats @ training period */
@@ -1375,6 +1460,16 @@ void halbb_antdiv_get_rate_stat(struct bb_info *bb)
 
 	//BB_DBG(bb, DBG_ANT_DIV, "Rate mode= %d\n", rate_i->mode);
 	//BB_DBG(bb, DBG_ANT_DIV, "Training antenna= %d\n", bb_ant_div->training_ant);
+
+#ifdef HALBB_DBCC_SUPPORT
+	if (bb->hal_com->dbcc_en && bb->bb_phy_idx == HW_PHY_1) {
+		bw_curr = rx_bw;
+	} else
+#endif
+	{
+		band_idx = (desc->phy_idx == HW_PHY_0) ? 0 : 1;
+		bw_curr = bb->hal_com->band[band_idx].cur_chandef.bw;
+	}
 
 	if(bb_ant_div->training_ant == MAIN_ANT) {
 		/* pkt_cnt acc */
@@ -1406,23 +1501,29 @@ void halbb_antdiv_get_rate_stat(struct bb_info *bb)
 		if (rate_i->mode == BB_HT_MODE) {
 			bb_rate_i->main_ht_pkt_not_zero = true;
 			ofst = NOT_GREATER(ofst, HT_RATE_NUM - 1);
-			bb_rate_i->main_pkt_cnt_ht[ofst]++;
-			/* shift ofst due to mismatch of HT/VHT rate num*/
-			ofst += ((ofst << 3) >> 2);
-			bb_rate_i->main_tp += 
-				      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			if (rx_bw == bw_curr) {
+				bb_rate_i->main_pkt_cnt_ht[ofst]++;
+				/* shift ofst due to mismatch of HT/VHT rate num*/
+				ofst += ((ofst << 3) >> 2);
+				bb_rate_i->main_tp +=
+					      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			}
 		} else if (rate_i->mode == BB_VHT_MODE) {
 			bb_rate_i->main_vht_pkt_not_zero = true;
 			ofst = NOT_GREATER(ofst, VHT_RATE_NUM - 1);
-			bb_rate_i->main_pkt_cnt_vht[ofst]++;
-			bb_rate_i->main_tp += 
-				      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			if (rx_bw == bw_curr) {
+				bb_rate_i->main_pkt_cnt_vht[ofst]++;
+				bb_rate_i->main_tp +=
+					      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			}
 		} else if (rate_i->mode == BB_HE_MODE) {
 			bb_rate_i->main_he_pkt_not_zero = true;
 			ofst = NOT_GREATER(ofst, HE_RATE_NUM - 1);
-			bb_rate_i->main_pkt_cnt_he[ofst]++;
-			bb_rate_i->main_tp += 
-				      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			if (rx_bw == bw_curr) {
+				bb_rate_i->main_pkt_cnt_he[ofst]++;
+				bb_rate_i->main_tp +=
+					      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			}
 		}
 
 	} else if(bb_ant_div->training_ant == AUX_ANT) {
@@ -1453,23 +1554,29 @@ void halbb_antdiv_get_rate_stat(struct bb_info *bb)
 		if (rate_i->mode == BB_HT_MODE) {
 			bb_rate_i->aux_ht_pkt_not_zero = true;
 			ofst = NOT_GREATER(ofst, HT_RATE_NUM - 1);
-			bb_rate_i->aux_pkt_cnt_ht[ofst]++;
-			/* shift ofst due to mismatch of HT/VHT rate num*/
-			ofst += ((ofst >> 3) << 2);
-			bb_rate_i->aux_tp += 
-				      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			if (rx_bw == bw_curr) {
+				bb_rate_i->aux_pkt_cnt_ht[ofst]++;
+				/* shift ofst due to mismatch of HT/VHT rate num*/
+				ofst += ((ofst >> 3) << 2);
+				bb_rate_i->aux_tp +=
+					      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			}
 		} else if (rate_i->mode == BB_VHT_MODE) {
 			bb_rate_i->aux_vht_pkt_not_zero = true;
 			ofst = NOT_GREATER(ofst, VHT_RATE_NUM - 1);
-			bb_rate_i->aux_pkt_cnt_vht[ofst]++;
-			bb_rate_i->aux_tp += 
-				      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			if (rx_bw == bw_curr) {
+				bb_rate_i->aux_pkt_cnt_vht[ofst]++;
+				bb_rate_i->aux_tp +=
+					      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			}
 		} else if (rate_i->mode == BB_HE_MODE) {
 			bb_rate_i->aux_he_pkt_not_zero = true;
 			ofst = NOT_GREATER(ofst, HE_RATE_NUM - 1);
-			bb_rate_i->aux_pkt_cnt_he[ofst]++;
-			bb_rate_i->aux_tp += 
-				      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			if (rx_bw == bw_curr) {
+				bb_rate_i->aux_pkt_cnt_he[ofst]++;
+				bb_rate_i->aux_tp +=
+					      bb_phy_rate_table[ofst + LEGACY_RATE_NUM];
+			}
 		}
 	}
 }
@@ -1478,10 +1585,12 @@ void halbb_antdiv_phy_sts(struct bb_info *bb, u32 physts_bitmap,
 		       struct physts_rxd *desc) {
 
 	struct bb_physts_info	*physts = &bb->bb_physts_i;
+	struct bb_physts_rslt_1_info *psts_1 = &physts->bb_physts_rslt_1_i;
 	struct dev_cap_t *dev = &bb->phl_com->dev_cap;
 	struct rtw_phl_stainfo_t *sta;
 	struct rtw_cfo_info *cfo_t = NULL;
-	u8 bb_macid;
+	enum channel_width rx_bw = psts_1->bw_idx;
+	u16 bb_macid;
 
 	halbb_antdiv_get_rssi_stat(bb);
 
@@ -1489,20 +1598,22 @@ void halbb_antdiv_phy_sts(struct bb_info *bb, u32 physts_bitmap,
 	    physts->bb_physts_rslt_hdr_i.ie_map_type >= LEGACY_OFDM_PKT))
 		return;
 
-	if (desc->macid_su > PHL_MAX_STA_NUM)
+	if (desc->macid_su >= PHL_MAX_STA_NUM) {
 		BB_WARNING("[%s] macid_su=%d\n", __func__, desc->macid_su);
-
+		return;
+	}
 	bb_macid = bb->phl2bb_macid_table[desc->macid_su];
 
-	if (bb_macid > PHL_MAX_STA_NUM)
+	if (bb_macid >= PHL_MAX_STA_NUM) {
 		BB_WARNING("[%s] bb_macid=%d\n", __func__, bb_macid);
-
+		return;
+	}
 	sta = bb->phl_sta_info[bb_macid];
 
 	if (!is_sta_active(sta))
 		return;
 
-	if (sta->macid > PHL_MAX_STA_NUM)
+	if (sta->macid >= PHL_MAX_STA_NUM)
 		return;
 
 	if (!sta->hal_sta)
@@ -1511,7 +1622,7 @@ void halbb_antdiv_phy_sts(struct bb_info *bb, u32 physts_bitmap,
 	if ((dev->rfe_type >= 50) && (bb_macid == 0)) /* No need to cnt AP Rx boardcast pkt*/
 		return;
 
-	halbb_antdiv_get_rate_stat(bb);
+	halbb_antdiv_get_rate_stat(bb, desc, rx_bw);
 	halbb_antdiv_get_evm_stat(bb);
 	halbb_antdiv_get_cn_stat(bb);
 }
@@ -1574,9 +1685,11 @@ void halbb_antdiv_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 				 "Ant-Div Mode=%d\n", bb_ant_div->antdiv_mode);
 			if (bb_ant_div->antdiv_mode == FIX_MAIN_ANT) {
 				halbb_antdiv_set_ant(bb, MAIN_ANT);
+				bb_ant_div->target_ant = MAIN_ANT;
 				bb_ant_div->pre_target_ant = MAIN_ANT;
 			} else if (bb_ant_div->antdiv_mode == FIX_AUX_ANT) {
 				halbb_antdiv_set_ant(bb, AUX_ANT);
+				bb_ant_div->target_ant = AUX_ANT;
 				bb_ant_div->pre_target_ant = AUX_ANT;
 			} else if (bb_ant_div->antdiv_mode == AUTO_ANT)
 				halbb_antdiv_set_ant(bb, bb_ant_div->pre_target_ant);
@@ -1708,10 +1821,7 @@ void halbb_antdiv_callback(void *context)
 	BB_DBG(bb, DBG_ANT_DIV, "[%s]===>\n", __func__);
 	timer->timer_state = BB_TIMER_IDLE;
 
-	if (bb->phl_com->hci_type == RTW_HCI_PCIE)
-		halbb_antdiv_io_en(bb);
-	else
-		rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
+	rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
 }
 
 void halbb_antdiv_timer_init(struct bb_info *bb)

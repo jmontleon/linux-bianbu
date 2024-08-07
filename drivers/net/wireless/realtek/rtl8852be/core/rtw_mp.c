@@ -43,7 +43,14 @@ bool rtw_mp_is_cck_rate(u16 rate)
 static void _init_mp_priv_(struct mp_priv *pmp_priv)
 {
 	WLAN_BSSID_EX *pnetwork;
+	NDIS_802_11_MAC_ADDRESS network_macaddr;
+	BOOLEAN bSetRxBssid = _FALSE;
 
+	if (pmp_priv->bSetRxBssid) {
+		bSetRxBssid = pmp_priv->bSetRxBssid;
+		_rtw_memcpy(network_macaddr, pmp_priv->network_macaddr, ETH_ALEN);
+	}
+	
 	_rtw_memset(pmp_priv, 0, sizeof(struct mp_priv));
 
 	pmp_priv->mode = MP_OFF;
@@ -82,6 +89,11 @@ static void _init_mp_priv_(struct mp_priv *pmp_priv)
 	pmp_priv->mplink_brx = _FALSE;
 	pmp_priv->mp_keep_btc_mode = BTC_MODE_MAX;
 
+	if (bSetRxBssid){
+		pmp_priv->bSetRxBssid = bSetRxBssid;
+		_rtw_memcpy(pmp_priv->network_macaddr, network_macaddr, ETH_ALEN);
+	}
+
 	pnetwork = &pmp_priv->mp_network.network;
 	_rtw_memcpy(pnetwork->MacAddress, pmp_priv->network_macaddr, ETH_ALEN);
 
@@ -95,7 +107,7 @@ static void _init_mp_priv_(struct mp_priv *pmp_priv)
 
 	pmp_priv->mpt_ctx.mpt_rate_index = 1;
 	pmp_priv->tx_shape_idx = 255;
-
+	pmp_priv->rx_cal_process = 0;
 }
 
 
@@ -143,6 +155,7 @@ s32 init_mp_priv(_adapter *padapter)
 	else
 		pmppriv->mp_dm = 0;
 
+	pmppriv->preamble =1 ;
 	pmppriv->tx.stop = 1;
 	pmppriv->bSetTxPower = 0;		/*for  manually set tx power*/
 	pmppriv->bTxBufCkFail = _FALSE;
@@ -172,11 +185,11 @@ s32 init_mp_priv(_adapter *padapter)
 	pmppriv->rtw_mp_plcp_tx_user = 1;
 	pmppriv->rtw_mp_he_er_su_ru_106_en = 0;
 	pmppriv->rtw_mp_ru_tone = MP_RU_TONE_26;
-
+	pmppriv->rtw_coding = 1;  /* 1 LDPC, 0 BCC */
 	pmppriv->mp_plcp_useridx = 0;
 	pmppriv->mp_plcp_user[0].plcp_mcs = 0;
 	pmppriv->mp_plcp_user[0].aid = 0;
-	pmppriv->mp_plcp_user[0].coding = 0;
+	pmppriv->mp_plcp_user[0].coding = 12;/*(Global_Var.RU_user_coding[Global_Var.RU_current_user] == (int)Coding.BCC) ? 10 : 12;*/
 	pmppriv->mp_plcp_user[0].dcm = 0;
 	pmppriv->mp_plcp_user[0].plcp_txlen = 1000;
 	pmppriv->mp_plcp_user[0].ru_alloc = 0;
@@ -184,6 +197,7 @@ s32 init_mp_priv(_adapter *padapter)
 	pmppriv->mp_plcp_user[0].pwr_boost_db = 0;
 
 	pmppriv->btc_path = BTC_MODE_WL;
+	pmppriv->bspecif_tssi_de = false;
 
 	_rtw_memset(pmppriv->st_giltf, 0, sizeof(struct rtw_mp_giltf_data)*5);
 
@@ -785,7 +799,7 @@ void SetChannel(_adapter *padapter)
 
 void SetGpio(_adapter *padapter)
 {
-//	rtw_mp_phl_config_arg(padapter, RTW_MP_CONFIG_CMD_SET_GPIO);
+	rtw_mp_phl_config_arg(padapter, RTW_MP_CONFIG_CMD_SET_GPIO);
 }
 
 void SetBandwidth(_adapter *padapter)
@@ -801,6 +815,9 @@ void SetAntenna(_adapter *padapter)
 {
 	mp_ant_path mp_trx_path = padapter->mppriv.antenna_trx;
 	u8 cfg_rf_path = RF_PATH_A;
+	struct registry_priv  *registry_par = &padapter->registrypriv;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+	void *phl = GET_PHL_INFO(dvobj);
 
 	switch (mp_trx_path) {
 	case MP_ANTENNA_A:
@@ -853,7 +870,13 @@ void SetAntenna(_adapter *padapter)
 		break;
 	}
 	padapter->mppriv.curr_rfpath = cfg_rf_path;
-	rtw_mp_phl_config_arg(padapter, RTW_MP_CONFIG_CMD_SET_RF_TXRX_PATH);
+
+	if(registry_par->mp_mode == 1) {
+		rtw_mp_phl_config_arg(padapter, RTW_MP_CONFIG_CMD_SET_RF_TXRX_PATH);
+	}
+	else {
+		rtw_phl_cfg_trx_path(phl,cfg_rf_path,registry_par->tx_nss,cfg_rf_path,registry_par->rx_nss);
+	}
 }
 
 int rtw_mp_txpoweridx(_adapter *adapter)
@@ -1295,6 +1318,7 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 	tx_arg.stbc = pmppriv->rtw_mp_stbc;
 	tx_arg.tx_state = 0;
 	tx_arg.apep = pattrib->pktlen;
+	pmppriv->mp_plcp_user[user_idx].coding = pmppriv->rtw_coding == 0 ? 10 : 12;  /* 1 LDPC, 0 BCC */
 
 	switch (cmdid) {
 		case RTW_MP_TX_PACKETS:
@@ -1348,6 +1372,7 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 			tx_arg.cbw = pmppriv->bandwidth;
 			tx_arg.txsc = pmppriv->rtw_mp_trxsc;
 			tx_arg.n_user = pmppriv->rtw_mp_plcp_tx_user; 
+			tx_arg.ru_alloc = pmppriv->mp_plcp_user[user_idx].ru_alloc *2;
 
 			RTW_INFO("%s,SET TX_CONFIG_PLCP_COMMON_INFO\n", __func__);
 			RTW_INFO("%s=============================\n", __func__);
@@ -1376,16 +1401,15 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 		case RTW_MP_TX_CONFIG_PLCP_USER_INFO:
 			tx_arg.plcp_usr_idx = user_idx;
 			tx_arg.mcs = pmppriv->mp_plcp_user[user_idx].plcp_mcs;
-			tx_arg.fec = pmppriv->mp_plcp_user[user_idx].coding;
+			tx_arg.fec = pmppriv->rtw_coding;
 			tx_arg.dcm = pmppriv->mp_plcp_user[user_idx].dcm;
 			tx_arg.aid = pmppriv->mp_plcp_user[user_idx].aid;
 			tx_arg.scrambler_seed = (rtw_random32() % 127) + 1;
 			tx_arg.random_init_seed = (rtw_random32() % 127) + 1;
 			tx_arg.apep = pmppriv->mp_plcp_user[user_idx].plcp_txlen;
-			tx_arg.ru_alloc = pmppriv->mp_plcp_user[user_idx].ru_alloc;
+			tx_arg.ru_alloc = pmppriv->mp_plcp_user[user_idx].ru_alloc *2;
 			tx_arg.nss = pmppriv->mp_plcp_user[user_idx].plcp_nss + 1;
 			tx_arg.pwr_boost_db = pmppriv->mp_plcp_user[user_idx].pwr_boost_db;
-			tx_arg.fec = pmppriv->mp_plcp_user[user_idx].coding;
 
 			RTW_INFO("%s,SET MP_TX_CONFIG_PLCP_USER_INFO\n", __func__);
 			RTW_INFO("%s plcp_usr_idx = %d\n", __func__, tx_arg.plcp_usr_idx);
@@ -1400,6 +1424,9 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 			break;
 		case RTW_MP_TX_CHECK_TX_IDLE:
 			RTW_INFO("%s,GET RTW_MP_TX_CHECK_TX_IDLE !\n", __func__);
+			break;
+		case RTW_MP_TX_DPD_BYPASS:
+			RTW_INFO("%s,SET RTW_MP_TX_DPD_BYPASS !\n", __func__);
 			break;
 		default:
 				RTW_INFO("%s,SET MP_TX_MODE None\n", __func__);
@@ -1595,12 +1622,6 @@ static void rtw_dpd_bypass(_adapter *padapter, u8 phy_idx)
 	else
 		RTW_INFO("%s: RTW_MP_SW_TX fail!!\n", __func__);
 
-	if (pmp_priv->rtw_mp_tx_method != RTW_MP_TMACT_TX) {
-		pmp_priv->is_tmac_mode = 0;
-		pmp_priv->curr_rfpath = bk_rfpath;
-		rtw_mp_phl_config_arg(padapter, RTW_MP_CONFIG_CMD_SET_TXRX_MODE);
-	}
-
 	if (phy_idx == 0) {
 		data32 = rtw_phl_read32(dvobj->phl, 0xD6F0);
 		RTW_INFO("%s:Phy0 read 0xD6F0 = 0x%x !!\n", __func__, data32);
@@ -1612,7 +1633,17 @@ static void rtw_dpd_bypass(_adapter *padapter, u8 phy_idx)
 		dpd_bypass_val = ((data32 & 0x4000000) >> 26);
 		RTW_INFO("%s: dpd_bypass_val = 0x%x !!\n", __func__, dpd_bypass_val);
 	}
+	if (rtw_phl_mp_tx_cmd(padapter, RTW_MP_TX_DPD_BYPASS,
+							pmp_priv->rtw_mp_tx_method, _FALSE))
+		RTW_INFO("%s: RTW_MP_TX_DPD_BYPASS!!\n", __func__);
 
+	rtw_get_tx_idle(padapter);
+
+	if (pmp_priv->rtw_mp_tx_method != RTW_MP_TMACT_TX) {
+		pmp_priv->is_tmac_mode = 0;
+		pmp_priv->curr_rfpath = bk_rfpath;
+		rtw_mp_phl_config_arg(padapter, RTW_MP_CONFIG_CMD_SET_TXRX_MODE);
+	}
 }
 
 static void rtw_pretx_trkdpk(_adapter *padapter)
@@ -1625,6 +1656,8 @@ static void rtw_pretx_trkdpk(_adapter *padapter)
 	u32 bk_tx_stop = pmp_priv->tx.stop;
 	u32 bk_tx_count = pmp_priv->tx.count;
 	s16 bk_txpwr = pmp_priv->txpowerdbm;
+
+	rtw_get_tx_idle(padapter);
 
 	if (pmp_priv->tssi_mode == RTW_MP_TSSI_ON && bk_txpwr > 17 * TX_POWER_BASE) {
 		pmp_priv->txpowerdbm = 17 * TX_POWER_BASE ;
@@ -1661,15 +1694,35 @@ static void rtw_pretx_trkdpk(_adapter *padapter)
 void rtw_set_phl_packet_tx(_adapter *padapter, u8 bStart)
 {
 	struct mp_priv *pmp_priv;
-	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct _ADAPTER_LINK *padapter_link;
+	struct dvobj_priv *dvobj;
 	u8 rfpath_i = 0;
-	u8 tx_nss = get_phy_tx_nss(padapter, padapter_link);
-	pmp_priv = &padapter->mppriv;
+	u32 val32 = 0;
+	u8 tx_nss;
 
+	padapter_link = GET_PRIMARY_LINK(padapter);
+	dvobj = adapter_to_dvobj(padapter);
+	tx_nss = get_phy_tx_nss(padapter, padapter_link);
+	pmp_priv = &padapter->mppriv;
 
 	RTW_INFO("%s: PACKET TX tx method %d!!\n", __func__, pmp_priv->rtw_mp_tx_method);
 
-		if (bStart) {
+	if (bStart) {
+		if (pmp_priv->tssi_mode == RTW_MP_TSSI_ON && pmp_priv->bspecif_tssi_de) {
+			for (rfpath_i = 0 ; rfpath_i < tx_nss; rfpath_i ++)
+				rtw_mp_set_tsside2verify(padapter, pmp_priv->specif_tsside_val, rfpath_i);
+			}
+			val32 = rtw_phl_read32(dvobj->phl, 0xC340);
+			val32 &= 0xFFFFF800;
+			rtw_phl_write32(dvobj->phl, 0xC340, val32);
+
+			val32 = rtw_phl_read32(dvobj->phl, 0x12344);/*B mode CCA off*/
+			val32 |= BIT31;
+			rtw_phl_write32(dvobj->phl, 0x12344, val32);
+
+			val32 = rtw_phl_read32(dvobj->phl, 0x10c3c);/*OFDM CCA off*/
+			val32 |= BIT9;
+			rtw_phl_write32(dvobj->phl, 0x10c3c, val32);
 			RTW_INFO("%s: !! tx method %d\n", __func__, pmp_priv->rtw_mp_tx_method);
 			pmp_priv->tx.sended = 0;
 			pmp_priv->tx.stop = 0;
@@ -1683,13 +1736,12 @@ void rtw_set_phl_packet_tx(_adapter *padapter, u8 bStart)
 					if (rtw_phl_mp_tx_cmd(padapter, RTW_MP_TX_CONFIG_PLCP_COMMON_INFO,
 												pmp_priv->rtw_mp_tx_method, _TRUE) == true)
 						RTW_INFO("%s: RTW_MP_TX_CONFIG_PLCP_COMMON_INFO done!!\n", __func__);
-					rtw_get_tx_idle(padapter);
+
 					rtw_pretx_trkdpk(padapter);
 			}
-			if (pmp_priv->bloopback != _TRUE) {
+			if (pmp_priv->bloopback != _TRUE)
 				rtw_dpd_bypass(padapter, pmp_priv->rtw_mp_cur_phy);
-				rtw_get_tx_idle(padapter);
-			}
+
 			if (pmp_priv->rtw_mp_tx_method == RTW_MP_FW_PMACT_TX) {
 				if (rtw_phl_mp_tx_cmd(padapter, RTW_MP_TX_PACKETS, pmp_priv->rtw_mp_tx_method, _TRUE))
 					RTW_INFO("%s: RTW_MP_FW_PMACT_TX!!\n", __func__);
@@ -1707,7 +1759,21 @@ void rtw_set_phl_packet_tx(_adapter *padapter, u8 bStart)
 
 		for (rfpath_i = 0 ; rfpath_i < tx_nss; rfpath_i ++)
 			rtw_mp_txpower_dbm(padapter, rfpath_i);
-	} else {
+
+		pmp_priv->bspecif_tssi_de = false;
+		pmp_priv->specif_tsside_val = 0;
+	}
+	if (!bStart) {
+			val32 = rtw_phl_read32(dvobj->phl, 0xC340);
+			val32 |= 0x000007FF;
+			rtw_phl_write32(dvobj->phl, 0xC340, val32);
+			val32 = rtw_phl_read32(dvobj->phl, 0x12344);/*B mode CCA on*/
+			val32 &= 0xEFFFFFFF;
+			rtw_phl_write32(dvobj->phl, 0x12344, val32);
+
+			val32 = rtw_phl_read32(dvobj->phl, 0x10c3c);/*OFDM CCA on*/
+			val32 &= 0xFFFFFDFF;
+			rtw_phl_write32(dvobj->phl, 0x10c3c, val32);
 			if (pmp_priv->rtw_mp_tx_method == RTW_MP_FW_PMACT_TX) {
 				if (rtw_phl_mp_tx_cmd(padapter, RTW_MP_TX_PACKETS, pmp_priv->rtw_mp_tx_method, false)) {
 					RTW_INFO("%s: RTW_MP_FW_TMACT_TX Stop TX!!\n", __func__);
@@ -2172,6 +2238,7 @@ u32 mp_query_psd(_adapter *adapter, u8 *data)
 	u32 i, psd_pts = 0, psd_start = 0, psd_stop = 0;
 	u32 fft = 0, avg = 0, iq_path = 0;
 	u32 psd_data = 0;
+	char *pdata = NULL;
 
 	my_psd_arg = _rtw_malloc(sizeof(struct rtw_mp_cal_arg));
 
@@ -2184,7 +2251,7 @@ u32 mp_query_psd(_adapter *adapter, u8 *data)
 
 	if (sscanf(data, "fft=%d,avg=%d,iq=%d", &fft, &avg, &iq_path) == 3) {
 
-		my_psd_arg->path = pmppriv->antenna_trx;
+		my_psd_arg->path = pmppriv->curr_rfpath;
 		my_psd_arg->iq_path = iq_path;
 		my_psd_arg->avg = avg;
 		my_psd_arg->fft = fft;
@@ -2198,7 +2265,7 @@ u32 mp_query_psd(_adapter *adapter, u8 *data)
 			RTW_INFO("PSD_INIT CMD FAIL!\n");
 	} else if (strncmp(data, "restore", 7) == 0) {
 
-		my_psd_arg->path = pmppriv->antenna_trx;
+		my_psd_arg->path = pmppriv->curr_rfpath;
 
 		if (rtw_mp_phl_psd_cmd(adapter, my_psd_arg, RTW_MP_CAL_CMD_PSD_RESTORE))
 			RTW_INFO("PSD_RESTORE CMD OK!\n");
@@ -2224,8 +2291,10 @@ u32 mp_query_psd(_adapter *adapter, u8 *data)
 
 		data[0] = '\0';
 		i = 0;
+	
 		while (i < 320) {
-			sprintf(data, "%s%x ", data, (my_psd_arg->outbuf[i]));
+			pdata = data + strlen(data);
+			pdata += sprintf(pdata, "%x ", (my_psd_arg->outbuf[i]));
 			i++;
 		}
 	}
@@ -2905,7 +2974,7 @@ u16 rtw_mp_rate_parse(_adapter *adapter, u8 *target_str)
 		else if (plcp_nss == MP_NSS3)
 			mcs_idx_base = 84 + 24;
 		else if (plcp_nss == MP_NSS4)
-			mcs_idx_base = 84+ 36;
+			mcs_idx_base = 84 + 36;
 
 		ppdu_type = RTW_MP_TYPE_HE_SU;
 	}
@@ -2915,8 +2984,8 @@ u16 rtw_mp_rate_parse(_adapter *adapter, u8 *target_str)
 	rtw_update_giltf(adapter);
 	rtw_mp_update_coding(adapter);
 
-		for (i = 0; i <= MP_RATE_STR_NUM; i++) {
-		if (strcmp(target_str, rtw_mp_rateidx_arrdef[i+ mcs_idx_base]) == 0) {
+		for (i = 0; i <= MP_RATE_STR_LEN; i++) {
+		if (strcmp(target_str, rtw_mp_rateidx_arrdef[i + mcs_idx_base]) == 0) {
 				pmppriv->mp_plcp_user[user_idx].plcp_mcs = i;
 				RTW_INFO("%s , PLCP MCS = %d\n", __func__ , pmppriv->mp_plcp_user[user_idx].plcp_mcs);
 					break;
@@ -2925,7 +2994,7 @@ u16 rtw_mp_rate_parse(_adapter *adapter, u8 *target_str)
 
 	if (1) {
 		printk("%s ,please input a Data RATE String as:", __func__);
-		for (i = 0; i <= MP_RATE_STR_NUM; i++) {
+		for (i = 0; i <= sizeof(rtw_mp_rateidx_arrdef) / sizeof(rtw_mp_rateidx_arrdef[0]); i++) {
 			printk("%s ", rtw_mp_rateidx_arrdef[i]);
 			if (i % 10 == 0)
 				printk("\n");
@@ -3001,6 +3070,16 @@ u32 mpt_ProQueryCalTxPower(
 	return 0;
 }
 
+u32 rtw_mpt_raw2dec_dbm(u32 val)
+{
+	u32 actdbm = 0;
+	u32 dec = val % TX_POWER_BASE;
+
+	actdbm = ((dec * 100) / TX_POWER_BASE);
+
+	return actdbm;
+}
+
 u32 mpt_get_tx_power_finalabs_val(_adapter *padapter, u8 rf_path)
 {
 	PMPT_CONTEXT		pMptCtx = &(padapter->mppriv.mpt_ctx);
@@ -3008,7 +3087,6 @@ u32 mpt_get_tx_power_finalabs_val(_adapter *padapter, u8 rf_path)
 	u8 mgn_rate = mpt_to_mgnt_rate(pMptCtx->mpt_rate_index);
 	u32 powerdbm = 0;
 
-#ifdef CONFIG_80211AX_HE
 	struct mp_priv	*pmppriv = &padapter->mppriv;
 	struct rtw_mp_txpwr_arg	ptxpwr_arg;
 	u16 i = 0;
@@ -3043,13 +3121,7 @@ u32 mpt_get_tx_power_finalabs_val(_adapter *padapter, u8 rf_path)
 			i++;
 		}
 	}
-#else
-/*
-	powerdbm = phy_get_tx_power_final_absolute_value(padapter, rf_path, mgn_rate, pHalData->current_channel_bw, pHalData->current_channel);
-	RTW_INFO("bw=%d, ch=%d, rateid=%d, TSSI Power(dBm):%d\n",
-		pHalData->current_channel_bw, pHalData->current_channel, mgn_rate ,powerdbm);
-*/
-#endif
+
 	return powerdbm;
 }
 
@@ -3231,16 +3303,16 @@ bool rtw_mp_phl_config_arg(_adapter *padapter, enum rtw_mp_config_cmdid cmdid)
 	case RTW_MP_CONFIG_CMD_SET_TXRX_MODE:
 		pmp_arg.is_tmac_mode = pmppriv->is_tmac_mode;
 		pmp_arg.tx_rfpath = pmppriv->curr_rfpath;
-		pmp_arg.rx_rfpath = pmppriv->curr_rfpath;;
-		pmp_arg.ant_tx = pmppriv->antenna_trx;
-		pmp_arg.ant_rx = pmppriv->antenna_trx;
+		pmp_arg.rx_rfpath = pmppriv->curr_rfpath;
+		pmp_arg.ant_tx = pmppriv->mp_plcp_user[pmppriv->mp_plcp_useridx].plcp_nss;
+		pmp_arg.ant_rx = pmppriv->mp_plcp_user[pmppriv->mp_plcp_useridx].plcp_nss;
 		break;
 	case RTW_MP_CONFIG_CMD_SET_RATE_IDX:
 		pmp_arg.rate_idx= pmppriv->rateidx;
 		break;
 	case RTW_MP_CONFIG_CMD_SET_RF_TXRX_PATH:
-		pmp_arg.ant_tx = pmppriv->antenna_trx;
-		pmp_arg.ant_rx = pmppriv->antenna_trx;
+		pmp_arg.ant_tx = pmppriv->curr_rfpath;
+		pmp_arg.ant_rx = pmppriv->curr_rfpath;
 		break;
 	case RTW_MP_CONFIG_CMD_STOP_DUT:
 	case RTW_MP_CONFIG_CMD_START_DUT:
@@ -3262,6 +3334,10 @@ bool rtw_mp_phl_config_arg(_adapter *padapter, enum rtw_mp_config_cmdid cmdid)
 	case RTW_MP_CONFIG_CMD_SET_MAC_GENERNAL_IO_TEST:
 		pmppriv->mac_iotest_res = 0;
 		RTW_INFO("%s, MAC_GENERNAL_IO_TEST !!!\n", __func__);
+		break;
+	case RTW_MP_CONFIG_CMD_SET_GPIO:
+		pmp_arg.gpio_cfg.gpio_id = pmppriv->gpio_id;
+		pmp_arg.gpio_cfg.gpio_enable = pmppriv->gpio_enable;
 		break;
 	default:
 		RTW_INFO("%s, No CMD case match !!!\n", __func__);
@@ -3316,6 +3392,25 @@ void rtw_mp_phl_rx_physts(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg, bool
 	}
 }
 
+static u8 rtw_get_rx_cal_process_status(_adapter *padapter)
+{
+	struct mp_priv *pmppriv = &padapter->mppriv;
+	u32 i = 0;
+	u8 ret = _FALSE;
+
+	while (i <= 20) {
+		if (pmppriv->rx_cal_process == 0) {
+			ret = _TRUE;
+			RTW_INFO("%s,rx_cal_process false\n", __func__);
+			break;
+		} else
+			rtw_msleep_os(50);
+		i++;
+	}
+
+	return ret;
+}
+
 void rtw_mp_phl_rx_rssi(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg)
 {
 	struct mp_priv *pmppriv = &padapter->mppriv;
@@ -3323,24 +3418,28 @@ void rtw_mp_phl_rx_rssi(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg)
 
 	rx_arg->mp_class = RTW_MP_CLASS_RX;
 	rx_arg->cmd = RTW_MP_RX_CMD_GET_RSSI;
-
 	rx_arg->cmd_ok = _FALSE;
+
+	if (rtw_get_rx_cal_process_status(padapter)) {
+		pmppriv->rx_cal_process = 1;
 	rtw_mp_set_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
+	}
 
 	while (i != 10) {
-			rtw_msleep_os(100);
+			rtw_msleep_os(30);
 			rtw_mp_get_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
 			if (rx_arg->cmd_ok && rx_arg->status == RTW_PHL_STATUS_SUCCESS) {
 				RTW_INFO("%s,Path%d rssi:%d GET CMD RX OK\n", __func__, rx_arg->rf_path, rx_arg->rssi);
 				break;
 			} else {
-				if (i > 10) {
+				if (i > 50) {
 					RTW_INFO("%s,GET CMD FAIL !!! status %d\n", __func__,rx_arg->status);
 					break;
 				}
 				i++;
 			}
 	}
+	pmppriv->rx_cal_process = 0;
 }
 
 void rtw_mp_phl_rx_gain_offset(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg, u8 path_num)
@@ -3356,22 +3455,25 @@ void rtw_mp_phl_rx_gain_offset(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg,
 		path_num = 0;
 		all_path_num -= 1;
 	}
+	if (rtw_get_rx_cal_process_status(padapter)) {
+		pmppriv->rx_cal_process = 1;
 
 	for (rf_path = path_num; rf_path <= all_path_num; rf_path++) {
 		u16 i = 0;
 
 		rx_arg->rf_path = rf_path;
 		rx_arg->cmd_ok = _FALSE;
+
 		rtw_mp_set_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
 
 		while (i != 10) {
-				rtw_msleep_os(100);
+					rtw_msleep_os(30);
 				rtw_mp_get_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
 				if (rx_arg->cmd_ok && rx_arg->status == RTW_PHL_STATUS_SUCCESS) {
 					RTW_INFO("%s,rf path %d GET CMD RX OK\n", __func__, rx_arg->rf_path);
 					break;
 				} else {
-					if (i > 10) {
+						if (i > 50) {
 						RTW_INFO("%s,GET CMD FAIL !!! status %d\n", __func__,rx_arg->status);
 						break;
 					}
@@ -3379,6 +3481,8 @@ void rtw_mp_phl_rx_gain_offset(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg,
 				}
 		}
 	}
+	}
+	pmppriv->rx_cal_process = 0;
 }
 
 
@@ -3403,6 +3507,9 @@ void rtw_mp_phl_query_rx(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg ,u8 rx
 		rxcmd[1] = RTW_MP_RX_CMD_DRV_CRC_ERR;
 	}
 
+	if (rtw_get_rx_cal_process_status(padapter)) {
+		pmppriv->rx_cal_process = 1;
+
 	for (cmd_idx = 0; cmd_idx < 2 ; cmd_idx++) {
 		u16 i = 0;
 
@@ -3411,13 +3518,13 @@ void rtw_mp_phl_query_rx(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg ,u8 rx
 		rtw_mp_set_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
 
 		while (i != 10) {
-				rtw_msleep_os(10);
+					rtw_msleep_os(30);
 				rtw_mp_get_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
 				if (rx_arg->cmd_ok && rx_arg->status == RTW_PHL_STATUS_SUCCESS) {
 					RTW_INFO("%s,GET CMD RX OK:%d ,RX ERR:%d\n", __func__, rx_arg->rx_ok, rx_arg->rx_err);
 					break;
 				} else {
-					if (i > 10) {
+						if (i > 50) {
 						RTW_INFO("%s,GET CMD FAIL !!! status %d\n", __func__,rx_arg->status);
 						break;
 					}
@@ -3425,6 +3532,9 @@ void rtw_mp_phl_query_rx(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg ,u8 rx
 				}
 		}
 	}
+	}
+
+	pmppriv->rx_cal_process = 0;
 }
 
 static thread_return mp_rx_phl_cal_thread(thread_context context)
@@ -3434,32 +3544,35 @@ static thread_return mp_rx_phl_cal_thread(thread_context context)
 	struct rtw_mp_cal_arg	*cal_arg = NULL;
 	u8 i = 0;
 	u8 rxcmd = RTW_MP_CAL_CMD_TRIGGER_WATCHDOG_CAL;
-	
+
 	pmp_priv = (struct mp_priv *)context;
 	padapter = pmp_priv->papdater;
 	cal_arg = _rtw_malloc(sizeof(struct rtw_mp_cal_arg));
+	if (cal_arg==NULL) {
+		RTW_WARN("%s: _rtw_malloc null to exit\n", __func__);
+		return 0;
+	}
 
 	rtw_thread_enter("RTW_MP_RX_Cal_THREAD");
-
-	RTW_INFO("%s:Rx cal therad Start\n", __func__);
 	while (1) {
 			cal_arg->mp_class = RTW_MP_CLASS_CAL;
 			cal_arg->cmd = rxcmd;
 			cal_arg->cmd_ok = _FALSE;
+			if (rtw_get_rx_cal_process_status(padapter)) {
+				pmp_priv->rx_cal_process = 1;
 			rtw_mp_set_phl_cmd(padapter, (void*)cal_arg, sizeof(struct rtw_mp_cal_arg));
-			rtw_msleep_os(10);
+				rtw_msleep_os(50);
 			rtw_mp_get_phl_cmd(padapter, (void*)cal_arg, sizeof(struct rtw_mp_cal_arg));
-
-			if (cal_arg->cmd_ok && cal_arg->status == RTW_PHL_STATUS_SUCCESS) {
+				if (cal_arg->cmd_ok && cal_arg->status == RTW_PHL_STATUS_SUCCESS)
 				RTW_DBG("%s,cal ok \n", __func__);
-				break;
-			} else {
+				else {
 				if (i > 10) {
 					RTW_INFO("%s,GET CMD FAIL !!! status %d\n", __func__, cal_arg->status);
-					break;
 				}
 				i++;
 			}
+			}
+			pmp_priv->rx_cal_process = 0;
 			if (pmp_priv->rx_cal_stop ||
 				RTW_CANNOT_RUN(adapter_to_dvobj(padapter)))
 			goto exit;
@@ -3494,8 +3607,11 @@ void rtw_mp_set_crystal_cap(_adapter *padapter, u32 xcapvalue)
 	u8 sc_xo_idx = 1;
 	u8 i = 0;
 
+	_rtw_memset((void *)&cfg_arg, 0, sizeof(struct rtw_mp_reg_arg));
+
 	cfg_arg.mp_class = RTW_MP_CLASS_REG;
 	cfg_arg.cmd = RTW_MP_REG_CMD_SET_XCAP;
+	cfg_arg.status = RTW_PHL_STATUS_FAILURE;
 
 	for (i <=0 ; i <= sc_xo_idx; i++) {
 		cfg_arg.cmd_ok = 0;
@@ -3668,15 +3784,13 @@ void rtw_mp_update_coding(_adapter *padapter)
 	u8 ppdu_type = pmp_priv->rtw_mp_pmact_ppdu_type;
 	u8 user_idx = pmp_priv->mp_plcp_useridx;
 
-	if (ppdu_type == RTW_MP_TYPE_HE_SU || pmp_priv->bandwidth >= CHANNEL_WIDTH_40 ||
+	if (ppdu_type == RTW_MP_TYPE_HE_SU || (ppdu_type == RTW_MP_TYPE_HE_TB && pmp_priv->bandwidth >= CHANNEL_WIDTH_40) ||
 		pmp_priv->rtw_mp_ru_tone >= MP_RU_TONE_484) {
 
 		RTW_INFO("%s, PPDU HE SU , over 40M, RU Tone over 484\n", __func__);
-		pmp_priv->mp_plcp_user[user_idx].coding = 1;/* 1 LDPC, 0 BCC */
+		pmp_priv->rtw_coding = 1;/* 1 LDPC, 0 BCC */
 	} else if (ppdu_type == RTW_MP_TYPE_HE_MU_OFDMA) {
-
-		RTW_INFO("%s, PPDU HE MU\n", __func__);
-		pmp_priv->mp_plcp_user[user_idx].coding = 0;/* 1 LDPC, 0 BCC */
+		RTW_INFO("%s, PPDU HE MU not support seeting\n", __func__);
 	}
 
 	RTW_INFO("%s, coding: %s\n", __func__, (pmp_priv->mp_plcp_user[user_idx].coding?"LDPC":"BCC"));
@@ -3700,7 +3814,7 @@ u8 rtw_mp_update_ru_tone(_adapter *padapter)
 
 	for (i = 0; i <= 5; i++) {
 		pmp_priv->ru_tone_sel_list[i] = ruidx++;
-		if (ruidx > MP_RU_TONE_966)
+		if (ruidx > MP_RU_TONE_996)
 			break;
 	}
 	return i;
@@ -3759,7 +3873,7 @@ u8 rtw_mp_update_ru_alloc(_adapter *padapter)
 					alloc_start = 65;
 					alloc_end = 66;
 					break;
-	case MP_RU_TONE_966:
+	case MP_RU_TONE_996:
 					alloc_start = 67;
 					alloc_end = 67;
 					break;
@@ -3966,11 +4080,11 @@ u8 rtw_mp_get_tx_req_recycle(_adapter *padapter)
 	u32 idle_cnt = 0, busy_cnt = 0, total_cnt = 0;
 	u8 tx_report = 0;
 	u32 i = 0;
-
+#if 0
 	while(1) {
 		rtw_msleep_os(10);
-		//rtw_phl_get_tx_req_stats(GET_PHL_INFO(dvobj),
-		//	&idle_cnt, &busy_cnt, &total_cnt);
+		rtw_phl_get_tx_req_stats(GET_PHL_INFO(dvobj),
+			&idle_cnt, &busy_cnt, &total_cnt);
 
 		if ((total_cnt - idle_cnt) == 0) {
 			tx_report = 1;
@@ -3981,9 +4095,37 @@ u8 rtw_mp_get_tx_req_recycle(_adapter *padapter)
 			break;
 		i++;
 	}
-
+#endif
 	RTW_INFO("%s: tx req idle cnt=%d ,busy=%d, total=%d!!\n",
 		__func__, idle_cnt, busy_cnt, total_cnt);
 	return tx_report;
+}
+
+void rtw_mp_phl_rx_reset_fltr(_adapter *padapter, struct rtw_mp_rx_arg *rx_arg, bool bstart)
+{
+	struct mp_priv *pmppriv = &padapter->mppriv;
+	u8 i = 0;
+
+	rx_arg->mp_class = RTW_MP_CLASS_RX;
+	rx_arg->cmd = RTW_MP_RX_CMD_SET_RX_FLTR;
+	rx_arg->rx_fltr_enable = bstart;
+	_rtw_memcpy(rx_arg->rx_fltr_addr, pmppriv->network_macaddr, ETH_ALEN);
+
+	rtw_mp_set_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
+
+	while (i != 10) {
+		rtw_msleep_os(100);
+		rtw_mp_get_phl_cmd(padapter, (void*)rx_arg,  sizeof(struct rtw_mp_rx_arg));
+		if (rx_arg->cmd_ok && rx_arg->status == RTW_PHL_STATUS_SUCCESS) {
+			RTW_INFO("%s,GET CMD RX OK\n", __func__);
+			break;
+		} else {
+			if (i > 10) {
+				RTW_INFO("%s,GET CMD FAIL !!! status %d\n", __func__,rx_arg->status);
+				break;
+			}
+			i++;
+		}
+	}
 }
 #endif

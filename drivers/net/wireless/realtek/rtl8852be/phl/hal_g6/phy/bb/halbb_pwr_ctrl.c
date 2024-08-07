@@ -56,7 +56,7 @@ void halbb_set_ccath_macid(struct bb_info *bb, u16 macid, s8 cca_th, bool cca_th
 
 void halbb_ccath_init(struct bb_info *bb)
 {
-	u8 i;
+	u16 i = 0;
 	struct bb_dyncca_info *dyncca_i = &bb->bb_dyncca_i;
 	
 	BB_DBG(bb, DBG_PWR_CTRL, "[%s]\n", __func__);
@@ -104,7 +104,7 @@ void halbb_cca_th_per_sta(struct bb_info *bb, u16 macid)
 void halbb_dyncca_th(struct bb_info *bb)
 {
 	struct bb_dyncca_info *dyncca_i = &bb->bb_dyncca_i;
-	u8 i;
+	u16 i;
 
 	if (!dyncca_i) {
 		BB_DBG(bb, DBG_PWR_CTRL, "NULL pointer!\n");
@@ -272,15 +272,40 @@ u8 halbb_pwr_lvl_check(struct bb_info *bb, u8 rssi_in, u8 last_pwr_lvl)
 {
 	u8 i;
 	u8 th[HALBB_PWR_STATE_NUM];
+	u8 nhm_ratio_thd;
+	bool is_noisy = false;
 	struct bb_pwr_ctrl_info *pwr_ctrl_i = &bb->bb_pwr_ctrl_i;
+	struct bb_env_mntr_info *env_mntr = &bb->bb_env_mntr_i;
 
 	if (!pwr_ctrl_i) {
 		BB_DBG(bb, DBG_PWR_CTRL, "NULL pointer!\n");
 		return 0;
 	}
 
-	for (i = 0; i < HALBB_PWR_STATE_NUM; i++)
-		th[i] = pwr_ctrl_i->set_pwr_th[i];
+	if (pwr_ctrl_i->is_noisy_pre)
+		nhm_ratio_thd = pwr_ctrl_i->nhm_ratio_thd - NHM_RATIO_THD_GAP;
+	else
+		nhm_ratio_thd = pwr_ctrl_i->nhm_ratio_thd;
+
+	if (nhm_ratio_thd == 0)
+		nhm_ratio_thd = 1;
+
+	if ((env_mntr->env_mntr_rpt_bg.nhm_ratio >= nhm_ratio_thd) &&
+	    (env_mntr->env_mntr_rpt_bg.nhm_ratio != ENV_MNTR_FAIL_BYTE))
+		is_noisy = true;
+
+	pwr_ctrl_i->is_noisy_pre = is_noisy;
+
+	BB_DBG(bb, DBG_PWR_CTRL,
+		"Dyn_set_pwr_th_en = %d, nhm_ratio = %d, nhm_ratio_thd = %d, is_noisy = %d\n",
+		pwr_ctrl_i->dyn_set_pwr_th_en, env_mntr->env_mntr_rpt_bg.nhm_ratio, nhm_ratio_thd, is_noisy);
+
+	for (i = 0; i < HALBB_PWR_STATE_NUM; i++) {
+		if (pwr_ctrl_i->dyn_set_pwr_th_en && is_noisy)
+			th[i] = pwr_ctrl_i->set_pwr_th_in_noise[i];
+		else
+			th[i] = pwr_ctrl_i->set_pwr_th[i];
+	}
 
 	BB_DBG(bb, DBG_PWR_CTRL,
 		  "Ori-DTP th: Lv1_th = %d, Lv2_th = %d, Lv3_th = %d\n",
@@ -356,7 +381,7 @@ void halbb_pwr_ctrl_per_sta(struct bb_info *bb, u16 macid)
 
 	sta = bb->phl_sta_info[macid];
 	if (!sta) {
-		BB_DBG(bb, DBG_PWR_CTRL, "NULL PHL STA info\n");
+		//BB_DBG(bb, DBG_PWR_CTRL, "NULL PHL STA info\n");
 		return;
 	}
 	if (is_sta_active(sta)) {
@@ -385,6 +410,14 @@ void halbb_pwr_ctrl_per_sta(struct bb_info *bb, u16 macid)
 	}
 }
 
+void halbb_pwr_ctrl_ability_set(struct bb_info *bb, bool enable)
+{
+	if (enable)
+		bb->support_ability |= BB_PWR_CTRL;
+	else
+		bb->support_ability &= ~BB_PWR_CTRL;
+}
+
 void halbb_pwr_ctrl(struct bb_info *bb)
 {
 	struct bb_pwr_ctrl_info *pwr_ctrl = &bb->bb_pwr_ctrl_i;
@@ -411,9 +444,8 @@ void halbb_pwr_ctrl(struct bb_info *bb)
 	/*Enable*/
 	halbb_pwr_ctrl_en(bb, true);
 	for (i = 0; i < PHL_MAX_STA_NUM; i++)
-		halbb_pwr_ctrl_per_sta( bb, i);
+		halbb_pwr_ctrl_per_sta(bb, i);
 
-	BB_DBG(bb, DBG_PWR_CTRL, "pwr = %d\n", pwr_ctrl->pwr);
 	#ifdef HALBB_FW_OFLD_SUPPORT
 	halbb_fwofld_bitmap_en(bb, false, FW_OFLD_BB_API);
 	#endif
@@ -425,6 +457,10 @@ void halbb_pwr_ctrl_para_init(struct bb_info *bb)
 	pwr_ctrl_i->set_pwr_th[0] = TX_PWR_TH_LVL1;
 	pwr_ctrl_i->set_pwr_th[1] = TX_PWR_TH_LVL2;
 	pwr_ctrl_i->set_pwr_th[2] = TX_PWR_TH_LVL3;
+
+	pwr_ctrl_i->set_pwr_th_in_noise[0] = TX_PWR_TH_IN_NOISE_LVL1;
+	pwr_ctrl_i->set_pwr_th_in_noise[1] = TX_PWR_TH_IN_NOISE_LVL2;
+	pwr_ctrl_i->set_pwr_th_in_noise[2] = TX_PWR_TH_IN_NOISE_LVL3;
 
 	pwr_ctrl_i->pwr_lv_dbm[0] = TX_PWR_LVL1;
 	pwr_ctrl_i->pwr_lv_dbm[1] = TX_PWR_LVL2;
@@ -449,10 +485,19 @@ void halbb_pwr_ctrl_th_cfg(struct bb_info *bb, u8 th_lv1, u8 th_lv2, u8 th_lv3)
 	pwr_ctrl_i->set_pwr_th[2] = th_lv3;
 }
 
+void halbb_pwr_ctrl_th_in_noise_cfg(struct bb_info *bb, u8 th_lv1, u8 th_lv2, u8 th_lv3)
+{
+	struct bb_pwr_ctrl_info *pwr_ctrl_i = &bb->bb_pwr_ctrl_i;
+
+	pwr_ctrl_i->set_pwr_th_in_noise[0] = th_lv1;
+	pwr_ctrl_i->set_pwr_th_in_noise[1] = th_lv2;
+	pwr_ctrl_i->set_pwr_th_in_noise[2] = th_lv3;
+}
+
 void halbb_pwr_ctrl_init(struct bb_info *bb)
 {
 	struct bb_pwr_ctrl_info *pwr_ctrl_i = &bb->bb_pwr_ctrl_i;
-	u8 i = 0;
+	u16 i = 0;
 
 	if (!pwr_ctrl_i) {
 		BB_DBG(bb, DBG_PWR_CTRL, "NULL pointer!\n");
@@ -464,6 +509,9 @@ void halbb_pwr_ctrl_init(struct bb_info *bb)
 		pwr_ctrl_i->dtp_i[i].dyn_tx_pwr_lvl= TX_HP_LV_0;
 	}
 
+	pwr_ctrl_i->dyn_set_pwr_th_en = true;
+	pwr_ctrl_i->is_noisy_pre = false;
+	pwr_ctrl_i->nhm_ratio_thd = NHM_RATIO_THD;
 	halbb_pwr_ctrl_para_init(bb);
 
 	for (i = 0; i < HALBB_PWR_STATE_NUM; i++)
@@ -482,11 +530,19 @@ void halbb_pwr_ctrl_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 
 	if (_os_strcmp(input[1], help) == 0) {
 		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-			 "{Use Org TH and PWR} [pwr_ctrl] [0]\n");
+			 "{Use Org TH and PWR}: [0]\n");
 		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-			 "{Modify LV1(H)~LV3(L) Power} [pwr_ctrl] [1] [LV1] [LV2] [LV3]\n");
+			 "{Modify LV1(H)~LV3(L) Power (dBmX2)}: [1] [LV1] [LV2] [LV3]\n");
 		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-			 "{Modify LV1(H)~LV3(L) TH} [pwr_ctrl] [2] [LV1] [LV2] [LV3]\n");
+			 "{Modify LV1(H)~LV3(L) TH}: [2] [LV1] [LV2] [LV3]\n");
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			 "{Modify LV1(H)~LV3(L) TH IN NOISE}: [3] [LV1] [LV2] [LV3]\n");
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			 "{Set dyn_set_pwr_th_en}: [4] [en: 1, dis: 0]\n");
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			 "{Set nhm_ratio_thd}: [5] [threshold]\n");
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			 "{Show all parameter}: [100]\n");
 		return;
 	}
 	for (i = 0; i < 8; i++) {
@@ -511,6 +567,41 @@ void halbb_pwr_ctrl_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			"PWRCTRL TH for each LV = {%d, %d, %d}\n",
 			pwr_ctrl_i->set_pwr_th[0], pwr_ctrl_i->set_pwr_th[1],
 			pwr_ctrl_i->set_pwr_th[2]);
+		break;
+	case 3:
+		halbb_pwr_ctrl_th_in_noise_cfg(bb, (u8)val[1], (u8)val[2], (u8)val[3]);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"PWRCTRL TH in noise for each LV = {%d, %d, %d}\n",
+			pwr_ctrl_i->set_pwr_th_in_noise[0], pwr_ctrl_i->set_pwr_th_in_noise[1],
+			pwr_ctrl_i->set_pwr_th_in_noise[2]);
+		break;
+	case 4:
+		pwr_ctrl_i->dyn_set_pwr_th_en = (bool)val[1];
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"dyn_set_pwr_th_en = %d\n", pwr_ctrl_i->dyn_set_pwr_th_en);
+		break;
+	case 5:
+		pwr_ctrl_i->nhm_ratio_thd = (u8)val[1];
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"nhm_ratio_thd = %d\n", pwr_ctrl_i->nhm_ratio_thd);
+		break;
+	case 100:
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"dynamic_set_pwr_th_en  = %d\n", pwr_ctrl_i->dyn_set_pwr_th_en);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"nhm_ratio_thd  = %d\n", pwr_ctrl_i->nhm_ratio_thd);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"PWRCTRL TxPWR for each LV (dBmX2)= {%d, %d, %d}\n",
+			pwr_ctrl_i->pwr_lv_dbm[0], pwr_ctrl_i->pwr_lv_dbm[1],
+			pwr_ctrl_i->pwr_lv_dbm[2]);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"PWRCTRL TH for each LV = {%d, %d, %d}\n",
+			pwr_ctrl_i->set_pwr_th[0], pwr_ctrl_i->set_pwr_th[1],
+			pwr_ctrl_i->set_pwr_th[2]);
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			"PWRCTRL TH in noise for each LV = {%d, %d, %d}\n",
+			pwr_ctrl_i->set_pwr_th_in_noise[0], pwr_ctrl_i->set_pwr_th_in_noise[1],
+			pwr_ctrl_i->set_pwr_th_in_noise[2]);
 		break;
 	default:
 		break;
@@ -564,13 +655,13 @@ bool halbb_set_pwr_ul_tb_ofst(struct bb_info *bb, s16 pw_ofst,
 
 void halbb_macid_ctrl_init(struct bb_info *bb)
 {
-	u8 i = 0;
+	u16 i = 0;
 	u32 reg_ofst = 0;
 	u32 ret_v = 0;
 
 	BB_DBG(bb, DBG_PWR_CTRL, "[%s] phy_idx=%d\n", __func__, bb->bb_phy_idx);
 
-	if (bb->hal_com == NULL) {
+	if (bb->hal_com == NULL || bb->bb_80211spec == BB_BE_IC) {
 		BB_WARNING("[%s]\n", __func__);
 		return;
 	}
@@ -627,7 +718,7 @@ void halbb_txdiff_tbl_init(struct bb_info* bb)
 		
 	u32 cr_start_addr = 0;
 	u32 cr_start_addr_cck_lgcy = 0;
-	u8 i;
+	u16 i, loop_tmp = 0;
 	u8 mcs_size_tab = 0;
 	u32 *txdiff_tbl = NULL;
 
@@ -662,7 +753,9 @@ void halbb_txdiff_tbl_init(struct bb_info* bb)
 		return;
 	}
 
-	for (i = 0; i < mcs_size_tab * 4; i++) {
+	loop_tmp = (u16)(mcs_size_tab * 4);
+
+	for (i = 0; i < loop_tmp; i++) {
 		rtw_hal_mac_set_pwr_reg(bb->hal_com, (u8)bb->bb_phy_idx, cr_start_addr, txdiff_tbl[i]);
 		cr_start_addr += 0x4;
 	}
@@ -926,23 +1019,7 @@ void halbb_tssi_ctrl_set_fast_mode_cfg(struct bb_info *bb,
 	}
 }
 
-void halbb_tmac_force_tx_pwr(struct bb_info *bb, s8 pw_val, u8 n_path, u8 dbw_idx, enum phl_phy_idx phy_idx)
-
-{
-	switch (bb->ic_type) {
-
-	#ifdef BB_1115_SUPPORT
-	case BB_RLE1115:
-		halbb_tmac_force_tx_pwr_1115(bb, pw_val, n_path, dbw_idx, phy_idx);
-		break;
-	#endif
-
-	default:
-		break;
-	}
-}
-
-void halbb_bb_wrap_set_tx_src(struct bb_info *bb, u8 option, s8 pw_val, u8 n_path, u8 dbw_idx, enum phl_phy_idx phy_idx) {
+void halbb_set_tx_src(struct bb_info *bb, u8 option, s8 pw_val, enum phl_phy_idx phy_idx) {
 
 	BB_DBG(bb, DBG_PWR_CTRL, "[%s] %d", __func__, phy_idx);
 
@@ -953,35 +1030,18 @@ void halbb_bb_wrap_set_tx_src(struct bb_info *bb, u8 option, s8 pw_val, u8 n_pat
 		if (bb->bb_80211spec == BB_AX_IC){
 			BB_WARNING("Command not support for non-BE chip!!\n");
 			return;
-		} else{
-			halbb_set_reg_cmn(bb, 0x9a4, BIT(10), 0, phy_idx);
-			halbb_tmac_force_tx_pwr(bb, pw_val, n_path, dbw_idx, phy_idx);
 		}
 	}
 	if (option == 1) {
 		if (bb->bb_80211spec == BB_AX_IC) {
 			halbb_set_reg_cmn(bb, 0x9a4, BIT(16), 1, phy_idx);
 			halbb_set_reg_cmn(bb, 0x4594, 0x7FC00000, (s16)(pw_val << 2), phy_idx);
-		} else {
-			halbb_set_reg_cmn(bb, 0x9a4, BIT(10), 1, phy_idx);
-			halbb_set_reg_cmn(bb, 0x4fc0, 0x3FE00, (s16)(pw_val << 2), phy_idx); /*0x4FC0[17:9], S(9,2)*/
 		}
 	}
 	if (option == 2) {
 		if (bb->bb_80211spec == BB_AX_IC){
 			halbb_set_reg_cmn(bb, 0x9a4, BIT(16), 0, HW_PHY_0);
 			halbb_set_reg_cmn(bb, 0x9a4, BIT(16), 0, HW_PHY_1);
-		}
-		else {
-			struct rtw_hal_com_t *hal_com = bb->hal_com;
-			halbb_set_reg_cmn(bb, 0x9a4, BIT(10), 0, HW_PHY_0);
-			halbb_set_reg_cmn(bb, 0x9a4, BIT(10), 0, HW_PHY_1);
-			rtw_hal_mac_write_msk_pwr_reg(hal_com, HW_PHY_0, 0x11964, 0x00000060, 0);
-			rtw_hal_mac_write_msk_pwr_reg(hal_com, HW_PHY_0, 0x11908, 0x7FC00000, 0);
-			rtw_hal_mac_write_msk_pwr_reg(hal_com, HW_PHY_0, 0x11924, 0x01F80000, 0);
-			rtw_hal_mac_write_msk_pwr_reg(hal_com, HW_PHY_1, 0x11964, 0x00000060, 0);
-			rtw_hal_mac_write_msk_pwr_reg(hal_com, HW_PHY_1, 0x11908, 0x7FC00000, 0);
-			rtw_hal_mac_write_msk_pwr_reg(hal_com, HW_PHY_1, 0x11924, 0x01F80000, 0);
 		}
 	}
 }
@@ -1063,18 +1123,14 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		HALBB_SCAN(input[6], DCMD_DECIMAL, &val[4]); /*phy_idx*/
 	
 		if ((u8)val[0] == 0) {
-			if ((val[4] != 0 && val[4] != 1) || ((u8)val[2] <= 0 || (u8)val[2] > HAL_MAX_PATH) || ((u8)val[3] >= 5)){
-				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-					"Set Err\n");
+			if (bb->bb_80211spec == BB_AX_IC){
+				BB_WARNING("Command not support for non-BE chip!!\n");
 				return;
 			}
-			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-				"Total path = %d\n", val[2]);
-			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
-				"Force TMAC tx_pwr for phy_idx[%d] = %d dBm per path on DBW %d MHz\n", 
-				(enum phl_phy_idx)val[4], val[1], 
-				(((u8)val[3]==0)?20:(((u8)val[3]==1)?40:(((u8)val[3]==2)?80:(((u8)val[3]==3)?160:(((u8)val[3]==4)?320:0))))));
 		} else if ((u8)val[0] == 1) {
+			if (bb->bb_80211spec == BB_AX_IC){
+				BB_WARNING("#Path and DBW_idx do not work in BB_AX_IC!!\n");
+			}
 			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				"Force PMAC tx_pwr for phy_idx[%d] = %d dBm\n", (enum phl_phy_idx)val[4], val[1]);
 		} else if ((u8)val[0] == 2) {
@@ -1085,58 +1141,63 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 				    "Set Err\n");
 			return;
 		}
-		halbb_bb_wrap_set_tx_src(bb, (u8)val[0], (s8)val[1], (u8)val[2], (u8)val[3], (enum phl_phy_idx)val[4]);
+		halbb_set_tx_src(bb, (u8)val[0], (s8)val[1], (enum phl_phy_idx)val[4]);
 	} else if (_os_strcmp(input[1], "show") == 0) {
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "================\n\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "[PW Ref]\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-10s {%d}\n", "[base_cw_0db]", tpu->base_cw_0db);
 
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
-			    "%-10s {%s dB}\n", "[path_B_ofst]",
-			    halbb_print_sign_frac_digit2(bb, tpu->ofst_int, 8, 3));
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "%-10s {%s dB} {path=%d}\n", "[path_ofst]",
+			    halbb_print_sign_frac_digit2(bb, tpu->path_pow_ofst_decrease, 8, 3),
+			    tpu->ref_pow_path);
 
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+						"%-10s {%d dB}\n", "[ofst_int]",
+						tpu->ofst_int);
+
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-10s {%s dBm} pw_cw=0x%03x\n", "[CCK]",
 			    halbb_print_sign_frac_digit2(bb, tpu->ref_pow_cck, 16, 2),
 			    tpu->ref_pow_cck_cw);
 
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-10s {%s dBm} pw_cw=0x%03x\n", "[OFDM]",
 			    halbb_print_sign_frac_digit2(bb, tpu->ref_pow_ofdm, 16, 2),
 			    tpu->ref_pow_ofdm_cw);
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "================\n\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "[PW Offset] (s41)\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-20s {%02d, %02d, %02d, %02d, %02d}\n", "[AX/AC/N/G/B]",
 			    tpu->pwr_ofst_mode[0], tpu->pwr_ofst_mode[1],
 			    tpu->pwr_ofst_mode[2], tpu->pwr_ofst_mode[3],
 			    tpu->pwr_ofst_mode[4]);
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-20s {%02d, %02d, %02d, %02d, %02d}\n", "[80_80/160/80/40/20]",
 			    tpu->pwr_ofst_bw[0], tpu->pwr_ofst_bw[1],
 			    tpu->pwr_ofst_bw[2], tpu->pwr_ofst_bw[3],
 			    tpu->pwr_ofst_bw[4]);
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "================\n\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "[Pwr By Rate] (s71)\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-10s {%02d, %02d, %02d, %02d}\n", "[CCK]",
 			    by_rate->pwr_by_rate_lgcy[0], by_rate->pwr_by_rate_lgcy[1],
 			    by_rate->pwr_by_rate_lgcy[2], by_rate->pwr_by_rate_lgcy[3]);
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "%-10s {%02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d}\n","[Lgcy]",
 			    by_rate->pwr_by_rate_lgcy[4], by_rate->pwr_by_rate_lgcy[5],
 			    by_rate->pwr_by_rate_lgcy[6], by_rate->pwr_by_rate_lgcy[7],
 			    by_rate->pwr_by_rate_lgcy[8], by_rate->pwr_by_rate_lgcy[9],
 			    by_rate->pwr_by_rate_lgcy[10], by_rate->pwr_by_rate_lgcy[11]);
 		for (i = 0; i < HAL_MAX_PATH; i++) {
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				    "[%d]%-7s {%02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d}\n",
 				    i, "[OFDM]",
 				    by_rate->pwr_by_rate[i][0], by_rate->pwr_by_rate[i][1],
@@ -1146,7 +1207,7 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 				    by_rate->pwr_by_rate[i][8], by_rate->pwr_by_rate[i][9],
 				    by_rate->pwr_by_rate[i][10], by_rate->pwr_by_rate[i][11]);
 
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				    "[%d]%-7s {%02d, %02d, %02d, %02d}\n",
 				    i,"[DCM]",
 				    by_rate->pwr_by_rate[i][12], by_rate->pwr_by_rate[i][13],
@@ -1154,57 +1215,57 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		}
 
 		for (j = 0; j < TPU_SIZE_BF; j++) {
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "================\n\n");
 
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    	"[Pwr Lmt][%sBF]\n", (j == 0) ? "non-" : "");
 
 			for (i = 0; i < HAL_MAX_PATH; i++) {
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d}\n", "[CCK-20M]",
 					    i, lmt->pwr_lmt_cck_20m[i][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d}\n", "[CCK-40M]",
 					    i, lmt->pwr_lmt_cck_40m[i][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d}\n", "[Lgcy-20M]",
 					    i, lmt->pwr_lmt_lgcy_20m[i][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d}\n", "[OFDM-20M]",
 					    i, lmt->pwr_lmt_20m[i][0][j], lmt->pwr_lmt_20m[i][1][j],
 					    lmt->pwr_lmt_20m[i][2][j], lmt->pwr_lmt_20m[i][3][j],
 					    lmt->pwr_lmt_20m[i][4][j], lmt->pwr_lmt_20m[i][5][j],
 					    lmt->pwr_lmt_20m[i][6][j], lmt->pwr_lmt_20m[i][7][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d, %02d, %02d, %02d}\n", "[OFDM-40M]",
 					    i, lmt->pwr_lmt_40m[i][0][j], lmt->pwr_lmt_40m[i][1][j],
 					    lmt->pwr_lmt_40m[i][2][j], lmt->pwr_lmt_40m[i][3][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d, %02d}\n", "[OFDM-80M]",
 					    i, lmt->pwr_lmt_80m[i][0][j], lmt->pwr_lmt_80m[i][1][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s[%d]{%02d}\n", "[OFDM-160M]",
 					    i, lmt->pwr_lmt_160m[i][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d}\n", "[40m_0p5]",
 					    i, lmt->pwr_lmt_40m_0p5[i][j]);
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d}\n", "[40m_2p5]",
 					    i, lmt->pwr_lmt_40m_2p5[i][j]);
 				    
 			}
 		}
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "================\n\n");
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "[Pwr Lmt RUA]\n");
 
 		for (j = 0; j < TPU_SIZE_RUA; j++) {
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			 	    "[RU-%3d]\n", (j == 0) ? 26 : ((j == 1) ? 52 : 106));
 			for (i = 0; i < HAL_MAX_PATH; i++) {
-				BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+				BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 					    "%-10s [%d]{%02d, %02d, %02d, %02d, %02d, %02d, %02d, %02d}\n", "[OFDM-20M]",
 					    i, tpu->pwr_lmt_ru[i][j][0], tpu->pwr_lmt_ru[i][j][1],
 					    tpu->pwr_lmt_ru[i][j][2], tpu->pwr_lmt_ru[i][j][3],
@@ -1212,7 +1273,7 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 					    tpu->pwr_lmt_ru[i][j][6], tpu->pwr_lmt_ru[i][j][7]);
 			}
 		}
-		BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "================\n\n");
 	} else if (_os_strcmp(input[1], "cw") == 0) {
 		HALBB_SCAN(input[2], DCMD_DECIMAL, &val[0]);
@@ -1431,7 +1492,7 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		for (offset = 0; offset <= 4; offset += 4) {
 			addr = base + offset;
 			result = rtw_hal_mac_get_pwr_reg(bb->hal_com, band, addr, &val32);
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				    "0x%x = 0x%x\n", addr, val32);
 		}
 
@@ -1439,10 +1500,9 @@ void halbb_pwr_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		for (offset = 0; offset <= 42*4; offset += 4) {
 			addr = base + offset;
 			result = rtw_hal_mac_get_pwr_reg(bb->hal_com, band, addr, &val32);
-			BB_DBG_VAST(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 				    "0x%x = 0x%x\n", addr, val32);
 		}
-
 	} else {
 		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "Set Err\n");

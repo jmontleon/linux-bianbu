@@ -28,7 +28,7 @@
  /*@--------------------------[Define] ---------------------------------------*/
 
  /*@--------------------------[Enum]------------------------------------------*/
- 
+
  /*@--------------------------[Structure]-------------------------------------*/
 
 struct physts_hdr_info {
@@ -37,7 +37,9 @@ struct physts_hdr_info {
 	u8 null_tb_ppdu:1;
 	u8 is_valid:1;		/*valid: total content length <= 1024 bytes*/
 	u8 physts_total_length;	/*total length(unit: 8byte)*/
-	u8 ppdu_idx;
+	u8 bt_rx_during_cca:1;
+	u8 bt_tx_during_cca:1;
+	u8 ppdu_idx:6;
 	u8 rssi_avg_td;		/*U(8,1) RSSI=dBm+110. ex:-30dBm->RSSI:80%*/
 	u8 rssi_td[4];
 };

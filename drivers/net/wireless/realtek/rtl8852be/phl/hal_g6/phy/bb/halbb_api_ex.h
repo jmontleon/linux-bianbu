@@ -57,18 +57,25 @@ void halbb_ctrl_rf_mode_rx_path(struct bb_info *bb, enum rf_path rx_path);
 bool halbb_ctrl_tx_path_bb_afe_map(struct bb_info *bb, u8 mapping_idx);
 
 bool halbb_ctrl_rx_path(struct bb_info *bb, enum rf_path rx_path,
-			       enum phl_phy_idx phy_idx
-
-);
+			       enum phl_phy_idx phy_idx);
 
 bool halbb_ctrl_tx_path_pmac(struct bb_info *bb, enum rf_path tx_path,
 			     enum phl_phy_idx phy_idx);
 
-bool halbb_ctrl_tx_path(struct bb_info *bb, enum rf_path tx_path,
-			enum phl_phy_idx phy_idx);
+bool halbb_cfg_rx_path(struct bb_info *bb, enum bb_path rx_path,
+			       enum phl_phy_idx phy_idx);
+
+bool halbb_cfg_tx_path_pmac(struct bb_info *bb, enum bb_path tx_path,
+			     enum phl_phy_idx phy_idx);
+
+bool halbb_cfg_tx_path(struct bb_info *bb, enum bb_path tx_path,
+			     enum phl_phy_idx phy_idx);
 
 void halbb_ctrl_trx_path(struct bb_info *bb, enum rf_path tx_path, u8 tx_nss,
 			 enum rf_path rx_path, u8 rx_nss);
+
+void halbb_cfg_trx_path(struct bb_info *bb, struct bb_tx_path_en_info tx_path_i,
+		        struct bb_rx_path_en_info rx_path_i, enum mlo_dbcc_mode_type mode);
 
 void halbb_tssi_bb_reset(struct bb_info *bb);
 
@@ -88,7 +95,11 @@ bool halbb_ctrl_bw(struct bb_info *bb, u8 pri_ch, enum band_type band, enum chan
 bool halbb_ctrl_bw_ch(struct bb_info *bb, u8 pri_ch, u8 central_ch_seg0,
 		      u8 central_ch_seg1, enum band_type band,
 		      enum channel_width bw, enum phl_phy_idx phy_idx);
+#if (HLABB_CODE_BASE_NUM >= 32)
+bool halbb_pre_ctrl_bw_ch(struct bb_info *bb, enum phl_phy_idx phy_idx);
 
+bool halbb_post_ctrl_bw_ch(struct bb_info *bb, enum phl_phy_idx phy_idx);
+#endif
 void halbb_ctrl_rx_cca(struct bb_info *bb, bool cca_en, enum phl_phy_idx phy_idx);
 
 bool halbb_query_cck_en(struct bb_info *bb, enum phl_phy_idx phy_idx);
@@ -102,6 +113,10 @@ void halbb_ctrl_ofdm_en(struct bb_info *bb, bool ofdm_enable,
 void halbb_ctrl_btg(struct bb_info *bb, bool btg);
 
 void halbb_ctrl_btc_preagc(struct bb_info *bb, bool bt_en);
+
+void halbb_btg_bt_rx(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx);
+
+void halbb_nbtg_bt_tx(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx);
 
 void halbb_pop_en(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx);
 
@@ -123,9 +138,21 @@ void halbb_set_ant(struct bb_info *bb, u8 ant);
 void halbb_syn_sel(struct bb_info *bb, enum rf_path path, bool val,
 		   enum phl_phy_idx phy_idx);
 
-bool halbb_mlo_cfg(struct bb_info *bb, enum bb_mlo_mode_info mode);
+void halbb_bb_wrap_set_pow_by_rate_all(struct bb_info *bb, enum phl_phy_idx phy_idx);
 
-#ifdef BB_1115_DVLP_SPF
+void halbb_bb_wrap_set_pwr_limit_rua_all(struct bb_info *bb, enum phl_phy_idx phy_idx);
+
+void halbb_bb_wrap_set_pwr_limit_all(struct bb_info *bb, enum phl_phy_idx phy_idx);
+
+void halbb_bb_wrap_set_pwr_ofst_mode_all(struct bb_info *bb, enum phl_phy_idx phy_idx);
+
+void halbb_bb_wrap_set_pwr_ofst_bw_all(struct bb_info *bb, enum phl_phy_idx phy_idx);
+
+void halbb_bb_wrap_set_pwr_limit_en(struct bb_info *bb, enum phl_phy_idx phy_idx);
+
+enum rtw_hal_status halbb_emlsr_en(struct bb_info *bb, bool en);
+
+#if (HLABB_CODE_BASE_NUM >= 32)
 bool halbb_ctrl_mlo(struct bb_info *bb, enum mlo_dbcc_mode_type mode);
 #endif
 
@@ -154,10 +181,15 @@ enum rtw_hal_status halbb_config_cmac_tbl(struct bb_info *bb, struct rtw_phl_sta
 			void *cctl_info_mask);
 extern bool halbb_lps_info(struct bb_info *bb, u16 mac_id);
 
+extern bool halbb_lps_save_ch_info(struct bb_info *bb);
+
+extern bool halbb_lps_info_status_chk(struct bb_info *bb);
+
 void halbb_agc_fix_gain(struct bb_info *bb, bool enable, enum rf_path path,
 			enum phl_phy_idx phy_idx);
 void halbb_agc_elna_idx(struct bb_info *bb, bool elna_idx, enum rf_path path,
 			enum phl_phy_idx phy_idx);
 void halbb_agc_tia_shrink(struct bb_info *bb, bool shrink_en, bool shrink_init,
 			  enum rf_path path, enum phl_phy_idx phy_idx);
+void halbb_npath_en_update(struct bb_info *bb, bool npath_en);
 #endif

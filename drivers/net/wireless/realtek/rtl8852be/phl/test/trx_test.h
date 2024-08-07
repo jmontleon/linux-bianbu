@@ -17,11 +17,11 @@
 
 #ifdef CONFIG_PHL_TEST_SUITE
 
-#define MAX_TEST_TXREQ_NUM  256
+#define MAX_TEST_TXREQ_NUM  2048
 #define MAX_TEST_PAYLOAD_NUM  MAX_TEST_TXREQ_NUM
 #define MAX_TEST_RXREQ_NUM  256
 #define MAX_TEST_PAYLOAD_SIZE  2308
-
+#define MAX_TEST_MP_PAYLOAD_SIZE 60000
 
 enum test_mode {
 	TEST_MODE_PHL_TX_RING_TEST = 1,
@@ -32,7 +32,8 @@ enum test_mode {
 	TEST_MODE_HAL_RX_TEST = 6,
 	TEST_MODE_HAL_WP_REPORT_PARSE = 7,
 	TEST_MODE_HAL_RXDESC_PARSE = 8,
-	TEST_MODE_HAL_RXBD_PARSE = 9
+	TEST_MODE_HAL_RXBD_PARSE = 9,
+	TEST_MODE_PHL_TX_AMPDU_TEST = 10
 };
 
 enum pkt_type {
@@ -94,6 +95,7 @@ struct rtw_trx_test_param {
 	u32 tx_payload_num;
 	u32 tx_payload_size;
 	enum pkt_type pkt_type;
+	u8 *tx_payload_buf;
 	u8 ap_mode;
 	u8 trx_mode;
 	u8 qta_mode;
@@ -105,6 +107,7 @@ struct rtw_trx_test_param {
 	struct rtw_t_meta_data tx_cap;
 	/* parameter for hw configure */
 	/* misc */
+	u16 sw_tx_seq;
 
 };
 
@@ -188,6 +191,10 @@ void rtw_phl_trx_default_param(void *phl,
 					struct rtw_trx_test_param *test_param);
 enum rtw_phl_status rtw_phl_trx_testsuite(void *phl, 
 					struct rtw_trx_test_param *test_param);
+void phl_test_sw_tx_cb(void *context);
+
+enum rtw_phl_status rtw_phl_trx_test_get_txreq_stats(void *phl,
+					u32 *idle, u32 *busy, u32 *total);
 
 #else /*!CONFIG_PHL_TEST_SUITE*/
 #define phl_trx_test_init(phl) RTW_PHL_STATUS_SUCCESS

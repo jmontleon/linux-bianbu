@@ -29,10 +29,14 @@
 struct bf_ch_raw_info {
 	/*result*/
 	bool 				is_csi_rsp_en;
+	bool				cbl_lnk_state;
+	bool				csi_on_chk;
 	/*state machine*/
 	u8				dyn_csi_rsp_dbg_en;
 	u8				dyn_csi_rsp_en;
 	u8				ch_chk_cnt;
+	u8				cbl_lnk_cnt;
+	u8				period_cnt;
 	/*set val*/
 	u32				ch_est_dly;
 	u32				get_phy_sts_dly;
@@ -53,5 +57,6 @@ void halbb_dcr_reset(struct bb_info *bb);
 void halbb_dyn_csi_rsp_dbg(struct bb_info *bb, char input[][16],
 			   u32 *_used, char *output, u32 *_out_len);
 void halbb_dyn_csi_rsp_main(struct bb_info *bb);
+void halbb_dcr_env_det(struct bb_info * bb);
 #endif
 #endif

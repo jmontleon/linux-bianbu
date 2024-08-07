@@ -15,6 +15,12 @@
 #ifndef _RTW_HE_H_
 #define _RTW_HE_H_
 
+
+/* ********************************************* */
+/* IEEE802.11 BA BUFFER SIZE IN ADDBA DEFINITION */
+/* ********************************************* */
+#define MAX_BA_BUFFER_SIZE_HE 256
+
 /* Set HE MAC Capabilities Information */
 #define SET_HE_MAC_CAP_HTC_HE_SUPPORT(_pEleStart, _val) \
 	SET_BITS_TO_LE_1BYTE(_pEleStart, 0, 1, _val)
@@ -1011,6 +1017,9 @@ struct he_priv {
 	u8	pre_he_muedca_cnt;
 	u8	mpdu_min_spacing;
 	struct rtw_he_actrl_om om_info;
+#ifdef CONFIG_TWT
+	struct rtw_phl_twt_element twt_ele;
+#endif
 };
 
 /*trigger frame*/
@@ -1019,10 +1028,21 @@ struct he_priv {
 /*basic tigger frame with 1 byte trigger dependent info */
 #define TRIGGER_FRAME_BASIC_USER_INFO_SZ TRIGGER_FRAME_USER_INFO_SZ + 1
 
-/*trigger frame User Info*/
+enum trigger_ul_bw {
+	TRIGGER_UL_BW_20	= 0,
+	TRIGGER_UL_BW_40	= 1,
+	TRIGGER_UL_BW_80	= 2,
+	TRIGGER_UL_BW_80_80_160	= 3,
+};
+
+/*trigger frame Common Info*/
 #define GET_TRIGGER_FRAME_TYPE(_pEleStart) \
 	LE_BITS_TO_1BYTE((_pEleStart + 16), 0, 4)
 
+#define GET_TRIGGER_FRAME_COM_INFO_BW(_pEleStart) \
+	LE_BITS_TO_2BYTE((_pEleStart + 18), 2, 2)
+
+/*trigger frame User Info*/
 #define GET_TRIGGER_FRAME_USER_INFO_AID12(_user_info) \
 	LE_BITS_TO_2BYTE(_user_info, 0, 12)
 
@@ -1091,5 +1111,6 @@ void rtw_update_probe_rsp_he_cap_and_op(struct _ADAPTER *a, u8 *ies, sint *ies_l
 void rtw_he_om_ctrl_trx_ss(_adapter *adapter, struct _ADAPTER_LINK *alink,
 							struct sta_info *sta, u8 chg_ss, bool need_update_ra);
 void rtw_process_he_triggerframe(_adapter *padapter,union recv_frame *precv_frame);
+int rtw_he_om_ctrl_ulmu_dis(_adapter *padapter, struct _ADAPTER_LINK *alink);
 #endif /* _RTW_HE_H_ */
 

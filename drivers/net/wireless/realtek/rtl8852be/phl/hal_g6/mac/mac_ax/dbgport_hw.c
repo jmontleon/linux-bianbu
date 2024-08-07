@@ -54,10 +54,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		default:
 			return MACNOITEM;
 		}
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_PCIE_DBG_CTRL);
 			val32 = SET_CLR_WORD(val32, intn_idx, B_AX_DBG_SEL);
 			MAC_REG_W32(R_AX_PCIE_DBG_CTRL, val32);
@@ -85,10 +86,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		default:
 			return MACNOITEM;
 		}
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_PCIE_DBG_CTRL);
 			val32 = SET_CLR_WORD(val32, intn_idx, B_AX_DBG_SEL);
 			MAC_REG_W32(R_AX_PCIE_DBG_CTRL, val32);
@@ -113,10 +115,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		default:
 			return MACNOITEM;
 		}
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_PCIE_DBG_CTRL);
 			val32 = SET_CLR_WORD(val32, intn_idx, B_AX_DBG_SEL);
 			MAC_REG_W32(R_AX_PCIE_DBG_CTRL, val32);
@@ -145,10 +148,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		default:
 			return MACNOITEM;
 		}
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_PCIE_DBG_CTRL);
 			val32 = SET_CLR_WORD(val32, intn_idx, B_AX_DBG_SEL);
 			MAC_REG_W32(R_AX_PCIE_DBG_CTRL, val32);
@@ -190,10 +194,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		default:
 			return MACNOITEM;
 		}
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_PCIE_DBG_CTRL);
 			val32 = SET_CLR_WORD(val32, intn_val, B_AX_DBG_SEL);
 			MAC_REG_W32(R_AX_PCIE_DBG_CTRL, val32);
@@ -223,10 +228,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		default:
 			return MACNOITEM;
 		}
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_PCIE_DBG_CTRL);
 			val32 = SET_CLR_WORD(val32, intn_idx, B_AX_DBG_SEL);
 			MAC_REG_W32(R_AX_PCIE_DBG_CTRL, val32);
@@ -585,10 +591,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 		val32 = MAC_REG_R32(R_AX_SS_DBG_2);
 		val32 = SET_CLR_WORD(val32, 0x1, B_AX_SS_FWTX_STAT);
 		val32 = SET_CLR_WORD(val32, 0x1, B_AX_SS_RPTA_STAT);
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = SET_CLR_WORD(val32, 0x1, B_AX_SS_WDEA_STAT);
 			val32 = SET_CLR_WORD(val32, 0x1, B_AX_SS_PLEA_STAT);
 		}
@@ -604,10 +611,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 #endif
 		MAC_REG_W32(R_AX_SS_DBG_2, val32);
 
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = MAC_REG_R32(R_AX_SS_MU_CTRL);
 			val32 = SET_CLR_WORD(val32, 0x1, B_AX_SS_DLMU_STATE);
 			val32 = SET_CLR_WORD(val32, 0x1, B_AX_SS_DLRU_STATE);
@@ -638,10 +646,11 @@ static u32 dp_intn_idx_set(struct mac_ax_adapter *adapter,
 			return MACNOITEM;
 		}
 		val32 = MAC_REG_R32(R_AX_SS_DBG_3);
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			val32 = SET_CLR_WORD(val32, intn_idx,
 					     B_AX_SS_TOP_DBG_SEL);
 		}

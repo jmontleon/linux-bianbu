@@ -21,49 +21,51 @@ u32 switch_efuse_bank_8852b(struct mac_ax_adapter *adapter,
 {
 	struct mac_ax_efuse_param *efuse_param = &adapter->efuse_param;
 	struct mac_ax_hw_info *hw_info = adapter->hw_info;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	switch (bank) {
 	case MAC_AX_EFUSE_BANK_WIFI:
 		if (dv_sel == DAV) {
-			bank_efuse_info.phy_map = &efuse_param->dav_efuse_map;
-			bank_efuse_info.log_map =
+			bank_efuse_info->phy_map = &efuse_param->dav_efuse_map;
+			bank_efuse_info->log_map =
 				&efuse_param->dav_log_efuse_map;
-			bank_efuse_info.phy_map_valid =
+			bank_efuse_info->phy_map_valid =
 				&efuse_param->dav_efuse_map_valid;
-			bank_efuse_info.log_map_valid =
+			bank_efuse_info->log_map_valid =
 				&efuse_param->dav_log_efuse_map_valid;
-			bank_efuse_info.efuse_end =
+			bank_efuse_info->efuse_end =
 				&efuse_param->dav_efuse_end;
-			bank_efuse_info.phy_map_size =
+			bank_efuse_info->phy_map_size =
 				&hw_info->dav_efuse_size;
-			bank_efuse_info.log_map_size =
+			bank_efuse_info->log_map_size =
 				&hw_info->dav_log_efuse_size;
-			bank_efuse_info.efuse_start =
+			bank_efuse_info->efuse_start =
 				&hw_info->dav_efuse_start_addr;
 			break;
 		}
 
-		bank_efuse_info.phy_map = &efuse_param->efuse_map;
-		bank_efuse_info.log_map = &efuse_param->log_efuse_map;
-		bank_efuse_info.phy_map_valid = &efuse_param->efuse_map_valid;
-		bank_efuse_info.log_map_valid =
+		bank_efuse_info->phy_map = &efuse_param->efuse_map;
+		bank_efuse_info->log_map = &efuse_param->log_efuse_map;
+		bank_efuse_info->phy_map_valid = &efuse_param->efuse_map_valid;
+		bank_efuse_info->log_map_valid =
 			&efuse_param->log_efuse_map_valid;
-		bank_efuse_info.efuse_end = &efuse_param->efuse_end;
-		bank_efuse_info.phy_map_size = &hw_info->efuse_size;
-		bank_efuse_info.log_map_size = &hw_info->log_efuse_size;
-		bank_efuse_info.efuse_start = &hw_info->wl_efuse_start_addr;
+		bank_efuse_info->efuse_end = &efuse_param->efuse_end;
+		bank_efuse_info->phy_map_size = &hw_info->efuse_size;
+		bank_efuse_info->log_map_size = &hw_info->log_efuse_size;
+		bank_efuse_info->efuse_start = &hw_info->wl_efuse_start_addr;
 		break;
 	case MAC_AX_EFUSE_BANK_BT:
-		bank_efuse_info.phy_map = &efuse_param->bt_efuse_map;
-		bank_efuse_info.log_map = &efuse_param->bt_log_efuse_map;
-		bank_efuse_info.phy_map_valid =
+		bank_efuse_info->phy_map = &efuse_param->bt_efuse_map;
+		bank_efuse_info->log_map = &efuse_param->bt_log_efuse_map;
+		bank_efuse_info->phy_map_valid =
 			&efuse_param->bt_efuse_map_valid;
-		bank_efuse_info.log_map_valid =
+		bank_efuse_info->log_map_valid =
 			&efuse_param->bt_log_efuse_map_valid;
-		bank_efuse_info.efuse_end = &efuse_param->bt_efuse_end;
-		bank_efuse_info.phy_map_size = &hw_info->bt_efuse_size;
-		bank_efuse_info.log_map_size = &hw_info->bt_log_efuse_size;
-		bank_efuse_info.efuse_start = &hw_info->bt_efuse_start_addr;
+		bank_efuse_info->efuse_end = &efuse_param->bt_efuse_end;
+		bank_efuse_info->phy_map_size = &hw_info->bt_efuse_size;
+		bank_efuse_info->log_map_size = &hw_info->bt_log_efuse_size;
+		bank_efuse_info->efuse_start = &hw_info->bt_efuse_start_addr;
 		break;
 	default:
 		return MACEFUSEBANK;
@@ -78,6 +80,7 @@ void enable_efuse_sw_pwr_cut_8852b(struct mac_ax_adapter *adapter,
 	u16 val16;
 	u8 val8;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	if (dv_sel == DDV) {
 		if (is_write)
@@ -107,6 +110,7 @@ void disable_efuse_sw_pwr_cut_8852b(struct mac_ax_adapter *adapter,
 	u16 value16;
 	u8 value8;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	if (dv_sel == DDV) {
 		value16 = MAC_REG_R16(R_AX_SYS_ISO_CTRL);

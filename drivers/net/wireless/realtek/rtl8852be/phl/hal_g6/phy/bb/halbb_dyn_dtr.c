@@ -76,10 +76,7 @@ void halbb_dtr_acc_callback(void *context)
 
 	timer->timer_state = BB_TIMER_IDLE;
 
-	if (bb->phl_com->hci_type == RTW_HCI_PCIE)
-		halbb_dtr_acc_io_en(bb);
-	else
-		rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
+	rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
 }
 
 void halbb_dtr_acc_timer_init(struct bb_info *bb)

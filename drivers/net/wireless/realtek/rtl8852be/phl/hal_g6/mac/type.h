@@ -51,6 +51,9 @@
 #if MAC_AX_8852D_SUPPORT
 #include "mac_ax/mac_8852d/dbgpkg_8852d.h"
 #endif
+#if MAC_AX_8852BT_SUPPORT
+#include "mac_ax/mac_8852bt/dbgpkg_8852bt.h"
+#endif
 #if MAC_AX_1115E_SUPPORT
 #include "mac_ax/mac_1115e/dbgpkg_1115e.h"
 #endif
@@ -214,15 +217,25 @@
 	adapter->pltfm_cb->rtl_memset(adapter->drv_adapter, addr, value, size)
 #define PLTFM_MEMCMP(ptr1, ptr2, num)                                          \
 	adapter->pltfm_cb->rtl_memcmp(adapter->drv_adapter, ptr1, ptr2, num)
+#ifdef PHL_FEATURE_AP
 #define PLTFM_DELAY_US(us)                                                     \
 	adapter->pltfm_cb->rtl_delay_us(adapter->drv_adapter, us)
 #define PLTFM_DELAY_MS(ms)                                                     \
 	adapter->pltfm_cb->rtl_delay_ms(adapter->drv_adapter, ms)
 #define PLTFM_SLEEP_US(us)                                                     \
+	adapter->pltfm_cb->rtl_delay_us(adapter->drv_adapter, us)
+#define PLTFM_SLEEP_MS(ms)                                                     \
+	adapter->pltfm_cb->rtl_delay_ms(adapter->drv_adapter, ms)
+#else
+#define PLTFM_DELAY_US(us)                                                     \
+	adapter->pltfm_cb->rtl_sleep_us(adapter->drv_adapter, us)
+#define PLTFM_DELAY_MS(ms)                                                     \
+	adapter->pltfm_cb->rtl_sleep_ms(adapter->drv_adapter, ms)
+#define PLTFM_SLEEP_US(us)                                                     \
 	adapter->pltfm_cb->rtl_sleep_us(adapter->drv_adapter, us)
 #define PLTFM_SLEEP_MS(ms)                                                     \
 	adapter->pltfm_cb->rtl_sleep_ms(adapter->drv_adapter, ms)
-
+#endif
 #define PLTFM_MUTEX_INIT(mutex)                                                \
 	adapter->pltfm_cb->rtl_mutex_init(adapter->drv_adapter, mutex)
 #define PLTFM_MUTEX_DEINIT(mutex)                                              \
@@ -318,6 +331,7 @@
 #define	TXD_FIFO_1_BASE_ADDR		0x188A1080
 #define WD_PAGE_BASE_ADDR		0x0
 #define	WCPU_DATA_BASE_ADDR			0x18E00000
+#define PCIE_CFG_SPC_BASE_ADDR		0x0
 
 #define CCTL_INFO_SIZE		32
 #define DCTL_INFO_SIZE		16
@@ -328,6 +342,7 @@
 #define BCN_IE_CAM_SIZE		8
 #define BCN_IE_CAM_NUM		12
 #define AXIDMA_REG_SIZE		0x1000
+#define PCIE_CFG_SPC_SIZE	0x1000
 
 /*--------------------Define Enum---------------------------------------*/
 

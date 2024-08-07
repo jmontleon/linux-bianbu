@@ -26,7 +26,7 @@
 #define __HALRF_DPK_8852BH__
 #ifdef RF_8852B_SUPPORT
 /*--------------------------Define Parameters-------------------------------*/
-#define DPK_VER_8852B 0xf
+#define DPK_VER_8852B 0x12
 #define DPK_RF_PATH_MAX_8852B 2
 #define DPK_KIP_REG_NUM_8852B 3
 #define DPK_BB_REG_NUM_8852B 3

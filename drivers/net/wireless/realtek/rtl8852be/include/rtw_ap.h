@@ -38,7 +38,8 @@ void _update_beacon(_adapter *padapter,struct _ADAPTER_LINK *padapter_link,
 /*rtw_update_beacon - (flags) can set to normal enqueue (0) and RTW_CMDF_WAIT_ACK enqueue.
  (flags) = RTW_CMDF_DIRECTLY  is not currently implemented, it will do normal enqueue.*/
 
-void expire_timeout_chk(_adapter *padapter);
+void expire_timeout_post_chk(_adapter *padapter, u32 ap_chk_sta_bmp);
+void expire_timeout_chk(_adapter *padapter, u32 *ap_chk_sta_bmp);
 void update_sta_info_apmode(_adapter *padapter, struct sta_info *psta);
 void rtw_start_bss_hdl_after_chbw_decided(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
 void rtw_core_ap_prepare(_adapter *padapter, struct createbss_parm *parm);
@@ -151,6 +152,8 @@ void rtw_ap_set_edca(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, en
 
 enum rtw_phl_status rtw_ap_start_cmd(struct cmd_obj *p);
 enum rtw_phl_status rtw_ap_stop_cmd(struct cmd_obj *p);
+void rtw_ap_stop_set_state(struct _ADAPTER *a, u8 st);
+int rtw_ap_stop_wait(struct _ADAPTER *a);
 enum rtw_phl_status rtw_ap_add_del_sta_cmd(struct _ADAPTER *padapter);
 enum rtw_phl_status rtw_free_bcn_entry(struct _ADAPTER *padapter);
 

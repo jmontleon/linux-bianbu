@@ -79,4 +79,6 @@ void halbb_scanf(char *in, enum bb_scanf_type type, u32 *out);
 void halbb_cmd_parser_init(struct bb_info *bb);
 void halbb_fw_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			 char *output, u32 *_out_len);
+void halbb_lps_ch_info_dbg(struct bb_info *bb, char input[][16], u32 *_used,
+			   char *output, u32 *_out_len);
 #endif

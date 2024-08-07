@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2021 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -18,7 +18,7 @@
 /* Define correspoding PHL Feature based on information from the Core */
 #ifdef PHL_PLATFORM_AP
 #define PHL_FEATURE_AP
-#elif defined(PHL_PLATFORM_LINUX) || defined(PHL_PLATFORM_WINDOWS)
+#elif defined(PHL_PLATFORM_LINUX) || defined(PHL_PLATFORM_WINDOWS) || defined(PHL_PLATFORM_UEFI)
 #define PHL_FEATURE_NIC
 #else
 #define PHL_FEATURE_NONE
@@ -105,6 +105,8 @@
 	#ifdef CONFIG_PHL_CHANNEL_INFO
 		#define CONFIG_PHL_WKARD_CHANNEL_INFO_ACK
 	#endif
+	#define CONFIG_PHL_NAN
+	#define CONFIG_PHL_DIAGNOSE
 #endif /* PHL_FEATURE_NONE */
 
 #ifdef PHL_PLATFORM_WINDOWS
@@ -112,6 +114,7 @@
 		#define CONFIG_CMD_DISP
 	#endif
 	#define DRV_BB_CNSL_CMN_INFO
+	#define CONFIG_SMART_ANTENNA
 	#ifndef RTW_WD_PAGE_USE_SHMEM_POOL
 		#define RTW_WD_PAGE_USE_SHMEM_POOL
 	#endif
@@ -120,6 +123,7 @@
 	#define CONFIG_HW_RADIO_ONOFF_DETECT
 	#endif
 	#define DBG_DUMP_CMAC_CFG_INFO
+	#define CONFIG_BTCOEX
 #endif
 
 #ifdef PHL_PLATFORM_LINUX
@@ -145,6 +149,17 @@
 		#define CONFIG_CMD_DISP
 	#endif
 	*/
+	#define CONFIG_BTCOEX
+	#define DEBUG_PHL_RX
+#endif
+
+#ifdef PHL_PLATFORM_UEFI
+	#ifndef CONFIG_CMD_DISP
+		#define CONFIG_CMD_DISP
+	#endif
+
+	#define RTW_WKARD_REDUCE_GET_TIME_USAGE
+	#define CONFIG_RX_PSTS_PER_PKT
 #endif
 
 /******************* Feature flags **************************/
@@ -159,7 +174,9 @@
 #define CONFIG_SYNC_INTERRUPT
 #endif
 
+/* #define CONFIG_PHL_IO_OFLD */
 #define CONFIG_PHL_SCANOFLD
+#define CONFIG_PHL_CHSWOFLD
 
 #ifdef CONFIG_WOW
 #define CONFIG_WOWLAN
@@ -260,11 +277,10 @@
 #define CONFIG_GEN_GIT_INFO 1
 /*#define CONFIG_NEW_HALMAC_INTERFACE*/
 
-/* AP mode not suppot BTC currently */
-#ifndef PHL_FEATURE_AP
-#define CONFIG_BTCOEX
+/* AP mode & UEFI not suppot BTC currently */
+#ifdef CONFIG_BTCOEX
 #define CONFIG_PHL_CMD_BTC
-#endif /* PHL_FEATURE_AP */
+#endif
 
 #ifdef CONFIG_USB_TX_PADDING_CHK
 #define CONFIG_PHL_USB_TX_PADDING_CHK
@@ -287,6 +303,10 @@
 
 #ifdef CONFIG_WPP
 #define CONFIG_PHL_WPP
+#endif
+
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
+#define CONFIG_PHL_CSUM_OFFLOAD_TX
 #endif
 
 #ifdef CONFIG_TCP_CSUM_OFFLOAD_RX
@@ -317,6 +337,10 @@
 
 #ifdef CONFIG_TWT
 #define CONFIG_PHL_TWT
+#endif
+
+#ifdef CONFIG_NAN
+#define CONFIG_PHL_NAN
 #endif
 
 #ifdef CONFIG_RA_TXSTS_DBG
@@ -413,6 +437,7 @@
 #define CONFIG_PHL_CHANNEL_INFO /*WiFi Sensing*/
 #ifdef CONFIG_PHL_CHANNEL_INFO
 	#define CONFIG_PHL_WKARD_CHANNEL_INFO_ACK
+	#define CONFIG_PHL_WKARD_CHANNEL_INFO_SAP
 #endif
 #define CONFIG_PHL_CHANNEL_INFO_DBG
 #endif
@@ -425,9 +450,19 @@
 #define PHL_WATCHDOG_REFINE
 #endif
 
+#ifdef DIAGNOSTIC_ANALYTICS
+#define CONFIG_PHL_DIAGNOSE
+#endif
 #ifdef CONFIG_NARROWBAND_SUPPORTING
 #define CONFIG_PHL_NARROW_BW
 #endif /*CONFIG_NARROWBAND_SUPPORTING*/
+
+/**** FPGA mode ****/
+/* #define FPGA_TEST */
+#ifdef FPGA_TEST
+#undef CONFIG_BTCOEX
+#undef USE_TRUE_PHY
+#endif
 
 /******************* WKARD flags **************************/
 #define RTW_WKARD_P2PPS_REFINE
@@ -499,14 +534,6 @@
  */
 #define RTW_WKARD_DEF_CMACTBL_CFG
 
-/* Workaround for NICCE FW to remove LPS-PG and IPS-PG
- * - This workaround will remove PG when using SCC_TURBO FW
- *   in NICCE
- */
-#ifdef MAC_FW_CATEGORY_NICCE
-#define RTW_WKARD_NICCE_FW_DIS_PG
-#endif
-
 #define RTW_WKARD_USB_TXAGG_BULK_END_WD
 #ifdef CONFIG_HOMOLOGATION
 #define CONFIG_PHL_HOMOLOGATION
@@ -567,5 +594,14 @@
 #ifdef PHL_PLATFORM_LINUX
 #define RTW_TX_COALESCE_BAK_PKT_LIST
 #endif
+
+#define RTW_WKARD_MU_PPDU_STS_RX_RATE
+
+#ifdef PHL_PLATFORM_WINDOWS
+#define CONFIG_DIG_TDMA
+#endif
+
+/* DCM might have some IOT issue, please see PCIE-9556 */
+#define RTW_WKARD_DISABLE_DCM
 
 #endif /*_PHL_CONFIG_H_*/

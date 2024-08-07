@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -17,6 +17,18 @@
 #ifdef USE_TRUE_PHY
 #include "phy/rf/halrf_api.h"
 #include "phy/rf/halrf_export_fun.h"
+
+#ifdef CONFIG_PHL_DIAGNOSE
+void rtw_hal_rf_diagnostic_event(struct rtw_hal_com_t *hal, u8 type,
+		u8 level, u8 version, u8 *buf, u32 len)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal->hal_priv;
+	struct rtw_phl_com_t *phl_com = hal_info->phl_com;
+
+	rtw_phl_send_diag_hub_msg(phl_com, PHL_DIAG_EVT_RF,
+				       type, level, version, buf, len);
+}
+#endif
 
 enum rtw_hal_status
 rtw_hal_rf_init(struct rtw_phl_com_t *phl_com,
@@ -60,15 +72,6 @@ void rtw_hal_rf_dm_init(struct hal_info_t *hal_info)
 {
 	halrf_dm_init(hal_info->rf);
 }
-
-#ifdef RTW_WKARD_AP_MP
-void rtw_hal_rf_dm_init_mp(void *hal)
-{
-	struct hal_info_t *hal_info = (struct hal_info_t *) hal;
-
-	rtw_hal_rf_dm_init(hal_info);
-}
-#endif /*WKARD_MP*/
 
 
 enum rtw_hal_status
@@ -930,6 +933,17 @@ rtw_hal_rf_syn_config(struct rtw_hal_com_t *hal_com,
 	return hal_status;
 }
 
+u32 rtw_hal_rf_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_msg *c2h_msg)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	u8 cls = c2h->c2h_class;
+	u8 func = c2h->c2h_func;
+	u16 len = c2h->content_len;
+	u8 *buf = c2h->content;
+
+	return halrf_c2h_parsing(hal_info->rf, cls, func, len, buf);
+}
+
 void
 rtw_hal_rf_tssi_scan_ch(struct rtw_hal_com_t *hal_com,
 	enum phl_phy_idx phy_idx, enum rf_path path)
@@ -1014,7 +1028,29 @@ void rtw_hal_rf_set_ant_main_or_aux(void *hal, enum rf_path path, bool main)
 	halrf_set_ant_main_or_aux(hal_info->rf, path, main);
 }
 
+struct halrf_fem_info rtw_hal_rf_efem_info(struct rtw_hal_com_t *hal_com)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal_com->hal_priv;
+
+	return halrf_ex_efem_info(hal_info->rf);
+}
+
+enum rtw_hal_status
+rtw_hal_rf_ic_hw_setting_init(struct hal_info_t *hal_info)
+{
+	rtw_hal_rf_dm_init(hal_info);
+
+	return RTW_HAL_STATUS_SUCCESS;
+}
+
 #else /*ifdef USE_TRUE_PHY*/
+#ifdef CONFIG_PHL_DIAGNOSE
+void rtw_hal_rf_diagnostic_event(struct rtw_hal_com_t *hal, u8 type,
+		u8 level, u8 version, u8 *buf, u32 len)
+{
+}
+#endif
+
 enum rtw_hal_status
 rtw_hal_rf_init(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info)
 {
@@ -1479,13 +1515,6 @@ void rtw_hal_rf_cmd_notification(struct hal_info_t *hal_info,
 	return;
 }
 
-#ifdef RTW_WKARD_AP_MP
-void rtw_hal_rf_dm_init_mp(void *hal)
-{
-
-}
-#endif
-
 enum rtw_hal_status
 rtw_hal_rf_syn_config(struct rtw_hal_com_t *hal_com,
                       u8 syn_id,
@@ -1494,6 +1523,11 @@ rtw_hal_rf_syn_config(struct rtw_hal_com_t *hal_com,
                       bool turn_on)
 {
 	return RTW_HAL_STATUS_SUCCESS;
+}
+
+u32 rtw_hal_rf_process_c2h(void *hal, struct rtw_c2h_info *c2h, struct c2h_evt_msg *c2h_msg)
+{
+	return 0;
 }
 
 void
@@ -1547,11 +1581,40 @@ void
 rtw_hal_rf_set_pwr_lmt_main_or_aux(struct rtw_hal_com_t *hal_com, u8 ant)
 {
 }
+
 void
 rtw_hal_rf_cfg_tx_by_bt_link(struct hal_info_t *hal_info , u8 is_bt_link)
 {
 
 }
 
+void
+rtw_hal_rf_update_ext_pwr_lmt_table(struct hal_info_t *hal_info,
+                                    enum phl_phy_idx phy)
+{
+}
 
+u8
+rtw_hal_rf_get_tx_tbl_to_pwr_times(struct hal_info_t *hal_info)
+{
+	return 4;
+}
+
+void
+rtw_hal_rf_set_tx_pwr_comp(struct hal_info_t *hal_info,	enum phl_phy_idx phy,
+                           struct rtw_phl_regu_dyn_ant_gain *dyn_ag)
+{
+}
+
+void
+rtw_hal_rf_set_mp_regulation(struct hal_info_t *hal_info,
+                             enum phl_phy_idx phy_idx, u8 regulation)
+{
+}
+
+enum rtw_hal_status
+rtw_hal_rf_ic_hw_setting_init(struct hal_info_t *hal_info)
+{
+	return RTW_HAL_STATUS_SUCCESS;
+}
 #endif /*ifdef USE_TRUE_PHY*/

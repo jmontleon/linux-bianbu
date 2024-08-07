@@ -461,7 +461,7 @@ _hal_update_dctrl_tbl(struct hal_info_t *hal_info,
 #endif
 #endif
 
-#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
+#if defined(CONFIG_PHL_CSUM_OFFLOAD_RX) || defined(CONFIG_PHL_CSUM_OFFLOAD_TX)
 	dctrl.chksum_offload_en = 1;
 	dctl_info_mask.chksum_offload_en = 1;
 	dctrl.with_llc = 1;
@@ -718,17 +718,11 @@ rtw_hal_stainfo_init(void *hal, struct rtw_phl_stainfo_t *sta)
 		goto error_rpt_stats;
 	}
 #endif
-	sta->hal_sta->hw_cfg_tab =
-		_os_mem_alloc(drv, sizeof(struct rtw_hw_cfg_tab));
-	if (sta->hal_sta->hw_cfg_tab == NULL) {
-		PHL_ERR("alloc hw_cfg_tab failed\n");
-		goto error_hsta_mem;
-	}
 
 	hal_status = rtw_hal_bb_stainfo_init(hal_info, sta);
 	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
 		PHL_ERR("alloc bb_stainfo failed\n");
-		goto error_hw_cfg_tab;
+		goto error_hsta_mem;
 	}
 	/* Init lock for tx statistics */
 	_os_spinlock_init(drv, &sta->hal_sta->trx_stat.tx_sts_lock);
@@ -736,13 +730,6 @@ rtw_hal_stainfo_init(void *hal, struct rtw_phl_stainfo_t *sta)
 	_hal_sta_rssi_init(sta);
 
 	return hal_status;
-
-error_hw_cfg_tab :
-	if (sta->hal_sta->hw_cfg_tab) {
-		_os_mem_free(drv, sta->hal_sta->hw_cfg_tab,
-				sizeof(struct rtw_hw_cfg_tab));
-		sta->hal_sta->hw_cfg_tab = NULL;
-	}
 error_hsta_mem :
 #if defined(CONFIG_PHL_RELEASE_RPT_ENABLE) || defined(CONFIG_PCI_HCI)
 	if (sta->hal_sta->trx_stat.wp_rpt_stats) {
@@ -783,12 +770,6 @@ rtw_hal_stainfo_deinit(void *hal, struct rtw_phl_stainfo_t *sta)
 		hal_status = rtw_hal_bb_stainfo_deinit(hal_info, sta);
 		if (hal_status != RTW_HAL_STATUS_SUCCESS)
 			PHL_ERR("bb_stainfo deinit failed\n");
-
-		if (sta->hal_sta->hw_cfg_tab) {
-			_os_mem_free(drv, sta->hal_sta->hw_cfg_tab,
-					sizeof(struct rtw_hw_cfg_tab));
-			sta->hal_sta->hw_cfg_tab = NULL;
-		}
 
 		_os_mem_free(drv, sta->hal_sta,
 				sizeof(struct rtw_hal_stainfo_t));

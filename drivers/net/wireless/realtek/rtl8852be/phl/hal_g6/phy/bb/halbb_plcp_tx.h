@@ -722,6 +722,9 @@ struct bb_plcp_cr_info {
 
 struct bb_plcp_info {
 	u8 prim_sb;
+	u8 ehtsig_sym_num;
+	u8 ru2su_flag;
+	u8 c2h_done;
 	struct bb_plcp_cr_info bb_plcp_cr_i;
 };
 

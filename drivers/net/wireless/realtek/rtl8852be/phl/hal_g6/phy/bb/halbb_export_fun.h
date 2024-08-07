@@ -25,12 +25,14 @@
 #ifndef __HALBB_EXPORT_FUN_H__
 #define __HALBB_EXPORT_FUN_H__
 #include "halbb_cfg_ic.h"
+#include "halbb_ic_hw_info.h"
 #include "halbb_hw_cfg_ex.h"
 #include "halbb_init_ex.h"
 #include "halbb_ex.h"
 #include "halbb_dbg_cmd_ex.h"
 #include "halbb_physts_ex.h"
 #include "halbb_api_ex.h"
+#include "halbb_api_be_ex.h"
 #include "halbb_interface_ex.h"
 #include "halbb_dfs_ex.h"
 #include "halbb_dig_ex.h"
@@ -47,13 +49,17 @@
 #include "halbb_rua_tbl_ex.h"
 #include "halbb_env_mntr_ex.h"
 #include "halbb_pwr_ctrl_ex.h"
+#include "halbb_bb_wrapper_outsrc.h"
 #include "halbb_dyn_csi_rsp_ex.h"
 #include "halbb_dbcc_ex.h"
 #include "halbb_snif_ex.h"
 #include "halbb_fwofld_ex.h"
 #include "halbb_statistics_ex.h"
+#include "halbb_ant_div_ex.h"
 #include "halbb_dbg_cnsl_out_ex.h"
 #include "halbb_dbg_ex.h"
+#include "halbb_auto_dbg_ex.h"
+#include "halbb_spatial_reuse_ex.h"
 #ifdef BB_8852A_2_SUPPORT
 	#include "halbb_8852a_2/halbb_8852a_2_api_ex.h"
 #endif
@@ -67,7 +73,7 @@
 #ifdef BB_8192XB_SUPPORT
 	#include "halbb_8192xb/halbb_8192xb_api_ex.h"
 #endif
-#ifdef BB_1115_SUPPORT
+#ifdef HALBB_COMPILE_BE_SERIES
 #include "bbmcu/bbmcu_export_fun.h"
 #endif
 #endif

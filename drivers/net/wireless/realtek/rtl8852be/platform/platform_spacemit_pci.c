@@ -18,6 +18,8 @@
 extern struct platform_device *g_pldev;
 #endif
 
+extern int spacemit_wlan_set_power(int on);
+
 void pci_cache_wback(struct pci_dev *hwdev,
 			dma_addr_t *bus_addr, size_t size, int direction)
 {
@@ -139,10 +141,23 @@ int platform_wifi_power_on(void)
 {
 	int ret = 0;
 
+	RTW_PRINT("\n");
+	RTW_PRINT("=======================================================\n");
+	RTW_PRINT("==== Launching Wi-Fi driver! (Powered by Spacemit) ====\n");
+	RTW_PRINT("=======================================================\n");
+	RTW_PRINT("Realtek %s WiFi driver (Powered by Spacemit,Ver %s) init.\n", DRV_NAME, DRIVERVERSION);
+	spacemit_wlan_set_power(1);
+
 	return ret;
 }
 
 void platform_wifi_power_off(void)
 {
+	RTW_PRINT("\n");
+	RTW_PRINT("=======================================================\n");
+	RTW_PRINT("==== Dislaunching Wi-Fi driver! (Powered by Spacemit) ====\n");
+	RTW_PRINT("=======================================================\n");
+	RTW_PRINT("Realtek %s WiFi driver (Powered by Spacemit,Ver %s) init.\n", DRV_NAME, DRIVERVERSION);
 
+	spacemit_wlan_set_power(0);
 }

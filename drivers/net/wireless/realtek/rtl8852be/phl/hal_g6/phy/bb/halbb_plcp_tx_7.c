@@ -28,6 +28,22 @@
 //#include "halbb_he_sigb_gen.h"
 #ifdef HALBB_PMAC_TX_SUPPORT
 
+u32 halbb_c2h_ehtsig_rpt(struct bb_info *bb, u16 len, u8 *c2h)
+{
+	struct halbb_ehtsig_rpt_info *eht_rpt_i;
+
+	if (!c2h)
+		return 0;
+
+	eht_rpt_i = (struct halbb_ehtsig_rpt_info *)c2h;
+
+	bb->bb_plcp_i.ehtsig_sym_num = eht_rpt_i->ehtsig_sym_num;
+	bb->bb_plcp_i.ru2su_flag = eht_rpt_i->ru2su_flag;
+	bb->bb_plcp_i.c2h_done = eht_rpt_i->c2h_done;
+
+	return 0;
+}
+
 const u8 ru_alloc_b1_7_tbl_7[RU_SIZE_NUM][2] = {{0, 37}, //RU26
 					      {0, 16}, //RU52
 					      {0, 8},  //RU106
@@ -289,7 +305,7 @@ u32 halbb_ru_occupied_sub20_he_7(struct bb_info *bb, struct halbb_plcp_info *in)
 	return out;
 }
 
-u32 halbb_ru_occupied_sub20_eht_7(struct bb_info *bb, struct halbb_plcp_info *in)
+u32 halbb_ru_occupied_sub20_eht_7(struct bb_info *bb, struct halbb_plcp_info *in, struct plcp_tx_pre_fec_padding_setting_out_t *out)
 {
 	u32 output = 0;
 	u8 ch20_with_data_dbw80 = 0, ch20_with_data_dbw160 = 0, nsub_80 = 4, mru_idx = 0, n_x1_flag = 0, n_x1 = 0;
@@ -299,15 +315,15 @@ u32 halbb_ru_occupied_sub20_eht_7(struct bb_info *bb, struct halbb_plcp_info *in
 	u16 ru_996x2_484_tbl[12] = {0xFFC, 0xFF3, 0xFCF, 0xF3F, 0xCFF, 0x3FF,
 				    0xFFC0, 0xFF30, 0xFCF0, 0xF3F0, 0xCFF0, 0x3FF0};
 
-	size_idx = ru_alloc_b1_7_tbl_7[in->usr[0].ru_size][0];
-	num_b1_7 = ru_alloc_b1_7_tbl_7[in->usr[0].ru_size][1];
+	size_idx = ru_alloc_b1_7_tbl_7[out->usr[0].ru_size][0];
+	num_b1_7 = ru_alloc_b1_7_tbl_7[out->usr[0].ru_size][1];
 
 	n_x1_flag = size_idx;
-	mru_idx = size_idx == 2 ? (u8)in->usr[0].ru_idx : (u8)(halbb_mod(in->usr[0].ru_idx -1, num_b1_7) + 1);
-	n_x1 = size_idx == 2 ? 0 : (u8)(in->usr[0].ru_idx -1) / num_b1_7;
-
+	mru_idx = size_idx == 2 ? (u8)out->usr[0].ru_idx : (u8)(halbb_mod(out->usr[0].ru_idx -1, num_b1_7) + 1);
+	n_x1 = size_idx == 2 ? 0 : (u8)(out->usr[0].ru_idx -1) / num_b1_7;
+	BB_DBG(bb, DBG_BIT14, "[%s] mru_idx=%d\n", __func__,  mru_idx);
 	if (n_x1_flag == 0) {
-		switch (in->usr[0].ru_size) {
+		switch (out->usr[0].ru_size) {
 		case RU26:
 			if (mru_idx <= 9)
 				ch20_with_data_dbw80 = 0x1;
@@ -367,7 +383,7 @@ u32 halbb_ru_occupied_sub20_eht_7(struct bb_info *bb, struct halbb_plcp_info *in
 		}
 		output = ch20_with_data_dbw80 << (nsub_80 * n_x1);
 	} else if (n_x1_flag == 1) {
-		switch (in->usr[0].ru_size) {
+		switch (out->usr[0].ru_size) {
 		case RU996X2:
 			ch20_with_data_dbw160 = 0xff;
 			break;
@@ -382,7 +398,7 @@ u32 halbb_ru_occupied_sub20_eht_7(struct bb_info *bb, struct halbb_plcp_info *in
 		}
 		output = ch20_with_data_dbw160 << (nsub_80 * n_x1 * 2);
 	} else if (n_x1_flag == 2) {
-		switch (in->usr[0].ru_size) {
+		switch (out->usr[0].ru_size) {
 		case RU996X2_484:
 			output = ru_996x2_484_tbl[mru_idx - 1];
 			break;
@@ -410,11 +426,11 @@ u8 halbb_eht_sig_gi_ltf_tbl_7(struct bb_info *bb, u8 gi, u8 ltf)
 
 	if (gi == 1 && ltf == 1) // 2x_0.8
 		out = 0;
-	else if (gi == 1 && ltf == 2) //2x_1.6
+	else if (gi == 2 && ltf == 1) //2x_1.6
 		out = 1;
-	else if (gi == 2 && ltf == 1) //4x_0.8
+	else if (gi == 1 && ltf == 2) //4x_0.8
 		out = 2;
-	else if (gi == 2 && ltf == 3) //4x_3.2
+	else if (gi == 3 && ltf == 2) //4x_3.2
 		out = 3;
 	else
 		BB_WARNING("Invalid GI_LTF for EHT-SIG!!\n");
@@ -422,14 +438,14 @@ u8 halbb_eht_sig_gi_ltf_tbl_7(struct bb_info *bb, u8 gi, u8 ltf)
 	return out;
 }
 
-u32 halbb_cfg_ch20_with_data_7(struct bb_info *bb, struct halbb_plcp_info *in)
+u32 halbb_cfg_ch20_with_data_7(struct bb_info *bb, struct halbb_plcp_info *in, struct plcp_tx_pre_fec_padding_setting_out_t *out)
 {
 	u32 ch20_with_data = 0;
 
 	if (in->ppdu_type == HE_TB_FMT) {
 		ch20_with_data = halbb_ru_occupied_sub20_he_7(bb, in);
-	} else if ((in->ppdu_type == EHT_MU_RU_FMT) || (in->ppdu_type == EHT_TB_FMT)) {
-		ch20_with_data = halbb_ru_occupied_sub20_eht_7(bb, in);
+	} else if ((in->ppdu_type == EHT_MU_RU_FMT) || (in->ppdu_type == EHT_MU_SU_FMT) || (in->ppdu_type == EHT_TB_FMT)) {
+		ch20_with_data = halbb_ru_occupied_sub20_eht_7(bb, in, out);
 	} else {
 		switch (in->dbw) {
 			case DBW20:
@@ -775,6 +791,7 @@ u32 halbb_ru_size_id_2_ru_alloc_7(struct bb_info *bb, u8 ru_id, u8 ru_size, u8 p
 	return ru_alloc;
 }
 
+#if 0
 void halbb_he_sigb_7(struct bb_info *bb, struct halbb_plcp_info *in,
 		   struct plcp_tx_pre_fec_padding_setting_in_t *in_plcp,
 		   struct plcp_tx_pre_fec_padding_setting_out_t *out,
@@ -886,17 +903,18 @@ void halbb_he_sigb_7(struct bb_info *bb, struct halbb_plcp_info *in,
 
 	for (i = 0; i < 500; i++) {
 		halbb_delay_us(bb, 10);
-		he_sigb_pol = (bool)halbb_get_reg(bb, 0x1e0, BIT(16));
+		he_sigb_pol = (bool)halbb_get_reg(bb, 0x54, BIT(16));
 		if (he_sigb_pol) {
-			he_sigb_valid = (bool)halbb_get_reg(bb, 0x1e0, BIT(8));
-			he_n_sigb_sym = (u16)halbb_get_reg(bb, 0x1e0, 0x3f);
+			he_sigb_valid = (bool)halbb_get_reg(bb, 0x54, BIT(8));
+			he_n_sigb_sym = (u16)halbb_get_reg(bb, 0x54, 0x3f);
 			in_plcp->n_hesigb_sym = he_n_sigb_sym;
 			break;
 		}
 	}
 }
+#endif
 
-void halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
+bool halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
 		   struct plcp_tx_pre_fec_padding_setting_in_t *in_plcp,
 		   struct plcp_tx_pre_fec_padding_setting_out_t *out,
 		   enum phl_phy_idx phy_idx)
@@ -911,7 +929,7 @@ void halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	u16 eht_sig_n_sym = 0;
 	u8 nss_max = 0, txsb_para = 0;
 	u32 ru_alloc = 0;
-	u32 ch20_with_data = halbb_ru_occupied_sub20_eht_7(bb, in);
+	u32 ch20_with_data = halbb_ru_occupied_sub20_eht_7(bb, in, out);
 	struct bb_plcp_cr_info *cr = &bb->bb_plcp_i.bb_plcp_cr_i;
 
 	u32 hesigb_ehtsig_cr[80] = {cr->hesigb_ehtsig_0, cr->hesigb_ehtsig_1,
@@ -955,22 +973,24 @@ void halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
 				    cr->hesigb_ehtsig_76, cr->hesigb_ehtsig_77,
 				    cr->hesigb_ehtsig_78, cr->hesigb_ehtsig_79};
 
-	if (in->ppdu_type >= EHT_TB_FMT)
-		return;
+	if (in->ppdu_type >= EHT_TB_FMT) {
+		BB_WARNING("[EHT-SIG] Phy%d PPDU not EHT format !!", phy_idx);
+		return false;
+	}
 
 	for (i = 0; i < 80; i++)
-		halbb_set_reg(bb, hesigb_ehtsig_cr[i], MASKDWORD, 0);
+		halbb_set_reg_cmn(bb, hesigb_ehtsig_cr[i], MASKDWORD, 0, phy_idx);
 
-	if (phy_idx == HW_PHY_0) {
-		for (i = 0; i < 80; i++) {
-			eht_sig->ehtsig_sigb_cr[i].address_0 = (u8)(hesigb_ehtsig_cr[i] & 0xff);
-			eht_sig->ehtsig_sigb_cr[i].address_1 = (u8)((hesigb_ehtsig_cr[i] & 0xff00) >> 8);
-			eht_sig->ehtsig_sigb_cr[i].address_2 = (u8)((hesigb_ehtsig_cr[i] & 0xff0000) >> 16);
-			eht_sig->ehtsig_sigb_cr[i].address_3 = (u8)((hesigb_ehtsig_cr[i] & 0xff000000) >> 24);
-		}
+	for (i = 0; i < 80; i++) {
+		eht_sig->ehtsig_sigb_cr[i].address_0 = (u8)(hesigb_ehtsig_cr[i] & 0xff);
+		eht_sig->ehtsig_sigb_cr[i].address_1 = (u8)((hesigb_ehtsig_cr[i] & 0xff00) >> 8);
+		eht_sig->ehtsig_sigb_cr[i].address_2 = (u8)((hesigb_ehtsig_cr[i] & 0xff0000) >> 16);
+		eht_sig->ehtsig_sigb_cr[i].address_3 = (u8)((hesigb_ehtsig_cr[i] & 0xff000000) >> 24);
 	}
 
 	cmdlen = sizeof(struct bb_h2c_ehtsig_sigb);
+
+	eht_sig->phy_idx = phy_idx;
 
 	eht_sig->ehtsig_sigb = true;
 	eht_sig->ehtsig_sigb_mcs = (u8)in->eht_mcs_sig;
@@ -1003,7 +1023,9 @@ void halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	eht_sig->ehtsig_sigb_i.ul_dl = (u8)in->ul_flag;
 	eht_sig->ehtsig_sigb_i.ppdu_type_comp_mode = (u8)out->ppdu_type_comp_mode;
 	eht_sig->ehtsig_sigb_i.usig_spat_reuse = (u8)in->ul_srp1;
-	eht_sig->ehtsig_sigb_i.usig_ltf_symb = nss_max == 1 ? 1 : (u8)(halbb_ceil (nss_max, 2) * 2);
+	// Common field for EHT SU B6-B8: Number Of EHT-LTF Symbols
+	nss_max = in->usr[0].nss;
+	eht_sig->ehtsig_sigb_i.usig_ltf_symb = nss_max == 1 ? 0 : (u8)(halbb_ceil (nss_max, 2));
 	eht_sig->ehtsig_sigb_i.usig_nss = 0;
 	eht_sig->ehtsig_sigb_i.usig_bf = 0;
 	eht_sig->ehtsig_sigb_i.usig_spat_gi_ltf = halbb_eht_sig_gi_ltf_tbl_7(bb, (u8)in->gi, (u8)in->he_ltf_type);
@@ -1028,6 +1050,8 @@ void halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
 		eht_sig->ehtsig_sigb_i.usr_info[i].ps160 = (ru_alloc & BIT(8)) >> 8;
 	}
 
+	bb->bb_plcp_i.c2h_done = 0;
+
 	ret_val = halbb_fill_h2c_cmd(bb, cmdlen, DM_H2C_FW_EHTSIG_SIGB,
 				     HALBB_H2C_DM, bb_h2c);
 
@@ -1046,15 +1070,24 @@ void halbb_eht_sig_7(struct bb_info *bb, struct halbb_plcp_info *in,
 
 	for (i = 0; i < 500; i++) {
 		halbb_delay_us(bb, 10);
-		eht_sig_pol = (bool)halbb_get_reg(bb, 0x1e0, BIT(16));
-		if (eht_sig_pol) {
-			eht_sig_valid = (bool)halbb_get_reg(bb, 0x1e0, BIT(8));
-			eht_sig_n_sym = (u16)halbb_get_reg(bb, 0x1e0, 0x3f);
+		if (bb->bb_plcp_i.c2h_done) {
+			// eht_sig_valid = (bool)bb->bb_plcp_i.ru2su_flag;
 			// Shared para. with n_ehtsig_sym
-			in_plcp->n_hesigb_sym = eht_sig_n_sym;
+			in_plcp->n_hesigb_sym = (u16)bb->bb_plcp_i.ehtsig_sym_num;
 			break;
 		}
 	}
+
+	if (!bb->bb_plcp_i.c2h_done) {
+		BB_WARNING("[EHT-SIG] Phy%d EHT-SIG not ready !!", phy_idx);
+		return false;
+	}
+
+	BB_DBG(bb, DBG_PHY_CONFIG,
+	       "[EHT-SIG] C2H polling time=%d, c2h_done=%d, phy_idx=%d\n",
+	       i, bb->bb_plcp_i.c2h_done, phy_idx);
+
+	return true;
 }
 
 bool halbb_ru_info_init_7(struct bb_info *bb, struct halbb_plcp_info *in,
@@ -1097,7 +1130,10 @@ void halbb_plcp_gen_init_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	in->ht_l_len = 0;
 	in->preamble_puncture = 0;
 	in->he_sigb_compress_en = 1;
-	in->ul_flag = 0;
+	if ((in->ppdu_type == HE_TB_FMT) || (in->ppdu_type == EHT_TB_FMT))
+		in->ul_flag = 1;
+	else
+		in->ul_flag = 0;
 	in->bss_color= 10;
 	in->sr = 0;
 	in->beamchange_en = 1;
@@ -1122,11 +1158,8 @@ void halbb_plcp_gen_init_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	if (in->dbw == DBW320)
 		in->cbw = DBW320;
 #endif
-	for (i = 0; i < in->n_user; i++) {
-		in->usr[i].mpdu_len = 0;
-		in->usr[i].n_mpdu = 0;
+	for (i = 0; i < in->n_user; i++)
 		in->usr[i].txbf = 0;
-	}
 
 	//PLCP Input
 	in_plcp->format_idx = (u8)in->ppdu_type;
@@ -1160,6 +1193,9 @@ void halbb_plcp_gen_init_7(struct bb_info *bb, struct halbb_plcp_info *in,
 		in_plcp->usr[i].n_mpdu = in->usr[i].n_mpdu;
 		if (in->ppdu_type >= EHT_MU_SU_FMT)
 			in_plcp->usr[i].dcm = (in->usr[i].mcs == 14 || in->usr[i].mcs == 15) ? true : false;
+		// 8922A WA to bypass init seed 0x24 (MX pattern issue: Should be removed root cause is found)
+		if (bb->ic_type == BB_RTL8922A)
+			in->usr[i].random_init_seed += (in->usr[i].random_init_seed == 0x24 ? 1 : 0);
 	}
 }
 
@@ -1560,7 +1596,7 @@ void halbb_cfg_txinfo_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	halbb_set_reg_cmn(bb, cr->source_gen_mode_idx, cr->source_gen_mode_idx_m, in->source_gen_mode, phy_idx);
 	halbb_set_reg_cmn(bb, cr->tssi_ru_size, cr->tssi_ru_size_m, out_plcp->usr[0].ru_size, phy_idx);
 
-	ch20_with_data = halbb_cfg_ch20_with_data_7(bb, in);
+	ch20_with_data = halbb_cfg_ch20_with_data_7(bb, in, out_plcp);
 	halbb_set_reg_cmn(bb, cr->ch20_with_data, cr->ch20_with_data_m, ch20_with_data, phy_idx);
 
 	if (in->ppdu_type == B_MODE_FMT)
@@ -1946,7 +1982,7 @@ void halbb_service_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	}
 }
 
-#if 0
+#if 1
 void halbb_show_input(struct bb_info *bb, struct halbb_plcp_info *in)
 {
 	u8 user_num = 0;
@@ -2033,9 +2069,12 @@ enum plcp_sts halbb_plcp_gen_7(struct bb_info *bb, struct halbb_plcp_info *in,
 
 	BB_DBG(bb, DBG_BIT14, "<====== %s ======>\n", __func__);
 
+	if (bb->bb_dbg_i.cr_mp_recorder_en)
+		BB_TRACE("[MP] // <====== Set PMAC PLCP Info ======>\n");
+
 	halbb_plcp_gen_init_7(bb, in, &in_plcp);
 
-#if 0
+#if 1
 	halbb_show_input(bb, in);
 #endif
 	if (!halbb_ru_info_init_7(bb, in, &in_plcp, &out, phy_idx))
@@ -2052,11 +2091,13 @@ enum plcp_sts halbb_plcp_gen_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	} else {
 		if (in->ppdu_type >= EHT_MU_SU_FMT) {
 			// Calculate user specific field & EHT_SIG_Nsym (with incorrect common field para.)
-			halbb_eht_sig_7(bb, in, &in_plcp, &out, phy_idx);
+			if (!halbb_eht_sig_7(bb, in, &in_plcp, &out, phy_idx))
+				return EHT_INVALID;
 			// Calculate PLCP header with EHT_SIG_Nsym
 			tmp = halbb_tx_plcp_cal(bb, &in_plcp, &out);
 			// Overwrite common field & CRC with correct para. such as pre_fec_padding...
-			halbb_eht_sig_7(bb, in, &in_plcp, &out, phy_idx);
+			if (!halbb_eht_sig_7(bb, in, &in_plcp, &out, phy_idx))
+				return EHT_INVALID;
 		} else {
 			// PLCP calculation
 			tmp = halbb_tx_plcp_cal(bb, &in_plcp, &out);
@@ -2080,6 +2121,9 @@ enum plcp_sts halbb_plcp_gen_7(struct bb_info *bb, struct halbb_plcp_info *in,
 	}
 	// Tx Info
 	halbb_cfg_txinfo_7(bb, in, &out, phy_idx);
+
+	if (bb->bb_dbg_i.cr_mp_recorder_en)
+		BB_TRACE("[MP] // <====== Set PMAC PLCP Info [End] ======>\n");
 
 	return tmp;
 }
@@ -2524,6 +2568,442 @@ void halbb_cr_cfg_plcp_init_7(struct bb_info *bb)
 		cr->usig_1_m = TXD_USIG_1_BE0_M;
 		cr->tssi_ru_size = INTF_R_TXINFO_TSSICT_RU_SIZE_BE0;
 		cr->tssi_ru_size_m = INTF_R_TXINFO_TSSICT_RU_SIZE_BE0_M;
+		// =============================== //
+		break;
+	#endif
+
+	#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->b_header_0 = R1B_TX_PMAC_HEADER_0_BE1;
+		cr->b_header_0_m = R1B_TX_PMAC_HEADER_0_BE1_M;
+		cr->b_header_1 = R1B_TX_PMAC_HEADER_1_BE1;
+		cr->b_header_1_m = R1B_TX_PMAC_HEADER_1_BE1_M;
+		cr->b_header_2 = R1B_TX_PMAC_HEADER_2_BE1;
+		cr->b_header_2_m = R1B_TX_PMAC_HEADER_2_BE1_M;
+		cr->b_header_3 = R1B_TX_PMAC_HEADER_3_BE1;
+		cr->b_header_3_m = R1B_TX_PMAC_HEADER_3_BE1_M;
+		cr->b_header_4 = R1B_TX_PMAC_HEADER_4_BE1;
+		cr->b_header_4_m = R1B_TX_PMAC_HEADER_4_BE1_M;
+		cr->b_header_5 = R1B_TX_PMAC_HEADER_5_BE1;
+		cr->b_header_5_m = R1B_TX_PMAC_HEADER_5_BE1_M;
+		cr->b_carrier_suppress_tx = R1B_TX_PMAC_CARRIER_SUPPRESS_TX_BE1;
+		cr->b_carrier_suppress_tx_m = R1B_TX_PMAC_CARRIER_SUPPRESS_TX_BE1_M;
+		cr->b_rate_idx = BMODE_RATE_IDX_BE1;
+		cr->b_rate_idx_m = BMODE_RATE_IDX_BE1_M;
+		cr->b_locked_clk_en = BMODE_LOCKED_CLK_EN_BE1;
+		cr->b_locked_clk_en_m = BMODE_LOCKED_CLK_EN_BE1_M;
+		// hesigb_ehtsig
+		cr->hesigb_ehtsig_0	= TXD_HESIGB_EHTSIG_0_BE1;
+		cr->hesigb_ehtsig_0_m   = TXD_HESIGB_EHTSIG_0_BE1_M;
+		cr->hesigb_ehtsig_1     = TXD_HESIGB_EHTSIG_1_BE1;
+		cr->hesigb_ehtsig_1_m   = TXD_HESIGB_EHTSIG_1_BE1_M;
+		cr->hesigb_ehtsig_2     = TXD_HESIGB_EHTSIG_2_BE1;
+		cr->hesigb_ehtsig_2_m   = TXD_HESIGB_EHTSIG_2_BE1_M;
+		cr->hesigb_ehtsig_3     = TXD_HESIGB_EHTSIG_3_BE1;
+		cr->hesigb_ehtsig_3_m   = TXD_HESIGB_EHTSIG_3_BE1_M;
+		cr->hesigb_ehtsig_4     = TXD_HESIGB_EHTSIG_4_BE1;
+		cr->hesigb_ehtsig_4_m   = TXD_HESIGB_EHTSIG_4_BE1_M;
+		cr->hesigb_ehtsig_5     = TXD_HESIGB_EHTSIG_5_BE1;
+		cr->hesigb_ehtsig_5_m   = TXD_HESIGB_EHTSIG_5_BE1_M;
+		cr->hesigb_ehtsig_6     = TXD_HESIGB_EHTSIG_6_BE1;
+		cr->hesigb_ehtsig_6_m   = TXD_HESIGB_EHTSIG_6_BE1_M;
+		cr->hesigb_ehtsig_7     = TXD_HESIGB_EHTSIG_7_BE1;
+		cr->hesigb_ehtsig_7_m   = TXD_HESIGB_EHTSIG_7_BE1_M;
+		cr->hesigb_ehtsig_8     = TXD_HESIGB_EHTSIG_8_BE1;
+		cr->hesigb_ehtsig_8_m   = TXD_HESIGB_EHTSIG_8_BE1_M;
+		cr->hesigb_ehtsig_9     = TXD_HESIGB_EHTSIG_9_BE1;
+		cr->hesigb_ehtsig_9_m   = TXD_HESIGB_EHTSIG_9_BE1_M;
+		cr->hesigb_ehtsig_10    = TXD_HESIGB_EHTSIG_10_BE1;
+		cr->hesigb_ehtsig_10_m  = TXD_HESIGB_EHTSIG_10_BE1_M;
+		cr->hesigb_ehtsig_11    = TXD_HESIGB_EHTSIG_11_BE1;
+		cr->hesigb_ehtsig_11_m  = TXD_HESIGB_EHTSIG_11_BE1_M;
+		cr->hesigb_ehtsig_12    = TXD_HESIGB_EHTSIG_12_BE1;
+		cr->hesigb_ehtsig_12_m  = TXD_HESIGB_EHTSIG_12_BE1_M;
+		cr->hesigb_ehtsig_13    = TXD_HESIGB_EHTSIG_13_BE1;
+		cr->hesigb_ehtsig_13_m  = TXD_HESIGB_EHTSIG_13_BE1_M;
+		cr->hesigb_ehtsig_14    = TXD_HESIGB_EHTSIG_14_BE1;
+		cr->hesigb_ehtsig_14_m  = TXD_HESIGB_EHTSIG_14_BE1_M;
+		cr->hesigb_ehtsig_15    = TXD_HESIGB_EHTSIG_15_BE1;
+		cr->hesigb_ehtsig_15_m  = TXD_HESIGB_EHTSIG_15_BE1_M;
+		cr->hesigb_ehtsig_16    = TXD_HESIGB_EHTSIG_16_BE1;
+		cr->hesigb_ehtsig_16_m  = TXD_HESIGB_EHTSIG_16_BE1_M;
+		cr->hesigb_ehtsig_17    = TXD_HESIGB_EHTSIG_17_BE1;
+		cr->hesigb_ehtsig_17_m  = TXD_HESIGB_EHTSIG_17_BE1_M;
+		cr->hesigb_ehtsig_18    = TXD_HESIGB_EHTSIG_18_BE1;
+		cr->hesigb_ehtsig_18_m  = TXD_HESIGB_EHTSIG_18_BE1_M;
+		cr->hesigb_ehtsig_19    = TXD_HESIGB_EHTSIG_19_BE1;
+		cr->hesigb_ehtsig_19_m  = TXD_HESIGB_EHTSIG_19_BE1_M;
+		cr->hesigb_ehtsig_20    = TXD_HESIGB_EHTSIG_20_BE1;
+		cr->hesigb_ehtsig_20_m  = TXD_HESIGB_EHTSIG_20_BE1_M;
+		cr->hesigb_ehtsig_21    = TXD_HESIGB_EHTSIG_21_BE1;
+		cr->hesigb_ehtsig_21_m  = TXD_HESIGB_EHTSIG_21_BE1_M;
+		cr->hesigb_ehtsig_22    = TXD_HESIGB_EHTSIG_22_BE1;
+		cr->hesigb_ehtsig_22_m  = TXD_HESIGB_EHTSIG_22_BE1_M;
+		cr->hesigb_ehtsig_23    = TXD_HESIGB_EHTSIG_23_BE1;
+		cr->hesigb_ehtsig_23_m  = TXD_HESIGB_EHTSIG_23_BE1_M;
+		cr->hesigb_ehtsig_24    = TXD_HESIGB_EHTSIG_24_BE1;
+		cr->hesigb_ehtsig_24_m  = TXD_HESIGB_EHTSIG_24_BE1_M;
+		cr->hesigb_ehtsig_25    = TXD_HESIGB_EHTSIG_25_BE1;
+		cr->hesigb_ehtsig_25_m  = TXD_HESIGB_EHTSIG_25_BE1_M;
+		cr->hesigb_ehtsig_26    = TXD_HESIGB_EHTSIG_26_BE1;
+		cr->hesigb_ehtsig_26_m  = TXD_HESIGB_EHTSIG_26_BE1_M;
+		cr->hesigb_ehtsig_27    = TXD_HESIGB_EHTSIG_27_BE1;
+		cr->hesigb_ehtsig_27_m  = TXD_HESIGB_EHTSIG_27_BE1_M;
+		cr->hesigb_ehtsig_28    = TXD_HESIGB_EHTSIG_28_BE1;
+		cr->hesigb_ehtsig_28_m  = TXD_HESIGB_EHTSIG_28_BE1_M;
+		cr->hesigb_ehtsig_29    = TXD_HESIGB_EHTSIG_29_BE1;
+		cr->hesigb_ehtsig_29_m  = TXD_HESIGB_EHTSIG_29_BE1_M;
+		cr->hesigb_ehtsig_30    = TXD_HESIGB_EHTSIG_30_BE1;
+		cr->hesigb_ehtsig_30_m  = TXD_HESIGB_EHTSIG_30_BE1_M;
+		cr->hesigb_ehtsig_31    = TXD_HESIGB_EHTSIG_31_BE1;
+		cr->hesigb_ehtsig_31_m  = TXD_HESIGB_EHTSIG_31_BE1_M;
+		cr->hesigb_ehtsig_32    = TXD_HESIGB_EHTSIG_32_BE1;
+		cr->hesigb_ehtsig_32_m  = TXD_HESIGB_EHTSIG_32_BE1_M;
+		cr->hesigb_ehtsig_33    = TXD_HESIGB_EHTSIG_33_BE1;
+		cr->hesigb_ehtsig_33_m  = TXD_HESIGB_EHTSIG_33_BE1_M;
+		cr->hesigb_ehtsig_34    = TXD_HESIGB_EHTSIG_34_BE1;
+		cr->hesigb_ehtsig_34_m  = TXD_HESIGB_EHTSIG_34_BE1_M;
+		cr->hesigb_ehtsig_35    = TXD_HESIGB_EHTSIG_35_BE1;
+		cr->hesigb_ehtsig_35_m  = TXD_HESIGB_EHTSIG_35_BE1_M;
+		cr->hesigb_ehtsig_36    = TXD_HESIGB_EHTSIG_36_BE1;
+		cr->hesigb_ehtsig_36_m  = TXD_HESIGB_EHTSIG_36_BE1_M;
+		cr->hesigb_ehtsig_37    = TXD_HESIGB_EHTSIG_37_BE1;
+		cr->hesigb_ehtsig_37_m  = TXD_HESIGB_EHTSIG_37_BE1_M;
+		cr->hesigb_ehtsig_38    = TXD_HESIGB_EHTSIG_38_BE1;
+		cr->hesigb_ehtsig_38_m  = TXD_HESIGB_EHTSIG_38_BE1_M;
+		cr->hesigb_ehtsig_39    = TXD_HESIGB_EHTSIG_39_BE1;
+		cr->hesigb_ehtsig_39_m  = TXD_HESIGB_EHTSIG_39_BE1_M;
+		cr->hesigb_ehtsig_40    = TXD_HESIGB_EHTSIG_40_BE1;
+		cr->hesigb_ehtsig_40_m  = TXD_HESIGB_EHTSIG_40_BE1_M;
+		cr->hesigb_ehtsig_41    = TXD_HESIGB_EHTSIG_41_BE1;
+		cr->hesigb_ehtsig_41_m  = TXD_HESIGB_EHTSIG_41_BE1_M;
+		cr->hesigb_ehtsig_42    = TXD_HESIGB_EHTSIG_42_BE1;
+		cr->hesigb_ehtsig_42_m  = TXD_HESIGB_EHTSIG_42_BE1_M;
+		cr->hesigb_ehtsig_43    = TXD_HESIGB_EHTSIG_43_BE1;
+		cr->hesigb_ehtsig_43_m  = TXD_HESIGB_EHTSIG_43_BE1_M;
+		cr->hesigb_ehtsig_44    = TXD_HESIGB_EHTSIG_44_BE1;
+		cr->hesigb_ehtsig_44_m  = TXD_HESIGB_EHTSIG_44_BE1_M;
+		cr->hesigb_ehtsig_45    = TXD_HESIGB_EHTSIG_45_BE1;
+		cr->hesigb_ehtsig_45_m  = TXD_HESIGB_EHTSIG_45_BE1_M;
+		cr->hesigb_ehtsig_46    = TXD_HESIGB_EHTSIG_46_BE1;
+		cr->hesigb_ehtsig_46_m  = TXD_HESIGB_EHTSIG_46_BE1_M;
+		cr->hesigb_ehtsig_47    = TXD_HESIGB_EHTSIG_47_BE1;
+		cr->hesigb_ehtsig_47_m  = TXD_HESIGB_EHTSIG_47_BE1_M;
+		cr->hesigb_ehtsig_48    = TXD_HESIGB_EHTSIG_48_BE1;
+		cr->hesigb_ehtsig_48_m  = TXD_HESIGB_EHTSIG_48_BE1_M;
+		cr->hesigb_ehtsig_49    = TXD_HESIGB_EHTSIG_49_BE1;
+		cr->hesigb_ehtsig_49_m  = TXD_HESIGB_EHTSIG_49_BE1_M;
+		cr->hesigb_ehtsig_50    = TXD_HESIGB_EHTSIG_50_BE1;
+		cr->hesigb_ehtsig_50_m  = TXD_HESIGB_EHTSIG_50_BE1_M;
+		cr->hesigb_ehtsig_51    = TXD_HESIGB_EHTSIG_51_BE1;
+		cr->hesigb_ehtsig_51_m  = TXD_HESIGB_EHTSIG_51_BE1_M;
+		cr->hesigb_ehtsig_52    = TXD_HESIGB_EHTSIG_52_BE1;
+		cr->hesigb_ehtsig_52_m  = TXD_HESIGB_EHTSIG_52_BE1_M;
+		cr->hesigb_ehtsig_53    = TXD_HESIGB_EHTSIG_53_BE1;
+		cr->hesigb_ehtsig_53_m  = TXD_HESIGB_EHTSIG_53_BE1_M;
+		cr->hesigb_ehtsig_54    = TXD_HESIGB_EHTSIG_54_BE1;
+		cr->hesigb_ehtsig_54_m  = TXD_HESIGB_EHTSIG_54_BE1_M;
+		cr->hesigb_ehtsig_55    = TXD_HESIGB_EHTSIG_55_BE1;
+		cr->hesigb_ehtsig_55_m  = TXD_HESIGB_EHTSIG_55_BE1_M;
+		cr->hesigb_ehtsig_56    = TXD_HESIGB_EHTSIG_56_BE1;
+		cr->hesigb_ehtsig_56_m  = TXD_HESIGB_EHTSIG_56_BE1_M;
+		cr->hesigb_ehtsig_57    = TXD_HESIGB_EHTSIG_57_BE1;
+		cr->hesigb_ehtsig_57_m  = TXD_HESIGB_EHTSIG_57_BE1_M;
+		cr->hesigb_ehtsig_58    = TXD_HESIGB_EHTSIG_58_BE1;
+		cr->hesigb_ehtsig_58_m  = TXD_HESIGB_EHTSIG_58_BE1_M;
+		cr->hesigb_ehtsig_59    = TXD_HESIGB_EHTSIG_59_BE1;
+		cr->hesigb_ehtsig_59_m  = TXD_HESIGB_EHTSIG_59_BE1_M;
+		cr->hesigb_ehtsig_60    = TXD_HESIGB_EHTSIG_60_BE1;
+		cr->hesigb_ehtsig_60_m  = TXD_HESIGB_EHTSIG_60_BE1_M;
+		cr->hesigb_ehtsig_61    = TXD_HESIGB_EHTSIG_61_BE1;
+		cr->hesigb_ehtsig_61_m  = TXD_HESIGB_EHTSIG_61_BE1_M;
+		cr->hesigb_ehtsig_62    = TXD_HESIGB_EHTSIG_62_BE1;
+		cr->hesigb_ehtsig_62_m  = TXD_HESIGB_EHTSIG_62_BE1_M;
+		cr->hesigb_ehtsig_63    = TXD_HESIGB_EHTSIG_63_BE1;
+		cr->hesigb_ehtsig_63_m  = TXD_HESIGB_EHTSIG_63_BE1_M;
+		cr->hesigb_ehtsig_64    = TXD_HESIGB_EHTSIG_64_BE1;
+		cr->hesigb_ehtsig_64_m  = TXD_HESIGB_EHTSIG_64_BE1_M;
+		cr->hesigb_ehtsig_65    = TXD_HESIGB_EHTSIG_65_BE1;
+		cr->hesigb_ehtsig_65_m  = TXD_HESIGB_EHTSIG_65_BE1_M;
+		cr->hesigb_ehtsig_66    = TXD_HESIGB_EHTSIG_66_BE1;
+		cr->hesigb_ehtsig_66_m  = TXD_HESIGB_EHTSIG_66_BE1_M;
+		cr->hesigb_ehtsig_67    = TXD_HESIGB_EHTSIG_67_BE1;
+		cr->hesigb_ehtsig_67_m  = TXD_HESIGB_EHTSIG_67_BE1_M;
+		cr->hesigb_ehtsig_68    = TXD_HESIGB_EHTSIG_68_BE1;
+		cr->hesigb_ehtsig_68_m  = TXD_HESIGB_EHTSIG_68_BE1_M;
+		cr->hesigb_ehtsig_69    = TXD_HESIGB_EHTSIG_69_BE1;
+		cr->hesigb_ehtsig_69_m  = TXD_HESIGB_EHTSIG_69_BE1_M;
+		cr->hesigb_ehtsig_70    = TXD_HESIGB_EHTSIG_70_BE1;
+		cr->hesigb_ehtsig_70_m  = TXD_HESIGB_EHTSIG_70_BE1_M;
+		cr->hesigb_ehtsig_71    = TXD_HESIGB_EHTSIG_71_BE1;
+		cr->hesigb_ehtsig_71_m  = TXD_HESIGB_EHTSIG_71_BE1_M;
+		cr->hesigb_ehtsig_72    = TXD_HESIGB_EHTSIG_72_BE1;
+		cr->hesigb_ehtsig_72_m  = TXD_HESIGB_EHTSIG_72_BE1_M;
+		cr->hesigb_ehtsig_73    = TXD_HESIGB_EHTSIG_73_BE1;
+		cr->hesigb_ehtsig_73_m  = TXD_HESIGB_EHTSIG_73_BE1_M;
+		cr->hesigb_ehtsig_74    = TXD_HESIGB_EHTSIG_74_BE1;
+		cr->hesigb_ehtsig_74_m  = TXD_HESIGB_EHTSIG_74_BE1_M;
+		cr->hesigb_ehtsig_75    = TXD_HESIGB_EHTSIG_75_BE1;
+		cr->hesigb_ehtsig_75_m  = TXD_HESIGB_EHTSIG_75_BE1_M;
+		cr->hesigb_ehtsig_76    = TXD_HESIGB_EHTSIG_76_BE1;
+		cr->hesigb_ehtsig_76_m  = TXD_HESIGB_EHTSIG_76_BE1_M;
+		cr->hesigb_ehtsig_77    = TXD_HESIGB_EHTSIG_77_BE1;
+		cr->hesigb_ehtsig_77_m  = TXD_HESIGB_EHTSIG_77_BE1_M;
+		cr->hesigb_ehtsig_78    = TXD_HESIGB_EHTSIG_78_BE1;
+		cr->hesigb_ehtsig_78_m  = TXD_HESIGB_EHTSIG_78_BE1_M;
+		cr->hesigb_ehtsig_79    = TXD_HESIGB_EHTSIG_79_BE1;
+		cr->hesigb_ehtsig_79_m  = TXD_HESIGB_EHTSIG_79_BE1_M;
+		cr->usr0_delmter = USER0_DELMTER_BE1;
+		cr->usr0_delmter_m = USER0_DELMTER_BE1_M;
+		cr->usr0_eof_padding_len = USER0_EOF_PADDING_LEN_BE1;
+		cr->usr0_eof_padding_len_m = USER0_EOF_PADDING_LEN_BE1_M;
+		cr->usr0_init_seed = USER0_INIT_SEED_BE1;
+		cr->usr0_init_seed_m = USER0_INIT_SEED_BE1_M;
+		cr->usr1_delmter = USER1_DELMTER_BE1;
+		cr->usr1_delmter_m = USER1_DELMTER_BE1_M;
+		cr->usr1_eof_padding_len = USER1_EOF_PADDING_LEN_BE1;
+		cr->usr1_eof_padding_len_m = USER1_EOF_PADDING_LEN_BE1_M;
+		cr->usr1_init_seed = USER1_INIT_SEED_BE1;
+		cr->usr1_init_seed_m = USER1_INIT_SEED_BE1_M;
+		cr->usr2_delmter = USER2_DELMTER_BE1;
+		cr->usr2_delmter_m = USER2_DELMTER_BE1_M;
+		cr->usr2_eof_padding_len = USER2_EOF_PADDING_LEN_BE1;
+		cr->usr2_eof_padding_len_m = USER2_EOF_PADDING_LEN_BE1_M;
+		cr->usr2_init_seed = USER2_INIT_SEED_BE1;
+		cr->usr2_init_seed_m = USER2_INIT_SEED_BE1_M;
+		cr->usr3_delmter = USER3_DELMTER_BE1;
+		cr->usr3_delmter_m = USER3_DELMTER_BE1_M;
+		cr->usr3_eof_padding_len = USER3_EOF_PADDING_LEN_BE1;
+		cr->usr3_eof_padding_len_m = USER3_EOF_PADDING_LEN_BE1_M;
+		cr->usr3_init_seed = USER3_INIT_SEED_BE1;
+		cr->usr3_init_seed_m = USER3_INIT_SEED_BE1_M;
+		cr->vht_sigb0 = TXD_VHT_SIGB0_BE1;
+		cr->vht_sigb0_m	= TXD_VHT_SIGB0_BE1_M;
+		cr->vht_sigb1 = TXD_VHT_SIGB1_BE1;
+		cr->vht_sigb1_m	= TXD_VHT_SIGB1_BE1_M;
+		cr->vht_sigb2 = TXD_VHT_SIGB2_BE1;
+		cr->vht_sigb2_m	= TXD_VHT_SIGB2_BE1_M;
+		// ============ [Add] ============ //
+		cr->he_sigb_ehtsig_mcs = INTF_R_TXCOMCT_HESIGB_EHTSIG_MCS_BE1;
+		cr->he_sigb_ehtsig_mcs_m = INTF_R_TXCOMCT_HESIGB_EHTSIG_MCS_BE1_M;
+		cr->max_mcs = INTF_R_TXINFO_MAX_MCS_BE1;
+		cr->max_mcs_m = INTF_R_TXINFO_MAX_MCS_BE1_M;
+		// =============================== //
+		cr->vht_sigb3 = TXD_VHT_SIGB3_BE1;
+		cr->vht_sigb3_m = TXD_VHT_SIGB3_BE1_M;
+		cr->n_ltf = INTF_R_TXCOMCT_N_LTF_BE1;
+		cr->n_ltf_m = INTF_R_TXCOMCT_N_LTF_BE1_M;
+		cr->siga1 = TXD_SIGA1_BE1;
+		cr->siga1_m = TXD_SIGA1_BE1_M;
+		cr->siga2 = TXD_SIGA2_BE1;
+		cr->siga2_m = TXD_SIGA2_BE1_M;
+		cr->lsig = TXD_LSIG_BE1;
+		cr->lsig_m = TXD_LSIG_BE1_M;
+		cr->cca_pw_th = INTF_R_T2RCT_CCA_PWR_TH_BE1;
+		cr->cca_pw_th_m	= INTF_R_T2RCT_CCA_PWR_TH_BE1_M;
+		cr->n_sym = INTF_R_TXTIMCT_N_SYM_BE1;
+		cr->n_sym_m = INTF_R_TXTIMCT_N_SYM_BE1_M;
+		cr->usr0_service = USER0_SERVICE_BE1;
+		cr->usr0_service_m = USER0_SERVICE_BE1_M;
+		cr->usr1_service = USER1_SERVICE_BE1;
+		cr->usr1_service_m = USER1_SERVICE_BE1_M;
+		cr->usr2_service = USER2_SERVICE_BE1;
+		cr->usr2_service_m = USER2_SERVICE_BE1_M;
+		cr->usr3_service = USER3_SERVICE_BE1;
+		cr->usr3_service_m = USER3_SERVICE_BE1_M;
+		cr->usr0_mdpu_len_byte = USER0_MDPU_LEN_BYTE_BE1;
+		cr->usr0_mdpu_len_byte_m = USER0_MDPU_LEN_BYTE_BE1_M;
+		cr->usr1_mdpu_len_byte = USER1_MDPU_LEN_BYTE_BE1;
+		cr->usr1_mdpu_len_byte_m = USER1_MDPU_LEN_BYTE_BE1_M;
+		cr->obw_cts2self_dup_type = INTF_R_TXINFO_OBW_CTS2SELF_DUP_TYPE_BE1;
+		cr->obw_cts2self_dup_type_m = INTF_R_TXINFO_OBW_CTS2SELF_DUP_TYPE_BE1_M;
+		cr->usr2_mdpu_len_byte = USER2_MDPU_LEN_BYTE_BE1;
+		cr->usr2_mdpu_len_byte_m = USER2_MDPU_LEN_BYTE_BE1_M;
+		cr->usr3_mdpu_len_byte = USER3_MDPU_LEN_BYTE_BE1;
+		cr->usr3_mdpu_len_byte_m = USER3_MDPU_LEN_BYTE_BE1_M;
+		cr->usr0_csi_buf_id = MIMOCT_CSI_BUF_ID_0_BE1;
+		cr->usr0_csi_buf_id_m = MIMOCT_CSI_BUF_ID_0_BE1_M;
+		cr->usr1_csi_buf_id = MIMOCT_CSI_BUF_ID_1_BE1;
+		cr->usr1_csi_buf_id_m = MIMOCT_CSI_BUF_ID_1_BE1_M;
+		cr->rf_gain_idx	= INTF_R_T2RCT_RF_GAIN_IDX_BE1;
+		cr->rf_gain_idx_m = INTF_R_T2RCT_RF_GAIN_IDX_BE1_M;
+		cr->usr2_csi_buf_id = MIMOCT_CSI_BUF_ID_2_BE1;
+		cr->usr2_csi_buf_id_m = MIMOCT_CSI_BUF_ID_2_BE1_M;
+		cr->usr3_csi_buf_id = MIMOCT_CSI_BUF_ID_3_BE1;
+		cr->usr3_csi_buf_id_m = MIMOCT_CSI_BUF_ID_3_BE1_M;
+		cr->usr0_n_mpdu	= USER0_N_MPDU_BE1;
+		cr->usr0_n_mpdu_m = USER0_N_MPDU_BE1_M;
+		cr->usr1_n_mpdu	= USER1_N_MPDU_BE1;
+		cr->usr1_n_mpdu_m = USER1_N_MPDU_BE1_M;
+		cr->usr2_n_mpdu	= USER2_N_MPDU_BE1;
+		cr->usr2_n_mpdu_m = USER2_N_MPDU_BE1_M;
+		cr->usr0_pw_boost_fctr_db = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_0_BE1;
+		cr->usr0_pw_boost_fctr_db_m = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_0_BE1_M;
+		cr->usr3_n_mpdu = USER3_N_MPDU_BE1;
+		cr->usr3_n_mpdu_m = USER3_N_MPDU_BE1_M;
+		cr->ch20_with_data = INTF_R_TXINFO_CH20_WITH_DATA_BE1;
+		cr->ch20_with_data_m = INTF_R_TXINFO_CH20_WITH_DATA_BE1_M;
+		cr->n_usr = INTF_R_TXINFO_USR_CNT_BE1;
+		cr->n_usr_m = INTF_R_TXINFO_USR_CNT_BE1_M;
+		cr->txcmd_txtp = INTF_R_TXINFO_TXCMD_TXTP_BE1;
+		cr->txcmd_txtp_m = INTF_R_TXINFO_TXCMD_TXTP_BE1_M;
+		// ============ [Add] ============ //
+		cr->usr0_ru_id = INTF_R_TXUSRCT_RU_ID_0_BE1;
+		cr->usr0_ru_id_m = INTF_R_TXUSRCT_RU_ID_0_BE1_M;
+		cr->usr0_ru_size = INTF_R_TXUSRCT_RU_SIZE_0_BE1;
+		cr->usr0_ru_size_m = INTF_R_TXUSRCT_RU_SIZE_0_BE1_M;
+		// =============================== //
+		cr->usr0_u_id = INTF_R_TXUSRCT_U_ID_0_BE1;
+		cr->usr0_u_id_m	= INTF_R_TXUSRCT_U_ID_0_BE1_M;
+		// ============ [Add] ============ //
+		cr->usr1_ru_id = INTF_R_TXUSRCT_RU_ID_1_BE1;
+		cr->usr1_ru_id_m = INTF_R_TXUSRCT_RU_ID_1_BE1_M;
+		cr->usr1_ru_size = INTF_R_TXUSRCT_RU_SIZE_1_BE1;
+		cr->usr1_ru_size_m = INTF_R_TXUSRCT_RU_SIZE_1_BE1_M;
+		// =============================== //
+		cr->usr1_u_id = INTF_R_TXUSRCT_U_ID_1_BE1;
+		cr->usr1_u_id_m	= INTF_R_TXUSRCT_U_ID_1_BE1_M;
+		// ============ [Add] ============ //
+		cr->usr2_ru_id = INTF_R_TXUSRCT_RU_ID_2_BE1;
+		cr->usr2_ru_id_m = INTF_R_TXUSRCT_RU_ID_2_BE1_M;
+		cr->usr2_ru_size = INTF_R_TXUSRCT_RU_SIZE_2_BE1;
+		cr->usr2_ru_size_m = INTF_R_TXUSRCT_RU_SIZE_2_BE1_M;
+		// =============================== //
+		cr->usr2_u_id = INTF_R_TXUSRCT_U_ID_2_BE1;
+		cr->usr2_u_id_m	= INTF_R_TXUSRCT_U_ID_2_BE1_M;
+		// ============ [Add] ============ //
+		cr->usr3_ru_id = INTF_R_TXUSRCT_RU_ID_3_BE1;
+		cr->usr3_ru_id_m = INTF_R_TXUSRCT_RU_ID_3_BE1_M;
+		cr->usr3_ru_size = INTF_R_TXUSRCT_RU_SIZE_3_BE1;
+		cr->usr3_ru_size_m = INTF_R_TXUSRCT_RU_SIZE_3_BE1_M;
+		// =============================== //
+		cr->usr3_u_id = INTF_R_TXUSRCT_U_ID_3_BE1;
+		cr->usr3_u_id_m	= INTF_R_TXUSRCT_U_ID_3_BE1_M;
+		// ============ [Add] ============ //
+		cr->n_sym_hesigb_ehtsig = INTF_R_TXTIMCT_N_SYM_HESIGB_EHTSIG_BE1;
+		cr->n_sym_hesigb_ehtsig_m = INTF_R_TXTIMCT_N_SYM_HESIGB_EHTSIG_BE1_M;
+		// =============================== //
+		cr->usr0_mcs = INTF_R_TXUSRCT_MCS_0_BE1;
+		cr->usr0_mcs_m	= INTF_R_TXUSRCT_MCS_0_BE1_M;
+		cr->usr1_mcs = INTF_R_TXUSRCT_MCS_1_BE1;
+		cr->usr1_mcs_m	= INTF_R_TXUSRCT_MCS_1_BE1_M;
+		cr->usr2_mcs = INTF_R_TXUSRCT_MCS_2_BE1;
+		cr->usr2_mcs_m = INTF_R_TXUSRCT_MCS_2_BE1_M;
+		cr->usr3_mcs = INTF_R_TXUSRCT_MCS_3_BE1;
+		cr->usr3_mcs_m = INTF_R_TXUSRCT_MCS_3_BE1_M;
+		cr->usr1_pw_boost_fctr_db = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_1_BE1;
+		cr->usr1_pw_boost_fctr_db_m = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_1_BE1_M;
+		cr->usr2_pw_boost_fctr_db = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_2_BE1;
+		cr->usr2_pw_boost_fctr_db_m = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_2_BE1_M;
+		cr->usr3_pw_boost_fctr_db = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_3_BE1;
+		cr->usr3_pw_boost_fctr_db_m = INTF_R_TXUSRCT_PWR_BOOST_FCTR_DB_3_BE1_M;
+		cr->ppdu_type = INTF_R_TXINFO_PPDU_TYPE_BE1;
+		cr->ppdu_type_m	= INTF_R_TXINFO_PPDU_TYPE_BE1_M;
+		// ============ [Add] ============ //
+		cr->txsb = INTF_R_TXINFO_TXSB_BE1;
+		cr->txsb_m = INTF_R_TXINFO_TXSB_BE1_M;
+		// =============================== //
+		cr->cfo_comp = INTF_R_TXINFO_CFO_COMP_BE1;
+		cr->cfo_comp_m = INTF_R_TXINFO_CFO_COMP_BE1_M;
+		cr->pkt_ext_idx = INTF_R_TXTIMCT_PKT_EXT_IDX_BE1;
+		cr->pkt_ext_idx_m = INTF_R_TXTIMCT_PKT_EXT_IDX_BE1_M;
+		cr->usr0_n_sts = INTF_R_TXUSRCT_N_STS_0_BE1;
+		cr->usr0_n_sts_m = INTF_R_TXUSRCT_N_STS_0_BE1_M;
+		cr->usr0_n_sts_ru_tot = INTF_R_TXUSRCT_N_STS_RU_TOT_0_BE1;
+		cr->usr0_n_sts_ru_tot_m = INTF_R_TXUSRCT_N_STS_RU_TOT_0_BE1_M;
+		cr->usr0_strt_sts = INTF_R_TXUSRCT_STRT_STS_0_BE1;
+		cr->usr0_strt_sts_m = INTF_R_TXUSRCT_STRT_STS_0_BE1_M;
+		cr->usr1_n_sts = INTF_R_TXUSRCT_N_STS_1_BE1;
+		cr->usr1_n_sts_m = INTF_R_TXUSRCT_N_STS_1_BE1_M;
+		cr->usr1_n_sts_ru_tot = INTF_R_TXUSRCT_N_STS_RU_TOT_1_BE1;
+		cr->usr1_n_sts_ru_tot_m = INTF_R_TXUSRCT_N_STS_RU_TOT_1_BE1_M;
+		cr->usr1_strt_sts = INTF_R_TXUSRCT_STRT_STS_1_BE1;
+		cr->usr1_strt_sts_m = INTF_R_TXUSRCT_STRT_STS_1_BE1_M;
+		cr->usr2_n_sts = INTF_R_TXUSRCT_N_STS_2_BE1;
+		cr->usr2_n_sts_m = INTF_R_TXUSRCT_N_STS_2_BE1_M;
+		cr->usr2_n_sts_ru_tot = INTF_R_TXUSRCT_N_STS_RU_TOT_2_BE1;
+		cr->usr2_n_sts_ru_tot_m	= INTF_R_TXUSRCT_N_STS_RU_TOT_2_BE1_M;
+		cr->usr2_strt_sts = INTF_R_TXUSRCT_STRT_STS_2_BE1;
+		cr->usr2_strt_sts_m = INTF_R_TXUSRCT_STRT_STS_2_BE1_M;
+		cr->usr3_n_sts = INTF_R_TXUSRCT_N_STS_3_BE1;
+		cr->usr3_n_sts_m = INTF_R_TXUSRCT_N_STS_3_BE1_M;
+		cr->usr3_n_sts_ru_tot = INTF_R_TXUSRCT_N_STS_RU_TOT_3_BE1;
+		cr->usr3_n_sts_ru_tot_m	= INTF_R_TXUSRCT_N_STS_RU_TOT_3_BE1_M;
+		cr->usr3_strt_sts = INTF_R_TXUSRCT_STRT_STS_3_BE1;
+		cr->usr3_strt_sts_m = INTF_R_TXUSRCT_STRT_STS_3_BE1_M;
+		cr->source_gen_mode_idx	= SOURCE_GEN_MODE_IDX_BE1;
+		cr->source_gen_mode_idx_m = SOURCE_GEN_MODE_IDX_BE1_M;
+		cr->gi_type = INTF_R_TXCOMCT_GI_TYPE_BE1;
+		cr->gi_type_m = INTF_R_TXCOMCT_GI_TYPE_BE1_M;
+		cr->ltf_type = INTF_R_TXCOMCT_LTF_TYPE_BE1;
+		cr->ltf_type_m = INTF_R_TXCOMCT_LTF_TYPE_BE1_M;
+		cr->dbw_idx = INTF_R_TXINFO_DBW_IDX_BE1;
+		cr->dbw_idx_m = INTF_R_TXINFO_DBW_IDX_BE1_M;
+		cr->pre_fec_fctr = INTF_R_TXTIMCT_PRE_FEC_FCTR_BE1;
+		cr->pre_fec_fctr_m = INTF_R_TXTIMCT_PRE_FEC_FCTR_BE1_M;
+		cr->beam_change_en = INTF_R_TXCOMCT_BEAM_CHANGE_EN_BE1;
+		cr->beam_change_en_m = INTF_R_TXCOMCT_BEAM_CHANGE_EN_BE1_M;
+		cr->doppler_en = INTF_R_TXCOMCT_DOPPLER_EN_BE1;
+		cr->doppler_en_m = INTF_R_TXCOMCT_DOPPLER_EN_BE1_M;
+		cr->feedback_status = INTF_R_TXCOMCT_FEEDBACK_STATUS_BE1;
+		cr->feedback_status_m = INTF_R_TXCOMCT_FEEDBACK_STATUS_BE1_M;
+		cr->he_sigb_dcm_en = INTF_R_TXCOMCT_HE_SIGB_DCM_EN_BE1;
+		cr->he_sigb_dcm_en_m = INTF_R_TXCOMCT_HE_SIGB_DCM_EN_BE1_M;
+		cr->midamble_mode = INTF_R_TXCOMCT_MIDAMBLE_MODE_BE1;
+		cr->midamble_mode_m = INTF_R_TXCOMCT_MIDAMBLE_MODE_BE1_M;
+		cr->mumimo_ltf_mode_en = INTF_R_TXCOMCT_MUMIMO_LTF_MODE_EN_BE1;
+		cr->mumimo_ltf_mode_en_m = INTF_R_TXCOMCT_MUMIMO_LTF_MODE_EN_BE1_M;
+		cr->stbc_en = INTF_R_TXCOMCT_STBC_EN_BE1;
+		cr->stbc_en_m = INTF_R_TXCOMCT_STBC_EN_BE1_M;
+		cr->ant_sel_a = INTF_R_TXINFO_ANTIDX_ANT_SEL_A_BE1;
+		cr->ant_sel_a_m	= INTF_R_TXINFO_ANTIDX_ANT_SEL_A_BE1_M;
+		cr->ant_sel_b = INTF_R_TXINFO_ANTIDX_ANT_SEL_B_BE1;
+		cr->ant_sel_b_m	= INTF_R_TXINFO_ANTIDX_ANT_SEL_B_BE1_M;
+		cr->ant_sel_c = INTF_R_TXINFO_ANTIDX_ANT_SEL_C_BE1;
+		cr->ant_sel_c_m	= INTF_R_TXINFO_ANTIDX_ANT_SEL_C_BE1_M;
+		cr->ant_sel_d = INTF_R_TXINFO_ANTIDX_ANT_SEL_D_BE1;
+		cr->ant_sel_d_m	= INTF_R_TXINFO_ANTIDX_ANT_SEL_D_BE1_M;
+		cr->cca_pw_th_en = INTF_R_T2RCT_CCA_PWR_TH_EN_BE1;
+		cr->cca_pw_th_en_m = INTF_R_T2RCT_CCA_PWR_TH_EN_BE1_M;
+		cr->rf_fixed_gain_en = INTF_R_T2RCT_RF_FIXED_GAIN_EN_BE1;
+		cr->rf_fixed_gain_en_m = INTF_R_T2RCT_RF_FIXED_GAIN_EN_BE1_M;
+		cr->ul_cqi_rpt_tri = RXINT_R_TBCOMCT_UL_CQI_SND_EN_BE1;
+		cr->ul_cqi_rpt_tri_m = RXINT_R_TBCOMCT_UL_CQI_SND_EN_BE1_M;
+		cr->ldpc_extr = INTF_R_TXTIMCT_LDPC_EXTR_BE1;
+		cr->ldpc_extr_m	= INTF_R_TXTIMCT_LDPC_EXTR_BE1_M;
+		cr->usr0_dcm_en	= INTF_R_TXUSRCT_DCM_EN_0_BE1;
+		cr->usr0_dcm_en_m = INTF_R_TXUSRCT_DCM_EN_0_BE1_M;
+		cr->usr0_fec_type = INTF_R_TXUSRCT_FEC_TYPE_0_BE1;
+		cr->usr0_fec_type_m = INTF_R_TXUSRCT_FEC_TYPE_0_BE1_M;
+		cr->usr1_dcm_en	= INTF_R_TXUSRCT_DCM_EN_1_BE1;
+		cr->usr1_dcm_en_m = INTF_R_TXUSRCT_DCM_EN_1_BE1_M;
+		cr->usr1_fec_type = INTF_R_TXUSRCT_FEC_TYPE_1_BE1;
+		cr->usr1_fec_type_m = INTF_R_TXUSRCT_FEC_TYPE_1_BE1_M;
+		cr->usr2_dcm_en	= INTF_R_TXUSRCT_DCM_EN_2_BE1;
+		cr->usr2_dcm_en_m = INTF_R_TXUSRCT_DCM_EN_2_BE1_M;
+		cr->usr2_fec_type = INTF_R_TXUSRCT_FEC_TYPE_2_BE1;
+		cr->usr2_fec_type_m = INTF_R_TXUSRCT_FEC_TYPE_2_BE1_M;
+		cr->usr3_dcm_en = INTF_R_TXUSRCT_DCM_EN_3_BE1;
+		cr->usr3_dcm_en_m = INTF_R_TXUSRCT_DCM_EN_3_BE1_M;
+		cr->usr3_fec_type = INTF_R_TXUSRCT_FEC_TYPE_3_BE1;
+		cr->usr3_fec_type_m = INTF_R_TXUSRCT_FEC_TYPE_3_BE1_M;
+		// ============ [Add] ============ //
+		cr->usr0_precoding_mode_idx = INTF_R_TXUSRCT_PRECODING_MODE_IDX_0_BE1;
+		cr->usr0_precoding_mode_idx_m = INTF_R_TXUSRCT_PRECODING_MODE_IDX_0_BE1_M;
+		cr->usr1_precoding_mode_idx = INTF_R_TXUSRCT_PRECODING_MODE_IDX_1_BE1;
+		cr->usr1_precoding_mode_idx_m = INTF_R_TXUSRCT_PRECODING_MODE_IDX_1_BE1_M;
+		cr->usr2_precoding_mode_idx = INTF_R_TXUSRCT_PRECODING_MODE_IDX_2_BE1;
+		cr->usr2_precoding_mode_idx_m = INTF_R_TXUSRCT_PRECODING_MODE_IDX_2_BE1_M;
+		cr->usr3_precoding_mode_idx = INTF_R_TXUSRCT_PRECODING_MODE_IDX_3_BE1;
+		cr->usr3_precoding_mode_idx_m = INTF_R_TXUSRCT_PRECODING_MODE_IDX_3_BE1_M;
+		cr->ppdu_var = INTF_R_TXINFO_PPDU_VAR_BE1;
+		cr->ppdu_var_m = INTF_R_TXINFO_PPDU_VAR_BE1_M;
+		cr->usig_0 = TXD_USIG_0_BE1;
+		cr->usig_0_m = TXD_USIG_0_BE1_M;
+		cr->usig_1 = TXD_USIG_1_BE1;
+		cr->usig_1_m = TXD_USIG_1_BE1_M;
+		cr->tssi_ru_size = INTF_R_TXINFO_TSSICT_RU_SIZE_BE1;
+		cr->tssi_ru_size_m = INTF_R_TXINFO_TSSICT_RU_SIZE_BE1_M;
 		// =============================== //
 		break;
 	#endif

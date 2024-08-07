@@ -26,10 +26,12 @@
 #include "../halbb_precomp.h"
 #include "halbb_hwimg_raw_data_8852b.h"
 #include "halbb_hwimg_raw_data_8852bp.h"
+#include "halbb_hwimg_raw_data_8852bt.h"
 #include "halbb_hwimg_raw_data_8852b_gain.h"
 
 #ifdef BB_8852B_SUPPORT
 
+#if 0
 bool halbb_sel_headline_8852b(struct bb_info *bb, u32 *array, u32 array_len,
 			      u8 *headline_size, u8 *headline_idx)
 {
@@ -92,7 +94,7 @@ bool halbb_sel_headline_8852b(struct bb_info *bb, u32 *array, u32 array_len,
 	/*case_idx:3 {RFE:Match, CV:Max_in_Table}*/
 	BB_DBG(bb, DBG_INIT, "[3] CHK {RFE:Match, CV:Max_in_Table}\n");
 	for (i = 0; i < *headline_size; i += 2) {
-		rfe_para = (array[i] & 0x00ff0000) >> 16; 
+		rfe_para = (array[i] & 0x00ff0000) >> 16;
 		cut_para = array[i] & 0x0ff;
 		if (rfe_para == rfe_drv) {
 			if (cut_para >= cut_max) {
@@ -111,7 +113,7 @@ bool halbb_sel_headline_8852b(struct bb_info *bb, u32 *array, u32 array_len,
 	/*case_idx:4 {RFE:Dont Care, CV:Max_in_Table}*/
 	BB_DBG(bb, DBG_INIT, "[4] CHK {RFE:Dont_Care, CV:Max_in_Table}\n");
 	for (i = 0; i < *headline_size; i += 2) {
-		rfe_para = (array[i] & 0x00ff0000) >> 16; 
+		rfe_para = (array[i] & 0x00ff0000) >> 16;
 		cut_para = array[i] & 0x0ff;
 		if (rfe_para == DONT_CARE_8852B) {
 			if (cut_para >= cut_max) {
@@ -132,6 +134,7 @@ bool halbb_sel_headline_8852b(struct bb_info *bb, u32 *array, u32 array_len,
 	BB_DBG(bb, DBG_INIT, "\t all fail\n");
 	return false;
 }
+#endif
 
 void halbb_flag_2_default_8852b(bool *is_matched, bool *find_target)
 {
@@ -161,6 +164,9 @@ bool halbb_cfg_bbcr_ax_8852b(struct bb_info *bb, bool is_form_folder,
 	} else if (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP) {
 		array_len = sizeof(array_mp_8852bp_phy_reg) / sizeof(u32);
 		array = (u32 *)array_mp_8852bp_phy_reg;
+	} else if (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BT) {
+		array_len = sizeof(array_mp_8852bt_phy_reg) / sizeof(u32);
+		array = (u32 *)array_mp_8852bt_phy_reg;
 	} else {
 		array_len = sizeof(array_mp_8852b_phy_reg) / sizeof(u32);
 		array = (u32 *)array_mp_8852b_phy_reg;
@@ -169,7 +175,7 @@ bool halbb_cfg_bbcr_ax_8852b(struct bb_info *bb, bool is_form_folder,
 	BB_DBG(bb, DBG_INIT, "BBCR_form_folder=%d, len=%d, phy_idx=%d\n",
 	       is_form_folder, array_len, phy_idx);
 
-	if (!halbb_sel_headline_8852b(bb, array, array_len, &h_size, &h_idx)) {
+	if (!halbb_sel_headline(bb, array, array_len, &h_size, &h_idx)) {
 		BB_WARNING("[%s]Invalid BB CR Pkg\n", __func__);
 		return false;
 	}
@@ -187,7 +193,7 @@ bool halbb_cfg_bbcr_ax_8852b(struct bb_info *bb, bool is_form_folder,
 	halbb_flag_2_default_8852b(&is_matched, &find_target);
 	#ifdef HALBB_FW_OFLD_SUPPORT
 	if (halbb_check_fw_ofld(bb))
-		BB_WARNING("Becareful it is fwofld mode in BB init !!");
+		BB_DBG(bb, DBG_FW_INFO, "Becareful it is fwofld mode in BB init !!");
 	#endif
 	while ((i + 1) < array_len) {
 		v1 = array[i];
@@ -231,7 +237,7 @@ bool halbb_cfg_bbcr_ax_8852b(struct bb_info *bb, bool is_form_folder,
 			BB_DBG(bb, DBG_INIT, "\t match=%d\n", is_matched);
 			break;
 		default:
-			if (is_matched) 
+			if (is_matched)
 				#ifdef HALBB_FW_OFLD_SUPPORT
 				ret = halbb_fwcfg_bb_phy_8852b(bb, v1, v2, phy_idx);
 				#else
@@ -267,7 +273,10 @@ bool halbb_cfg_bb_gain_ax_8852b(struct bb_info *bb, bool is_form_folder,
 		array = folder_array;
 	} else if (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP) {
 		array_len = sizeof(array_mp_8852bp_phy_reg_gain) / sizeof(u32);
-		array = (u32 *)array_mp_8852bp_phy_reg_gain;	
+		array = (u32 *)array_mp_8852bp_phy_reg_gain;
+	} else if (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BT) {
+		array_len = sizeof(array_mp_8852bt_phy_reg_gain) / sizeof(u32);
+		array = (u32 *)array_mp_8852bt_phy_reg_gain;
 	} else {
 		array_len = sizeof(array_mp_8852b_phy_reg_gain) / sizeof(u32);
 		array = (u32 *)array_mp_8852b_phy_reg_gain;
@@ -276,7 +285,7 @@ bool halbb_cfg_bb_gain_ax_8852b(struct bb_info *bb, bool is_form_folder,
 	BB_DBG(bb, DBG_INIT, "GAIN_TABLE_form_folder=%d, len=%d\n",
 	       is_form_folder, array_len);
 
-	if (!halbb_sel_headline_8852b(bb, array, array_len, &h_size, &h_idx)) {
+	if (!halbb_sel_headline(bb, array, array_len, &h_size, &h_idx)) {
 		BB_WARNING("[%s]Invalid BB CR Pkg\n", __func__);
 		return false;
 	}

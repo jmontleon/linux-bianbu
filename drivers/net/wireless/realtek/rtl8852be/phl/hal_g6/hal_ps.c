@@ -84,10 +84,10 @@ _hal_ps_lps_cfg(struct hal_info_t *hal_info,
 			struct rtw_hal_lps_info *lps_info)
 {
 	PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
-		"[HALPS], %s(): mode(%d), listen bcn mode(%d), awake interval(%d), smart_ps_mode(%d), bcnnohit(%d).\n",
+		"[HALPS], %s(): mode(%d), listen bcn mode(%d), awake interval(%d), smart_ps_mode(%d), bcnnohit(%d) dyntxant_en(%d) 1tx(%d).\n",
 		__func__, lps_info->en, lps_info->listen_bcn_mode,
 		lps_info->awake_interval, lps_info->smart_ps_mode,
-		lps_info->bcnnohit_en);
+		lps_info->bcnnohit_en, lps_info->dyntxant_en, lps_info->lpstxant);
 
 	return rtw_hal_mac_lps_cfg(hal_info, lps_info);
 }
@@ -395,6 +395,7 @@ _hal_ps_ntfy_hw_rf_state(struct rtw_phl_com_t *phl_com,
 void
 rtw_hal_ps_chk_hw_rf_state(struct rtw_phl_com_t *phl_com, void *hal)
 {
+#ifdef USE_TRUE_PHY
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
 	enum rtw_rf_state rf_state = RTW_RF_ON;
@@ -403,7 +404,7 @@ rtw_hal_ps_chk_hw_rf_state(struct rtw_phl_com_t *phl_com, void *hal)
 	hstatus = rtw_hal_mac_get_wl_dis_val(hal_info, &val);
 	if (hstatus != RTW_HAL_STATUS_SUCCESS) {
 		PHL_TRACE(COMP_PHL_PS, _PHL_ERR_, "[HALPS], %s(): get wl dis val fail, status: %d\n",
-			  __func__, hstatus);
+		          __func__, hstatus);
 		return;
 	}
 
@@ -414,13 +415,14 @@ rtw_hal_ps_chk_hw_rf_state(struct rtw_phl_com_t *phl_com, void *hal)
 		rf_state = RTW_RF_OFF;
 	} else {
 		PHL_TRACE(COMP_PHL_PS, _PHL_INFO_, "[HALPS], %s(): wl_dis is invalid value: %d\n",
-			  __func__, val);
+		          __func__, val);
 		return;
 	}
 
 	PHL_TRACE(COMP_PHL_PS, _PHL_INFO_, "[HALPS], %s(): rf state = %d\n",
-		  __func__, rf_state);
+	          __func__, rf_state);
 	_hal_ps_ntfy_hw_rf_state(phl_com, rf_state);
+#endif /*USE_TRUE_PHY*/
 }
 #endif
 void rtw_hal_ps_notify_wake(void *hal)

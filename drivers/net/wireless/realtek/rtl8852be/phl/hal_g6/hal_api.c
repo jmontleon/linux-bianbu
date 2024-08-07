@@ -86,8 +86,7 @@ rtw_hal_set_macid_pause(void *hal, u16 macid, bool pause)
  * @macid: macid be pause/unpause
  * @pause: paused/unpaused (1=paused,0=unpaused)
  */
-enum rtw_hal_status
-rtw_hal_set_macid_pause_ac(void *hal, u16 macid, bool pause)
+enum rtw_hal_status rtw_hal_set_macid_pause_ac(void *hal, u16 macid, bool pause)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
@@ -331,12 +330,328 @@ rtw_hal_pwr_switch_mac(void *hal, bool on)
 	return hstatus;
 }
 
+enum rtw_hal_status rtw_hal_get_freerun_counter(void *hal, u8 band, u32 *freerun_h, u32 *freerun_l)
+{
+	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	status = rtw_hal_mac_get_freerun_cnt(hal_info->hal_com, band, freerun_h, freerun_l);
+
+	if (status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_hal_get_freerun_counter(): get failed\n");
+	}
+
+	return status;
+}
+
+enum rtw_hal_status rtw_hal_reset_freerun_counter(void *hal, u8 band)
+{
+	enum rtw_hal_status status = RTW_HAL_STATUS_FAILURE;
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	status = rtw_hal_mac_reset_freerun_cnt(hal_info->hal_com, band);
+
+	if (status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_TRACE(COMP_PHL_MCC, _PHL_ERR_, "rtw_hal_reset_freerun_counter(): get failed\n");
+	}
+
+	return status;
+}
+
+u8 rtw_hal_query_group_cntry_num(void *hal, struct rtw_regu_policy *policy,
+	u8 group_id)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal || !policy)
+		return 0;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return 0;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_query_group_cntry_num)
+		return regu_ops->hal_query_group_cntry_num(policy, group_id);
+
+	return 0;
+}
+
+void rtw_hal_fill_group_cntry_list(void *hal,
+	struct rtw_regu_policy *policy, char *list,
+	u32 group_size, u8 group_id)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal || !policy)
+		return;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_fill_group_cntry_list)
+		regu_ops->hal_fill_group_cntry_list(policy, list,
+		group_size, group_id);
+}
+
+u8 rtw_hal_get_cntry_idx(void *hal, char *cntry)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return INVALID_CNTRY_IDX;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return INVALID_CNTRY_IDX;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_cntry_idx)
+		return regu_ops->hal_get_cntry_idx(cntry);
+
+	return INVALID_CNTRY_IDX;
+}
+
+u8 rtw_hal_get_cntry_tbl_size(void *hal)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return 0;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return 0;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_cntry_tbl_size)
+		return regu_ops->hal_get_cntry_tbl_size();
+
+	return 0;
+}
+
+void rtw_hal_qry_cntry_chnlplan(
+	void *hal, struct rtw_regulation_country_chplan *chplan,
+	char *country)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_qry_cntry_chnlplan)
+		regu_ops->hal_qry_cntry_chnlplan(chplan, country);
+}
+
+void rtw_hal_get_chplan_update_info(
+	void *hal, u8 group, u8 did,
+	void *info, enum band_type band)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_chplan_update_info)
+		regu_ops->hal_get_chplan_update_info(group, did, info, band);
+}
+
+u8 rtw_hal_get_chnlplan_ver(void *hal)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return INVALID_VER;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return INVALID_VER;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_chnlplan_ver)
+		return regu_ops->hal_get_chnlplan_ver();
+
+	return INVALID_VER;
+}
+
+u8 rtw_hal_get_country_ver(void *hal)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return INVALID_VER;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return INVALID_VER;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_country_ver)
+		return regu_ops->hal_get_country_ver();
+
+	return INVALID_VER;
+}
+
+void rtw_hal_get_chdef_6g(void * hal, u8 ch_idx,
+	struct chdef_6ghz *chdef)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_chdef_6g)
+		regu_ops->hal_get_chdef_6g(ch_idx, chdef);
+}
+
+u8 rtw_hal_get_domain_regulation(void *hal,
+	u8 domain, u8 band)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return REGULATION_MAX;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return REGULATION_MAX;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_domain_regulation)
+		return regu_ops->hal_get_domain_regulation(domain, band);
+
+	return REGULATION_MAX;
+}
+
+u8 rtw_hal_get_domain_idx(void *hal,
+	u8 domain, bool is_6g)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return INVALID_DOMAIN_INDEX;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return INVALID_DOMAIN_INDEX;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_domain_idx)
+		return regu_ops->hal_get_domain_idx(domain, is_6g);
+
+	return INVALID_DOMAIN_INDEX;
+}
+
+u8 rtw_hal_get_cat6g_by_country(
+	void *hal, char * country)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return 0;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return 0;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_cat6g_by_country)
+		return regu_ops->hal_get_cat6g_by_country(country);
+
+	return 0;
+}
+
+void rtw_hal_get_6g_regulatory_info(void *hal, u8 domain,
+	u8 *dm_code, u8 *regulation, u8 *ch_idx)
+{
+	struct hal_info_t *hal_info = NULL;
+	struct hal_ops_t *hal_ops = NULL;
+	struct hal_regu_ops *regu_ops = NULL;
+
+	if (!hal)
+		return;
+
+	hal_info = (struct hal_info_t *)hal;
+	hal_ops = hal_get_ops(hal_info);
+	if (!hal_ops)
+		return;
+
+	regu_ops = hal_get_regu_ops(hal_ops);
+	if (regu_ops && regu_ops->hal_get_6g_regulatory_info)
+		regu_ops->hal_get_6g_regulatory_info(domain,
+			dm_code, regulation, ch_idx);
+}
+
 enum rtw_hal_status
-rtw_hal_set_bcn_early_rpt(void *hal, u8 band, u8 port, struct rtw_bcn_early_rpt_param *param)
+rtw_hal_set_bcn_early_rpt(void *hal, u8 band, u8 port, u8 en)
 {
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
 
-	hstatus = rtw_hal_mac_cfg_bcn_early_rpt(hal, band, port, param);
+	hstatus = rtw_hal_mac_cfg_bcn_early_rpt(hal, band, port, en);
 
 	return hstatus;
 }
+
+#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
+enum rtw_hal_status rtw_hal_chk_rx_tcpip_chksum_ofd(void *h,
+						    struct rtw_r_meta_data *mdata,
+                                                    u8 status)
+{
+	struct hal_info_t *hal = (struct hal_info_t *)h;
+
+	return rtw_hal_mac_chk_rx_tcpip_chksum_ofd(hal, mdata, status);
+}
+#endif /* CONFIG_PHL_CSUM_OFFLOAD_RX */

@@ -101,8 +101,10 @@ static void _btc_cmd_deinit(void *dispr, void *priv)
 static enum phl_mdl_ret_code _btc_cmd_start(void *dispr, void *priv)
 {
 	enum phl_mdl_ret_code ret = MDL_RET_SUCCESS;
+	struct phl_info_t *phl = (struct phl_info_t *)priv;
 
 	PHL_INFO("[BTCCMD], %s(): \n", __func__);
+	rtw_hal_btc_bk_mdl_start_ntfy(phl->hal);
 
 	return ret;
 }

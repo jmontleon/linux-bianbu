@@ -18,6 +18,7 @@
 #define TYPE_DATA_FRAME 0x08
 #define TYPE_ACTION_FRAME 0xD0
 #define TYPE_NULL_FRAME 0x48
+#define TYPE_QOS_NULL_FRAME 0xC8
 #define TYPE_PROBE_REQ_FRAME 0x40
 
 #define HDR_OFFSET_FRAME_CONTROL 0
@@ -27,6 +28,7 @@
 #define HDR_OFFSET_ADDRESS3 16
 #define HDR_OFFSET_SEQUENCE 22
 #define HDR_OFFSET_ADDRESS4 24
+#define HDR_OFFSET_QOS_CONTROL 24
 
 #define SET_80211_PKT_HDR_FRAME_CONTROL(_hdr, _val)	\
 	WriteLE2Byte(_hdr, _val)
@@ -63,10 +65,13 @@
 	_os_mem_cpy(_h, _hdr+HDR_OFFSET_ADDRESS3, _val, MAC_ALEN)
 #define SET_80211_PKT_HDR_FRAGMENT_SEQUENCE(_hdr, _val) \
 	WriteLE2Byte((u8 *)(_hdr)+HDR_OFFSET_SEQUENCE, _val)
+#define SET_80211_PKT_HDR_QOS_CONTROL(_hdr, _val) \
+	WriteLE2Byte((u8 *)(_hdr)+HDR_OFFSET_QOS_CONTROL, _val)
 
 
 #define NOT_USED 0xFF
 #define NULL_PACKET_LEN 24
+#define QOS_NULL_PACKET_LEN 26
 #define MAC_HDR_LEN 24
 #define FCS_LEN 4
 

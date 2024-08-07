@@ -67,5 +67,16 @@ u32 mac_set_gpio_func_8852b(struct mac_ax_adapter *adapter,
 u32 mac_get_gpio_status_8852b(struct mac_ax_adapter *adapter,
 			      enum rtw_mac_gfunc *func, u8 gpio);
 
+/**
+ * @brief mac_cfg_wps_8852b
+ *
+ * @param *adapter
+ * @param *wps
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_cfg_wps_8852b(struct mac_ax_adapter *adapter,
+		      struct mac_ax_cfg_wps *wps);
+
 #endif /* #if MAC_AX_8852B_SUPPORT */
 #endif

@@ -32,13 +32,13 @@
 /* Exported structure/definition from PHL */
 #include "phl_util.h"
 #include "phl_regulation_def.h"
-#include "phl_chnlplan.h"
-#include "phl_country.h"
 #include "phl_scan_instance.h"
 #include "hal_g6/mac/mac_exp_def.h"
+#include "phl_regulation.h"
 #include "phl_def.h"
 #include "phl_trx_def.h"
 #include "phl_wow_def.h"
+#include "phl_ps_def.h"
 #include "phl_ie.h"
 #include "phl_debug.h"
 #ifdef CONFIG_PHL_CHANNEL_INFO
@@ -53,6 +53,7 @@
 #include "phl_acs_def.h"
 #include "custom/phl_custom_def.h"
 #include "phl_ext_tx_pwr_lmt_def.h"
+#include "phl_diagnose.h"
 
 /* Exported APIs from PHL */
 #include "phl_api.h"
@@ -61,6 +62,7 @@
 #include "phl_cmd_job.h"
 #endif
 #include "phl_connect.h"
+#include "phl_tdls.h"
 #include "phl_ecsa_export.h"
 #include "custom/phl_custom_api.h"
 

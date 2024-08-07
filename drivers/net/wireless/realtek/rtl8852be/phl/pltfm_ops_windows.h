@@ -49,6 +49,7 @@
 #endif
 #include "phl_types.h"
 #include "phl_util.h"
+#include "phl_acs_def.h"
 #include "hal_g6\mac\mac_exp_def.h"
 #include "phl_def.h"
 //#include "phl_types.h"
@@ -114,6 +115,8 @@ static __inline char *_os_strchr(const char *s, int c)
 
 #define _os_snprintf(s, sz, fmt, ...) _snprintf(s, sz, fmt, ##__VA_ARGS__)
 #define _os_vsnprintf(str, size, fmt, args) RtlStringCbVPrintfA(str, size, fmt, args)
+#define _os_va_start(args, fmt) va_start(args, fmt)
+#define _os_va_end(args) va_end(args)
 
 #define _os_strncat strncat
 

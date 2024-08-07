@@ -1829,7 +1829,9 @@ u32 crit_dbg_dump_8852b(struct mac_ax_adapter *adapter)
 
 		PLTFM_MSG_ALWAYS("R_AX_RPQ_RXBD_IDX=0x%x\n",
 				 MAC_REG_R32(R_AX_RPQ_RXBD_IDX));
-	}
+	} else if (adapter->hw_info->intf == MAC_AX_INTF_USB)
+		PLTFM_MSG_ALWAYS("R_AX_USB_DEBUG_1=0x%x\n",
+				 MAC_REG_R32(R_AX_USB_DEBUG_1));
 
 	return MACSUCCESS;
 }

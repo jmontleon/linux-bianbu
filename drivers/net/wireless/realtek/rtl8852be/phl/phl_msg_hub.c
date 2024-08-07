@@ -233,8 +233,11 @@ enum rtw_phl_status phl_msg_hub_start(struct phl_info_t* phl)
 	for(i = 0; i < MAX_MSG_NUM; i++) {
 		pq_push(d, &hub->idle_msg_q, &hub->msg_pool[i].list, _tail, _bh);
 	}
-	_os_thread_init(d, &(hub->msg_notify_thread), msg_hub_thread_hdl, phl,
-						"msg_notify_thread");
+	if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, &(hub->msg_notify_thread), msg_hub_thread_hdl, phl,
+						"msg_notify_thread")) {
+		PHL_ERR("thread init msg_notify_thread fail.\n");
+		return RTW_PHL_STATUS_FAILURE;
+	}
 	_os_thread_schedule(d, &(hub->msg_notify_thread));
 	SET_STATUS_FLAG(hub->status, MSG_HUB_STARTED);
 	PHL_INFO("%s\n",__FUNCTION__);

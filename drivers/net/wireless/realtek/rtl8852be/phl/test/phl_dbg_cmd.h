@@ -78,6 +78,9 @@ enum PHL_DBG_CMD_ID {
 	PHL_DBG_ECSA,
 	PHL_DBG_MCC,
 	PHL_DBG_LTR,
+#ifdef CONFIG_PCI_HCI
+	PHL_DBG_PCIE_CFGSPC,
+#endif
 	PHL_DBG_PHY_STATS,
 	PHL_DBG_BCN,
 	PHL_DBG_MR,
@@ -89,6 +92,9 @@ enum PHL_DBG_CMD_ID {
 	PHL_DBG_SET_LEVEL,
 #ifdef CONFIG_PHL_SNIFFER_SUPPORT
 	PHL_DBG_SNIFFER,
+#endif
+#ifdef CONFIG_USB_HCI
+	PHL_DBG_USB_SPEED,
 #endif
 	PHL_DBG_MAX
 };
@@ -119,6 +125,9 @@ static const struct phl_dbg_cmd_info phl_dbg_cmd_i[] = {
 	{"bcn", PHL_DBG_BCN},
 	{"mcc", PHL_DBG_MCC},
 	{"ltr", PHL_DBG_LTR},
+#ifdef CONFIG_PCI_HCI
+	{"pcie_cfgspc", PHL_DBG_PCIE_CFGSPC},
+#endif
 	{"phy_stats", PHL_DBG_PHY_STATS},
 	{"mr_info", PHL_DBG_MR},
 	{"lamode", PHL_DBG_LA_ENABLE},
@@ -129,6 +138,9 @@ static const struct phl_dbg_cmd_info phl_dbg_cmd_i[] = {
 	{"dbglevel", PHL_DBG_SET_LEVEL},
 #ifdef CONFIG_PHL_SNIFFER_SUPPORT
 	{"sniffer", PHL_DBG_SNIFFER},
+#endif
+#ifdef CONFIG_USB_HCI
+	{"usb_speed", PHL_DBG_USB_SPEED},
 #endif
 
 };
@@ -141,6 +153,19 @@ enum PHL_DBG_SNIFFER_CMD_ID {
 static const struct phl_dbg_cmd_info phl_dbg_sniffer_cmd_i[] = {
 	{"help", PHL_DBG_SNIFFER_HELP},
 	{"pmode", PHL_DBG_SNIFFER_PSTS_MODE},
+};
+#endif
+
+#ifdef CONFIG_USB_HCI
+enum PHL_DBG_USB_SPEED_CMD_ID {
+	PHL_DBG_USB_SPEED_HELP,
+	PHL_DBG_USB_SPEED_SHOW,
+	PHL_DBG_USB_SPEED_CONFIG,
+};
+static const struct phl_dbg_cmd_info phl_dbg_usb_speed_cmd_i[] = {
+	{"help", PHL_DBG_USB_SPEED_HELP},
+	{"show", PHL_DBG_USB_SPEED_SHOW},
+	{"set", PHL_DBG_USB_SPEED_CONFIG},
 };
 #endif
 

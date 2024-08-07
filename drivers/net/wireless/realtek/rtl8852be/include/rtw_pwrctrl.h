@@ -77,6 +77,7 @@ struct pwrctrl_priv {
 	u32 tx_time;
 	u32 rx_time;
 #endif /* CONFIG_RTW_CFGVENDOR_LLSTATS */
+	enum rtw_rf_state rfkill_state;
 };
 
 #ifdef CONFIG_RTW_IPS

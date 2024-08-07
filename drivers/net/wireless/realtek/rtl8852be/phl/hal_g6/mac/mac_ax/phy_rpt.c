@@ -604,10 +604,11 @@ static u32 parse_mac_info(struct mac_ax_adapter *adapter,
 	/* dword0 */
 	val = le32_to_cpu(macinfo->dword0);
 	rpt->usr_num = (u8)GET_FIELD(val, AX_MAC_INFO_USR_NUM);
-#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 			if (rpt->usr_num > MAC_MAX_4_USR) {
 				PLTFM_MSG_ERR("The user num in mac info is invalid\n");
 				ret = MACPARSEERR;

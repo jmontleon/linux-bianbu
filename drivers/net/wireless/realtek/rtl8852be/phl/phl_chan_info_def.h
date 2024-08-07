@@ -1,4 +1,4 @@
-﻿/******************************************************************************
+/******************************************************************************
  *
  * Copyright(c) 2019 - 2021 Realtek Corporation.
  *
@@ -17,8 +17,13 @@
 
 #ifdef CONFIG_PHL_CHANNEL_INFO
 
+#ifdef CONFIG_WKARD_CSI_PKT_SIZE
+#define CHAN_INFO_MAX_SIZE 2048
+#define MAX_CHAN_INFO_PKT_KEEP 10
+#else
 #define CHAN_INFO_MAX_SIZE 65535
 #define MAX_CHAN_INFO_PKT_KEEP 2
+#endif
 #define CHAN_INFO_PKT_TOTAL MAX_CHAN_INFO_PKT_KEEP + 1
 #define MAX_CHAN_INFO_CLIENT PHL_MACID_MAX_NUM
 #define MAX_CHAN_INFO_CLIENT_ARR_SZ (MAX_CHAN_INFO_CLIENT >> 3)
@@ -115,6 +120,10 @@ struct rtw_chinfo_action_parm {
 #ifdef CONFIG_PHL_WKARD_CHANNEL_INFO_ACK
 	/* decided by core layer */
 	u8 chk_ack_rate;
+#endif
+#ifdef CONFIG_PHL_WKARD_CHANNEL_INFO_SAP
+	u8 ap_csi;
+	u8 assign_client_mac[MAC_ALEN];
 #endif
 };
 

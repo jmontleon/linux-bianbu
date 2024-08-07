@@ -348,29 +348,37 @@ bool halbb_vht_mcs_table(struct bb_info *bb, const struct plcp_mcs_table_in_t *i
 	};
 	u16 n_sd = n_sd_table[in->bw];
 	u8 n_bpscs = n_bpscs_table[in->mcs];
-	//enum coding_rate_t code_rate = code_rate_table[in->mcs]; 
 	u8 nss = in->nss;
 
-	out->valid = ((((in->fec == LDPC) && (in->mcs <= 11)) ||
-		      ((in->fec == BCC) && (in->mcs <= 9))) &&
-		      ((in->nss > 0) && (in->nss <= 8)));
+	if (in->nss > 0 && in->nss <= 8) {
+		if (in->fec == LDPC && in->mcs <= 11)
+			out->valid = true;
+		else if (in->fec == BCC && in->mcs <= 9)
+			out->valid = true;
+		else
+			out->valid = false;
+	} else {
+		out->valid = false;
+	}
+
+	if (out->valid == false)
+		return false;
+
 	out->code_rate = *(code_rate_table + in->mcs);
 	halbb_com_par_cal(bb, n_sd, *(code_rate_table + in->mcs), n_bpscs, nss, false, out);
-	if ((in->fec == BCC) && (out->valid)) {
+
+	if (in->fec == BCC) {
 		s8 n_es = *(*(*(n_es_table + in->bw) + in->nss - 1) + in->mcs);
 		out->n_es = n_es;
 		out->valid = (n_es != -1);
 		out->fec = in->fec;
 		out->dcm = 0;
 		out->nss = in->nss;
-	} else if (out->valid) {
+	} else {
 		out->n_es = 0;
 		out->fec = in->fec;
 		out->dcm = 0;
 		out->nss = in->nss;
-	} else {
-		//rtw_error("invalid mcs input");
-		return false;
 	}
 	return true;
 }
@@ -676,7 +684,7 @@ void halbb_get_txtime(struct bb_info *bb, const struct plcp_tx_pre_fec_padding_s
 {
 	struct bb_h2c_fw_tx_setting *fw_tx_i = &bb->bb_fwtx_h2c_i;
 	//n_ma, m_ma
-	u8 m_table[14] = {0,0,0,0,0,2,1,1,2,0,0,0,0,2};
+	u8 m_table[14] = {0,0,0,0,0,2,1,1,2,0,0,0,0,0};
 	u32 l_len_temp;
 	
 	if (par->com.doppler_mode > 0)

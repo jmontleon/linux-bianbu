@@ -209,12 +209,12 @@ u32	rtw_get_dft_vht_cap_ie(_adapter *padapter, u8 *pbuf);
 void rtw_vht_get_dft_setting(_adapter *padapter,
 			struct protocol_cap_t *dft_proto_cap,
 			struct role_link_cap_t *dft_cap);
-void	rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
+void	rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, bool log);
 u32	rtw_build_vht_operation_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
-						u8 *pbuf, u8 channel);
+						u8 *pbuf, enum band_type band, u8 channel);
 u32	rtw_build_vht_op_mode_notify_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
 						u8 *pbuf, u8 bw);
-u32	rtw_build_vht_cap_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf);
+u32	rtw_build_vht_cap_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf, bool log);
 void	update_sta_vht_info_apmode(_adapter *padapter, void *psta);
 void	VHT_caps_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
 				PNDIS_802_11_VARIABLE_IEs pIE);
@@ -227,7 +227,7 @@ void	VHT_operation_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_li
 void	rtw_process_vht_op_mode_notify(_adapter *padapter, u8 *pframe, void *sta);
 u8 rtw_vht_get_oper_bw(u8 *ht_op_ie, u8 *vht_cap_ie, u8 *vht_op_ie, u8 oper_bw);
 u32	rtw_restructure_vht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
-				u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, u8 channel);
+				u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, enum band_type band);
 void	VHTOnAssocRsp(_adapter *padapter);
 u8	rtw_vht_mcsmap_to_nss(u8 *pvht_mcs_map);
 void rtw_vht_nss_to_mcsmap(u8 nss, u8 *target_mcs_map, u8 *cur_mcs_map);
@@ -244,6 +244,7 @@ void rtw_update_probe_rsp_vht_cap(struct _ADAPTER *a, u8 *ies, sint ies_len);
 void rtw_reattach_vht_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork);
 u8 rtw_issue_op_mode_notify_frame(_adapter *a, struct _ADAPTER_LINK *a_link,
 		u8 *ra, u8 rx_nss, enum channel_width bw, u8 try_cnt, u8 wait_ms);
+struct sta_info;
 void rtw_vht_op_mode_ctrl_rx_nss(_adapter *adapter, struct _ADAPTER_LINK *a_link,
 		struct sta_info *sta, u8 final_rx_nss, bool need_update_ra);
 #endif /* _RTW_VHT_H_ */

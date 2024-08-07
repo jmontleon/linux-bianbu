@@ -420,10 +420,10 @@ _phl_set_macid_pause(struct phl_info_t *phl_info, u16 macid, bool pause)
 static enum rtw_phl_status
 _phl_set_macid_pause_ac(struct phl_info_t *phl_info, u16 macid, bool pause)
 {
-   enum rtw_phl_status phl_sts = RTW_PHL_STATUS_FAILURE;
+	enum rtw_phl_status phl_sts = RTW_PHL_STATUS_FAILURE;
 
 	if (RTW_HAL_STATUS_SUCCESS ==
-		rtw_hal_set_macid_pause_ac(phl_info->hal, macid, pause))
+	    rtw_hal_set_macid_pause_ac(phl_info->hal, macid, pause))
 		phl_sts = RTW_PHL_STATUS_SUCCESS;
 
 	return phl_sts;
@@ -486,8 +486,11 @@ phl_cmd_set_macid_pkt_drop_hdl(struct phl_info_t *phl_info, u8 *param)
 		(struct cmd_set_macid_pkt_drop_param *)param;
 	u8 hw_band = p->phl_sta->rlink->hw_band;
 	u8 hw_port = p->phl_sta->rlink->hw_port;
+#ifdef RTW_PHL_BCN
 	u8 hw_mbssid = p->phl_sta->rlink->hw_mbssid;
-
+#else
+	u8 hw_mbssid = 0;
+#endif
 	return _phl_set_macid_pkt_drop(phl_info,
 	                               p->phl_sta->macid,
 	                               p->sel,
@@ -509,16 +512,14 @@ _phl_cmd_set_macid_pause_done(void *drv_priv,
 	}
 }
 
-static void
-_phl_cmd_set_macid_pause_ac_done(void *drv_priv,
-						u8 *cmd,
-						u32 cmd_len,
-						enum rtw_phl_status status)
+static void _phl_cmd_set_macid_pause_ac_done(void *drv_priv,
+					     u8 *cmd,
+					     u32 cmd_len,
+					     enum rtw_phl_status status)
 {
 	if (cmd) {
 		_os_kmem_free(drv_priv, cmd, cmd_len);
 		cmd = NULL;
-		PHL_INFO("%s.....\n", __func__);
 	}
 }
 
@@ -585,9 +586,9 @@ _exit:
 
 enum rtw_phl_status
 rtw_phl_cmd_set_macid_pause_ac(struct rtw_wifi_role_t *wifi_role,
-                      struct rtw_phl_stainfo_t *phl_sta, bool pause,
-                      enum phl_cmd_type cmd_type,
-                      u32 cmd_timeout)
+			       struct rtw_phl_stainfo_t *phl_sta, bool pause,
+			       enum phl_cmd_type cmd_type,
+			       u32 cmd_timeout)
 {
 	struct phl_info_t *phl_info = wifi_role->phl_com->phl_priv;
 	void *drv = wifi_role->phl_com->drv_priv;
@@ -611,13 +612,13 @@ rtw_phl_cmd_set_macid_pause_ac(struct rtw_wifi_role_t *wifi_role,
 	param->pause = pause;
 
 	psts = phl_cmd_enqueue(phl_info,
-	                       phl_sta->rlink->hw_band,
-	                       MSG_EVT_SET_MACID_PAUSE_AC,
-	                       (u8 *)param,
-	                       param_len,
-	                       _phl_cmd_set_macid_pause_ac_done,
-	                       cmd_type,
-	                       cmd_timeout);
+			       phl_sta->rlink->hw_band,
+			       MSG_EVT_SET_MACID_PAUSE_AC,
+			       (u8 *)param,
+			       param_len,
+			       _phl_cmd_set_macid_pause_ac_done,
+			       cmd_type,
+			       cmd_timeout);
 
 	if (is_cmd_failure(psts)) {
 		/* Send cmd success, but wait cmd fail*/
@@ -644,8 +645,11 @@ rtw_phl_cmd_set_macid_pkt_drop(struct rtw_wifi_role_t *wifi_role,
 	u32 param_len;
 	u8 hw_band = phl_sta->rlink->hw_band;
 	u8 hw_port = phl_sta->rlink->hw_port;
+#ifdef RTW_PHL_BCN
 	u8 hw_mbssid = phl_sta->rlink->hw_mbssid;
-
+#else
+	u8 hw_mbssid = 0;
+#endif
 	if (cmd_type == PHL_CMD_DIRECTLY) {
 		psts = _phl_set_macid_pkt_drop(phl_info,
 		                               phl_sta->macid,
@@ -1480,6 +1484,7 @@ static void _phl_sta_set_default_value(struct phl_info_t *phl_info,
 	 * correct security CAM ID and MAC ID.
 	 */
 	phl_sta->hit_rule = 0;
+	phl_sta->flag_pwr_diff_large = false;
 }
 
 struct rtw_phl_stainfo_t *
@@ -1992,18 +1997,9 @@ static void
 _phl_set_dfs_tb_ctrl(struct phl_info_t *phl_info,
 		     struct rtw_wifi_role_link_t *rlink)
 {
-	struct rtw_regulation_channel reg_ch = {0};
-	enum band_type band = rlink->chandef.band;
-	u8 channel = rlink->chandef.chan;
-	bool is_dfs = false;
+	bool is_dfs = rlink->chandef.is_dfs;
 
-
-	if (rtw_phl_regulation_query_ch(phl_info, band, channel, &reg_ch)) {
-		if (reg_ch.property & CH_DFS)
-			is_dfs = true;
-
-		rtw_hal_set_dfs_tb_ctrl(phl_info->hal, is_dfs);
-	}
+	rtw_hal_set_dfs_tb_ctrl(phl_info->hal, is_dfs);
 }
 
 static void
@@ -2053,6 +2049,9 @@ phl_update_media_status(struct phl_info_t *phl_info, struct rtw_phl_stainfo_t *s
 	u8 rsc_cfg = 0x0;
 	bool rrsr_ref_rate_sel = true;
 	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+#ifdef CONFIG_DIG_TDMA
+	struct rtw_phl_stainfo_t *self_sta = rtw_phl_get_stainfo_self(phl_info, rlink);
+#endif
 
 	is_sta_linked = rtw_hal_is_sta_linked(phl_info->hal, sta);
 	if (is_connect == true && is_sta_linked == true) {
@@ -2118,11 +2117,11 @@ phl_update_media_status(struct phl_info_t *phl_info, struct rtw_phl_stainfo_t *s
 			}
 			else if (rlink->chandef.band == BAND_ON_5G) {
 				rsc_cfg = phl_com->phy_sw_cap[rlink->hw_band].rsc_mode.rsc_5g;
-				rrsr_ref_rate_sel = true;
+				rrsr_ref_rate_sel = false;
 			}
 			else {
 				rsc_cfg = phl_com->phy_sw_cap[rlink->hw_band].rsc_mode.rsc_2g;
-				rrsr_ref_rate_sel = true;
+				rrsr_ref_rate_sel = false;
 			}
 
 			hstatus = rtw_hal_cfg_rsc(phl_info->hal, sta, rsc_cfg);
@@ -2138,7 +2137,7 @@ phl_update_media_status(struct phl_info_t *phl_info, struct rtw_phl_stainfo_t *s
 			if (hstatus != RTW_HAL_STATUS_SUCCESS)
 				PHL_ERR("rtw_hal_cfg_rsc failed\n");
 
-			rrsr_ref_rate_sel = true;
+			rrsr_ref_rate_sel = false;
 			hstatus = rtw_hal_cfg_rrsr_ref_rate_sel(phl_info->hal, sta, rrsr_ref_rate_sel);
 			if (hstatus != RTW_HAL_STATUS_SUCCESS)
 				PHL_ERR("rtw_hal_cfg_rsc failed\n");
@@ -2147,6 +2146,21 @@ phl_update_media_status(struct phl_info_t *phl_info, struct rtw_phl_stainfo_t *s
 		PHL_INFO("%s: no need to modify rsc config, role = %d\n", __FUNCTION__, wrole->type);
 	}
 
+	/* For P2P GO SOURCE or GO SINK(one-to-one link), need to notify BB to restore DIG after connect complete*/
+#ifdef CONFIG_DIG_TDMA
+	if ((self_sta->p2p_session == RTW_P2P_APP_GO_SRC) || (self_sta->p2p_session == RTW_P2P_APP_GO_SINK)
+		|| (self_sta->p2p_session == RTW_P2P_APP_GO_SRC_SINK)) {
+		if (is_connect) {
+			rtw_hal_notification(phl_info->hal, MSG_EVT_P2P_SESSION_LINKED, HW_BAND_0);
+			PHL_TRACE(COMP_PHL_P2PPS, _PHL_INFO_, "%s: notify MSG_EVT_P2P_SESSION_LINKED\n",
+			 	 __FUNCTION__);
+		} else {
+			rtw_hal_notification(phl_info->hal, MSG_EVT_P2P_SESSION_NO_LINK, HW_BAND_0);
+			PHL_TRACE(COMP_PHL_P2PPS, _PHL_INFO_, "%s: notify MSG_EVT_P2P_SESSION_NO_LINK\n",
+			 	 __FUNCTION__);
+		}
+	}
+#endif
 
 	if (wrole->type == PHL_RTYPE_STATION || wrole->type == PHL_RTYPE_P2P_GC
 	#ifdef CONFIG_PHL_TDLS
@@ -2729,6 +2743,13 @@ rtw_phl_get_rx_stat(void *phl, struct rtw_phl_stainfo_t *phl_sta,
 	return phl_sts;
 }
 
+int rtw_phl_get_sta_inact_ms(void *phl, struct rtw_phl_stainfo_t *phl_sta)
+{
+	if (phl_sta)
+		return _os_get_cur_time_ms() - phl_sta->stats.last_rx_time_ms;
+	return -1;
+}
+
 /**
  * rtw_phl_txsts_rpt_config() - issue h2c for txok and tx retry info
  * @phl:		struct phl_info_t *
@@ -3200,7 +3221,7 @@ _error_tsf_detect(struct phl_info_t *phl, struct rtw_rx_bcn_info *bcn_i,
 			(u32)(bcn_l->info[LONG_BCN_TSF][bcn_l->idx]));
 		ret = true;
 	} else {
-		u32 d_tsf = 0, d_sym = 0, d_t = 0, tol = bcn_intvl * 5;
+		u32 d_tsf = 0, d_sym = 0, d_t = 0, tol = bcn_intvl * 2;
 
 		d_sym = phl_get_passing_time_ms(
 			(u32)bcn_l->info[LONG_BCN_SYS_T][bcn_l->idx]);
@@ -3485,6 +3506,11 @@ void rtw_phl_sta_up_rx_bcn(void *phl, struct rtw_bcn_pkt_info *info)
 	bool error_handle = false;
 #endif /* BCN_TRACKING_TEST */
 
+	if (info->sta->wrole->mstate != MLME_LINKED) {
+		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "mstate(%d) != MLME_LINKED\n",
+			info->sta->wrole->mstate);
+		return;
+	}
 	if (bcn_intvl == 0) {
 		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_, "bcn_intvl == 0\n");
 		return;
@@ -3495,7 +3521,6 @@ void rtw_phl_sta_up_rx_bcn(void *phl, struct rtw_bcn_pkt_info *info)
 #ifndef BCN_TRACKING_TEST
 	error_handle = _error_tsf_detect(phl, bcn_i, info);
 #endif /* BCN_TRACKING_TEST */
-	bcn_i->num_per_watchdog++;
 	bcn_i->pkt_len = info->pkt_len;
 	bcn_i->rate = info->rate;
 	if (bcn_i->bcn_intvl != bcn_intvl)
@@ -3514,6 +3539,7 @@ void rtw_phl_sta_up_rx_bcn(void *phl, struct rtw_bcn_pkt_info *info)
 	_store_bcn_long_info(bcn_i, info);
 	_store_bcn_short_info(bcn_i, info);
 	_phl_sta_up_bcn_offset_info(phl, bcn_i);
+	bcn_i->num_per_watchdog++;
 #ifndef BCN_TRACKING_TEST
 	if (error_handle)
 		_associated_tsf_error_handle(phl, info->sta);
@@ -3711,6 +3737,11 @@ _get_bcn_tracking_info(struct phl_info_t *phl, struct rtw_phl_stainfo_t *sta,
 	u16 rx_t = 0, tbtt = (u16)(bcn_i->offset_i.offset / TU);
 	bool comp_env = true;
 
+	if (0 == b_intvl) {
+		PHL_TRACE(COMP_PHL_DBG, _PHL_ERR_, "%s:b_intvl = 0,  please check code flow\n",
+			__func__);
+		return;
+	}
 	min_bcn = ((WDOG_PERIOD / b_intvl) * MIN_BCN) / 100;
 	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s():  num_per_watchdog(%d), min_bcn(%d)\n",
 			__func__, bcn_i->num_per_watchdog, min_bcn);
@@ -3938,9 +3969,10 @@ void phl_bcn_watchdog_sw(struct phl_info_t *phl)
 			rlink = get_rlink(wrole, lidx);
 			sta = rtw_phl_get_stainfo_self(phl, rlink);
 			phl_get_sta_bcn_info(phl, sta, &bcn_i);
-			if (0 == sta->bcn_i.num_per_watchdog)
+			if (0 == bcn_i.num_per_watchdog)
 				continue;
-			sta->bcn_i.last_num_per_watchdog = sta->bcn_i.num_per_watchdog;
+			/* record bcn num of last watchdog */
+			sta->bcn_i.last_num_per_watchdog = bcn_i.num_per_watchdog;
 			/* reset cnt */
 			sta->bcn_i.num_per_watchdog = 0;
 			_get_bcn_drift(&bcn_i);

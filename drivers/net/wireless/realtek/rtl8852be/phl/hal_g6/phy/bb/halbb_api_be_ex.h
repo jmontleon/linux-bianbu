@@ -12,37 +12,23 @@
  * more details.
  *
  *****************************************************************************/
-#ifndef _PHL_COUNTRY_H_
-#define _PHL_COUNTRY_H_
+#ifndef _HALBB_API_BE_EX_H_
+#define _HALBB_API_BE_EX_H_
 
-#define REGULATION_COUNTRY_VERSION 36
+/*@--------------------------[Define] ---------------------------------------*/
 
-#define MAX_COUNTRY_NUM 238
-enum TP_OVERWRITE { 
-    TPO_CHILE = 0,
-    TPO_UK = 1,
-    TPO_QATAR = 2,
-    TPO_UKRAINE = 3,
-    TPO_CN = 4,
-    TPO_NA = 5
-}; 
+/*@--------------------------[Enum]------------------------------------------*/
 
-#define COUNTRY_CODE_LEN 2
-struct country_domain_mapping {
-    u8 domain_code;
-    u8 domain_code_6g;
-    char char2[COUNTRY_CODE_LEN];
-    u8 tpo; /* tx power overwrite */
+/*@--------------------------[Structure]-------------------------------------*/
 
-    /*
-     * bit0: accept 11bgn
-     * bit1: accept 11a
-     * bit2: accept 11ac
-     * bit3: accept 11ax
-     */
-    u8 support;
-    u8 country_property;
-};
+/*@--------------------------[Prptotype]-------------------------------------*/
+struct bb_info;
 
+u16 halbb_pri20_bitmap(struct bb_info *bb, u8 central_ch, u8 pri_ch,
+		       enum channel_width bw);
 
-#endif /* _PHL_COUNTRY_H_ */
+u16 halbb_preamble_puncture(struct bb_info *bb, u8 central_ch, u8 pri_ch,
+			    enum channel_width cbw, enum channel_width dbw,
+			    u8 punc_ch_info);
+
+#endif

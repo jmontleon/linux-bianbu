@@ -55,6 +55,7 @@
 #define WDE_QEMPTY_NUM_8851B 5
 #define WDE_QEMPTY_NUM_8851E 19
 #define WDE_QEMPTY_NUM_8852D 19
+#define WDE_QEMPTY_NUM_8852BT 5
 #define WDE_QEMPTY_NUM_1115E 36
 #define PLE_QEMPTY_NUM 2
 #define WDE_QEMPTY_ACQ_NUM_8852A 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
@@ -64,6 +65,7 @@
 #define WDE_QEMPTY_ACQ_NUM_8851B 4 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_ACQ_NUM_8851E 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_ACQ_NUM_8852D 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
+#define WDE_QEMPTY_ACQ_NUM_8852BT 4 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_ACQ_NUM_1115E 16 /* cannot over WDE_QEMPTY_ACQ_NUM_MAX */
 #define WDE_QEMPTY_MGQ_SEL_8852A 16
 #define WDE_QEMPTY_MGQ_SEL_8852B 4
@@ -72,6 +74,7 @@
 #define WDE_QEMPTY_MGQ_SEL_8851B 4
 #define WDE_QEMPTY_MGQ_SEL_8851E 16
 #define WDE_QEMPTY_MGQ_SEL_8852D 16
+#define WDE_QEMPTY_MGQ_SEL_8852BT 4
 #define WDE_QEMPTY_MGQ_SEL_1115E 16
 #define QEMP_ACQ_GRP_MACID_NUM 8
 #define QEMP_ACQ_GRP_QSEL_SH 4
@@ -103,9 +106,11 @@
 #define DLE_LAMODE_SIZE_8851B 131072 // (128 * 1024)
 #define DLE_LAMODE_SIZE_8851E 262144 // (256 * 1024)
 #define DLE_LAMODE_SIZE_8852D 262144 // (256 * 1024)
+#define DLE_LAMODE_SIZE_8852BT 262144 // (256 * 1024)
 
 #define DLE_SCC_RSVD_SIZE_8852B 98304 // (96 * 1024)
 #define DLE_SCC_RSVD_SIZE_8851B 98304 // (96 * 1024)
+#define DLE_SCC_RSVD_SIZE_8852BT 98304 // (96 * 1024)
 
 #define WDE_QTA_NUM 5
 #define PLE_QTA_NUM_8852AB 11
@@ -158,7 +163,11 @@ enum WDE_QTAID {
 	WDE_QTAID_WLAN_CPU = 1,
 	WDE_QTAID_DATA_CPU = 2,
 	WDE_QTAID_PKTIN = 3,
-	WDE_QTAID_CPUIO = 4
+	WDE_QTAID_CPUIO = 4,
+
+	/* Keep last */
+	WDE_QTAID_LAST,
+	WDE_QTAID_INVALID = WDE_QTAID_LAST
 };
 
 /**
@@ -201,7 +210,11 @@ enum PLE_QTAID {
 	PLE_QTAID_BBRPT = 8,
 	PLE_QTAID_WDRLS = 9,
 	PLE_QTAID_CPUIO = 10,
-	PLE_QTAID_TXRPT = 11
+	PLE_QTAID_TXRPT = 11,
+
+	/* Keep last */
+	PLE_QTAID_LAST,
+	PLE_QTAID_INVALID = PLE_QTAID_LAST
 };
 
 /**
@@ -746,5 +759,9 @@ u32 get_dle_rsvd_info(struct mac_ax_adapter *adapter, enum DLE_RSVD_INFO *info);
  * @}
  * @}
  */
+
+u32 get_dle_quota_sts(struct mac_ax_adapter *adapter,
+		      enum DLE_CTRL_TYPE ctrl_tp,
+		      u32 qtaid, u32 *used_size, u32 *aval_size);
 
 #endif

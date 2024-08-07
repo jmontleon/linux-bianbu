@@ -1063,9 +1063,6 @@ void HE_6g_bandcap_handler(_adapter *padapter, struct _ADAPTER_LINK *padapter_li
 	if (pmlmeinfo->SM_PS == SM_PS_STATIC)
 		RTW_WARN("%s(): SM_PS_STATIC\n", __FUNCTION__);
 
-	/* TODO: check ampdu_len_exp & max_amsdu_len */
-	phl_sta->asoc_cap.num_ampdu = 64;
-
 	phepriv->mpdu_min_spacing = GET_HE_6G_BAND_CAP_MIN_MPDU_SPACING(ele_start);
 }
 
@@ -1160,11 +1157,14 @@ static int rtw_build_he_phy_caps(_adapter *padapter, struct protocol_cap_t *prot
 	if (proto_cap->he_ldpc)
 		SET_HE_PHY_CAP_LDPC_IN_PAYLOAD(pbuf, 1);
 
-	SET_HE_PHY_CAP_SU_PPDU_1X_LTF_0_POINT_8_GI(pbuf, 1);
+	if (padapter->registrypriv.wifi_spec == 1)
+		SET_HE_PHY_CAP_SU_PPDU_1X_LTF_0_POINT_8_GI(pbuf, 0);
+	else
+		SET_HE_PHY_CAP_SU_PPDU_1X_LTF_0_POINT_8_GI(pbuf, 1);
 
 	if (proto_cap->he_rx_ndp_4x32) {
 		SET_HE_PHY_CAP_NDP_4X_LTF_3_POINT_2_GI(pbuf, 1);
-		RTW_INFO("NDP_4x32 is set.\n");;
+		RTW_DBG("NDP_4x32 is set.\n");;
 	}
 
 	if (proto_cap->stbc_he_tx)
@@ -1668,6 +1668,11 @@ void rtw_he_ies_detach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, 
 
 u8 rtw_he_htc_en(_adapter *padapter, struct sta_info *psta)
 {
+	struct rtw_wifi_role_t *wrole = padapter->phl_role;
+
+	if (rtw_phl_is_ap_category(wrole->type))
+		return 0;
+
 	return 1;
 }
 
@@ -1867,6 +1872,18 @@ void rtw_he_om_ctrl_trx_ss(_adapter *adapter, struct _ADAPTER_LINK *alink,
 
 }
 
+int rtw_he_om_ctrl_ulmu_dis(_adapter *padapter, struct _ADAPTER_LINK *alink)
+{
+	struct rtw_he_actrl_om om_info = {0};
+	u8 om_mask = 0;
+
+	om_mask = om_mask | OM_UL_MU_DIS;
+	om_info.om_actrl_ele.ul_mu_disable = _TRUE;
+
+	rtw_he_set_om_info(padapter, alink, om_mask, &om_info);
+	return issue_qos_nulldata(padapter, alink, NULL, 0, 0, 3, 10, _TRUE);
+}
+
 void rtw_process_he_triggerframe(_adapter *padapter,
 				union recv_frame *precv_frame)
 {
@@ -1888,6 +1905,8 @@ void rtw_process_he_triggerframe(_adapter *padapter,
 	u16 remain_length = 0;
 	u8 trigger_type = 0;
 	bool ra_is_bc = _FALSE;
+	u8 trigger_bw = 0;
+	u16 trigger_rua = 0;
 	phl = GET_PHL_INFO(d);
 
 
@@ -1911,8 +1930,10 @@ void rtw_process_he_triggerframe(_adapter *padapter,
 
 	/* parsing trigger frame sub-type*/
 	trigger_type = GET_TRIGGER_FRAME_TYPE(trigger_frame);
+	trigger_bw = GET_TRIGGER_FRAME_COM_INFO_BW(trigger_frame);
 	switch (trigger_type) {
 	case TRIGGER_FRAME_T_BASIC:
+	case TRIGGER_FRAME_T_MUBAR:
 		{
 			#ifdef RTW_WKARD_TRIGGER_FRAME_PARSER
 			user_info = trigger_frame + 24;
@@ -1929,15 +1950,20 @@ void rtw_process_he_triggerframe(_adapter *padapter,
 			/* start from User Info */
 			while (remain_length >= TRIGGER_FRAME_BASIC_USER_INFO_SZ) {
 				aid = GET_TRIGGER_FRAME_USER_INFO_AID12(user_info);
-				RTW_DBG("%s [T_Frame] aid=0x%x, UL MCS=0x%x, RU_alloc=0x%x \n",
-					  __func__, aid,
-					  GET_TRIGGER_FRAME_USER_INFO_UL_MCS(user_info),
-					  GET_TRIGGER_FRAME_USER_INFO_RUA(user_info));
+				trigger_rua =  GET_TRIGGER_FRAME_USER_INFO_RUA(user_info);
+				RTW_DBG("%s [T_Frame] aid=0x%x, UL MCS=0x%x, RU_alloc=0x%x, BW=0x%x \n",
+					__func__, aid, GET_TRIGGER_FRAME_USER_INFO_UL_MCS(user_info), trigger_rua, trigger_bw);
 				if ((aid == phl_sta->aid) && (aid != 0)) {
 					phl_sta->stats.rx_tf_cnt++;
 					RTW_DBG("%s [T_Frame]phl_sta->stats.rx_tf_cnt(%d)\n",
 						 __func__,
 						 phl_sta->stats.rx_tf_cnt);
+					#ifdef RTW_WKARD_TRIGGER_PWR_DIFF_LARGE
+					if (trigger_bw == TRIGGER_UL_BW_80_80_160 && (trigger_rua >> 1) <= RTW_HE_RU106_8) {
+						phl_sta->flag_pwr_diff_large = true;
+						RTW_DBG("%s, phl_sta->flag_pwr_diff_large=%d\n", __func__, phl_sta->flag_pwr_diff_large);
+					}
+					#endif
 					break;
 				}
 				if (aid == 0xfff) {
@@ -1953,8 +1979,6 @@ void rtw_process_he_triggerframe(_adapter *padapter,
 		break;
 	case TRIGGER_FRAME_T_BFRP:
 		/* fall through */
-	case TRIGGER_FRAME_T_MUBAR:
-		/* fall through */
 	case TRIGGER_FRAME_T_MURTS:
 		/* fall through */
 	case TRIGGER_FRAME_T_BSRP:
@@ -1969,5 +1993,6 @@ void rtw_process_he_triggerframe(_adapter *padapter,
 		break;
 	}
 }
+
 #endif /* CONFIG_80211AX_HE */
 

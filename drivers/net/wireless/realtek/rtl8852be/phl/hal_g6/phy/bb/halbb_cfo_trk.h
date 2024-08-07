@@ -172,6 +172,7 @@ struct bb_cfo_trk_info {
 	u8		cfo_period_cnt;
 	u32		cfo_tf_cnt_th;
 	u32		cfo_tf_cnt_pre;
+	s32		dcfo_comp_offset; /* For manually fine tune digital cfo*/
 	enum bb_cfo_trk_src_t		cfo_src;
 	enum bb_cfo_trk_st_t		bb_cfo_trk_state;
 	enum bb_cfo_trk_acc_mode_t bb_cfo_trk_acc_mode;

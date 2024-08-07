@@ -49,6 +49,17 @@
 #define RTW_PHL_DEV2HST_MAX_EXTEND_NUM 15
 #define RTW_PHL_MAGIC_WAKER_NUM 8
 #define MAC_ADDRESS_LEN 6
+
+#define RTW_PHL_PKTOFLD_NOT_EXISTS_ID 0xFF
+
+#define RTW_PHL_PROXY_SNMP_COMMU_NAME_MAX_LEN 16
+#define RTW_PHL_PROXY_SNMP_PRINTER_ERR_STATE_LEN 2
+#define RTW_PHL_PROXY_SNMP_SYS_DESCR_MAX_LEN 32
+#define RTW_PHL_PROXY_SNMP_ENTERPRISE_ID_MAX_LEN 3
+#define RTW_PHL_PROXY_SNMP_OBJ_ID_MAX_LEN 8
+#define RTW_PHL_PROXY_SNMP_ENT_MIB_MAX_NUM 4
+#define RTW_PHL_PROXY_SNMP_ENTERPRISE_OID_MAX_LEN 16
+#define RTW_PHL_PROXY_SNMP_ENTERPRISE_RSP_MAX_LEN 16
 /*--------------------Define MACRO--------------------------------------*/
 /*--------------------Define Enum---------------------------------------*/
 enum rtw_mac_gfunc {
@@ -257,6 +268,11 @@ enum rtw_mac_wow_wake_reason {
 	RTW_MAC_WOW_CLK_32K_LOCK = 0xFE
 };
 
+enum rtw_mac_req_xtal_option {
+	RTW_MAC_XTAL_NORMAL_MODE = 0,
+	RTW_MAC_XTAL_LOW_PWR_MODE = 1,
+};
+
 enum rtw_mac_proxy_pattern_ptcl {
 	RTW_MAC_PROXY_PATTERN_SSDP = 0x0,
 	RTW_MAC_PROXY_PATTERN_WSD = 0x1,
@@ -269,6 +285,24 @@ enum rtw_mac_env_mode {
 	DUT_ENV_ASIC = 0,
 	DUT_ENV_FPGA = 1,
 	DUT_ENV_PXP = 2,
+};
+
+/**
+ * @enum rtw_mac_ctrl_txdma_option
+ *
+ * @brief rtw_mac_ctrl_txdma_option
+ *
+ * @var rtw_mac_ctrl_txdma_option::RTW_MAC_CTRL_TXDMA_DIS_ALL
+ * Disable all txdma channel, endpoint, etc.
+ * @var rtw_mac_ctrl_txdma_option::RTW_MAC_CTRL_TXDMA_H2C2H_ONLY
+ * Enable only H2C but diable all other txdma channel, endpoint, etc.
+ * @var rtw_mac_ctrl_txdma_option::RTW_MAC_CTRL_TXDMA_EN_ALL
+ * Enable all txdma channel, endpoint, etc.
+ */
+enum rtw_mac_ctrl_txdma_option {
+	RTW_MAC_CTRL_TXDMA_DIS_ALL = 0,
+	RTW_MAC_CTRL_TXDMA_H2C2H_ONLY = 1,
+	RTW_MAC_CTRL_TXDMA_EN_ALL = 2,
 };
 
 /*--------------------Define Struct-------------------------------------*/
@@ -396,6 +430,20 @@ struct  rtw_phl_ax_ul_fixinfo {
 	struct  rtw_phl_ul_macid_info sta[RTW_PHL_MAX_RU_NUM];
 	struct  rtw_phl_ax_ulrua_output ulrua;
 };
+
+struct rtw_mac_ax_sr_info {
+	u8 sr_en: 1;
+	u8 sr_field_v15_allowed: 1;
+	u8 srg_obss_pd_min;
+	u8 srg_obss_pd_max;
+	u8 non_srg_obss_pd_min;
+	u8 non_srg_obss_pd_max;
+	u32 srg_bsscolor_bitmap_0;
+	u32 srg_bsscolor_bitmap_1;
+	u32 srg_partbsid_bitmap_0;
+	u32 srg_partbsid_bitmap_1;
+};
+
 
 struct rtw_hal_mac_ax_cctl_info {
 	/* dword 0 */
@@ -666,6 +714,37 @@ struct rtw_hal_mac_proxy_ptcl_pattern {
 
 #pragma pack(pop)
 
+struct rtw_hal_mac_proxy_snmp_ent_mib {
+	u8 oid_len;
+	u8 rsp_type;
+	u8 rsp_len;
+	u8 rsvd0;
+	u8 oid[RTW_PHL_PROXY_SNMP_ENTERPRISE_OID_MAX_LEN];
+	u8 rsp[RTW_PHL_PROXY_SNMP_ENTERPRISE_RSP_MAX_LEN];
+};
+
+struct rtw_hal_mac_proxy_snmp {
+	u8 ipv4_pktid;
+	u8 ipv6_pktid;
+	u8 community0_len;
+	u8 community1_len;
+	u8 community0[RTW_PHL_PROXY_SNMP_COMMU_NAME_MAX_LEN];
+	u8 community1[RTW_PHL_PROXY_SNMP_COMMU_NAME_MAX_LEN];
+	u8 hr_device_status;
+	u8 hr_printer_status;
+	u8 hr_printer_err_state[RTW_PHL_PROXY_SNMP_PRINTER_ERR_STATE_LEN];
+	u8 macid;
+	u8 sys_descr_len;
+	u8 obj_id_len;
+	u8 num_ent_mib;
+	u8 sys_descr[RTW_PHL_PROXY_SNMP_SYS_DESCR_MAX_LEN];
+	u8 enterprise_id_len;
+	u8 enterprise_id[RTW_PHL_PROXY_SNMP_ENTERPRISE_ID_MAX_LEN];
+	u8 obj_id[RTW_PHL_PROXY_SNMP_OBJ_ID_MAX_LEN];
+	struct rtw_hal_mac_proxy_snmp_ent_mib ent_mibs[RTW_PHL_PROXY_SNMP_ENT_MIB_MAX_NUM];
+
+};
+
 struct rtw_hal_mac_sensing_csi_param{
 	u8 macid;
 	u8 en:1;
@@ -702,7 +781,8 @@ struct rtw_wcpu_mac_cap_t {
 	u32 sensing_csi: 1;
 	u32 efuse_dump_offload: 1;
 	u32 adie_efuse_dump_offload: 1;
-	u32 rsvd0: 22;
+	u32 twt_ap: 1;
+	u32 rsvd0: 21;
 	/* ---- dword 1 ---- */
 	u32 rsvd1: 32;
 	/* ---- dword 2 ---- */
@@ -836,4 +916,71 @@ struct rtw_hal_mac_sta_csa_ch {
 	u32 rf3;
 };
 
+struct rtw_mac_lps_option {
+	enum rtw_mac_req_xtal_option req_xtal_option;
+};
+
+struct rtw_mac_usr_tx_rpt_info {
+	/* dword0 */
+	u32 rpt_mode:3;
+	u32 rsvd0:5;
+	u32 macid:8;
+	u32 ac:2;
+	u32 rsvd1:14;
+	/* dword1 */
+	u32 pending_be_1k:16;
+	u32 pending_bk_1k:16;
+	/* dword2 */
+	u32 pending_vi_1k:16;
+	u32 pending_vo_1k:16;
+	/* dword3 */
+	u32 freerun_cnt_first_in;
+	/* dword4 */
+	u32 freerun_cnt_first_out;
+	/* dword5 */
+	u32 freerun_cnt_last_out;
+	/* dword6 */
+	u32 tx_drop_num_be;
+	/* dword7 */
+	u32 tx_drop_num_bk;
+	/* dword8 */
+	u32 tx_drop_num_vi;
+	/* dword9 */
+	u32 tx_drop_num_vo;
+	/* dword10 */
+	u32 tx_ok_num_be;
+	/* dword11 */
+	u32 tx_ok_num_bk;
+	/* dword12 */
+	u32 tx_ok_num_vi;
+	/* dword13 */
+	u32 tx_ok_num_vo;
+	/* dword14 */
+	u32 rx_clear_us;
+	/* dword15 */
+	u32 busy_us;
+	/* dword16 */
+	u32 freerun_cnt_last_in;
+	/* dword17 */
+	u32 tx_ppdu_cnt;
+	/* dword18 */
+	u32 tx_ppdu_cnt_wo_last_pkt;
+	/* dword19 */
+	u32 tx_mpdu_cnt;
+	/* dword20 */
+	u32 tx_mpdu_cnt_wo_last_pkt;
+	/* dword21 */
+	u32 tx_rts_cnt;
+	/* dword22 */
+	u32 tx_rts_retry_cnt;
+	/* dword23 */
+	u32 tx_mpdu_ok_cnt;
+	/* dword24 */
+	u32 ra_ratio:8;
+	u32 max_rts_cnt:8;
+	u32 max_ampdu_num:8;
+	u32 macid_ext:8;
+	/* dword25 */
+	u32 rx_err_cnt;
+};
 #endif

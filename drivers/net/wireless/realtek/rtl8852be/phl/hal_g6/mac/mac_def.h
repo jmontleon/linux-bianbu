@@ -191,15 +191,26 @@
 	adapter->pltfm_cb->rtl_memset(adapter->drv_adapter, addr, value, size)
 #define PLTFM_MEMCMP(ptr1, ptr2, num)                                          \
 	adapter->pltfm_cb->rtl_memcmp(adapter->drv_adapter, ptr1, ptr2, num)
+
+#ifdef PHL_FEATURE_AP
 #define PLTFM_DELAY_US(us)                                                     \
 	adapter->pltfm_cb->rtl_delay_us(adapter->drv_adapter, us)
 #define PLTFM_DELAY_MS(ms)                                                     \
 	adapter->pltfm_cb->rtl_delay_ms(adapter->drv_adapter, ms)
 #define PLTFM_SLEEP_US(us)                                                     \
+	adapter->pltfm_cb->rtl_delay_us(adapter->drv_adapter, us)
+#define PLTFM_SLEEP_MS(ms)                                                     \
+	adapter->pltfm_cb->rtl_delay_ms(adapter->drv_adapter, ms)
+#else
+#define PLTFM_DELAY_US(us)                                                     \
+	adapter->pltfm_cb->rtl_sleep_us(adapter->drv_adapter, us)
+#define PLTFM_DELAY_MS(ms)                                                     \
+	adapter->pltfm_cb->rtl_sleep_ms(adapter->drv_adapter, ms)
+#define PLTFM_SLEEP_US(us)                                                     \
 	adapter->pltfm_cb->rtl_sleep_us(adapter->drv_adapter, us)
 #define PLTFM_SLEEP_MS(ms)                                                     \
 	adapter->pltfm_cb->rtl_sleep_ms(adapter->drv_adapter, ms)
-
+#endif
 #define PLTFM_MUTEX_INIT(mutex)                                                \
 	adapter->pltfm_cb->rtl_mutex_init(adapter->drv_adapter, mutex)
 #define PLTFM_MUTEX_DEINIT(mutex)                                              \
@@ -1053,6 +1064,8 @@ enum mac_ax_issue_uldl_type {
  * for Get Response rate cfg
  * @var mac_ax_hw_id::MAC_AX_HW_GET_CTS_RRSR_CFG
  * for Get CTS Response rate cfg
+ * @var mac_ax_hw_id::MAC_AX_HW_GET_WD_CHECKSUM_CFG
+ * for Get wd_checksum_en/hw checker
  * @var mac_ax_hw_id::MAC_AX_HW_SDIO_INFO
  * Please Place Description here.
  * @var mac_ax_hw_id::MAC_AX_HW_SDIO_TX_MODE
@@ -1143,6 +1156,8 @@ enum mac_ax_issue_uldl_type {
  * for Response rate cfg
  * @var mac_ax_hw_id::MAC_AX_HW_SET_CTS_RRSR_CFG
  * for CTS Response rate cfg
+ * @var mac_ax_hw_id::MAC_AX_HW_SET_WD_CHECKSUM_CFG
+ * for set wd_checksum_en/hw checker
  */
 enum mac_ax_hw_id {
 	/* Get HW value */
@@ -1191,6 +1206,7 @@ enum mac_ax_hw_id {
 	MAC_AX_HW_GET_SDIO_RX_REQ_LEN,
 	MAC_AX_HW_GET_SDIO_LPS_FLG,
 	MAC_AX_HW_GET_FREERUN_CNT,
+	MAC_AX_HW_GET_WD_CHECKSUM_CFG,
 	/* Set HW value */
 	MAC_AX_HW_SETTING = 0x60,
 	MAC_AX_HW_SDIO_INFO,
@@ -1258,6 +1274,10 @@ enum mac_ax_hw_id {
 	MAC_AX_HW_SET_SER_DBG_LVL,
 	MAC_AX_HW_SET_DATA_RTY_LMT,
 	MAC_AX_HW_SET_CTS2SELF,
+	MAC_AX_HW_SET_CSI_RELEASE_CFG,
+	MAC_AX_HW_SET_FREERUN_RST,
+	MAC_AX_HW_SET_SCOPE_CFG,
+	MAC_AX_HW_SET_WD_CHECKSUM_CFG,
 };
 
 /**
@@ -1660,6 +1680,11 @@ enum mac_ax_core_swr_volt {
 	MAC_AX_SWR_LOW = 0,
 	MAC_AX_SWR_NORM = 3,
 	MAC_AX_SWR_HIGH = 6
+};
+
+enum mac_ax_csi_release_ctrl {
+	MAC_AX_CSI_KEEP = 0,
+	MAC_AX_CSI_RELEASE = 1
 };
 
 /**
@@ -2307,6 +2332,7 @@ enum mac_ax_mem_sel {
 	MAC_AX_MEM_BCN_IE_CAM1,
 	MAC_AX_MEM_TXD_FIFO_0,
 	MAC_AX_MEM_TXD_FIFO_1,
+	MAC_AX_MEM_PCIE_CFG_SPC,
 
 	/* keep last */
 	MAC_AX_MEM_LAST,
@@ -3699,6 +3725,24 @@ enum mac_ax_pcie_func_ctrl {
 };
 
 /**
+ * @enum mac_ax_ep_ctrl
+ *
+ * @brief mac_ax_ep_ctrl
+ *
+ * @var mac_ax_ep_ctrl::MAC_AX_USB_EP_RELEASE
+ * Please Place Description here.
+ * @var mac_ax_ep_ctrl::MAC_AX_USB_EP_PAUSE
+ * Please Place Description here.
+ * @var mac_ax_ep_ctrl::MAC_AX_USB_EP_IGNORE
+ * Please Place Description here.
+ */
+enum mac_ax_ep_ctrl {
+	MAC_AX_USB_EP_RELEASE = 0,
+	MAC_AX_USB_EP_PAUSE = 1,
+	MAC_AX_USB_EP_IGNORE
+};
+
+/**
  * @enum mac_ax_pcie_phy
  *
  * @brief mac_ax_pcie_phy
@@ -4764,6 +4808,21 @@ enum mac_ax_smart_ps_mode {
 };
 
 /**
+ * @enum mac_ax_null_type
+ *
+ * @brief mac_ax_null_type
+ *
+ * @var mac_ax_null_type::MAC_AX_NULL_PKT
+ * Please Place Description here.
+ * @var mac_ax_null_type::MAC_AX_QNULL_PKT
+ * Please Place Description here.
+ */
+enum mac_ax_null_type {
+	MAC_AX_NULL_PKT = 0,
+	MAC_AX_QNULL_PKT = 1,
+};
+
+/**
  * @enum mac_ax_ps_advance_parm_op
  *
  * @brief mac_ax_ps_advance_parm_op
@@ -4929,6 +4988,7 @@ enum mac_req_pwr_st {
 	REQ_PWR_ST_XTAL_OFF	= 8,
 	REQ_PWR_ST_ADIE_OFF	= 9,
 	REQ_PWR_ST_BYPASS_DATA_ON	= 87,
+	REQ_PWR_ST_MP_INTER_BCN	= 88,
 };
 
 /**
@@ -4977,20 +5037,6 @@ enum mac_req_ps_lvl {
 	REQ_PS_LVL_1,
 	REQ_PS_LVL_2,
 	REQ_PS_LVL_MAX,
-};
-
-/**
- * @enum mac_req_xtal_option
- *
- * @brief mac_req_xtal_option
- *
- * @var mac_req_xtal_option::REQ_XTAL_NORMAL_MODE
- * Please Place Description here.
- * @var mac_req_xtal_option::REQ_XTAL_LOW_PWR_MODE
- */
-enum mac_req_xtal_option {
-	REQ_XTAL_NORMAL_MODE	= 0,
-	REQ_XTAL_LOW_PWR_MODE	= 1,
 };
 
 /**
@@ -5296,6 +5342,13 @@ struct mac_ax_hw_info {
 	enum mac_ax_core_swr_volt core_swr_volt_sel;
 	enum mac_ax_drv_info_size cmac0_drv_info;
 	enum mac_ax_drv_info_size cmac1_drv_info;
+	u32 h2c_bcn_upd_sent_band0;
+	u32 h2c_bcn_upd_sent_band1;
+	u32 c2h_bcn_upd_done_band0;
+	u32 c2h_bcn_upd_done_band1;
+	u32 bcn_drop_all_band0;
+	u32 bcn_drop_all_band1;
+	u8 bcn_pkt_drop;
 	mac_ax_mutex ind_access_lock;
 	mac_ax_mutex lte_rlock;
 	mac_ax_mutex lte_wlock;
@@ -5351,6 +5404,10 @@ struct mac_ax_fw_info {
 	mac_ax_mutex msg_reg;
 	u8 cap_buff[MAC_WLANFW_CAP_MAX_SIZE];
 	u32 cap_size;
+	u32 commit_id;
+	u32 commit_id_outsrc_bb;
+	u32 commit_id_outsrc_btc;
+	u32 commit_id_outsrc_rf;
 };
 
 /**
@@ -5426,6 +5483,8 @@ struct mac_ax_mac_pwr_info {
  * @var mac_ax_ft_status::mac_ft
  * Please Place Description here.
  * @var mac_ax_ft_status::status
+ * Please Place Description here.
+ * @var mac_ax_ft_status::test_l12_busy
  * Please Place Description here.
  * @var mac_ax_ft_status::buf
  * Please Place Description here.
@@ -5523,7 +5582,6 @@ struct mac_ax_dle_info {
  * Please Place Description here.
  */
 struct mac_ax_gpio_info {
-#define MAC_AX_GPIO_NUM 19
 	/* byte0 */
 	u8 sw_io_0:1;
 	u8 sw_io_1:1;
@@ -5550,10 +5608,10 @@ struct mac_ax_gpio_info {
 	u8 uart_rx_gpio14:1;
 	u8 uart_tx_gpio;
 	u8 uart_rx_gpio;
-	enum rtw_mac_gfunc status[MAC_AX_GPIO_NUM];
+	enum rtw_mac_gfunc status[RTW_MAC_GPIO_MAX];
 #define MAC_AX_SW_IO_OUT_PP 0
 #define MAC_AX_SW_IO_OUT_OD 1
-	u8 sw_io_output[MAC_AX_GPIO_NUM];
+	u8 sw_io_output[RTW_MAC_GPIO_MAX];
 };
 
 /**
@@ -5733,6 +5791,17 @@ struct mac_ax_intf_info {
 	u16 rxbd_num;
 	u16 rpbd_num;
 	u16 txbd_num;
+};
+
+/**
+ * @struct mac_ax_intf_deinit_info
+ * @brief mac_ax_intf_deinit_info
+ *
+ * @var mac_ax_intf_deinit_info::fast_deinit_flag
+ * Please Place Description here.
+ */
+struct mac_ax_intf_deinit_info {
+	u8 fast_deinit_flag;
 };
 
 /**
@@ -6057,6 +6126,25 @@ struct mac_ax_bcn_ignore_edcca {
 	u32 rsvd0 : 7;
 };
 
+struct mac_ax_bcn_dynamic_mech {
+	u32 bcn_dm_tbtt_shft_en : 1;
+	u32 rsvd0: 31;
+};
+
+struct mac_ax_bcn_rpt_stats {
+	u16 cca_cnt;
+	u16 edcca_cnt;
+	u16 nav_cnt;
+	u16 txon_cnt;
+	u16 mac_cnt;
+	u16 others_cnt;
+	u16 lock_cnt;
+	u16 cmp_cnt;
+	u16 invalid_cnt;
+	u16 srchend_cnt;
+	u16 ok_cnt;
+};
+
 /**
  * @struct mac_ax_twt_para
  * @brief mac_ax_twt_para
@@ -6227,6 +6315,35 @@ struct mac_ax_port_init_para {
 	u8 bss_color;
 	u16 bcn_interval;
 	u32 hiq_win;
+};
+
+/**
+ * @struct mac_wdt_log_en
+ * @brief mac_wdt_log_en
+ *
+ * @var mac_wdt_log_en::fw_pc_en
+ * Please Place Description here.
+ * @var mac_wdt_log_en::fw_st_en
+ * Please Place Description here.
+ * @var mac_wdt_log_en::tx_cnt_en
+ * Please Place Description here.
+ * @var mac_wdt_log_en::rx_cnt_en
+ * Please Place Description here.
+ * @var mac_wdt_log_en::dle_status_en
+ * Please Place Description here.
+ * @var mac_wdt_log_en::crit_dbg_en
+ * Please Place Description here.
+ * @var mac_wdt_log_en::rsvd0
+ * Please Place Description here.
+ */
+struct mac_wdt_log_en {
+	u8 fw_pc_en:1;
+	u8 fw_st_en:1;
+	u8 tx_cnt_en:1;
+	u8 rx_cnt_en:1;
+	u8 dle_status_en:1;
+	u8 crit_dbg_en:1;
+	u8 rsvd0:2;
 };
 
 /**
@@ -6521,6 +6638,8 @@ struct mac_ax_conf_ofld_req {
  * Please Place Description here.
  * @var mac_defeature_value::rx_path_num
  * Please Place Description here.
+ * @var mac_defeature_value::band_sel
+ * Please Place Description here.
  */
 struct mac_defeature_value {
 	u8 rx_spatial_stream;
@@ -6533,6 +6652,7 @@ struct mac_defeature_value {
 	u32 uuid;
 	u8 tx_path_num;
 	u8 rx_path_num;
+	u8 band_sel;
 };
 
 /**
@@ -7588,6 +7708,49 @@ struct mac_ax_pg_efuse_info {
 };
 
 /**
+ * @struct mac_efuse_tbl
+ * @brief mac_efuse_tbl
+ *
+ * @var mac_efuse_tbl::lock
+ * Please Place Description here.
+ */
+struct mac_efuse_tbl {
+	mac_ax_mutex lock;
+};
+
+/**
+ * @struct mac_bank_efuse_info
+ * @brief mac_bank_efuse_info
+ *
+ * @var mac_bank_efuse_info::phy_map
+ * Please Place Description here.
+ * @var mac_bank_efuse_info::log_map
+ * Please Place Description here.
+ * @var mac_bank_efuse_info::phy_map_valid
+ * Please Place Description here.
+ * @var mac_bank_efuse_info::log_map_valid
+ * Please Place Description here.
+ * @var mac_bank_efuse_info::efuse_end
+ * Please Place Description here.
+ * @var mac_bank_efuse_info::phy_map_size
+ * Please Place Description here.
+ * @var mac_bank_efuse_info::log_map_size
+ * Please Place Description here.
+ */
+struct mac_bank_efuse_info {
+	/* efuse_param */
+	u8 **phy_map;
+	u8 **log_map;
+	u8 *phy_map_valid;
+	u8 *log_map_valid;
+	u32 *efuse_end;
+	/* hw_info */
+	u32 *phy_map_size;
+	u32 *log_map_size;
+	u32 *efuse_start;
+};
+
+/**
  * @struct mac_ax_efuse_param
  * @brief mac_ax_efuse_param
  *
@@ -7647,6 +7810,12 @@ struct mac_ax_efuse_param {
 	u8 dav_log_efuse_map_valid;
 	u8 *hidden_rf_map;
 	u8 hidden_rf_map_valid;
+	struct mac_efuse_tbl efuse_tbl;
+	struct mac_bank_efuse_info bank_efuse_info;
+	bool OTP_test;
+	enum rtw_dv_sel dv_sel;
+	u16 efuse_ctrl;
+	u16 read_efuse_cnt;
 };
 
 /**
@@ -11623,6 +11792,46 @@ struct mac_ax_snd_wd_para {
 	u8 rsvd: 3;
 };
 
+enum mac_ax_scope_fwd {
+	MAC_AX_SCOPE_DROP = 0,
+	MAC_AX_SCOPE_TO_HOST = 1,
+	MAC_AX_SCOPE_TO_WLCPU = 2
+};
+
+enum mac_ax_scope_mode {
+	MAC_AX_SCOPE_DIS = 0,
+	MAC_AX_SCOPE_BB = 1,
+	MAC_AX_SCOPE_MAC_RXD = 2,
+	MAC_AX_SCOPE_MAC_SEG = 3
+};
+
+/**
+ * @struct mac_ax_scope_cfg
+ * @brief mac_ax_scope_cfg
+ *
+ * @var mac_ax_scope_cfg::band
+ * Please Place Description here.
+ * @var mac_ax_scope_cfg::append_zero_en
+ * Please Place Description here.
+ * @var mac_ax_scope_cfg::seg_size
+ * Please Place Description here.
+ * @var mac_ax_scope_cfg::rsvd
+ * Please Place Description here.
+ * @var mac_ax_scope_cfg::mode
+ * Please Place Description here.
+ * @var mac_ax_scope_cfg::fwd
+ * Please Place Description here.
+ */
+
+struct mac_ax_scope_cfg {
+	u32 band:1;
+	u32 append_zero_en:1;
+	u32 seg_size:4;
+	u32 rsvd:26;
+	enum mac_ax_scope_mode mode;
+	enum mac_ax_scope_fwd fwd;
+};
+
 /**
  * @struct mac_ax_snd_f2P
  * @brief mac_ax_snd_f2P
@@ -12662,6 +12871,37 @@ struct mac_ax_dctl_seq_cfg {
 };
 
 /**
+ * @struct mac_ax_dctl_extend_macid
+ * @brief mac_ax_dctl_extend_macid
+ *
+ * @var macid::macid
+ * Please Place Description here.
+ * @var extend_macid::ext macid
+ * Please Place Description here.
+ */
+struct mac_ax_dctl_extend_macid {
+	u8 macid;
+	u8 extend_macid;
+};
+
+/**
+ * @struct mac_ax_dctl_seq_val
+ * @brief mac_ax_dctl_seq_val
+ *
+ * @var macid::macid
+ * Please Place Description here.
+ * @var val::seq val
+ * Please Place Description here.
+ * @var idx::seq idx
+ * Please Place Description here.
+ */
+struct mac_ax_dctl_seq_val {
+	u8 macid;
+	u32 val;
+	u8 idx;
+};
+
+/**
  * @struct mac_ax_dctl_seq_cfg
  * @brief mac_ax_dctl_seq_cfg
  *
@@ -12827,6 +13067,10 @@ struct mac_ax_fw_dbgcmd {
 	char *buf;
 	u32 out_len;
 	u32 used;
+	u8 dbg_console_log_en:2;
+	u8 dbg_console_log_on:2;
+	u8 dbg_bg_log_en:2;
+	u8 dbg_bg_log_on:2;
 	u32 cmd_idle;
 	mac_ax_mutex lock;
 };
@@ -12898,77 +13142,6 @@ struct mac_ax_ofld_cfg {
 	enum mac_ax_ofld_mode mode;
 	u8 usr_txop_be;
 	u16 usr_txop_be_val;
-};
-
-/**
- * @struct mac_usr_tx_rpt_info
- * @brief usr_txrpt
- *
- * @var mac_ax_ofld_cfg::all fields
- * follow C2H description
- */
-struct mac_usr_tx_rpt_info {
-	/* dword0 */
-	u32 rpt_mode:3;
-	u32 rsvd0:5;
-	u32 macid:8;
-	u32 ac:2;
-	u32 rsvd1:14;
-	/* dword1 */
-	u32 pending_be_1k:16;
-	u32 pending_bk_1k:16;
-	/* dword2 */
-	u32 pending_vi_1k:16;
-	u32 pending_vo_1k:16;
-	/* dword3 */
-	u32 freerun_cnt_first_in;
-	/* dword4 */
-	u32 freerun_cnt_first_out;
-	/* dword5 */
-	u32 freerun_cnt_last_out;
-	/* dword6 */
-	u32 tx_drop_num_be;
-	/* dword7 */
-	u32 tx_drop_num_bk;
-	/* dword8 */
-	u32 tx_drop_num_vi;
-	/* dword9 */
-	u32 tx_drop_num_vo;
-	/* dword10 */
-	u32 tx_ok_num_be;
-	/* dword11 */
-	u32 tx_ok_num_bk;
-	/* dword12 */
-	u32 tx_ok_num_vi;
-	/* dword13 */
-	u32 tx_ok_num_vo;
-	/* dword14 */
-	u32 rx_clear_us;
-	/* dword15 */
-	u32 busy_us;
-	/* dword16 */
-	u32 freerun_cnt_last_in;
-	/* dword17 */
-	u32 tx_ppdu_cnt;
-	/* dword18 */
-	u32 tx_ppdu_cnt_wo_last_pkt;
-	/* dword19 */
-	u32 tx_mpdu_cnt;
-	/* dword20 */
-	u32 tx_mpdu_cnt_wo_last_pkt;
-	/* dword21 */
-	u32 tx_rts_cnt;
-	/* dword22 */
-	u32 tx_rts_retry_cnt;
-	/* dword23 */
-	u32 tx_mpdu_ok_cnt;
-	/* dword24 */
-	u32 ra_ratio:8;
-	u32 max_rts_cnt:8;
-	u32 max_ampdu_num:8;
-	u32 rsvd2:8;
-	/* dword25 */
-	u32 rx_err_cnt;
 };
 
 /**
@@ -13450,6 +13623,28 @@ struct mac_ax_rty_lmt {
 	u8 tx_cnt; //long tx cnt
 	u8 short_tx_cnt;
 	u8 macid;
+};
+
+struct mac_ax_csi_release_cfg {
+	u8 band_sel;
+	enum mac_ax_csi_release_ctrl ctrl;
+};
+
+/**
+ * @struct mac_ax_wd_checksum_cfg
+ * @brief mac_ax_wd_checksum_cfg
+ *
+ * @var mac_ax_wd_checksum_cfg::sw_fill_wd_checksum_en
+ * Please Place Description here.
+ * @var mac_ax_wd_checksum_cfg::host_check_en
+ * Please Place Description here.
+ * @var mac_ax_wd_checksum_cfg::cpu_check_en
+ * Please Place Description here.
+ */
+struct mac_ax_wd_checksum_cfg {
+	u8 sw_fill_wd_checksum_en;
+	u8 host_check_en;
+	u8 cpu_check_en;
 };
 
 /**
@@ -14566,6 +14761,11 @@ struct mac_ax_gnt {
 	u8 gnt_wl;
 };
 
+struct mac_ax_wl_act {
+	u8 wlan_act_en;
+	u8 wlan_act;
+};
+
 /**
  * @struct mac_ax_coex_gnt
  * @brief mac_ax_coex_gnt
@@ -14578,6 +14778,8 @@ struct mac_ax_gnt {
 struct mac_ax_coex_gnt {
 	struct mac_ax_gnt band0;
 	struct mac_ax_gnt band1;
+	struct mac_ax_wl_act bt0;
+	struct mac_ax_wl_act bt1;
 };
 
 /**
@@ -14731,7 +14933,8 @@ struct mac_ax_mcc_start {
 	u32 btc_in_group: 1;
 	u32 old_group_action: 2;
 	u32 old_group:2;
-	u32 rsvd0:9;
+	u32 start_tsf_opt:1;
+	u32 rsvd0:8;
 	u32 notify_cnt:3;
 	u32 rsvd1:2;
 	u32 notify_rxdbg_en:1;
@@ -14869,44 +15072,6 @@ enum mac_ax_threshold_sel {
 	MAC_AX_CTS2SELF_NON_SEC_THRESHOLD, /* sec type != WEP/TKIP/WAP */
 	MAC_AX_CTS2SELF_SEC_THRESHOLD,     /* sec type == WEP/TKIP/WAP */
 	MAC_AX_CTS2SELF_BOTH_THRESHOLD,
-};
-
-/**
- * @struct mac_ax_sr_info
- * @brief mac_ax_sr_info
- *
- * @var mac_ax_sr_info::sr_en
- * Please Place Description here.
- * @var mac_ax_sr_info::sr_field_v15_allowed
- * Please Place Description here.
- * @var mac_ax_sr_info::srg_obss_pd_min
- * Please Place Description here.
- * @var mac_ax_sr_info::srg_obss_pd_max
- * Please Place Description here.
- * @var mac_ax_sr_info::non_srg_obss_pd_min
- * Please Place Description here.
- * @var mac_ax_sr_info::non_srg_obss_pd_max
- * Please Place Description here.
- * @var mac_ax_sr_info::srg_bsscolor_bitmap_0
- * Please Place Description here.
- * @var mac_ax_sr_info::srg_bsscolor_bitmap_1
- * Please Place Description here.
- * @var mac_ax_sr_info::srg_partbsid_bitmap_0
- * Please Place Description here.
- * @var mac_ax_sr_info::srg_partbsid_bitmap_1
- * Please Place Description here.
- */
-struct mac_ax_sr_info {
-	u8 sr_en: 1;
-	u8 sr_field_v15_allowed: 1;
-	u8 srg_obss_pd_min;
-	u8 srg_obss_pd_max;
-	u8 non_srg_obss_pd_min;
-	u8 non_srg_obss_pd_max;
-	u32 srg_bsscolor_bitmap_0;
-	u32 srg_bsscolor_bitmap_1;
-	u32 srg_partbsid_bitmap_0;
-	u32 srg_partbsid_bitmap_1;
 };
 
 /**
@@ -15271,6 +15436,20 @@ struct mac_ax_fast_ch_sw_param {
  * Last status of FCS
  */
 struct mac_ax_fast_ch_sw_info{
+	bool busy;
+	u32 status;
+};
+
+/**
+ * @struct mac_ax_test_l12_info
+ * @brief
+ *
+ * @var mac_ax_test_l12_info::busy
+ * Test L1.2 done or not
+ * @var mac_ax_test_l12_info::status
+ * Test L1.2 result
+ */
+struct mac_ax_test_l12_info{
 	bool busy;
 	u32 status;
 };
@@ -15642,10 +15821,6 @@ struct mac_ax_req_pwr_lvl_info {
 	u32 rsvd0:4;
 };
 
-struct mac_lps_option {
-	enum mac_req_xtal_option req_xtal_option;
-};
-
 /**
  * @struct mac_ax_tbtt_tuning_info
  * @brief mac_ax_tbtt_tuning_info
@@ -15667,6 +15842,13 @@ struct mac_ax_tbtt_tuning_info {
 };
 
 /*--------------------Define NAN related struct -------------------------*/
+
+enum mac_ax_nan_c2h_type {
+	NAN_C2H_TYPE_ACT_REQ_ACK = 0,
+	NAN_C2H_TYPE_CLUSTER_INFO = 1,
+	NAN_C2H_TYPE_TSF_INFO = 2,
+};
+
 /**
  * @struct mac_ax_act_ack_info
  * @brief mac_ax_act_ack_info
@@ -15705,12 +15887,13 @@ struct mac_ax_nan_info {
 	u8 rpt_cluster_id[6];
 	u8 rpt_master_pref;
 	u8 rpt_random_factor;
-	u32 rpt_amr;
+	u64 rpt_amr;
 	u32 rpt_ambtt;
 	u8 rpt_hop_count;
 	u32 rpt_port_dwst_low;
 	u32 rpt_fr_dwst_low;
 	struct mac_ax_act_ack_info nan_act_ack_info;
+	enum mac_ax_nan_c2h_type rpt_nan_c2h_type;
 };
 
 /**
@@ -15833,7 +16016,7 @@ struct mac_ax_nan_bcn {
 struct mac_ax_nan_func_info {
 	/* dword0 */
 	u8 port_idx;
-	u8 mac_id;
+	u8 rsvd0;
 	u8 master_pref;
 	u8 random_factor;
 	/* dword1 */
@@ -15843,11 +16026,40 @@ struct mac_ax_nan_func_info {
 	/* dword2 */
 	u8 time_indicate_period;
 	u8 cluster_id[6];
-	u8 rsvd;
+	u8 rsvd1;
 	/* dword4 */
 	u16 para_options;
 	u8 fw_test_para_1;
 	u8 fw_test_para_2;
+	/* dword5 */
+	u16 mac_id_bcn;
+	u16 mac_id_mgn;
+};
+struct mac_ax_nan_avail_t_bitmap_info {
+	/* dword0 */
+	u8 module_id;
+	u8 option;
+	u16 start_offset_16tu;
+	/* dword1 */
+	u16 period_tu;
+	u8 bit_duration_tu;
+	u8 time_bitmap_len;
+	/* dword2 */
+	u32 time_bitmap_0_3;
+	/* dword3 */
+	u32 time_bitmap_4_7;
+	/* dword4 */
+	u32 time_bitmap_8_11;
+	/* dword5 */
+	u32 time_bitmap_12_15;
+	/* dword6 */
+	u8 channel;
+	u8 bw;
+	u8 primary_ch_idx;
+	u8 rsvd0;
+	/* dword7 */
+	u16 mac_id;
+	u16 rsvd1;
 };
 
 /**
@@ -16025,6 +16237,10 @@ struct mac_ax_pltfm_cb {
 			     enum mac_ax_status stat, u8 *buf, u32 size);
 #if MAC_AX_FEATURE_DBGCMD
 	s32 (*rtl_sprintf)(void *drv_adapter, char *buf, size_t size, const char *fmt, ...);
+#ifdef TEST_MAC_TEMP
+	s32 (*rtl_vsprintf)(void *drv_adapter, char *buf, size_t size, const char *fmt,
+			    _os_va_list args);
+#endif
 	s32 (*rtl_strcmp)(void *drv_adapter, const char *s1, const char *s2);
 	char* (*rtl_strsep)(void *drv_adapter, char **s, const char *ct);
 	u32 (*rtl_strlen)(void *drv_adapter, char *buf);
@@ -16133,6 +16349,7 @@ struct mac_ax_adapter {
 	struct sensing_csi_info csi_info;
 	struct mac_ax_nan_info nan_info;
 	u8 env;
+	struct mac_ax_test_l12_info test_l12_info;
 #if MAC_AX_SDIO_SUPPORT
 	struct mac_ax_sdio_info sdio_info;
 #endif
@@ -16162,6 +16379,8 @@ struct mac_ax_adapter {
 	struct mac_ax_dbcc_info *dbcc_info;
 	struct mac_ax_bcn_fltr_rpt bcn_fltr_rpt;
 	struct mac_ax_bcn_ignore_edcca bcn_ignore_edcca;
+	struct mac_ax_bcn_rpt_stats *bcn_rpt_stats;
+	struct mac_wdt_log_en wdt_log_en;
 };
 
 /**
@@ -16347,6 +16566,12 @@ struct mac_ax_intf_ops {
 	u32 (*get_pcie_speed)(struct mac_ax_adapter *adapter,
 			      u8 *speed);
 	/**
+	 * @get_pcie_sup_speed
+	 * Only support PCIE interface. Using this API in other interface
+	 * may cause system crash or segmentation fault.
+	 */
+	u32 (*get_pcie_sup_speed)(struct mac_ax_adapter *adapter);
+	/**
 	 * @ctrl_txhci
 	 * Only support PCIE interface. Using this API in other interface
 	 * may cause system crash or segmentation fault.
@@ -16433,6 +16658,22 @@ struct mac_ax_intf_ops {
 	 */
 	u32 (*tp_adjust)(struct mac_ax_adapter *adapter,
 			 struct mac_ax_tp_param tp);
+	/**
+	 * @ctrl_txdma
+	 * To enable, disable ant further control tx dma.
+	 * Should be maintained by each interface respectively.
+	 */
+	u32 (*ctrl_txdma)(struct mac_ax_adapter *adapter, u8 opt);
+	/**
+	 * @poll_txdma_idle
+	 * Operations to make sure txdma is idle after disable txdma.
+	 */
+	u32 (*poll_txdma_idle)(struct mac_ax_adapter *adapter);
+	/**
+	 * @clr_hci_trx
+	 * To clear or flush remained packet in hci HW.
+	 */
+	u32 (*clr_hci_trx)(struct mac_ax_adapter *adapter);
 };
 
 /**
@@ -17110,6 +17351,10 @@ struct mac_ax_ops {
 	u32 (*set_hwseq_reg)(struct mac_ax_adapter *adapter,
 			     u8 reg_seq_idx,
 			     u16 reg_seq_val);
+	u32 (*set_hwseq_extend_macid)(struct mac_ax_adapter *adapter,
+				      struct mac_ax_dctl_extend_macid *seq_info);
+	u32 (*set_hwseq_dctl_seq_val)(struct mac_ax_adapter *adapter,
+				      struct mac_ax_dctl_seq_val *seq_info);
 	u32 (*set_hwseq_dctrl)(struct mac_ax_adapter *adapter,
 			       u8 macid,
 			       struct mac_ax_dctl_seq_cfg *seq_info);
@@ -17162,7 +17407,7 @@ struct mac_ax_ops {
 				struct mac_ax_addrcam_dis_ctrl_t *ctl_msk,
 				enum mac_ax_band band);
 	u32 (*sr_update)(struct mac_ax_adapter *adapter,
-			 struct mac_ax_sr_info *sr_info,
+			 struct rtw_mac_ax_sr_info *sr_info,
 			 enum mac_ax_band band);
 	u32 (*two_nav_cfg)(struct mac_ax_adapter *adapter,
 			   struct mac_ax_2nav_info *info);
@@ -17225,6 +17470,8 @@ struct mac_ax_ops {
 				  enum mac_ax_ss_rpt_cfg cfg);
 	u32 (*set_bcn_ignore_edcca)(struct mac_ax_adapter *adapter,
 				    struct mac_ax_bcn_ignore_edcca *bnc_ignore_edcca);
+	u32 (*set_bcn_dynamic_mech)(struct mac_ax_adapter *adapter,
+				    struct mac_ax_bcn_dynamic_mech *bcn_dynamic_mech);
 	/*outsrcing related */
 	u32 (*outsrc_h2c_common)(struct mac_ax_adapter *adapter,
 				 struct rtw_g6_h2c_hdr *hdr,
@@ -17311,10 +17558,12 @@ struct mac_ax_ops {
 				   struct mac_ax_ps_adv_parm *parm);
 	u32 (*periodic_wake_cfg)(struct mac_ax_adapter *adapter,
 				 struct mac_ax_periodic_wake_info pw_info);
+	u32 (*req_pwr_state_cfg)(struct mac_ax_adapter *adapter,
+				 enum mac_req_pwr_st req_pwr_st);
 	u32 (*req_pwr_lvl_cfg)(struct mac_ax_adapter *adapter,
 			       struct mac_ax_req_pwr_lvl_info *pwr_lvl_info);
 	u32 (*lps_option_cfg)(struct mac_ax_adapter *adapter,
-			      struct mac_lps_option *lps_opt);
+			      struct rtw_mac_lps_option *lps_opt);
 	u32 (*tbtt_tuning_cfg)(struct mac_ax_adapter *adapter,
 			       struct mac_ax_tbtt_tuning_info *tbtt_tuning_info);
 	/*Wowlan related*/
@@ -17495,7 +17744,11 @@ struct mac_ax_ops {
 	u32 (*io_chk_access)(struct mac_ax_adapter *adapter, u32 offset);
 	u32 (*ser_ctrl)(struct mac_ax_adapter *adapter, enum mac_ax_func_sw sw);
 	u32 (*chk_err_status)(struct mac_ax_adapter *adapter, u8 *ser_status);
+	u32 (*set_l0_dbg_mode)(struct mac_ax_adapter *adapter);
+	u32 (*set_l1_dbg_mode)(struct mac_ax_adapter *adapter);
+	u32 (*reset_dbg_mode)(struct mac_ax_adapter *adapter);
 	u32 (*get_freerun)(struct mac_ax_adapter *adapter, struct mac_ax_freerun *freerun);
+	u32 (*set_h2c_c2h_mon)(struct mac_ax_adapter *adapter, u8 en);
 	/* mcc */
 	u32 (*reset_mcc_group)(struct mac_ax_adapter *adapter, u8 group);
 	u32 (*reset_mcc_request)(struct mac_ax_adapter *adapter, u8 group);
@@ -17553,6 +17806,9 @@ struct mac_ax_ops {
 				   struct mac_ax_per_pkt_phy_rpt *rpt);
 #if MAC_AX_FEATURE_DBGPKG
 	u32 (*fwcmd_lb)(struct mac_ax_adapter *adapter, u32 len, u8 burst);
+	u32 (*test_l12)(struct mac_ax_adapter *adapter);
+	u32 (*get_test_l12_done)(struct mac_ax_adapter *adapter);
+	u32 (*get_test_l12_rpt)(struct mac_ax_adapter *adapter, u32 *test_l12_status_code);
 	u32 (*mem_dump)(struct mac_ax_adapter *adapter, enum mac_ax_mem_sel sel,
 			u32 strt_addr, u8 *data, u32 size, u32 dbg_path);
 	u32 (*get_mem_size)(struct mac_ax_adapter *adapter,
@@ -17614,6 +17870,7 @@ struct mac_ax_ops {
 			   u32 timeout);
 	u32 (*fw_status_cmd)(struct mac_ax_adapter *adapter,
 			     struct mac_ax_fwstatus_payload *info);
+	u32 (*fw_general_io_test)(struct mac_ax_adapter *adapter);
 	u32 (*tx_duty)(struct mac_ax_adapter *adapter,
 		       u16 pause_intvl, u16 tx_intvl);
 	u32 (*tx_duty_stop)(struct mac_ax_adapter *adapter);
@@ -17668,6 +17925,7 @@ struct mac_ax_ops {
 	u32 (*proxy_mdns)(struct mac_ax_adapter *adapter, struct rtw_hal_mac_proxy_mdns *pmdns);
 	u32 (*proxy_ptcl_pattern)(struct mac_ax_adapter *adapter,
 				  struct rtw_hal_mac_proxy_ptcl_pattern *cfg);
+	u32 (*proxy_snmp)(struct mac_ax_adapter *adapter, struct rtw_hal_mac_proxy_snmp *cfg);
 	u32 (*check_proxy_done)(struct mac_ax_adapter *adapter, u8 *fw_ret);
 	/*Fw Cap related*/
 	u32 (*get_wlanfw_cap)(struct mac_ax_adapter *adapter, struct rtw_wcpu_cap_t *wcpu_cap);
@@ -17685,9 +17943,13 @@ struct mac_ax_ops {
 				   struct mac_ax_nan_info *cluster_info);
 	u32(*check_cluster_info)(struct mac_ax_adapter *adapter,
 				 struct mac_ax_nan_info *cluster_info);
+	u32(*nan_avail_t_bitmap)(struct mac_ax_adapter *adapter,
+				 struct mac_ax_nan_avail_t_bitmap_info *info);
 	/*sta csa*/
 	u32 (*cfg_sta_csa)(struct mac_ax_adapter *adapter, struct rtw_hal_mac_sta_csa *parm);
 	u32 (*check_sta_csa_cfg)(struct mac_ax_adapter *adapter, u8 *fw_ret);
+	/* tx mode switch */
+	u32 (*txmode_switch)(struct mac_ax_adapter *adapter, u8 swtx);
 	/* MP security related */
 	u32 (*mp_chk_sec_rec)(struct mac_ax_adapter *adapter, u8 *sec_mode);
 	u32 (*mp_pg_sec_phy_wifi)(struct mac_ax_adapter *adapter);

@@ -27,6 +27,13 @@ enum {
 	R_AX_HW_SEQ_3 = 3,
 };
 
+enum hw_ssn_idx {
+	DCTL_HW_SEQ_0 = 0,
+	DCTL_HW_SEQ_1 = 1,
+	DCTL_HW_SEQ_2 = 2,
+	DCTL_HW_SEQ_3 = 3
+};
+
 /**
  * @struct mac_ax_set_hwseq_reg
  * @brief mac_ax_set_hwseq_reg
@@ -62,6 +69,48 @@ struct mac_ax_set_hwseq_reg {
 u32 mac_set_hwseq_reg(struct mac_ax_adapter *adapter,
 		      u8 idx,
 		      u16 val);
+
+/**
+ * @}
+ * @}
+ */
+/**
+ * @addtogroup Basic_TRX
+ * @{
+ * @addtogroup TX_ShortCut
+ * @{
+ */
+/**
+ * @brief mac_set_hwseq_extend_macid
+ *
+ * @param *adapter
+ * @param mac_set_hwseq_extend_macid_1115e
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_set_hwseq_extend_macid(struct mac_ax_adapter *adapter,
+				     struct mac_ax_dctl_extend_macid *seq_info);
+
+/**
+ * @}
+ * @}
+ */
+/**
+ * @addtogroup Basic_TRX
+ * @{
+ * @addtogroup TX_ShortCut
+ * @{
+ */
+/**
+ * @brief mac_set_hwseq_dctl_seq_val_1115e
+ *
+ * @param *adapter
+ * @param mac_ax_dctl_seq_val
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_set_hwseq_dctl_seq_val(struct mac_ax_adapter *adapter,
+				     struct mac_ax_dctl_seq_val *seq_info);
 /**
  * @}
  * @}

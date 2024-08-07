@@ -300,6 +300,7 @@ struct bb_antdiv_info {
 	bool get_stats;
 	bool antdiv_use_ctrl_frame;
 	struct halbb_timer_info antdiv_timer_i;
+	u32 rvrt_val; /*all rvrt_val for pause API must set to u32*/
 };
 
 struct bb_info;
@@ -323,5 +324,6 @@ void halbb_antdiv_phy_sts(struct bb_info *bb, u32 physts_bitmap,
 		       struct physts_rxd *desc);
 void halbb_antdiv_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			      char *output, u32 *_out_len);
+void halbb_set_antdiv_pause_val(struct bb_info *bb, u32 *val_buf, u8 val_len);
 #endif
 

@@ -154,39 +154,6 @@ _phl_p2pps_query_mcc_inprog_wkard(struct phl_info_t *phl_info,
 	return ret;
 }
 
-struct rtw_wifi_role_t *
-_phl_get_role_by_band_port(struct phl_info_t* phl_info,
-                           u8 hw_band,
-                           u8 hw_port)
-{
-	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
-	struct mr_ctl_t *mr_ctl = phlcom_to_mr_ctrl(phl_com);
-	struct hw_band_ctl_t *band_ctrl = &(mr_ctl->band_ctrl[hw_band]);
-	struct rtw_wifi_role_t *wrole = NULL;
-	u8 ridx = 0;
-
-	for (ridx = 0; ridx < MAX_WIFI_ROLE_NUMBER; ridx++) {
-		if (!(band_ctrl->role_map & BIT(ridx)))
-			continue;
-		wrole = phl_get_wrole_by_ridx(phl_info, ridx);
-		if (wrole == NULL)
-			continue;
-
-		if (wrole->rlink_num == 1) {
-			if (wrole->rlink[wrole->rlink_num-1].hw_band == hw_band &&
-			    wrole->rlink[wrole->rlink_num-1].hw_port == hw_port) {
-				PHL_TRACE(COMP_PHL_P2PPS, _PHL_INFO_, "[NOA]_phl_get_role_by_band_port():role_id(%d) hw_band = %d, hw_port = %d\n",
-				                                     ridx,
-				                                     wrole->rlink[wrole->rlink_num-1].hw_band,
-				                                     wrole->rlink[wrole->rlink_num-1].hw_port);
-
-				return wrole;
-			}
-		}
-	}
-	return NULL;
-}
-
 void
 _phl_p2pps_calc_next_noa_s_time(struct phl_info_t *phl_info,
 	struct rtw_wifi_role_t *w_role,
@@ -257,7 +224,7 @@ void phl_p2pps_tsf32_tog_handler(struct phl_info_t* phl_info)
 		PHL_TRACE(COMP_PHL_P2PPS, _PHL_WARNING_, "[NOA]phl_p2pps_tsf32_tog_handler():report not valid!!\n");
 		return;
 	}
-	wrole = _phl_get_role_by_band_port(phl_info, rpt.band, rpt.port);
+	wrole = rtw_phl_get_role_by_band_port(phl_info, rpt.band, rpt.port);
 	if (wrole) {
 		if (wrole->type == PHL_RTYPE_AP ||
 			wrole->type == PHL_RTYPE_P2P_GO) {

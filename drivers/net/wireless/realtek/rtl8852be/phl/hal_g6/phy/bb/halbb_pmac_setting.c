@@ -34,6 +34,13 @@ void halbb_set_pmac_tx(struct bb_info *bb, struct halbb_pmac_info *tx_info,
 	halbb_fwofld_bitmap_en(bb, true, FW_OFLD_BB_API);
 	#endif
 
+	if (bb->bb_dbg_i.cr_mp_recorder_en) {
+		if (tx_info->en_pmac_tx)
+			BB_TRACE("[MP] // <====== PMAC Tx start ======>\n");
+		else
+			BB_TRACE("[MP] // <====== PMAC Tx stop ======>\n");
+	}
+
 	switch (bb->ic_type) {
 
 	#ifdef BB_8852A_2_SUPPORT
@@ -86,8 +93,21 @@ void halbb_set_pmac_tx(struct bb_info *bb, struct halbb_pmac_info *tx_info,
 		break;
 	#endif
 
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		halbb_set_pmac_tx_8922a(bb, tx_info, phy_idx);
+		break;
+	#endif
+
 	default:
 		break;
+	}
+
+	if (bb->bb_dbg_i.cr_mp_recorder_en) {
+		if (tx_info->en_pmac_tx)
+			BB_TRACE("[MP] // <====== PMAC Tx start [End] ======>\n");
+		else
+			BB_TRACE("[MP] // <====== PMAC Tx stop [End] ======>\n");
 	}
 
 	#ifdef HALBB_FW_OFLD_SUPPORT
@@ -138,6 +158,12 @@ void halbb_set_tmac_tx(struct bb_info *bb, enum phl_phy_idx phy_idx)
 		break;
 	#endif
 
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		halbb_set_tmac_tx_8922a(bb, phy_idx);
+		break;
+	#endif
+
 	default:
 		break;
 	}
@@ -153,6 +179,13 @@ bool halbb_cfg_lbk(struct bb_info *bb, bool lbk_en, bool is_dgt_lbk,
 		   enum channel_width bw, enum phl_phy_idx phy_idx)
 {
 	bool rpt = true;
+
+	if (bb->bb_dbg_i.cr_mp_recorder_en) {
+		if (lbk_en)
+			BB_TRACE("[MP] // <====== LBK Enable ======>\n");
+		else
+			BB_TRACE("[MP] // <====== LBK disable ======>\n");
+	}
 
 	switch (bb->ic_type) {
 
@@ -186,8 +219,22 @@ bool halbb_cfg_lbk(struct bb_info *bb, bool lbk_en, bool is_dgt_lbk,
 		break;
 	#endif
 
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = halbb_cfg_lbk_8922a(bb, lbk_en, is_dgt_lbk, tx_path,
+					  rx_path, bw, phy_idx);
+		break;
+	#endif
+
 	default:
 		break;
+	}
+
+	if (bb->bb_dbg_i.cr_mp_recorder_en) {
+		if (lbk_en)
+			BB_TRACE("[MP] // <====== LBK Enable [End] ======>\n");
+		else
+			BB_TRACE("[MP] // <====== LBK disable [End] ======>\n");
 	}
 
 	return rpt;
@@ -230,6 +277,26 @@ bool halbb_cfg_lbk_cck(struct bb_info *bb, bool lbk_en, bool is_dgt_lbk,
 
 	return rpt;
 }
+
+void halbb_tx_triangular_en(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx)
+{
+
+	BB_DBG(bb, DBG_PHY_CONFIG, "<====== %s ======>\n", __func__);
+
+	switch (bb->ic_type) {
+
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		halbb_tx_triangular_en_8922a(bb, en, phy_idx);
+		break;
+	#endif
+
+	default:
+		break;
+	}
+
+}
+
 /*============================ [Power Module] =============================*/
 bool halbb_set_txpwr_dbm(struct bb_info *bb, s16 pwr_dbm,
 			 enum phl_phy_idx phy_idx)
@@ -240,6 +307,9 @@ bool halbb_set_txpwr_dbm(struct bb_info *bb, s16 pwr_dbm,
 		BB_WARNING("[%s] mode=%d\n", __func__, bb->phl_com->drv_mode);
 		//return false;
 	}
+
+	if (bb->bb_dbg_i.cr_mp_recorder_en)
+		BB_TRACE("[MP] // <====== Set PMAC Tx pwr ======>\n");
 
 	switch (bb->ic_type) {
 
@@ -279,10 +349,19 @@ bool halbb_set_txpwr_dbm(struct bb_info *bb, s16 pwr_dbm,
 		break;
 	#endif
 
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = halbb_set_txpwr_dbm_8922a(bb, pwr_dbm, phy_idx);
+		break;
+	#endif
+
 	default:
 		rpt = false;
 		break;
 	}
+
+	if (bb->bb_dbg_i.cr_mp_recorder_en)
+		BB_TRACE("[MP] // <====== Set PMAC Tx pwr [End] ======>\n");
 
 	return rpt;
 }
@@ -738,6 +817,12 @@ void halbb_dpd_bypass(struct bb_info *bb, bool pdp_bypass,
 		halbb_dpd_bypass_8192xb(bb, pdp_bypass, phy_idx);
 		break;
 	#endif
+
+	#ifdef BB_8851B_SUPPORT
+	case BB_RTL8851B:
+		halbb_dpd_bypass_8851b(bb, pdp_bypass, phy_idx);
+		break;
+	#endif
 	
 	default:
 		break;
@@ -897,6 +982,12 @@ enum rtw_hal_status halbb_set_txsc(struct bb_info *bb, u8 txsc,
 		break;
 	#endif
 
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = RTW_HAL_STATUS_NOT_SUPPORT;
+		break;
+	#endif
+
 	default:
 		rpt = RTW_HAL_STATUS_FAILURE;
 		break;
@@ -915,6 +1006,13 @@ enum rtw_hal_status halbb_set_txsb(struct bb_info *bb, u8 txsb,
 	#ifdef BB_1115_SUPPORT
 	case BB_RLE1115:
 		if (halbb_set_txsb_1115(bb, txsb, phy_idx))
+			rpt = RTW_HAL_STATUS_SUCCESS;
+		break;
+	#endif
+
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		if (halbb_set_txsb_8922a(bb, txsb, phy_idx))
 			rpt = RTW_HAL_STATUS_SUCCESS;
 		break;
 	#endif
@@ -970,6 +1068,12 @@ bool halbb_set_bss_color(struct bb_info *bb, u8 bss_color,
 		break;
 	#endif
 
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = halbb_set_bss_color_8922a(bb, bss_color, phy_idx);
+		break;
+	#endif
+
 	default:
 		rpt = false;
 		break;
@@ -1017,6 +1121,12 @@ bool halbb_set_sta_id(struct bb_info *bb, u16 sta_id, enum phl_phy_idx phy_idx)
 	#ifdef BB_1115_SUPPORT
 	case BB_RLE1115:
 		rpt = halbb_set_sta_id_1115(bb, sta_id, phy_idx);
+		break;
+	#endif
+
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		rpt = halbb_set_sta_id_8922a(bb, sta_id, phy_idx);
 		break;
 	#endif
 

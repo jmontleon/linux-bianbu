@@ -37,6 +37,13 @@
 #define FWCMD_H2C_GET_MCCCH 2
 #define FWCMD_H2C_DPK_OFFLOAD 3
 #define FWCMD_H2C_IQK_OFFLOAD 4
+#define FWCMD_H2C_PWR_TBL_OFFLOAD 5
+
+/*C2H classid*/
+enum halrf_c2h_classid {
+	HALRF_C2H_RFK_LOG		= 0x8,
+	HALRF_MAX_C2HCMD
+};
 
 /*@--------------------------[Enum]------------------------------------------*/
 enum halrf_func_idx {
@@ -63,7 +70,8 @@ enum halrf_func_idx {
 	RF20_OP5K_TRK = 20,
 	RF21_OP5K = 21,
 	RF22_TPE_CTRL = 22,
-	RF23_RXDCK_TRK = 23
+	RF23_RXDCK_TRK = 23,
+	RF31_WATCHDOG = 31
 };
 
 enum halrf_rf_mode {
@@ -118,6 +126,7 @@ enum halrf_ability {
 	HAL_RF_OP5K = BIT(RF21_OP5K),
 	HAL_RF_TPE_CTRL = BIT(RF22_TPE_CTRL),
 	HAL_RF_RXDCK_TRACK = BIT(RF23_RXDCK_TRK),
+	HAL_RF_WATCHDOG = BIT(RF31_WATCHDOG),
 };
 
 /*@=[HALRF Debug Component]=====================================*/
@@ -154,15 +163,6 @@ struct rfk_location {
 	enum band_type cur_band;
 	enum channel_width cur_bw;
 	u8 cur_ch;
-};
-
-struct halrf_fem_info {
-	u8 elna_2g;		/*@with 2G eLNA  NO/Yes = 0/1*/
-	u8 elna_5g;		/*@with 5G eLNA  NO/Yes = 0/1*/
-	u8 elna_6g;		/*@with 6G eLNA  NO/Yes = 0/1*/
-	u8 epa_2g;		/*@with 2G ePA    NO/Yes = 0/1*/
-	u8 epa_5g;		/*@with 5G ePA    NO/Yes = 0/1*/
-	u8 epa_6g;		/*@with 6G ePA    NO/Yes = 0/1*/
 };
 
 #define OP5K_RESET_CNT_DATA	16
@@ -248,6 +248,44 @@ struct halrf_dbcc_info {
 	bool is_free[2];
 };
 
+struct halrf_rfk_ops {
+	void (*halrf_ops_rx_dck)(struct rf_info *rf, enum phl_phy_idx phy, bool is_afe);
+	void (*halrf_ops_do_txgapk)(struct rf_info *rf, enum phl_phy_idx phy);
+	void (*halrf_ops_tssi_disable)(struct rf_info *rf, enum phl_phy_idx phy);
+	void (*halrf_ops_do_tssi)(struct rf_info *rf, enum phl_phy_idx phy, bool hwtx_en);
+	void (*halrf_ops_dpk)(struct rf_info *rf, enum phl_phy_idx phy, bool force);
+	void (*halrf_ops_dack)(struct rf_info *rf, bool force);
+	void (*halrf_ops_lck)(struct rf_info *rf);
+	void (*halrf_ops_lck_tracking)(struct rf_info *rf);
+	void (*halrf_ops_lo_test)(struct rf_info *rf, bool is_on, enum rf_path path);
+	void (*halrf_config_radio_to_fw)(struct rf_info *rf);
+	void (*halrf_ops_txgapk_w_table_default)(struct rf_info *rf, enum phl_phy_idx phy);
+	void (*halrf_ops_txgapk_enable)(struct rf_info *rf, enum phl_phy_idx phy);
+	void (*halrf_ops_txgapk_init)(struct rf_info *rf);
+	void (*halrf_ops_adie_pow_ctrl)(struct rf_info *rf, bool rf_off, bool others_off);
+	void (*halrf_ops_afe_pow_ctrl)(struct rf_info *rf, bool adda_off, bool pll_off);
+	void (*halrf_ops_set_gpio_by_ch)(struct rf_info *rf, enum phl_phy_idx phy, enum band_type band);
+};
+
+struct halrf_rt_rpt {
+	u32 ch_info[10][2][2]; //last10 /cv
+	u8 tssi_code[10][2]; //tssi/path
+	u32 drv_lck_fail_count;
+	u32 fw_lck_fail_count;
+};
+
+struct halrf_rfk_dz_rpt {
+	u32 iqk_dz_code;
+	u32 dpk_dz_code;
+	u32 dack_s0_dz_code;
+	u32 dack_s1_dz_code;	
+	u32 rxdck_dz_code;
+	u32 txgapk_dz_code;
+	u32 tssi_dz_code;
+};
+
+//===========
+
 struct rf_info {
 	struct rtw_phl_com_t	*phl_com;
 	struct rtw_hal_com_t	*hal_com;
@@ -332,6 +370,7 @@ struct rf_info {
 	struct halrf_dack_info	dack;
 	struct halrf_gapk_info	gapk;
 	struct halrf_pwr_info	pwr_info;
+	struct halrf_fw_scan_pwr_info pwr_fw_info;
 	struct halrf_radio_info	radio_info;
 	struct halrf_fem_info	fem;
 	struct rf_dbg_cmd_info	rf_dbg_cmd_i;
@@ -344,6 +383,10 @@ struct rf_info {
 	struct halrf_op5k_info op5k_info;
 	struct halrf_mcc_info mcc_info;
 	struct halrf_dbcc_info dbcc_info;
+	//
+	struct halrf_rfk_ops *rf_rfk_ops;
+	struct halrf_rt_rpt rf_rt_rpt;
+	struct halrf_rfk_dz_rpt rfk_dz_rpt;
 };
 
 /*@--------------------------[Prptotype]-------------------------------------*/

@@ -144,22 +144,19 @@ void halrf_lck_check_8852b(struct rf_info *rf)
 	
 bool halrf_set_s0_arfc18_8852b(struct rf_info *rf, u32 val)
 {
-	u32 temp, c = 1000;
+	u32 c = 1000;
 	bool timeout = false;
 
-	temp = halrf_rrf(rf, RF_PATH_A,0xb1, MASKRF);
-
-	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
-
-	halrf_wrf(rf, RF_PATH_A, 0xb1, 0x1c0, 0x1);
+	halrf_wrf(rf, RF_PATH_A, 0xd3, BIT(8), 0x1);
 	halrf_wrf(rf, RF_PATH_A, 0x18, MASKRF, val);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_rf(rf, RF_PATH_A, 0xb7, BIT(8), 0x0, c)) {
-		timeout = true;
-		RF_WARNING("[LCK]LCK timeout\n");
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_rf(rf, RF_PATH_A, 0xb7, BIT(8), 0x0, c)) {
+			timeout = true;
+			RF_WARNING("[LCK]IOoffload polling fail\n");
+		}
 	}
-	halrf_wrf(rf, RF_PATH_A, 0xb1, MASKRF, temp);
 #else 
 	c = 0;
 	while (c < 1000) {
@@ -168,79 +165,114 @@ bool halrf_set_s0_arfc18_8852b(struct rf_info *rf, u32 val)
 		c++;
 		halrf_delay_us(rf, 1);
 	}
-	halrf_wrf(rf, RF_PATH_A, 0xb1, MASKRF, temp);
 	if (c == 1000) {
 		timeout = true;
 		RF_WARNING("[LCK]LCK timeout\n");
 	}
 #endif
-
-	halrf_write_fwofld_end(rf);		/*FW Offload End*/
-
+	halrf_wrf(rf, RF_PATH_A, 0xd3, BIT(8), 0x0);
 	return timeout;
+}
+
+
+bool halrf_do_lck_check_8852b(struct rf_info *rf)
+{
+	u32 step = 1;
+	bool lck_fail = false, mask_step2 =  false;
+	u32 temp_18, temp_a0, temp_af, temp_b1;
+
+	halrf_write_fwofld_start(rf);
+	for(step = 1; step <4; step++) {
+		switch (step) {
+		case 1:
+			if (halrf_rrf(rf, RF_PATH_A, 0xc5, BIT(15)) == 0) {
+				RF_WARNING("[LCK]SYN MMD reset\n");
+				halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(8), 0x1);
+				halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(6), 0x0);
+				halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(6), 0x1);
+				halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(8), 0x0);
+				halrf_delay_us(rf, 10);
+				lck_fail = true;
+			}
+			break;
+		case 2:
+			if (mask_step2)
+				break;
+			if (halrf_rrf(rf, RF_PATH_A, 0xc5, BIT(15)) == 0) {
+				RF_WARNING("[LCK]re-set RF 0x18\n");
+				temp_18 = halrf_rrf(rf, RF_PATH_A, 0x18, MASKRF);
+				temp_b1 = halrf_rrf(rf, RF_PATH_A, 0xb1, MASKRF);
+				halrf_wrf(rf, RF_PATH_A, 0xb1, 0x1c0, 0x1);
+				halrf_set_s0_arfc18_8852b(rf, temp_18);
+				halrf_wrf(rf, RF_PATH_A, 0xb1, MASKRF, temp_b1);
+				lck_fail = true;
+			} else {
+				lck_fail = false;
+			}
+			break;
+		case 3:
+			mask_step2 = true;
+			if (halrf_rrf(rf, RF_PATH_A, 0xc5, BIT(15)) == 0) {
+				RF_WARNING("[LCK]SYN off/on\n");
+				temp_18 = halrf_rrf(rf, RF_PATH_A, 0x18, MASKRF);
+				temp_a0 = halrf_rrf(rf, RF_PATH_A, 0xa0, MASKRF);
+				temp_af = halrf_rrf(rf, RF_PATH_A, 0xaf, MASKRF);
+				temp_b1 = halrf_rrf(rf, RF_PATH_A, 0xb1, MASKRF);
+				halrf_wrf(rf, RF_PATH_A, 0xa0, MASKRF, temp_a0);
+				halrf_wrf(rf, RF_PATH_A, 0xaf, MASKRF, temp_af);
+				halrf_wrf(rf, RF_PATH_A, 0xdd, BIT(4), 0x1);
+				halrf_wrf(rf, RF_PATH_A, 0xa0, 0xc, 0x0);
+				halrf_delay_us(rf, 10);
+				halrf_wrf(rf, RF_PATH_A, 0xa0, 0xc, 0x3);
+				halrf_wrf(rf, RF_PATH_A, 0xdd, BIT(4), 0x0);
+				halrf_delay_us(rf, 40);
+				halrf_wrf(rf, RF_PATH_A, 0xb1, 0x1c0, 0x1);
+				halrf_set_s0_arfc18_8852b(rf, temp_18);
+				halrf_wrf(rf, RF_PATH_A, 0xb1, MASKRF, temp_b1);
+				lck_fail = true;
+			} else { 
+				lck_fail = false;
+			}
+			break;
+		default:
+			break;
+		}
+		if (!lck_fail)
+			break;
+	}
+	return lck_fail;
 }
 
 void halrf_lck_check_8852b(struct rf_info *rf)
 {
-	u32 temp;
+	struct halrf_rt_rpt *rpt = &rf->rf_rt_rpt;
+	u32 c = 0;
+	bool lck_fail = false;
 
-	if (halrf_rrf(rf, RF_PATH_A, 0xc5, BIT(15)) == 0) {
-		RF_WARNING("[LCK]SYN MMD reset\n");
-		/*MMD reset*/
-		halrf_write_fwofld_start(rf);		/*FW Offload Start*/
-		
-		halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(8), 0x1);
-		halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(6), 0x0);
-		halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(6), 0x1);
-		halrf_wrf(rf, RF_PATH_A, 0xd5, BIT(8), 0x0);
-
-		halrf_write_fwofld_end(rf);		/*FW Offload End*/
+	while (c < 20) {
+		c++;
+		lck_fail = halrf_do_lck_check_8852b(rf);
+		if (!lck_fail)
+			break;
 	}
 
-	halrf_delay_us(rf, 10);
-
-	if (halrf_rrf(rf, RF_PATH_A, 0xc5, BIT(15)) == 0) {
-		RF_WARNING("[LCK]re-set RF 0x18\n");
-		halrf_wrf(rf, RF_PATH_A, 0xd3, BIT(8), 0x1);
-		temp = halrf_rrf(rf, RF_PATH_A, 0x18, MASKRF);
-		halrf_set_s0_arfc18_8852b(rf, temp);
-		halrf_wrf(rf, RF_PATH_A, 0xd3, BIT(8), 0x0);
-	}
-
-	if (halrf_rrf(rf, RF_PATH_A, 0xc5, BIT(15)) == 0) {
-		RF_WARNING("[LCK]SYN off/on\n");
-		temp = halrf_rrf(rf, RF_PATH_A, 0xa0, MASKRF);
-		halrf_wrf(rf, RF_PATH_A, 0xa0, MASKRF, temp);
-		temp = halrf_rrf(rf, RF_PATH_A, 0xaf, MASKRF);
-
-		halrf_write_fwofld_start(rf);	/*FW Offload Start*/
-
-		halrf_wrf(rf, RF_PATH_A, 0xaf, MASKRF, temp);
-
-		halrf_wrf(rf, RF_PATH_A, 0xdd, BIT(4), 0x1);
-		halrf_wrf(rf, RF_PATH_A, 0xa0, 0xc, 0x0);
-		halrf_wrf(rf, RF_PATH_A, 0xa0, 0xc, 0x3);
-		halrf_wrf(rf, RF_PATH_A, 0xdd, BIT(4), 0x0);
-
-		halrf_wrf(rf, RF_PATH_A, 0xd3, BIT(8), 0x1);
-
-		halrf_write_fwofld_end(rf);		/*FW Offload End*/
-		
-		temp = halrf_rrf(rf, RF_PATH_A, 0x18, MASKRF);
-		halrf_set_s0_arfc18_8852b(rf, temp);
-		halrf_wrf(rf, RF_PATH_A, 0xd3, BIT(8), 0x0);
-
+	if (lck_fail) {
+		rpt->drv_lck_fail_count++;
 		RF_WARNING("[LCK]0xb2=%x, 0xc5=%x\n",
-			halrf_rrf(rf, RF_PATH_A, 0xb2, MASKRF),
-			halrf_rrf(rf, RF_PATH_A, 0xc5, MASKRF));
+		halrf_rrf(rf, RF_PATH_A, 0xb2, MASKRF),
+		halrf_rrf(rf, RF_PATH_A, 0xc5, MASKRF));
 	}
 }
 
-
 void halrf_set_ch_8852b(struct rf_info *rf, u32 val) {
+
 	bool timeout;
-	
+	u32 temp_b1;
+
+	temp_b1 = halrf_rrf(rf, RF_PATH_A, 0xb1, MASKRF);
+	halrf_wrf(rf, RF_PATH_A, 0xb1, 0x1c0, 0x1);	
 	timeout = halrf_set_s0_arfc18_8852b(rf, val);
+	halrf_wrf(rf, RF_PATH_A, 0xb1, MASKRF, temp_b1);
 	if (!timeout)
 		halrf_lck_check_8852b(rf);
 }
@@ -441,16 +473,18 @@ void halrf_set_rx_dck_8852b(struct rf_info *rf, enum phl_phy_idx phy, enum rf_pa
 		halrf_wreg(rf, 0x80d4, 0x003F0000, 0x34);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (rf->phl_com->dev_cap.io_ofld) {
 		if (!halrf_polling_bb(rf, 0x80fc, BIT(16), 0x1, 500)) {
 			RF_DBG(rf, DBG_RF_RXDCK, "[RX_DCK] 0x80fc timeout !!!\n");
 		}
-#else
+	} else
+#endif
+	{
 		while ((halrf_rreg(rf, 0x80fc, BIT(16)) == 0x0) && (i < 500)) {
 			halrf_delay_us(rf, 2);
 			i++;
 		}
-#endif
-
+	}
 #if 0
 		halrf_btc_rfk_ntfy(rf, phy_map, RF_BTC_RXDCK, RFK_ONESHOT_STOP);
 #endif
@@ -594,17 +628,18 @@ void halrf_rck_8852b(struct rf_info *rf, enum rf_path path)
 	halrf_wrf(rf, path, 0x1b, MASKRF, 0x00240);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_rf(rf, path, 0x1c, BIT(3), 0x1, cnt)) {
-		RF_DBG(rf, DBG_RF_RFK, "[RCK] RF 0x1c[3] timeout !!!\n");
-	}
-	cnt = 0;
-#else
-	cnt = 0;
-	while ((halrf_rrf(rf, path, 0x1c, BIT(3)) == 0x00) && (cnt < 10)) {
-		halrf_delay_us(rf, 2);
-		cnt++;
-	}
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_rf(rf, path, 0x1c, BIT(3), 0x1, 10)) {
+			RF_DBG(rf, DBG_RF_RFK, "[RCK] RF 0x1c[3] timeout !!!\n");
+		}
+	} else
 #endif
+	{
+		while ((halrf_rrf(rf, path, 0x1c, BIT(3)) == 0x00) && (cnt < 10)) {
+			halrf_delay_us(rf, 2);
+			cnt++;
+		}
+	}
 
 	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 

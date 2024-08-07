@@ -22,14 +22,11 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 		    u32 length,
 		    u32 timeout)
 {
-	u8 *buf;
 	u32 ret = 0, pkt_len, local_timeout = 10000, no_timeout = 0;
 	u32 data[2];
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+
+	struct h2c_info h2c_info = {0};
+
 	if (timeout == 0)
 		no_timeout = 1;
 	else
@@ -41,66 +38,30 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 	adapter->flash_info.erase_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
-	if (!h2cb) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		return MACNPTR; // Maybe set a timeout counter
-	}
 	pkt_len = LEN_FLASH_H2C_HDR;
-	buf = h2cb_put(h2cb, pkt_len);
-	if (!buf) {
-		ret = MACNOBUF;
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
+
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = (u16)pkt_len;
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FLASH;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_PLAT_FLASH_ERASE;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
+
 	data[0] = cpu_to_le32(addr);
 	data[1] = cpu_to_le32(length);
-	PLTFM_MEMCPY(buf, (u8 *)data, pkt_len);
-	ret = h2c_pkt_set_hdr_fwdl(adapter, h2cb,
-				   FWCMD_TYPE_H2C,
-				   FWCMD_H2C_CAT_MAC,
-				   FWCMD_H2C_CL_FLASH,
-				   FWCMD_H2C_FUNC_PLAT_FLASH_ERASE,/*platform auto test*/
-				   0,
-				   0);
+
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)&data[0]);
+
 	if (ret) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.erasing = 0;
 		adapter->flash_info.erase_addr = 0;
 		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
+		adapter->fw_info.h2c_seq--;
+		return ret;
 	}
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]platform tx: %x\n", ret);
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
-	h2cb_free(adapter, h2cb);
-	h2cb = NULL;
 	while (1) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		if (adapter->flash_info.erase_done == 1) {
@@ -122,21 +83,17 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 				adapter->flash_info.erasing = 0;
 				adapter->flash_info.erase_addr = 0;
 				PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-				goto fail;
+				adapter->fw_info.h2c_seq--;
+				return ret;
 			}
 		}
 	}
+
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 	adapter->flash_info.erasing = 0;
 	adapter->flash_info.erase_addr = 0;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 	return MACSUCCESS;
-fail:
-	if (h2cb)
-		h2cb_free(adapter, h2cb);
-	adapter->fw_info.h2c_seq--;
-
-	return ret;
 }
 
 u32 mac_flash_read(struct mac_ax_adapter *adapter,
@@ -145,15 +102,11 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 		   u8 *buffer,
 		   u32 timeout)
 {
-	u8 *buf;
 	u32 ret = 0, pkt_len, local_timeout = 10000, no_timeout = 0;
 	u32 data[2];
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
-	//PLTFM_MSG_TRACE("testdata = 0x%llx\n", (u64)buffer);
+
+	struct h2c_info h2c_info = {0};
+
 	if (length > FLASH_H2C_SIZE)
 		return MACFLASHFAIL;
 
@@ -161,11 +114,13 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 		no_timeout = 1;
 	else
 		local_timeout = timeout;
+
 	if ((addr % 4) || (length % 4)) {
 		PLTFM_MSG_ERR("Address/length not 4 byte aligned, addr : 0x%x, length : 0x%x\n"
 			, addr, length);
 		return MACFLASHFAIL;
 	}
+
 	// mutex
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 	adapter->flash_info.read_done = 0;
@@ -174,61 +129,32 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 	adapter->flash_info.read_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
-	if (!h2cb)
-		return MACNPTR; // Maybe set a timeout counter
 	pkt_len = LEN_FLASH_H2C_HDR;
-	buf = h2cb_put(h2cb, pkt_len);
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
-	}
+
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = (u16)pkt_len;
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FLASH;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_PLAT_FLASH_READ;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
+
 	data[0] = cpu_to_le32(addr);
 	data[1] = cpu_to_le32(length);
-	PLTFM_MEMCPY(buf, (u8 *)data, pkt_len);
-	ret = h2c_pkt_set_hdr_fwdl(adapter, h2cb,
-				   FWCMD_TYPE_H2C,
-				   FWCMD_H2C_CAT_MAC,
-				   FWCMD_H2C_CL_FLASH,
-				   FWCMD_H2C_FUNC_PLAT_FLASH_READ,/*platform auto test*/
-				   0,
-				   0);
-	if (ret) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.reading = 0;
-		adapter->flash_info.buf_addr = NULL;
-		adapter->flash_info.read_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.reading = 0;
-		adapter->flash_info.buf_addr = NULL;
-		adapter->flash_info.read_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)&data[0]);
 
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
 	if (ret) {
-		PLTFM_MSG_ERR("[ERR]platform tx: %x\n", ret);
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.reading = 0;
 		adapter->flash_info.buf_addr = NULL;
 		adapter->flash_info.read_addr = 0;
 		adapter->flash_info.read_done = 0;
 		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
+		adapter->fw_info.h2c_seq--;
+		return ret;
 	}
-	h2cb_free(adapter, h2cb);
-	h2cb = NULL;
+
 	while (1) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		//PLTFM_MSG_TRACE("polling enter critical\n");
@@ -255,10 +181,12 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 				adapter->flash_info.read_addr = 0;
 				adapter->flash_info.read_done = 0;
 				PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-				goto fail;
+				adapter->fw_info.h2c_seq--;
+				return ret;
 			}
 		}
 	}
+
 	// end mutex
 	//adapter->flash_info.read_done == 0;
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
@@ -267,12 +195,6 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 	adapter->flash_info.read_addr = 0;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 	return MACSUCCESS;
-fail:
-	if (h2cb)
-		h2cb_free(adapter, h2cb);
-	adapter->fw_info.h2c_seq--;
-
-	return ret;
 }
 
 u32 mac_flash_write(struct mac_ax_adapter *adapter,
@@ -287,11 +209,9 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 	u32 waddr, wlength;
 	u32 *pbuf;
 	u32 *psource_data;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+
+	struct h2c_info h2c_info = {0};
+
 	if (timeout == 0)
 		no_timeout = 1;
 	else
@@ -300,90 +220,64 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 	residue_len = length;
 	waddr = addr;
 	wlength = length;
+
 	if ((addr % 4) || (length % 4)) {
 		PLTFM_MSG_ERR("Address/length not 4 byte aligned, addr : 0x%x, length : 0x%x\n"
 			, addr, length);
 		return MACFLASHFAIL;
 	}
+
 	while (residue_len) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.write_done = 0;
 		adapter->flash_info.writing = 1;
 		adapter->flash_info.write_addr = waddr;
 		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
+
 		if (residue_len >= FLASH_H2C_SIZE)
 			pkt_len = FLASH_H2C_SIZE;
 		else
 			pkt_len = residue_len;
 
-		h2cb = h2cb_alloc(adapter, H2CB_CLASS_LONG_DATA);
-		if (!h2cb) {
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			return MACNPTR; // Maybe set a timeout counter
+		h2c_info.agg_en = 0;
+		h2c_info.content_len = (u16)(pkt_len + LEN_FLASH_H2C_HDR);
+		h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+		h2c_info.h2c_class = FWCMD_H2C_CL_FLASH;
+		h2c_info.h2c_func = FWCMD_H2C_FUNC_PLAT_FLASH_WRITE;
+		h2c_info.rec_ack = 0;
+		h2c_info.done_ack = 0;
+
+		buf = (u8 *)PLTFM_MALLOC(h2c_info.content_len);
+		if (!buf) {
+			adapter->fw_info.h2c_seq--;
+			return MACBUFALLOC;
 		}
 
-		buf = h2cb_put(h2cb, pkt_len + LEN_FLASH_H2C_HDR);
-		if (!buf) {
-			ret = MACNOBUF;
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
-		}
 		data[0] = cpu_to_le32(waddr);
 		data[1] = cpu_to_le32(pkt_len);
 		PLTFM_MEMCPY(buf, (u8 *)data, LEN_FLASH_H2C_HDR);
-		buf += LEN_FLASH_H2C_HDR;
+
 		//copy data
-		pbuf = (u32 *)buf;
+		pbuf = (u32 *)(buf + LEN_FLASH_H2C_HDR);
 		psource_data = (u32 *)buffer;
 		for (i = 0; i < (pkt_len / sizeof(u32)); i++) {
 			*pbuf = cpu_to_le32(*psource_data);
 			pbuf++;
 			psource_data++;
 		}
-		//PLTFM_MEMCPY(buf, buffer, pkt_len);
-		ret = h2c_pkt_set_hdr_fwdl(adapter, h2cb,
-					   FWCMD_TYPE_H2C,
-					   FWCMD_H2C_CAT_MAC,
-					   FWCMD_H2C_CL_FLASH,
-					   FWCMD_H2C_FUNC_PLAT_FLASH_WRITE,/*platform auto test*/
-					   0,
-					   0);
+
+		ret = mac_h2c_common(adapter, &h2c_info, (u32 *)buf);
+
 		if (ret) {
 			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 			adapter->flash_info.writing = 0;
 			adapter->flash_info.write_addr = 0;
 			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
+			adapter->fw_info.h2c_seq--;
+			PLTFM_FREE(buf, h2c_info.content_len);
+			return ret;
 		}
-		ret = h2c_pkt_build_txd(adapter, h2cb);
-		if (ret) {
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
-		}
-#if MAC_AX_PHL_H2C
-		ret = PLTFM_TX(h2cb);
-#else
-		ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-		if (ret) {
-			PLTFM_MSG_ERR("[ERR]platform tx: %x\n", ret);
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
-		}
-		h2cb_free(adapter, h2cb);
-		h2cb = NULL;
+
 		PLTFM_MSG_ERR("Write H2C, addr = 0x%x, length = %d\n", waddr, pkt_len);
 
 		// delay for flash write
@@ -410,25 +304,24 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 					adapter->flash_info.write_addr = 0;
 					PLTFM_MSG_TRACE("write timeout\n");
 					PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-					goto fail;
+					adapter->fw_info.h2c_seq--;
+					PLTFM_FREE(buf, h2c_info.content_len);
+					return ret;
 				}
 			}
 		}
+
+		PLTFM_FREE(buf, h2c_info.content_len);
 		residue_len -= pkt_len;
 		buffer += pkt_len;
 		waddr += pkt_len;
 	}
+
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 	adapter->flash_info.writing = 0;
 	adapter->flash_info.write_addr = 0;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 	return MACSUCCESS;
-fail:
-	if (h2cb)
-		h2cb_free(adapter, h2cb);
-	adapter->fw_info.h2c_seq--;
-
-	return ret;
 }
 
 #else
@@ -437,14 +330,11 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 		    u32 length,
 		    u32 timeout)
 {
-	u8 *buf;
 	u32 ret = 0, pkt_len, local_timeout = 10000, no_timeout = 0;
 	u32 data[2];
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+
+	struct h2c_info h2c_info = {0};
+
 	if (timeout == 0)
 		no_timeout = 1;
 	else
@@ -456,66 +346,30 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 	adapter->flash_info.erase_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
-	if (!h2cb) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		return MACNPTR; // Maybe set a timeout counter
-	}
 	pkt_len = LEN_FLASH_H2C_HDR;
-	buf = h2cb_put(h2cb, pkt_len);
-	if (!buf) {
-		ret = MACNOBUF;
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
+
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = (u16)pkt_len;
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FLASH;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_PLAT_FLASH_ERASE;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
+
 	data[0] = cpu_to_le32(addr);
 	data[1] = cpu_to_le32(length);
-	PLTFM_MEMCPY(buf, (u8 *)data, pkt_len);
-	ret = h2c_pkt_set_hdr_fwdl(adapter, h2cb,
-				   FWCMD_TYPE_H2C,
-				   FWCMD_H2C_CAT_MAC,
-				   FWCMD_H2C_CL_FLASH,
-				   FWCMD_H2C_FUNC_PLAT_FLASH_ERASE,/*platform auto test*/
-				   0,
-				   0);
+
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)&data[0]);
+
 	if (ret) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.erasing = 0;
 		adapter->flash_info.erase_addr = 0;
 		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
+		adapter->fw_info.h2c_seq--;
+		return ret;
 	}
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]platform tx: %x\n", ret);
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.erasing = 0;
-		adapter->flash_info.erase_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
-	h2cb_free(adapter, h2cb);
-	h2cb = NULL;
 	while (1) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		if (adapter->flash_info.erase_done == 1) {
@@ -537,21 +391,17 @@ u32 mac_flash_erase(struct mac_ax_adapter *adapter,
 				adapter->flash_info.erasing = 0;
 				adapter->flash_info.erase_addr = 0;
 				PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-				goto fail;
+				adapter->fw_info.h2c_seq--;
+				return ret;
 			}
 		}
 	}
+
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 	adapter->flash_info.erasing = 0;
 	adapter->flash_info.erase_addr = 0;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 	return MACSUCCESS;
-fail:
-	if (h2cb)
-		h2cb_free(adapter, h2cb);
-	adapter->fw_info.h2c_seq--;
-
-	return ret;
 }
 
 u32 mac_flash_read(struct mac_ax_adapter *adapter,
@@ -560,15 +410,11 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 		   u8 *buffer,
 		   u32 timeout)
 {
-	u8 *buf;
 	u32 ret = 0, pkt_len, local_timeout = 10000, no_timeout = 0;
 	u32 data[2];
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
-	//PLTFM_MSG_TRACE("testdata = 0x%llx\n", (u64)buffer);
+
+	struct h2c_info h2c_info = {0};
+
 	if (length > FLASH_H2C_SIZE)
 		return MACFLASHFAIL;
 
@@ -576,11 +422,13 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 		no_timeout = 1;
 	else
 		local_timeout = timeout;
+
 	if ((addr % 4) || (length % 4)) {
 		PLTFM_MSG_ERR("Address/length not 4 byte aligned, addr : 0x%x, length : 0x%x\n"
 			, addr, length);
 		return MACFLASHFAIL;
 	}
+
 	// mutex
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 	adapter->flash_info.read_done = 0;
@@ -589,61 +437,32 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 	adapter->flash_info.read_addr = addr;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
-	if (!h2cb)
-		return MACNPTR; // Maybe set a timeout counter
 	pkt_len = LEN_FLASH_H2C_HDR;
-	buf = h2cb_put(h2cb, pkt_len);
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
-	}
+
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = (u16)pkt_len;
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FLASH;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_PLAT_FLASH_READ;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
+
 	data[0] = cpu_to_le32(addr);
 	data[1] = cpu_to_le32(length);
-	PLTFM_MEMCPY(buf, (u8 *)data, pkt_len);
-	ret = h2c_pkt_set_hdr_fwdl(adapter, h2cb,
-				   FWCMD_TYPE_H2C,
-				   FWCMD_H2C_CAT_MAC,
-				   FWCMD_H2C_CL_FLASH,
-				   FWCMD_H2C_FUNC_PLAT_FLASH_READ,/*platform auto test*/
-				   0,
-				   0);
-	if (ret) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.reading = 0;
-		adapter->flash_info.buf_addr = NULL;
-		adapter->flash_info.read_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret) {
-		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-		adapter->flash_info.reading = 0;
-		adapter->flash_info.buf_addr = NULL;
-		adapter->flash_info.read_addr = 0;
-		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
-	}
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)&data[0]);
 
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
 	if (ret) {
-		PLTFM_MSG_ERR("[ERR]platform tx: %x\n", ret);
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.reading = 0;
 		adapter->flash_info.buf_addr = NULL;
 		adapter->flash_info.read_addr = 0;
 		adapter->flash_info.read_done = 0;
 		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-		goto fail;
+		adapter->fw_info.h2c_seq--;
+		return ret;
 	}
-	h2cb_free(adapter, h2cb);
-	h2cb = NULL;
+
 	while (1) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		//PLTFM_MSG_TRACE("polling enter critical\n");
@@ -670,10 +489,12 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 				adapter->flash_info.read_addr = 0;
 				adapter->flash_info.read_done = 0;
 				PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-				goto fail;
+				adapter->fw_info.h2c_seq--;
+				return ret;
 			}
 		}
 	}
+
 	// end mutex
 	//adapter->flash_info.read_done == 0;
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
@@ -682,12 +503,6 @@ u32 mac_flash_read(struct mac_ax_adapter *adapter,
 	adapter->flash_info.read_addr = 0;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 	return MACSUCCESS;
-fail:
-	if (h2cb)
-		h2cb_free(adapter, h2cb);
-	adapter->fw_info.h2c_seq--;
-
-	return ret;
 }
 
 u32 mac_flash_write(struct mac_ax_adapter *adapter,
@@ -702,11 +517,9 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 	u32 waddr, wlength;
 	u32 *pbuf;
 	u32 *psource_data;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+
+	struct h2c_info h2c_info = {0};
+
 	if (timeout == 0)
 		no_timeout = 1;
 	else
@@ -715,90 +528,64 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 	residue_len = length;
 	waddr = addr;
 	wlength = length;
+
 	if ((addr % 4) || (length % 4)) {
 		PLTFM_MSG_ERR("Address/length not 4 byte aligned, addr : 0x%x, length : 0x%x\n"
 			, addr, length);
 		return MACFLASHFAIL;
 	}
+
 	while (residue_len) {
 		PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 		adapter->flash_info.write_done = 0;
 		adapter->flash_info.writing = 1;
 		adapter->flash_info.write_addr = waddr;
 		PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
+
 		if (residue_len >= FLASH_H2C_SIZE)
 			pkt_len = FLASH_H2C_SIZE;
 		else
 			pkt_len = residue_len;
 
-		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_LONG_DATA);
-		if (!h2cb) {
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			return MACNPTR; // Maybe set a timeout counter
+		h2c_info.agg_en = 0;
+		h2c_info.content_len = (u16)(pkt_len + LEN_FLASH_H2C_HDR);
+		h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+		h2c_info.h2c_class = FWCMD_H2C_CL_FLASH;
+		h2c_info.h2c_func = FWCMD_H2C_FUNC_PLAT_FLASH_WRITE;
+		h2c_info.rec_ack = 0;
+		h2c_info.done_ack = 0;
+
+		buf = (u8 *)PLTFM_MALLOC(h2c_info.content_len);
+		if (!buf) {
+			adapter->fw_info.h2c_seq--;
+			return MACBUFALLOC;
 		}
 
-		buf = h2cb_put(h2cb, pkt_len + LEN_FLASH_H2C_HDR);
-		if (!buf) {
-			ret = MACNOBUF;
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
-		}
 		data[0] = cpu_to_le32(waddr);
 		data[1] = cpu_to_le32(pkt_len);
 		PLTFM_MEMCPY(buf, (u8 *)data, LEN_FLASH_H2C_HDR);
-		buf += LEN_FLASH_H2C_HDR;
+
 		//copy data
-		pbuf = (u32 *)buf;
+		pbuf = (u32 *)(buf + LEN_FLASH_H2C_HDR);
 		psource_data = (u32 *)buffer;
 		for (i = 0; i < (pkt_len / sizeof(u32)); i++) {
 			*pbuf = cpu_to_le32(*psource_data);
 			pbuf++;
 			psource_data++;
 		}
-		//PLTFM_MEMCPY(buf, buffer, pkt_len);
-		ret = h2c_pkt_set_hdr_fwdl(adapter, h2cb,
-					   FWCMD_TYPE_H2C,
-					   FWCMD_H2C_CAT_MAC,
-					   FWCMD_H2C_CL_FLASH,
-					   FWCMD_H2C_FUNC_PLAT_FLASH_WRITE,/*platform auto test*/
-					   0,
-					   0);
+
+		ret = mac_h2c_common(adapter, &h2c_info, (u32 *)buf);
+
 		if (ret) {
 			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 			adapter->flash_info.writing = 0;
 			adapter->flash_info.write_addr = 0;
 			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
+			adapter->fw_info.h2c_seq--;
+			PLTFM_FREE(buf, h2c_info.content_len);
+			return ret;
 		}
-		ret = h2c_pkt_build_txd(adapter, h2cb);
-		if (ret) {
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
-		}
-#if MAC_AX_PHL_H2C
-		ret = PLTFM_TX(h2cb);
-#else
-		ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-		if (ret) {
-			PLTFM_MSG_ERR("[ERR]platform tx: %x\n", ret);
-			PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
-			adapter->flash_info.writing = 0;
-			adapter->flash_info.write_addr = 0;
-			PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-			goto fail;
-		}
-		h2cb_free(adapter, h2cb);
-		h2cb = NULL;
+
 		PLTFM_MSG_ERR("Write H2C, addr = 0x%x, length = %d\n", waddr, pkt_len);
 
 		// delay for flash write
@@ -825,26 +612,26 @@ u32 mac_flash_write(struct mac_ax_adapter *adapter,
 					adapter->flash_info.write_addr = 0;
 					PLTFM_MSG_TRACE("write timeout\n");
 					PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
-					goto fail;
+					adapter->fw_info.h2c_seq--;
+					PLTFM_FREE(buf, h2c_info.content_len);
+					return ret;
 				}
 			}
 		}
+
+		PLTFM_FREE(buf, h2c_info.content_len);
 		residue_len -= pkt_len;
 		buffer += pkt_len;
 		waddr += pkt_len;
 	}
+
 	PLTFM_MUTEX_LOCK(&adapter->flash_info.lock);
 	adapter->flash_info.writing = 0;
 	adapter->flash_info.write_addr = 0;
 	PLTFM_MUTEX_UNLOCK(&adapter->flash_info.lock);
 	return MACSUCCESS;
-fail:
-	if (h2cb)
-		h2cb_free(adapter, h2cb);
-	adapter->fw_info.h2c_seq--;
-
-	return ret;
 }
+
 #endif
 
 u32 c2h_sys_flash_pkt(struct mac_ax_adapter *adapter, u8 *buf, u32 len,
@@ -888,7 +675,7 @@ u32 c2h_sys_flash_pkt(struct mac_ax_adapter *adapter, u8 *buf, u32 len,
 			if (adapter->flash_info.buf_addr && length <= MAX_READ_SIZE) {
 				PLTFM_MSG_TRACE("memcpy to buf\n");
 				//PLTFM_MEMCPY(adapter->flash_info.buf_addr,
-				//	     info->content + LEN_FLASH_C2H_HDR, length);
+				//		 info->content + LEN_FLASH_C2H_HDR, length);
 				pbuf = (u32 *)adapter->flash_info.buf_addr;
 				psource_data = (u32 *)(info->content + LEN_FLASH_C2H_HDR);
 				for (i = 0; i < length / sizeof(u32); i++) {

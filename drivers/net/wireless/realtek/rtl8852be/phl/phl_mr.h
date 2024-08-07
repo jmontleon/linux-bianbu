@@ -149,6 +149,19 @@ bool rtw_phl_mr_is_db(void *phl);
 
 bool phl_mr_is_trigger_dbcc(struct phl_info_t *phl_info);
 
+
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN
+enum rtw_phl_status
+phl_cmd_dbcc_en_hdl(struct phl_info_t *phl_info, u8 *param);
+
+enum rtw_phl_status
+phl_cmd_dbcc_dis_hdl(struct phl_info_t *phl_info, u8 *param);
+
+struct rtw_wifi_role_link_t *
+phl_mr_get_first_rlink_by_band_ex(struct phl_info_t *phl,
+				enum phl_band_idx band,
+				bool linked);
+#endif /*CONFIG_DBCC_P2P_BG_LISTEN*/
 #endif
 
 #ifdef DBG_PHL_MR

@@ -39,6 +39,9 @@
 #if MAC_AX_8852D_SUPPORT
 #include "mac_8852d/init_8852d.h"
 #endif
+#if MAC_AX_8852BT_SUPPORT
+#include "mac_8852bt/init_8852bt.h"
+#endif
 #if MAC_AX_1115E_SUPPORT
 #include "mac_1115e/init_1115e.h"
 #endif

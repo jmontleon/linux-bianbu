@@ -233,6 +233,11 @@ void halrf_iqk_init(struct rf_info *rf)
 		iqk_init_8852b(rf);
 	break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		iqk_init_8852bt(rf);
+	break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		iqk_init_8852c(rf);
@@ -259,6 +264,12 @@ void halrf_iqk_init(struct rf_info *rf)
 		iqk_init_8730a(rf);
 	break;
 #endif
+#ifdef RF_8852D_SUPPORT
+	case CHIP_WIFI6_8852D:
+		iqk_init_8852d(rf);
+	break;
+#endif
+
 
 		default:
 		break;
@@ -355,6 +366,13 @@ bool halrf_check_fwiqk_done(struct rf_info *rf)
 			isfail = halrf_check_fwiqk_done_8852b(rf);
 		break;
 #endif
+
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			isfail = halrf_check_fwiqk_done_8852bt(rf);
+		break;
+#endif
+
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			isfail = halrf_check_fwiqk_done_8852c(rf);
@@ -376,12 +394,20 @@ void halrf_iqk_get_ch_info(struct rf_info *rf, enum phl_phy_idx phy_idx, u8 path
 		case CHIP_WIFI6_8852A:
 			iqk_get_ch_info_8852ab(rf, phy_idx, path); 
 		break;
-#endif		
+#endif
+
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			iqk_get_ch_info_8852b(rf, phy_idx, path); 
 		break;
 #endif
+
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			iqk_get_ch_info_8852bt(rf, phy_idx, path); 
+		break;
+#endif
+
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			iqk_get_ch_info_8852c(rf, phy_idx, path); 
@@ -407,6 +433,11 @@ void halrf_iqk_set_info(struct rf_info *rf, enum phl_phy_idx phy_idx, u8 path)
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			iqk_set_info_8852b(rf, phy_idx, path); 
+		break;
+#endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			iqk_set_info_8852bt(rf, phy_idx, path); 
 		break;
 #endif
 #ifdef RF_8852C_SUPPORT
@@ -437,6 +468,11 @@ u8 halrf_get_fw_iqk_times(struct rf_info *rf)
 #ifdef RF_8852B_SUPPORT
 		case CHIP_WIFI6_8852B:
 			times = halrf_get_iqk_times_8852b(rf); 
+		break;
+#endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			times = halrf_get_iqk_times_8852bt(rf); 
 		break;
 #endif
 #ifdef RF_8852C_SUPPORT
@@ -528,6 +564,11 @@ u32 halrf_get_iqk_ver(struct rf_info *rf)
 		tmp =halrf_get_iqk_ver_8852b();
 	break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		tmp =halrf_get_iqk_ver_8852bt();
+	break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		tmp =halrf_get_iqk_ver_8852c();
@@ -539,8 +580,13 @@ u32 halrf_get_iqk_ver(struct rf_info *rf)
 	break;
 #endif
 #ifdef RF_8192XB_SUPPORT
-		case CHIP_WIFI6_8192XB:
+	case CHIP_WIFI6_8192XB:
 		tmp =halrf_get_iqk_ver_8192xb();
+	break;
+#endif
+#ifdef RF_8852D_SUPPORT
+	case CHIP_WIFI6_8852D:
+		tmp =halrf_get_iqk_ver_8852d();
 	break;
 #endif
 
@@ -566,6 +612,11 @@ void halrf_iqk_toneleakage(void *rf_void, u8 path)
 			halrf_iqk_toneleakage_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_toneleakage_8852bt(rf, path);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_toneleakage_8852c(rf, path);
@@ -581,7 +632,11 @@ void halrf_iqk_toneleakage(void *rf_void, u8 path)
 			halrf_iqk_toneleakage_8192xb(rf, path);
 		break;
 #endif
-
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_toneleakage_8852d(rf, path);
+		break;
+#endif
 		default:
 		break;
 	}
@@ -605,6 +660,11 @@ void halrf_iqk_tx_bypass(void *rf_void, u8 path)
 			halrf_iqk_tx_bypass_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_tx_bypass_8852bt(rf, path);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_tx_bypass_8852c(rf, path);
@@ -625,8 +685,11 @@ void halrf_iqk_tx_bypass(void *rf_void, u8 path)
 			halrf_iqk_tx_bypass_8851b(rf, path);
 		break;
 #endif
-
-
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_tx_bypass_8852d(rf, path);
+		break;
+#endif
 		default:
 		break;
 	}
@@ -650,6 +713,11 @@ void halrf_iqk_rx_bypass(void *rf_void, u8 path)
 			halrf_iqk_rx_bypass_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_rx_bypass_8852bt(rf, path);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_rx_bypass_8852c(rf, path);
@@ -668,6 +736,11 @@ void halrf_iqk_rx_bypass(void *rf_void, u8 path)
 #ifdef RF_8851B_SUPPORT
 		case CHIP_WIFI6_8851B:
 			halrf_iqk_rx_bypass_8851b(rf, path);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_rx_bypass_8852d(rf, path);
 		break;
 #endif
 
@@ -693,6 +766,11 @@ void halrf_iqk_lok_bypass(void *rf_void, u8 path)
 			halrf_iqk_lok_bypass_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_lok_bypass_8852bt(rf, path);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_lok_bypass_8852c(rf, path);
@@ -713,7 +791,11 @@ void halrf_iqk_lok_bypass(void *rf_void, u8 path)
 			halrf_iqk_lok_bypass_8851b(rf, path);
 		break;
 #endif
-
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_lok_bypass_8852d(rf, path);
+		break;
+#endif
 		default:
 		break;
 	}
@@ -736,6 +818,11 @@ void halrf_nbiqk_enable(void *rf_void, bool iqk_nbiqk_en)
 			halrf_nbiqk_enable_8852b(rf, iqk_nbiqk_en);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_nbiqk_enable_8852bt(rf, iqk_nbiqk_en);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_nbiqk_enable_8852c(rf, iqk_nbiqk_en);
@@ -754,6 +841,11 @@ void halrf_nbiqk_enable(void *rf_void, bool iqk_nbiqk_en)
 #ifdef RF_8851B_SUPPORT
 		case CHIP_WIFI6_8851B:
 			halrf_nbiqk_enable_8851b(rf, iqk_nbiqk_en);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_nbiqk_enable_8852d(rf, iqk_nbiqk_en);
 		break;
 #endif
 
@@ -779,6 +871,11 @@ void halrf_iqk_xym_enable(void *rf_void, bool iqk_xym_en)
 			halrf_iqk_xym_enable_8852b(rf, iqk_xym_en);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_xym_enable_8852bt(rf, iqk_xym_en);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_xym_enable_8852c(rf, iqk_xym_en);
@@ -797,6 +894,11 @@ void halrf_iqk_xym_enable(void *rf_void, bool iqk_xym_en)
 #ifdef RF_8851B_SUPPORT
 		case CHIP_WIFI6_8851B:
 			halrf_iqk_xym_enable_8851b(rf, iqk_xym_en);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_xym_enable_8852d(rf, iqk_xym_en);
 		break;
 #endif
 
@@ -822,9 +924,19 @@ void halrf_iqk_fft_enable(void *rf_void, bool iqk_fft_en)
 			halrf_iqk_fft_enable_8852b(rf, iqk_fft_en);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_fft_enable_8852bt(rf, iqk_fft_en);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_fft_enable_8852c(rf, iqk_fft_en);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_fft_enable_8852d(rf, iqk_fft_en);
 		break;
 #endif
 		default:
@@ -849,6 +961,11 @@ void halrf_iqk_cfir_enable(void *rf_void, bool iqk_cfir_en)
 		halrf_iqk_cfir_enable_8852b(rf, iqk_cfir_en);
 	break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		halrf_iqk_cfir_enable_8852bt(rf, iqk_cfir_en);
+	break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		halrf_iqk_cfir_enable_8852c(rf, iqk_cfir_en);
@@ -864,7 +981,11 @@ void halrf_iqk_cfir_enable(void *rf_void, bool iqk_cfir_en)
 		halrf_iqk_cfir_enable_8192xb(rf, iqk_cfir_en);
 	break;
 #endif
-
+#ifdef RF_8852D_SUPPORT
+	case CHIP_WIFI6_8852D:
+		halrf_iqk_cfir_enable_8852d(rf, iqk_cfir_en);
+	break;
+#endif
 	default:
 	break;
 	}
@@ -887,6 +1008,11 @@ void halrf_iqk_sram_enable(void *rf_void, bool iqk_sram_en)
 			halrf_iqk_sram_enable_8852b(rf, iqk_sram_en);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_sram_enable_8852bt(rf, iqk_sram_en);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_sram_enable_8852c(rf, iqk_sram_en);
@@ -905,6 +1031,11 @@ void halrf_iqk_sram_enable(void *rf_void, bool iqk_sram_en)
 #ifdef RF_8851B_SUPPORT
 		case CHIP_WIFI6_8851B:
 			halrf_iqk_sram_enable_8851b(rf, iqk_sram_en);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_sram_enable_8852d(rf, iqk_sram_en);
 		break;
 #endif
 
@@ -930,9 +1061,19 @@ void halrf_iqk_reload(void *rf_void, u8 path)
 			halrf_iqk_reload_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_reload_8852bt(rf, path);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_reload_8852c(rf, path);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_reload_8852d(rf, path);
 		break;
 #endif
 		default:
@@ -957,9 +1098,19 @@ void halrf_iqk_dbcc(void *rf_void, u8 path)
 			halrf_iqk_dbcc_8852b(rf, path);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			halrf_iqk_dbcc_8852bt(rf, path);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			halrf_iqk_dbcc_8852c(rf, path);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_iqk_dbcc_8852d(rf, path);
 		break;
 #endif
 
@@ -986,9 +1137,19 @@ u8 halrf_iqk_get_mcc_ch0(void *rf_void)
 		 	tmp = halrf_iqk_get_mcc_ch0_8852b(rf);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+		 	tmp = halrf_iqk_get_mcc_ch0_8852bt(rf);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			tmp = halrf_iqk_get_mcc_ch0_8852c(rf);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			tmp = halrf_iqk_get_mcc_ch0_8852d(rf);
 		break;
 #endif
 
@@ -1016,9 +1177,19 @@ u8 halrf_iqk_get_mcc_ch1(void *rf_void)
 			tmp =  halrf_iqk_get_mcc_ch0_8852b(rf);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			tmp =  halrf_iqk_get_mcc_ch0_8852bt(rf);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			tmp =  halrf_iqk_get_mcc_ch0_8852c(rf);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			tmp =  halrf_iqk_get_mcc_ch0_8852d(rf);
 		break;
 #endif
 
@@ -1044,6 +1215,11 @@ void halrf_enable_fw_iqk(void *rf_void, bool is_fw_iqk)
 		halrf_enable_fw_iqk_8852b(rf, is_fw_iqk);
 	break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		halrf_enable_fw_iqk_8852bt(rf, is_fw_iqk);
+	break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		halrf_enable_fw_iqk_8852c(rf, is_fw_iqk);
@@ -1054,7 +1230,11 @@ void halrf_enable_fw_iqk(void *rf_void, bool is_fw_iqk)
 		halrf_enable_fw_iqk_8730a(rf, is_fw_iqk);
 	break;
 #endif
-
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			halrf_enable_fw_iqk_8852d(rf, is_fw_iqk);
+		break;
+#endif
 	default:
 	break;
 	}
@@ -1079,6 +1259,11 @@ u8 halrf_iqk_get_rxevm(void *rf_void)
 		rxevm = halrf_iqk_get_rxevm_8852b(rf);
 	break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		rxevm = halrf_iqk_get_rxevm_8852bt(rf);
+	break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		rxevm = halrf_iqk_get_rxevm_8852c(rf);
@@ -1094,7 +1279,11 @@ u8 halrf_iqk_get_rxevm(void *rf_void)
 		rxevm = halrf_iqk_get_rxevm_8192xb(rf);
 	break;
 #endif
-
+#ifdef RF_8852D_SUPPORT
+	case CHIP_WIFI6_8852D:
+		rxevm = halrf_iqk_get_rxevm_8852d(rf);
+	break;
+#endif
 	default:
 	break;
 	}
@@ -1119,6 +1308,11 @@ u32 halrf_iqk_get_rximr(void *rf_void, u8 path, u32 idx)
 			rximr = halrf_iqk_get_rximr_8852b(rf, path, idx);
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+		case CHIP_WIFI6_8852BT:
+			rximr = halrf_iqk_get_rximr_8852bt(rf, path, idx);
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 		case CHIP_WIFI6_8852C:
 			rximr = halrf_iqk_get_rximr_8852c(rf, path, idx);
@@ -1134,7 +1328,11 @@ u32 halrf_iqk_get_rximr(void *rf_void, u8 path, u32 idx)
 			rximr = halrf_iqk_get_rximr_8192xb(rf, path, idx);
 		break;
 #endif
-
+#ifdef RF_8852D_SUPPORT
+		case CHIP_WIFI6_8852D:
+			rximr = halrf_iqk_get_rximr_8852d(rf, path, idx);
+		break;
+#endif
 		default:
 		break;
 	}

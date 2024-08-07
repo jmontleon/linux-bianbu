@@ -134,6 +134,7 @@ phl_sw_cap_init(struct rtw_phl_com_t* phl_com)
 #else
 	phl_com->dev_sw_cap.fw_cap.fw_src = RTW_FW_SRC_INTNAL;
 #endif
+	phl_com->dev_sw_cap.fw_cap.fw_type = RTW_FW_MAX;
 	phl_com->dev_sw_cap.btc_mode = BTC_MODE_NORMAL;
 	phl_com->dev_sw_cap.bypass_rfe_chk = false;
 	phl_com->dev_sw_cap.rf_board_opt = PHL_UNDEFINED_SW_CAP;
@@ -146,9 +147,19 @@ phl_sw_cap_init(struct rtw_phl_com_t* phl_com)
 	phl_com->dev_sw_cap.min_tx_duty = THERMAL_NO_TX_DUTY_CTRL;
 	phl_com->dev_sw_cap.thermal_threshold = THERMAL_NO_SW_THRESHOLD;
 #endif
+	phl_com->dev_sw_cap.fw_log_info.level = MAC_AX_FL_LV_LOUD;
+	phl_com->dev_sw_cap.fw_log_info.output = MAC_AX_FL_LV_C2H;
+	phl_com->dev_sw_cap.fw_log_info.comp = MAC_AX_FL_COMP_TASK;
+	phl_com->dev_sw_cap.fw_log_info.comp_ext = 0;
 	phl_com->phy_sw_cap[0].txagg_num = 0;
 	phl_com->phy_sw_cap[1].txagg_num = 0;
 
+#ifdef CONFIG_PHL_FW_DUMP_EFUSE
+	phl_com->dev_sw_cap.efuse_dump_ofld = true;
+	phl_com->dev_sw_cap.adie_efuse_dump_ofld = true;
+#endif
+
+	phl_com->dev_sw_cap.disable_dyn_txpwr = false;
 	return RTW_PHL_STATUS_SUCCESS;
 }
 
@@ -493,7 +504,7 @@ _phl_init_protocol_cap(struct phl_info_t *phl_info,
 		protocol_cap->num_ampdu = rtw_hal_get_ampdu_num(phl_info->hal, hw_band);
 		protocol_cap->ampdu_density = 0;
 		protocol_cap->ampdu_len_exp = 0xff;
-		protocol_cap->amsdu_in_ampdu = 1;
+		protocol_cap->amsdu_in_ampdu = phl_com->proto_sw_cap[hw_band].amsdu_in_ampdu;
 		protocol_cap->max_amsdu_len =
 			phl_com->proto_sw_cap[hw_band].max_amsdu_len;
 		protocol_cap->htc_rx = 1;
@@ -686,7 +697,7 @@ _phl_init_protocol_cap(struct phl_info_t *phl_info,
 		protocol_cap->num_ampdu = rtw_hal_get_ampdu_num(phl_info->hal, hw_band);
 		protocol_cap->ampdu_density = 0;
 		protocol_cap->ampdu_len_exp = 0xff;
-		protocol_cap->amsdu_in_ampdu = 1;
+		protocol_cap->amsdu_in_ampdu = phl_com->proto_sw_cap[hw_band].amsdu_in_ampdu;
 		protocol_cap->max_amsdu_len =
 			phl_com->proto_sw_cap[hw_band].max_amsdu_len;
 		protocol_cap->htc_rx = 1;
@@ -694,7 +705,7 @@ _phl_init_protocol_cap(struct phl_info_t *phl_info,
 		protocol_cap->trig_padding = 2;
 #ifdef CONFIG_PHL_TWT
 		protocol_cap->twt =
-				phl_com->dev_cap.twt_sup & RTW_PHL_TWT_REQ_SUP;
+				phl_com->dev_cap.twt_sup & (RTW_PHL_TWT_REQ_SUP | RTW_PHL_TWT_BC_SUP);
 #else
 		protocol_cap->twt = 0;
 #endif /* CONFIG_PHL_TWT */
@@ -776,10 +787,17 @@ _phl_init_protocol_cap(struct phl_info_t *phl_info,
 		protocol_cap->ltf_gi = 0x3f;	// bit-x
 		protocol_cap->doppler_tx = 1;
 		protocol_cap->doppler_rx = 0;
+#ifdef RTW_WKARD_DISABLE_DCM
+		protocol_cap->dcm_max_const_tx = 0;
+		protocol_cap->dcm_max_nss_tx = 0;
+		protocol_cap->dcm_max_const_rx = 0;
+		protocol_cap->dcm_max_nss_rx = 0;
+#else
 		protocol_cap->dcm_max_const_tx = 3;
 		protocol_cap->dcm_max_nss_tx = 1;
 		protocol_cap->dcm_max_const_rx = 3;
 		protocol_cap->dcm_max_nss_rx = 0;
+#endif
 
 		_phl_update_sw_stbc_cap(phl_info, hw_band);
 		_phl_init_proto_stbc_cap(phl_info, hw_band, protocol_cap);

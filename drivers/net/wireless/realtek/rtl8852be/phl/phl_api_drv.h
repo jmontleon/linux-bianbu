@@ -117,5 +117,10 @@ bool rtw_phl_is_radar_detect_enabled(struct rtw_phl_com_t *phl_com, u8 band_idx)
 bool rtw_phl_is_under_cac(struct rtw_phl_com_t *phl_com, u8 band_idx);
 #endif
 
+#ifdef CONFIG_PHL_DIAGNOSE
+bool rtw_phl_send_diag_hub_msg(struct rtw_phl_com_t *phl_com,
+		u16 phl_evt, u8 sub_evt, u8 level, u8 ver, u8 *buf, u32 len);
+#endif
+
 #endif /* _PHL_API_DRV_H_ */
 

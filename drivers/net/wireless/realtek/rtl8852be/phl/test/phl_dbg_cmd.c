@@ -1595,6 +1595,219 @@ void phl_dbg_ltr_stats(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	#endif
 }
 
+#ifdef CONFIG_PCI_HCI
+static char *trans_ctrl_to_str(u8 ctrl)
+{
+
+	switch (ctrl) {
+
+	case RTW_PCIE_BUS_FUNC_DISABLE:
+		return "DISABLE";
+	case RTW_PCIE_BUS_FUNC_ENABLE:
+		return "ENABLE";
+	case RTW_PCIE_BUS_FUNC_DEFAULT:
+		return "DEFAULT";
+	case RTW_PCIE_BUS_FUNC_IGNORE:
+	default:
+		return "IGNORE";
+	};
+}
+
+static char *trans_l1dly_to_str(u8 delay)
+{
+
+	switch (delay) {
+	case RTW_PHL_PCIE_L1DLY_16US:
+		return "16us";
+	case RTW_PHL_PCIE_L1DLY_32US:
+		return "32us";
+	case RTW_PHL_PCIE_L1DLY_64US:
+		return "64us";
+	case RTW_PHL_PCIE_L1DLY_INFI:
+		return "INFI";
+	case RTW_PHL_PCIE_L1DLY_R_ERR:
+		return "ERROR";
+	case RTW_PHL_PCIE_L1DLY_DEF:
+		return "DEFAULT";
+	case RTW_PHL_PCIE_L1DLY_IGNORE:
+	default:
+		return "IGNORE";
+	};
+};
+
+
+static char *trans_l0sdly_to_str(u8 delay)
+{
+
+	switch (delay) {
+	case RTW_PHL_PCIE_L0SDLY_1US:
+		return "1us";
+	case RTW_PHL_PCIE_L0SDLY_2US:
+		return "2us";
+	case RTW_PHL_PCIE_L0SDLY_3US:
+		return "3us";
+	case RTW_PHL_PCIE_L0SDLY_4US:
+		return "4us";
+	case RTW_PHL_PCIE_L0SDLY_5US:
+		return "5us";
+	case RTW_PHL_PCIE_L0SDLY_6US:
+		return "6us";
+	case RTW_PHL_PCIE_L0SDLY_7US:
+		return "7us";
+	case RTW_PHL_PCIE_L0SDLY_R_ERR:
+		return "ERROR";
+	case RTW_PHL_PCIE_L0SDLY_DEF:
+		return "DEFAULT";
+	case RTW_PHL_PCIE_L0SDLY_IGNORE:
+	default:
+		return "IGNORE";
+	};
+};
+
+static char *trans_clkdly_to_str(u8 delay)
+{
+	switch (delay) {
+	case RTW_PHL_PCIE_CLKDLY_0:
+		return "0";
+	case RTW_PHL_PCIE_CLKDLY_5US:
+		return "5us";
+	case RTW_PHL_PCIE_CLKDLY_6US:
+		return "6us";
+	case RTW_PHL_PCIE_CLKDLY_11US:
+		return "11us";
+	case RTW_PHL_PCIE_CLKDLY_15US:
+		return "15us";
+	case RTW_PHL_PCIE_CLKDLY_19US:
+		return "19us";
+	case RTW_PHL_PCIE_CLKDLY_25US:
+		return "25us";
+	case RTW_PHL_PCIE_CLKDLY_30US:
+		return "30us";
+	case RTW_PHL_PCIE_CLKDLY_38US:
+		return "38us";
+	case RTW_PHL_PCIE_CLKDLY_50US:
+		return "50us";
+	case RTW_PHL_PCIE_CLKDLY_64US:
+		return "64us";
+	case RTW_PHL_PCIE_CLKDLY_100US:
+		return "100us";
+	case RTW_PHL_PCIE_CLKDLY_128US:
+		return "128us";
+	case RTW_PHL_PCIE_CLKDLY_150US:
+		return "150us";
+	case RTW_PHL_PCIE_CLKDLY_192US:
+		return "192us";
+	case RTW_PHL_PCIE_CLKDLY_200US:
+		return "200us";
+	case RTW_PHL_PCIE_CLKDLY_300US:
+		return "300us";
+	case RTW_PHL_PCIE_CLKDLY_400US:
+		return "400us";
+	case RTW_PHL_PCIE_CLKDLY_500US:
+		return "500us";
+	case RTW_PHL_PCIE_CLKDLY_1MS:
+		return "1ms";
+	case RTW_PHL_PCIE_CLKDLY_3MS:
+		return "3ms";
+	case RTW_PHL_PCIE_CLKDLY_5MS:
+		return "5ms";
+	case RTW_PHL_PCIE_CLKDLY_10MS:
+		return "10ms";
+	case RTW_PHL_PCIE_CLKDLY_V1_0:
+		return "0";
+	case RTW_PHL_PCIE_CLKDLY_V1_16US:
+		return "16us";
+	case RTW_PHL_PCIE_CLKDLY_V1_32US:
+		return "32us";
+	case RTW_PHL_PCIE_CLKDLY_V1_64US:
+		return "64us";
+	case RTW_PHL_PCIE_CLKDLY_V1_80US:
+		return "80us";
+	case RTW_PHL_PCIE_CLKDLY_V1_96US:
+		return "96us";
+	case RTW_PHL_PCIE_CLKDLY_R_ERR:
+		return "ERROR";
+	case RTW_PHL_PCIE_CLKDLY_DEF:
+		return "DEFAULT";
+	case RTW_PHL_PCIE_CLKDLY_IGNORE:
+	default:
+		return "IGNORE";
+	};
+};
+
+void phl_dbg_pcie_cfgspc(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+		  u32 input_num, char *output, u32 out_len)
+{
+	struct rtw_pcie_cfgspc_param param = {0};
+	enum rtw_phl_status pstats = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
+	struct bus_sw_cap_t *bus_sw_cap = &phl_com->bus_sw_cap;
+	struct bus_hw_cap_t *bus_hw_cap = &hal_com->bus_hw_cap;
+	struct bus_cap_t *bus_cap = &hal_com->bus_cap;
+	u32 used = 0;
+
+	pstats = (enum rtw_phl_status)rtw_hal_pcie_cfg_get(phl_info->hal, &param);
+
+	if (pstats != RTW_PHL_STATUS_SUCCESS)
+		return;
+
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "\n");
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "Configuration",
+			"SW_CAP", "HW_CAP", "FINAL_CAP", "CUR_CFG");
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "l0s",
+			trans_ctrl_to_str(bus_sw_cap->l0s_ctrl),
+			trans_ctrl_to_str(bus_hw_cap->l0s_ctrl),
+			trans_ctrl_to_str(bus_cap->l0s_ctrl),
+			trans_ctrl_to_str(param.l0s_ctrl));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "l1",
+			trans_ctrl_to_str(bus_sw_cap->l1_ctrl),
+			trans_ctrl_to_str(bus_hw_cap->l1_ctrl),
+			trans_ctrl_to_str(bus_cap->l1_ctrl),
+			trans_ctrl_to_str(param.l1_ctrl));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "l1ss",
+			trans_ctrl_to_str(bus_sw_cap->l1ss_ctrl),
+			trans_ctrl_to_str(bus_hw_cap->l1ss_ctrl),
+			trans_ctrl_to_str(bus_cap->l1ss_ctrl),
+			trans_ctrl_to_str(param.l1ss_ctrl));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "wake",
+			trans_ctrl_to_str(bus_sw_cap->wake_ctrl),
+			trans_ctrl_to_str(bus_hw_cap->wake_ctrl),
+			trans_ctrl_to_str(bus_cap->wake_ctrl),
+			trans_ctrl_to_str(param.wake_ctrl));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "crq",
+			trans_ctrl_to_str(bus_sw_cap->crq_ctrl),
+			trans_ctrl_to_str(bus_hw_cap->crq_ctrl),
+			trans_ctrl_to_str(bus_cap->crq_ctrl),
+			trans_ctrl_to_str(param.crq_ctrl));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "l0sdly",
+			trans_l0sdly_to_str(bus_sw_cap->l0sdly_ctrl),
+			trans_l0sdly_to_str(bus_hw_cap->l0sdly_ctrl),
+			trans_l0sdly_to_str(bus_cap->l0sdly_ctrl),
+			trans_l0sdly_to_str(param.l0sdly));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "l1dly",
+			trans_l1dly_to_str(bus_sw_cap->l1dly_ctrl),
+			trans_l1dly_to_str(bus_hw_cap->l1dly_ctrl),
+			trans_l1dly_to_str(bus_cap->l1dly_ctrl),
+			trans_l1dly_to_str(param.l1dly));
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+			"%-15s: %-10s, %-10s, %-10s, %-10s\n", "clkdly",
+			trans_clkdly_to_str(bus_sw_cap->clkdly_ctrl),
+			trans_clkdly_to_str(bus_hw_cap->clkdly_ctrl),
+			trans_clkdly_to_str(bus_cap->clkdly_ctrl),
+			trans_clkdly_to_str(param.clkdly));
+
+}
+#endif
+
 void phl_dbg_trx_stats(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		       u32 input_num, char *output, u32 out_len)
 {
@@ -2004,6 +2217,76 @@ static void _phl_set_level(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 }
 #endif /*CONFIG_RTW_DEBUG*/
 
+#ifdef CONFIG_USB_HCI
+void
+_phl_dbg_cmd_usb_speed(struct phl_info_t *phl_info, char input[][MAX_ARGV],
+			 u32 input_num, char *output, u32 out_len)
+{
+	u32 speed = 0;
+	u32 used = 0;
+	u8 id = 0;
+	u32 i = 0;
+	u32 phl_ary_size = sizeof(phl_dbg_usb_speed_cmd_i) /
+			   sizeof(struct phl_dbg_cmd_info);
+
+	if (phl_ary_size == 0)
+		return;
+
+	PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used, "\n");
+
+	/* Parsing Cmd ID */
+	if (input_num) {
+		for (i = 0; i < phl_ary_size; i++) {
+			if (_os_strcmp(phl_dbg_usb_speed_cmd_i[i].name, input[1]) == 0) {
+				id = phl_dbg_usb_speed_cmd_i[i].id;
+				PHL_DBG("[%s]===>\n", phl_dbg_usb_speed_cmd_i[i].name);
+				break;
+			}
+		}
+		if (i == phl_ary_size) {
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+				out_len - used, "PHL USB SPEED CMD not found!\n");
+			return;
+		}
+	}
+
+	switch (id) {
+		case PHL_DBG_USB_SPEED_HELP:
+			for (i = 0; i < phl_ary_size; i++)
+				PHL_DBG_MON_INFO(out_len, used, output + used,
+				        out_len - used, "%-5d: %s\n",
+				        (int)i, phl_dbg_usb_speed_cmd_i[i].name);
+			break;
+		case PHL_DBG_USB_SPEED_SHOW:
+			rtw_phl_cmd_get_usb_speed(phl_info, &speed, HW_BAND_0,
+			                          PHL_CMD_WAIT, 0);
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+			                 out_len - used,
+			                 "\n[DBG] PHL_DBG_USB_SPEED_SHOW ==> speed = %d\n",
+			                 (int)speed);
+			break;
+		case PHL_DBG_USB_SPEED_CONFIG:
+			if (input_num < 4) {
+				PHL_DBG_MON_INFO(out_len, used, output + used, out_len - used,
+				"Invalid Input\n");
+				break;
+			}
+
+			if (!_get_hex_from_string(input[2], &speed))
+				break;
+
+			PHL_DBG_MON_INFO(out_len, used, output + used,
+			                 out_len - used,
+			                 "\n[DBG] PHL_DBG_USB_SPEED_CONFIG ==> speed = %d\n",
+			                 (int)speed);
+
+			rtw_phl_cmd_force_usb_switch(phl_info, speed, HW_BAND_0,
+			                             PHL_CMD_WAIT, 0);
+			break;
+	}
+}
+#endif /*CONFIG_USB_HCI*/
+
 void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		        u32 input_num, char *output, u32 out_len)
 {
@@ -2125,6 +2408,13 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 		phl_dbg_ltr_stats(phl_info, input, input_num, output, out_len);
 	}
 	break;
+#ifdef CONFIG_PCI_HCI
+	case PHL_DBG_PCIE_CFGSPC:
+	{
+		phl_dbg_pcie_cfgspc(phl_info, input, input_num, output, out_len);
+	}
+	break;
+#endif
 	case PHL_SHOW_RSSI_STAT :
 	{
 		phl_dbg_cmd_show_rssi(phl_info, input, input_num, output, out_len);
@@ -2261,6 +2551,13 @@ void phl_dbg_cmd_parser(struct phl_info_t *phl_info, char input[][MAX_ARGV],
 	case PHL_DBG_SNIFFER:
 	{
 		phl_dbg_cmd_sniffer(phl_info, input, input_num, output, out_len);
+	}
+	break;
+#endif
+#ifdef CONFIG_USB_HCI
+	case PHL_DBG_USB_SPEED:
+	{
+		_phl_dbg_cmd_usb_speed(phl_info, input, input_num, output, out_len);
 	}
 	break;
 #endif

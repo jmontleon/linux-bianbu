@@ -1378,8 +1378,11 @@ enum rtw_phl_status phl_fsm_start_root(struct fsm_root *root)
 			"fsm_thread_share");
 	wake_up_process(root->thread);
 #else
-	_os_thread_init(d, &(root->thread), fsm_thread_share, root,
-			"fsm_thread_share");
+	if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, &(root->thread), fsm_thread_share, root,
+			"fsm_thread_share")) {
+		PHL_ERR("thread init fsm_thread_share fail.\n");
+		return RTW_PHL_STATUS_FAILURE;
+	}
 	_os_thread_schedule(d, &(root->thread));
 #endif
 	return RTW_PHL_STATUS_SUCCESS;
@@ -1414,8 +1417,11 @@ enum rtw_phl_status phl_fsm_start_fsm(struct fsm_main *fsm)
 		fsm_obj_switch_in(obj);
 	}
 	if (fsm->tb.mode == FSM_ALONE_THREAD) {
-		_os_thread_init(d, &(fsm->thread), fsm_thread_alone, fsm,
-				"fsm_thread_alone");
+		if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, &(fsm->thread), fsm_thread_alone, fsm,
+				"fsm_thread_alone")) {
+			PHL_ERR("thread init fsm_thread_alone fail.\n");
+			return RTW_PHL_STATUS_FAILURE;
+		}
 		_os_thread_schedule(d, &(fsm->thread));
 	}
 

@@ -447,15 +447,19 @@ void halbb_ccx_ext_loss_update(struct bb_info *bb)
 				    HALBB_SNPRINT_SIZE);
 
 	if (bb->num_rf_path >= 4) {
+#if (defined(HALBB_COMPILE_ABOVE_4SS))
 		BB_DBG(bb, DBG_ENV_MNTR,
 		       "ext_loss{avg, a, b, c, d} = {%s, %s, %s, %s, %s} dB, ccx_ext_loss = %s dB, ccx_ext_loss_update = %d\n",
 		       bb->dbg_buf, ext_loss[0], ext_loss[1], ext_loss[2],
 		       ext_loss[3], ccx_ext_loss, env->ccx_ext_loss_update);
+#endif
 	} else if (bb->num_rf_path >= 2) {
+#if (defined(HALBB_COMPILE_ABOVE_2SS))
 		BB_DBG(bb, DBG_ENV_MNTR,
 		       "ext_loss{avg, a, b} = {%s, %s, %s} dB, ccx_ext_loss = %s dB, ccx_ext_loss_update = %d\n",
 		       bb->dbg_buf, ext_loss[0], ext_loss[1], ccx_ext_loss,
 		       env->ccx_ext_loss_update);
+#endif
 	} else {
 		BB_DBG(bb, DBG_ENV_MNTR, "ext_loss=%s dB, ccx_ext_loss = %s dB, ccx_ext_loss_update = %d\n",
 		       ext_loss[0], ccx_ext_loss, env->ccx_ext_loss_update);
@@ -2804,7 +2808,7 @@ void halbb_fahm_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		    char *output, u32 *_out_len)
 {
 	struct bb_env_mntr_info *env = &bb->bb_env_mntr_i;
-	struct fahm_para_info para;
+	struct fahm_para_info para = {0};
 	u32 var[10] = {0};
 	u8 i = 0;
 	u8 end_i = 0;
@@ -4055,17 +4059,21 @@ void halbb_env_mntr_dbg_show_rpt(struct bb_info *bb, u32 *_used, char *output,
 					    ccx_ext_loss, HALBB_SNPRINT_SIZE);
 
 		if (bb->num_rf_path >= 4) {
+#if (defined(HALBB_COMPILE_ABOVE_4SS))
 			BB_DBG_CNSL(*_out_len, *_used, output + *_used,
 				    *_out_len - *_used,
 				    "ext_loss{avg, a, b, c, d} = {%s, %s, %s, %s, %s} dB, ccx_ext_loss = %s dB\n",
 				    bb->dbg_buf, ext_loss[0], ext_loss[1],
 				    ext_loss[2], ext_loss[3], ccx_ext_loss);
+#endif
 		} else if (bb->num_rf_path >= 2) {
+#if (defined(HALBB_COMPILE_ABOVE_2SS))
 			BB_DBG_CNSL(*_out_len, *_used, output + *_used,
 				    *_out_len - *_used,
 				    "ext_loss{avg, a, b} = {%s, %s, %s} dB, ccx_ext_loss = %s dB\n",
 				    bb->dbg_buf, ext_loss[0], ext_loss[1],
 				    ccx_ext_loss);
+#endif
 		} else {
 			BB_DBG_CNSL(*_out_len, *_used, output + *_used,
 				    *_out_len - *_used,
@@ -5385,7 +5393,276 @@ void halbb_cr_cfg_env_mntr_init(struct bb_info *bb)
 		break;
 
 	#endif
+	#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->ccx_en = CCX_EN_BE1;
+		cr->ccx_en_m = CCX_EN_BE1_M;
+		cr->ccx_trig_opt = CCX_TRIG_OPT_BE1;
+		cr->ccx_trig_opt_m = CCX_TRIG_OPT_BE1_M;
+		cr->ccx_trig = MEASUREMENT_TRIG_BE1;
+		cr->ccx_trig_m = MEASUREMENT_TRIG_BE1_M;
+		cr->ccx_edcca_opt = CCX_EDCCA_OPT_BE1;
+		cr->ccx_edcca_opt_m = CCX_EDCCA_OPT_BE1_M;
+		cr->ccx_source_sel = RXINT_R_CCX_SOURCE_SEL_BE1; // different naming
+		cr->ccx_source_sel_m = RXINT_R_CCX_SOURCE_SEL_BE1_M; // different naming
+		cr->clm_unit_idx = CLM_COUNTER_UNIT_BE1;
+		cr->clm_unit_idx_m = CLM_COUNTER_UNIT_BE1_M;
+		cr->clm_en = CLM_EN_BE1;
+		cr->clm_en_m = CLM_EN_BE1_M;
+		cr->clm_opt = CLM_CCA_OPT_BE1;
+		cr->clm_opt_m = CLM_CCA_OPT_BE1_M;
+		cr->clm_period = CLM_PERIOD_BE1;
+		cr->clm_period_m = CLM_PERIOD_BE1_M;
+		cr->clm_dbg_sel = CLM_FROM_DBG_SEL_BE1;
+		cr->clm_dbg_sel_m = CLM_FROM_DBG_SEL_BE1_M;
+		cr->clm_nav_en = CLM_NAV_EN_BE1;
+		cr->clm_nav_en_m = CLM_NAV_EN_BE1_M;
+		cr->clm_rssi_th_en = CLM_RSSI_TH_EN_BE1;
+		cr->clm_rssi_th_en_m = CLM_RSSI_TH_EN_BE1_M;
+		cr->clm_rssi_th = CLM_RSSI_TH_BE1;
+		cr->clm_rssi_th_m = CLM_RSSI_TH_BE1_M;
+		cr->clm_cnt = RO_CLM_RESULT_BE1;
+		cr->clm_cnt_m = RO_CLM_RESULT_BE1_M;
+		cr->clm_rdy = RO_CLM_RDY_BE1;
+		cr->clm_rdy_m = RO_CLM_RDY_BE1_M;
+		cr->edcca_clm_period = CLM_EDCCA_PERIOD_BE1;
+		cr->edcca_clm_period_m = CLM_EDCCA_PERIOD_BE1_M;
+		cr->edcca_clm_unit_idx = CLM_EDCCA_COUNTER_UNIT_BE1;
+		cr->edcca_clm_unit_idx_m = CLM_EDCCA_COUNTER_UNIT_BE1_M;
+		cr->edcca_clm_en = CLM_EDCCA_EN_BE1;
+		cr->edcca_clm_en_m = CLM_EDCCA_EN_BE1_M;
+		cr->edcca_clm_cnt = RO_CLM_EDCCA_RESULT_BE1;
+		cr->edcca_clm_cnt_m = RO_CLM_EDCCA_RESULT_BE1_M;
+		cr->edcca_clm_rdy = RO_CLM_EDCCA_RDY_BE1;
+		cr->edcca_clm_rdy_m = RO_CLM_EDCCA_RDY_BE1_M;
+		cr->nhm_en = NHM_EN_BE1;
+		cr->nhm_en_m = NHM_EN_BE1_M;
+		cr->nhm_method_sel = NHM_PWDB_METHOD_SEL_BE1;
+		cr->nhm_method_sel_m = NHM_PWDB_METHOD_SEL_BE1_M;
+		cr->nhm_period = NHM_PERIOD_BE1;
+		cr->nhm_period_m = NHM_PERIOD_BE1_M;
+		cr->nhm_unit_idx = NHM_COUNTER_UNIT_BE1;
+		cr->nhm_unit_idx_m = NHM_COUNTER_UNIT_BE1_M;
+		cr->nhm_inclu_cca = NHM_IGNORE_CCA_BE1;
+		cr->nhm_inclu_cca_m = NHM_IGNORE_CCA_BE1_M;
+		cr->nhm_nav_en = NHM_NAV_EN_BE1;
+		cr->nhm_nav_en_m = NHM_NAV_EN_BE1_M;
+		cr->nhm_rssi_th_en = NHM_RSSI_TH_EN_BE1;
+		cr->nhm_rssi_th_en_m = NHM_RSSI_TH_EN_BE1_M;
+		cr->nhm_rssi_th = NHM_RSSI_TH_BE1;
+		cr->nhm_rssi_th_m = NHM_RSSI_TH_BE1_M;
+		cr->nhm_th0 = NHM_TH0_BE1;
+		cr->nhm_th0_m = NHM_TH0_BE1_M;
+		cr->nhm_th1 = NHM_TH1_BE1;
+		cr->nhm_th1_m = NHM_TH1_BE1_M;
+		cr->nhm_th2 = NHM_TH2_BE1;
+		cr->nhm_th2_m = NHM_TH2_BE1_M;
+		cr->nhm_th3 = NHM_TH3_BE1;
+		cr->nhm_th3_m = NHM_TH3_BE1_M;
+		cr->nhm_th4 = NHM_TH4_BE1;
+		cr->nhm_th4_m = NHM_TH4_BE1_M;
+		cr->nhm_th5 = NHM_TH5_BE1;
+		cr->nhm_th5_m = NHM_TH5_BE1_M;
+		cr->nhm_th6 = NHM_TH6_BE1;
+		cr->nhm_th6_m = NHM_TH6_BE1_M;
+		cr->nhm_th7 = NHM_TH7_BE1;
+		cr->nhm_th7_m = NHM_TH7_BE1_M;
+		cr->nhm_th8 = NHM_TH8_BE1;
+		cr->nhm_th8_m = NHM_TH8_BE1_M;
+		cr->nhm_th9 = NHM_TH9_BE1;
+		cr->nhm_th9_m = NHM_TH9_BE1_M;
+		cr->nhm_th10 = NHM_TH10_BE1;
+		cr->nhm_th10_m = NHM_TH10_BE1_M;
+		cr->nhm_cnt0 = NHM_CNT0_BE1;
+		cr->nhm_cnt0_m = NHM_CNT0_BE1_M;
+		cr->nhm_cnt1 = NHM_CNT1_BE1;
+		cr->nhm_cnt1_m = NHM_CNT1_BE1_M;
+		cr->nhm_cnt2 = NHM_CNT2_BE1;
+		cr->nhm_cnt2_m = NHM_CNT2_BE1_M;
+		cr->nhm_cnt3 = NHM_CNT3_BE1;
+		cr->nhm_cnt3_m = NHM_CNT3_BE1_M;
+		cr->nhm_cnt4 = NHM_CNT4_BE1;
+		cr->nhm_cnt4_m = NHM_CNT4_BE1_M;
+		cr->nhm_cnt5 = NHM_CNT5_BE1;
+		cr->nhm_cnt5_m = NHM_CNT5_BE1_M;
+		cr->nhm_cnt6 = NHM_CNT6_BE1;
+		cr->nhm_cnt6_m = NHM_CNT6_BE1_M;
+		cr->nhm_cnt7 = NHM_CNT7_BE1;
+		cr->nhm_cnt7_m = NHM_CNT7_BE1_M;
+		cr->nhm_cnt8 = NHM_CNT8_BE1;
+		cr->nhm_cnt8_m = NHM_CNT8_BE1_M;
+		cr->nhm_cnt9 = NHM_CNT9_BE1;
+		cr->nhm_cnt9_m = NHM_CNT9_BE1_M;
+		cr->nhm_cnt10 = NHM_CNT10_BE1;
+		cr->nhm_cnt10_m = NHM_CNT10_BE1_M;
+		cr->nhm_cnt11 = NHM_CNT11_BE1;
+		cr->nhm_cnt11_m = NHM_CNT11_BE1_M;
+		cr->nhm_cca_cnt = NHM_CCA_CNT_BE1;
+		cr->nhm_cca_cnt_m = NHM_CCA_CNT_BE1_M;
+		cr->nhm_tx_cnt = NHM_TXON_CNT_BE1;
+		cr->nhm_tx_cnt_m = NHM_TXON_CNT_BE1_M;
+		cr->nhm_idle_cnt = NHM_IDLE_CNT_BE1;
+		cr->nhm_idle_cnt_m = NHM_IDLE_CNT_BE1_M;
+		cr->nhm_rdy = NHM_RDY_BE1;
+		cr->nhm_rdy_m = NHM_RDY_BE1_M;
+		cr->fahm_en = FAHM_EN_BE1;
+		cr->fahm_en_m = FAHM_EN_BE1_M;
+		cr->fahm_ofdm_en = FAHM_EN_OFDM_BE1;
+		cr->fahm_ofdm_en_m = FAHM_EN_OFDM_BE1_M;
+		cr->fahm_cck_en = FAHM_EN_CCK_BE1;
+		cr->fahm_cck_en_m = FAHM_EN_CCK_BE1_M;
+		cr->fahm_numer_opt = FAHM_NUM_CANDIDATE_BE1;
+		cr->fahm_numer_opt_m = FAHM_NUM_CANDIDATE_BE1_M;
+		cr->fahm_denom_opt = FAHM_DEN_CANDIDATE_BE1;
+		cr->fahm_denom_opt_m = FAHM_DEN_CANDIDATE_BE1_M;
+		cr->fahm_period = FAHM_PERIOD_BE1;
+		cr->fahm_period_m = FAHM_PERIOD_BE1_M;
+		cr->fahm_unit_idx = FAHM_COUNTER_UNIT_BE1;
+		cr->fahm_unit_idx_m = FAHM_COUNTER_UNIT_BE1_M;
+		cr->fahm_method_sel = FAHM_PWDB_SEL_BE1;
+		cr->fahm_method_sel_m = FAHM_PWDB_SEL_BE1_M;
+		cr->fahm_th0 = FAHM_TH0_BE1;
+		cr->fahm_th0_m = FAHM_TH0_BE1_M;
+		cr->fahm_th1 = FAHM_TH1_BE1;
+		cr->fahm_th1_m = FAHM_TH1_BE1_M;
+		cr->fahm_th2 = FAHM_TH2_BE1;
+		cr->fahm_th2_m = FAHM_TH2_BE1_M;
+		cr->fahm_th3 = FAHM_TH3_BE1;
+		cr->fahm_th3_m = FAHM_TH3_BE1_M;
+		cr->fahm_th4 = FAHM_TH4_BE1;
+		cr->fahm_th4_m = FAHM_TH4_BE1_M;
+		cr->fahm_th5 = FAHM_TH5_BE1;
+		cr->fahm_th5_m = FAHM_TH5_BE1_M;
+		cr->fahm_th6 = FAHM_TH6_BE1;
+		cr->fahm_th6_m = FAHM_TH6_BE1_M;
+		cr->fahm_th7 = FAHM_TH7_BE1;
+		cr->fahm_th7_m = FAHM_TH7_BE1_M;
+		cr->fahm_th8 = FAHM_TH8_BE1;
+		cr->fahm_th8_m = FAHM_TH8_BE1_M;
+		cr->fahm_th9 = FAHM_TH9_BE1;
+		cr->fahm_th9_m = FAHM_TH9_BE1_M;
+		cr->fahm_th10 = FAHM_TH10_BE1;
+		cr->fahm_th10_m = FAHM_TH10_BE1_M;
+		cr->fahm_dis_count_each_mpdu = FAHM_DIS_COUNT_EACH_MPDU_BE1;
+		cr->fahm_dis_count_each_mpdu_m = FAHM_DIS_COUNT_EACH_MPDU_BE1_M;
+		cr->fahm_cnt0 = RO_FAHM_NUM0_BE1;
+		cr->fahm_cnt0_m = RO_FAHM_NUM0_BE1_M;
+		cr->fahm_cnt1 = RO_FAHM_NUM1_BE1;
+		cr->fahm_cnt1_m = RO_FAHM_NUM1_BE1_M;
+		cr->fahm_cnt2 = RO_FAHM_NUM2_BE1;
+		cr->fahm_cnt2_m = RO_FAHM_NUM2_BE1_M;
+		cr->fahm_cnt3 = RO_FAHM_NUM3_BE1;
+		cr->fahm_cnt3_m = RO_FAHM_NUM3_BE1_M;
+		cr->fahm_cnt4 = RO_FAHM_NUM4_BE1;
+		cr->fahm_cnt4_m = RO_FAHM_NUM4_BE1_M;
+		cr->fahm_cnt5 = RO_FAHM_NUM5_BE1;
+		cr->fahm_cnt5_m = RO_FAHM_NUM5_BE1_M;
+		cr->fahm_cnt6 = RO_FAHM_NUM6_BE1;
+		cr->fahm_cnt6_m = RO_FAHM_NUM6_BE1_M;
+		cr->fahm_cnt7 = RO_FAHM_NUM7_BE1;
+		cr->fahm_cnt7_m = RO_FAHM_NUM7_BE1_M;
+		cr->fahm_cnt8 = RO_FAHM_NUM8_BE1;
+		cr->fahm_cnt8_m = RO_FAHM_NUM8_BE1_M;
+		cr->fahm_cnt9 = RO_FAHM_NUM9_BE1;
+		cr->fahm_cnt9_m = RO_FAHM_NUM9_BE1_M;
+		cr->fahm_cnt10 = RO_FAHM_NUM10_BE1;
+		cr->fahm_cnt10_m = RO_FAHM_NUM10_BE1_M;
+		cr->fahm_cnt11 = RO_FAHM_NUM11_BE1;
+		cr->fahm_cnt11_m = RO_FAHM_NUM11_BE1_M;
+		cr->fahm_denom_cnt = RO_FAHM_DEN_BE1;
+		cr->fahm_denom_cnt_m = RO_FAHM_DEN_BE1_M;
+		cr->fahm_rdy = RO_FAHM_RDY_BE1;
+		cr->fahm_rdy_m = RO_FAHM_RDY_BE1_M;
+		cr->ifs_clm_en = IFS_COLLECT_EN_BE1;
+		cr->ifs_clm_en_m = IFS_COLLECT_EN_BE1_M;
+		cr->ifs_clm_clr = IFS_COUNTER_CLR_BE1;
+		cr->ifs_clm_clr_m = IFS_COUNTER_CLR_BE1_M;
+		cr->ifs_clm_period = IFS_COLLECT_TOTAL_TIME_BE1;
+		cr->ifs_clm_period_m = IFS_COLLECT_TOTAL_TIME_BE1_M;
+		cr->ifs_clm_unit_idx = IFS_COUNTER_UNIT_BE1;
+		cr->ifs_clm_unit_idx_m = IFS_COUNTER_UNIT_BE1_M;
+		cr->ifs_t1_en = IFS_T1_EN_BE1;
+		cr->ifs_t1_en_m = IFS_T1_EN_BE1_M;
+		cr->ifs_t2_en = IFS_T2_EN_BE1;
+		cr->ifs_t2_en_m = IFS_T2_EN_BE1_M;
+		cr->ifs_t3_en = IFS_T3_EN_BE1;
+		cr->ifs_t3_en_m = IFS_T3_EN_BE1_M;
+		cr->ifs_t4_en = IFS_T4_EN_BE1;
+		cr->ifs_t4_en_m = IFS_T4_EN_BE1_M;
+		cr->ifs_t5_en = IFS_T5_EN_BE1;
+		cr->ifs_t5_en_m = IFS_T5_EN_BE1_M;
+		cr->ifs_t1_th_l = IFS_T1_TH_LOW_BE1;
+		cr->ifs_t1_th_l_m = IFS_T1_TH_LOW_BE1_M;
+		cr->ifs_t2_th_l = IFS_T2_TH_LOW_BE1;
+		cr->ifs_t2_th_l_m = IFS_T2_TH_LOW_BE1_M;
+		cr->ifs_t3_th_l = IFS_T3_TH_LOW_BE1;
+		cr->ifs_t3_th_l_m = IFS_T3_TH_LOW_BE1_M;
+		cr->ifs_t4_th_l = IFS_T4_TH_LOW_BE1;
+		cr->ifs_t4_th_l_m = IFS_T4_TH_LOW_BE1_M;
+		cr->ifs_t5_th_l = IFS_T5_TH_LOW_BE1;
+		cr->ifs_t5_th_l_m = IFS_T5_TH_LOW_BE1_M;
+		cr->ifs_t1_th_h = IFS_T1_TH_HIGH_BE1;
+		cr->ifs_t1_th_h_m = IFS_T1_TH_HIGH_BE1_M;
+		cr->ifs_t2_th_h = IFS_T2_TH_HIGH_BE1;
+		cr->ifs_t2_th_h_m = IFS_T2_TH_HIGH_BE1_M;
+		cr->ifs_t3_th_h = IFS_T3_TH_HIGH_BE1;
+		cr->ifs_t3_th_h_m = IFS_T3_TH_HIGH_BE1_M;
+		cr->ifs_t4_th_h = IFS_T4_TH_HIGH_BE1;
+		cr->ifs_t4_th_h_m = IFS_T4_TH_HIGH_BE1_M;
+		cr->ifs_t5_th_h = IFS_T5_TH_HIGH_BE1;
+		cr->ifs_t5_th_h_m = IFS_T5_TH_HIGH_BE1_M;
+		cr->ifs_clm_tx_cnt = IFSCNT_CNT_TX_BE1;
+		cr->ifs_clm_tx_cnt_m = IFSCNT_CNT_TX_BE1_M;
+		cr->ifs_clm_edcca_exclu_cca = IFSCNT_CNT_EDCCA_EXCLUDE_CCA_FA_BE1;
+		cr->ifs_clm_edcca_exclu_cca_m = IFSCNT_CNT_EDCCA_EXCLUDE_CCA_FA_BE1_M;
+		cr->ifs_clm_cckcca_exclu_fa = IFSCNT_CNT_CCKCCA_EXCLUDE_FA_BE1;
+		cr->ifs_clm_cckcca_exclu_fa_m = IFSCNT_CNT_CCKCCA_EXCLUDE_FA_BE1_M;
+		cr->ifs_clm_ofdmcca_exclu_fa = IFSCNT_CNT_OFDMCCA_EXCLUDE_FA_BE1;
+		cr->ifs_clm_ofdmcca_exclu_fa_m = IFSCNT_CNT_OFDMCCA_EXCLUDE_FA_BE1_M;
+		cr->ifs_clm_cck_fa = IFSCNT_CNT_CCKFA_BE1;
+		cr->ifs_clm_cck_fa_m = IFSCNT_CNT_CCKFA_BE1_M;
+		cr->ifs_clm_ofdm_fa = IFSCNT_CNT_OFDMFA_BE1;
+		cr->ifs_clm_ofdm_fa_m = IFSCNT_CNT_OFDMFA_BE1_M;
+		cr->ifs_clm_t1_his = IFS_T1_HIS_BE1;
+		cr->ifs_clm_t1_his_m = IFS_T1_HIS_BE1_M;
+		cr->ifs_clm_t2_his = IFS_T2_HIS_BE1;
+		cr->ifs_clm_t2_his_m = IFS_T2_HIS_BE1_M;
+		cr->ifs_clm_t3_his = IFS_T3_HIS_BE1;
+		cr->ifs_clm_t3_his_m = IFS_T3_HIS_BE1_M;
+		cr->ifs_clm_t4_his = IFS_T4_HIS_BE1;
+		cr->ifs_clm_t4_his_m = IFS_T4_HIS_BE1_M;
+		cr->ifs_clm_t5_his = IFS_RO_P0_T5_HIS_BAND0_BE1;
+		cr->ifs_clm_t5_his_m = IFS_RO_P0_T5_HIS_BAND0_BE1_M;
+		cr->ifs_clm_t1_avg = IFS_T1_AVG_BE1;
+		cr->ifs_clm_t1_avg_m = IFS_T1_AVG_BE1_M;
+		cr->ifs_clm_t2_avg = IFS_T2_AVG_BE1;
+		cr->ifs_clm_t2_avg_m = IFS_T2_AVG_BE1_M;
+		cr->ifs_clm_t3_avg = IFS_T3_AVG_BE1;
+		cr->ifs_clm_t3_avg_m = IFS_T3_AVG_BE1_M;
+		cr->ifs_clm_t4_avg = IFS_T4_AVG_BE1;
+		cr->ifs_clm_t4_avg_m = IFS_T4_AVG_BE1_M;
+		cr->ifs_clm_t5_avg = IFS_RO_P0_IFS_T5_ACVG_BAND0_BE1;
+		cr->ifs_clm_t5_avg_m = IFS_RO_P0_IFS_T5_ACVG_BAND0_BE1_M;
+		cr->ifs_clm_t1_cca = IFS_T1_CLM_BE1;
+		cr->ifs_clm_t1_cca_m = IFS_T1_CLM_BE1_M;
+		cr->ifs_clm_t2_cca = IFS_T2_CLM_BE1;
+		cr->ifs_clm_t2_cca_m = IFS_T2_CLM_BE1_M;
+		cr->ifs_clm_t3_cca = IFS_T3_CLM_BE1;
+		cr->ifs_clm_t3_cca_m = IFS_T3_CLM_BE1_M;
+		cr->ifs_clm_t4_cca = IFS_T4_CLM_BE1;
+		cr->ifs_clm_t4_cca_m = IFS_T4_CLM_BE1_M;
+		cr->ifs_clm_t5_cca = IFS_RO_P0_IFS_T5_CLM_BAND0_BE1;
+		cr->ifs_clm_t5_cca_m = IFS_RO_P0_IFS_T5_CLM_BAND0_BE1_M;
+		cr->ifs_total_cnt = IFS_TOTAL_BE1;
+		cr->ifs_total_cnt_m = IFS_TOTAL_BE1_M;
+		cr->ifs_clm_rdy = IFSCNT_DONE_BE1;
+		cr->ifs_clm_rdy_m = IFSCNT_DONE_BE1_M;
+		cr->ifs_clm_cca_opt = IFS_CCA_OPT_BE1;
+		cr->ifs_clm_cca_opt_m = IFS_CCA_OPT_BE1_M;
 
+		break;
+
+	#endif
 	default:
 		BB_WARNING("[%s] BBCR Hook FAIL!\n", __func__);
 		if (bb->bb_dbg_i.cr_fake_init_hook_en) {

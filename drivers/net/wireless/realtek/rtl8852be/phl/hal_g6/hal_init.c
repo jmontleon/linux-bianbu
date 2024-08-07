@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2020 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -528,6 +528,10 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 		hal_error_msg("disable_interrupt_isr");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
+	if (!ops->hal_set_pcicfg) {
+		hal_error_msg("hal_set_pcicfg");
+		status = RTW_HAL_STATUS_FAILURE;
+	}
 #endif
 
 #if defined(CONFIG_PCI_HCI) || defined(CONFIG_SDIO_HCI)
@@ -606,14 +610,6 @@ static enum rtw_hal_status hal_ops_check(struct hal_info_t *hal)
 	}
 	if (!trx_ops->get_rxbuf_num) {
 		hal_error_msg("trx get_rxbuf_num");
-		status = RTW_HAL_STATUS_FAILURE;
-	}
-	if (!trx_ops->cfg_wow_txdma) {
-		hal_error_msg("trx cfg_wow_txdma");
-		status = RTW_HAL_STATUS_FAILURE;
-	}
-	if (!trx_ops->poll_txdma_idle) {
-		hal_error_msg("trx poll_txdma_idle");
 		status = RTW_HAL_STATUS_FAILURE;
 	}
 	if (!trx_ops->qsel_to_tid) {
@@ -1018,6 +1014,8 @@ enum rtw_hal_status rtw_hal_init(void *drv_priv,
 		chip_id = CHIP_WIFI6_8852B;
 	else if(ic_id == RTL8852BP)
 		chip_id = CHIP_WIFI6_8852BP;
+	else if(ic_id == RTL8852BT)
+		chip_id = CHIP_WIFI6_8852BT;
 	else if(ic_id == RTL8852C)
 		chip_id = CHIP_WIFI6_8852C;
 	else if(ic_id == RTL8192XB)
@@ -1026,6 +1024,8 @@ enum rtw_hal_status rtw_hal_init(void *drv_priv,
 		chip_id = CHIP_WIFI6_8832BR;
 	else if (ic_id == RTL8851B)
 		chip_id = CHIP_WIFI6_8851B;
+	else if (ic_id == RTL8852D)
+		chip_id = CHIP_WIFI6_8852D;
 	else
 		chip_id = CHIP_WIFI6_MAX;
 
@@ -1336,15 +1336,22 @@ static void _hal_send_hal_init_hub_msg(struct rtw_phl_com_t *phl_com, u8 init_ok
 
 enum rtw_hal_status rtw_hal_preload(struct rtw_phl_com_t *phl_com, void *hal)
 {
+	enum rtw_hal_status hal_status;
+#ifdef FPGA_TEST
+	hal_status = RTW_HAL_STATUS_SUCCESS;
+	FUNCIN();
+#else
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
+	hal_status = RTW_HAL_STATUS_FAILURE;
 
 	FUNCIN();
 
 	hal_status = hal_ops->hal_get_efuse(phl_com, hal_info);
 	if (hal_status != RTW_HAL_STATUS_SUCCESS)
 		return hal_status;
+#endif
+
 
 	return hal_status;
 }
@@ -1390,6 +1397,18 @@ enum rtw_hal_status rtw_hal_start(struct rtw_phl_com_t *phl_com, void *hal)
 	if (hal_status != RTW_HAL_STATUS_SUCCESS)
 		return hal_status;
 
+	if (RTW_EDCCA_FCC == phl_com->edcca_mode) {
+		hal_status = rtw_hal_mac_sifs_chk_cca_en(hal, HW_BAND_0, true);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s: enable rtw_hal_mac_sifs_chk_cca_en failed!\n", __FUNCTION__);
+		}
+
+		hal_status = rtw_hal_mac_set_resp_ack_chk_cca(hal, HW_BAND_0, true);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s: enable rtw_hal_mac_set_resp_ack_chk_cca failed!\n", __FUNCTION__);
+		}
+	}
+
 	hal_status = RTW_HAL_STATUS_SUCCESS;
 	hal_info->hal_com->is_hal_init = true;
 	rtw_hal_set_default_var(hal_info);
@@ -1408,6 +1427,8 @@ enum rtw_hal_status rtw_hal_start(struct rtw_phl_com_t *phl_com, void *hal)
 	#ifdef CONFIG_BTCOEX
 	rtw_hal_btc_radio_state_ntfy(hal_info, true);
 	#endif
+
+	rtw_hal_bb_pwr_ctrl_ability_set(hal_info, !phl_com->dev_cap.disable_dyn_txpwr);
 
 	return hal_status;
 }
@@ -1624,6 +1645,7 @@ rtw_hal_cfg_trx_path(void *hal, enum rf_path tx, u8 tx_nss,
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
 	struct rtw_phl_com_t *phl_com = hal_info->phl_com;
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	u32 freerun_cnt_h, freerun_cnt_l;
 
 	if (tx < RF_PATH_AB) {
 		/* forced tx nss = 1*/
@@ -1645,6 +1667,14 @@ rtw_hal_cfg_trx_path(void *hal, enum rf_path tx, u8 tx_nss,
 #ifdef RTW_WKARD_SINGLE_PATH_RSSI
 	hal_info->hal_com->cur_rx_rfpath = rx;
 #endif
+	if (hal_status != RTW_HAL_STATUS_SUCCESS)
+		return hal_status;
+
+	hal_status = rtw_hal_mac_get_freerun_cnt(hal_info->hal_com, HW_BAND_0, &freerun_cnt_h, &freerun_cnt_l);
+
+	phl_com->rssi_stat.last_switch_rx_freerun = freerun_cnt_l;
+
+	PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_, "%s : switch rx path freerun 0x%x\n", __func__, freerun_cnt_l);
 
 	return hal_status;
 }
@@ -1677,4 +1707,3 @@ void rtw_hal_dbg_status_dump(void *hal, struct hal_mac_dbg_dump_cfg *cfg)
 
 	rtw_hal_mac_dbg_status_dump(hal_info, cfg);
 }
-

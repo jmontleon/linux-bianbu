@@ -25,6 +25,9 @@ EXTRA_CFLAGS += -Wno-invalid-source-encoding
 EXTRA_CFLAGS += -Wno-tautological-pointer-compare
 EXTRA_CFLAGS += -Wno-tautological-overlap-compare
 EXTRA_CFLAGS += -Wno-pointer-bool-conversion
+EXTRA_CFLAGS += -Wno-parentheses-equality
+EXTRA_CFLAGS += -Wno-self-assign
+EXTRA_CFLAGS += -Wno-header-guard
 endif
 
 GCC_VER_49 := $(shell echo `$(CC) -dumpversion | cut -f1-2 -d.` \>= 4.9 | bc )
@@ -42,8 +45,10 @@ CONFIG_AUTOCFG_CP = n
 CONFIG_RTL8852A = n
 CONFIG_RTL8852B = y
 CONFIG_RTL8852BP = n
+CONFIG_RTL8852BT = n
 CONFIG_RTL8851B = n
 CONFIG_RTL8852C = n
+CONFIG_RTL8852D = n
 ######################### Interface ###########################
 CONFIG_USB_HCI = n
 CONFIG_PCI_HCI = y
@@ -66,7 +71,13 @@ CONFIG_TXPWR_BY_RATE = y
 CONFIG_TXPWR_BY_RATE_EN = y
 CONFIG_TXPWR_LIMIT = y
 CONFIG_TXPWR_LIMIT_EN = n
-CONFIG_RTW_REGDB = phl
+
+####################### RTW regulatory DB selection  ######################
+# RTW regulatory database version to select
+# *MUST* config to match the certification status of shipping product,
+# otherwise regression issue on regulatory may happen.
+CONFIG_RTW_REGDB = rtk_63-36
+
 ########################## Initial Channel Plan  ##########################
 # XX: unspecified
 CONFIG_RTW_COUNTRY_CODE = XX
@@ -83,8 +94,14 @@ CONFIG_RTW_COUNTRY_IE_SLAVE_EN_MODE = 0
 # BIT1: consider all environment BSSs, otherwise associated BSSs only
 CONFIG_RTW_COUNTRY_IE_SLAVE_FLAGS = 0x01
 
-CONFIG_RTW_ADAPTIVITY_EN = disable
-CONFIG_RTW_ADAPTIVITY_MODE = normal
+########################## EDCCA for regulatory ##########################
+# NORMAL: Without regulatory consideration
+# CS    : Force Carrier Sense
+# ADAPT : Force Adaptivity
+# CBP   : Force Contention Based Protocol
+# AUTO  : According to regulatory
+CONFIG_RTW_EDCCA_MODE_SEL = NORMAL
+
 CONFIG_SIGNAL_SCALE_MAPPING = n
 CONFIG_80211W = y
 CONFIG_REDUCE_TX_CPU_LOADING = n
@@ -122,7 +139,7 @@ CONFIG_DBG_AX_CAM = y
 
 USE_TRUE_PHY = y
 CONFIG_I386_BUILD_VERIFY = n
-CONFIG_RTW_MBO = n
+CONFIG_RTW_MBO = y
 # CONFIG_RTKM - n/m/y for not support / standalone / built-in
 CONFIG_RTKM ?= n
 ########################## Android ###########################
@@ -139,6 +156,20 @@ CONFIG_RTW_DEBUG = y
 # please refer to "How_to_set_driver_debug_log_level.doc" to set the available level.
 CONFIG_RTW_LOG_LEVEL = 2
 CONFIG_RTW_PHL_LOG_LEVEL = 0
+
+# CONFIG_RTW_APPEND_LOGLEVEL decide if append kernel log level to each messages.
+# default "n" for don't append.
+CONFIG_RTW_APPEND_LOGLEVEL = n
+
+# Add "RTW_LL_*" define to change default mapping of driver debug log level
+# to Linux kernel log level.
+# NOTICE: "RTW_LL_*" would be valid only when "CONFIG_RTW_APPEND_LOGLEVEL = y"
+#RTW_LL_PRINT = KERN_CRIT
+#RTW_LL_ERR = KERN_ERR
+#RTW_LL_WARN = KERN_WARNING
+#RTW_LL_INFO = KERN_INFO
+#RTW_LL_DBG = KERN_DEBUG
+#RTW_LL_DEFAULT = KERN_DEFAULT
 
 # enable /proc/net/rtlxxxx/ debug interfaces
 CONFIG_PROC_DEBUG = y
@@ -173,6 +204,9 @@ CONFIG_GPIO_WAKEUP = n
 # you are just able to modify the CONFIG_WAKEUP_GPIO_IDX with customized requirement.
 CONFIG_WAKEUP_GPIO_IDX = default
 CONFIG_HIGH_ACTIVE_DEV2HST = n
+#0:TOGGLE 1:PULSE
+CONFIG_TOGGLE_PULSE = 0
+CONFIG_PULSE_COUNT = 3
 ######### only for USB #########
 CONFIG_ONE_PIN_GPIO = n
 CONFIG_HIGH_ACTIVE_HST2DEV = n
@@ -285,6 +319,21 @@ endif
 
 endif
 
+########### HAL_RTL8852BT #################################
+ifeq ($(CONFIG_RTL8852BT), y)
+IC_NAME := rtl8852bt
+ifeq ($(CONFIG_USB_HCI), y)
+MODULE_NAME = 8852btu
+endif
+ifeq ($(CONFIG_PCI_HCI), y)
+MODULE_NAME = 8852bte
+endif
+ifeq ($(CONFIG_SDIO_HCI), y)
+MODULE_NAME = 8852bts
+endif
+
+endif
+
 ########### HAL_RTL8851B #################################
 ifeq ($(CONFIG_RTL8851B), y)
 IC_NAME := rtl8851b
@@ -311,6 +360,18 @@ MODULE_NAME = 8852ce
 endif
 ifeq ($(CONFIG_SDIO_HCI), y)
 MODULE_NAME = 8852cs
+endif
+
+endif
+
+########### HAL_RTL8852D #################################
+ifeq ($(CONFIG_RTL8852D), y)
+IC_NAME := rtl8852d
+ifeq ($(CONFIG_USB_HCI), y)
+MODULE_NAME = 8852du
+endif
+ifeq ($(CONFIG_PCI_HCI), y)
+MODULE_NAME = 8852de
 endif
 
 endif
@@ -449,6 +510,18 @@ ifeq ($(CONFIG_CALIBRATE_TX_POWER_TO_MAX), y)
 EXTRA_CFLAGS += -DCONFIG_CALIBRATE_TX_POWER_TO_MAX
 endif
 
+ifeq ($(CONFIG_RTW_EDCCA_MODE_SEL), NORMAL)
+EXTRA_CFLAGS += -DCONFIG_RTW_EDCCA_MODE_SEL=0
+else ifeq ($(CONFIG_RTW_EDCCA_MODE_SEL), CS)
+EXTRA_CFLAGS += -DCONFIG_RTW_EDCCA_MODE_SEL=1
+else ifeq ($(CONFIG_RTW_EDCCA_MODE_SEL), ADAPT)
+EXTRA_CFLAGS += -DCONFIG_RTW_EDCCA_MODE_SEL=2
+else ifeq ($(CONFIG_RTW_EDCCA_MODE_SEL), CBP)
+EXTRA_CFLAGS += -DCONFIG_RTW_EDCCA_MODE_SEL=3
+else ifeq ($(CONFIG_RTW_EDCCA_MODE_SEL), AUTO)
+EXTRA_CFLAGS += -DCONFIG_RTW_EDCCA_MODE_SEL=0xFF
+endif
+
 ifeq ($(CONFIG_RTW_ADAPTIVITY_EN), disable)
 EXTRA_CFLAGS += -DCONFIG_RTW_ADAPTIVITY_EN=0
 else ifeq ($(CONFIG_RTW_ADAPTIVITY_EN), enable)
@@ -509,6 +582,8 @@ endif
 
 ifeq ($(CONFIG_GPIO_WAKEUP), y)
 EXTRA_CFLAGS += -DCONFIG_GPIO_WAKEUP
+EXTRA_CFLAGS += -DCONFIG_TOGGLE_PULSE=$(CONFIG_TOGGLE_PULSE)
+EXTRA_CFLAGS += -DCONFIG_PULSE_COUNT=$(CONFIG_PULSE_COUNT)
 ifeq ($(CONFIG_ONE_PIN_GPIO), y)
 EXTRA_CFLAGS += -DCONFIG_RTW_ONE_PIN_GPIO
 endif
@@ -604,7 +679,28 @@ ifeq ($(CONFIG_RTW_DEBUG), y)
 EXTRA_CFLAGS += -DCONFIG_RTW_DEBUG
 EXTRA_CFLAGS += -DRTW_LOG_LEVEL=$(CONFIG_RTW_LOG_LEVEL)
 EXTRA_CFLAGS += -DRTW_PHL_LOG_LEVEL=$(CONFIG_RTW_PHL_LOG_LEVEL)
+ifeq ($(CONFIG_RTW_APPEND_LOGLEVEL), y)
+EXTRA_CFLAGS += -DRTW_APPEND_LOGLEVEL
+ifdef RTW_LL_PRINT
+EXTRA_CFLAGS += -DRTW_LL_PRINT=$(RTW_LL_PRINT)
 endif
+ifdef RTW_LL_ERR
+EXTRA_CFLAGS += -DRTW_LL_ERR=$(RTW_LL_ERR)
+endif
+ifdef RTW_LL_WARN
+EXTRA_CFLAGS += -DRTW_LL_WARN=$(RTW_LL_WARN)
+endif
+ifdef RTW_LL_INFO
+EXTRA_CFLAGS += -DRTW_LL_INFO=$(RTW_LL_INFO)
+endif
+ifdef RTW_LL_DBG
+EXTRA_CFLAGS += -DRTW_LL_DBG=$(RTW_LL_DBG)
+endif
+ifdef RTW_LL_DEFAULT
+EXTRA_CFLAGS += -DRTW_LL_DEFAULT=$(RTW_LL_DEFAULT)
+endif
+endif # CONFIG_RTW_APPEND_LOGLEVEL
+endif # CONFIG_RTW_DEBUG
 
 ifeq ($(CONFIG_PROC_DEBUG), y)
 EXTRA_CFLAGS += -DCONFIG_PROC_DEBUG
@@ -645,7 +741,7 @@ endif
 
 ifeq ($(CONFIG_RTW_MBO), y)
 EXTRA_CFLAGS += -DCONFIG_RTW_MBO -DCONFIG_RTW_WNM -DCONFIG_RTW_BTM_ROAM
-#EXTRA_CFLAGS += -DCONFIG_RTW_80211K
+EXTRA_CFLAGS += -DCONFIG_RTW_80211K
 EXTRA_CFLAGS += -DCONFIG_RTW_80211R
 EXTRA_CFLAGS += -DRTW_FT_DBG=0 -DRTW_WNM_DBG=0 -DRTW_MBO_DBG=0
 endif

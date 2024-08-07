@@ -97,6 +97,18 @@ struct halrf_iqk_info {
 	u32 lok_0x7c[2];	
 };
 
+enum halrf_iqk_dz{
+	DZ_IQK_ALIMTK_TIMEOUT1	= BIT(0),
+	DZ_IQK_ALIMTK_TIMEOUT2	= BIT(1),
+	DZ_LOK_ALIMTK	= BIT(2),	
+	DZ_TXIQK_ALIMTK	= BIT(3),	
+	DZ_RXIQK_ALIMTK = BIT(4),	
+	DZ_TXXYM_ALIMTK = BIT(5),
+	DZ_RXXYM_ALIMTK = BIT(6),
+	DZ_RXAGC_ALIMTK = BIT(7),
+};
+
+
 void halrf_iqk_init(struct rf_info *rf);
 void halrf_iqk(struct rf_info *rf, enum phl_phy_idx phy_idx, bool force);
 u32 halrf_get_iqk_ver(struct rf_info *rf);

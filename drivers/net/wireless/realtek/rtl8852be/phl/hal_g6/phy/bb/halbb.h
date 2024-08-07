@@ -72,6 +72,7 @@ struct halbb_pause_lv {
 	s8			lv_cfo;
 	s8			lv_edcca;
 	s8			lv_path_div;
+	s8			lv_ant_div;
 };
 
 struct bb_func_hooker_info {
@@ -107,6 +108,7 @@ struct bb_link_info {
 	bool			first_connect;
 	bool			first_disconnect;
 	enum bb_trx_state_t	txrx_state_all;
+	enum bb_bw_type		bb_bw;
 	/*[One Entry TP Info]*/
 	bool			is_one_entry_only;
 	u32			one_entry_macid;
@@ -126,6 +128,8 @@ struct bb_link_info {
 	u16			tx_rate;
 	u16			rx_rate_plurality;
 	u16			rx_rate_plurality_mu;
+	u16			rx_utility;
+	u16			avg_phy_rate;
 	u32			tx_tp;			/*@Mbps*/
 	u32			rx_tp;			/*@Mbps*/
 	u32			total_tp;		/*@Mbps*/
@@ -212,6 +216,7 @@ struct bb_efuse_info{
 	s8 efuse_ofst_path[HALBB_MAX_PATH]; // 8852C: S(8,4)
 	s8 efuse_ofst_tb[HW_PHY_MAX]; // 8852A:S(7,4) 8852B:S(8,4)
 	s8 efuse_ofst_tb_path[HALBB_MAX_PATH]; // 8852C: S(8,4)
+	s8 rpl_ofst_cck; // 8852D: S(8,0)
 
 	u8 efuse_ft; // 8192XB: U(8,0)
 	u8 efuse_adc_td; // 8192XB: U(2,0)
@@ -240,11 +245,13 @@ struct bb_cmn_info {
 	bool bb_dbcc_en;
 	bool ic_dual_phy_support;
 	bool ic_dbcc_support;
-#ifdef BB_1115_DVLP_SPF
+	enum halbb_drv_type bb_drv_type;
+#ifdef HALBB_COMPILE_IC_DBCC_MLO
 	enum mlo_dbcc_mode_type bb_mlo_dbcc_mode_t;
 #endif
 #ifdef HALBB_RA_SUPPORT
 	struct bb_ra_info	bb_ra_i[PHL_MAX_STA_NUM];
+	struct bb_ra_drv_info	bb_ra_drv_i;
 #endif
 #ifdef HALBB_PSD_SUPPORT
 	struct bb_psd_info	bb_psd_i;
@@ -334,7 +341,7 @@ struct bb_info {
 	struct rtw_phl_com_t	*phl_com;
 	struct rtw_hal_com_t	*hal_com;
 	struct rtw_phl_stainfo_t *phl_sta_info[PHL_MAX_STA_NUM];
-	u8			phl2bb_macid_table[PHL_MAX_STA_NUM];
+	u16			phl2bb_macid_table[PHL_MAX_STA_NUM];
 	bool			sta_exist[PHL_MAX_STA_NUM];
 	/*[DBCC]*/
 #ifdef HALBB_DBCC_SUPPORT
@@ -346,13 +353,14 @@ struct bb_info {
 	u32			bb0_cr_offset;
 	u32			bb0_mcu_cr_offset;
 	struct bb_gain_info	bb_gain_i;
+	struct bb_gain_gen2_info bb_gain_gen2_i;
 	struct bb_efuse_info	bb_efuse_i;
 	enum bb_ic_t		ic_type;
 	enum bb_ic_sub_t	ic_sub_type;
 	enum bb_cr_t		cr_type;
 	enum bb_80211spec_t	bb_80211spec;
 	u8			num_rf_path;
-	u8			bb_sta_cnt;
+	u16			bb_sta_cnt;
 	/*[System Info]*/
 	bool			is_mp_mode_pre;
 	enum bb_watchdog_mode_t bb_watchdog_mode;
@@ -397,8 +405,13 @@ struct bb_info {
 	u32			pmac_pwr_ofst;
 	/*[btc]*/
 	bool			bt_en; /*bt_en=1 when is_share_ant=0 and is_2g, backup for ch_bw switch*/
+	/*[Ch_Trk WR]*/
+	bool			pre_ch_trk_state;
+	/*[npath enable]*/
+	bool			npath_en;
 
 	/*@=== [HALBB Structure] ============================================*/
+	struct bb_hw_cfg_info	bb_hw_cfg_i;
 #ifdef BB_8852A_2_SUPPORT
 	struct bb_8852a_2_info	bb_8852a_2_i;
 	struct bb_h2c_fw_cmw	bb_fw_cmw_i;
@@ -473,6 +486,9 @@ struct bb_info {
 #endif
 #ifdef HALBB_PATH_DIV_SUPPORT
 	struct bb_pathdiv_info bb_path_div_i;
+#endif
+#ifdef HALBB_SR_SUPPORT
+	struct bb_spatial_reuse_info bb_sr_i;
 #endif
 	/*@=== [HALBB Timer] ================================================*/
 #ifdef HALBB_RUA_SUPPORT

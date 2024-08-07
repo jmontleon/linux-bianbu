@@ -48,7 +48,7 @@ enum bb_physts_bitmap_t {
 };
 
 struct physts_rxd_user {
-	u8		macid;
+	u16		macid;
 	u8		is_data: 1;
 	u8		is_ctrl:1;
 	u8		is_mgnt:1;
@@ -62,7 +62,7 @@ struct physts_rxd {
 	u8		is_to_self:1;
 	u8		gi_ltf:4; /*enum rtw_gi_ltf*/
 	u16		data_rate;
-	u8		macid_su;
+	u16		macid_su;
 	//u8		ppdu_cnt;
 	enum phl_phy_idx phy_idx;
 	struct physts_rxd_user user_i[4];
@@ -99,6 +99,8 @@ struct physts_result {
 	u8			ie8_modify_rxsc;
 	bool			snif_rpt_valid;
 	struct bb_snif_info	*bb_snif_i;
+	bool			bt_rx_during_cca;
+	bool			bt_tx_during_cca;
 };
 
 struct bb_info;

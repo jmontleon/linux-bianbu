@@ -43,6 +43,8 @@
 #define BACAM_MAX_ENTRY_IDX_8852B 1
 #define BACAM_MIN_ENTRY_IDX_8851B 0
 #define BACAM_MAX_ENTRY_IDX_8851B 1
+#define BACAM_MIN_ENTRY_IDX_8852BT 0
+#define BACAM_MAX_ENTRY_IDX_8852BT 1
 #define BACAM_MAX_ENTRY_IDX_8851E 15
 #define BACAM_INIT_TMP_ENTRY_NUM_STA_8851E 2
 #define BACAM_MAX_ENTRY_IDX_8852C 15
@@ -66,6 +68,9 @@
 #define BACAM_MAX_ENTRY_IDX_DEF_1115E 127
 #define BACAM_MAX_RU_SUPPORT_B0_STA 1
 #define BACAM_MAX_RU_SUPPORT_B1_STA 1
+
+#define DCTL_INFO_SIZE		16
+#define DCTL_INFO_SIZE_V1	32
 /*--------------------Define Enum---------------------------------------*/
 
 /**
@@ -319,9 +324,19 @@ u32 mac_f2p_test_cmd(struct mac_ax_adapter *adapter,
  * @return Please Place Description here.
  * @retval u32
  */
+#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT)
 u32 mac_upd_dctl_info(struct mac_ax_adapter *adapter,
 		      struct mac_ax_dctl_info *info,
 		      struct mac_ax_dctl_info *mask, u8 macid, u8 operation);
+u32 dctl_info_debug_write(struct mac_ax_adapter *adapter, u8 *buf, u8 macid);
+#endif
+#if (MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT)
+u32 mac_upd_dctl_info_v1(struct mac_ax_adapter *adapter,
+			 struct mac_ax_dctl_info *info,
+			 struct mac_ax_dctl_info *mask,
+			 u8 macid, u8 operation);
+u32 dctl_info_debug_write_v1(struct mac_ax_adapter *adapter, u8 *buf, u8 macid);
+#endif
 /**
  * @}
  * @}
@@ -663,30 +678,6 @@ u32 cctl_info_debug_write(struct mac_ax_adapter *adapter, u8 macid,
  * @}
  * @}
  */
-
-/**
- * @addtogroup Basic_TRX
- * @{
- * @addtogroup DMAC_Table
- * @{
- */
-
-/**
- * @brief dctl_info_debug_write
- *
- * @param *adapter
- * @param macid
- * @param *tbl
- * @return Please Place Description here.
- * @retval u32
- */
-u32 dctl_info_debug_write(struct mac_ax_adapter *adapter, u8 macid,
-			  struct fwcmd_dctlinfo_ud *tbl);
-/**
- * @}
- * @}
- */
-
 #endif
 u32 mac_fw_status_cmd(struct mac_ax_adapter *adapter,
 		      struct mac_ax_fwstatus_payload *info);
@@ -763,4 +754,5 @@ u32 mac_fw_ofdma_sts_en(struct mac_ax_adapter *adapter,
  * @}
  */
 
+u32 mac_txmode_switch(struct mac_ax_adapter *adapter, u8 swtx);
 #endif

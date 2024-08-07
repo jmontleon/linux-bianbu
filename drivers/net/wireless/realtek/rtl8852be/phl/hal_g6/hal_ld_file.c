@@ -1896,6 +1896,7 @@ _hal_dl_para_file(struct rtw_phl_com_t *phl_com,
 			_os_snprintf(para_path, MAX_PATH_LEN,
 				     "%s%s", para_info->para_path,
 				     file_name);
+			goto read_specific_path;
 		} else {
 			_os_snprintf(para_path, MAX_PATH_LEN, "%s%s%s%s",
 				     hal_phy_folder, ic_name, _os_path_sep,
@@ -1935,12 +1936,12 @@ _hal_dl_para_file(struct rtw_phl_com_t *phl_com,
 		}
 
 		/* Generate final parameter file full path */
-		_os_snprintf(para_info->para_path, MAX_PATH_LEN, "%s%s",
+		_os_snprintf(para_path, MAX_PATH_LEN, "%s%s",
 				 hal_phy_folder, para_file_name);
 
+read_specific_path:
 		PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s:: %s\n",__FUNCTION__,
 			  para_path);
-
 		para_size = _os_read_file(para_path, para_buf,
 					  MAX_HWCONFIG_FILE_CONTENT);
 		if (dec_cf) {

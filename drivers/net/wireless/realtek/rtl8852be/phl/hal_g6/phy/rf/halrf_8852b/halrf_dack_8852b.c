@@ -40,6 +40,18 @@ void halrf_dack_init_8852b(struct rf_info *rf)
 {
 }
 
+void halrf_dack_reset_8852b(struct rf_info *rf)
+{
+	halrf_wreg(rf, 0xc000, BIT(17), 0x0);
+	halrf_wreg(rf, 0xc000, BIT(17), 0x1);
+	halrf_wreg(rf, 0xc020, BIT(17), 0x0);
+	halrf_wreg(rf, 0xc020, BIT(17), 0x1);
+	halrf_wreg(rf, 0xc100, BIT(17), 0x0);
+	halrf_wreg(rf, 0xc100, BIT(17), 0x1);
+	halrf_wreg(rf, 0xc120, BIT(17), 0x0);
+	halrf_wreg(rf, 0xc120, BIT(17), 0x1);
+}
+
 void halrf_drck_8852b(struct rf_info *rf)
 {
 	u32 c = 10000;
@@ -52,9 +64,11 @@ void halrf_drck_8852b(struct rf_info *rf)
 	halrf_wreg(rf, 0xc0cc, BIT(6), 0x1);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc0d0, BIT(3), 0x1, c))
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]DRCK timeout\n");
-	c = 0;
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc0d0, BIT(3), 0x1, c))
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]DRCK timeout\n");
+		c = 0;
+	}
 #else
 	c = 0;
 	while (halrf_rreg(rf, 0xc0d0, BIT(3)) == 0) {
@@ -269,7 +283,8 @@ void halrf_check_addc_8852b(struct rf_info *rf, enum rf_path path)
 	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if ((rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0)) == true)
+//	if ((rf->phl_com->dev_cap.fw_cap.offload_cap & BIT(0)) == true)
+	if (rf->phl_com->dev_cap.io_ofld)
 		return;
 #endif
 
@@ -341,6 +356,7 @@ void halrf_check_addc_8852b(struct rf_info *rf, enum rf_path path)
 void halrf_addck_8852b(struct rf_info *rf)
 {
 	struct halrf_dack_info *dack = &rf->dack;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
 	u32 c = 10000;
 	/*S0*/
 #if 1
@@ -348,7 +364,7 @@ void halrf_addck_8852b(struct rf_info *rf)
 
 	/*manual off*/
 	halrf_wreg(rf, 0xc0f4, 0x30, 0x0);
-	halrf_wreg(rf, 0xc1d4, 0x30, 0x0);
+	halrf_wreg(rf, 0xc1f4, 0x30, 0x0);
 	/*1.ADC & clk enable */
 	halrf_wreg(rf, 0x12b8, BIT(30), 0x1);
 	halrf_wreg(rf, 0x032c, BIT(30), 0x0);
@@ -380,11 +396,14 @@ void halrf_addck_8852b(struct rf_info *rf)
 	halrf_wreg(rf, 0xc0f4, 0x300, 0x1);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc0fc, BIT(0), 0x1, c)) {
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 ADDCK timeout\n");
-		dack->addck_timeout[0] = true;
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc0fc, BIT(0), 0x1, c)) {
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 ADDCK timeout\n");
+			dack->addck_timeout[0] = true;
+			rfk_dz->dack_s0_dz_code |= DZ_ADDCK_TIMEOUT;
+		}
+		c = 0;
 	}
-	c = 0;
 #else
 	c = 0;
 	while (halrf_rreg(rf, 0xc0fc, BIT(0)) == 0) {
@@ -393,6 +412,7 @@ void halrf_addck_8852b(struct rf_info *rf)
 		if (c > 10000) {
 			RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 ADDCK timeout\n");
 			dack->addck_timeout[0] = true;
+			rfk_dz->dack_s0_dz_code |= DZ_ADDCK_TIMEOUT;
 			break;
 		}
 	}
@@ -411,6 +431,10 @@ void halrf_addck_8852b(struct rf_info *rf)
 	halrf_wreg(rf, 0x032c, BIT(16), 0x1);
 	halrf_wreg(rf, 0x030c, 0x0f000000, 0xc);
 	halrf_wreg(rf, 0x032c, BIT(30), 0x1);
+	/*backup*/
+	halrf_wreg(rf, 0xc0f4, 0x300, 0x0);
+	dack->addck_d[0][0] = (u16)halrf_rreg(rf, 0xc0fc,0xffc00) ;
+	dack->addck_d[0][1] = (u16)halrf_rreg(rf, 0xc0fc,0x003ff) ;
 	halrf_wreg(rf, 0x12b8, BIT(30), 0x0);
 #endif
 
@@ -447,9 +471,12 @@ void halrf_addck_8852b(struct rf_info *rf)
 	halrf_wreg(rf, 0xc1f4, 0x300, 0x1);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc1fc, BIT(0), 0x1, 10000)) {
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 ADDCK timeout\n");
-		dack->addck_timeout[1] = true;
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc1fc, BIT(0), 0x1, 10000)) {
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 ADDCK timeout\n");
+			dack->addck_timeout[1] = true;
+			rfk_dz->dack_s1_dz_code |= DZ_ADDCK_TIMEOUT;
+		}
 	}
 #else
 	c = 0;
@@ -459,6 +486,7 @@ void halrf_addck_8852b(struct rf_info *rf)
 		if (c > 10000) {
 			RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 ADDCK timeout\n");
 			dack->addck_timeout[1] = true;
+			rfk_dz->dack_s1_dz_code |= DZ_ADDCK_TIMEOUT;
 			break;
 		}
 	}
@@ -475,6 +503,10 @@ void halrf_addck_8852b(struct rf_info *rf)
 	halrf_wreg(rf, 0x032c, BIT(16), 0x1);
 	halrf_wreg(rf, 0x030c, 0x0f000000, 0xc);
 	halrf_wreg(rf, 0x032c, BIT(30), 0x1);
+	/*backup*/
+	halrf_wreg(rf, 0xc1f4, 0x300, 0x0);
+	dack->addck_d[1][0] = (u16)halrf_rreg(rf, 0xc1fc,0xffc00) ;
+	dack->addck_d[1][1] = (u16)halrf_rreg(rf, 0xc1fc,0x003ff) ;
 	halrf_wreg(rf, 0x32b8, BIT(30), 0x0);
 	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 #endif
@@ -521,7 +553,9 @@ void halrf_check_dadc_8852b(struct rf_info *rf, enum rf_path path)
 void halrf_dack_8852b_s0(struct rf_info *rf)
 {
 	struct halrf_dack_info *dack = &rf->dack;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
 	u32 c = 10000;
+
 	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
 
 	/*step 1*/
@@ -556,12 +590,15 @@ void halrf_dack_8852b_s0(struct rf_info *rf)
 
 	/*step 10*/
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc040, BIT(31), 0x1, c) ||
-		!halrf_polling_bb(rf, 0xc064, BIT(31), 0x1, c)) {
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 MSBK timeout\n");
-			dack->msbk_timeout[0] = true;
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc040, BIT(31), 0x1, c) ||
+			!halrf_polling_bb(rf, 0xc064, BIT(31), 0x1, c)) {
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 MSBK timeout\n");
+				dack->msbk_timeout[0] = true;
+			rfk_dz->dack_s0_dz_code |= DZ_MSBK_TIMEOUT;
+		}
+		c = 0;
 	}
-	c = 0;
 #else
 	c = 0x0;
 	while ((halrf_rreg(rf, 0xc040, BIT(31)) == 0) || (halrf_rreg(rf, 0xc064, BIT(31)) == 0)) {
@@ -570,6 +607,7 @@ void halrf_dack_8852b_s0(struct rf_info *rf)
 		if (c > 10000) {
 			RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 MSBK timeout\n");
 			dack->msbk_timeout[0] = true;
+			rfk_dz->dack_s0_dz_code |= DZ_MSBK_TIMEOUT;
 			break;
 		}
 	}
@@ -583,10 +621,13 @@ void halrf_dack_8852b_s0(struct rf_info *rf)
 	halrf_wreg(rf, 0xc02c, BIT(2), 0x1);
 	/*step 13*/
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc05c, BIT(2), 0x1, 10000) ||
-		!halrf_polling_bb(rf, 0xc080, BIT(2), 0x1, 10000)) {
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 DADCK timeout\n");
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc05c, BIT(2), 0x1, 10000) ||
+			!halrf_polling_bb(rf, 0xc080, BIT(2), 0x1, 10000)) {
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 DADCK timeout\n");
 			dack->dadck_timeout[0] = true;
+			rfk_dz->dack_s0_dz_code |= DZ_DADCK_TIMEOUT;
+		}
 	}
 #else
 	c = 0x0;
@@ -596,6 +637,7 @@ void halrf_dack_8852b_s0(struct rf_info *rf)
 		if (c > 10000) {
 			RF_DBG(rf, DBG_RF_DACK, "[DACK]S0 DADCK timeout\n");
 			dack->dadck_timeout[0] = true;
+			rfk_dz->dack_s0_dz_code |= DZ_DADCK_TIMEOUT;
 			break;
 		}
 	}
@@ -625,7 +667,9 @@ void halrf_dack_8852b_s0(struct rf_info *rf)
 void halrf_dack_8852b_s1(struct rf_info *rf)
 {
 	struct halrf_dack_info *dack = &rf->dack;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
 	u32 c = 10000;
+
 	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
 
 	/*step 1*/
@@ -659,12 +703,15 @@ void halrf_dack_8852b_s1(struct rf_info *rf)
 	halrf_delay_us(rf, 1);
 	/*step 10*/
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc140, BIT(31), 0x1, c) ||
-		!halrf_polling_bb(rf, 0xc164, BIT(31), 0x1, c)) {
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 MSBK timeout\n");
-		dack->msbk_timeout[1] = true;
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc140, BIT(31), 0x1, c) ||
+			!halrf_polling_bb(rf, 0xc164, BIT(31), 0x1, c)) {
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 MSBK timeout\n");
+			dack->msbk_timeout[1] = true;
+			rfk_dz->dack_s1_dz_code |= DZ_MSBK_TIMEOUT;
+		}
+		c = 0;
 	}
-	c = 0;
 #else
 	c = 0x0;
 	while((halrf_rreg(rf, 0xc140, BIT(31)) == 0) && (halrf_rreg(rf, 0xc164, BIT(31)) == 0)) {
@@ -673,6 +720,7 @@ void halrf_dack_8852b_s1(struct rf_info *rf)
 		if (c > 10000) {
 			RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 MSBK timeout\n");
 			dack->msbk_timeout[1] = true;
+			rfk_dz->dack_s1_dz_code |= DZ_MSBK_TIMEOUT;
 			break;
 		}
 	}
@@ -687,10 +735,13 @@ void halrf_dack_8852b_s1(struct rf_info *rf)
 	halrf_delay_us(rf, 1);
 	/*step 13*/
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xc15c, BIT(2), 0x1, 10000) ||
-		!halrf_polling_bb(rf, 0xc180, BIT(2), 0x1, 10000)) {
-		RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 DADCK timeout\n");
-		dack->dadck_timeout[1] = true;
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xc15c, BIT(2), 0x1, 10000) ||
+			!halrf_polling_bb(rf, 0xc180, BIT(2), 0x1, 10000)) {
+			RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 DADCK timeout\n");
+			dack->dadck_timeout[1] = true;
+			rfk_dz->dack_s1_dz_code |= DZ_DADCK_TIMEOUT;
+		}
 	}
 #else
 	c = 0x0;
@@ -700,6 +751,7 @@ void halrf_dack_8852b_s1(struct rf_info *rf)
 		if (c > 10000) {
 			RF_DBG(rf, DBG_RF_DACK, "[DACK]S1 DADCK timeout\n");
 			dack->dadck_timeout[1] = true;
+			rfk_dz->dack_s1_dz_code |= DZ_DADCK_TIMEOUT;
 			break;
 		}
 	}
@@ -777,6 +829,7 @@ void halrf_dack_dump_8852b(struct rf_info *rf)
 void halrf_dac_cal_8852b(struct rf_info *rf, bool force)
 {
 	struct halrf_dack_info *dack = &rf->dack;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
 	u32 rf0_0, rf1_0;
 	u8 phy_map;
 
@@ -792,6 +845,8 @@ void halrf_dac_cal_8852b(struct rf_info *rf, bool force)
 		dack->dack_en = true;
 	}
 #endif
+	rfk_dz->dack_s0_dz_code = 0x0;
+	rfk_dz->dack_s1_dz_code = 0x0;
 	dack->dack_done = false;
 	RF_DBG(rf, DBG_RF_DACK, "[DACK]DACK 0x1\n");
 	RF_DBG(rf, DBG_RF_DACK, "[DACK]DACK start!!!\n");	
@@ -799,6 +854,7 @@ void halrf_dac_cal_8852b(struct rf_info *rf, bool force)
 	rf1_0 = halrf_rrf(rf,RF_PATH_B, 0x0, MASKRF);
 #if 1	
 	halrf_afe_init_8852b(rf);
+	halrf_dack_reset_8852b(rf);
 	halrf_drck_8852b(rf);
 	halrf_wrf(rf, RF_PATH_A, 0x5, BIT(0), 0x0);
 	halrf_wrf(rf, RF_PATH_B, 0x5, BIT(0), 0x0);
@@ -807,7 +863,7 @@ void halrf_dac_cal_8852b(struct rf_info *rf, bool force)
 //	halrf_btc_rfk_ntfy(rf, phy_map, RF_BTC_DACK, RFK_ONESHOT_START);
 	halrf_addck_8852b(rf);
 //	halrf_btc_rfk_ntfy(rf, phy_map, RF_BTC_DACK, RFK_ONESHOT_STOP);
-	halrf_addck_backup_8852b(rf);
+//	halrf_addck_backup_8852b(rf);
 	halrf_addck_reload_8852b(rf);
 //	halrf_wrf(rf, RF_PATH_A, 0x0, MASKRF, 0x40001);
 //	halrf_wrf(rf, RF_PATH_B, 0x0, MASKRF, 0x40001);

@@ -40,6 +40,22 @@
 #define GAIN_HIDE_EFUSE_B_5GL_8852B 0x58F
 #define GAIN_HIDE_EFUSE_B_5GM_8852B 0x58E
 #define GAIN_HIDE_EFUSE_B_5GH_8852B 0x58D
+#define GAIN_HIDE_EFUSE_A_6GH_0_8852BP 0x5B7
+#define GAIN_HIDE_EFUSE_A_6GH_1_8852BP 0x5B6
+#define GAIN_HIDE_EFUSE_A_6GH_2_8852BP 0x5B5
+#define GAIN_HIDE_EFUSE_A_6GH_3_8852BP 0x5B4
+#define GAIN_HIDE_EFUSE_A_6GH_4_8852BP 0x5B3
+#define GAIN_HIDE_EFUSE_A_6GH_5_8852BP 0x5B2
+#define GAIN_HIDE_EFUSE_A_6GH_6_8852BP 0x5B1
+#define GAIN_HIDE_EFUSE_A_6GH_7_8852BP 0x5B0
+#define GAIN_HIDE_EFUSE_B_6GH_0_8852BP 0x58C
+#define GAIN_HIDE_EFUSE_B_6GH_1_8852BP 0x58B
+#define GAIN_HIDE_EFUSE_B_6GH_2_8852BP 0x58A
+#define GAIN_HIDE_EFUSE_B_6GH_3_8852BP 0x589
+#define GAIN_HIDE_EFUSE_B_6GH_4_8852BP 0x588
+#define GAIN_HIDE_EFUSE_B_6GH_5_8852BP 0x587
+#define GAIN_HIDE_EFUSE_B_6GH_6_8852BP 0x586
+#define GAIN_HIDE_EFUSE_B_6GH_7_8852BP 0x585
 
 /*@--------------------------[Enum]------------------------------------------*/
 /*@--------------------------[Structure]-------------------------------------*/
@@ -99,6 +115,9 @@ void halbb_bb_reset_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx);
 void halbb_dfs_en_8852b(struct bb_info *bb, bool en);
 
 void halbb_adc_en_8852b(struct bb_info *bb, bool en);
+
+bool halbb_adc_cfg_8852bt(struct bb_info *bb, enum channel_width bw,
+			 enum rf_path path);
 
 void halbb_tssi_cont_en_8852b(struct bb_info *bb, bool en, enum rf_path path);
 

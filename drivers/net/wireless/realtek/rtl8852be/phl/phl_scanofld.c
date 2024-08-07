@@ -17,6 +17,74 @@
 
 #ifdef CONFIG_PHL_SCANOFLD
 
+static bool
+_chk_op_required(struct rtw_phl_scan_param *param,
+		 struct cmd_scan_ctrl *sctrl, u8 cur_idx,
+		 u8 cur_ch_period, u32 *cur_time)
+{
+	bool required = false;
+
+	required = (sctrl->back_op_ch[0].channel)? true : false;
+
+	if (!required)
+		return false;
+
+	if (param->back_op.mode == SCAN_BKOP_CNT) {
+		if (cur_idx && (cur_idx % param->back_op.ch_intv) == 0)
+			return true;
+	}
+
+	if (param->back_op.mode == SCAN_BKOP_TIMER) {
+
+		if (*cur_time > param->back_op.ch_intv) {
+			*cur_time = 0;
+			return true;
+		}
+		*cur_time += cur_ch_period;
+	}
+
+	return false;
+}
+
+static void
+_add_opchnl(struct phl_info_t *phl_info,
+	     struct rtw_phl_scan_param *param,
+	     struct cmd_scan_ctrl *sctrl,
+	     u8 hw_band)
+{
+	struct scan_ofld_ch_info ch_info = {0};
+	struct rtw_chan_def chan_def = {0};
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+	u8 idx = 0;
+
+	for(idx = 0; idx < MAX_WIFI_ROLE_NUMBER; idx ++) {
+
+		if (0 == sctrl->back_op_ch[idx].channel)
+			break;
+
+		ch_info.chan = (u8)sctrl->back_op_ch[idx].channel;
+		ch_info.band = sctrl->back_op_ch[idx].band;
+		ch_info.bw = sctrl->back_op_ch[idx].bw;
+		chan_def.offset = sctrl->back_op_ch[idx].offset;
+		chan_def.chan = ch_info.chan;
+		chan_def.band = ch_info.band;
+		chan_def.bw = ch_info.bw;
+		ch_info.center_chan = rtw_phl_get_center_ch(&chan_def);
+		ch_info.period = (u8)sctrl->back_op_ch[idx].duration;
+		ch_info.tx_null = true;
+		ch_info.enter_notify = true;
+		ch_info.chkpt_time = param->chkpt_time;
+		ch_info.tx_data_pause = false;
+
+		hstatus = rtw_hal_scan_ofld_add_ch(phl_info->hal,
+						   hw_band, &ch_info,
+						   false);
+		if (hstatus != RTW_HAL_STATUS_SUCCESS)
+			PHL_INFO("%s failed \n", __func__);
+
+	}
+}
+
 static enum rtw_phl_status
 _scanofld_add_chnl(struct phl_info_t *phl_info,
 		   struct rtw_wifi_role_link_t *rlink,
@@ -31,6 +99,7 @@ _scanofld_add_chnl(struct phl_info_t *phl_info,
 	struct scan_ofld_ch_info ch_info = {0};
 	_os_list *node = NULL;
 	struct rtw_chan_def chan_def = {0};
+	u32 time = 0;
 
 	sctrl_idx = phl_cmd_scan_ctrl(param, rlink->hw_band, &sctrl);
 	if(sctrl == NULL) {
@@ -72,8 +141,13 @@ _scanofld_add_chnl(struct phl_info_t *phl_info,
 		/* driver process probe request */
 		ch_info.tx_pkt = false;
 
-		hstatus = rtw_hal_scan_ofld_add_ch(phl_info->hal,
-		 rlink->hw_band, &ch_info, i == (ch_num - 1) ? true : false);
+		/* add op channel before adding scanned channel */
+		if (_chk_op_required(param, sctrl, i, ch_info.period, &time))
+			_add_opchnl(phl_info, param, sctrl, rlink->hw_band);
+
+		hstatus = rtw_hal_scan_ofld_add_ch(phl_info->hal, rlink->hw_band,
+				&ch_info,
+				i == (ch_num - 1) ? true : false);
 
 		if (hstatus != RTW_HAL_STATUS_SUCCESS) {
 			PHL_INFO("%s failed \n", __func__);
@@ -109,6 +183,7 @@ _scanofld_start(struct phl_info_t *phl_info, struct rtw_wifi_role_link_t *rlink,
 		return pstatus;
 
 	rtw_hal_notification(phl_info->hal, MSG_EVT_SCANOFLD_START, rlink->hw_band);
+	rtw_hal_en_fw_log(phl_info->hal, FL_COMP_SCAN, true);
 
 	/* trigger fw to start scan */
 	cfg.operation = SCAN_OFLD_OP_START;
@@ -140,6 +215,7 @@ _scanofld_stop(struct phl_info_t *phl_info, struct rtw_wifi_role_link_t *rlink,
 	rtw_hal_scan_ofld(phl_info->hal, sta->macid, rlink->hw_band,
 			  rlink->hw_port, &cfg);
 	rtw_hal_notification(phl_info->hal, MSG_EVT_SCANOFLD_END, rlink->hw_band);
+	rtw_hal_en_fw_log(phl_info->hal, FL_COMP_SCAN, false);
 }
 
 static void
@@ -331,7 +407,7 @@ phl_cmd_scanofld_hdl_internal_evt(void* dispr,
 	struct rtw_phl_stainfo_t *sta = NULL;
 	struct rtw_scanofld_rsp *rsp = NULL;
 	struct phl_scan_channel *scan_ch = NULL;
-	u8 band_idx = 0xff, sctrl_idx = 0xff;
+	u8 band_idx = 0, sctrl_idx = 0xff;
 	struct cmd_scan_ctrl *sctrl = NULL;
 	u8 i = 0;
 

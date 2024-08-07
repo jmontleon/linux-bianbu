@@ -88,6 +88,11 @@ u32 p2p_info_init(struct mac_ax_adapter *adapter)
 
 	adapter->p2p_info =
 		(struct mac_ax_p2p_info *)PLTFM_MALLOC(p2p_info_size);
+	if (!adapter->p2p_info) {
+		PLTFM_MSG_ERR("%s malloc p2p_info fail\n", __func__);
+		return MACNOBUF;
+	}
+
 	for (i = 0; i < P2P_MAX_NUM; i++)
 		PLTFM_MEMSET(&adapter->p2p_info[i], 0,
 			     sizeof(struct mac_ax_p2p_info));
@@ -112,18 +117,19 @@ u32 rst_p2p_info(struct mac_ax_adapter *adapter)
 u32 mac_p2p_act_h2c(struct mac_ax_adapter *adapter,
 		    struct mac_ax_p2p_act_info *info)
 {
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-	#else
-	struct h2c_buf *h2cb;
-	#endif
-	struct fwcmd_p2p_act *hdr;
+	struct h2c_info h2c_info = {0};
+	struct fwcmd_p2p_act hdr;
 	u32 ret = MACSUCCESS;
 	u8 p2pid;
 
 	if (info->noaid >= NOA_MAX_NUM) {
 		PLTFM_MSG_ERR("[ERR]invalid noaid %d\n", info->noaid);
 		return MACFUNCINPUT;
+	}
+
+	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
+		PLTFM_MSG_WARN("%s fw not ready\n", __func__);
+		return MACFWNONRDY;
 	}
 
 	if (info->act == P2P_ACT_INIT) {
@@ -155,18 +161,7 @@ u32 mac_p2p_act_h2c(struct mac_ax_adapter *adapter,
 	}
 	adapter->sm.p2p_stat = MAC_AX_P2P_ACT_BUSY;
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
-
-	hdr = (struct fwcmd_p2p_act *)
-	      h2cb_put(h2cb, sizeof(struct fwcmd_p2p_act));
-	if (!hdr) {
-		ret = MACNOBUF;
-		goto fail;
-	}
-
-	hdr->dword0 =
+	hdr.dword0 =
 		cpu_to_le32(SET_WORD(info->macid, FWCMD_H2C_P2P_ACT_MACID) |
 			    SET_WORD(p2pid, FWCMD_H2C_P2P_ACT_P2PID) |
 			    SET_WORD(info->noaid, FWCMD_H2C_P2P_ACT_NOAID) |
@@ -174,44 +169,32 @@ u32 mac_p2p_act_h2c(struct mac_ax_adapter *adapter,
 			    (info->type ? FWCMD_H2C_P2P_ACT_TYPE : 0) |
 			    (info->all_slep ? FWCMD_H2C_P2P_ACT_ALL_SLEP : 0));
 
-	hdr->dword1 =
+	hdr.dword1 =
 		cpu_to_le32(SET_WORD(info->srt, FWCMD_H2C_P2P_ACT_SRT));
 
-	hdr->dword2 =
+	hdr.dword2 =
 		cpu_to_le32(SET_WORD(info->itvl, FWCMD_H2C_P2P_ACT_ITVL));
 
-	hdr->dword3 =
+	hdr.dword3 =
 		cpu_to_le32(SET_WORD(info->dur, FWCMD_H2C_P2P_ACT_DUR));
 
-	hdr->dword4 =
+	hdr.dword4 =
 		cpu_to_le32(SET_WORD(info->cnt, FWCMD_H2C_P2P_ACT_CNT) |
 			    SET_WORD(info->ctw, FWCMD_H2C_P2P_ACT_CTW));
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_PS,
-			      FWCMD_H2C_FUNC_P2P_ACT,
-			      0,
-			      1);
-	if (ret)
-		goto fail;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_p2p_act);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_PS;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_P2P_ACT;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret)
-		goto fail;
-
-	#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-	#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-	#endif
-	if (ret)
-		goto fail;
-
-	h2cb_free(adapter, h2cb);
-
-	h2c_end_flow(adapter);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)&hdr);
+	if (ret != MACSUCCESS) {
+		PLTFM_MSG_ERR("%s send h2c fail %d\n", __func__, ret);
+		return ret;
+	}
 
 	if (info->act == P2P_ACT_INIT) {
 		adapter->p2p_info[p2pid].macid = info->macid;
@@ -222,32 +205,30 @@ u32 mac_p2p_act_h2c(struct mac_ax_adapter *adapter,
 
 	adapter->p2p_info[p2pid].wait_dack = 1;
 
-	return MACSUCCESS;
-fail:
-	h2cb_free(adapter, h2cb);
-
 	return ret;
 }
 
 u32 mac_p2p_macid_ctrl_h2c(struct mac_ax_adapter *adapter,
 			   struct mac_ax_p2p_macid_info *info)
 {
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-	#else
-	struct h2c_buf *h2cb;
-	#endif
+	struct h2c_info h2c_info = {0};
 	struct fwcmd_p2p_macid_ctrl *hdr;
 	u32 ret = MACSUCCESS;
 	u32 idx, bmap_ext_size, pldsize, bmap_srt_sh, bmap_last;
 	u32 bmap_idx_srt, bmap_idx_end, bmap_idx_diff;
-	u8 *curr_buf;
+	u16 macid_start;
+	u8 *curr_buf, *content_buf;
 	u8 p2pid;
 
 	if (info->ctrl_type >= P2P_MACID_CTRL_MAX) {
 		PLTFM_MSG_ERR("[ERR]p2p macid ctrl invalid ctrl type %d\n",
 			      info->ctrl_type);
 		return MACFUNCINPUT;
+	}
+
+	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
+		PLTFM_MSG_WARN("%s fw not ready\n", __func__);
+		return MACFWNONRDY;
 	}
 
 	ret = _get_macid_p2pid(adapter, info->main_macid, &p2pid);
@@ -292,27 +273,23 @@ u32 mac_p2p_macid_ctrl_h2c(struct mac_ax_adapter *adapter,
 	}
 	adapter->sm.p2p_stat = MAC_AX_P2P_ACT_BUSY;
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
-
 	pldsize = sizeof(struct fwcmd_p2p_macid_ctrl) + bmap_ext_size;
-	hdr = (struct fwcmd_p2p_macid_ctrl *)h2cb_put(h2cb, pldsize);
-	if (!hdr) {
-		ret = MACNOBUF;
-		goto fail;
+	content_buf = (u8 *)PLTFM_MALLOC(pldsize);
+	if (!content_buf) {
+		PLTFM_MSG_ERR("[ERR] p2p macid ctrl h2c no buffer\n");
+		return MACNOBUF;
 	}
+	hdr = (struct fwcmd_p2p_macid_ctrl *)content_buf;
+
+	macid_start = bmap_idx_srt << MACID_BMAP_BIT_SH;
 
 	hdr->dword0 =
 		cpu_to_le32(SET_WORD(p2pid, FWCMD_H2C_P2P_MACID_CTRL_P2PID) |
-			    SET_WORD(info->ctrl_type,
-				     FWCMD_H2C_P2P_MACID_CTRL_CTRL_TYPE) |
-			    SET_WORD((bmap_idx_srt << MACID_BMAP_BIT_SH),
-				     FWCMD_H2C_P2P_MACID_CTRL_MACID_SRT) |
-			    SET_WORD((bmap_idx_diff + 1),
-				     FWCMD_H2C_P2P_MACID_CTRL_BMAP_LEN));
+			    SET_WORD(info->ctrl_type, FWCMD_H2C_P2P_MACID_CTRL_CTRL_TYPE) |
+			    SET_WORD(macid_start, FWCMD_H2C_P2P_MACID_CTRL_MACID_SRT) |
+			    SET_WORD((bmap_idx_diff + 1), FWCMD_H2C_P2P_MACID_CTRL_BMAP_LEN));
 
-	for (idx = 0; idx <= ((bmap_idx_diff + 1) << MACID_BMAP_BYTE_SH); idx++) {
+	for (idx = 0; idx < ((bmap_idx_diff + 1) << MACID_BMAP_BYTE_SH); idx++) {
 		bmap_srt_sh = (bmap_idx_srt << MACID_BMAP_BYTE_SH) + idx;
 		curr_buf = (u8 *)(&hdr->dword1) + idx;
 		if (bmap_srt_sh < info->bmap_len)
@@ -321,38 +298,21 @@ u32 mac_p2p_macid_ctrl_h2c(struct mac_ax_adapter *adapter,
 			*curr_buf = 0;
 	}
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_PS,
-			      FWCMD_H2C_FUNC_P2P_MACID_CTRL,
-			      0,
-			      1);
-	if (ret)
-		goto fail;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = (u16)pldsize;
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_PS;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_P2P_MACID_CTRL;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret)
-		goto fail;
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content_buf);
+	if (ret != MACSUCCESS)
+		PLTFM_MSG_ERR("%s send h2c fail %d\n", __func__, ret);
+	else
+		adapter->p2p_info[p2pid].wait_dack = 1;
 
-	#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-	#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-	#endif
-	if (ret)
-		goto fail;
-
-	h2cb_free(adapter, h2cb);
-
-	h2c_end_flow(adapter);
-
-	adapter->p2p_info[p2pid].wait_dack = 1;
-
-	return MACSUCCESS;
-fail:
-	h2cb_free(adapter, h2cb);
-
+	PLTFM_FREE(content_buf, pldsize);
 	return ret;
 }
 

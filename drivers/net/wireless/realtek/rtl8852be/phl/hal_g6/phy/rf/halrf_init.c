@@ -26,6 +26,10 @@ void halrf_cmn_info_self_init(struct rf_info *rf)
 		rf->ic_type = RF_RTL8852B;
 	else if (hal_i->chip_id == CHIP_WIFI6_8852C)
 		rf->ic_type = RF_RTL8852C;
+	else if (hal_i->chip_id == CHIP_WIFI6_8852D)
+		rf->ic_type = RF_RTL8852D;
+	else if (hal_i->chip_id == CHIP_WIFI6_8852BT)
+		rf->ic_type = RF_RTL8852BT;
 
 #ifdef RF_8832BR_SUPPORT
 	if (hal_i->chip_id == CHIP_WIFI6_8832BR)
@@ -35,6 +39,10 @@ void halrf_cmn_info_self_init(struct rf_info *rf)
 	if (hal_i->chip_id == CHIP_WIFI6_8192XB)
 		rf->ic_type = RF_RTL8192XB;
 #endif
+// #ifdef RF_8852BT_SUPPORT
+// 	else if (hal_i->chip_id == CHIP_WIFI6_8852BT)
+// 		rf->ic_type = RF_RTL8852BT;
+// #endif
 #ifdef RF_8852BP_SUPPORT
 	else if (hal_i->chip_id == CHIP_WIFI6_8852BP)
 		rf->ic_type = RF_RTL8852BP;
@@ -77,31 +85,49 @@ void halrf_cmn_info_self_init(struct rf_info *rf)
 #ifdef RF_8852A_SUPPORT
 	case CHIP_WIFI6_8852A:
 		rf->rfk_iqk_info = &rf_iqk_hwspec_8852a;
+		rf_set_ops_8852a(rf);
 	break;
 #endif
 #ifdef RF_8852B_SUPPORT
 	case CHIP_WIFI6_8852B:
 		rf->rfk_iqk_info = &rf_iqk_hwspec_8852b;
+		rf_set_ops_8852b(rf);
+	break;
+#endif
+#ifdef RF_8852BT_SUPPORT
+	case CHIP_WIFI6_8852BT:
+		rf->rfk_iqk_info = &rf_iqk_hwspec_8852bt;
+		rf_set_ops_8852bt(rf);
 	break;
 #endif
 #ifdef RF_8852C_SUPPORT
 	case CHIP_WIFI6_8852C:
 		rf->rfk_iqk_info = &rf_iqk_hwspec_8852c;
+		rf_set_ops_8852c(rf);
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+	case CHIP_WIFI6_8852D:
+		rf->rfk_iqk_info = &rf_iqk_hwspec_8852d;
+		rf_set_ops_8852d(rf);
 		break;
 #endif
 #ifdef RF_8832BR_SUPPORT
 	case CHIP_WIFI6_8832BR:
 		rf->rfk_iqk_info = &rf_iqk_hwspec_8832br;
+		rf_set_ops_8832br(rf);
 	break;
 #endif
 #ifdef RF_8192XB_SUPPORT
 	case CHIP_WIFI6_8192XB:
 		rf->rfk_iqk_info = &rf_iqk_hwspec_8192xb;
+		rf_set_ops_8192xb(rf);
 	break;
 #endif
 #ifdef RF_8852BP_SUPPORT
 	case CHIP_WIFI6_8852BP:
 		rf->rfk_iqk_info = &rf_iqk_hwspec_8852bp;
+		rf_set_ops_8852bp(rf);
 	break;
 #endif
 #ifdef RF_8730A_SUPPORT
@@ -111,7 +137,7 @@ void halrf_cmn_info_self_init(struct rf_info *rf)
 #endif
 #ifdef RF_8851B_SUPPORT
 	case CHIP_WIFI6_8851B:
-		rf->rfk_iqk_info = &rf_iqk_hwspec_8851b;
+		rf_set_ops_8851b(rf);
 	break;
 #endif
 
@@ -197,6 +223,26 @@ void halrf_rfability_init_mp(struct rf_info *rf)
 			0;
 		break;
 #endif
+#ifdef RF_8852BT_SUPPORT
+	case RF_RTL8852BT:
+		rf->hw_rf_ability |=
+			/*HAL_RF_TX_PWR_TRACK |*/
+			HAL_RF_IQK |
+			/*HAL_RF_LCK |*/
+			/* HAL_RF_DPK | */
+			 HAL_RF_DACK |
+			/* HAL_RF_TXGAPK | */
+			/* HAL_RF_DPK_TRACK | */
+			/* HAL_RF_RXDCK | */
+			/*HAL_RF_RXGAINK |*/
+			/* HAL_RF_THER_TRIM | */
+			/* HAL_RF_PABIAS_TRIM | */
+			/* HAL_RF_TSSI_TRIM | */
+			/*HAL_RF_XTAL_TRACK |*/
+			/*  HAL_RF_TX_SHAPE | */
+			0;
+		break;
+#endif
 #ifdef RF_8852C_SUPPORT
 	case RF_RTL8852C:
 		rf->hw_rf_ability =
@@ -214,6 +260,26 @@ void halrf_rfability_init_mp(struct rf_info *rf)
 			HAL_RF_TX_SHAPE |
 			/*HAL_RF_TPE_CTRL |*/
 			HAL_RF_RXDCK_TRACK |
+			0;
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+	case RF_RTL8852D:
+		rf->hw_rf_ability =
+			/*HAL_RF_TX_PWR_TRACK |*/
+			/*HAL_RF_IQK |*/
+			/*HAL_RF_LCK |*/
+			/*HAL_RF_DPK |*/
+			/*HAL_RF_DACK |*/
+			/*HAL_RF_TXGAPK |*/
+			/*HAL_RF_DPK_TRACK |*/
+			/*HAL_RF_RXDCK |*/
+			HAL_RF_THER_TRIM |
+			HAL_RF_PABIAS_TRIM |
+			HAL_RF_TSSI_TRIM |
+			HAL_RF_TX_SHAPE |
+			/*HAL_RF_TPE_CTRL |*/
+			/*HAL_RF_RXDCK_TRACK |*/
 			0;
 		break;
 #endif
@@ -269,11 +335,11 @@ void halrf_rfability_init_mp(struct rf_info *rf)
 			HAL_RF_DPK_TRACK |
 			HAL_RF_RXDCK |
 			/*HAL_RF_RXGAINK |*/
-			/*HAL_RF_THER_TRIM |*/
-			/*HAL_RF_PABIAS_TRIM |*/
-			/*HAL_RF_TSSI_TRIM |*/
-			/*HAL_RF_XTAL_TRACK |*/
-			/*HAL_RF_TX_SHAPE |*/
+			HAL_RF_THER_TRIM |
+			HAL_RF_PABIAS_TRIM |
+			HAL_RF_TSSI_TRIM |
+			HAL_RF_XTAL_TRACK |
+			HAL_RF_TX_SHAPE |
 			HAL_RF_RXDCK_TRACK |
 			0;
 		break;
@@ -355,6 +421,7 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_PABIAS_TRIM |
 			HAL_RF_TSSI_TRIM |
 			HAL_RF_XTAL_TRACK |
+			HAL_RF_WATCHDOG |
 			0;
 		break;
 #endif
@@ -375,6 +442,28 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_TSSI_TRIM |
 			/*HAL_RF_XTAL_TRACK |*/
 			HAL_RF_TX_SHAPE |
+			HAL_RF_WATCHDOG |
+			0;
+		break;
+#endif
+#ifdef RF_8852BT_SUPPORT
+	case RF_RTL8852BT:
+		rf->hw_rf_ability |=
+			/* HAL_RF_TX_PWR_TRACK | */
+			 HAL_RF_IQK |
+			/*HAL_RF_LCK |*/
+			/* HAL_RF_DPK | */
+			 HAL_RF_DACK |
+			/* HAL_RF_TXGAPK | */
+			/* HAL_RF_DPK_TRACK | */
+			/* HAL_RF_RXDCK | */
+			/*HAL_RF_RXGAINK |*/
+			/* HAL_RF_THER_TRIM | */
+			/* HAL_RF_PABIAS_TRIM | */
+			/* HAL_RF_TSSI_TRIM | */
+			/*HAL_RF_XTAL_TRACK |*/
+			/* HAL_RF_TX_SHAPE | */
+			/* HAL_RF_WATCHDOG | */
 			0;
 		break;
 #endif
@@ -396,6 +485,29 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_TX_SHAPE |
 			/*HAL_RF_TPE_CTRL |*/
 			HAL_RF_RXDCK_TRACK |
+			HAL_RF_WATCHDOG |
+			0;
+		break;
+#endif
+#ifdef RF_8852D_SUPPORT
+	case RF_RTL8852D:
+		rf->hw_rf_ability |=
+			HAL_RF_TX_PWR_TRACK |
+			HAL_RF_IQK |
+			HAL_RF_LCK |
+			HAL_RF_DPK |
+			HAL_RF_DACK |
+			HAL_RF_TXGAPK |
+			HAL_RF_DPK_TRACK |
+			HAL_RF_RXDCK |
+			HAL_RF_THER_TRIM |
+			HAL_RF_PABIAS_TRIM |
+			HAL_RF_TSSI_TRIM |
+			HAL_RF_XTAL_TRACK |
+			HAL_RF_TX_SHAPE |
+			/*HAL_RF_TPE_CTRL |*/
+			HAL_RF_RXDCK_TRACK |
+			HAL_RF_WATCHDOG |
 			0;
 		break;
 #endif
@@ -417,6 +529,7 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_TX_SHAPE |
 			/*HAL_RF_OP5K_TRACK |*/
 			/*HAL_RF_OP5K |*/
+			HAL_RF_WATCHDOG |
 			0;
 		break;
 #endif
@@ -438,6 +551,7 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_TX_SHAPE |
 			/*HAL_RF_OP5K_TRACK |*/
 			/*HAL_RF_OP5K |*/
+			HAL_RF_WATCHDOG |
 			0;
 		break;
 #endif
@@ -453,12 +567,13 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_DPK_TRACK |
 			HAL_RF_RXDCK |
 			/*HAL_RF_RXGAINK |*/
-			/*HAL_RF_THER_TRIM |*/
-			/*HAL_RF_PABIAS_TRIM |*/
-			/*HAL_RF_TSSI_TRIM |*/
-			/*HAL_RF_XTAL_TRACK |*/
-			/*HAL_RF_TX_SHAPE |*/
+			HAL_RF_THER_TRIM |
+			HAL_RF_PABIAS_TRIM |
+			HAL_RF_TSSI_TRIM |
+			HAL_RF_XTAL_TRACK |
+			HAL_RF_TX_SHAPE |
 			HAL_RF_RXDCK_TRACK |
+			HAL_RF_WATCHDOG |
 			0;
 		break;
 #endif
@@ -488,10 +603,10 @@ void halrf_rfability_init(struct rf_info *rf)
 		rf->hw_rf_ability |=
 			HAL_RF_TX_PWR_TRACK |
 			HAL_RF_IQK |
-			/*HAL_RF_LCK |*/
+			HAL_RF_LCK |
 			HAL_RF_DPK |
 			HAL_RF_DACK |
-			/*HAL_RF_TXGAPK |*/
+		/*	HAL_RF_TXGAPK | */
 			HAL_RF_DPK_TRACK |
 			HAL_RF_RXDCK |
 			/*HAL_RF_RXGAINK |*/
@@ -500,6 +615,7 @@ void halrf_rfability_init(struct rf_info *rf)
 			HAL_RF_TSSI_TRIM |
 			HAL_RF_XTAL_TRACK |
 			HAL_RF_TX_SHAPE |
+			HAL_RF_WATCHDOG |
 			0;
 		break;
 #endif
@@ -586,6 +702,26 @@ void halrf_rfe_init(struct rf_info *rf)
 		}
 		break;
 #endif
+
+#ifdef RF_8852C_SUPPORT
+	case RF_RTL8852C:
+		/*2G FEM check*/
+		if (rfe_type > 50) {
+			rf->fem.epa_2g = 1;
+			rf->fem.elna_2g = 1;
+		}
+		/*5G FEM check*/
+		if (rfe_type == 21 || rfe_type == 22 || rfe_type > 50) {
+			rf->fem.epa_5g = 1;
+			rf->fem.elna_5g = 1;
+		}
+		/*6G FEM check*/
+		if (rfe_type > 50) {
+			rf->fem.epa_6g = 1;
+			rf->fem.elna_6g = 1;
+		}
+		break;
+#endif
 	default:
 		break;
 	}
@@ -611,16 +747,18 @@ enum rtw_hal_status halrf_dm_init(void *rf_void)
 		return RTW_HAL_STATUS_FAILURE;
 	}
 
+	halrf_rfe_type_gpio_setting(rf);
+	/*Set Power table ref power*/
+	halrf_set_ref_power_to_struct(rf, HW_PHY_0);
+
 	halrf_cmd_parser_init(rf);
 	halrf_set_final_rfability(rf);
 	halrf_rfe_init(rf);
-	halrf_rfe_type_gpio_setting(rf);
 	halrf_config_nctl_reg(rf);
 	halrf_rfk_self_init(rf);
 	halrf_si_reset(rf);
-	/*Set Power table ref power*/
-	halrf_set_ref_power_to_struct(rf, HW_PHY_0);
 	halrf_aack_trigger(rf, HW_PHY_0);
+	halrf_lck_trigger(rf);
 	halrf_rck_trigger(rf, HW_PHY_0);
 	//halrf_gapk_save_tx_gain_8852a(rf);
 	halrf_dack_trigger(rf, false);
@@ -636,6 +774,7 @@ enum rtw_hal_status halrf_dm_init(void *rf_void)
 	halrf_tssi_get_efuse_ex(rf, HW_PHY_0);
 	/*halrf_tssi_get_efuse_ex(rf, HW_PHY_1);*/
 
+	halrf_fcs_init(rf);
 	/*Set MAC 0xd220[1]=0  r_txagc_BT_en=0 by Bryant*/
 	if (phl_is_mp_mode(rf->phl_com)) {
 		/*halrf_wl_tx_power_control(rf, 0xffffffff);*/
@@ -644,8 +783,6 @@ enum rtw_hal_status halrf_dm_init(void *rf_void)
 		halrf_wlan_tx_power_control(rf, HW_PHY_0, GNT_TIME_CTRL,
 			0x0, false);
 	}
-
-	halrf_fcs_init(rf);
 
 	return hal_status;
 }

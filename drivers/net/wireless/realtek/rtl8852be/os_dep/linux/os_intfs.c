@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2021 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -304,7 +304,11 @@ int rtw_ndev_init(struct net_device *dev)
 	rtw_adapter_proc_init(dev);
 
 #ifdef CONFIG_RTW_NAPI
-	netif_napi_add_weight(dev, &adapter->napi, rtw_recv_napi_poll, RTL_NAPI_WEIGHT);
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+	netif_napi_add(dev, &adapter->napi, rtw_recv_napi_poll);
+	#else
+	netif_napi_add(dev, &adapter->napi, rtw_recv_napi_poll, RTL_NAPI_WEIGHT);
+	#endif
 #endif /* CONFIG_RTW_NAPI */
 
 	return 0;
@@ -494,12 +498,6 @@ void rtw_os_ndev_free(_adapter *adapter)
 #if defined(CONFIG_IOCTL_CFG80211)
 	rtw_cfg80211_ndev_res_free(adapter);
 #endif
-
-	/* free the old_pnetdev */
-	if (adapter->rereg_nd_name_priv.old_pnetdev) {
-		rtw_free_netdev(adapter->rereg_nd_name_priv.old_pnetdev);
-		adapter->rereg_nd_name_priv.old_pnetdev = NULL;
-	}
 
 	if (adapter->pnetdev) {
 		rtw_free_netdev(adapter->pnetdev);
@@ -980,6 +978,7 @@ u8 rtw_init_default_value(_adapter *padapter)
 	#else
 	padapter->tx_amsdu = 2;
 	#endif
+	pregistrypriv->tx_amsdu_aggnum = padapter->tx_amsdu;
 #ifdef RTW_WKARD_TX_DROP
 	padapter->tx_amsdu_rate = 100;
 #else
@@ -1160,7 +1159,9 @@ u8 rtw_reset_drv_sw(_adapter *padapter)
 
 	padapter->xmitpriv.tx_pkts = 0;
 	padapter->recvinfo.rx_pkts = 0;
-
+#ifdef PRIVATE_R
+	padapter->recvinfo.last_rx_uc_data = 0;
+#endif
 	pmlmepriv->LinkDetectInfo.bBusyTraffic = _FALSE;
 
 	/* pmlmepriv->LinkDetectInfo.TrafficBusyState = _FALSE; */
@@ -1178,7 +1179,8 @@ u8 rtw_reset_drv_sw(_adapter *padapter)
 	mlmeext_set_scan_state(&padapter->mlmeextpriv, SCAN_DISABLE);
 
 	#ifdef CONFIG_SIGNAL_STAT_PROCESS
-	rtw_set_signal_stat_timer(&padapter->recvinfo);
+	if (padapter->netif_up == _TRUE)
+		rtw_set_signal_stat_timer(&padapter->recvinfo);
 	#endif
 	return ret8;
 }
@@ -1399,6 +1401,7 @@ u8 rtw_init_drv_sw(_adapter *padapter)
 #endif /* CONFIG_STA_CMD_DISPR */
 
 #ifdef CONFIG_AP_MODE
+	_rtw_spinlock_init(&padapter->ap_stop_st_lock);
 	rtw_cmd_ap_add_del_sta_req_init(padapter);
 #endif
 
@@ -1503,6 +1506,10 @@ void rtw_adapter_link_deinit(struct dvobj_priv *dvobj)
 		for (lidx = 0; lidx < padapter->adapter_link_num; lidx++) {
 			padapter_link = GET_LINK(padapter, lidx);
 			if (padapter_link) {
+#ifdef PRIVATE_R
+				_rtw_deinit_queue(&(padapter_link->mlmepriv.idle_dis_bcn_queue));
+				_rtw_deinit_queue(&(padapter_link->mlmepriv.busy_dis_bcn_queue));
+#endif
 				rtw_vmfree((u8 *)padapter_link, sizeof(*padapter_link));
 				padapter_link = NULL;
 			}
@@ -1581,6 +1588,14 @@ void rtw_cancel_dynamic_chk_timer(_adapter *padapter)
 
 void rtw_cancel_all_timer(_adapter *padapter)
 {
+#ifdef CONFIG_RTW_WNM
+	_cancel_timer_ex(&padapter->mlmepriv.nb_info.roam_scan_timer);
+#endif
+
+#ifdef CONFIG_RTW_80211R
+	_cancel_timer_ex(&padapter->mlmeextpriv.ft_link_timer);
+	_cancel_timer_ex(&padapter->mlmeextpriv.ft_roam_timer);
+#endif
 
 	/*_cancel_timer_ex(&padapter->mlmepriv.assoc_timer);*/
 	cancel_assoc_timer(&padapter->mlmepriv);
@@ -1621,6 +1636,7 @@ void rtw_cancel_all_timer(_adapter *padapter)
 #ifdef CONFIG_PLATFORM_FS_MX61
 	msleep(50);
 #endif
+
 }
 
 u8 rtw_free_drv_sw(_adapter *padapter)
@@ -1665,6 +1681,7 @@ u8 rtw_free_drv_sw(_adapter *padapter)
 #endif /* CONFIG_STA_CMD_DISPR */
 
 #ifdef CONFIG_AP_MODE
+	_rtw_spinlock_free(&padapter->ap_stop_st_lock);
 	rtw_cmd_ap_add_del_sta_req_free(padapter);
 #endif
 
@@ -1683,6 +1700,7 @@ u8 rtw_free_drv_sw(_adapter *padapter)
 #endif /* CONFIG_WOWLAN */
 
 	/* rtw_mfree((void *)padapter, sizeof (padapter)); */
+
 
 	return _SUCCESS;
 
@@ -1782,11 +1800,6 @@ static _adapter *rtw_drv_add_vir_if(struct dvobj_priv *dvobj)
 		goto exit;
 
 	_rtw_memcpy(padapter, primary_padapter, sizeof(_adapter));
-#ifdef CONFIG_STA_CMD_DISPR
-	/* Reset not proper variables value which copied from primary adapter */
-	/* Check rtw_connect_req_init() & rtw_disconnect_req_init() */
-	padapter->connect_state = CONNECT_ST_NOT_READY;
-#endif
 
 	if (rtw_load_registry(padapter) != _SUCCESS)
 		goto free_adapter;
@@ -2409,7 +2422,8 @@ int _pm_netdev_open(_adapter *padapter)
 
 	/*if (padapter->netif_up == _FALSE) */
 	{
-		rtw_hw_iface_init(padapter);
+		if (rtw_hw_iface_init(padapter) == _FAIL)
+			goto netdev_open_error;
 
 		padapter->netif_up = _TRUE;
 	}
@@ -2515,10 +2529,9 @@ static int netdev_close(struct net_device *pnetdev)
 			pmlmeinfo->wifi_reason_code = WLAN_REASON_DEAUTH_LEAVING;
 		}
 
-#ifdef CONFIG_STA_CMD_DISPR
-		rtw_connect_abort_wait(padapter);
-		rtw_disconnect_abort_wait(padapter);
-#endif /* CONFIG_STA_CMD_DISPR */
+#ifdef CONFIG_AP_CMD_DISPR
+		rtw_ap_stop_wait(padapter);
+#endif
 	}
 
 #ifdef CONFIG_BR_EXT
@@ -3233,6 +3246,9 @@ int rtw_resume_process_wow(_adapter *padapter)
 		#endif
 		#endif/*CONFIG_SDIO_HCI*/
 
+#ifdef CONFIG_SIGNAL_STAT_PROCESS
+		rtw_set_signal_stat_timer(&padapter->recvinfo);
+#endif
 #ifdef CONFIG_CONCURRENT_MODE
 		rtw_mi_buddy_reset_drv_sw(padapter);
 #endif
@@ -3271,7 +3287,13 @@ int rtw_resume_process_wow(_adapter *padapter)
 		rtw_disassoc_cmd(padapter, 0, RTW_CMDF_WAIT_ACK);
 		if (MLME_IS_ASOC(padapter) == _TRUE)
 			rtw_free_assoc_resources(padapter, _TRUE);
-		rtw_indicate_disconnect(padapter, 0, _FALSE);
+
+		if (wowpriv->wow_wake_reason == RTW_MAC_WOW_RX_DISASSOC ||
+		    wowpriv->wow_wake_reason == RTW_MAC_WOW_RX_DEAUTH)
+			rtw_indicate_disconnect(padapter, pmlmeinfo->wifi_reason_code, _FALSE);
+		else
+			rtw_indicate_disconnect(padapter, 0, _FALSE);
+
 		pmlmeinfo->state = WIFI_FW_NULL_STATE;
 
 		pmlmeinfo->disconnect_occurred_time = rtw_systime_to_ms(rtw_get_current_time());
@@ -3438,7 +3460,7 @@ void rtw_mi_resume_process_normal(_adapter *padapter)
 		if ((iface) && rtw_is_adapter_up(iface)) {
 			pmlmepriv = &iface->mlmepriv;
 
-			if (MLME_IS_STA(padapter)) {
+			if (MLME_IS_STA(iface)) {
 				RTW_INFO(FUNC_ADPT_FMT" fwstate:0x%08x - WIFI_STATION_STATE\n", FUNC_ADPT_ARG(iface), get_fwstate(pmlmepriv));
 
 				if (rtw_chk_roam_flags(iface, RTW_ROAM_ON_RESUME))

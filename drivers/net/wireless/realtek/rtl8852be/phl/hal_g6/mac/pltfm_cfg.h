@@ -83,6 +83,9 @@ typedef char		s8;
 typedef int16_t		s16;
 typedef int32_t		s32;
 
+#define _os_va_list va_list
+
+#include "mac_exp_def.h"
 #include "../hal_headers_le.h"
 
 typedef u16 __le16;

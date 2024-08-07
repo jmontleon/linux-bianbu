@@ -108,7 +108,9 @@ _phl_alloc_rlink_hw_resource(struct phl_info_t *phl,
 
 	_os_spinlock(drv, &band_ctrl->lock, _bh, NULL);
 	/*alloc hw_port or M-BSSID*/
+#ifdef RTW_PHL_BCN
 	rlink->hw_mbssid = 0;
+#endif
 #ifdef CONFIG_RTW_SUPPORT_MBSSID_VAP
 	if (wrole->type == PHL_RTYPE_VAP) {
 		u8 mbssid_idx; /* 0:root, 1~n:VAP */
@@ -322,6 +324,36 @@ phl_get_rlink_by_hw_band(struct rtw_wifi_role_t *wrole,
 }
 
 struct rtw_wifi_role_t *
+rtw_phl_get_role_by_band_port(void *phl, u8 hw_band, u8 hw_port)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	struct mr_ctl_t *mr_ctl = phlcom_to_mr_ctrl(phl_com);
+	struct hw_band_ctl_t *band_ctrl = &(mr_ctl->band_ctrl[hw_band]);
+	struct rtw_wifi_role_t *wrole = NULL;
+	struct rtw_wifi_role_link_t *rlink = NULL;
+	u8 ridx = 0;
+
+	for (ridx = 0; ridx < MAX_WIFI_ROLE_NUMBER; ridx++) {
+		if (!(band_ctrl->role_map & BIT(ridx)))
+			continue;
+		wrole = phl_get_wrole_by_ridx(phl_info, ridx);
+		if (wrole == NULL)
+			continue;
+
+		rlink = get_rlink(wrole, RTW_RLINK_PRIMARY);
+		if (rlink->hw_band == hw_band &&
+		    rlink->hw_port == hw_port) {
+			PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
+				  "%s: phl_get_role_by_band_port(): role_idx(%d) hw_band = %d, hw_port = %d\n",
+				  __func__, wrole->id, rlink->hw_band, rlink->hw_port);
+			return wrole;
+		}
+	}
+	return NULL;
+}
+
+struct rtw_wifi_role_t *
 phl_get_wrole_by_addr(struct phl_info_t *phl_info, u8 *mac_addr)
 {
 	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
@@ -416,7 +448,7 @@ _phl_send_role_notify_cmd(struct phl_info_t *phl_info,
 	return;
 
 cmd_fail:
-	_os_mem_free(phl_to_drvpriv(phl_info), rcmd,
+	_os_kmem_free(phl_to_drvpriv(phl_info), rcmd,
 				sizeof(struct rtw_role_cmd));
 }
 #endif
@@ -1184,13 +1216,14 @@ phl_role_notify(struct phl_info_t *phl_info, struct rtw_wifi_role_t *wrole)
 }
 
 static enum rtw_phl_status
-_phl_role_set_bcn_early_rpt(struct phl_info_t *phl, struct rtw_wifi_role_t *wrole,
-	struct rtw_wifi_role_link_t *rlink, struct rtw_bcn_early_rpt_param *param)
+_phl_rlink_set_bcn_early_rpt(struct phl_info_t *phl,
+                            struct rtw_wifi_role_link_t *rlink,
+                            u8 en)
 {
 	enum rtw_hal_status status;
 
-	status = rtw_hal_set_bcn_early_rpt(phl->hal, rlink->hw_band, rlink->hw_port, param);
-	if (status == RTW_HAL_STATUS_FAILURE)
+	status = rtw_hal_set_bcn_early_rpt(phl->hal, rlink->hw_band, rlink->hw_port, en);
+	if (status != RTW_HAL_STATUS_SUCCESS)
 		return RTW_PHL_STATUS_FAILURE;
 
 	return RTW_PHL_STATUS_SUCCESS;
@@ -1519,15 +1552,45 @@ phl_wifi_role_change(struct phl_info_t *phl_info,
 		phl_init_proto_stbc_cap(rlink, phl_info, &rlink->protocol_cap);
 	}
 	break;
+	case WR_CHG_LSN_DISCOV:
+		if (wrole->type == PHL_RTYPE_P2P_DEVICE) {
+			bool en = *(u8 *)chg_info;
+
+			if (rlink == NULL) {
+				PHL_WARN("%s(WR_CHG_LSN_DISCOV): Target rlink is NULL!\n", __func__);
+				break;
+			}
+
+			PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
+				"%s: WR_CHG_LSN_DISCOV(%d)\n", __func__, en);
+			if (en)
+				SET_STATUS_FLAG(wrole->status, WR_STATUS_LSN_DISCOV);
+			else
+				CLEAR_STATUS_FLAG(wrole->status, WR_STATUS_LSN_DISCOV);
+			phl_mr_info_upt(phl_info, rlink);
+			rtw_phl_mr_rx_filter_opt(phl_info, rlink);
+		}
+		break;
+	case WR_CHG_FIX_ANT_DIV:
+	{
+		u8 antIndex = *(u8 *)chg_info;
+
+		rtw_hal_antdiv_fix_ant(phl_info->hal, antIndex);
+	}
+	break;
 	case WR_CHG_BCN_EARLY_RPT_CFG:
 	{
-		struct rtw_bcn_early_rpt_param *param = (struct rtw_bcn_early_rpt_param*)chg_info;
+		u8 en = *(u8 *)chg_info;
 
-		for (idx = 0; idx < wrole->rlink_num; idx++) {
-			tmp_rlink = get_rlink(wrole, idx);
-			pstate = _phl_role_set_bcn_early_rpt(phl_info, wrole, tmp_rlink, param);
-			if (pstate == RTW_PHL_STATUS_FAILURE)
-				break;
+		if (rlink == NULL) { /* Set bcn early rpt for all rlinks */
+			for (idx = 0; idx < wrole->rlink_num; idx++) {
+				tmp_rlink = get_rlink(wrole, idx);
+				pstate = _phl_rlink_set_bcn_early_rpt(phl_info, tmp_rlink, en);
+				if (pstate == RTW_PHL_STATUS_FAILURE)
+					break;
+			}
+		} else {
+			pstate = _phl_rlink_set_bcn_early_rpt(phl_info, rlink, en);
 		}
 	}
 	break;

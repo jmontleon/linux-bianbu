@@ -55,6 +55,7 @@ void halbb_dfs_init(struct bb_info *bb)
 	bb_dfs->dbg_swdet_prnt_en = false;
 	bb_dfs->dbg_trivil_prnt_en = false;
 	bb_dfs->dbg_brk_prnt_en = false;
+	bb_dfs->mask_fake_rpt_en = false;
 
 	bb_dfs->is_mic_w53 = false;
 	bb_dfs->is_mic_w56 = false;
@@ -65,9 +66,8 @@ void halbb_dfs_init(struct bb_info *bb)
 	bb_dfs->dfs_tp_th = 2;
 	bb_dfs->dfs_idle_prd_th = 35;
 
-	bb_dfs->dfs_fa_th = 30;
+	bb_dfs->dfs_fa_th = 100;
 	bb_dfs->dfs_nhm_th = 2;
-	bb_dfs->dfs_n_cnfd_lvl_th = 255;
 
 	bb_dfs->dfs_dyn_aci_en = true;
 	bb_dfs->dfs_aci_adaptv_th0 = 3;
@@ -82,15 +82,16 @@ void halbb_dfs_init(struct bb_info *bb)
 	bb_dfs->first_dyn_set_flag = true;
 	bb_dfs->dyn_reset_flag = true;
 
-	bb_dfs->pw_diff_th = 5;
-	bb_dfs->pri_diff_th = 10;
+	bb_dfs->pw_diff_th = 18;
+	bb_dfs->pri_diff_th = 80;
 	bb_dfs->pw_lng_chrp_diff_th = 20;
 	bb_dfs->lng_rdr_cnt = 0;
 	bb_dfs->lng_rdr_cnt_sg1 = 0;
 	bb_dfs->lng_rdr_cnt_pre = 0;
 	bb_dfs->lng_rdr_cnt_sg1_pre = 0;
-	bb_dfs->chrp_rdr_cnt = 0;
-	bb_dfs->invalid_lng_pulse_th = 4;
+
+	bb_dfs->invalid_lng_pulse_h_th = 4;
+	bb_dfs->invalid_lng_pulse_l_th = 1;
 
 	bb_dfs->rpt_rdr_cnt = 0;
 	bb_dfs->pri_mask_th = 3;
@@ -130,7 +131,7 @@ void halbb_mac_cfg_dfs_rpt(struct bb_info *bb, bool rpt_en)
 		.rpt_to = 3, /* 1:20ms , 2:40ms , 3:80ms */
 	};
 
-	if ((bb->ic_type == BB_RTL8852A) ||(bb->ic_type == BB_RTL8852B))
+	if ((bb->ic_type == BB_RTL8852A) || (bb->ic_type == BB_RTL8852B) || (bb->ic_type == BB_RTL8852C))
 		conf.rpt_num_th = 1; /* MAC_AX_DFS_TH_61 */
 
 	rtw_hal_mac_cfg_dfs_rpt(hal_com, &conf);
@@ -530,7 +531,7 @@ void halbb_radar_ptrn_cmprn(struct bb_info *bb, u16 dfs_rpt_idx,
 
 		if ((j == DFS_L_RDR_IDX) && (bb_dfs->l_rdr_exst_flag)) {
 			if (dfs_rpt_idx == 0 || !(bb_dfs->rpt_sg_history & BIT(is_sg1))) {
-				if ((pw_lbd <= pw) && (pw_ubd >= pw) && chrp_flag) {  // first rpt doesn't consider pri because it's not real
+				if ((pw_lbd <= pw) && (pw_ubd >= pw) && (pri != 0) && chrp_flag) {  // first rpt doesn't consider pri because it's not real
 					if (is_sg1) {
 						bb_dfs->lng_rdr_cnt_sg1++;
 						if (pw > bb_dfs->max_pw_lng_sg1)
@@ -803,7 +804,7 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 	for (i = 0; i < (dfs_rpt->dfs_num) ; i++)
 		halbb_radar_info_processing(bb, dfs_rpt, i);
 
-	if (!(bb_dfs->l_rdr_exst_flag) || bb_dfs->rpt_rdr_cnt == 0) {
+	if (!(bb_dfs->l_rdr_exst_flag) || bb_dfs->rpt_rdr_cnt == 0 || bb_dfs->mask_fake_rpt_en) {
 		/* Check Fake DFS rpt */
 		if (bb_dfs->rpt_rdr_cnt < bb_dfs->fk_dfs_num_th) {
 			if (bb_dfs->dbg_trivil_prnt_en)
@@ -936,11 +937,13 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 			if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
 				BB_DBG(bb, DBG_DFS, "pw_max BRK, reset lng_rdr cnt!\n");
 		}
-		if (bb_dfs->chrp_rdr_cnt > bb_dfs->invalid_lng_pulse_th) {   // max PPB=3 in lng rdr (plus one as margin)
+		if (bb_dfs->chrp_rdr_cnt > bb_dfs->invalid_lng_pulse_h_th) {   // max PPB=3 in lng rdr (plus one as margin)
 			bb_dfs->lng_rdr_cnt = 0;          // reset lng_rdr cnt
 			if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
 				BB_DBG(bb, DBG_DFS, "Invalid long pulse cnt BRK, reset lng_rdr cnt!\n");
 		}
+		if (bb_dfs->lng_rdr_cnt - bb_dfs->lng_rdr_cnt_pre <= bb_dfs->invalid_lng_pulse_l_th) // it means this time increment is not reliable
+			bb_dfs->lng_rdr_cnt = bb_dfs->lng_rdr_cnt_pre;
 		if (bb_dfs->is_tw_en) {
 			pw_diff_lng_sg1 = bb_dfs->max_pw_lng_sg1 - bb_dfs->min_pw_lng_sg1;
 			if (bb_dfs->dbg_hwdet_prnt_en)
@@ -960,11 +963,13 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 				if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
 					BB_DBG(bb, DBG_DFS, "pw_max_sg1 BRK, reset lng_rdr cnt_sg1!\n");
 			}
-			if (bb_dfs->chrp_rdr_cnt_sg1 > bb_dfs->invalid_lng_pulse_th) {   // max PPB=3 in lng rdr (plus one as margin)
+			if (bb_dfs->chrp_rdr_cnt_sg1 > bb_dfs->invalid_lng_pulse_h_th) {   // max PPB=3 in lng rdr (plus one as margin)
 				bb_dfs->lng_rdr_cnt_sg1 = 0;          // reset lng_rdr cnt
 				if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
 					BB_DBG(bb, DBG_DFS, "Invalid long pulse cnt BRK, reset lng_rdr cnt_sg1!\n");
 			}
+			if (bb_dfs->lng_rdr_cnt_sg1 - bb_dfs->lng_rdr_cnt_sg1_pre <= bb_dfs->invalid_lng_pulse_l_th) // it means this time increment is not reliable
+				bb_dfs->lng_rdr_cnt_sg1 = bb_dfs->lng_rdr_cnt_sg1_pre;
 		}
 	}
 
@@ -1027,7 +1032,7 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 			if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
 				BB_DBG(bb, DBG_DFS, "RDR drop by ENV !\n");
 		}
-		if (bb_dfs->n_seq_flag) {
+		if ((bb_dfs->n_seq_flag) && (bw < CHANNEL_WIDTH_160)) {
 			rdr_detected = false;
 			if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en) {
 				BB_DBG(bb, DBG_DFS, "Non-sequential DFS Dropped!\n");
@@ -1036,11 +1041,6 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 						 bb_dfs->seq_num_rpt_all[i], bb_dfs->seg_rpt_all[i]);
 				}
 			}
-		}
-		if (bb_dfs->n_cnfd_flag) {
-			rdr_detected = false;
-			if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
-				BB_DBG(bb, DBG_DFS, "Non-confidential DFS Blocked!\n");
 		}
 	}
 
@@ -1099,7 +1099,7 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 				if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
 					BB_DBG(bb, DBG_DFS, "seg1: RDR drop by ENV !\n");
 			}
-			if (bb_dfs->n_seq_flag_sg1) {
+			if ((bb_dfs->n_seq_flag_sg1) && (bw < CHANNEL_WIDTH_160)) {
 				rdr_detected_sg1 = false;
 				if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en) {
 					BB_DBG(bb, DBG_DFS, "seg1: Non-sequential DFS Dropped!\n");
@@ -1108,11 +1108,6 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 							 bb_dfs->seq_num_rpt_all[i], bb_dfs->seg_rpt_all[i]);
 					}
 				}
-			}
-			if (bb_dfs->n_cnfd_flag) {
-				rdr_detected_sg1= false;
-				if (bb_dfs->dbg_hwdet_prnt_en || bb_dfs->dbg_brk_prnt_en)
-					BB_DBG(bb, DBG_DFS, "seg1: Non-confidential DFS Blocked!\n");
 			}
 		}
 	}
@@ -1123,10 +1118,16 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 	/* Debug Mode */
 	if (rdr_detected) {
 		if (bb_dfs->dbg_swdet_prnt_en) {
+			BB_DBG(bb, DBG_DFS, "\n");
 			BB_DBG(bb, DBG_DFS, "[%s]===>\n", __func__);
-			BB_DBG(bb, DBG_DFS, "phy_idx = %d, dfs_num = %d, rpt_num = %d\n", dfs_rpt->phy_idx, dfs_rpt->dfs_num, bb_dfs->rpt_rdr_cnt);
-			BB_DBG(bb, DBG_DFS, "pw_factor =  %d, pri_factor = %d, ppb_prcnt = %d, idle_flag = %d\n",
-				bb_dfs->pw_factor,bb_dfs->pri_factor,bb_dfs->ppb_prcnt, bb_dfs->idle_flag);
+			BB_DBG(bb, DBG_DFS, "DFS Region Domain = %d, BW = %d, Channel = %d\n",
+		      		bb_dfs->dfs_rgn_domain, bw, chan);
+			BB_DBG(bb, DBG_DFS, "phy_idx = %d, dfs_num = %d, rpt_num = %d\n",
+		       		dfs_rpt->phy_idx, dfs_rpt->dfs_num, bb_dfs->rpt_rdr_cnt);
+			BB_DBG(bb, DBG_DFS, "is_link = %d, is_CAC = %d, is_idle = %d\n",
+		      	 	link->is_linked, bb_dfs->In_CAC_Flag, bb_dfs->idle_flag);
+			BB_DBG(bb, DBG_DFS, "pw_factor =  %d, pri_factor = %d, ppb_prcnt = %d\n",
+				bb_dfs->pw_factor,bb_dfs->pri_factor,bb_dfs->ppb_prcnt);
 			for (i = 0; i < DFS_RDR_TYP_NUM ; i++) {
 				BB_DBG(bb, DBG_DFS, "Type %d: [pw_lbd-pw_ubd], [pri_lbd-pri_ubd], [ppb_thd] = [%d-%d], [%d-%d], [%d]\n",
 				      (i+1), bb_dfs->pw_lbd[i],
@@ -1163,11 +1164,16 @@ bool halbb_radar_detect(struct bb_info *bb, struct hal_dfs_rpt *dfs_rpt)
 	if (bb_dfs->is_tw_en) {
 		if (rdr_detected_sg1) {
 			if (bb_dfs->dbg_swdet_prnt_en) {
+				BB_DBG(bb, DBG_DFS, "\n");
 				BB_DBG(bb, DBG_DFS, "[%s]===>\n", __func__);
-				BB_DBG(bb, DBG_DFS, "=================== seg 1 ===================>\n");
-				BB_DBG(bb, DBG_DFS, "phy_idx = %d, dfs_num = %d, rpt_num = %d\n", dfs_rpt->phy_idx, dfs_rpt->dfs_num, bb_dfs->rpt_rdr_cnt);
-				BB_DBG(bb, DBG_DFS, "pw_factor =  %d, pri_factor = %d, ppb_prcnt = %d, idle_flag = %d\n",
-					bb_dfs->pw_factor,bb_dfs->pri_factor,bb_dfs->ppb_prcnt, bb_dfs->idle_flag);
+				BB_DBG(bb, DBG_DFS, "DFS Region Domain = %d, BW = %d, Channel = %d\n",
+			      		bb_dfs->dfs_rgn_domain, bw, chan);
+				BB_DBG(bb, DBG_DFS, "phy_idx = %d, dfs_num = %d, rpt_num = %d\n",
+			       		dfs_rpt->phy_idx, dfs_rpt->dfs_num, bb_dfs->rpt_rdr_cnt);
+				BB_DBG(bb, DBG_DFS, "is_link = %d, is_CAC = %d, is_idle = %d\n",
+			      	 	link->is_linked, bb_dfs->In_CAC_Flag, bb_dfs->idle_flag);
+				BB_DBG(bb, DBG_DFS, "pw_factor =  %d, pri_factor = %d, ppb_prcnt = %d\n",
+					bb_dfs->pw_factor,bb_dfs->pri_factor,bb_dfs->ppb_prcnt);
 				for (i = 0; i < DFS_RDR_TYP_NUM; i++) {
 					BB_DBG(bb, DBG_DFS, "Type %d: [pw_lbd-pw_ubd], [pri_lbd-pri_ubd], [ppb_thd] = [%d-%d], [%d-%d], [%d]\n",
 				      (i+1), bb_dfs->pw_lbd[i],
@@ -1205,8 +1211,6 @@ DETECTING_END:
 	/* Reset SW Counter/Flag */
 	bb_dfs->n_seq_flag = false;
 	bb_dfs->n_seq_flag_sg1 = false;
-	bb_dfs->n_cnfd_flag = false;
-	bb_dfs->n_cnfd_lvl = 0;
 	bb_dfs->rpt_rdr_cnt = 0;
 	for (i = 0; i < DFS_RDR_TYP_NUM; i++) {
 		bb_dfs->srt_rdr_cnt[i] = 0;
@@ -1393,7 +1397,6 @@ void halbb_dfs_dyn_setting(struct bb_info *bb)
 	}
 
 #ifdef HALBB_TW_DFS_SERIES
-
 	switch (bb->hal_com->band[bb->bb_phy_idx].cur_chandef.bw) {
 	case CHANNEL_WIDTH_20:
 	case CHANNEL_WIDTH_40:
@@ -1407,7 +1410,7 @@ void halbb_dfs_dyn_setting(struct bb_info *bb)
 	case CHANNEL_WIDTH_160:
 	case CHANNEL_WIDTH_80_80:
 		bb_dfs->is_tw_en = true;
-		if ((chan >= 36) && (chan <=64))
+		if (!(bb_dfs->dfs_rgn_domain == DFS_REGD_FCC) && (chan >= 36) && (chan <=64))
 			bb_dfs->bypass_seg0 = true;
 		else
 			bb_dfs->bypass_seg0 = false;
@@ -1421,9 +1424,9 @@ void halbb_dfs_dyn_setting(struct bb_info *bb)
 
 	if (link->total_tp < bb_dfs->dfs_tp_th) {
 		bb_dfs->idle_flag = true;
-		bb_dfs->pw_diff_th = 12;
+		bb_dfs->pw_diff_th = 18;
 		bb_dfs->pw_lng_chrp_diff_th = 18;
-		bb_dfs->pri_diff_th = 5;
+		bb_dfs->pri_diff_th = 80;
 		bb_dfs->pw_factor = PW_FTR_IDLE;
 		bb_dfs->pri_factor = PRI_FTR_IDLE;
 		bb_dfs->ppb_prcnt = DFS_PPB_IDLE_PRCNT;
@@ -1432,7 +1435,7 @@ void halbb_dfs_dyn_setting(struct bb_info *bb)
 		bb_dfs->idle_flag = false;
 		bb_dfs->pw_diff_th = 20;
 		bb_dfs->pw_lng_chrp_diff_th = 20;
-		bb_dfs->pri_diff_th = 120;
+		bb_dfs->pri_diff_th = 170;
 		bb_dfs->pw_factor = PW_FTR;
 		bb_dfs->pri_factor = PRI_FTR;
 		bb_dfs->ppb_prcnt = DFS_PPB_PRCNT;
@@ -1560,10 +1563,6 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 			 "{6} Set Detection Parameter => \n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "---{1} Set the threshold of fake DFS number => {Num}\n");
-		/*
-		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
-			 "---{2} Set the threshold of chirp number => {Num}\n");
-		*/
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "---{3} Set the threshold of ppb percent => {Percent: 1-8}\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
@@ -1574,8 +1573,6 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 			 "---{6} Set the threshold of DFS_FA Threshold => {Num}\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "---{7} Set the threshold of DFS_NHM Threshold => {Percent: 0-100}\n");
-		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
-			 "---{8} Set the threshold of DFS_N_CNFD_Level Threshold => {Num}\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "---{9} Reset aci_disable_detect_cnt\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
@@ -1605,11 +1602,15 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "---{22} Set the threshold of pw_lng_chrp_th => {Num}\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
-			 "---{23} Set the threshold of invalid_lng_pulse_th => {Num}\n");
+			 "---{23} Set the threshold of invalid_lng_pulse_h_th => {Num}\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
-			 "---{24} Set the threshold of pri_mask_th => {Num}\n");
+			 "---{25} Set the threshold of invalid_lng_pulse_l_th => {Num}\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
-			 "---{25} Set bypass_seg0_en => {0}: Disable, {1}: Enable\n");
+			 "---{26} Set the threshold of pri_mask_th => {Num}\n");
+		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
+			 "---{27} Set bypass_seg0_en => {0}: Disable, {1}: Enable\n");
+		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
+			 "---{28} Set mask_fake_rpt_en => {0}: Disable, {1}: Enable\n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			 "{7} Set SPEC pw/pri/ppb thd => \n");
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
@@ -1649,10 +1650,6 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 			    bb_dfs->fk_dfs_num_th);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "DFS MASK L2H Value (dBm) = %d\n",
 			    bb_dfs->dfs_mask_l2h_val >= 128 ? bb_dfs->dfs_mask_l2h_val-256 : bb_dfs->dfs_mask_l2h_val);
-		/*
-		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "Chirp Number = %d\n",
-			    bb_dfs->chrp_th);
-		*/
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "PPB Percent = %d\n",
 			    bb_dfs->ppb_prcnt);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "DFS_TP Threshold = %d\n",
@@ -1663,8 +1660,6 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 			    bb_dfs->dfs_fa_th);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "DFS_NHM Threshold = %d\n",
 			    bb_dfs->dfs_nhm_th);
-		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "DFS_N_CNFD_Level Threshold = %d\n",
-			    bb_dfs->dfs_n_cnfd_lvl_th);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "detect_state = %d\n",
 			    bb_dfs->detect_state);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "dfs_aci_adaptv_th0 = %d\n",
@@ -1693,12 +1688,16 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 				bb_dfs->pw_max_th);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "pw_lng_chrp_diff_th = %d\n",
 				bb_dfs->pw_lng_chrp_diff_th);
-		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "invalid_lng_pulse_th = %d\n",
-				bb_dfs->invalid_lng_pulse_th);
+		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "invalid_lng_pulse_h_th = %d\n",
+				bb_dfs->invalid_lng_pulse_h_th);
+		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "invalid_lng_pulse_l_th = %d\n",
+				bb_dfs->invalid_lng_pulse_l_th);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "pri_mask_th = %d\n",
 				bb_dfs->pri_mask_th);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "bypass_seg0 = %d\n",
 				bb_dfs->bypass_seg0);
+		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "mask_fake_rpt_en = %d\n",
+				bb_dfs->mask_fake_rpt_en);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used, "SPEC TH : \n");
 		for (i = 0; i < DFS_RDR_TYP_NUM ; i++) {
 			BB_DBG_CNSL(out_len, used, output + used, out_len - used, "Type%d : pw = [%d-%d], pri = [%d-%d], ppb = %d\n",
@@ -1777,14 +1776,6 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 				BB_DBG_CNSL(out_len, used, output + used,
 					    out_len - used, "fk_dfs_num_th = %d\n",
 					    bb_dfs->fk_dfs_num_th);
-			} else if (var[1] == 2) {
-			/*
-				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
-				bb_dfs->chrp_th= (u8)var[2];
-				BB_DBG_CNSL(out_len, used, output + used,
-					    out_len - used, "chrp_th = %d\n",
-					    bb_dfs->chrp_th);
-			*/
 			} else if (var[1] == 3) {
 				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
 				bb_dfs->ppb_prcnt = (u8)var[2];
@@ -1815,12 +1806,6 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 				BB_DBG_CNSL(out_len, used, output + used,
 					    out_len - used, "dfs_nhm_th = %d\n",
 					    bb_dfs->dfs_nhm_th);
-			} else if (var[1] == 8) {
-				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
-				bb_dfs->dfs_n_cnfd_lvl_th= (u8)var[2];
-				BB_DBG_CNSL(out_len, used, output + used,
-					    out_len - used, "dfs_n_cnfd_lvl_th = %d\n",
-					    bb_dfs->dfs_n_cnfd_lvl_th);
 			} else if (var[1] == 9) {
 				bb_dfs->adap_detect_cnt = 0;
 				bb_dfs->adap_detect_cnt_all =0;
@@ -1907,22 +1892,34 @@ void halbb_dfs_debug(struct bb_info *bb, char input[][16], u32 *_used,
 					bb_dfs->pw_lng_chrp_diff_th);
 			}else if (var[1] == 23) {
 				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
-				bb_dfs->invalid_lng_pulse_th= (u16)var[2];
+				bb_dfs->invalid_lng_pulse_h_th = (u16)var[2];
 				BB_DBG_CNSL(out_len, used, output + used,
-					out_len - used, "invalid_lng_pulse_th = %d\n",
-					bb_dfs->invalid_lng_pulse_th);
-			}else if (var[1] == 24) {
+					out_len - used, "invalid_lng_pulse_h_th = %d\n",
+					bb_dfs->invalid_lng_pulse_h_th);
+			}else if (var[1] == 25) {
+				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
+				bb_dfs->invalid_lng_pulse_l_th = (u16)var[2];
+				BB_DBG_CNSL(out_len, used, output + used,
+					out_len - used, "invalid_lng_pulse_l_th = %d\n",
+					bb_dfs->invalid_lng_pulse_l_th);
+			}else if (var[1] == 26) {
 				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
 				bb_dfs->pri_mask_th= (u8)var[2];
 				BB_DBG_CNSL(out_len, used, output + used,
 					out_len - used, "pri_mask_th = %d\n",
 					bb_dfs->pri_mask_th);
-			}else if (var[1] == 25) {
-			HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
-			bb_dfs->bypass_seg0= (bool)var[2];
-			BB_DBG_CNSL(out_len, used, output + used,
-				out_len - used, "bypass_seg0 = %d\n",
-				bb_dfs->bypass_seg0);
+			}else if (var[1] == 27) {
+				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
+				bb_dfs->bypass_seg0= (bool)var[2];
+				BB_DBG_CNSL(out_len, used, output + used,
+					out_len - used, "bypass_seg0 = %d\n",
+					bb_dfs->bypass_seg0);
+			}else if (var[1] == 28) {
+				HALBB_SCAN(input[3], DCMD_DECIMAL, &var[2]);
+				bb_dfs->mask_fake_rpt_en = (bool)var[2];
+				BB_DBG_CNSL(out_len, used, output + used,
+					out_len - used, "mask_fake_rpt_en = %d\n",
+					bb_dfs->mask_fake_rpt_en);
 			}
 		} else if (var[0] == 7) {
 			HALBB_SCAN(input[2], DCMD_DECIMAL, &var[1]);

@@ -128,5 +128,19 @@ rtw_hal_set_tx_rate_rty_tbl(void *hal, bool en, u8 *rty_rate_tbl)
 
 	rtw_hal_bb_set_tx_rate_rty_tbl(hal_info, en, rty_rate_tbl);
 }
+
+enum rtw_hal_status
+rtw_hal_set_spatial_reuse_en(void *hal, bool en)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	return rtw_hal_bb_set_spatial_reuse_en(hal_info, en);
+}
+
+bool
+rtw_hal_is_spatial_reuse_en(void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	return rtw_hal_bb_is_spatial_reuse_en(hal_info);
+}
 #endif
 

@@ -187,10 +187,12 @@ static u8 _rtw_chset_is_bchbw_valid(const struct rtw_chset *chset, enum band_typ
 		ch_idx = rtw_chset_search_bch(chset, band, *(op_chs + i));
 		if (ch_idx == -1)
 			break;
-		if (chset->chs[ch_idx].flags & RTW_CHF_NO_IR) {
-			if (!allow_passive
-				|| (!allow_primary_passive && chset->chs[ch_idx].ChannelNum == ch))
-			break;
+		if (!allow_passive && chset->chs[ch_idx].flags & RTW_CHF_NO_IR) {
+			/* all sub chs are passive is not allowed and one of sub ch is NO_IR */
+			if (!allow_primary_passive) /* even primary ch is not allow to be NO_IR */
+				break;
+			if (chset->chs[ch_idx].ChannelNum != ch) /* allow primary ch NO_IR, but this is not primary ch */
+				break;
 		}
 		if (bw >= CHANNEL_WIDTH_40) {
 			if ((chset->chs[ch_idx].flags & RTW_CHF_NO_HT40U) && i % 2 == 0)

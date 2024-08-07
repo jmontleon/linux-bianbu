@@ -103,5 +103,6 @@ void halrf_chl_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used, cha
 void halrf_op5k_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used, char *output, u32 *_out_len);
 void halrf_rfk_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used, char *output, u32 *_out_len);
 void halrf_psd_cmd(struct rf_info *rf, char input[][16], u32 *_used, char *output, u32 *_out_len);
+void halrf_dz_dbg_cmd(struct rf_info *rf, char input[][16], u32 *_used, char *output, u32 *_out_len);
 
 #endif

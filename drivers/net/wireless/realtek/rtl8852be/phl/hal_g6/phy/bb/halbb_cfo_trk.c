@@ -362,10 +362,7 @@ void halbb_cfo_acc_callback(void *context)
 
 	timer->timer_state = BB_TIMER_IDLE;
 
-	if (bb->phl_com->hci_type == RTW_HCI_PCIE)
-		halbb_cfo_acc_io_en(bb);
-	else
-		rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
+	rtw_hal_cmd_notify(bb->phl_com, MSG_EVT_NOTIFY_BB, (void *)(&timer->event_idx), bb->bb_phy_idx);
 }
 
 void halbb_cfo_acc_timer_init(struct bb_info *bb)
@@ -421,8 +418,8 @@ void halbb_cfo_trk_init(struct bb_info *bb)
 	BB_DBG(bb, DBG_CFO_TRK, "xcap upper_bound=0x%x\n", bb_cfo_trk->x_cap_ub);
 	BB_DBG(bb, DBG_CFO_TRK, "xcap lower_bound=0x%x\n", bb_cfo_trk->x_cap_lb);
 
-	// For manually fine tune digital cfo
-	halbb_set_reg_cmn(bb, 0x4264, 0x00000003, 1, bb->bb_phy_idx);
+	/* For manually fine tune digital cfo*/
+	bb_cfo_trk->dcfo_comp_offset = 1;
 	bb_cfo_trk->tb_tx_comp_cfo_th = DIGI_CFO_COMP_LIMIT << 2;
 	halbb_digital_cfo_comp_init(bb);
 
@@ -617,7 +614,7 @@ s32 halbb_multi_sta_avg_cfo_calc(struct bb_info *bb)
 	u8 active_entry_cnt = 0, sta_cnt = 0;
 	u32 tp_all = 0;
 	u16 active_entry = 0;
-	u8 i;
+	u16 i = 0;
 	u8 cfo_tol = 0;
 	u16 macid;
 
@@ -797,7 +794,7 @@ halbb_cfo_counter_rst(struct bb_info *bb)
 	struct bb_cfo_trk_info *bb_cfo_trk = &bb->bb_cfo_trk_i;
 	struct rtw_phl_stainfo_t *sta;
 	struct rtw_cfo_info *cfo_t = NULL;
-	u8 i, sta_cnt = 0;
+	u16 i = 0, sta_cnt = 0;
 
 	for (i = 0; i < PHL_MAX_STA_NUM; i++) {
 
@@ -924,7 +921,8 @@ bool halbb_cfo_acc_mode_en(struct bb_info *bb)
 	struct dev_cap_t *dev = &phl->dev_cap;
 	struct rtw_phl_stainfo_t *sta;
 	u8 sta_cnt = 0;
-	u32 i = 0, cfo_tf_cnt = 0, cfo_tf_cnt_cur = 0;
+	u16 i = 0;
+	u32 cfo_tf_cnt = 0, cfo_tf_cnt_cur = 0;
 	bool is_ul_ofdma = false;
 
 	if (!cfo_trk->cfo_dyn_acc_en)
@@ -1151,9 +1149,9 @@ void halbb_parsing_cfo(struct bb_info *bb, u32 physts_bitmap,
 	struct dev_cap_t *dev = &bb->phl_com->dev_cap;
 	struct rtw_phl_stainfo_t *sta;
 	struct rtw_cfo_info *cfo_t = NULL;
-	s16 cfo;
+	s16 cfo = 0;
 	u8 fw_rate_idx = rate_info->fw_rate_idx;
-	u8 bb_macid;
+	u16 bb_macid = 0;
 
 	if (!(physts_bitmap & BIT(IE01_CMN_OFDM) &&
 	    physts->bb_physts_rslt_hdr_i.ie_map_type >= LEGACY_OFDM_PKT))
@@ -1249,6 +1247,8 @@ void halbb_cfo_trk_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			    "cfo_tol {manually adjust hypothetical sta_cfo_tolerance in decimal kHz}\n");
 		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
 			    "cfo_step {step[0]} {step[1]} {step[2]} {step[3]}\n");
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used, *_out_len - *_used,
+			    "dcfo_offset {(s32)compensate offset}\n");
 		return;
 	}
 
@@ -1312,7 +1312,7 @@ void halbb_cfo_trk_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			    "[Start callback]\n");
 			halbb_cfo_acc_io_en(bb);
 		}
-	}else if (_os_strcmp(input[1], "acc_mode") == 0) {
+	} else if (_os_strcmp(input[1], "acc_mode") == 0) {
 		HALBB_SCAN(input[2], DCMD_DECIMAL, &var[0]);
 		HALBB_SCAN(input[3], DCMD_DECIMAL, &var[1]);
 
@@ -1395,6 +1395,15 @@ void halbb_cfo_trk_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			    "cfo_step: step[0]=%d; step[1]=%d; step[2]=%d; step[3]=%d\n",
 			    bb_cfo_trk->step[0], bb_cfo_trk->step[1],
 			    bb_cfo_trk->step[2], bb_cfo_trk->step[3]);
+	} else if (_os_strcmp(input[1], "dcfo_offset") == 0) {
+		HALBB_SCAN(input[2], DCMD_DECIMAL, &var[0]);
+
+		bb_cfo_trk->dcfo_comp_offset = (s32)var[0];
+
+		BB_DBG_CNSL(*_out_len, *_used, output + *_used,
+			    *_out_len - *_used,
+			    "dcfo compensate offset=%d\n",
+			    bb_cfo_trk->dcfo_comp_offset);
 	}
 }
 
@@ -1471,6 +1480,19 @@ void halbb_cr_cfg_cfo_trk_init(struct bb_info *bb)
 		cr->r_cfo_comp_seg0_vld_m = CFO_COMP_SEG0_VLD_0_BE0_M;
 		cr->r_cfo_wgting = CFO_WGTING_BE0;
 		cr->r_cfo_wgting_m = CFO_WGTING_BE0_M;
+
+		break;
+
+	#endif
+
+	#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->r_cfo_comp_seg0_312p5khz = CFO_COMP_SEG0_312P5KHZ_0_BE1;
+		cr->r_cfo_comp_seg0_312p5khz_m = CFO_COMP_SEG0_312P5KHZ_0_BE1_M;
+		cr->r_cfo_comp_seg0_vld = CFO_COMP_SEG0_VLD_0_BE1;
+		cr->r_cfo_comp_seg0_vld_m = CFO_COMP_SEG0_VLD_0_BE1_M;
+		cr->r_cfo_wgting = CFO_WGTING_BE1;
+		cr->r_cfo_wgting_m = CFO_WGTING_BE1_M;
 
 		break;
 

@@ -25,7 +25,9 @@
 #define IEEE80211_CHAN_IR_CONCURRENT IEEE80211_CHAN_GO_CONCURRENT
 #endif
 
+#if !RTW_PER_ADAPTER_WIPHY
 void rtw_chset_hook_os_channels(struct rtw_chset *chset, void *os_ref);
+#endif
 void rtw_regd_change_complete_sync(struct wiphy *wiphy, struct get_chplan_resp *chplan, bool rtnl_lock_needed);
 int rtw_regd_change_complete_async(struct wiphy *wiphy, struct get_chplan_resp *chplan);
 #ifdef CONFIG_REGD_SRC_FROM_OS

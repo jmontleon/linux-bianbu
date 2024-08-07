@@ -137,6 +137,11 @@ int rtw_hw_connected(struct _ADAPTER *a);
 int rtw_hw_connected_apmode(struct _ADAPTER *a, struct sta_info *sta);
 int rtw_hw_disconnect(struct _ADAPTER *a, struct sta_info *sta);
 
+void rtw_update_roch_chan_def(struct _ADAPTER_LINK *adapter_link,
+				u8 remain_ch, enum channel_width remain_bw,
+				enum chan_offset offset,
+				enum band_type band);
+
 void rtw_hw_update_chan_def(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
 
 #ifdef RTW_DETECT_HANG
@@ -159,6 +164,10 @@ int rtw_acs_get_report(struct _ADAPTER *a, enum band_type band, u8 ch, struct rt
 #endif /* CONFIG_RTW_ACS */
 
 void rtw_dump_env_rpt(struct _ADAPTER *a, void *sel);
+
+#ifdef DBG_RX_DFRAME_RAW_DATA
+void rtw_dump_rx_dframe_info(struct _ADAPTER *padapter, void *sel);
+#endif
 
 #ifdef CONFIG_WOWLAN
 u8 rtw_hw_wow(struct _ADAPTER *a, u8 wow_en);
@@ -224,4 +233,25 @@ u8 get_phy_tx_nss(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
 u8 get_phy_rx_nss(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
 u8 rtw_backup_and_get_final_ss(_adapter *adapter, struct sta_info *sta, u8 chg_ss);
 void rtw_ctrl_and_backup_assoc_cap_rx_nss(_adapter *adapter, struct sta_info *sta, u8 rx_nss);
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN
+bool rtw_dbcc_b0_sta_chan_chk(struct _ADAPTER *a);
+
+enum dbcc_chk_pcd {
+	DBCC_CHK_STA_CON,
+	DBCC_CHK_STA_DIS,
+	DBCC_CHK_AP_START,
+	DBCC_CHK_AP_STOP
+};
+bool rtw_dbcc_chk_enable_hdl(_adapter *adapter,
+				enum phl_cmd_type cmd_type,
+				enum dbcc_chk_pcd chk_pcd);
+bool rtw_dbcc_chk_disable_hdl(_adapter *adapter,
+				struct rtw_chan_def *new_chdef,
+				enum phl_cmd_type cmd_type,
+				enum dbcc_chk_pcd chk_pcd);
+enum rtw_phl_status
+rtw_discon_end_dbcc_en_notify(struct _ADAPTER *a, enum phl_module_id mdl_id);
+
+#endif
+
 #endif /* _RTW_HW_H_ */

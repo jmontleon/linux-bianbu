@@ -20,17 +20,9 @@ u32 mac_fast_ch_sw(struct mac_ax_adapter *adapter, struct mac_ax_fast_ch_sw_para
 	u8 *buf;
 	u32 ret = MACSUCCESS;
 	struct fwcmd_fcs *pkt;
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cbuf;
-	#else
-	struct h2c_buf *h2cbuf;
-	#endif
+	struct h2c_info h2c_info = {0};
 
-	h2cbuf = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
-	if (!h2cbuf)
-		return MACNPTR;
-
-	buf = h2cb_put(h2cbuf, sizeof(struct fwcmd_fcs));
+	buf = (u8 *)PLTFM_MALLOC(sizeof(struct fwcmd_fcs));
 	if (!buf) {
 		PLTFM_MSG_ERR("[HM][H2C][FCS] ret = %d\n", MACNOBUF);
 		return MACNOBUF;
@@ -65,39 +57,19 @@ u32 mac_fast_ch_sw(struct mac_ax_adapter *adapter, struct mac_ax_fast_ch_sw_para
 					   FWCMD_H2C_FCS_CSA_PKT_ID2) |
 				  SET_WORD(fast_ch_sw_param->csa_pkt_id[3],
 					   FWCMD_H2C_FCS_CSA_PKT_ID3));
-	ret = h2c_pkt_set_hdr(adapter, h2cbuf,
-			      FWCMD_TYPE_H2C, FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FCS, FWCMD_H2C_FUNC_FCS, 1, 1);
-	if (ret) {
-		PLTFM_MSG_ERR("[HM][H2C][FCS] error when set hdr\n");
-		return ret;
-	}
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_fcs);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FCS;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_FCS;
+	h2c_info.rec_ack = 1;
+	h2c_info.done_ack = 1;
 
-	ret = h2c_pkt_build_txd(adapter, h2cbuf);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)buf);
+	PLTFM_FREE(buf, sizeof(struct fwcmd_fcs));
 
-	if (ret) {
-		PLTFM_MSG_ERR("[HM][H2C][FCS] error when build txd\n");
-		return ret;
-	}
-
-	#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cbuf);
-	#else
-	ret = PLTFM_TX(h2cbuf->data, h2cbuf->len);
-	#endif
-
-	h2cb_free(adapter, h2cbuf);
-
-	if (ret) {
-		PLTFM_MSG_ERR("[HM][H2C][FCS] error when h2cb free\n");
-		return ret;
-	}
-	h2c_end_flow(adapter);
-	adapter->fast_ch_sw_info.busy = 1;
-	if (ret) {
-		PLTFM_MSG_ERR("[HM][H2C][FCS] error when h2c_end_flow\n");
-		return ret;
-	}
+	if (!ret)
+		adapter->fast_ch_sw_info.busy = 1;
 	PLTFM_MSG_TRACE("[HM][H2C][FCS] ret = %d\n", ret);
 	return ret;
 }

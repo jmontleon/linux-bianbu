@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -50,8 +50,14 @@ enum rtw_hal_status rtw_hal_mp_config_get_dev_info(
 	case CHIP_WIFI6_8852C:
 		arg->chipid = 0x8852c;
 		break;
+	case CHIP_WIFI6_8852D:
+		arg->chipid = 0x8852d;
+		break;
 	case CHIP_WIFI6_8851B:
 		arg->chipid = 0x8851b;
+		break;
+	case CHIP_WIFI6_8852BT:
+		arg->chipid = 0x8852b3;
 		break;
 	case CHIP_WIFI6_MAX:
 	default:
@@ -486,12 +492,40 @@ enum rtw_hal_status rtw_hal_mp_trigger_fw_conflict(struct mp_context *mp, struct
 	return hal_status;
 }
 
+enum rtw_hal_status rtw_hal_mp_config_set_gpio(struct mp_context *mp, struct mp_config_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+
+	hal_status = rtw_hal_mac_set_sw_gpio_mode(hal_info, RTW_AX_SW_IO_MODE_OUTPUT_PP, arg->gpio_id);
+	if(hal_status != RTW_HAL_STATUS_SUCCESS){
+		PHL_INFO("%s: sw gpio mode failed, hal_status = %d\n", __FUNCTION__, hal_status);
+		return hal_status;
+	}
+
+	hal_status = rtw_hal_mac_sw_gpio_ctrl(hal_info, arg->gpio_enable, arg->gpio_id);
+	PHL_INFO("%s: sw gpio ctrl, hal_status = %d\n", __FUNCTION__, hal_status);
+
+	return hal_status;
+}
+
 enum rtw_hal_status rtw_hal_mp_ic_hw_setting_init(struct mp_context *mp)
 {
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 
 	hal_status = rtw_hal_bb_ic_hw_setting_init(mp->hal);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_INFO("%s: bb mp init error.\n", __FUNCTION__);
+		goto exit;
+	}
 
+	hal_status = rtw_hal_rf_ic_hw_setting_init(mp->hal);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_INFO("%s: rf mp init error.\n", __FUNCTION__);
+		goto exit;
+	}
+
+exit:
 	return hal_status;
 }
 
@@ -537,6 +571,150 @@ enum rtw_hal_status rtw_hal_mp_config_switch_antenna(
 	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
 
 	hal_status = rtw_hal_bb_switch_antenna(hal_com, arg->ant_sw);
+
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_set_mac_loopbk_enter(struct mp_context *mp, struct mp_config_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+	struct mac_ax_cts2self_cfg mac_hw_cts_cfg;
+
+
+	PHL_INFO("%s:\n", __FUNCTION__);
+
+	hal_status = rtw_hal_mac_loopback_set_trx_mode(mp->hal);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set set_trx_mode fail!\n", __FUNCTION__);
+		goto exit;
+	}
+
+
+	hal_status = rtw_hal_mac_enable_bb_rf(mp->hal, false);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set Disalbe mac_enable_bb_rf fail!\n", __FUNCTION__);
+		goto exit;
+	}
+
+	mac_hw_cts_cfg.threshold_sel = MAC_AX_CTS2SELF_DISABLE;
+	mac_hw_cts_cfg.band_sel = HW_BAND_0;
+	mac_hw_cts_cfg.non_sec_threshold = 0;
+	mac_hw_cts_cfg.sec_threshold = 0;
+	hal_status = rtw_hal_mac_cfg_hw_cts2slef(mp->hal, &mac_hw_cts_cfg);
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s Set mac_cfg_hw_cts2slef fail!\n", __FUNCTION__);
+			goto exit;
+	}
+
+	hal_status = rtw_hal_mac_set_rxfltr_loopbk_mode(mp->hal);
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s mac_set_rxfltr_loopbk_mode fail!\n", __FUNCTION__);
+			goto exit;
+	}
+
+	hal_status = rtw_hal_mac_txagg_timeout_thrhold(mp->hal);
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s Set mac_cfg_hw_cts2slef fail!\n", __FUNCTION__);
+			goto exit;
+	}
+
+	rtw_hal_mac_set_reset_rx_cnt(mp->hal, mp->cur_phy);
+
+exit:
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_mp_set_hci_speed(struct mp_context *mp, struct mp_config_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+
+	PHL_INFO("%s: hci speed = %d.\n", __FUNCTION__, arg->hci_speed);
+
+	hal_status = rtw_hal_mac_set_hci_speed(hal_info, arg->hci_speed);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set set_hci_speed fail!\n", __FUNCTION__);
+	}
+
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_mp_get_hci_speed(struct mp_context *mp, struct mp_config_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+
+	hal_status = rtw_hal_mac_get_hci_speed(hal_info, &arg->hci_speed);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set get_mac_hci_speed fail!\n", __FUNCTION__);
+	}
+
+	return hal_status;
+}
+
+
+enum rtw_hal_status rtw_hal_set_mac_fw_general_io_test(struct mp_context *mp, struct mp_config_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+
+	PHL_INFO("%s:\n", __FUNCTION__);
+
+	hal_status = rtw_hal_mac_fw_general_io_test(mp->hal);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set rtw_hal_mac_fw_general_io_test fail!\n", __FUNCTION__);
+	}
+
+	return hal_status;
+}
+
+enum rtw_hal_status rtw_hal_mp_set_mac_l1ss_enable(struct mp_context *mp, struct mp_config_arg *arg)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+	struct mac_ax_pcie_cfgspc_param pcicfg;
+
+	_os_mem_set(hal_to_drvpriv(hal_info), &pcicfg, 0, sizeof(pcicfg));
+
+#ifdef CONFIG_PCI_HCI
+
+	/* the suggestion settings are from halmac */
+	pcicfg.write = 1;
+	pcicfg.read = 0;
+	pcicfg.l0s_ctrl = MAC_AX_PCIE_DISABLE;
+	pcicfg.l1_ctrl = MAC_AX_PCIE_ENABLE;
+	pcicfg.l1ss_ctrl = MAC_AX_PCIE_ENABLE;
+	pcicfg.wake_ctrl = MAC_AX_PCIE_DEFAULT;
+	pcicfg.crq_ctrl = MAC_AX_PCIE_ENABLE;
+	pcicfg.clkdly_ctrl = MAC_AX_PCIE_CLKDLY_DEF;
+	pcicfg.l0sdly_ctrl = MAC_AX_PCIE_L0SDLY_DEF;
+	pcicfg.l1dly_ctrl = MAC_AX_PCIE_L1DLY_DEF;
+
+
+	PHL_INFO("%s : l0s/l1/l1ss/wake/crq/l0sdly/l1dly/clkdly = %#X/%#X/%#X/%#X/%#X/%#X/%#X/%#X \n",
+		__func__, pcicfg.l0s_ctrl, pcicfg.l1_ctrl, pcicfg.l1ss_ctrl, pcicfg.wake_ctrl,
+		pcicfg.crq_ctrl, pcicfg.l0sdly_ctrl, pcicfg.l1dly_ctrl, pcicfg.clkdly_ctrl);
+
+	hal_status = rtw_hal_mac_set_pcicfg(hal_info, &pcicfg);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set rtw_hal_mac_set_pcicfg fail!\n", __FUNCTION__);
+	}
+#endif
+
+	return hal_status;
+}
+
+enum rtw_hal_status
+rtw_hal_set_mac_aspm_test(struct mp_context *mp)
+{
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+
+	hal_status = rtw_hal_mac_set_aspm_test(mp->hal);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s Set rtw_hal_mac_fw_general_io_test fail!\n", __FUNCTION__);
+	}
 
 	return hal_status;
 }

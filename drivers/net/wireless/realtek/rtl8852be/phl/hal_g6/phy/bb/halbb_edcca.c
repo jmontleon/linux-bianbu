@@ -40,7 +40,7 @@ bool halbb_edcca_abort(struct bb_info *bb)
 	return false;
 }
 
-#ifdef HALBB_COMPILE_AP2_SERIES
+#if (defined(HALBB_COMPILE_AP2_SERIES) || defined(HALBB_COMPILE_BE1_SERIES))
 void halbb_set_collision_thre(struct bb_info *bb)
 {
 	struct bb_edcca_info *bb_edcca = &bb->bb_edcca_i;
@@ -73,8 +73,54 @@ void halbb_set_collision_thre(struct bb_info *bb)
 			       cr->collision_t2r_th_mcs10_m, th);
 	halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_mcs11,
 			       cr->collision_t2r_th_mcs11_m, th);
-	halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_cck,
-			       cr->collision_t2r_th_cck_m, th);
+	if (bb->ic_type == BB_RTL8852C) {
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_cck,
+				cr->collision_t2r_th_cck_m, th);
+	} else if (bb->ic_type == BB_RTL8922A) {
+		// 8922A new collision CRs
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_mcs12,
+				cr->collision_t2r_th_mcs12_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_mcs13,
+				cr->collision_t2r_th_mcs13_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_cck_1M,
+				cr->collision_t2r_th_cck_1M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_cck_2M,
+				cr->collision_t2r_th_cck_2M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_cck_5p5M,
+				cr->collision_t2r_th_cck_5p5M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_cck_11M,
+				cr->collision_t2r_th_cck_11M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_map2dbm,
+				cr->collision_map2dbm_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_he_dcm_mcs0,
+				cr->collision_t2r_th_he_dcm_mcs0_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_he_dcm_mcs1,
+				cr->collision_t2r_th_he_dcm_mcs1_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_he_dcm_mcs3,
+				cr->collision_t2r_th_he_dcm_mcs3_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_he_dcm_mcs4,
+				cr->collision_t2r_th_he_dcm_mcs4_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_eht_dcm_mcs14,
+				cr->collision_t2r_th_eht_dcm_mcs14_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_eht_dcm_mcs15,
+				cr->collision_t2r_th_eht_dcm_mcs15_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_6M,
+				cr->collision_t2r_th_legacy_6M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_9M,
+				cr->collision_t2r_th_legacy_9M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_12M,
+				cr->collision_t2r_th_legacy_12M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_18M,
+				cr->collision_t2r_th_legacy_18M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_24M,
+				cr->collision_t2r_th_legacy_24M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_36M,
+				cr->collision_t2r_th_legacy_36M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_48M,
+				cr->collision_t2r_th_legacy_48M_m, th);
+		halbb_set_reg_curr_phy(bb, cr->collision_t2r_th_legacy_54M,
+				cr->collision_t2r_th_legacy_54M_m, th);
+	}
 }
 
 void halbb_set_collision_th(struct bb_info *bb)
@@ -115,7 +161,7 @@ void halbb_set_edcca_thre(struct bb_info *bb)
 	halbb_set_reg_curr_phy(bb, cr->r_ppdu_level, cr->r_ppdu_level_m, l2h);
 	halbb_set_reg_curr_phy(bb, cr->r_dwn_level, cr->r_dwn_level_m, (u32)bb_edcca->th_hl_diff);
 
-#if defined(BB_8852C_SUPPORT) || defined(BB_8852B_SUPPORT) || defined(BB_1115_SUPPORT)
+#if defined(BB_8852C_SUPPORT) || defined(BB_8852B_SUPPORT) || defined(BB_1115_SUPPORT) || defined(BB_8922A_SUPPORT)
 	if ((bb->ic_type == BB_RTL8852C) || (bb->ic_type == BB_RLE1115)
 			  || (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP)) {
 		if (bb_edcca->edcca_mode == EDCCA_CBP_MODE && band == BAND_ON_6G)
@@ -172,28 +218,40 @@ void halbb_edcca_thre_calc(struct bb_info *bb)
 	u8 band = bb->hal_com->band[bb->bb_phy_idx].cur_chandef.band;
 	enum channel_width bw = bb->hal_com->band[bb->bb_phy_idx].cur_chandef.bw;
 	u8 th_h = 0;
+	struct bb_edcca_cr_info *cr = &bb->bb_edcca_i.bb_edcca_cr_i;
 
 	if (bb_edcca->edcca_mode == EDCCA_NORMAL_MODE) {
 		BB_DBG(bb, DBG_EDCCA, "Normal Mode without EDCCA\n");
 		th_h = halbb_edcca_thre_transfer_rssi(bb);
 		bb_edcca->th_hl_diff = EDCCA_HL_DIFF_NORMAL;
 	} else if (bb_edcca->edcca_mode == EDCCA_ADAPT_MODE) {
+		if (bb->ic_type == BB_RTL8922A){
+			halbb_set_reg_phy0_1(bb, 0x1008, BIT(23), 1);
+		}
 		if (band == BAND_ON_24G)
 			th_h = bb_edcca->th_h_2p4g;
 		else
 			th_h = bb_edcca->th_h_5g;
 		bb_edcca->th_hl_diff = EDCCA_HL_DIFF_ADPTVTY;
 	} else if (bb_edcca->edcca_mode == EDCCA_CBP_MODE) {
-		if (band == BAND_ON_6G && (bb->phl_com->id.id & 0x7) == 0x2)
-			th_h = halbb_edcca_thre_transfer_rssi(bb); /* WA 6G 32CU noise figure=7X dBm causes edcca flag always=1 */
-		else if (band == BAND_ON_6G && bw == CHANNEL_WIDTH_160)
-			th_h = bb_edcca->th_h_6g - 10; /* 160M apply 80+80M filter would loss more when interference @ DC*/
+		if (bb->ic_type == BB_RTL8922A){
+			halbb_set_reg_phy0_1(bb, 0x1008, BIT(23), 1);
+			halbb_set_reg_phy0_1(bb, 0x603c, BIT(12), 0); //disable r_dccl_after_adc
+			halbb_set_reg_curr_phy(bb, cr->r_dc_remove, cr->r_dc_remove_m, 0);
+		}
+		if (band == BAND_ON_6G && bw == CHANNEL_WIDTH_160)
+			th_h = bb_edcca->th_h_6g - 7; /* 160M apply 80+80M filter would loss more when interference @ DC*/
 		else if (band == BAND_ON_6G)
 			th_h = bb_edcca->th_h_6g;
 		else
 			th_h = halbb_edcca_thre_transfer_rssi(bb);
 		bb_edcca->th_hl_diff = EDCCA_HL_DIFF_ADPTVTY;
 	} else if (bb_edcca->edcca_mode == EDCCA_CARRIER_SENSE_MODE) {
+		if (bb->ic_type == BB_RTL8922A){
+			halbb_set_reg_phy0_1(bb, 0x1008, BIT(23), 1);
+			halbb_set_reg_phy0_1(bb, 0x603c, BIT(12), 0); //disable r_dccl_after_adc
+			halbb_set_reg_curr_phy(bb, cr->r_dc_remove, cr->r_dc_remove_m, 0);
+		}
 		th_h = bb_edcca->th_h_cs;
 		bb_edcca->th_hl_diff = EDCCA_HL_DIFF_ADPTVTY;
 	}
@@ -262,15 +320,19 @@ void halbb_edcca_log(struct bb_info *bb)
 				    HALBB_SNPRINT_SIZE);
 
 	if (bb->num_rf_path >= 4) {
+#if (defined(HALBB_COMPILE_ABOVE_4SS))
 		BB_DBG(bb, DBG_EDCCA,
 		       "loss{avg, a, b, c, d} = {%s,%s,%s,%s,%s} dB,pwrofst=%d dB\n",
-		       bb->dbg_buf, ext_loss[0], ext_loss[1], ext_loss[2], ext_loss[3],
-		       bb_edcca->pwrofst - 16);
+		       bb->dbg_buf, ext_loss[0], ext_loss[1], ext_loss[2],
+		       ext_loss[3], bb_edcca->pwrofst - 16);
+#endif
 	} else if (bb->num_rf_path >= 2) {
+#if (defined(HALBB_COMPILE_ABOVE_2SS))
 		BB_DBG(bb, DBG_EDCCA,
 		       "loss{avg, a, b} = {%s,%s,%s} dB,pwrofst =%d dB\n",
 		       bb->dbg_buf, ext_loss[0], ext_loss[1],
 		       bb_edcca->pwrofst - 16);
+#endif
 	} else {
 		BB_DBG(bb, DBG_EDCCA, "loss=%s dB,pwrofst =%d dB\n",
 		       ext_loss[0], bb_edcca->pwrofst - 16);
@@ -279,6 +341,13 @@ void halbb_edcca_log(struct bb_info *bb)
 	switch (bw) {
 	case CHANNEL_WIDTH_80_80:
 	case CHANNEL_WIDTH_160:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG(bb, DBG_EDCCA,
+				"edcca_bitmap{0,1,2,3,4,5,6,7}={%d,%d,%d,%d,%d,%d,%d,%d}\n",
+				rpt->per20_bitmap_0, rpt->per20_bitmap_1, rpt->per20_bitmap_2,
+				rpt->per20_bitmap_3, rpt->per20_bitmap_4, rpt->per20_bitmap_5,
+				rpt->per20_bitmap_6, rpt->per20_bitmap_7);
+		}
 		BB_DBG(bb, DBG_EDCCA,
 		       "pwdb per20{0,1,2,3,4,5,6,7}={%d,%d,%d,%d,%d,%d,%d,%d}(dBm)\n",
 		       rpt->pwdb_0, rpt->pwdb_1, rpt->pwdb_2, rpt->pwdb_3,
@@ -293,6 +362,12 @@ void halbb_edcca_log(struct bb_info *bb)
 		       rpt->pwdb_s40, rpt->pwdb_s80);
 		break;
 	case CHANNEL_WIDTH_80:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG(bb, DBG_EDCCA,
+				"edcca_bitmap{0,1,2,3}={%d,%d,%d,%d}\n",
+				rpt->per20_bitmap_0, rpt->per20_bitmap_1, rpt->per20_bitmap_2,
+				rpt->per20_bitmap_3);
+		}
 		BB_DBG(bb, DBG_EDCCA,
 		       "pwdb per20{0,1,2,3}={%d,%d,%d,%d}(dBm)\n",
 		       rpt->pwdb_0, rpt->pwdb_1, rpt->pwdb_2, rpt->pwdb_3);
@@ -305,6 +380,11 @@ void halbb_edcca_log(struct bb_info *bb)
 		       rpt->pwdb_s40);
 		break;
 	case CHANNEL_WIDTH_40:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG(bb, DBG_EDCCA,
+				"edcca_bitmap{0,1}={%d,%d}\n",
+				rpt->per20_bitmap_0, rpt->per20_bitmap_1);
+		}
 		BB_DBG(bb, DBG_EDCCA, "pwdb per20{0,1}={%d,%d}(dBm)\n",
 		       rpt->pwdb_0, rpt->pwdb_1);
 		BB_DBG(bb, DBG_EDCCA, "path=%d, flag {FB,p20,s20}={%d,%d,%d}\n",
@@ -313,6 +393,11 @@ void halbb_edcca_log(struct bb_info *bb)
 		       rpt->pwdb_fb, rpt->pwdb_p20, rpt->pwdb_s20);
 		break;
 	case CHANNEL_WIDTH_20:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG(bb, DBG_EDCCA,
+				"edcca_bitmap{0}={%d}\n",
+				rpt->per20_bitmap_0);
+		}
 		BB_DBG(bb, DBG_EDCCA, "pwdb per20{0}={%d}(dBm)\n", rpt->pwdb_0);
 		BB_DBG(bb, DBG_EDCCA, "path=%d, flag {FB,p20}={%d,%d}\n",
 		       rpt->path, rpt->flag_fb, rpt->flag_p20);
@@ -335,6 +420,9 @@ void halbb_edcca_get_result(struct bb_info *bb)
 	u32 rpt_sel_bmsk = cr->r_edcca_rpt_sel_m;
 	u32 rpt_a_addr = cr->r_edcca_rpt_a, rpt_a_bmsk = cr->r_edcca_rpt_a_m;
 	u32 rpt_b_addr = cr->r_edcca_rpt_b, rpt_b_bmsk = cr->r_edcca_rpt_b_m;
+	u32 rpt_b_sel_addr = cr->r_edcca_rptreg_sel_be_dd;
+	u32 rpt_b_sel_bmak = cr->r_edcca_rptreg_sel_be_dd_m;
+
 	enum channel_width bw = 0;
 
 	bw = bb->hal_com->band[bb->bb_phy_idx].cur_chandef.bw;
@@ -349,6 +437,7 @@ void halbb_edcca_get_result(struct bb_info *bb)
 		rpt_b_bmsk = cr->r_edcca_rpt_b_p1_m;
 	}
 #endif
+
 	halbb_set_reg(bb, rpt_sel_addr, rpt_sel_bmsk, 0);
 	tmp = halbb_get_reg(bb, rpt_a_addr, rpt_a_bmsk);
 	rpt->pwdb_1 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
@@ -363,6 +452,23 @@ void halbb_edcca_get_result(struct bb_info *bb)
 	rpt->pwdb_s20 = (s8)(((tmp & MASKBYTE1) >> 8) - 256);
 	rpt->pwdb_p20 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
 	rpt->pwdb_fb = (s8)(((tmp & MASKBYTE3) >> 24) - 256);
+
+	if (bb->ic_type == BB_RTL8922A) {
+		halbb_set_reg(bb, rpt_b_sel_addr, rpt_b_sel_bmak, 4);
+		tmp = halbb_get_reg(bb, rpt_b_addr, rpt_b_bmsk);
+		rpt->pwdb_0 = (s8)(((tmp & MASKBYTE3) >> 24) - 256);
+		rpt->pwdb_1 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
+		halbb_set_reg(bb, rpt_sel_addr, rpt_sel_bmsk, 0);
+		tmp = halbb_get_reg(bb, rpt_a_addr, rpt_a_bmsk);
+		rpt->per20_bitmap_0 = (bool)(tmp & BIT(0));
+		rpt->per20_bitmap_1 = (bool)(tmp & BIT(1) >> 1);
+		rpt->per20_bitmap_2 = (bool)(tmp & BIT(2) >> 2);
+		rpt->per20_bitmap_3 = (bool)(tmp & BIT(3) >> 3);
+		rpt->per20_bitmap_4 = (bool)(tmp & BIT(4) >> 4);
+		rpt->per20_bitmap_5 = (bool)(tmp & BIT(5) >> 5);
+		rpt->per20_bitmap_6 = (bool)(tmp & BIT(6) >> 6);
+		rpt->per20_bitmap_7 = (bool)(tmp & BIT(7) >> 7);
+	}
 
 	switch (bw) {
 	case CHANNEL_WIDTH_80_80:
@@ -379,11 +485,45 @@ void halbb_edcca_get_result(struct bb_info *bb)
 		tmp = halbb_get_reg(bb, rpt_a_addr, rpt_a_bmsk);
 		rpt->pwdb_5 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
 		rpt->pwdb_4 = (s8)(((tmp & MASKBYTE3) >> 24) - 256);
-		
+
 		halbb_set_reg(bb, rpt_sel_addr, rpt_sel_bmsk, 3);
 		tmp = halbb_get_reg(bb, rpt_a_addr, rpt_a_bmsk);
 		rpt->pwdb_7 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
 		rpt->pwdb_6 = (s8)(((tmp & MASKBYTE3) >> 24) - 256);
+
+		if (bb->ic_type == BB_RTL8922A) {
+			halbb_set_reg(bb, rpt_b_sel_addr, rpt_b_sel_bmak, 4);
+			tmp = halbb_get_reg(bb, rpt_b_addr, rpt_b_bmsk);
+			rpt->pwdb_2 = (s8)(((tmp & MASKBYTE1) >> 8) - 256);
+			rpt->pwdb_3 = (s8)((tmp & MASKBYTE0) - 256);
+			halbb_set_reg(bb, rpt_b_sel_addr, rpt_b_sel_bmak, 5);
+			tmp = halbb_get_reg(bb, rpt_b_addr, rpt_b_bmsk);
+			rpt->pwdb_4 = (s8)(((tmp & MASKBYTE3) >> 24) - 256);
+			rpt->pwdb_5 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
+			rpt->pwdb_6 = (s8)(((tmp & MASKBYTE1) >> 8) - 256);
+			rpt->pwdb_7 = (s8)((tmp & MASKBYTE0) - 256);
+		}
+		/*52C has hw bug of pwdb-FB is 0 when bw=160M*/
+		if (bb->ic_type == BB_RTL8852C) {
+			if ((rpt->pwdb_p20 == (s8)(EDCCA_PWDB_EXCLU_TX)) ||
+			    (rpt->pwdb_s20 == (s8)(EDCCA_PWDB_EXCLU_TX)) ||
+			    (rpt->pwdb_s40 == (s8)(EDCCA_PWDB_EXCLU_TX)) ||
+			    (rpt->pwdb_s80 == (s8)(EDCCA_PWDB_EXCLU_TX))) {
+				rpt->pwdb_fb = (s8)(EDCCA_PWDB_EXCLU_TX);
+			} else {
+				tmp = (u32)EDCCA_PWDB_TO_RSSI(rpt->pwdb_p20);
+				tmp_linear = halbb_db_2_linear(tmp);
+				tmp = (u32)EDCCA_PWDB_TO_RSSI(rpt->pwdb_s20);
+				tmp_linear += halbb_db_2_linear(tmp);
+				tmp = (u32)EDCCA_PWDB_TO_RSSI(rpt->pwdb_s40);
+				tmp_linear += halbb_db_2_linear(tmp);
+				tmp = (u32)EDCCA_PWDB_TO_RSSI(rpt->pwdb_s80);
+				tmp_linear += halbb_db_2_linear(tmp);
+				tmp_linear = (tmp_linear + (1 << (FRAC_BITS - 1))) >> FRAC_BITS;
+				tmp = halbb_convert_to_db(tmp_linear);
+				rpt->pwdb_fb = (s8)(tmp - 110);
+			}
+		}
 		break;
 	case CHANNEL_WIDTH_80:
 		halbb_set_reg(bb, rpt_sel_addr, rpt_sel_bmsk, 5);
@@ -393,6 +533,12 @@ void halbb_edcca_get_result(struct bb_info *bb)
 		tmp = halbb_get_reg(bb, rpt_b_addr, rpt_b_bmsk);
 		rpt->pwdb_s80 = (s8)(((tmp & MASKBYTE1) >> 8) - 256);
 		rpt->pwdb_s40 = (s8)(((tmp & MASKBYTE2) >> 16) - 256);
+		if (bb->ic_type == BB_RTL8922A) {
+			halbb_set_reg(bb, rpt_b_sel_addr, rpt_b_sel_bmak, 4);
+			tmp = halbb_get_reg(bb, rpt_b_addr, rpt_b_bmsk);
+			rpt->pwdb_2 = (s8)(((tmp & MASKBYTE1) >> 8) - 256);
+			rpt->pwdb_3 = (s8)((tmp & MASKBYTE0) - 256);
+		}
 		break;
 	case CHANNEL_WIDTH_40:
 		/*52A/52B/52C/51B has hw bug of pwdb-FB is 0 when bw=40M*/
@@ -427,7 +573,7 @@ void halbb_edcca(struct bb_info *bb)
 
 	if (halbb_edcca_abort(bb) == false) { /*show edcca log when edcca is paused*/
 		halbb_edcca_thre_calc(bb);
-#ifdef HALBB_COMPILE_AP2_SERIES
+#if (defined(HALBB_COMPILE_AP2_SERIES) || defined(HALBB_COMPILE_BE1_SERIES))
 		halbb_set_collision_th(bb);
 #endif
 	}
@@ -576,7 +722,7 @@ void halbb_edcca_cnsl_log(struct bb_info *bb, u32 *_used, char *output,
 		    bb_edcca->th_h_5g - 128, bb_edcca->th_h_2p4g - 128,
 		    bb_edcca->th_h_cs - 128, bb_edcca->th_h_6g - 128);
 	BB_DBG_CNSL(out_len, used, output + used, out_len - used,
-		    "Mode=%d, th_h=%d(dBm), th_l=%d(dBm)\n",
+		    "(0:normal, 1:adapt, 2:CS, 3:CBP)Mode=%d, th_h=%d(dBm), th_l=%d(dBm)\n",
 		    bb_edcca->edcca_mode, bb_edcca->th_h - 128,
 		    bb_edcca->th_l - 128);
 
@@ -590,15 +736,19 @@ void halbb_edcca_cnsl_log(struct bb_info *bb, u32 *_used, char *output,
 				    HALBB_SNPRINT_SIZE);
 
 	if (bb->num_rf_path >= 4) {
+#if (defined(HALBB_COMPILE_ABOVE_4SS))
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "ext_loss{avg,a,b,c,d}={%s,%s,%s,%s,%s} dB, pwrofst=%d dB\n",
 			    bb->dbg_buf, ext_loss[0], ext_loss[1], ext_loss[2],
 			    ext_loss[3], bb_edcca->pwrofst - 16);
+#endif
 	} else if (bb->num_rf_path >= 2) {
+#if (defined(HALBB_COMPILE_ABOVE_2SS))
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "ext_loss{avg,a,b}={%s,%s,%s} dB, pwrofst=%d dB\n",
 			    bb->dbg_buf, ext_loss[0], ext_loss[1],
 			    bb_edcca->pwrofst - 16);
+#endif
 	} else {
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "ext_loss=%s dB, pwrofst=%d dB\n",
@@ -608,6 +758,13 @@ void halbb_edcca_cnsl_log(struct bb_info *bb, u32 *_used, char *output,
 	switch (bw) {
 	case CHANNEL_WIDTH_80_80:
 	case CHANNEL_WIDTH_160:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG_CNSL(out_len, used, output + used, out_len - used,
+				"edcca_bitmap{0,1,2,3,4,5,6,7}={%d,%d,%d,%d,%d,%d,%d,%d}\n",
+				rpt->per20_bitmap_0, rpt->per20_bitmap_1, rpt->per20_bitmap_2,
+				rpt->per20_bitmap_3, rpt->per20_bitmap_4, rpt->per20_bitmap_5,
+				rpt->per20_bitmap_6, rpt->per20_bitmap_7);
+		}
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "pwdb per20{0,1,2,3,4,5,6,7}={%d,%d,%d,%d,%d,%d,%d,%d}(dBm)\n",
 			    rpt->pwdb_0, rpt->pwdb_1, rpt->pwdb_2,
@@ -623,6 +780,12 @@ void halbb_edcca_cnsl_log(struct bb_info *bb, u32 *_used, char *output,
 			    rpt->pwdb_s40, rpt->pwdb_s80);
 		break;
 	case CHANNEL_WIDTH_80:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG_CNSL(out_len, used, output + used, out_len - used,
+				"edcca_bitmap{0,1,2,3}={%d,%d,%d,%d}\n",
+				rpt->per20_bitmap_0, rpt->per20_bitmap_1, rpt->per20_bitmap_2,
+				rpt->per20_bitmap_3);
+		}
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "pwdb per20{0,1,2,3}={%d,%d,%d,%d}(dBm)\n",
 			    rpt->pwdb_0, rpt->pwdb_1, rpt->pwdb_2, rpt->pwdb_3);
@@ -636,6 +799,11 @@ void halbb_edcca_cnsl_log(struct bb_info *bb, u32 *_used, char *output,
 			    rpt->pwdb_s40);
 		break;
 	case CHANNEL_WIDTH_40:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG_CNSL(out_len, used, output + used, out_len - used,
+				"edcca_bitmap{0,1}={%d,%d}\n",
+				rpt->per20_bitmap_0, rpt->per20_bitmap_1);
+		}
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "pwdb per20{0,1}={%d,%d}(dBm)\n",
 			    rpt->pwdb_0, rpt->pwdb_1);
@@ -648,6 +816,10 @@ void halbb_edcca_cnsl_log(struct bb_info *bb, u32 *_used, char *output,
 			    rpt->pwdb_fb, rpt->pwdb_p20, rpt->pwdb_s20);
 		break;
 	case CHANNEL_WIDTH_20:
+		if (bb->ic_type == BB_RTL8922A) {
+			BB_DBG_CNSL(out_len, used, output + used, out_len - used,
+				"edcca_bitmap{0}={%d}\n",rpt->per20_bitmap_0);
+		}
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "pwdb per20{0}={%d}(dBm)\n", rpt->pwdb_0);
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
@@ -754,7 +926,8 @@ void halbb_edcca_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		BB_DBG_CNSL(out_len, used, output + used, out_len - used,
 			    "Set EDCCA mode = %s\n",
 			    (bb_edcca->edcca_mode == EDCCA_NORMAL_MODE) ?
-			    "Normal mode" : "Adaptivity/Carrier Sense/CBP mode");
+			    "Normal mode" : (bb_edcca->edcca_mode == EDCCA_ADAPT_MODE) ?"Adaptivity mode": 
+			    (bb_edcca->edcca_mode == EDCCA_CARRIER_SENSE_MODE) ? "Carrier Sense mode" : "CBP mode");
 
 		if (!(((hal->cv == CAV) && (bb->ic_type == BB_RTL8852C)) ||
 		      (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP)))
@@ -789,10 +962,10 @@ void halbb_edcca_dev_hw_cap(struct bb_info *bb)
 {
 	struct rtw_hal_com_t *hal = bb->hal_com;
 
-	if (bb->ic_type == BB_RTL8851B) {/* For SingleTone shift 1MHz*/
-		hal->dev_hw_cap.edcca_cap.edcca_carrier_sense_th = CARRIER_SENSE - 6;
-		hal->dev_hw_cap.edcca_cap.edcca_adap_th_5g = EDCCA_5G;
-		hal->dev_hw_cap.edcca_cap.edcca_adap_th_2g = EDCCA_2G;
+	if (bb->ic_type == BB_RTL8851B) {/* For SingleTone shift 1MHz & low antenna gain*/
+		hal->dev_hw_cap.edcca_cap.edcca_carrier_sense_th = CARRIER_SENSE - 8;
+		hal->dev_hw_cap.edcca_cap.edcca_adap_th_5g = EDCCA_5G - 2;
+		hal->dev_hw_cap.edcca_cap.edcca_adap_th_2g = EDCCA_2G - 2;
 	} else if (bb->ic_type == BB_RTL8852B) { /*[HALBB-126] for SingleTone shift 1MHz*/
 #if (defined(BB_8852B_SUPPORT))
 		if (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP)
@@ -806,6 +979,11 @@ void halbb_edcca_dev_hw_cap(struct bb_info *bb)
 		hal->dev_hw_cap.edcca_cap.edcca_adap_th_5g = EDCCA_5G - 3;
 		hal->dev_hw_cap.edcca_cap.edcca_adap_th_2g = EDCCA_2G - 3;
 		hal->dev_hw_cap.edcca_cap.edcca_carrier_sense_th = CARRIER_SENSE - 10;
+	} else if (bb->ic_type == BB_RTL8922A) {
+		hal->dev_hw_cap.edcca_cap.edcca_cbp_th_6g = CBP_6G;
+		hal->dev_hw_cap.edcca_cap.edcca_adap_th_5g = EDCCA_5G;
+		hal->dev_hw_cap.edcca_cap.edcca_adap_th_2g = EDCCA_2G;
+		hal->dev_hw_cap.edcca_cap.edcca_carrier_sense_th = CARRIER_SENSE;
 	} else {
 		hal->dev_hw_cap.edcca_cap.edcca_carrier_sense_th = CARRIER_SENSE;
 		hal->dev_hw_cap.edcca_cap.edcca_adap_th_5g = EDCCA_5G;
@@ -831,31 +1009,26 @@ void halbb_edcca_init(struct bb_info *bb)
 	bb_edcca->th_h_lb = 46;
 	bb_edcca->pwrofst = (u8)halbb_get_reg(bb, cr->r_pwrofst,
 					      cr->r_pwrofst_m);
-#if defined(BB_1115_SUPPORT)
-		if ((bb->ic_type == BB_RLE1115)) {
-			halbb_set_reg_phy0_1(bb, cr->r_obss_level, cr->r_obss_level_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_p, cr->r_edcca_level_p_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level, cr->r_edcca_level_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_ppdu_level, cr->r_ppdu_level_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_s80_1, cr->r_edcca_level_s80_1_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_s80_1_p, cr->r_edcca_level_s80_1_p_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_s80_2, cr->r_edcca_level_s80_2_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_s80_2_p, cr->r_edcca_level_s80_2_p_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_s80_3, cr->r_edcca_level_s80_3_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_edcca_level_s80_3_p, cr->r_edcca_level_s80_3_p_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_ppdu_level_p, cr->r_ppdu_level_p_m, EDCCA_MAX);
-			halbb_set_reg_phy0_1(bb, cr->r_snd_en, cr->r_snd_en_m, false);
-			halbb_set_reg_phy0_1(bb, cr->r_snd_en_s80_1, cr->r_snd_en_s80_1_m, false);
-			halbb_set_reg_phy0_1(bb, cr->r_snd_en_s80_2, cr->r_snd_en_s80_2_m, false);
-			halbb_set_reg_phy0_1(bb, cr->r_snd_en_s80_3, cr->r_snd_en_s80_3_m, false);
-		}
+
+#if defined(BB_8922A_SUPPORT)
+     // 8922A EDCCA WA settings 
+	if(bb->ic_type == BB_RTL8922A){
+		halbb_set_reg_phy0_1(bb, 0xc74, BIT(4), 0);
+		halbb_set_reg_phy0_1(bb, 0xb4, BIT(17), 0);
+		halbb_set_reg_phy0_1(bb, 0xb8, BIT(1), 0);
+		halbb_set_reg_phy0_1(bb, 0xb8, BIT(0), 0);
+		halbb_set_reg_phy0_1(bb, 0x6a14, BIT(31), 0);
+		halbb_set_reg_phy0_1(bb, 0x6a14, BIT(31), 1);
+		halbb_set_reg_phy0_1(bb, 0xb8, BIT(0), 1);
+	}
 #endif
+
 
 	// EDCCA
 	/* 6G only for 52C/52BP*/
-#if defined(BB_8852C_SUPPORT) || defined(BB_8852B_SUPPORT) || defined(BB_1115_SUPPORT)
+#if defined(BB_8852C_SUPPORT) || defined(BB_8852B_SUPPORT) || defined(BB_1115_SUPPORT) || defined(BB_8922A_SUPPORT)
 	if ((bb->ic_type == BB_RTL8852C) || (bb->ic_type == BB_RLE1115)
-		       || (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP))
+		       || (bb->ic_sub_type == BB_IC_SUB_TYPE_8852B_8852BP) ||(bb->ic_type == BB_RTL8922A) )
 		bb_edcca->th_h_6g = phl->dev_cap.edcca_cap.edcca_cbp_th_6g;
 #endif
 
@@ -870,6 +1043,8 @@ void halbb_edcca_init(struct bb_info *bb)
 
 	// Collision R2T/T2R
 	bb_edcca->colli_ofst = COLLOSION_TH_OFST;
+	/*Let collision_T2R_cnt be 9.6 us, or collision_tail could always be 1 when collision_T2R_cnt >= 12.8us, WLANBB-2297*/
+	halbb_set_reg_curr_phy(bb, cr->r_collision_t2r_state, cr->r_collision_t2r_state_m, 0x29);
 }
 
 
@@ -931,6 +1106,8 @@ void halbb_cr_cfg_edcca_init(struct bb_info *bb)
 		cr->collision_t2r_th_mcs11_m = COLLISION_T2R_TH_MCS11_A_M;
 		cr->collision_t2r_th_cck = COLLISION_T2R_TH_CCK_A;
 		cr->collision_t2r_th_cck_m = COLLISION_T2R_TH_CCK_A_M;
+		cr->r_collision_t2r_state = TX_COLLISION_T2R_ST_A;
+		cr->r_collision_t2r_state_m = TX_COLLISION_T2R_ST_A_M;
 		cr->r_obss_level = SEG0R_OBSS_LVL_A;
 		cr->r_obss_level_m = SEG0R_OBSS_LVL_A_M;
 		cr->r_pwrofst = SEG0R_PWOFST_A;
@@ -989,6 +1166,8 @@ void halbb_cr_cfg_edcca_init(struct bb_info *bb)
 		cr->collision_t2r_th_mcs11_m = COLLISION_T2R_TH_MCS11_C_M;
 		cr->collision_t2r_th_cck = COLLISION_T2R_TH_CCK_C;
 		cr->collision_t2r_th_cck_m = COLLISION_T2R_TH_CCK_C_M;
+		cr->r_collision_t2r_state = TX_COLLISION_T2R_ST_C;
+		cr->r_collision_t2r_state_m = TX_COLLISION_T2R_ST_C_M;
 		cr->r_obss_level = SEG0R_OBSS_LVL_C;
 		cr->r_obss_level_m = SEG0R_OBSS_LVL_C_M;
 		cr->r_pwrofst = SEG0R_PWOFST_C;
@@ -1047,6 +1226,8 @@ void halbb_cr_cfg_edcca_init(struct bb_info *bb)
 		cr->collision_t2r_th_mcs11_m = COLLISION_T2R_TH_MCS11_A2_M;
 		cr->collision_t2r_th_cck = COLLISION_T2R_TH_CCK_A2;
 		cr->collision_t2r_th_cck_m = COLLISION_T2R_TH_CCK_A2_M;
+		cr->r_collision_t2r_state = TX_COLLISION_T2R_ST_A2;
+		cr->r_collision_t2r_state_m = TX_COLLISION_T2R_ST_A2_M;
 		cr->r_obss_level = SEG0R_OBSS_LVL_A2;
 		cr->r_obss_level_m = SEG0R_OBSS_LVL_A2_M;
 		cr->r_pwrofst = SEG0R_PWOFST_A2;
@@ -1132,12 +1313,119 @@ void halbb_cr_cfg_edcca_init(struct bb_info *bb)
 		cr->collision_t2r_th_mcs11_m = COLLISION_T2R_TH_MCS11_BE0_M;
 		cr->collision_t2r_th_cck = COLLISION_T2R_TH_CCK_BE0;
 		cr->collision_t2r_th_cck_m = COLLISION_T2R_TH_CCK_BE0_M;
+		cr->r_collision_t2r_state = TX_COLLISION_T2R_ST_BE0;
+		cr->r_collision_t2r_state_m = TX_COLLISION_T2R_ST_BE0_M;
 		cr->r_obss_level = OBSS_LVL_BE0; // except p20
 		cr->r_obss_level_m = OBSS_LVL_BE0_M; // except p20
 		cr->r_pwrofst = STFDET_R_PWOFST_BE0; // only for s80_0
 		cr->r_pwrofst_m = STFDET_R_PWOFST_BE0_M; // only for s80_0
 		break;
-	
+#endif
+#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->r_snd_en = SEG0R_SND_EN_BE1;
+		cr->r_snd_en_m = SEG0R_SND_EN_BE1_M;
+		cr->r_dwn_level = SEG0R_DWN_LVL_BE1;
+		cr->r_dwn_level_m = SEG0R_DWN_LVL_BE1_M;
+		cr->r_edcca_level = SEG0R_EDCCA_LVL_BE1;
+		cr->r_edcca_level_m = SEG0R_EDCCA_LVL_BE1_M;
+		cr->r_edcca_level_p = SEG0R_EDCCA_LVL_P_BE1;
+		cr->r_edcca_level_p_m = SEG0R_EDCCA_LVL_P_BE1_M;
+		cr->r_edcca_rpt_a = EDCCA_IOQ_P0_A_BE1;
+		cr->r_edcca_rpt_a_m = EDCCA_IOQ_P0_A_BE1_M;
+		cr->r_edcca_rpt_b = EDCCA_IOQ_P0_B_BE1;
+		cr->r_edcca_rpt_b_m = EDCCA_IOQ_P0_B_BE1_M;
+		cr->r_edcca_rpt_a_p1 = EDCCA_IOQ_P1_A_BE1;
+		cr->r_edcca_rpt_a_p1_m = EDCCA_IOQ_P1_A_BE1_M;
+		cr->r_edcca_rpt_b_p1 = EDCCA_IOQ_P1_B_BE1;
+		cr->r_edcca_rpt_b_p1_m = EDCCA_IOQ_P1_B_BE1_M;
+		cr->r_edcca_rpt_sel = EDCCA_RPTREG_SEL_P0_BE1;
+		cr->r_edcca_rpt_sel_m = EDCCA_RPTREG_SEL_P0_BE1_M;
+		cr->r_edcca_rpt_sel_p1 = EDCCA_RPTREG_SEL_P1_BE1;
+		cr->r_edcca_rpt_sel_p1_m = EDCCA_RPTREG_SEL_P1_BE1_M;
+		cr->r_edcca_rptreg_sel_be_dd = TOP_CTRL_P0_R_EDCCA_RPTREG_SEL_BE_DD_BE1;
+		cr->r_edcca_rptreg_sel_be_dd_m = TOP_CTRL_P0_R_EDCCA_RPTREG_SEL_BE_DD_BE1_M;
+		cr->r_ppdu_level = SEG0R_PPDU_LVL_BE1;
+		cr->r_ppdu_level_m = SEG0R_PPDU_LVL_BE1_M;
+		cr->r_ppdu_level_p = SEG0R_PPDU_LVL_P_BE1;
+		cr->r_ppdu_level_p_m = SEG0R_PPDU_LVL_P_BE1_M;
+		cr->collision_r2t_th = SEG0R_COLLISION_R2T_TH_BE1;
+		cr->collision_r2t_th_m = SEG0R_COLLISION_R2T_TH_BE1_M;
+		cr->collision_t2r_th_mcs0 = SEG0R_COLLISION_T2R_TH_MCS0_BE1;
+		cr->collision_t2r_th_mcs0_m = SEG0R_COLLISION_T2R_TH_MCS0_BE1_M;
+		cr->collision_t2r_th_mcs1 = SEG0R_COLLISION_T2R_TH_MCS1_BE1;
+		cr->collision_t2r_th_mcs1_m = SEG0R_COLLISION_T2R_TH_MCS1_BE1_M;
+		cr->collision_t2r_th_mcs2 = SEG0R_COLLISION_T2R_TH_MCS2_BE1;
+		cr->collision_t2r_th_mcs2_m = SEG0R_COLLISION_T2R_TH_MCS2_BE1_M;
+		cr->collision_t2r_th_mcs3 = SEG0R_COLLISION_T2R_TH_MCS3_BE1;
+		cr->collision_t2r_th_mcs3_m = SEG0R_COLLISION_T2R_TH_MCS3_BE1_M;
+		cr->collision_t2r_th_mcs4 = SEG0R_COLLISION_T2R_TH_MCS4_BE1;
+		cr->collision_t2r_th_mcs4_m = SEG0R_COLLISION_T2R_TH_MCS4_BE1_M;
+		cr->collision_t2r_th_mcs5 = SEG0R_COLLISION_T2R_TH_MCS5_BE1;
+		cr->collision_t2r_th_mcs5_m = SEG0R_COLLISION_T2R_TH_MCS5_BE1_M;
+		cr->collision_t2r_th_mcs6 = SEG0R_COLLISION_T2R_TH_MCS6_BE1;
+		cr->collision_t2r_th_mcs6_m = SEG0R_COLLISION_T2R_TH_MCS6_BE1_M;
+		cr->collision_t2r_th_mcs7 = SEG0R_COLLISION_T2R_TH_MCS7_BE1;
+		cr->collision_t2r_th_mcs7_m = SEG0R_COLLISION_T2R_TH_MCS7_BE1_M;
+		cr->collision_t2r_th_mcs8 = SEG0R_COLLISION_T2R_TH_MCS8_BE1;
+		cr->collision_t2r_th_mcs8_m = SEG0R_COLLISION_T2R_TH_MCS8_BE1_M;
+		cr->collision_t2r_th_mcs9 = SEG0R_COLLISION_T2R_TH_MCS9_BE1;
+		cr->collision_t2r_th_mcs9_m = SEG0R_COLLISION_T2R_TH_MCS9_BE1_M;
+		cr->collision_t2r_th_mcs10 = SEG0R_COLLISION_T2R_TH_MCS10_BE1;
+		cr->collision_t2r_th_mcs10_m = SEG0R_COLLISION_T2R_TH_MCS10_BE1_M;
+		cr->collision_t2r_th_mcs11 = SEG0R_COLLISION_T2R_TH_MCS11_BE1;
+		cr->collision_t2r_th_mcs11_m = SEG0R_COLLISION_T2R_TH_MCS11_BE1_M;
+		cr->collision_t2r_th_mcs12 = SEG0R_COLLISION_T2R_TH_MCS12_BE1;
+		cr->collision_t2r_th_mcs12_m = SEG0R_COLLISION_T2R_TH_MCS12_BE1_M;
+		cr->collision_t2r_th_mcs13 = SEG0R_COLLISION_T2R_TH_MCS13_BE1;
+		cr->collision_t2r_th_mcs13_m = SEG0R_COLLISION_T2R_TH_MCS13_BE1_M;
+		cr->collision_t2r_th_cck_1M = SEG0R_COLLISION_T2R_TH_CCK_1M_BE1;
+		cr->collision_t2r_th_cck_1M_m = SEG0R_COLLISION_T2R_TH_CCK_1M_BE1_M;
+		cr->collision_t2r_th_cck_2M = SEG0R_COLLISION_T2R_TH_CCK_2M_BE1;
+		cr->collision_t2r_th_cck_2M_m = SEG0R_COLLISION_T2R_TH_CCK_2M_BE1_M;
+		cr->collision_t2r_th_cck_5p5M = SEG0R_COLLISION_T2R_TH_CCK_5P5M_BE1;
+		cr->collision_t2r_th_cck_5p5M_m = SEG0R_COLLISION_T2R_TH_CCK_5P5M_BE1_M;
+		cr->collision_t2r_th_cck_11M = SEG0R_COLLISION_T2R_TH_CCK_11M_BE1;
+		cr->collision_t2r_th_cck_11M_m = SEG0R_COLLISION_T2R_TH_CCK_11M_BE1_M;
+		cr->collision_map2dbm = SEG0R_COLLISION_MAP2DBM_BE1;
+		cr->collision_map2dbm_m = SEG0R_COLLISION_MAP2DBM_BE1_M;
+		cr->collision_t2r_th_he_dcm_mcs0 = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS0_BE1;
+		cr->collision_t2r_th_he_dcm_mcs0_m = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS0_BE1_M;
+		cr->collision_t2r_th_he_dcm_mcs1 = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS1_BE1;
+		cr->collision_t2r_th_he_dcm_mcs1_m = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS1_BE1_M;
+		cr->collision_t2r_th_he_dcm_mcs3 = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS3_BE1;
+		cr->collision_t2r_th_he_dcm_mcs3_m = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS3_BE1_M;
+		cr->collision_t2r_th_he_dcm_mcs4 = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS4_BE1;
+		cr->collision_t2r_th_he_dcm_mcs4_m = SEG0R_COLLISION_T2R_TH_HE_DCM_MCS4_BE1_M;
+		cr->collision_t2r_th_eht_dcm_mcs14 = SEG0R_COLLISION_T2R_TH_EHT_DCM_MCS14_BE1;
+		cr->collision_t2r_th_eht_dcm_mcs14_m = SEG0R_COLLISION_T2R_TH_EHT_DCM_MCS14_BE1_M;
+		cr->collision_t2r_th_eht_dcm_mcs15 = SEG0R_COLLISION_T2R_TH_EHT_DCM_MCS15_BE1;
+		cr->collision_t2r_th_eht_dcm_mcs15_m = SEG0R_COLLISION_T2R_TH_EHT_DCM_MCS15_BE1_M;
+		cr->collision_t2r_th_legacy_6M = SEG0R_COLLISION_T2R_TH_LEGACY_6M_BE1;
+		cr->collision_t2r_th_legacy_6M_m = SEG0R_COLLISION_T2R_TH_LEGACY_6M_BE1_M;
+		cr->collision_t2r_th_legacy_9M = SEG0R_COLLISION_T2R_TH_LEGACY_9M_BE1;
+		cr->collision_t2r_th_legacy_9M_m = SEG0R_COLLISION_T2R_TH_LEGACY_9M_BE1_M;
+		cr->collision_t2r_th_legacy_12M = SEG0R_COLLISION_T2R_TH_LEGACY_12M_BE1;
+		cr->collision_t2r_th_legacy_12M_m = SEG0R_COLLISION_T2R_TH_LEGACY_12M_BE1_M;
+		cr->collision_t2r_th_legacy_18M = SEG0R_COLLISION_T2R_TH_LEGACY_18M_BE1;
+		cr->collision_t2r_th_legacy_18M_m = SEG0R_COLLISION_T2R_TH_LEGACY_18M_BE1_M;
+		cr->collision_t2r_th_legacy_24M = SEG0R_COLLISION_T2R_TH_LEGACY_24M_BE1;
+		cr->collision_t2r_th_legacy_24M_m = SEG0R_COLLISION_T2R_TH_LEGACY_24M_BE1_M;
+		cr->collision_t2r_th_legacy_36M = SEG0R_COLLISION_T2R_TH_LEGACY_36M_BE1;
+		cr->collision_t2r_th_legacy_36M_m = SEG0R_COLLISION_T2R_TH_LEGACY_36M_BE1_M;
+		cr->collision_t2r_th_legacy_48M = SEG0R_COLLISION_T2R_TH_LEGACY_48M_BE1;
+		cr->collision_t2r_th_legacy_48M_m = SEG0R_COLLISION_T2R_TH_LEGACY_48M_BE1_M;
+		cr->collision_t2r_th_legacy_54M = SEG0R_COLLISION_T2R_TH_LEGACY_54M_BE1;
+		cr->collision_t2r_th_legacy_54M_m = SEG0R_COLLISION_T2R_TH_LEGACY_54M_BE1_M;
+		cr->r_collision_t2r_state = TX_COLLISION_T2R_ST_BE1;
+		cr->r_collision_t2r_state_m = TX_COLLISION_T2R_ST_BE1_M;
+		cr->r_obss_level = SEG0R_OBSS_LVL_BE1; // except p20
+		cr->r_obss_level_m = SEG0R_OBSS_LVL_BE1_M; // except p20
+		cr->r_pwrofst = SEG0R_PWROFST_BE1; // only for s80_0
+		cr->r_pwrofst_m = SEG0R_PWROFST_BE1_M; // only for s80_0
+		cr->r_dc_remove = RXINT_R_DC_REMOVE_BE1;
+		cr->r_dc_remove_m = RXINT_R_DC_REMOVE_BE1_M;
+	break;
 #endif
 
 	default:

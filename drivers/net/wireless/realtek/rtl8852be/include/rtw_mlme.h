@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2021 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -21,11 +21,13 @@
 /* #define   MAX_JOIN_TIMEOUT	2000 */
 /* #define   MAX_JOIN_TIMEOUT	2500 */
 #define   MAX_JOIN_TIMEOUT	6500
-#define   MAX_WAIT_ACK_TIME	30	/* refer to HAL_COM_MGQ_TX_LIFETIME_MS 19 */
+#define   PS_ANNC_DRV_RETRY_INT_MS	30
 
 /*	Commented by Albert 20101105
  *	Increase the scanning timeout because of increasing the SURVEY_TO value. */
+#ifndef SCANQUEUE_LIFETIME
 #define	SCANQUEUE_LIFETIME 20000 /* 20sec, unit:msec */
+#endif /*SCANQUEUE_LIFETIME*/
 
 #define MAX_UNASSOC_STA_CNT 128
 #define UNASSOC_STA_LIFETIME_MS 60000
@@ -61,7 +63,7 @@
 /*#define WIFI_UNDEFINED_STATE			0x04000000*/
 /*#define WIFI_UNDEFINED_STATE			0x08000000*/
 /*#define WIFI_UNDEFINED_STATE			0x10000000*/
-/*#define WIFI_UNDEFINED_STATE			0x20000000*/
+#define WIFI_CSA_SKIP_CHECK_BEACON		0x20000000
 #define WIFI_CSA_UPDATE_BEACON			0x40000000
 #define WIFI_MONITOR_STATE			0x80000000
 
@@ -475,6 +477,12 @@ struct	wlan_network {
 #define MAX_VENDOR_IE_NUM 10
 #define MAX_VENDOR_IE_LEN 255
 #define MAX_VENDOR_IE_PARAM_LEN MAX_VENDOR_IE_LEN + 2	/* vendor ie filter index + content maximum length */
+
+#define MAX_NUM_DIS_BCN_INFO 3
+struct dis_bcn_key {
+	_list	list;
+	struct beacon_keys bcn_content;
+};
 #endif
 
 struct link_mlme_priv {
@@ -486,6 +494,11 @@ struct link_mlme_priv {
 
 	/* bcn check info */
 	struct beacon_keys cur_beacon_keys; /* save current beacon keys */
+#ifdef PRIVATE_R
+	_queue idle_dis_bcn_queue;
+	_queue busy_dis_bcn_queue;
+	struct dis_bcn_key dis_bcn_key_info[MAX_NUM_DIS_BCN_INFO];
+#endif
 #ifdef CONFIG_80211N_HT
 
 	/* Number of non-HT AP/stations */
@@ -496,6 +509,7 @@ struct link_mlme_priv {
 
 
 	int num_FortyMHzIntolerant;
+	u8 sw_to_20mhz; /*switch to 20Mhz BW*/
 
 	struct ht_priv	htpriv;
 	struct ampdu_priv ampdu_priv;
@@ -557,7 +571,6 @@ struct link_mlme_priv {
 	int ht_20mhz_width_req;
 	int ht_intolerant_ch_reported;
 	u16 ht_op_mode;
-	u8 sw_to_20mhz; /*switch to 20Mhz BW*/
 #endif /* CONFIG_80211N_HT */
 };
 
@@ -680,6 +693,9 @@ struct mlme_priv {
 	u8 *assoc_rsp;
 	u32 assoc_rsp_len;
 
+	u8 *probe_rsp;
+	u32 probe_rsp_len;
+
 	/* u8 *wps_probe_req_ie; */
 	/* u32 wps_probe_req_ie_len; */
 
@@ -722,6 +738,7 @@ struct mlme_priv {
 	#ifdef CONFIG_80211AC_VHT
 	u8 ori_vht_en;
 	#endif
+	u8 ap_isolate;
 #endif /* #if defined (CONFIG_AP_MODE) && defined (CONFIG_NATIVEAP_MLME) */
 
 #if defined(CONFIG_WFD) && defined(CONFIG_IOCTL_CFG80211)
@@ -837,6 +854,13 @@ void rtw_sta_timeout_event_callback(_adapter *adapter, u8 *pbuf);
 #endif /* CONFIG_IEEE80211W */
 
 extern void rtw_free_network_queue(_adapter *adapter, u8 isfreeall);
+
+#ifdef PRIVATE_R
+struct dis_bcn_key *_rtw_alloc_dis_bcn_key(_queue *pqueue);
+struct dis_bcn_key *rtw_alloc_dis_bcn_key(_queue *pidle_queue, _queue *pbusy_queue);
+int rtw_enqueue_dis_bcn_key(struct  dis_bcn_key  *pdis_bcn_key, _queue *pbusy_queue);
+#endif
+
 extern int rtw_init_mlme_priv(_adapter *adapter);/* (struct mlme_priv *pmlmepriv); */
 
 extern void rtw_free_mlme_priv(struct mlme_priv *pmlmepriv);
@@ -1045,11 +1069,11 @@ void rtw_joinbss_reset(_adapter *padapter);
 void rtw_ht_get_dft_setting(_adapter *padapter,
 				struct protocol_cap_t *dft_proto_cap,
 				struct role_link_cap_t *dft_cap);
-void	rtw_ht_use_default_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
+void	rtw_ht_use_default_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, bool log);
 void rtw_build_wmm_ie_ht(_adapter *padapter, u8 *out_ie, uint *pout_len);
 unsigned int rtw_restructure_ht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
 						u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len,
-						u8 channel);
+						u8 channel, bool log);
 void rtw_issue_addbareq_cmd(_adapter *padapter, struct xmit_frame *pxmitframe, u8 issue_when_busy);
 #endif
 
@@ -1198,6 +1222,7 @@ enum rtw_phl_status rtw_connect_disconnect_prepare(struct _ADAPTER *a);
 
 enum rtw_phl_status rtw_disconnect_cmd(struct _ADAPTER *a,
 				       struct cmd_obj *pcmd);
+bool rtw_disconnect_wait_complete(struct _ADAPTER *a, u32 timeout);
 int rtw_disconnect_abort_wait(struct _ADAPTER *a);
 void rtw_disconnect_req_free(struct _ADAPTER *a);
 void rtw_disconnect_req_init(struct _ADAPTER *a);

@@ -15,6 +15,7 @@
 #ifndef _HAL_CAP_H_
 #define _HAL_CAP_H_
 
+void rtw_hal_ps_fw_cap_decision(struct rtw_phl_com_t *phl_com, bool is_wow);
 void rtw_hal_final_cap_decision(struct rtw_phl_com_t *phl_com, void *hal);
 
 #endif /* _HAL_CAP_H_ */

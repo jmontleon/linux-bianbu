@@ -107,6 +107,13 @@ enum rtw_fw_status rtw_phl_get_fw_status(void *phl)
 	return rtw_hal_get_fw_status(phl_info->hal);
 }
 
+enum rf_path rtw_phl_get_path_from_ant_num(void *phl, u8 antnum)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+
+	return rtw_hal_get_path_from_ant_num(phl_info->hal, antnum);
+}
+
 enum rtw_phl_status rtw_phl_msg_hub_hal_send(struct rtw_phl_com_t *phl_com,
 							struct phl_msg_attribute* attr, struct phl_msg* msg)
 {

@@ -101,6 +101,15 @@ u8 rtw_hal_get_fwcmd_queue_idx(void *hal)
 
 	return trx_ops->get_fwcmd_queue_idx();
 }
+
+void rtw_hal_clear_rwptr(void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_mac_clear_rwptr(hal_info))
+		PHL_ERR("%s failure \n", __func__);
+}
+
 void rtw_hal_cfg_txhci(void *hal, u8 en)
 {
 	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
@@ -121,6 +130,25 @@ enum rtw_hal_status rtw_hal_chk_allq_empty(void *hal, u8 *empty)
 
 	return rtw_hal_mac_chk_allq_empty(hal_info, empty);
 }
+
+enum rtw_hal_status rtw_hal_set_resp_ack_chk_cca(void *hal, u8 band, u8 en)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	FUNCIN();
+
+	return rtw_hal_mac_set_resp_ack_chk_cca(hal_info, band, en);
+}
+
+enum rtw_hal_status rtw_hal_sifs_chk_cca_en(void *hal, u8 band, u8 en)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+
+	FUNCIN();
+
+	return rtw_hal_mac_sifs_chk_cca_en(hal_info, band, en);
+}
+
 
 enum rtw_hal_status
 rtw_hal_fill_txdesc(void *hal,
@@ -165,6 +193,18 @@ rtw_hal_hw_tx_resume(void *hal)
 	sts = rtw_hal_mac_hw_tx_resume(hal_info);
 
 	return sts;
+}
+
+u8 rtw_hal_poll_txdma_idle(void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	enum rtw_hal_status ret = RTW_HAL_STATUS_SUCCESS;
+
+	FUNCIN();
+
+	ret = rtw_hal_mac_poll_txdma_idle(hal_info);
+
+	return (ret == RTW_HAL_STATUS_SUCCESS) ? true : false;
 }
 
 #ifdef CONFIG_PCI_HCI
@@ -315,16 +355,6 @@ rtw_hal_trigger_txstart(void *hal, struct tx_base_desc *txbd, u8 dma_ch)
 	return sts;
 }
 
-u8 rtw_hal_poll_txdma_idle(void *hal)
-{
-	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
-
-	FUNCIN();
-
-	return trx_ops->poll_txdma_idle(hal_info);
-}
-
 #endif /*CONFIG_PCI_HCI*/
 
 #ifdef CONFIG_USB_HCI
@@ -398,32 +428,6 @@ u32 rtw_hal_get_wd_len(void *hal,
 	return wd_len;
 }
 
-/**
- * rtw_hal_fill_wd - fill wd-info and wd-boddy for xmit packet
- * @hal: see struct hal_info_t
- * @phl_pkt_req: packet xmit request from phl, see struct rtw_phl_pkt_req
- *
- * returns enum RTW_HAL_STATUS
- */
-enum rtw_hal_status rtw_hal_fill_wd(void *hal,
-				struct rtw_xmit_req *tx_req,
-				u8 *wd_buf, u32 *wd_len)
-{
-	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
-	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
-	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
-
-#ifdef RTW_WKARD_CCX_RPT_LIMIT_CTRL
-	if (tx_req->mdata.spe_rpt) {
-		if (tx_req->mdata.data_tx_cnt_lmt_en)
-			hal_info->hal_com->spe_pkt_cnt_lmt = tx_req->mdata.data_tx_cnt_lmt;
-	}
-#endif
-	hstatus = trx_ops->hal_fill_wd(hal_info, tx_req, wd_buf, wd_len);
-
-	return hstatus;
-}
-
 #endif
 
 #ifdef CONFIG_SDIO_HCI
@@ -456,6 +460,39 @@ enum rtw_hal_status rtw_hal_sdio_tx(void *hal, u8 dma_ch, u8 *buf, u32 buf_len,
 	return RTW_HAL_STATUS_SUCCESS;
 }
 #endif /* CONFIG_SDIO_HCI */
+
+/**
+ * rtw_hal_fill_wd - fill wd-info and wd-boddy for xmit packet
+ * @hal: see struct hal_info_t
+ * @phl_pkt_req: packet xmit request from phl, see struct rtw_phl_pkt_req
+ *
+ * returns enum RTW_HAL_STATUS
+ */
+enum rtw_hal_status rtw_hal_fill_wd(void *hal,
+				struct rtw_xmit_req *tx_req,
+				u8 *wd_buf, u32 *wd_len)
+{
+	enum rtw_hal_status hstatus = RTW_HAL_STATUS_SUCCESS;
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+#if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI)
+	struct hal_trx_ops *trx_ops = hal_info->trx_ops;
+#endif
+
+#ifdef RTW_WKARD_CCX_RPT_LIMIT_CTRL
+	if (tx_req->mdata.spe_rpt) {
+		if (tx_req->mdata.data_tx_cnt_lmt_en)
+			hal_info->hal_com->spe_pkt_cnt_lmt = tx_req->mdata.data_tx_cnt_lmt;
+	}
+#endif
+#if defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI)
+	if (trx_ops->hal_fill_wd)
+		hstatus = trx_ops->hal_fill_wd(hal_info, tx_req, wd_buf, wd_len);
+	else
+#endif
+		hstatus = rtw_hal_mac_fill_txdesc(hal_info->mac, tx_req, wd_buf, wd_len);
+
+	return hstatus;
+}
 
 enum rtw_hal_status rtw_hal_cfg_hw_cts2self(void *hal, u8 band_sel, u8 enable,
 					    u8 non_sec_thr, u8 sec_thr)

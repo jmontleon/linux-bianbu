@@ -15,6 +15,8 @@
 #ifndef _PHL_CUSTOM_API_H_
 #define _PHL_CUSTOM_API_H_
 
+#include "phl_custom_antenna.h"
+
 enum rtw_phl_status
 rtw_phl_custom_prepare_set_info_evt(u32 evt_id,
                                     u32 customer_id,

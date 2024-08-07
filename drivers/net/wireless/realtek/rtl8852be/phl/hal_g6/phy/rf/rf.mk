@@ -46,7 +46,8 @@ halrf-y += $(path_halrf_8852a)/halrf_8852a.o \
 			$(path_halrf_8852a)/halrf_efuse_8852a.o\
 			$(path_halrf_8852a)/halrf_tssi_8852a.o\
 			$(path_halrf_8852a)/halrf_kfree_8852a.o\
-			$(path_halrf_8852a)/halrf_psd_8852a.o
+			$(path_halrf_8852a)/halrf_psd_8852a.o\
+			$(path_halrf_8852a)/halrf_ops_rtl8852a.o
 endif
 
 ifeq ($(CONFIG_RTL8852B), y)
@@ -67,7 +68,30 @@ halrf-y += $(path_halrf_8852b)/halrf_8852b.o\
 			$(path_halrf_8852b)/halrf_efuse_8852b.o\
 			$(path_halrf_8852b)/halrf_tssi_8852b.o\
 			$(path_halrf_8852b)/halrf_kfree_8852b.o\
-			$(path_halrf_8852b)/halrf_psd_8852b.o
+			$(path_halrf_8852b)/halrf_psd_8852b.o\
+			$(path_halrf_8852b)/halrf_ops_rtl8852b.o
+endif
+
+ifeq ($(CONFIG_RTL8852BT), y)
+rf_ic := 8852bt
+
+# Level 2 directory
+path_halrf_8852bt := $(path_halrf_d1)/halrf_$(rf_ic)
+
+halrf-y += $(path_halrf_8852bt)/halrf_8852bt.o\
+			$(path_halrf_8852bt)/halrf_8852bt_api.o \
+			$(path_halrf_8852bt)/halrf_hwimg_8852bt.o\
+			$(path_halrf_8852bt)/halrf_txgapk_8852bt.o\
+			$(path_halrf_8852bt)/halrf_iqk_8852bt.o\
+			$(path_halrf_8852bt)/halrf_reg_cfg_8852bt.o\
+			$(path_halrf_8852bt)/halrf_dack_8852bt.o \
+			$(path_halrf_8852bt)/halrf_dpk_8852bt.o \
+			$(path_halrf_8852bt)/halrf_set_pwr_table_8852bt.o\
+			$(path_halrf_8852bt)/halrf_efuse_8852bt.o\
+			$(path_halrf_8852bt)/halrf_tssi_8852bt.o\
+			$(path_halrf_8852bt)/halrf_kfree_8852bt.o\
+			$(path_halrf_8852bt)/halrf_psd_8852bt.o\
+			$(path_halrf_8852bt)/halrf_ops_rtl8852bt.o
 endif
 
 ifeq ($(CONFIG_RTL8852C), y)
@@ -88,7 +112,30 @@ halrf-y += $(path_halrf_8852c)/halrf_8852c.o \
 			$(path_halrf_8852c)/halrf_efuse_8852c.o\
 			$(path_halrf_8852c)/halrf_tssi_8852c.o\
 			$(path_halrf_8852c)/halrf_kfree_8852c.o\
-			$(path_halrf_8852c)/halrf_psd_8852c.o
+			$(path_halrf_8852c)/halrf_psd_8852c.o\
+			$(path_halrf_8852c)/halrf_ops_rtl8852c.o
+endif
+
+ifeq ($(CONFIG_RTL8852D), y)
+rf_ic := 8852d
+
+# Level 2 directory
+path_halrf_8852d := $(path_halrf_d1)/halrf_$(rf_ic)
+
+halrf-y += $(path_halrf_8852d)/halrf_8852d.o \
+			$(path_halrf_8852d)/halrf_8852d_api.o \
+			$(path_halrf_8852d)/halrf_hwimg_8852d.o\
+			$(path_halrf_8852d)/halrf_txgapk_8852d.o\
+			$(path_halrf_8852d)/halrf_iqk_8852d.o\
+			$(path_halrf_8852d)/halrf_reg_cfg_8852d.o \
+			$(path_halrf_8852d)/halrf_set_pwr_table_8852d.o\
+			$(path_halrf_8852d)/halrf_dack_8852d.o \
+			$(path_halrf_8852d)/halrf_dpk_8852d.o \
+			$(path_halrf_8852d)/halrf_efuse_8852d.o\
+			$(path_halrf_8852d)/halrf_tssi_8852d.o\
+			$(path_halrf_8852d)/halrf_kfree_8852d.o\
+			$(path_halrf_8852d)/halrf_psd_8852d.o\
+			$(path_halrf_8852d)/halrf_ops_rtl8852d.o
 endif
 
 ifeq ($(CONFIG_RTL8832BR), y)
@@ -109,7 +156,8 @@ halrf-y += $(path_halrf_8832br)/halrf_8832br.o \
 			$(path_halrf_8832br)/halrf_txgapk_8832br.o \
 			$(path_halrf_8832br)/halrf_tssi_8832br.o \
 			$(path_halrf_8832br)/halrf_kfree_8832br.o\
-			$(path_halrf_8832br)/halrf_psd_8832br.o
+			$(path_halrf_8832br)/halrf_psd_8832br.o\
+			$(path_halrf_8852br)/halrf_ops_rtl8852br.o
 endif
 
 ifeq ($(CONFIG_RTL8192XB), y)
@@ -130,7 +178,8 @@ halrf-y += $(path_halrf_8192xb)/halrf_8192xb.o \
 			$(path_halrf_8192xb)/halrf_txgapk_8192xb.o \
 			$(path_halrf_8192xb)/halrf_tssi_8192xb.o \
 			$(path_halrf_8192xb)/halrf_kfree_8192xb.o\
-			$(path_halrf_8192xb)/halrf_psd_8192xb.o
+			$(path_halrf_8192xb)/halrf_psd_8192xb.o\
+			$(path_halrf_8192xb)/halrf_ops_rtl8192xb.o
 endif
 
 ifeq ($(CONFIG_RTL8852BP), y)
@@ -151,7 +200,8 @@ halrf-y += $(path_halrf_8852bp)/halrf_8852bp.o \
 			$(path_halrf_8852bp)/halrf_txgapk_8852bp.o \
 			$(path_halrf_8852bp)/halrf_tssi_8852bp.o\
 			$(path_halrf_8852bp)/halrf_kfree_8852bp.o\
-			$(path_halrf_8852bp)/halrf_psd_8852bp.o
+			$(path_halrf_8852bp)/halrf_psd_8852bp.o\
+			$(path_halrf_8852bp)/halrf_ops_rtl8852bp.o
 endif
 
 ifeq ($(CONFIG_RTL8730A), y)
@@ -189,9 +239,11 @@ halrf-y += $(path_halrf_8851b)/halrf_8851b.o \
 			$(path_halrf_8851b)/halrf_dack_8851b.o \
 			$(path_halrf_8851b)/halrf_dpk_8851b.o \
 			$(path_halrf_8851b)/halrf_efuse_8851b.o\
+                        $(path_halrf_8851b)/halrf_txgapk_8851b.o \
 			$(path_halrf_8851b)/halrf_tssi_8851b.o\
 			$(path_halrf_8851b)/halrf_kfree_8851b.o\
-			$(path_halrf_8851b)/halrf_psd_8851b.o
+			$(path_halrf_8851b)/halrf_psd_8851b.o\
+			$(path_halrf_8851b)/halrf_ops_rtl8851b.o
 endif
 
 _HAL_RF_FILES +=	$(halrf-y)

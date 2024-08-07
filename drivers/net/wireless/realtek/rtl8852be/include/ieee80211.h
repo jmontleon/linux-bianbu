@@ -78,6 +78,7 @@ enum {
 #define WLAN_STA_WDS BIT(16)
 #define WLAN_STA_MULTI_AP BIT(17)
 #define WLAN_STA_AMSDU_DISABLE BIT(18)
+#define WLAN_STA_6G_BAND_CAP BIT(19)
 #define WLAN_STA_NONERP BIT(31)
 
 #endif
@@ -672,6 +673,7 @@ struct ieee80211_snap_hdr {
 #define WLAN_EID_HT_CAP 45
 #define WLAN_EID_RSN 48
 #define WLAN_EID_EXT_SUPP_RATES 50
+#define WLAN_EID_AP_CHANNEL_RPT 51
 #define WLAN_EID_MOBILITY_DOMAIN 54
 #define WLAN_EID_FAST_BSS_TRANSITION 55
 #define WLAN_EID_TIMEOUT_INTERVAL 56
@@ -697,6 +699,7 @@ struct ieee80211_snap_hdr {
 #define WLAN_EID_PERR 132
 #define WLAN_EID_AMPE 139
 #define WLAN_EID_MIC 140
+#define WLAN_EID_TWT 216
 #define WLAN_EID_VENDOR_SPECIFIC 221
 #define WLAN_EID_GENERIC (WLAN_EID_VENDOR_SPECIFIC)
 #define WLAN_EID_VHT_CAPABILITY 191
@@ -1437,6 +1440,7 @@ enum rtw_ieee80211_category {
 	RTW_WLAN_CATEGORY_SELF_PROTECTED = 15,
 	RTW_WLAN_CATEGORY_WMM = 17,
 	RTW_WLAN_CATEGORY_VHT = 21,
+	RTW_WLAN_CATEGORY_UNP_S1G = 22,
 #ifdef CONFIG_RTW_TOKEN_BASED_XMIT
 	RTW_WLAN_CATEGORY_TBTX = 25,
 #endif
@@ -1454,6 +1458,7 @@ enum rtw_ieee80211_category {
 	|| cat == RTW_WLAN_CATEGORY_UNPROTECTED_WNM \
 	|| cat == RTW_WLAN_CATEGORY_SELF_PROTECTED \
 	|| cat == RTW_WLAN_CATEGORY_VHT \
+	|| cat == RTW_WLAN_CATEGORY_UNP_S1G \
 	|| cat == RTW_WLAN_CATEGORY_P2P)
 
 #define CATEGORY_IS_ROBUST(cat) !CATEGORY_IS_NON_ROBUST(cat)
@@ -1574,6 +1579,12 @@ enum rtw_ieee80211_vht_actioncode {
 	RTW_WLAN_ACTION_VHT_OPMODE_NOTIFICATION = 2,
 };
 
+enum rtw_ieee80211_unp_s1g_actioncode {
+	RTW_WLAN_ACTION_UNP_S1G_TWT_SETUP = 6,
+	RTW_WLAN_ACTION_UNP_S1G_TWT_TEARDOWN = 7,
+	RTW_WLAN_ACTION_UNP_S1G_TWT_INFO = 11,
+};
+
 enum EXT_CAP_INFO{
 	BSS_COEXT = 0, /* 20/40 BSS Coexistence Management Support */
 	EXT_CH_SWITCH = 2, /* Extended Channel Switching */
@@ -1590,6 +1601,8 @@ enum EXT_CAP_INFO{
 	OP_MODE_NOTIFICATION = 62, /* Operating Mode Notification */
 	FTM_RESPONDER = 70, /* Fine Timing Measurement Responder */
 	FTM_INITIATOR = 71, /* Fine Timing Measurement Initiator */
+	TWT_REQ_SUPPORT = 77, /* TWT Requester Support */
+	TWT_RSP_SUPPORT = 78  /* TWT Responder Support */
 };
 
 #define OUI_MICROSOFT 0x0050f2 /* Microsoft (also used in Wi-Fi specs)
@@ -1819,6 +1832,18 @@ struct rtw_ieee802_11_elems {
 	u8 *tbtx_cap;
 	u8 tbtx_cap_len;
 #endif
+	u8 *ap_channel_rpt;
+	u8 ap_channel_rpt_len;
+	u8 *country_info;
+	u8 country_info_len;
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+	u8 *mbssid;
+	u8 mbssid_len;
+
+	/* exist in nontransmitted bssid profile */
+	u8 *non_tx_bssid_cap;
+	u8 non_tx_bssid_cap_len;
+#endif
 };
 
 typedef enum { ParseOK = 0, ParseUnknown = 1, ParseFailed = -1 } ParseRes;
@@ -1826,6 +1851,12 @@ typedef enum { ParseOK = 0, ParseUnknown = 1, ParseFailed = -1 } ParseRes;
 ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
 				struct rtw_ieee802_11_elems *elems,
 				int show_errors);
+
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+ParseRes rtw_ieee802_11_override_elems_by_mbssid(
+	u8 *mbssid_ie, uint mbssid_ie_len, u8 mbssid_idx, struct rtw_ieee802_11_elems *elems
+	, int show_errors);
+#endif
 
 u8 *rtw_set_fixed_ie(unsigned char *pbuf, unsigned int len, unsigned char *source, unsigned int *frlen);
 u8 *rtw_set_ie(u8 *pbuf, sint index, uint len, const u8 *source, uint *frlen);
@@ -1853,6 +1884,8 @@ u8 secondary_ch_offset_to_hal_ch_offset(u8 ch_offset);
 u8 hal_ch_offset_to_secondary_ch_offset(u8 ch_offset);
 u8 *rtw_set_ie_ch_switch(u8 *buf, u32 *buf_len, u8 ch_switch_mode, u8 new_ch, u8 ch_switch_cnt);
 u8 *rtw_set_ie_secondary_ch_offset(u8 *buf, u32 *buf_len, u8 secondary_ch_offset);
+u8 *rtw_set_ie_wide_bw_ch_switch(u8 *buf, u32 *buf_len,
+	u8 ch_width, u8 seg_0, u8 seg_1);
 u8 *rtw_set_ie_mesh_ch_switch_parm(u8 *buf, u32 *buf_len, u8 ttl, u8 flags, u16 reason, u16 precedence);
 
 u8 *rtw_get_ie(const u8 *pbuf, sint index, sint *len, sint limit);
@@ -1956,6 +1989,7 @@ u32 rtw_get_p2p_merged_ies_len(u8 *in_ie, u32 in_len);
 int rtw_p2p_merge_ies(u8 *in_ie, u32 in_len, u8 *merge_ie);
 void dump_p2p_ie(void *sel, const u8 *ie, u32 ie_len);
 u8 *rtw_get_p2p_ie(const u8 *in_ie, int in_len, u8 *p2p_ie, uint *p2p_ielen);
+u8 *rtw_get_vendor_ie(const u8 *in_ie, int in_len, u8 *vendor_ie, uint *vendor_ielen);
 u8 *rtw_get_p2p_attr(u8 *p2p_ie, uint p2p_ielen, u8 target_attr_id, u8 *buf_attr, u32 *len_attr);
 u8 *rtw_get_p2p_attr_content(u8 *p2p_ie, uint p2p_ielen, u8 target_attr_id, u8 *buf_content, uint *len_content);
 u32 rtw_set_p2p_attr_content(u8 *pbuf, u8 attr_id, u16 attr_len, u8 *pdata_attr);

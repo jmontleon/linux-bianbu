@@ -28,6 +28,8 @@ struct hal_c2h_hdl c2h_list[] =
 {
 	{C2H_CAT_OUTSRC, C2H_CLS_PHYDM_MIN, C2H_CLS_PHYDM_MAX,
 		rtw_hal_bb_process_c2h, NULL},
+	{C2H_CAT_OUTSRC, C2H_CLS_RF_MIN, C2H_CLS_RF_MAX,
+		rtw_hal_rf_process_c2h, NULL},
 	{C2H_CAT_OUTSRC, C2H_CLS_BTC_MIN, C2H_CLS_BTC_MAX,
 		rtw_hal_btc_process_c2h, NULL},
 	{C2H_CAT_MAC, C2H_CLS_MAC_MIN, C2H_CLS_MAC_MAX,

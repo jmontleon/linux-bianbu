@@ -15,10 +15,6 @@
 #ifndef _HAL_STA_H_
 #define _HAL_STA_H_
 
-struct rtw_hw_cfg_tab {
-	u8 dummy;
-};
-
 enum rtw_hal_status
 rtw_hal_restore_sta_entry(struct rtw_phl_com_t* phl_com, void *hal,
                           struct rtw_phl_stainfo_t *sta, bool is_connect);

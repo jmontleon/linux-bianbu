@@ -158,10 +158,10 @@ void init_hal_spec_8852b(struct rtw_phl_com_t *phl_com,
 	hal_com->dev_hw_cap.mcc_sup = true;
 #endif /* CONFIG_MCC_SUPPORT */
 
-#ifdef CONFIG_PHL_TWT
-	/* wait for fw support sta twt */
-	hal_com->dev_hw_cap.twt_sup = 0;
-#endif /* CONFIG_PHL_TWT */
+#ifdef CONFIG_PHL_NAN
+	if (phl_com->dev_cap.wcpu_cap.mac_ofld_cap.nan)
+		hal_com->dev_hw_cap.nan_sup = true;
+#endif /* CONFIG_PHL_NAN */
 
 	hal_com->dev_hw_cap.ps_cap.ips_cap = PS_CAP_PWR_OFF |
 		PS_CAP_PWRON | PS_CAP_RF_OFF | PS_CAP_CLK_GATED | PS_CAP_PWR_GATED;
@@ -182,7 +182,7 @@ void init_hal_spec_8852b(struct rtw_phl_com_t *phl_com,
 	hal_com->dev_hw_cap.max_mld_num = 0;
 
 	hal_com->dev_hw_cap.drv_info_sup = RTW_DEV_CAP_DISABLE;
-	hal_com->dev_hw_cap.bfee_rx_ndp_sts = 3;
+	hal_com->dev_hw_cap.bfee_rx_ndp_sts = 7;
 
 	hal_com->dev_hw_cap.antdiv_sup = false;
 }
@@ -519,13 +519,6 @@ enum rtw_hal_status hal_start_8852b(struct rtw_phl_com_t *phl_com,
 	rtw_hal_efuse_process(phl_com, hal, init_info->ic_name);
 #endif
 
-#ifdef RTW_WKARD_NICCE_FW_DIS_PG
-	/* Disable power gated when use MAC_AX_QTA_SCC_TURBO fw */
-	if (phl_com->dev_cap.quota_turbo == true) {
-		ps_hw_cap->ips_cap &= ~PS_CAP_PWR_GATED;
-		ps_hw_cap->lps_cap &= ~PS_CAP_PWR_GATED;
-	}
-#endif
 	/*update final cap of txagg info*/
 	rtw_hal_final_cap_decision(phl_com, hal);
 
@@ -535,6 +528,7 @@ enum rtw_hal_status hal_start_8852b(struct rtw_phl_com_t *phl_com,
 
 	/* load parameters or config mac, phy, btc, ... */
 #ifdef USE_TRUE_PHY
+	rtw_hal_init_bb_early_init(hal);
 	rtw_hal_init_bb_reg(hal);
 	rtw_hal_init_rf_reg(phl_com, hal);
 #endif
@@ -580,7 +574,7 @@ enum rtw_hal_status hal_start_8852b(struct rtw_phl_com_t *phl_com,
 		goto hal_init_fail;
 
 	/* Enable FW basic logs */
-	hal_fw_en_basic_log(hal->hal_com);
+	hal_fw_en_basic_log(hal->hal_com, &phl_com->dev_cap.fw_log_info);
 
 	return RTW_HAL_STATUS_SUCCESS;
 

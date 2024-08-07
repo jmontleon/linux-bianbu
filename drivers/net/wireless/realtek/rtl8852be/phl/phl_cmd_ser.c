@@ -36,6 +36,8 @@ enum _CMD_SER_TIMER_STATE {
 	CMD_SER_M4 = BIT3,
 	CMD_SER_M5 = BIT4,
 	CMD_SER_M9 = BIT5,
+
+	CMD_SER_SKIP_CHK = BIT7,
 };
 
 #define CMD_SER_FW_TIMEOUT 1000 /* ms */
@@ -170,6 +172,12 @@ void _ser_clear_status(struct cmd_ser *cser, u8 serstatus)
 	_os_spinunlock(drv, &cser->_lock, _bh, NULL);
 }
 
+u8 _ser_state(struct cmd_ser *cser)
+{
+	/* Filter out bit7(SKIP_CHK) */
+	return (cser->state & 0x7f);
+}
+
 static void _ser_l1_notify(struct cmd_ser *cser)
 {
 	struct phl_msg nextmsg = {0};
@@ -194,7 +202,7 @@ static void _ser_l2_notify(struct cmd_ser *cser)
 
 		/* Rotate stslist : 0~ (CMD_SER_LOG_SIZE-1) are unused index */
 		stsl2->idx+= CMD_SER_LOG_SIZE;
-		stsl2->ser_log = cser->state;
+		stsl2->ser_log = _ser_state(cser);
 		pq_push(drv, &cser->stslist, &stsl2->list, _tail, _bh);
 	}
 	_ser_dump_stsl2(cser);
@@ -289,7 +297,7 @@ static void _ser_poll_timer_cb(void *priv)
 	}
 
 	nextmsg.band_idx = HW_BAND_0;
-	nextmsg.rsvd[0].value = cser->state;
+	nextmsg.rsvd[0].value = _ser_state(cser);
 
 	if (MSG_EVT_ID_FIELD(nextmsg.msg_id)) {
 		PHL_INFO("%s :: nextmsg->msg_id= 0x%X\n", __func__, MSG_EVT_ID_FIELD(nextmsg.msg_id));
@@ -446,6 +454,24 @@ _ser_fail_ev_hdlr(void *dispr, void *priv, struct phl_msg *msg)
 	return MDL_RET_SUCCESS;
 }
 
+void
+_ser_hdl_ext_general_evt(struct cmd_ser *cser, struct phl_msg *msg)
+{
+	if (IS_MSG_IN_PRE_PHASE(msg->msg_id))
+		return;
+
+	switch (MSG_EVT_ID_FIELD(msg->msg_id)) {
+	case MSG_EVT_RF_ON:
+		_ser_clear_status(cser, CMD_SER_SKIP_CHK);
+		break;
+	case MSG_EVT_RF_OFF:
+		_ser_set_status(cser, CMD_SER_SKIP_CHK);
+		break;
+	default:
+		break;
+	}
+}
+
 enum phl_mdl_ret_code
 _ser_hdl_external_evt(void *dispr, void *priv, struct phl_msg *msg)
 {
@@ -464,12 +490,19 @@ _ser_hdl_external_evt(void *dispr, void *priv, struct phl_msg *msg)
 		PHL_ERR("%s: L2 Occured!! From others MDL=%d, EVT_ID=%d\n", __func__,
 		MSG_MDL_ID_FIELD(msg->msg_id), MSG_EVT_ID_FIELD(msg->msg_id));
 		return MDL_RET_FAIL;
-	} else if (cser->state) { /* non-CMD_SER_NOT_OCCUR */
+	} else if (_ser_state(cser)) { /* SER occur */
 		PHL_WARN("%s: Within SER!! From others MDL=%d, EVT_ID=%d\n", __func__,
 		MSG_MDL_ID_FIELD(msg->msg_id), MSG_EVT_ID_FIELD(msg->msg_id));
 		return MDL_RET_PENDING;
 	}
 
+	switch (MSG_MDL_ID_FIELD(msg->msg_id)) {
+	case PHL_MDL_GENERAL:
+		_ser_hdl_ext_general_evt(cser, msg);
+		break;
+	default:
+		break;
+	}
 	return MDL_RET_IGNORE;
 }
 
@@ -481,7 +514,8 @@ static void _ser_msg_hdl_polling_chk(struct cmd_ser *cser)
 	if (CMD_SER_SRC_POLL != cser->evtsrc)
 		return;
 
-	if (true == rtw_hal_recognize_interrupt(phl_info->hal)) {
+	if (!TEST_STATUS_FLAG(cser->state, CMD_SER_SKIP_CHK) &&
+	    true == rtw_hal_recognize_interrupt(phl_info->hal)) {
 		rtw_phl_interrupt_handler(phl_info);
 	} else {
 		if (cser->poll_cnt > 0) {
@@ -492,6 +526,9 @@ static void _ser_msg_hdl_polling_chk(struct cmd_ser *cser)
 			/* no ser occur, set next polling timer */
 			_os_set_timer(drv, &cser->poll_timer, CMD_SER_USB_POLLING_INTERVAL_IDL); /* 1000ms */
 		}
+
+		if (TEST_STATUS_FLAG(cser->state, CMD_SER_SKIP_CHK))
+			PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s: skip SER check !!\n", __func__);
 	}
 }
 
@@ -544,18 +581,7 @@ static void _ser_msg_hdl_m1(struct cmd_ser *cser)
 
 static void _ser_msg_hdl_fw_expire(struct cmd_ser *cser)
 {
-	struct phl_info_t *phl_info = cser->phl_info;
-	void *drv = phl_to_drvpriv(phl_info);
-
-	if (CMD_SER_SRC_POLL == cser->evtsrc) {
-		_ser_set_status(cser, CMD_SER_M9);
-
-		_os_set_timer(drv,
-		              &cser->poll_timer,
-		              CMD_SER_USB_POLLING_INTERVAL_IDL);
-	}
-
-	cser->bserl2 = true;
+	/* do nothing, expect FW WDT will happened */
 }
 
 static void _ser_msg_hdl_m3(struct cmd_ser *cser)
@@ -786,9 +812,6 @@ _phl_ser_mdl_msg_hdlr(void *dispr,
 	enum phl_mdl_ret_code ret = MDL_RET_IGNORE;
 
 	if (IS_MSG_FAIL(msg->msg_id)) {
-		PHL_INFO("%s :: MSG(%d)_FAIL - EVT_ID=%d \n", __func__,
-		         MSG_MDL_ID_FIELD(msg->msg_id), MSG_EVT_ID_FIELD(msg->msg_id));
-
 		return _ser_fail_ev_hdlr(dispr, priv, msg);
 	}
 
@@ -835,11 +858,12 @@ _phl_ser_mdl_query_info(void *dispr,
 	struct cmd_ser *cser = (struct cmd_ser *)priv;
 	void *drv = phl_to_drvpriv(cser->phl_info);
 	enum phl_mdl_ret_code ret = MDL_RET_IGNORE;
-	/* PHL_INFO(" %s :: info->op_code=%d \n", __func__, info->op_code); */
+	u8 state = 0;
 
 	switch (info->op_code) {
 		case BK_MODL_OP_STATE:
-			_os_mem_cpy(drv, (void*)info->inbuf, &cser->state, 1);
+			state = _ser_state(cser);
+			_os_mem_cpy(drv, (void*)info->inbuf, &state, 1);
 			ret = MDL_RET_SUCCESS;
 			break;
 	}
@@ -864,7 +888,7 @@ phl_register_ser_module(struct phl_info_t *phl_info)
 	phl_status = phl_disp_eng_register_module(phl_info,
 	                                          HW_BAND_0,
 	                                          PHL_MDL_SER,
-						  &ser_ops);
+	                                          &ser_ops);
 	if (RTW_PHL_STATUS_SUCCESS != phl_status) {
 		PHL_ERR("%s register SER module in cmd disp failed! \n", __func__);
 	}
@@ -886,10 +910,15 @@ u8 phl_ser_inprogress(void *phl)
 	                                 HW_BAND_0,
 	                                 PHL_MDL_SER,
 	                                 &op_info) == RTW_PHL_STATUS_SUCCESS) {
-		if (state) /* non-CMD_SER_NOT_OCCUR */
+		if (state) /* SER occur */
 			return true;
 	}
 	return false;
+}
+
+u8 rtw_phl_ser_inprogress(void *phl)
+{
+	return phl_ser_inprogress(phl);
 }
 
 enum rtw_phl_status
@@ -932,9 +961,9 @@ phl_ser_send_msg(void *phl, enum RTW_PHL_SER_NOTIFY_EVENT notify)
 	nextmsg.band_idx = HW_BAND_0;
 
 	phl_status = phl_disp_eng_send_msg(phl,
-					       &nextmsg,
-					       &attr,
-					       NULL);
+	                                   &nextmsg,
+	                                   &attr,
+	                                   NULL);
 	if (phl_status != RTW_PHL_STATUS_SUCCESS) {
 		PHL_ERR("[CMD_SER] send_msg_to_dispr fail! (%d)\n", event);
 	}
@@ -951,6 +980,17 @@ void phl_ser_send_check(void *context)
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl_handler->context;
 
 	phl_ser_send_msg(phl_info, RTW_PHL_SER_EVENT_CHK);
+}
+#else
+u8 rtw_phl_ser_inprogress(void *phl)
+{
+	return false;
+}
+
+enum rtw_phl_status
+phl_ser_send_msg(void *phl, enum RTW_PHL_SER_NOTIFY_EVENT notify)
+{
+	return RTW_PHL_STATUS_FAILURE;
 }
 #endif
 

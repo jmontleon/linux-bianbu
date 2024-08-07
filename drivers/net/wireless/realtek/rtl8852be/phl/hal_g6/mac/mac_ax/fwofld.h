@@ -27,6 +27,7 @@
 #define WRITE_OFLD_MAX_LEN 2000
 #define CONF_OFLD_MAX_LEN 2000
 #define CMD_OFLD_MAX_LEN 2000
+#define IO_OFLD_DIS 0
 
 #define CONF_OFLD_RESTORE 0
 #define CONF_OFLD_BACKUP 1
@@ -51,6 +52,9 @@
 #endif
 #if MAC_AX_8852D_SUPPORT
 #include "mac_8852d/mac_txccxrpt.h"
+#endif
+#if MAC_AX_8852BT_SUPPORT
+#include "mac_8852bt/mac_txccxrpt.h"
 #endif
 
 #define CMD_OFLD_SIZE sizeof(struct fwcmd_cmd_ofld)

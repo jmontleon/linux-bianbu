@@ -44,9 +44,16 @@
 #define TX_PWR_TH_LVL2 85
 #define TX_PWR_TH_LVL1 80
 #endif*/
+#define TX_PWR_TH_IN_NOISE_LVL3 255
+#define TX_PWR_TH_IN_NOISE_LVL2 255
+#define TX_PWR_TH_IN_NOISE_LVL1 90
+
 #define TX_PWR_LVL3 6	/*3dBm*/
 #define TX_PWR_LVL2 12	/*6dBm*/
 #define TX_PWR_LVL1 20	/*10dBm*/
+
+#define NHM_RATIO_THD 2	/*nhm_ratio thd to determine whether is noisy*/
+#define NHM_RATIO_THD_GAP 1
 
 #define TSSI_CFG_NUM 4
 #define TSSI_SBW_NUM 15
@@ -88,12 +95,13 @@ struct bb_tssi_info {
 
 struct bb_pwr_ctrl_info {
 	u8 pwr;
-
-	/* [] */
 	u8 enhance_pwr_th[HALBB_PWR_STATE_NUM];
 	u8 set_pwr_th[HALBB_PWR_STATE_NUM];
+	u8 set_pwr_th_in_noise[HALBB_PWR_STATE_NUM];
 	s8 pwr_lv_dbm[HALBB_PWR_STATE_NUM];
-	/**/
+	u8 nhm_ratio_thd;
+	bool dyn_set_pwr_th_en;
+	bool is_noisy_pre;
 	struct bb_dtp_info dtp_i[PHL_MAX_STA_NUM];
 	struct bb_tssi_info tssi_i;
 };

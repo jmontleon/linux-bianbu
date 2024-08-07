@@ -25,12 +25,16 @@
 #ifndef __HALBB_STATISTICS_H__
 #define __HALBB_STATISTICS_H__
 
+#include "halbb_statistics_ex.h"
+
 /*@--------------------------[Define] ---------------------------------------*/
 #define CHK_HANG_L_SIG_TH             3
 #define HANG_RECOVERY		      true // Disable auto-recovery mechanism for 52A CBV
 #define HANG_LIMIT		      1
 
 /*@--------------------------[Enum]------------------------------------------*/
+#if 0
+
 enum stat_type_sel {
 	STATE_PROBE_RESP	= 1,
 	STATE_BEACON		= 2,
@@ -178,6 +182,7 @@ struct bb_tx_cnt_info {
 	u32		ofdm_mac_txen;
 	u32		ofdm_phy_txon;
 };
+#endif
 
 struct bb_stat_cr_info {
 	u32 cck_cca;	    
@@ -372,8 +377,8 @@ struct bb_stat_info {
 	u32		dbg_port0;
 	u32		chk_hang_cnt;
 	u8		chk_hang_limit;
-	bool	hang_recovery_en;
-	bool	cnt_reset_en;
+	bool		hang_recovery_en;
+	bool		cnt_reset_en;
 	bool		cck_block_enable;
 	bool		ofdm_block_enable;
 	struct bb_tx_cnt_info		bb_tx_cnt_i;
@@ -382,6 +387,7 @@ struct bb_stat_info {
 	struct bb_crc2_info		bb_crc2_i;
 	struct bb_fa_info		bb_fa_i;
 	struct bb_usr_set_info		bb_usr_set_i;
+	struct bb_stat_hang_info bb_stat_hang_i;
 };
 
 struct bb_info;

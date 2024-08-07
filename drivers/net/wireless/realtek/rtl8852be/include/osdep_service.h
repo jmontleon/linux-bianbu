@@ -24,6 +24,7 @@
 #define RTW_ALREADY		8
 #define RTW_RA_RESOLVING	9
 #define RTW_ORI_NO_NEED		10
+#define RTW_NOT_SUPPORT		15
 #define RTW_ABORT_LINKING	17
 
 /* #define RTW_STATUS_TIMEDOUT -110 */
@@ -36,9 +37,6 @@
 
 #ifdef PLATFORM_LINUX
 	#include <linux/version.h>
-#if defined(CONFIG_RTW_ANDROID_GKI)
-	#include <linux/firmware.h>
-#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
 	#include <linux/sched/signal.h>
 	#include <linux/sched/types.h>
@@ -101,6 +99,7 @@
 #endif
 
 extern int RTW_STATUS_CODE(int error_code);
+extern u16 rtw_warn_on_cnt;
 
 #ifndef RTK_DMP_PLATFORM
 	#define CONFIG_USE_VMALLOC
@@ -564,6 +563,8 @@ void rtw_free_netdev(struct net_device *netdev);
 u64 rtw_modular64(u64 x, u64 y);
 u64 rtw_division64(u64 x, u64 y);
  u32 rtw_random32(void);
+
+void rtw_wiphy_rfkill_set_hw_state(struct wiphy *wiphy, bool blocked);
 
 /* Macros for handling unaligned memory accesses */
 

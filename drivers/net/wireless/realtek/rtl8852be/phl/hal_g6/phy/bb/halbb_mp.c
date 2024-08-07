@@ -109,7 +109,10 @@ u32 halbb_rx_crc_ok_7(struct bb_info *bb, enum phl_phy_idx phy_idx)
 
 	BB_DBG(bb, DBG_PHY_CONFIG, "[%s] phy_idx=%d\n", __func__, phy_idx);
 
-	cck_ok = halbb_get_reg_cmn(bb, cr->cnt_cck_crc32ok_p0, cr->cnt_cck_crc32ok_p0_m, phy_idx);
+	if (phy_idx == HW_PHY_0)
+		cck_ok = halbb_get_reg(bb, cr->cnt_cck_crc32ok_p0, cr->cnt_cck_crc32ok_p0_m);
+	else
+		cck_ok = halbb_get_reg(bb, cr->cnt_cck_crc32ok_p1, cr->cnt_cck_crc32ok_p1_m);
 	ofdm_ok = halbb_get_reg_cmn(bb, cr->cnt_l_crc_ok, cr->cnt_l_crc_ok_m, phy_idx);
 	ht_ok = halbb_get_reg_cmn(bb, cr->cnt_ht_crc_ok, cr->cnt_ht_crc_ok_m, phy_idx);
 	vht_ok = halbb_get_reg_cmn(bb, cr->cnt_vht_crc_ok, cr->cnt_vht_crc_ok_m, phy_idx);
@@ -191,7 +194,10 @@ u32 halbb_rx_crc_err_7(struct bb_info *bb, enum phl_phy_idx phy_idx)
 
 	BB_DBG(bb, DBG_PHY_CONFIG, "[%s] phy_idx=%d\n", __func__, phy_idx);
 
-	cck_err = halbb_get_reg_cmn(bb, cr->cnt_cck_crc32fail_p1, cr->cnt_cck_crc32fail_p1_m, phy_idx);
+	if (phy_idx == HW_PHY_0)
+		cck_err = halbb_get_reg(bb, cr->cnt_cck_crc32fail_p0, cr->cnt_cck_crc32fail_p0_m);
+	else
+		cck_err = halbb_get_reg(bb, cr->cnt_cck_crc32fail_p1, cr->cnt_cck_crc32fail_p1_m);
 	ofdm_err = halbb_get_reg_cmn(bb, cr->cnt_l_crc_err, cr->cnt_l_crc_err_m, phy_idx);
 	ht_err = halbb_get_reg_cmn(bb, cr->cnt_ht_crc_err, cr->cnt_ht_crc_err_m, phy_idx);
 	vht_err = halbb_get_reg_cmn(bb, cr->cnt_vht_crc_err, cr->cnt_vht_crc_err_m, phy_idx);
@@ -1435,6 +1441,93 @@ void halbb_cr_cfg_mp_init(struct bb_info *bb)
 		cr->sts_user_sel_m = STS_USER_SEL_BE0_M;
 		cr->path1_g_lna6 = PATH1_R_G_G_LNA6_BE0;
 		cr->path1_g_lna6_m = PATH1_R_G_G_LNA6_BE0_M;
+		break;
+	#endif
+
+	#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->cnt_ccktxon = CNT_CCKTXON_BE1;
+		cr->cnt_ccktxon_m = CNT_CCKTXON_BE1_M;
+		cr->cnt_ofdmtxon = CNT_OFDMTXON_BE1;
+		cr->cnt_ofdmtxon_m = CNT_OFDMTXON_BE1_M;
+		cr->cnt_cck_crc32ok_p0 = CNT_CCK_CRC32OK_P0_BE1;
+		cr->cnt_cck_crc32ok_p0_m = CNT_CCK_CRC32OK_P0_BE1_M;
+		cr->cnt_cck_crc32ok_p1 = CNT_CCK_CRC32OK_P1_BE1;
+		cr->cnt_cck_crc32ok_p1_m = CNT_CCK_CRC32OK_P1_BE1_M;
+		cr->cnt_l_crc_ok = CNT_L_CRC_OK_BE1; //
+		cr->cnt_l_crc_ok_m = CNT_L_CRC_OK_BE1_M;
+		cr->cnt_ht_crc_ok = CNT_HT_CRC_OK_BE1;
+		cr->cnt_ht_crc_ok_m = CNT_HT_CRC_OK_BE1_M;
+		cr->cnt_vht_crc_ok = CNT_VHT_CRC_OK_BE1;
+		cr->cnt_vht_crc_ok_m = CNT_VHT_CRC_OK_BE1_M;
+		cr->cnt_he_crc_ok = CNT_HE_CRC_OK_BE1;
+		cr->cnt_he_crc_ok_m = CNT_HE_CRC_OK_BE1_M;
+		cr->cnt_eht_crc_ok = CNT_EHT_CRC_OK_BE1;
+		cr->cnt_eht_crc_ok_m = CNT_EHT_CRC_OK_BE1_M;
+		cr->cnt_cck_crc32fail_p0 = CNT_CCK_CRC32FAIL_P0_BE1;
+		cr->cnt_cck_crc32fail_p0_m = CNT_CCK_CRC32FAIL_P0_BE1_M;
+		cr->cnt_cck_crc32fail_p1 = CNT_CCK_CRC32FAIL_P1_BE1;
+		cr->cnt_cck_crc32fail_p1_m = CNT_CCK_CRC32FAIL_P1_BE1_M;
+		cr->cnt_l_crc_err = CNT_L_CRC_ERR_BE1;
+		cr->cnt_l_crc_err_m = CNT_L_CRC_ERR_BE1_M;
+		cr->cnt_ht_crc_err = CNT_HT_CRC_ERR_BE1;
+		cr->cnt_ht_crc_err_m = CNT_HT_CRC_ERR_BE1_M;
+		cr->cnt_vht_crc_err = CNT_VHT_CRC_ERR_BE1;
+		cr->cnt_vht_crc_err_m = CNT_VHT_CRC_ERR_BE1_M;
+		cr->cnt_he_crc_err = CNT_HE_CRC_ERR_BE1;
+		cr->cnt_he_crc_err_m = CNT_HE_CRC_ERR_BE1_M;
+		cr->cnt_eht_crc_err = CNT_EHT_CRC_ERR_BE1;
+		cr->cnt_eht_crc_err_m = CNT_EHT_CRC_ERR_BE1_M;
+		cr->rst_all_cnt = TOP_CTRL_P0_R_RST_ALL_CNT_BE1;
+		cr->rst_all_cnt_m = TOP_CTRL_P0_R_RST_ALL_CNT_BE1_M;
+		cr->phy_sts_bitmap_he_mu = TOP_CTRL_P0_R_PHY_STS_BITMAP_HE_MU_BE1;
+		cr->phy_sts_bitmap_he_mu_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_HE_MU_BE1_M;
+		cr->phy_sts_bitmap_vht_mu = TOP_CTRL_P0_R_PHY_STS_BITMAP_VHT_MU_BE1;
+		cr->phy_sts_bitmap_vht_mu_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_VHT_MU_BE1_M;
+		cr->phy_sts_bitmap_cck = TOP_CTRL_P0_R_PHY_STS_BITMAP_CCK_BE1;
+		cr->phy_sts_bitmap_cck_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_CCK_BE1_M;
+		cr->phy_sts_bitmap_legacy = TOP_CTRL_P0_R_PHY_STS_BITMAP_LEGACY_BE1;
+		cr->phy_sts_bitmap_legacy_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_LEGACY_BE1_M;
+		cr->phy_sts_bitmap_ht = TOP_CTRL_P0_R_PHY_STS_BITMAP_HT_BE1;
+		cr->phy_sts_bitmap_ht_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_HT_BE1_M;
+		cr->phy_sts_bitmap_vht = TOP_CTRL_P0_R_PHY_STS_BITMAP_VHT_BE1;
+		cr->phy_sts_bitmap_vht_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_VHT_BE1_M;
+		cr->phy_sts_bitmap_he = TOP_CTRL_P0_R_PHY_STS_BITMAP_HE_BE1;
+		cr->phy_sts_bitmap_he_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_HE_BE1_M;
+		cr->rpt_tone_evm_idx = RXINT_R_RPT_TONE_EVM_IDX_BE1;
+		cr->rpt_tone_evm_idx_m = RXINT_R_RPT_TONE_EVM_IDX_BE1_M;
+		cr->dbg_port_ref_clk_en = DBG_PORT_REF_CLK_EN_BE1;
+		cr->dbg_port_ref_clk_en_m = DBG_PORT_REF_CLK_EN_BE1_M;
+		cr->dbg_port_en = DBG_PORT_EN_BE1;
+		cr->dbg_port_en_m = DBG_PORT_EN_BE1_M;
+		cr->dbg_port_ip_sel = DBG_PORT_IP_SEL_BE1;
+		cr->dbg_port_ip_sel_m = DBG_PORT_IP_SEL_BE1_M;
+		cr->dbg_port_sel = DBG_PORT_SEL_BE1;
+		cr->dbg_port_sel_m = DBG_PORT_SEL_BE1_M;
+		cr->dbg32_d = DBG32_D_BE1;
+		cr->dbg32_d_m = DBG32_D_BE1_M;
+		cr->phy_sts_bitmap_trigbase = TOP_CTRL_P0_R_PHY_STS_BITMAP_TRIGBASE_BE1;
+		cr->phy_sts_bitmap_trigbase_m = TOP_CTRL_P0_R_PHY_STS_BITMAP_TRIGBASE_BE1_M;
+		cr->sts_keeper_en = TOP_CTRL_P0_R_STS_KEEPER_EN_BE1;
+		cr->sts_keeper_en_m = TOP_CTRL_P0_R_STS_KEEPER_EN_BE1_M;
+		cr->sts_keeper_trig_cond = TOP_CTRL_P0_R_STS_KEEPER_TRIG_COND_BE1;
+		cr->sts_keeper_trig_cond_m = TOP_CTRL_P0_R_STS_KEEPER_TRIG_COND_BE1_M;
+		cr->sts_dbg_sel = TOP_CTRL_P0_R_STS_DBG_SEL_BE1;
+		cr->sts_dbg_sel_m = TOP_CTRL_P0_R_STS_DBG_SEL_BE1_M;
+		cr->sts_keeper_read = TOP_CTRL_P0_R_STS_KEEPER_READ_BE1;
+		cr->sts_keeper_read_m = TOP_CTRL_P0_R_STS_KEEPER_READ_BE1_M;
+		cr->sts_keeper_addr = TOP_CTRL_P0_R_STS_KEEPER_ADDR_BE1;
+		cr->sts_keeper_addr_m = TOP_CTRL_P0_R_STS_KEEPER_ADDR_BE1_M;
+		cr->sts_keeper_data = STS_KEEPER_DATA_BE1;
+		cr->sts_keeper_data_m = STS_KEEPER_DATA_BE1_M;
+		cr->path0_rssi_at_agc_rdy = RSSI_AT_AGC_RDY_PATH0_BE1;
+		cr->path0_rssi_at_agc_rdy_m = RSSI_AT_AGC_RDY_PATH0_BE1_M;
+		cr->path1_rssi_at_agc_rdy = RSSI_AT_AGC_RDY_PATH1_BE1;
+		cr->path1_rssi_at_agc_rdy_m = RSSI_AT_AGC_RDY_PATH1_BE1_M;
+		cr->sts_user_sel = TOP_CTRL_P0_R_STS_USER_SEL_BE1;
+		cr->sts_user_sel_m = TOP_CTRL_P0_R_STS_USER_SEL_BE1_M;
+		cr->path1_g_lna6 = PATH1_R_G_G_LNA6_BE1;
+		cr->path1_g_lna6_m = PATH1_R_G_G_LNA6_BE1_M;
 		break;
 	#endif
 

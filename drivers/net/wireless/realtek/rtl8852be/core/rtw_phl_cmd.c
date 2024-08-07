@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 - 2021 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -162,6 +162,44 @@ exit:
 }
 #endif /* CONFIG_PCIE_TRX_MIT */
 
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+u8 rtw_set_post_keep_alive_param(_adapter *padapter, u8 if_sta_chk_rx_bmp,
+			   u8 if_sta_chk_tx_bmp, u32 *if_ap_chk_sta_bmp)
+{
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
+	struct rtw_keep_alive_param klive_param = {0};
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+	u8 res = _FAIL;
+	bool need_post_chk = _FALSE;
+	u8 i;
+
+#ifdef CONFIG_AP_MODE
+	for (i = 0; i < dvobj->iface_nums; i++) {
+		if (if_ap_chk_sta_bmp[i] != 0) {
+			need_post_chk = _TRUE;
+			break;
+		}
+	}
+#endif
+	/* skip post keep alive chk */
+	if (!need_post_chk && if_sta_chk_rx_bmp == 0 && if_sta_chk_tx_bmp == 0) {
+		res = _SUCCESS;
+		goto exit;
+	}
+
+	klive_param.sta_chk_rx_bmp = if_sta_chk_rx_bmp;
+	klive_param.sta_chk_tx_bmp = if_sta_chk_tx_bmp;
+	_rtw_memcpy(klive_param.ap_chk_sta_bmp, if_ap_chk_sta_bmp, sizeof(klive_param.ap_chk_sta_bmp));
+
+	psts = rtw_phl_set_wdog_state_keep_alive(dvobj->phl, true, &klive_param);
+	if (psts == RTW_PHL_STATUS_SUCCESS)
+		res = _SUCCESS;
+
+exit:
+	return res;
+}
+#endif
+
 #ifdef CONFIG_TDLS
 enum rtw_phl_status rtw_send_tdls_sync_msg(struct _ADAPTER *a)
 {
@@ -204,8 +242,10 @@ u32 rtw_enqueue_phl_cmd(struct cmd_obj *pcmd)
 		/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
 		struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
 
-		if (rtw_is_adapter_up(padapter) == _FALSE)
+		if (rtw_is_adapter_up(padapter) == _FALSE) {
+			RTW_ERR("%s Drop CMD: %s\n", __func__, rtw_cmd_name(pcmd));
 			goto free_cmd;
+		}
 
 		band_idx = ALINK_GET_HWBAND(padapter_link);
 	}
@@ -241,8 +281,11 @@ u32 rtw_enqueue_phl_cmd(struct cmd_obj *pcmd)
 		case EVT_DEL_STA:
 			if (MLME_IS_STA(padapter)) {
 				psts = rtw_disconnect_cmd(padapter, pcmd);
-				if (psts != RTW_PHL_STATUS_SUCCESS)
+				if (psts != RTW_PHL_STATUS_SUCCESS) {
+					if (psts == RTW_PHL_STATUS_RESOURCE)
+						res = _SUCCESS;
 					goto free_cmd;
+				}
 				/* pcmd & pcmd->parmbuf would be freed in framework */
 				res = _SUCCESS;
 				goto exit;

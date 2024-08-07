@@ -62,12 +62,10 @@ struct hal_trx_ops {
 	u16 (*get_rxbuf_size)(struct rtw_hal_com_t *hal_com, u8 dma_ch);
 	void (*cfg_dma_io)(struct hal_info_t *hal, u8 en);
 	void (*cfg_txdma)(struct hal_info_t *hal, u8 en, u8 dma_ch);
-	void (*cfg_wow_txdma)(struct hal_info_t *hal, u8 en);
 	void (*cfg_txhci)(struct hal_info_t *hal, u8 en);
 	void (*cfg_rxhci)(struct hal_info_t *hal, u8 en);
 	void (*clr_rwptr)(struct hal_info_t *hal);
 	void (*rst_bdram)(struct hal_info_t *hal);
-	u8 (*poll_txdma_idle)(struct hal_info_t *hal);
 	void (*cfg_rsvd_ctrl)(struct hal_info_t *hal);
 	u8 (*qsel_to_tid)(struct hal_info_t *hal, u8 qsel_id, u8 tid_indic);
 
@@ -174,6 +172,42 @@ struct hal_trx_ops {
 };
 
 #define hal_get_ops(_halinfo)	(&_halinfo->hal_ops)
+#define hal_get_regu_ops(_halops_) (&((_halops_)->regu_ops))
+
+struct hal_regu_ops {
+	u8 (*hal_query_group_cntry_num)(
+		struct rtw_regu_policy *policy, u8 group_id);
+
+	u8 (*hal_get_cntry_idx)(char *cntry);
+
+	u8 (*hal_get_cntry_tbl_size)(void);
+
+	u8 (*hal_get_chnlplan_ver)(void);
+
+	u8 (*hal_get_country_ver)(void);
+
+	u8 (*hal_get_domain_regulation)(u8 domain, u8 band);
+
+	u8 (*hal_get_domain_idx)(u8 domain, bool is_6g);
+
+	u8 (*hal_get_cat6g_by_country)(char *country);
+
+	void (*hal_get_6g_regulatory_info)(u8 domain, u8 *dm_code,
+		u8 *regulation, u8 *ch_idx);
+
+	void (*hal_qry_cntry_chnlplan)(
+		struct rtw_regulation_country_chplan *chplan, char *country);
+
+	void (*hal_get_chplan_update_info)(
+		u8 group, u8 did, void *info, enum band_type band);
+
+	void (*hal_fill_group_cntry_list)(
+		struct rtw_regu_policy *policy, char *list,
+		u32 group_size, u8 group_id);
+
+	void (*hal_get_chdef_6g)(
+		u8 ch_idx, struct chdef_6ghz *chdef);
+};
 
 struct hal_ops_t {
 	/*** initialize section ***/
@@ -189,6 +223,9 @@ struct hal_ops_t {
 
 	enum rtw_hal_status (*hal_get_efuse)(struct rtw_phl_com_t *phl_com,
 					struct hal_info_t *hal);
+#ifdef CONFIG_PCI_HCI
+	enum rtw_hal_status (*hal_set_pcicfg)(struct hal_info_t *hal);
+#endif /* CONFIG_PCI_HCI */
 	enum rtw_hal_status (*hal_init)(struct rtw_phl_com_t *phl_com,
 					struct hal_info_t *hal);
 	void (*hal_deinit)(struct rtw_phl_com_t *phl_com,
@@ -251,12 +288,20 @@ struct hal_ops_t {
 	enum rtw_hal_status (*check_rpq_isr)(u8 dma_ch, u32 rx_int_array);
 #endif
 
+	/* regu */
+	struct hal_regu_ops regu_ops;
+
 #ifdef RTW_PHL_BCN
 	enum rtw_hal_status (*cfg_bcn)(struct rtw_phl_com_t *phl_com,
 		struct hal_info_t *hal, struct rtw_bcn_entry *bcn_entry);
 	enum rtw_hal_status (*upt_bcn)(struct rtw_phl_com_t *phl_com,
 		struct hal_info_t *hal, struct rtw_bcn_entry *bcn_entry);
 #endif
+#ifdef CONFIG_PCI_HCI
+	enum rtw_hal_status (*get_pcicfg)(struct hal_info_t *hal,
+					  struct rtw_pcie_cfgspc_param *cfg);
+#endif
+
 #ifdef CONFIG_RTW_MULTI_DEV_MULTI_BAND
 	enum rtw_hal_status (*cfg_share_xstal)(struct hal_info_t *hal,
 					       struct rtw_phl_com_t *phl_com,

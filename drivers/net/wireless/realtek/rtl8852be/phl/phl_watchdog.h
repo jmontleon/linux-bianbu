@@ -17,9 +17,12 @@
 
 #define WDOG_PERIOD 2000
 
-enum watchdog_state{
+enum watchdog_state {
 	WD_STATE_INIT,
 	WD_STATE_STARTED,
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+	WD_STATE_KEEPALIVE,
+#endif
 	WD_STATE_STOP,
 };
 
@@ -29,6 +32,10 @@ struct phl_watchdog {
 
 	/* Only sw statistics or sw behavior or trigger FG cmd */
 	void (*core_sw_wdog)(void *drv_priv);
+	#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+	struct rtw_keep_alive_param klive_param;
+	void (*core_keep_alive)(void *drv_priv, struct rtw_keep_alive_param *klive);
+	#endif
 
 	/* I/O, tx behavior, request power, ... */
 	void (*core_hw_wdog)(void *drv_priv);
@@ -46,6 +53,12 @@ enum rtw_phl_status
 phl_watchdog_sw_cmd_hdl(struct phl_info_t *phl_info, enum rtw_phl_status psts);
 void rtw_phl_watchdog_start(void *phl);
 void rtw_phl_watchdog_stop(void *phl);
+#ifdef CONFIG_POST_CORE_KEEP_ALIVE
+enum rtw_phl_status phl_keep_alive_hdl(struct phl_info_t *phl_info);
+bool phl_wdog_state_is_keep_alive(struct phl_info_t *phl_info);
+enum rtw_phl_status rtw_phl_set_wdog_state_keep_alive(void *phl,
+						      bool enable, struct rtw_keep_alive_param *klive_param);
+#endif
 
 #ifdef CONFIG_FSM
 void rtw_phl_watchdog_callback(void *phl);

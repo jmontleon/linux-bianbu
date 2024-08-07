@@ -35,6 +35,7 @@
 #define DLE_BUF_BNDY_8852A 0x70000
 #define DLE_BUF_BNDY_8852B 0x20000
 #define DLE_BUF_BNDY_8851B 0x20000
+#define DLE_BUF_BNDY_8852BT 0x20000
 #define LA_BUF_END_8852C_256K 0x70000
 #define LA_BUF_END_8852C_128K 0x50000
 #define LA_BUF_END_8192XB_256K 0x70000
@@ -45,6 +46,7 @@
 #define LA_BUF_END_8852D_128K 0x50000
 #define LA_SIZE_128K_BUF_BNDY_8852B 0x8
 #define LA_SIZE_128K_BUF_BNDY_8851B 0x8
+#define LA_SIZE_128K_BUF_BNDY_8852BT 0x8
 
 /*--------------------Define Enum------------------------------------*/
 /*--------------------Define MACRO----------------------------------*/

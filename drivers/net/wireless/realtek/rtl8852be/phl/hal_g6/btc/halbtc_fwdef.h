@@ -103,17 +103,18 @@ enum btc_bt_sta_counter {
 };
 
 struct btc_rpt_ctrl_info {
-	u32 cx_ver; /* match which driver's coex version */
-	u32 fw_ver;
-	u32 en; /* report map */
-
 	u16 cnt; /* fw report counter */
 	u16 cnt_c2h; /* fw send c2h counter  */
+
 	u16 cnt_h2c; /* fw recv h2c counter */
 	u16 len_c2h; /* The total length of the last C2H  */
 
 	u16 cnt_aoac_rf_on;  /* rf-on counter for aoac switch notify */
 	u16 cnt_aoac_rf_off; /* rf-off counter for aoac switch notify */
+
+	u32 cx_ver; /* match which driver's coex version */
+	u32 fw_ver;
+	u32 en; /* report map */
 };
 
 struct btc_rpt_ctrl_a2dp_empty {
@@ -131,11 +132,12 @@ struct btc_rpt_ctrl_bt_mailbox {
 	struct btc_rpt_ctrl_a2dp_empty a2dp;
 };
 
-#define FCX_BTCRPT_VER 5
+#define FCX_VER_BTCRPT 7
 struct fbtc_rpt_ctrl {
 	u8 fver;
-	u8 rsvd;
-	u16 rsvd1;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 rsvd2;
 
 	u8 gnt_val[HW_PHY_MAX][4];
 	u16 bt_cnt[BTC_BCNT_STA_MAX];
@@ -204,12 +206,13 @@ enum fbtc_option_ctrl_def {
 	CXOPCTL_FDDT_DEBUG = BIT(3)  /* info wl fw to enter debug mode */
 };
 
-#define FCX_TDMA_VER 3
+#define FCX_VER_TDMA 7
 struct fbtc_tdma {
 	u8 type; /* refer to fbtc_tdma_type*/
 	u8 rxflctrl; /* refer to fbtc_tdma_rx_flow_ctrl */
 	u8 txflctrl; /* If WL stop Tx while enter BT-slot */
 	u8 rsvd;
+
 	u8 leak_n; /* every leak_n cycle do leak detection */
 	u8 ext_ctrl; /* refer to fbtc_ext_ctrl_type*/
 	/* send rxflctrl to which role
@@ -222,8 +225,10 @@ struct fbtc_tdma {
 
 struct fbtc_1tdma {
 	u8 fver;
-	u8 rsvd;
-	u16 rsvd1;
+	u8 rsvd1;
+	u8 rsvd2;
+	u8 rsvd3;
+
 	struct fbtc_tdma tdma;
 };
 
@@ -319,8 +324,8 @@ enum btc_step_type { /* STEP TYPE */
 };
 
 enum btc_null_state {
-	CXNULL_STATE_0 = 0,
-	CXNULL_STATE_1 = 1,
+	CXNULL_0 = 0,
+	CXNULL_1 = 1,
 	CXNULL_STATE_MAX = 2
 };
 
@@ -341,27 +346,33 @@ enum btc_ble_scan_type {
 };
 
 struct fbtc_set_drvinfo {
+	u8 fver;
 	u8 type;
 	u8 len;
 	u8 buf[1];
 };
 
-#define FCX_GPIODBG_VER 1
+#define FCX_VER_GPIODBG 7
 #define BTC_DBG_MAX1  32
 struct fbtc_gpio_dbg {
 	u8 fver;
-	u8 rsvd;
-	u16 rsvd2;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 rsvd2;
+
+	u8 gpio_map[BTC_DBG_MAX1]; /* debug signals to GPIO-Position mapping */
+
 	u32 en_map; /* which debug signal (see btc_wl_gpio_debug) is enable */
 	u32 pre_state; /* the debug signal is 1 or 0  */
-	u8 gpio_map[BTC_DBG_MAX1]; /* debug signals to GPIO-Position mapping */
 };
 
-#define FCX_MREG_VER 2
+#define FCX_VER_MREG 7
 struct fbtc_mreg_val {
 	u8 fver;
 	u8 reg_num;
-	u16 rsvd;
+	u8 rsvd0;
+	u8 rsvd1;
+
 	u32 mreg_val[CXMREG_MAX];
 };
 
@@ -371,45 +382,60 @@ struct fbtc_mreg {
 	u32 offset;
 };
 
-#define FCX_SLOT_VER 1
+#define FCX_VER_SLOT 7
 struct fbtc_slot {
 	u16 dur; /* slot duration */
-	u32 cxtbl;
 	u16 cxtype;
+	u32 cxtbl;
+};
+
+struct fbtc_slot_u16 {
+	u16 dur; /* slot duration */
+	u16 cxtype;
+	u16 cxtbl_l16; /* coex table [15:0] */
+	u16 cxtbl_h16; /* coex table [31:16] */
 };
 
 struct fbtc_1slot {
 	u8 fver;
 	u8 sid; /* slot id */
+	u16 rsvd;
 	struct fbtc_slot slot;
 };
 
 struct fbtc_slots {
 	u8 fver;
-	u8 tbl_num;
-	u16 rsvd;
+	u8 slot_cnt;
+	u8 rsvd0;
+	u8 rsvd1;
+
+	struct fbtc_slot_u16 slot[CXST_MAX];
+
 	u32 update_map;
-	struct fbtc_slot slot[CXST_MAX];
 };
 
-#define FCX_STEP_VER 3
+#define FCX_VER_STEP 7
 struct fbtc_step {
 	u8 type;
 	u8 val;
-	u16 difft;
+	u8 difft_l8;
+	u8 difft_h8;
 };
 
 struct fbtc_steps {
 	u8 fver;
 	u8 en;
-	u16 rsvd;
-	u32 cnt;
+	u8 rsvd0;
+	u8 rsvd1;
+
 #ifdef BTC_FW_STEP_DBG
 	struct fbtc_step step[FCXDEF_STEP];
 #endif
+
+	u32 cnt;
 };
 
-#define FCX_CYSTA_VER 5
+#define FCX_VER_CYSTA 7
 
 struct fbtc_sta_time_info {
 	u16 tavg[CXT_MAX]; /* avg wl/bt cycle time */
@@ -421,17 +447,14 @@ struct fbtc_cycle_a2dptrx_info {
 	u8 retry_cnt;
 	u8 tx_rate;
 	u8 tx_cnt;
+
 	u8 ack_cnt;
 	u8 nack_cnt;
 	u8 no_empty_cnt;
 	u8 rsvd;
 };
 
-struct fbtc_cycle_fddt_info {
-	u16 phase_cycle: 10;
-	u16 train_step: 6;
-	u16 tp;
-
+struct fbtc_fddt_cycle_info {
 	s8 tx_power; /* absolute Tx power (dBm), 0xff-> no BTC control */
 	s8 bt_tx_power; /* decrease Tx power (dB) */
 	s8 bt_rx_gain;  /* LNA constrain level */
@@ -441,14 +464,28 @@ struct fbtc_cycle_fddt_info {
 	u8 cn; /* condition_num */
 	u8 train_status; /* [7:4]-> state, [3:0]-> phase */
 	u8 train_result; /* response: break,pass..  */
+
+	u8 phase_cycle; /* phase-cycle */
+	u8 train_step;  /* train_step  */
+	u8 tp_l8;       /* TP[7:0]     */
+	u8 tp_h8;       /* TP[15:8]    */
 };
 
 struct fbtc_fddt_cell_status {
 	s8 wl_tx_pwr;
 	s8 bt_tx_pwr;
 	s8 bt_rx_gain;
-	u8 state: 4; /* train state */
-	u8 phase: 4;  /* train phase */
+	u8 state_phase; /* train state(bit[7:4])_phase(bit[3:0]) */
+};
+
+struct fbtc_fddt_sta { /* statistics for cycles */
+	u8 fver;
+	u8 cycles_l8;
+	u8 cycles_h8;
+	u8 rsvd0;
+
+	struct fbtc_fddt_cell_status fddt_cells[2][5][5];
+	struct fbtc_fddt_cycle_info fddt_trx[BTC_CYCLE_SLOT_MAX];
 };
 
 struct fbtc_sta_a2dpept_info {
@@ -459,9 +496,9 @@ struct fbtc_sta_a2dpept_info {
 };
 
 struct fbtc_sta_leak_info {
-	u32 cnt_rximr; /* the rximr occur at leak slot  */
 	u16 tavg; /* avg leak-slot time */
 	u16 tamx; /* max leak-slot time */
+	u32 cnt_rximr; /* the rximr occur at leak slot  */
 };
 
 struct fbtc_cysta { /* statistics for cycles */
@@ -469,7 +506,10 @@ struct fbtc_cysta { /* statistics for cycles */
 	u8 rsvd;
 	u8 collision_cnt; /* counter for event/timer occur at the same time */
 	u8 except_cnt;
+
 	u8 wl_rx_err_ratio[BTC_CYCLE_SLOT_MAX];
+
+	struct fbtc_cycle_a2dptrx_info a2dp_trx[BTC_CYCLE_SLOT_MAX];
 
 	u16 skip_cnt;
 	u16 cycles; /* total cycle number */
@@ -479,38 +519,38 @@ struct fbtc_cysta { /* statistics for cycles */
 	u16 bcn_cnt[CXBCN_MAX];
 
 	struct fbtc_sta_time_info cycle_time;
-	struct fbtc_sta_leak_info leak_slot;
 	struct fbtc_sta_a2dpept_info a2dp_ept;
-	struct fbtc_cycle_a2dptrx_info a2dp_trx[BTC_CYCLE_SLOT_MAX];
-
-	struct fbtc_cycle_fddt_info fddt_trx[BTC_CYCLE_SLOT_MAX];
-	struct fbtc_fddt_cell_status fddt_cells[2][5][5];
+	struct fbtc_sta_leak_info leak_slot;
 
 	u32 except_map;
 };
 
-#define FCX_NULLSTA_VER 2
+#define FCX_VER_NULLSTA 7
 struct fbtc_cynullsta { /* cycle null statistics */
 	u8 fver;
-	u8 rsvd;
-	u16 rsvd2;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 rsvd2;
+
 	u32 tmax[CXNULL_STATE_MAX]; /* max_t for 0:null0/1:null1 */
 	u32 tavg[CXNULL_STATE_MAX]; /* avg_t for 0:null0/1:null1 */
 	/* result for null , 0:fail, 1:ok, 2:late, 3:retry */
 	u32 result[CXNULL_STATE_MAX][CXNULL_MAX];
 };
 
-#define FCX_BTVER_VER 1
+#define FCX_VER_BTVER 7
 struct fbtc_btver {
 	u8 fver;
-	u8 rsvd;
-	u16 rsvd2;
+	u8 rsvd0;
+	u8 rsvd1;
+	u8 rsvd2;
+
 	u32 coex_ver; /*bit[15:8]->shared, bit[7:0]->non-shared */
 	u32 fw_ver;
 	u32 feature;
 };
 
-#define FCX_BTSCAN_VER 2
+#define FCX_VER_BTSCAN 7
 struct btc_bt_scan_info {
 	u16 win;
 	u16 intvl;
@@ -519,19 +559,23 @@ struct btc_bt_scan_info {
 struct fbtc_btscan {
 	u8 fver;
 	u8 type;
-	u16 rsvd;
+	u8 rsvd0;
+	u8 rsvd1;
+
 	struct btc_bt_scan_info para[CXSCAN_MAX1];
 };
 
-#define FCX_BTAFH_VER 2
+#define FCX_VER_BTAFH 7
 struct fbtc_btafh {
 	u8 fver;
-	u8 rsvd;
-	u8 rsvd2;
 	u8 map_type;
+	u8 rsvd0;
+	u8 rsvd1;
+
 	u8 afh_l[4]; /*bit0:2402, bit1: 2403.... bit31:2433 */
 	u8 afh_m[4]; /*bit0:2434, bit1: 2435.... bit31:2465 */
 	u8 afh_h[4]; /*bit0:2466, bit1:2467......bit14:2480 */
+
 	u8 afh_le_a[4];
 	u8 afh_le_b[4];
 };
@@ -541,11 +585,12 @@ enum btc_bt_afh_type {
 	BTC_RPT_BT_AFH_LE = 0x20
 };
 
-#define FCX_BTDEVINFO_VER 1
+#define FCX_VER_BTDEVINFO 7
 struct fbtc_btdevinfo {
 	u8 fver;
-	u8 rsvd;
+	u8 rsvd0;
 	u16 vendor_id;
+
 	u32 dev_name; /* only 24 bits valid */
 	u32 flush_time;
 };

@@ -48,4 +48,5 @@ struct bb_info;
 /*@--------------------------[Prptotype]-------------------------------------*/
 void halbb_dig_mode_update(struct bb_info *bb, enum dig_op_mode mode, enum phl_phy_idx phy_idx);
 void halbb_dig_simple(struct bb_info *bb, u8 rssi_ofst);
+u8 halbb_get_dig_igi(struct bb_info *bb);
 #endif

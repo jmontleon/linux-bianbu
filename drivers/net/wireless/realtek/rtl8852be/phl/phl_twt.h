@@ -22,10 +22,17 @@
 #define REQUEST_TYPE_LENGTH 2
 #define NOMINAL_MINIMUM_TWT_WAKE_DURATION_LENGTH 1
 #define TARGET_WAKE_TIME_LENGTH 8
+#define BTWT_TARGET_WAKE_TIME_LENGTH 2
 #define NOMINAL_MIN_TWT_WAKE_DURATION_LENGTH 1
 #define TWT_WAKE_INTERVAL_MANTISSA_LENGTH 2
 #define TWT_CHANNEL_LENGTH 1
 #define TWT_FLOW_FIELD_LENGTH 1
+#define TWT_INFO_FIELD_BASIC_LENGTH 1
+#define BTWT_INFO_LENGTH 2
+#define MIN_BTWT_PARA_LEN (REQUEST_TYPE_LENGTH + BTWT_TARGET_WAKE_TIME_LENGTH + \
+			NOMINAL_MINIMUM_TWT_WAKE_DURATION_LENGTH + \
+			TWT_WAKE_INTERVAL_MANTISSA_LENGTH + BTWT_INFO_LENGTH)
+
 #define TOKEN_OFFSET 2
 #define TOKEN_LENGTH 1
 #define ELEM_ID_LEN 1 /* Length of element id*/
@@ -82,6 +89,8 @@ struct phl_twt_cfg_info {
 struct phl_twt_info {
 	struct phl_twt_cfg_info twt_cfg_info;
 	struct phl_queue twt_annc_queue;/*struct _twt_announce_info*/
+	/* pkt ofld token */
+	u32 qos_null_pkt_token;
 };
 
 struct _twt_announce_info{
@@ -101,6 +110,71 @@ struct _twt_teardown {
 	u8 id;
 };
 
+/* TWT Information field -Start*/
+#define SET_TWT_INFO_FLOW_ID(_ele_start, _val) \
+	SET_BITS_TO_LE_1BYTE(_ele_start, 0, 3, _val)
+#define SET_TWT_INFO_RSP_REQ(_ele_start, _val) \
+	SET_BITS_TO_LE_1BYTE(_ele_start, 3, 1, _val)
+#define SET_TWT_INFO_NEXT_TWT_REQ(_ele_start, _val) \
+	SET_BITS_TO_LE_1BYTE(_ele_start, 4, 1, _val)
+#define SET_TWT_INFO_NEXT_TWT_SIZE(_ele_start, _val) \
+	SET_BITS_TO_LE_1BYTE(_ele_start, 5, 2, _val)
+#define SET_TWT_INFO_ALL_TWT(_ele_start, _val) \
+	SET_BITS_TO_LE_1BYTE(_ele_start, 7, 1, _val)
+#define SET_TWT_INFO_NEXT_TWT(_ele_start, _size, _val) \
+	do { \
+		if (_size == 32) { \
+			SET_BITS_TO_LE_4BYTE(_ele_start + 1, 0, 32, (u32)(_val & 0xFFFFFFFF)); \
+		} else if (_size == 48) { \
+			SET_BITS_TO_LE_4BYTE(_ele_start + 1, 0, 32, (u32)(_val & 0xFFFFFFFF)); \
+			SET_BITS_TO_LE_2BYTE(_ele_start + 5, 0, 16, (u16)((_val >> 32) & 0xFFFFFFFF)); \
+		} else if (_size == 64) { \
+			SET_BITS_TO_LE_4BYTE(_ele_start + 1, 0, 32, (u32)(_val & 0xFFFFFFFF)); \
+			SET_BITS_TO_LE_4BYTE(_ele_start + 5, 0, 16, (u32)((_val >> 32) & 0xFFFFFFFF)); \
+		} else { \
+			break; \
+		}\
+	} while(false);
+
+/* Bit0-2 */
+#define GET_TWT_INFO_FLOW_ID(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 0, 3)
+/* Bit3 */
+#define GET_TWT_INFO_RSP_REQ(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 3, 1)
+/* Bit4 */
+#define GET_TWT_INFO_NEXT_TWT_REQ(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 4, 1)
+/* Bit5-6 */
+#define GET_TWT_INFO_NEXT_TWT_SIZE(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 5, 2)
+/* Bit7 */
+#define GET_TWT_INFO_ALL_TWT(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 7, 1)
+#define GET_TWT_INFO_NEXT_TWT(_buf, _size, _val) \
+	do { \
+		u32 h = 0, l = 0; \
+		if (_size == 32) { \
+			l = LE_BITS_TO_4BYTE(_buf + 1, 0, 32); \
+			*_val = l; \
+		} else if (_size == 48) { \
+			l = LE_BITS_TO_4BYTE(_buf + 1, 0, 32); \
+			h = LE_BITS_TO_2BYTE(_buf + 5, 0, 16); \
+			*_val = h; \
+			*_val = (*_val << 32); \
+			*_val |= l; \
+		} else if (_size == 64) { \
+			l = LE_BITS_TO_4BYTE(_buf + 1, 0, 32); \
+			h = LE_BITS_TO_4BYTE(_buf + 5, 0, 32); \
+			*_val = h; \
+			*_val = (*_val << 32); \
+			*_val |= l; \
+		} else { \
+			*_val = 0; \
+			break; \
+		}\
+	} while(false)
+/* TWT Information field -End*/
 
 /* TWT element */
 /*Control*/
@@ -115,7 +189,7 @@ struct _twt_teardown {
 #define SET_TWT_CONTROL_WAKE_DURATION_UNIT(_ele_start, _val) \
 	SET_BITS_TO_LE_1BYTE(_ele_start, 5, 1, _val)
 
-/*Individual TWT Parameter Set field*/
+/* Individual TWT Parameter Set field-Start */
 /*Request Type*/
 #define SET_TWT_REQ_TYPE_TWT_REQUEST(_ele_start, _val) \
 	SET_BITS_TO_LE_1BYTE(_ele_start, 0, 1, _val)
@@ -148,10 +222,41 @@ struct _twt_teardown {
 	SET_BITS_TO_LE_2BYTE((_ele_start) + _offset, 0, 16, _val)
 #define SET_TWT_TWT_CHANNEL(_ele_start, _offset, _val) \
 	SET_BITS_TO_LE_1BYTE((_ele_start) + _offset, 0, 8, _val)
+/* Individual TWT Parameter Set field-End */
 
 
-/*Broadcast TWT Parameter Set field*/
+/* Broadcast TWT Parameter Set field-Start */
+/*Request Type*/
+#define SET_BTWT_REQ_TYPE_TWT_REQUEST(_buf, _val) \
+	SET_BITS_TO_LE_1BYTE(_buf, 0, 1, _val)
+#define SET_BTWT_REQ_TYPE_TWT_SETUP_COMMAND(_buf, _val) \
+	SET_BITS_TO_LE_1BYTE(_buf, 1, 3, _val)
+#define SET_BTWT_REQ_TYPE_TRIGGER(_buf, _val) \
+	SET_BITS_TO_LE_1BYTE(_buf, 4, 1, _val)
+#define SET_BTWT_REQ_TYPE_LST_BC_PARA_SET(_buf, _val) \
+	SET_BITS_TO_LE_1BYTE(_buf, 5, 1, _val)
+#define SET_BTWT_REQ_TYPE_FLOW_TYPE(_buf, _val) \
+	SET_BITS_TO_LE_1BYTE(_buf, 6, 1, _val)
+#define SET_BTWT_REQ_TYPE_RCMD(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 7, 3, _val)
+#define SET_BTWT_REQ_TYPE_TWT_WAKE_INTERVAL_EXPONENT(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 10, 5, _val)
+#define SET_BTWT_REQ_TYPE_RSVD(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 15, 1, _val)
 
+#define SET_BTWT_TARGET_WAKE_TIME(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 0, 16, _val)
+#define SET_BTWT_NOMINAL_MINIMUM_TWT_WAKE_DURATION(_buf, _val) \
+	SET_BITS_TO_LE_1BYTE(_buf, 0, 8, _val)
+#define SET_BTWT_TWT_WAKE_INTERVAL_MANTISSA(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 0, 16, _val)
+
+/* BTWT Info */
+#define SET_BTWT_ID(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 3, 5, _val)
+#define SET_BTWT_PRSTNC(_buf, _val) \
+	SET_BITS_TO_LE_2BYTE(_buf, 8, 8, _val)
+/* Broadcast TWT Parameter Set field-End */
 
 /*TWT FLOW field*/
 #define SET_TWT_FLOW_ID(_ele_start, _val) \
@@ -181,7 +286,8 @@ struct _twt_teardown {
 #define GET_TWT_CONTROL_WAKE_DURATION_UNIT(_buf) \
 	LE_BITS_TO_1BYTE(_buf, 5, 1)
 
-/*Request Type*/
+/* Individual TWT Parameter Set field-Start */
+/* Request Type  */
 /*Bit0*/
 #define GET_TWT_REQ_TYPE_TWT_REQUEST(_buf) \
 	LE_BITS_TO_2BYTE(_buf, 0, 1)
@@ -217,8 +323,43 @@ struct _twt_teardown {
 	LE_BITS_TO_2BYTE(_buf, 0, 16);
 #define GET_TWT_TWT_CHANNEL(_buf) \
 	LE_BITS_TO_1BYTE(_buf, 0 ,8);
+/* Individual TWT Parameter Set field-End */
 
-/*TWT FLOW field*/
+/* Broadcast TWT Parameter Set field-Start */
+/*Request Type*/
+#define GET_BTWT_REQ_TYPE_TWT_REQUEST(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 0, 1)
+#define GET_BTWT_REQ_TYPE_TWT_SETUP_COMMAND(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 1, 3)
+#define GET_BTWT_REQ_TYPE_TRIGGER(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 4, 1)
+#define GET_BTWT_REQ_TYPE_LST_BC_PARA_SET(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 5, 1)
+#define GET_BTWT_REQ_TYPE_FLOW_TYPE(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 6, 1)
+#define GET_BTWT_REQ_TYPE_RCMD(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 7, 3)
+#define GET_BTWT_REQ_TYPE_TWT_WAKE_INTERVAL_EXPONENT(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 10, 5)
+#define GET_BTWT_REQ_TYPE_RSVD(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 15, 1)
+
+#define GET_BTWT_TARGET_WAKE_TIME(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 0, 16)
+#define GET_BTWT_NOMINAL_MINIMUM_TWT_WAKE_DURATION(_buf) \
+	LE_BITS_TO_1BYTE(_buf, 0, 8)
+#define GET_BTWT_TWT_WAKE_INTERVAL_MANTISSA(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 0, 16)
+
+/* BTWT Info */
+#define GET_BTWT_ID(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 3, 5)
+#define GET_BTWT_PRSTNC(_buf) \
+	LE_BITS_TO_2BYTE(_buf, 8, 8)
+/* Broadcast TWT Parameter Set field-End */
+
+
+/* TWT FLOW field-Start */
 /*Bit0-2*/
 #define GET_TWT_FLOW_ID(_buf) \
 	LE_BITS_TO_1BYTE(_buf, 0, 3)
@@ -239,6 +380,7 @@ struct _twt_teardown {
 	LE_BITS_TO_1BYTE(_buf, 0, 8);
 #define GET_DIALOG_TOKEN(_buf) \
 	LE_BITS_TO_1BYTE(_buf, 0, 8);
+/* TWT FLOW field-End */
 
 
 enum rtw_phl_status phl_twt_init(void *phl);
@@ -247,6 +389,9 @@ void phl_twt_deinit(void *phl);
 
 enum rtw_phl_status
 rtw_phl_twt_disable_all_twt_by_role(void *phl, struct rtw_wifi_role_t *role);
+
+enum rtw_phl_status rtw_phl_twt_free_all_twt_by_role(void *phl,
+				struct rtw_wifi_role_t *role);
 
 enum rtw_phl_status
 rtw_phl_twt_alloc_twt_config(void *phl,
@@ -268,6 +413,8 @@ enum rtw_phl_status phl_twt_accept_for_sta_mode(struct phl_info_t *phl,
 
 enum rtw_phl_status phl_twt_teardown_for_sta_mode(struct phl_info_t *phl,
 				u8 *param);
+
+enum rtw_phl_status phl_twt_info_f_hrl(struct phl_info_t *phl, u8 *param);
 
 enum rtw_phl_status rtw_phl_twt_handle_c2h_wait_annc(struct phl_info_t *phl,
 				u8 *buf);

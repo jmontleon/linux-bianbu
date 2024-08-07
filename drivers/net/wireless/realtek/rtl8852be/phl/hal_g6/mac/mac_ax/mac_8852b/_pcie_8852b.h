@@ -737,5 +737,25 @@ u32 get_pcie_speed_8852b(struct mac_ax_adapter *adapter,
  * @{
  */
 
+/**
+ * @brief get_pcie_sup_speed_8852b
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 get_pcie_sup_speed_8852b(struct mac_ax_adapter *adapter);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @addtogroup HCI
+ * @{
+ * @addtogroup PCIE
+ * @{
+ */
+
 #endif /* #if MAC_AX_8852B_SUPPORT */
 #endif

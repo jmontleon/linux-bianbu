@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2021 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -61,6 +61,9 @@ struct _ADAPTER_LINK;
 
 #ifdef CONFIG_80211AX_HE
 	#include <rtw_he.h>
+#ifdef CONFIG_TWT
+	#include <rtw_twt.h>
+#endif
 #endif
 
 #ifdef CONFIG_BEAMFORMING
@@ -132,6 +135,10 @@ struct _ADAPTER_LINK;
 #endif
 #ifdef CONFIG_WIFI_MONITOR
 #include "../core/monitor/rtw_radiotap.h"
+#endif
+
+#ifdef CONFIG_RTW_CSI_CHANNEL_INFO
+#include "../core/rtw_csi.h"
 #endif
 
 #include <rtw_version.h>
@@ -212,8 +219,15 @@ struct registry_priv {
 	u16  frag_thresh;
 	u8	adhoc_tx_pwr;
 	u8	soft_ap;
+#ifdef CONFIG_POWER_SAVE
+#ifdef CONFIG_RTW_IPS
 	u8	ips_mode;
+#endif /* CONFIG_RTW_IPS */
+#ifdef CONFIG_RTW_LPS
 	u8	lps_mode;
+	u8	lps_cap;
+#endif /* CONFIG_RTW_LPS */
+#endif /* CONFIG_POWER_SAVE */
 	u8	smart_ps;
 	u8   usb_rxagg_mode;
 	u8	dynamic_agg_enable;
@@ -241,7 +255,7 @@ struct registry_priv {
 
 	WLAN_BSSID_EX    dev_network;
 
-	u8 tx_bw_mode;
+	u16 tx_bw_mode;
 #ifdef CONFIG_AP_MODE
 	u8 bmc_tx_rate;
 	#if CONFIG_RTW_AP_DATA_BMC_TO_UC
@@ -268,7 +282,7 @@ struct registry_priv {
 	u8	tx_ampdu_amsdu;/* Tx A-MPDU Supports A-MSDU is permitted */
 	u8	tx_ampdu_num;
 	u8	tx_quick_addba_req;
-	u8 rx_ampdu_sz_limit_by_nss_bw[4][4]; /* 1~4SS, BW20~BW160 */
+	u16 rx_ampdu_sz_limit_by_nss_bw[4][4]; /* 1~4SS, BW20~BW160 */
 	/* Short GI support Bit Map */
 	/* BIT0 - 20MHz, 1: support, 0: non-support */
 	/* BIT1 - 40MHz, 1: support, 0: non-support */
@@ -403,7 +417,6 @@ struct registry_priv {
 	u8	AmplifierType_2G;
 	u8	AmplifierType_5G;
 	u8	bEn_RFE;
-	u8	RFE_Type;
 	u8	PowerTracking_Type;
 	u8	GLNA_Type;
 	u8	RegPwrTrimEnable;
@@ -427,10 +440,7 @@ struct registry_priv {
 	u8 qos_opt_enable;
 
 	u8 hiq_filter;
-	u8 adaptivity_en;
-	u8 adaptivity_mode;
-	s8 adaptivity_th_l2h_ini;
-	s8 adaptivity_th_edcca_hl_diff;
+	u8 edcca_mode_sel;
 	u8 adaptivity_idle_probability;
 
 	u8 boffefusemask;
@@ -530,6 +540,7 @@ struct registry_priv {
 	ATOMIC_T set_hide_ssid_timer;
 #endif
 	u8 amsdu_mode;
+	u8 tx_amsdu_aggnum;
 
 	u8 p2p_go_skip_keep_alive;
 
@@ -543,6 +554,15 @@ struct registry_priv {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 	bool split_scan_6ghz;
 #endif
+#endif
+
+#ifdef CONFIG_80211AX_HE
+#ifdef CONFIG_TWT
+	u8 twt_en;
+#endif
+#endif
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN_SIM
+	u8 dbcc_lg_sim;
 #endif
 };
 
@@ -1064,6 +1084,10 @@ struct rf_ctl_t {
 #ifdef CONFIG_RTW_MBO
 	struct npref_ch_rtp ch_rtp;
 #endif
+#if defined(PRIVATE_R) && defined(CONFIG_ECSA_PHL)
+	/* decide the parking channel of GO after leaving DFS channel */
+	u8 p2p_park_ch;
+#endif
 };
 
 #define RFCTL_REG_WORLDWIDE(rfctl)	(IS_ALPHA2_WORLDWIDE(rfctl->alpha2))
@@ -1296,8 +1320,16 @@ struct dvobj_priv {
 	/* WPAS maintain from android */
 #define RTW_WPAS_ANDROID	0x01
 	u8 wpas_type;
+#ifdef CONFIG_CSI_TIMER_POLLING
+	_timer csi_poll_timer;
+#endif
+#ifdef CONFIG_RTW_CSI_NETLINK
+	struct sock *csi_nl_sk;
+#endif
+#ifdef CONFIG_DBCC_SUPPORT
+	u8 dis_dbcc_scan;
+#endif
 };
-
 #define HWBAND_STA_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_STA_NUM(&((_dvobj)->iface_state[_band_idx])))
 #define HWBAND_STA_LD_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_STA_LD_NUM(&((_dvobj)->iface_state[_band_idx])))
 #define HWBAND_STA_LG_NUM(_dvobj, _band_idx)		((_band_idx) >= HW_BAND_MAX ? 0 : MSTATE_STA_LG_NUM(&((_dvobj)->iface_state[_band_idx])))
@@ -1643,6 +1675,15 @@ struct _ADAPTER {
 	enum phl_band_idx ap_stop_cmd_bidx;
 	u8 ap_start_cmd_state;
 	u8 ap_stop_cmd_state;
+	_lock ap_stop_st_lock;
+	u8 ap_stop_state;
+
+#define AP_STOP_ST_IDLE		0
+#define AP_STOP_ST_START	1
+#define AP_STOP_ST_REQUESTING	2
+#define AP_STOP_ST_ACQUIRED	3
+#define AP_STOP_ST_DONE		4
+
 	struct phl_cmd_token_req add_del_sta_req;
 	_lock ap_add_del_sta_lock;
 #define ADD_DEL_STA_ST_IDLE		1
@@ -1704,14 +1745,6 @@ struct _ADAPTER {
 
 	_nic_hdl pnetdev;
 	char old_ifname[IFNAMSIZ];
-
-	/* used by rtw_rereg_nd_name related function */
-	struct rereg_nd_name_data {
-		_nic_hdl old_pnetdev;
-		char old_ifname[IFNAMSIZ];
-		u8 old_ips_mode;
-		u8 old_bRegUseLed;
-	} rereg_nd_name_priv;
 
 	struct net_device_stats stats;
 	struct iw_statistics iwstats;
@@ -1805,7 +1838,7 @@ struct _ADAPTER {
 	u8 fix_bw;
 	u8 data_fb; /* data rate fallback, valid only when fix_rate is not 0xffff */
 	u8 power_offset;
-	u8 driver_tx_bw_mode;
+	u16 driver_tx_bw_mode;
 	u8 rsvd_page_offset;
 	u8 rsvd_page_num;
 	u8 ch_clm_ratio;
@@ -1832,7 +1865,7 @@ struct _ADAPTER {
 	u8 driver_rx_ampdu_factor;/* 0xff: disable drv ctrl, 0:8k, 1:16k, 2:32k, 3:64k; */
 	u8 driver_rx_ampdu_spacing;  /* driver control Rx AMPDU Density */
 	u8 fix_rx_ampdu_accept;
-	u8 fix_rx_ampdu_size; /* 0~127, TODO:consider each sta and each TID */
+	u16 fix_rx_ampdu_size; /* 0~1024, TODO:consider each sta and each TID */
 
 	#ifdef DBG_RX_COUNTER_DUMP
 	u8 dump_rx_cnt_mode;/*BIT0:drv,BIT1:mac,BIT2:phy*/
@@ -1885,16 +1918,19 @@ struct _ADAPTER {
 #ifdef CONFIG_STA_CMD_DISPR
 	_lock connect_st_lock;
 	u8 connect_state;
-#define CONNECT_ST_NOT_READY	0
-#define CONNECT_ST_IDLE		1
-#define CONNECT_ST_REQUESTING	2
-#define CONNECT_ST_ACQUIRED	3
+#define CONNECT_ST_IDLE		0
+#define CONNECT_ST_REQUESTING	1
+#define CONNECT_ST_ACQUIRED	2
 	bool connect_abort;
 	struct phl_cmd_token_req connect_req;
 	u32 connect_token;
 	enum phl_band_idx connect_bidx;/*connect band idx*/
 
 	_lock disconnect_lock;
+	u8 disconnect_state;
+#define DISCON_ST_IDLE		0
+#define DISCON_ST_ONGOING	1
+#define DISCON_ST_ABORT		2
 	struct phl_cmd_token_req disconnect_req;
 	u32 disconnect_token;
 	enum phl_band_idx disconnect_bidx;/*disconnect band idx*/

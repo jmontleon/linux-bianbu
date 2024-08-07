@@ -86,6 +86,7 @@
 	#include "halbb_8852c/halbb_version_rtl8852c.h"
 	#include "halbb_8852c/halbb_8852c_dcra.h"
 	#include "halbb_8852c/halbb_8852c_dcra_ex.h"
+	#include "halbb_8852c/halbb_version_rtl8852d.h"
 #endif
 
 #ifdef BB_8192XB_SUPPORT
@@ -102,9 +103,19 @@
 	#include "halbb_8922a/halbb_cr_info_8922a.h"
 	#include "halbb_8922a/halbb_8922a.h"
 	#include "halbb_8922a/halbb_8922a_api.h"
-        #include "halbb_8922a/halbb_hwimg_8922a.h"
-        #include "halbb_8922a/halbb_reg_cfg_8922a.h"
-        #include "halbb_8922a/halbb_version_rtl8922a.h"
+	#include "halbb_8922a/halbb_hwimg_8922a.h"
+	#include "halbb_8922a/halbb_reg_cfg_8922a.h"
+	#include "halbb_8922a/halbb_version_rtl8922a.h"
+	#include "bbmcu/bbmcu_precomp.h"
+#endif
+
+#ifdef BB_8922A_SUPPORT
+	#include "halbb_8922a_2/halbb_cr_info_8922a_2.h"
+	#include "halbb_8922a_2/halbb_8922a_2.h"
+	#include "halbb_8922a_2/halbb_8922a_2_api.h"
+	#include "halbb_8922a_2/halbb_hwimg_8922a_2.h"
+	#include "halbb_8922a_2/halbb_reg_cfg_8922a_2.h"
+	#include "halbb_8922a_2/halbb_version_rtl8922a_2.h"
 	#include "bbmcu/bbmcu_precomp.h"
 #endif
 
@@ -119,12 +130,26 @@
 	#include "halbb_8851b/halbb_version_rtl8851b.h"
 #endif
 
+#ifdef BB_8934A_SUPPORT
+	#include "halbb_8934a/halbb_cr_info_8934a.h"
+	#include "halbb_8934a/halbb_8934a.h"
+	#include "halbb_8934a/halbb_8934a_api.h"
+	#include "halbb_8934a/halbb_hwimg_8934a.h"
+	#include "halbb_8934a/halbb_reg_cfg_8934a.h"
+	#include "halbb_8934a/halbb_version_rtl8934a.h"
+#endif
+
 #include "halbb_ra.h"
 #include "halbb_ra_ex.h"
 #include "halbb_hw_cfg.h"
 #include "halbb_hw_cfg_ex.h"
+#include "halbb_api_be_hw.h"
+#include "halbb_api_be_sw.h"
+#include "halbb_api_be_intg.h"
 #include "halbb_api.h"
 #include "halbb_api_ex.h"
+#include "halbb_api_be.h"
+#include "halbb_api_be_ex.h"
 #include "halbb_interface_ex.h"
 #include "halbb_math_lib_ex.h"
 #include "halbb_math_lib.h"
@@ -149,6 +174,8 @@
 #include "halbb_ul_tb_ctrl.h"
 #include "halbb_pwr_ctrl_ex.h"
 #include "halbb_pwr_ctrl.h"
+#include "halbb_bb_wrapper.h"
+#include "halbb_bb_wrapper_outsrc.h"
 #include "halbb_mp_ex.h"
 #include "halbb_dfs.h"
 #include "halbb_dfs_ex.h"
@@ -162,12 +189,14 @@
 #include "halbb_dyn_csi_rsp.h"
 #include "halbb_dyn_csi_rsp_ex.h"
 #include "halbb_ant_div.h"
+#include "halbb_ant_div_ex.h"
 #include "halbb_path_div.h"
 #include "halbb_statistics.h"
 #include "halbb_statistics_ex.h"
 #include "halbb_dbg_cnsl_out_ex.h"
 #include "halbb_ch_info_ex.h"
 #include "halbb_ch_info.h"
+#include "halbb_auto_dbg_ex.h"
 #include "halbb_auto_dbg.h"
 #include "halbb_dbcc_ex.h"
 #include "halbb_dbcc.h"
@@ -179,6 +208,8 @@
 #include "halbb_fwofld_ex.h"
 #include "halbb_dyn_1r_cca.h"
 #include "halbb_dyn_dtr.h"
+#include "halbb_spatial_reuse.h"
+#include "halbb_spatial_reuse_ex.h"
 #include "halbb_ex.h"
 #include "halbb.h"
 

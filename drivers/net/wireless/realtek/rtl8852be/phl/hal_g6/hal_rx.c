@@ -563,6 +563,37 @@ enum rtw_hal_status rtw_hal_set_rxfltr_type_by_mode(void *hal, u8 band, enum rtw
 				break;
 		} while (0);
 		break;
+#ifdef CONFIG_PHL_TEST_MP
+	case RX_FLTR_TYPE_MODE_MP:
+		do {
+			struct rxfltr_cap_to_set_mgnt cap_mgnt = {0};
+
+			type = RTW_PHL_PKT_TYPE_CTRL;
+			target = RXFLTR_TARGET_DROP;
+			hstats = rtw_hal_set_rxfltr_by_type(hal, band, type, target);
+			if (RTW_HAL_STATUS_SUCCESS != hstats)
+				break;
+
+			type = RTW_PHL_PKT_TYPE_MGNT;
+			target = RXFLTR_TARGET_DROP;
+			hstats = rtw_hal_set_rxfltr_by_type(hal, band, type, target);
+			if (RTW_HAL_STATUS_SUCCESS != hstats)
+				break;
+
+			type = RTW_PHL_PKT_TYPE_DATA;
+			target = RXFLTR_TARGET_TO_HOST;
+			hstats = rtw_hal_set_rxfltr_by_type(hal, band, type, target);
+			if (RTW_HAL_STATUS_SUCCESS != hstats)
+				break;
+
+			cap_mgnt.stype[RXFLTR_STYPE_BEACON].set = true;
+			cap_mgnt.stype[RXFLTR_STYPE_BEACON].target = RXFLTR_TARGET_TO_HOST;
+			hstats = rtw_hal_set_rxfltr_by_stype_mgnt(hal, band, &cap_mgnt);
+			if (RTW_HAL_STATUS_SUCCESS != hstats)
+				break;
+		} while (0);
+		break;
+#endif
 	default:
 		PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_, "%s: does not handle rxfltr mode(%u)\n", __func__, mode);
 		break;
@@ -940,6 +971,7 @@ hal_rx_ppdu_sts_normal_data(struct rtw_phl_com_t *phl_com,
 		ppdu_info->sts_ent[band][meta->ppdu_cnt].crc32 = meta->crc32;
 		ppdu_info->sts_ent[band][meta->ppdu_cnt].rx_rate = meta->rx_rate;
 		ppdu_info->sts_ent[band][meta->ppdu_cnt].ppdu_type = meta->ppdu_type;
+		ppdu_info->sts_ent[band][meta->ppdu_cnt].pkt_freerun_cnt = meta->freerun_cnt;
 
 		if(RTW_IS_BEACON_OR_PROBE_RESP_PKT(ppdu_info->sts_ent[band][meta->ppdu_cnt].frame_type)) {
 			PHL_GET_80211_HDR_ADDRESS3(phl_com->drv_priv, hdr,
@@ -1076,6 +1108,7 @@ hal_rx_ppdu_sts(struct rtw_phl_com_t *phl_com,
 
 	/* update rssi stat */
 	_os_spinlock(phl_com->drv_priv, &rssi_stat->lock, _bh, NULL);
+	rssi_stat->last_rx_freerun = sts_ent->pkt_freerun_cnt;
 	switch (sts_ent->frame_type &
 		(BIT(1) | BIT(0))) {
 		case RTW_FRAME_TYPE_MGNT :

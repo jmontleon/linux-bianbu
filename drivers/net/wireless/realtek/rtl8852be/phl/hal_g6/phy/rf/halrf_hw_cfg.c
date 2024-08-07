@@ -46,6 +46,11 @@ bool halrf_nctl_init_reg_by_hdr(void *rf_void)
 		halrf_config_8852b_nctl_reg(rf);
 	}
 #endif
+#ifdef RF_8852BT_SUPPORT
+	if (rf->ic_type == RF_RTL8852BT) {
+		halrf_config_8852bt_nctl_reg(rf);
+	}
+#endif
 #ifdef RF_8832BR_SUPPORT
 	if (rf->ic_type == RF_RTL8832BR) {
 		halrf_config_8832br_nctl_reg(rf);
@@ -95,9 +100,21 @@ bool halrf_config_radio_a_reg(void *rf_void, bool is_form_folder,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_radio_a_reg(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_radio_a_reg(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_radio_a_reg(rf, 0);
 	}
 #endif
 
@@ -152,9 +169,21 @@ bool halrf_config_radio_b_reg(void *rf_void, bool is_form_folder,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_radio_b_reg(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_radio_b_reg(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_radio_b_reg(rf, 0);
 	}
 #endif
 
@@ -198,9 +227,21 @@ bool halrf_config_store_power_by_rate(void *rf_void,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_power_by_rate(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_power_by_rate(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_power_by_rate(rf, 0);
 	}
 #endif
 
@@ -260,10 +301,23 @@ bool halrf_config_store_power_limit(void *rf_void,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_power_limit(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_power_limit(rf, 0);
 		halrf_config_8852c_store_power_limit_6g(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_power_limit(rf, 0);
+		halrf_config_8852d_store_power_limit_6g(rf, 0);
 	}
 #endif
 
@@ -284,12 +338,12 @@ bool halrf_config_store_power_limit(void *rf_void,
 		halrf_config_8852bp_store_power_limit(rf, 0);
 	}
 #endif
+
 #ifdef RF_8730A_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8730A) {
 		halrf_config_8730a_store_power_limit(rf, 0);
 	}
 #endif
-
 
 #ifdef RF_8851B_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8851B) {
@@ -319,10 +373,23 @@ bool halrf_config_store_power_limit_ru(void *rf_void,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_power_limit_ru(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_power_limit_ru(rf, 0);
 		halrf_config_8852c_store_power_limit_ru_6g(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_power_limit_ru(rf, 0);
+		halrf_config_8852d_store_power_limit_ru_6g(rf, 0);
 	}
 #endif
 
@@ -377,9 +444,21 @@ bool halrf_config_store_power_track(void *rf_void,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_pwr_track(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_pwr_track(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_pwr_track(rf, 0);
 	}
 #endif
 
@@ -434,9 +513,21 @@ bool halrf_config_store_xtal_track(void *rf_void,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_xtal_track(rf, 0);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_xtal_track(rf, 0);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_xtal_track(rf, 0);
 	}
 #endif
 
@@ -445,6 +536,7 @@ bool halrf_config_store_xtal_track(void *rf_void,
 		halrf_config_8852bp_store_xtal_track(rf, 0);
 	}
 #endif
+
 #ifdef RF_8730A_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8730A) {
 		halrf_config_8730a_store_xtal_track(rf, 0);
@@ -480,10 +572,24 @@ bool halrf_config_radio(void *rf_void, enum phl_phy_idx phy)
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_radio_a_reg(rf, phy);
+		halrf_config_8852bt_radio_b_reg(rf, phy);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_radio_b_reg(rf, phy);
 		halrf_config_8852c_radio_a_reg(rf, phy);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_radio_b_reg(rf, phy);
+		halrf_config_8852d_radio_a_reg(rf, phy);
 	}
 #endif
 
@@ -507,6 +613,7 @@ bool halrf_config_radio(void *rf_void, enum phl_phy_idx phy)
 		halrf_config_8852bp_radio_a_reg(rf, phy);
 	}
 #endif
+
 #ifdef RF_8730A_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8730A) {
 		halrf_config_8730a_radio_a_reg(rf, phy);
@@ -540,9 +647,21 @@ bool halrf_config_power_by_rate(void *rf_void, enum phl_phy_idx phy)
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_power_by_rate(rf, phy);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_power_by_rate(rf, phy);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_power_by_rate(rf, phy);
 	}
 #endif
 
@@ -596,10 +715,23 @@ bool halrf_config_power_limit(void *rf_void, enum phl_phy_idx phy)
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_power_limit(rf, phy);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_power_limit(rf, phy);
 		halrf_config_8852c_store_power_limit_6g(rf, phy);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_power_limit(rf, phy);
+		halrf_config_8852d_store_power_limit_6g(rf, phy);
 	}
 #endif
 
@@ -649,6 +781,12 @@ bool halrf_config_power_limit_6g(void *rf_void, enum phl_phy_idx phy)
 		break;
 #endif
 
+#ifdef RF_8852D_SUPPORT
+	case RF_RTL8852D:
+		halrf_config_8852d_store_power_limit_6g(rf, phy);
+		break;
+#endif
+
 #ifdef RF_8852BP_SUPPORT
 	case RF_RTL8852BP:
 		halrf_config_8852bp_store_power_limit_6g(rf, phy);
@@ -686,10 +824,23 @@ bool halrf_config_power_limit_ru(void *rf_void, enum phl_phy_idx phy)
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_power_limit_ru(rf, phy);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_power_limit_ru(rf, phy);
 		halrf_config_8852c_store_power_limit_ru_6g(rf, phy);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_power_limit_ru(rf, phy);
+		halrf_config_8852d_store_power_limit_ru_6g(rf, phy);
 	}
 #endif
 
@@ -738,6 +889,12 @@ bool halrf_config_power_limit_ru_6g(void *rf_void, enum phl_phy_idx phy)
 		break;
 #endif
 
+#ifdef RF_8852D_SUPPORT
+	case RF_RTL8852D:
+		halrf_config_8852d_store_power_limit_ru_6g(rf, phy);
+		break;
+#endif
+
 #ifdef RF_8852BP_SUPPORT
 	case RF_RTL8852BP:
 		halrf_config_8852bp_store_power_limit_ru_6g(rf, phy);
@@ -775,9 +932,21 @@ bool halrf_config_power_track(void *rf_void, enum phl_phy_idx phy)
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_pwr_track(rf, phy);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_pwr_track(rf, phy);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_pwr_track(rf, phy);
 	}
 #endif
 
@@ -831,9 +1000,21 @@ bool halrf_config_xtal_track(void *rf_void, enum phl_phy_idx phy)
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_config_8852bt_store_xtal_track(rf, phy);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_config_8852c_store_xtal_track(rf, phy);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_config_8852d_store_xtal_track(rf, phy);
 	}
 #endif
 
@@ -894,7 +1075,7 @@ void halrf_config_limit_default(void *rf_void)
 			for (bf = 0; bf < PW_LMT_MAX_BF_NUM; bf++) {
 				for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 					for (bw = 0; bw < PW_LMT_MAX_BANDWIDTH_NUM; bw++) {
-						for (reg = 0; reg < PW_LMT_MAX_REGULATION_NUM; reg++)
+						for (reg = 0; reg < PW_LMT_MAX_6G_REGULATION_NUM; reg++)
 							pwr->tx_pwr_limit_6g[reg][bw][rate][bf][ch][tx_num] = -128;
 					}
 				}
@@ -928,7 +1109,7 @@ void halrf_config_limit_default(void *rf_void)
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_6G; ch++) {
 			for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 				for (bw = 0; bw < PW_LMT_RU_BW_NULL; bw++) {
-					for (reg = 0; reg < PW_LMT_MAX_REGULATION_NUM; reg++)
+					for (reg = 0; reg < PW_LMT_MAX_6G_REGULATION_NUM; reg++)
 						pwr->tx_pwr_limit_ru_6g[reg][bw][rate][ch][tx_num] = -128;
 				}
 			}
@@ -980,6 +1161,12 @@ void halrf_cfg_radio_b_w_bt_status(void *rf_void, bool bt_connect)
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_cfg_8852c_radio_b_w_bt_status(rf, bt_connect);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_cfg_8852d_radio_b_w_bt_status(rf, bt_connect);
 	}
 #endif
 

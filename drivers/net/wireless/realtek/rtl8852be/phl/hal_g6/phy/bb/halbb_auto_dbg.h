@@ -28,10 +28,6 @@
 /*@--------------------------[Define] ---------------------------------------*/
 
 /*@--------------------------[Enum]------------------------------------------*/
-enum bb_auto_dbg_t {
-	AUTO_DBG_CHECK_HANG	= BIT(0),
-	AUTO_DBG_CHECK_TX	= BIT(1)
-};
 
 /*@--------------------------[Structure]-------------------------------------*/
 
@@ -42,14 +38,19 @@ struct bb_chk_hang_info {
 };
 
 struct bb_auto_dbg_info {
-	enum bb_auto_dbg_t auto_dbg_type;
+	u32 auto_dbg_type; /*enum bb_auto_dbg_t*/
 	struct bb_chk_hang_info bb_chk_hang_i;
+	struct bb_bkp_pmac_info bb_bkp_pmac_i;
+	struct bb_bkp_phy_utility_info bb_bkp_phy_utility_i;
 };
 
 struct bb_info;
 /*@--------------------------[Prptotype]-------------------------------------*/
-void halbb_auto_debug(struct bb_info *bb);
+void halbb_auto_debug_watchdog(struct bb_info *bb);
 void halbb_auto_debug_init(struct bb_info *bb);
+void halbb_auto_debug_dbg(struct bb_info *bb, char input[][16], 
+			  u32 *_used, char *output, u32 *_out_len);
+
 #endif
 #endif
 

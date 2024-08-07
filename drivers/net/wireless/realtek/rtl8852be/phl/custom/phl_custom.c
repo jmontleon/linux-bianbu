@@ -18,6 +18,7 @@
 #ifdef CONFIG_PHL_CUSTOM_FEATURE_FB
 #include "phl_custom_fb.h"
 #endif
+#include "phl_custom_antenna.h"
 
 #ifdef CONFIG_PHL_CUSTOM_FEATURE
 
@@ -156,6 +157,9 @@ _phl_custom_hdl_internal_evt(void* dispr,
 			break;
 		case CUS_ID_FB:
 			ret = phl_custom_hdl_fb_evt(dispr, ctx, &(ctx->fb_ctx), msg);
+			break;
+		case CUS_ID_ANT_TOOL:
+			ret = phl_custom_antenna_cmd_hdlr(dispr, ctx, msg);
 			break;
 		default:
 			ret = MDL_RET_IGNORE;

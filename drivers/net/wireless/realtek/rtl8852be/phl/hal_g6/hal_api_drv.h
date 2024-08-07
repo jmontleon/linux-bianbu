@@ -20,6 +20,7 @@ u32 rtw_hal_mac_coex_reg_read(struct rtw_hal_com_t *hal_com, u32 offset, u32 *va
 u32 rtw_hal_mac_coex_reg_write(struct rtw_hal_com_t *hal_com, u32 offset, u32 value);
 u32 rtw_hal_mac_set_scoreboard(struct rtw_hal_com_t *hal_com, u32 *value);
 u32 rtw_hal_mac_get_scoreboard(struct rtw_hal_com_t *hal_com, u32 *value);
+u32 rtw_hal_mac_set_grant_act(struct rtw_hal_com_t *hal_com, u8 *value);
 u32 rtw_hal_mac_set_grant(struct rtw_hal_com_t *hal_com, u8 *value);
 u32 rtw_hal_mac_get_grant(struct rtw_hal_com_t *hal_com, u8 *value);
 u32 rtw_hal_mac_set_polluted(struct rtw_hal_com_t *hal_com, u8 band, u8 tx_val, u8 rx_val);
@@ -204,6 +205,10 @@ void rtw_hal_btc_power_on_ntfy(void *hinfo);
 void rtw_hal_btc_power_off_ntfy(void *hinfo);
 
 enum rtw_hal_status
+rtw_hal_pause_tx_fifo_sw(void *hal, u8 band_idx,
+			bool tx_pause, enum tx_pause_rson rson);
+
+enum rtw_hal_status
 rtw_hal_tx_pause(struct rtw_hal_com_t *hal_com,
 			u8 band_idx, bool tx_pause, enum tx_pause_rson rson);
 
@@ -214,10 +219,6 @@ rtw_hal_mac_set_macid_pause(struct rtw_hal_com_t *hal_com,
 enum rtw_hal_status
 rtw_hal_mac_set_macid_grp_pause(struct rtw_hal_com_t *hal_com,
                             u32 *macid_arr, u8 macid_arr_sz, bool pause);
-
-enum rtw_hal_status
-rtw_hal_mac_set_macid_pause_sleep(struct rtw_hal_com_t *hal_com,
-                            u16 macid, bool pause, bool sleep);
 
 enum rtw_hal_status
 rtw_hal_mac_set_macid_pkt_drop(struct rtw_hal_com_t *hal_com,
@@ -316,6 +317,9 @@ rtw_hal_bb_ctrl_btg(struct rtw_hal_com_t *hal_com, bool btg);
 enum rtw_hal_status
 rtw_hal_bb_ctrl_btc_preagc(struct rtw_hal_com_t *hal_com, bool bt_en);
 
+void
+rtw_hal_bb_npath_en_update(struct rtw_hal_com_t *hal_com, bool npath_en);
+
 enum rtw_hal_status
 rtw_hal_bb_cfg_rx_path(struct rtw_hal_com_t *hal_com, u8 rx_path, u8 phy_idx);
 
@@ -375,7 +379,6 @@ rtw_hal_mac_write_log_efuse_bt_map(struct rtw_hal_com_t *hal_com,
                             u32 map_size,
                             u8 *mask,
                             u32 mask_size);
-
 
 enum rtw_hal_status
 rtw_hal_bb_backup_info(struct rtw_hal_com_t *hal_com, u8 cur_phy_idx);
@@ -443,15 +446,16 @@ rtw_hal_cmd_notify(struct rtw_phl_com_t *phl_com,
                    void *hal_cmd,
                    u8 hw_idx);
 
+#ifdef CONFIG_PHL_DIAGNOSE
+void rtw_hal_bb_diagnostic_event(struct rtw_hal_com_t *hal, u8 type,
+		u8 level, u8 version, u8 *buf, u32 len);
+
+void rtw_hal_rf_diagnostic_event(struct rtw_hal_com_t *hal, u8 type,
+		u8 level, u8 version, u8 *buf, u32 len);
+#endif
+
 enum rtw_hal_status rtw_hal_mac_add_cmd_ofld(struct rtw_hal_com_t *hal_com, struct rtw_mac_cmd *cmd);
 enum rtw_hal_status rtw_hal_mac_cmd_ofld(struct rtw_hal_com_t *hal_com);
-#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-void
-rtw_hal_bb_fwofld_cfgcr_start(struct rtw_hal_com_t *hal_com);
-void
-rtw_hal_bb_fwofld_cfgcr_end(struct rtw_hal_com_t *hal_com);
-
-#endif
 
 void rtw_hal_bb_env_rpt(struct rtw_hal_com_t *hal_com, struct rtw_env_report *env_rpt,
 		     enum phl_phy_idx phy_indx);
@@ -483,4 +487,10 @@ rtw_hal_bb_adc_cfg(struct rtw_hal_com_t *hal_com,
 
 void rtw_hal_rf_set_ant_main_or_aux(void *hal, enum rf_path path, bool main);
 
+struct halrf_fem_info rtw_hal_rf_efem_info(struct rtw_hal_com_t *hal_com);
+
+enum rtw_hal_status
+rtw_hal_mac_sr_update(struct rtw_hal_com_t *hal_com,
+                      void *sr_info,
+                      u8 hw_band);
 #endif /*_HAL_API_DRV_H_*/

@@ -192,40 +192,39 @@ _cmd_scan_update_chlist(void *drv, struct rtw_phl_scan_param *param,
 			u8 sctrl_idx, bool is_cckphy)
 {
 	u8 idx = 0;
-	enum band_type sel_band = BAND_MAX;
 	struct cmd_scan_ctrl *sctrl = NULL;
 
 	INIT_LIST_HEAD(&param->sctrl[sctrl_idx].chlist.queue);
 
-	if(param->sctrl_num > 1) {
+	if (param->sctrl_num > 1) {
 
 		sctrl = &param->sctrl[sctrl_idx];
-
-		if(is_cckphy)
-			sel_band = BAND_ON_24G;
-		else
-			sel_band = BAND_ON_5G;
-
 		sctrl->is_cckphy = is_cckphy;
 
-		PHL_INFO("%s[%d]:: is_cckphy:%d, sel_band:%d\n",
-			__func__, sctrl_idx, is_cckphy, sel_band);
+		PHL_INFO("%s[%d]:: is_cckphy:%d\n",
+			__func__, sctrl_idx, is_cckphy);
 
 
 		/* 1,2,3,[36],4,5,6,[36],7,8,9,[36],10,11*/
 		/* 36,[36],40,44,48,[36],52,56,60,[36]...*/
 		/* --->  1,2,3,4,5,6,7,8,9,10,11*/
 		/* --->  [36],[36],[36],36,[36],40,44,48,[36]*/
-		for(idx = 0; idx < param->ch_num; idx++) {
-			if(param->ch[idx].band == sel_band) {
-				INIT_LIST_HEAD(&param->ch[idx].list);
-				pq_push(drv, &sctrl->chlist, &param->ch[idx].list, _tail, _ps);
-			}
+		for (idx = 0; idx < param->ch_num; idx++) {
+
+			if (is_cckphy && (param->ch[idx].band == BAND_ON_5G ||
+			    param->ch[idx].band == BAND_ON_6G))
+				continue;
+
+			if (!is_cckphy && param->ch[idx].band == BAND_ON_24G)
+				continue;
+
+			INIT_LIST_HEAD(&param->ch[idx].list);
+			pq_push(drv, &sctrl->chlist, &param->ch[idx].list, _tail, _ps);
+
 		}
-	}
-	else {
+	} else {
 		param->sctrl[0].is_cckphy = is_cckphy;
-		for(idx = 0; idx < param->ch_num; idx++) {
+		for (idx = 0; idx < param->ch_num; idx++) {
 			INIT_LIST_HEAD(&param->ch[idx].list);
 			pq_push(drv, &param->sctrl[0].chlist, &param->ch[idx].list, _tail, _ps);
 		}
@@ -467,16 +466,19 @@ void _cmd_scan_end(
 	_os_cancel_timer(drv, &sctrl->scan_timer);
 	_os_release_timer(drv, &sctrl->scan_timer);
 
-	if(TEST_SCAN_FLAG(param->state, band_idx, CMD_SCAN_STARTED) &&
-	   !TEST_SCAN_FLAG(param->state, band_idx, CMD_SCAN_DF_IO) )
-	{
-		rtw_hal_com_scan_restore_tx_lifetime(phl_info->hal, band_idx);
+	if (TEST_SCAN_FLAG(param->state, band_idx, CMD_SCAN_STARTED)) {
+		if (!TEST_SCAN_FLAG(param->state, band_idx, CMD_SCAN_DF_IO)) {
+			rtw_hal_com_scan_restore_tx_lifetime(phl_info->hal, band_idx);
 
-		rtw_hal_scan_set_rxfltr_by_mode(phl_info->hal, band_idx,
-						false, &sctrl->fltr_mode);
-		rtw_hal_scan_pause_tx_fifo(phl_info->hal, band_idx, false);
+			rtw_hal_scan_set_rxfltr_by_mode(phl_info->hal, band_idx,
+							false, &sctrl->fltr_mode);
+			rtw_hal_scan_pause_tx_fifo(phl_info->hal, band_idx, false);
 
-		rtw_hal_notification(phl_info->hal, MSG_EVT_SCAN_END, band_idx);
+			rtw_hal_notification(phl_info->hal, MSG_EVT_SCAN_END, band_idx);
+		} else {
+			rtw_hal_pause_tx_fifo_sw(phl_info->hal, band_idx, false,
+							PAUSE_RSON_NOR_SCAN);
+		}
 	}
 error:
 	if (indicate) {
@@ -521,24 +523,24 @@ void _cmd_abort_notify(void *dispr, void *drv,
 	{
 		param->result = SCAN_REQ_CANCEL;
 
+		SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_FG_MDL_SCAN);
+		SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_SCAN_END);
+
+		msg.inbuf = (u8*)param;    /* for _cmd_abort_notify_cb */
+		msg.band_idx = band_idx;
+
 		sctrl_idx = phl_cmd_scan_ctrl(param, band_idx, &sctrl);
-		if(sctrl == NULL) {
+		if (sctrl == NULL) {
 			PHL_ERR("%s: find sctrl failed\n", __func__);
 			_cmd_abort_notify_cb(drv, &msg);
 			return;
 		}
+		msg.rsvd[0].ptr = (u8*)sctrl->wrole;
 
-		SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_FG_MDL_SCAN);
-		SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_SCAN_END);
-
-		if(abort)
+		if (abort)
 			attr.opt = MSG_OPT_SEND_IN_ABORT;
 		attr.completion.completion = _cmd_abort_notify_cb;
 		attr.completion.priv = drv;
-
-		msg.inbuf = (u8*)param;    /* for _cmd_abort_notify_cb */
-		msg.rsvd[0].ptr = (u8*)sctrl->wrole;
-		msg.band_idx = band_idx;
 
 		pstatus = phl_disp_eng_send_msg(phl, &msg, &attr, NULL);
 		if (RTW_PHL_STATUS_SUCCESS != pstatus) {
@@ -1175,7 +1177,13 @@ _phl_cmd_scan_select_wrole(struct phl_info_t *phl_info,
 		rlink = &(param->wifi_role->rlink[RTW_RLINK_PRIMARY]);
 		if(rlink->hw_band == HW_BAND_1)
 			band_idx = HW_BAND_0;
-		rlink = phl_mr_get_first_rlink_by_band(phl_info, band_idx);
+		#ifdef CONFIG_DBCC_P2P_BG_LISTEN
+		if (param->back_op.mode == SCAN_BKOP_TIMER)
+			rlink = phl_mr_get_first_rlink_by_band_ex(phl_info, band_idx, false);
+		else
+		#endif
+			rlink = phl_mr_get_first_rlink_by_band(phl_info, band_idx);
+
 		if (rlink != NULL)
 			return rlink->wrole;
 		else

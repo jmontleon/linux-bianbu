@@ -35,12 +35,9 @@ _PHL_FILES := $(phl_path)phl_init.o \
 			$(phl_path)phl_connect.o \
 			$(phl_path)phl_chan_info.o \
 			$(phl_path)phl_wow.o\
+			$(phl_path)phl_tdls.o\
 			$(phl_path)phl_dm.o \
-			$(phl_path)phl_chnlplan.o \
-			$(phl_path)phl_country.o \
-			$(phl_path)phl_chnlplan_6g.o \
 			$(phl_path)phl_regulation.o \
-			$(phl_path)phl_regulation_6g.o \
 			$(phl_path)phl_led.o \
 			$(phl_path)phl_trx_mit.o \
 			$(phl_path)phl_acs.o \
@@ -59,7 +56,8 @@ _PHL_FILES := $(phl_path)phl_init.o \
 			$(phl_path)phl_ext_tx_pwr_lmt.o \
 			$(phl_path)phl_dfs.o \
 			$(phl_path)phl_scanofld.o \
-			$(phl_path)phl_ie.o
+			$(phl_path)phl_ie.o \
+			$(phl_path)phl_diagnose.o
 
 ifeq ($(CONFIG_POWER_SAVE), y)
 _PHL_FILES += $(phl_path)phl_ps.o \

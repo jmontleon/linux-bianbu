@@ -32,24 +32,6 @@ static void rtw_mi_pci_tasklets_kill(_adapter *padapter)
 #endif
 
 /********************************xmit section*****************************/
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-#ifdef CONFIG_RTW_TX_AMSDU_USE_WQ
-static void pci_xmit_workitem(_workitem *work)
-{
-	_workitem_cpu *pworkitem_cpu = container_of(work, _workitem_cpu, wk);
-	struct xmit_priv *pxmitpriv = container_of(pworkitem_cpu, struct xmit_priv, xmit_workitem);
-	_adapter *padapter = container_of(pxmitpriv, _adapter, xmitpriv);
-	core_tx_amsdu_handler(padapter);
-}
-#else
-static void pci_xmit_tasklet(unsigned long data)
-{
-	_adapter *padapter = (_adapter *) data;
-	core_tx_amsdu_handler(padapter);
-}
-#endif
-#endif
-
 s32 pci_init_xmit_priv(_adapter *adapter)
 {
 	s32 ret = _SUCCESS;
@@ -57,17 +39,6 @@ s32 pci_init_xmit_priv(_adapter *adapter)
 	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
 
 	_rtw_spinlock_init(&dvobj_to_pci(dvobj)->irq_th_lock);
-
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-#ifdef CONFIG_RTW_TX_AMSDU_USE_WQ
-	_config_workitem_cpu(&pxmitpriv->xmit_workitem, "AMSDU", CPU_ID_TX_AMSDU);
-	_init_workitem_cpu(&pxmitpriv->xmit_workitem, pci_xmit_workitem, NULL);
-#else
-	rtw_tasklet_init(&pxmitpriv->xmit_tasklet,
-		     pci_xmit_tasklet,
-		     (unsigned long) adapter);
-#endif
-#endif
 
 	return ret;
 }

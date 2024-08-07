@@ -518,7 +518,7 @@ void rtw_vht_get_dft_setting(_adapter *padapter,
 }
 
 /* Initialized vhtpriv by adapter real setting */
-void rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link)
+void rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, bool log)
 {
 #ifdef CONFIG_BEAMFORMING
 	BOOLEAN bHwSupportBeamformer = _FALSE, bHwSupportBeamformee = _FALSE;
@@ -551,7 +551,8 @@ void rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter
 		SET_FLAG(pvhtpriv->ldpc_cap, LDPC_VHT_ENABLE_TX);
 
 	if (pvhtpriv->ldpc_cap)
-		RTW_INFO("[VHT] Support LDPC = 0x%02X\n", pvhtpriv->ldpc_cap);
+		if (log)
+			RTW_INFO("[VHT] Support LDPC = 0x%02X\n", pvhtpriv->ldpc_cap);
 
 	/* STBC */
 	if (proto_cap->stbc_vht_tx)
@@ -563,17 +564,20 @@ void rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter
 	}
 
 	if (pvhtpriv->stbc_cap)
-		RTW_INFO("[VHT] Support STBC = 0x%02X\n", pvhtpriv->stbc_cap);
+		if (log)
+			RTW_INFO("[VHT] Support STBC = 0x%02X\n", pvhtpriv->stbc_cap);
 
 	/* Beamforming setting */
 	CLEAR_FLAGS(pvhtpriv->beamform_cap);
 #ifdef CONFIG_BEAMFORMING
 	if (proto_cap->vht_su_bfmr) {
 		SET_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_BEAMFORMER_ENABLE);
-		RTW_INFO("[VHT] HAL Support Beamformer\n");
+		if (log)
+			RTW_INFO("[VHT] HAL Support Beamformer\n");
 		if (proto_cap->vht_mu_bfmr) {
 			SET_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_MU_MIMO_AP_ENABLE);
-			RTW_INFO("[VHT] Support MU-MIMO AP\n");
+			if (log)
+				RTW_INFO("[VHT] Support MU-MIMO AP\n");
 		}
 	}
 
@@ -583,10 +587,12 @@ void rtw_vht_get_real_setting(_adapter *padapter, struct _ADAPTER_LINK *padapter
 		rtw_hal_get_def_var(padapter, padapter_link, HAL_DEF_BEAMFORMEE_CAP, (u8 *)&bfme_sts);
 		pvhtpriv->bfme_sts = bfme_sts;
 		SET_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_BEAMFORMEE_ENABLE);
-		RTW_INFO("[VHT] HAL Support Beamformee\n");
+		if (log)
+			RTW_INFO("[VHT] HAL Support Beamformee\n");
 		if (proto_cap->vht_mu_bfme) {
 			SET_FLAG(pvhtpriv->beamform_cap, BEAMFORMING_VHT_MU_MIMO_STA_ENABLE);
-			RTW_INFO("[VHT] Support MU-MIMO STA\n");
+			if (log)
+				RTW_INFO("[VHT] Support MU-MIMO STA\n");
 		}
 	}
 #endif
@@ -1105,31 +1111,37 @@ void rtw_process_vht_op_mode_notify(_adapter *padapter, u8 *pframe, void *sta)
 }
 
 u32	rtw_build_vht_operation_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
-			u8 *pbuf, u8 channel)
+			u8 *pbuf, enum band_type band, u8 channel)
 {
 	struct registry_priv	*pregistrypriv = &padapter->registrypriv;
 	struct link_mlme_priv		*pmlmepriv = &padapter_link->mlmepriv;
 	struct vht_priv			*pvhtpriv = &pmlmepriv->vhtpriv;
 	/* struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv; */
 
-	u8	ChnlWidth, center_freq, bw_mode;
+	u8	ChnlWidth, center_freq, bw_mode = CHANNEL_WIDTH_20;
 	u32	len = 0;
 	u8	operation[5];
-	struct rtw_chan_def chdef = {0};
 
 	_rtw_memset(operation, 0, 5);
 
-	bw_mode = REGSTY_BW_5G(pregistrypriv); /* TODO: control op bw with other info */
+	/* TODO: control op bw with other info */
+	if (band == BAND_ON_24G)
+		bw_mode = REGSTY_BW_2G(pregistrypriv);
+#if CONFIG_IEEE80211_BAND_5GHZ
+	else if (band == BAND_ON_5G)
+		bw_mode = REGSTY_BW_5G(pregistrypriv);
+#endif
+#if CONFIG_IEEE80211_BAND_6GHZ
+	else if (band == BAND_ON_6G)
+		bw_mode = REGSTY_BW_6G(pregistrypriv);
+#endif
+	else
+		rtw_warn_on(1);
 
 	if (rtw_hw_chk_bw_cap(adapter_to_dvobj(padapter), BW_CAP_80M | BW_CAP_160M)
-		&& REGSTY_BW_5G(pregistrypriv) >= CHANNEL_WIDTH_80
-		) {
-		chdef.chan = channel;
-		chdef.bw = bw_mode;
-		chdef.offset = CHAN_OFFSET_UPPER;
-		chdef.band = rtw_get_band_type(channel);
-
-		center_freq = rtw_phl_get_center_ch(&chdef);
+		&& bw_mode >= CHANNEL_WIDTH_80
+	) {
+		center_freq = rtw_get_center_ch_by_band(band, channel, bw_mode, CHAN_OFFSET_NO_EXT);
 		ChnlWidth = CH_WIDTH_80_160M;
 	} else {
 		center_freq = 0;
@@ -1177,7 +1189,7 @@ u32	rtw_build_vht_op_mode_notify_ie(_adapter *padapter, struct _ADAPTER_LINK *pa
 	return len;
 }
 
-u32	rtw_build_vht_cap_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf)
+u32	rtw_build_vht_cap_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 *pbuf, bool log)
 {
 	u8 bw;
 	u16 HighestRate;
@@ -1390,18 +1402,17 @@ u8 rtw_vht_get_oper_bw(u8 *ht_op_ie, u8 *vht_cap_ie, u8 *vht_op_ie, u8 oper_bw)
 
 
 u32 rtw_restructure_vht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
-					u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, u8 channel)
+					u8 *in_ie, u8 *out_ie, uint in_len, uint *pout_len, enum band_type band)
 {
 	u32	ielen;
-	u8 max_bw;
+	u8 max_bw = CHANNEL_WIDTH_20;
 	u8 oper_ch, oper_bw = CHANNEL_WIDTH_20, oper_offset = CHAN_OFFSET_NO_EXT;
 	u8 *out_vht_op_ie, *ht_op_ie, *vht_cap_ie, *vht_op_ie;
-	enum band_type band = rtw_is_2g_ch(channel) ? BAND_ON_24G : BAND_ON_5G;
 	struct registry_priv *pregistrypriv = &padapter->registrypriv;
 	struct link_mlme_priv	*pmlmepriv = &padapter_link->mlmepriv;
 	struct vht_priv	*pvhtpriv = &pmlmepriv->vhtpriv;
 
-	rtw_vht_get_real_setting(padapter, padapter_link);
+	rtw_vht_get_real_setting(padapter, padapter_link, _TRUE);
 
 	ht_op_ie = rtw_get_ie(in_ie + 12, WLAN_EID_HT_OPERATION, &ielen, in_len - 12);
 	if (!ht_op_ie || ielen != HT_OP_IE_LEN)
@@ -1414,7 +1425,7 @@ u32 rtw_restructure_vht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_li
 		goto exit;
 
 	/* VHT Capabilities element */
-	*pout_len += rtw_build_vht_cap_ie(padapter, padapter_link, out_ie + *pout_len);
+	*pout_len += rtw_build_vht_cap_ie(padapter, padapter_link, out_ie + *pout_len, _TRUE);
 
 
 	/* VHT Operation element */
@@ -1425,10 +1436,19 @@ u32 rtw_restructure_vht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_li
 	oper_ch = GET_HT_OP_ELE_PRI_CHL(ht_op_ie + 2);
 
 	/* find the largest bw supported by both registry and hal */
-	if (band == BAND_ON_5G)
-		max_bw = rtw_hw_largest_bw(adapter_to_dvobj(padapter), REGSTY_BW_5G(pregistrypriv));
-	else if (band == BAND_ON_24G)
-		max_bw = rtw_hw_largest_bw(adapter_to_dvobj(padapter), REGSTY_BW_2G(pregistrypriv));
+	if (band == BAND_ON_24G)
+		max_bw = REGSTY_BW_2G(pregistrypriv);
+#if CONFIG_IEEE80211_BAND_5GHZ
+	else if (band == BAND_ON_5G)
+		max_bw = REGSTY_BW_5G(pregistrypriv);
+#endif
+#if CONFIG_IEEE80211_BAND_6GHZ
+	else if (band == BAND_ON_6G)
+		max_bw = REGSTY_BW_6G(pregistrypriv);
+#endif
+	else
+		rtw_warn_on(1);
+	max_bw = rtw_hw_largest_bw(adapter_to_dvobj(padapter), max_bw);
 
 	if (max_bw >= CHANNEL_WIDTH_40) {
 		/* get bw offset form HT_OP_IE */
@@ -1463,15 +1483,7 @@ u32 rtw_restructure_vht_ie(_adapter *padapter, struct _ADAPTER_LINK *padapter_li
 		SET_VHT_OPERATION_ELE_CHL_CENTER_FREQ1(out_vht_op_ie + 2, 0);
 		SET_VHT_OPERATION_ELE_CHL_CENTER_FREQ2(out_vht_op_ie + 2, 0);
 	} else if (oper_bw == CHANNEL_WIDTH_80) {
-		struct rtw_chan_def chdef = {0};
-		u8 cch;
-
-		chdef.chan = oper_ch;
-		chdef.bw = oper_bw;
-		chdef.offset = oper_offset;
-		chdef.band = rtw_get_band_type(oper_ch);
-
-		cch = rtw_phl_get_center_ch(&chdef);
+		u8 cch = rtw_get_center_ch_by_band(band, oper_ch, oper_bw, oper_offset);
 
 		SET_VHT_OPERATION_ELE_CHL_WIDTH(out_vht_op_ie + 2, CH_WIDTH_80_160M);
 		SET_VHT_OPERATION_ELE_CHL_CENTER_FREQ1(out_vht_op_ie + 2, cch);
@@ -1533,7 +1545,7 @@ void rtw_vht_ies_attach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
 	if (p && ie_len > 0)
 		return;
 
-	rtw_vht_get_real_setting(padapter, padapter_link);
+	rtw_vht_get_real_setting(padapter, padapter_link, _TRUE);
 
 	/* VHT Operation mode notifiy bit in Extended IE (127) */
 	rtw_add_ext_cap_info(pmlmepriv->ext_capab_ie_data, &(pmlmepriv->ext_capab_ie_len), OP_MODE_NOTIFICATION);
@@ -1541,12 +1553,12 @@ void rtw_vht_ies_attach(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
 		, &(pnetwork->IELength), _BEACON_IE_OFFSET_);
 
 	/* VHT Capabilities element */
-	cap_len = rtw_build_vht_cap_ie(padapter, padapter_link, pnetwork->IEs + pnetwork->IELength);
+	cap_len = rtw_build_vht_cap_ie(padapter, padapter_link, pnetwork->IEs + pnetwork->IELength, _TRUE);
 	pnetwork->IELength += cap_len;
 
 	/* VHT Operation element */
 	operation_len = rtw_build_vht_operation_ie(padapter, padapter_link, pnetwork->IEs + pnetwork->IELength,
-										pnetwork->Configuration.DSConfig);
+						pnetwork->Configuration.Band, pnetwork->Configuration.DSConfig);
 	pnetwork->IELength += operation_len;
 
 	rtw_check_for_vht20(padapter, pnetwork->IEs + _BEACON_IE_OFFSET_, pnetwork->IELength - _BEACON_IE_OFFSET_);
@@ -1575,8 +1587,8 @@ void rtw_check_for_vht20(_adapter *adapter, u8 *ies, int ies_len)
 	u8 ht_ch, ht_bw, ht_offset;
 	u8 vht_ch, vht_bw, vht_offset;
 
-	rtw_ies_get_chbw(ies, ies_len, &ht_ch, &ht_bw, &ht_offset, 1, 0);
-	rtw_ies_get_chbw(ies, ies_len, &vht_ch, &vht_bw, &vht_offset, 1, 1);
+	rtw_ies_get_bchbw(ies, ies_len, NULL, &ht_ch, &ht_bw, &ht_offset, NULL, NULL, 1, 0, 0);
+	rtw_ies_get_bchbw(ies, ies_len, NULL, &vht_ch, &vht_bw, &vht_offset, NULL, NULL, 1, 1, 0);
 
 	if (ht_bw == CHANNEL_WIDTH_20 && vht_bw >= CHANNEL_WIDTH_80) {
 		u8 *vht_op_ie;
@@ -1598,10 +1610,10 @@ void rtw_update_drv_vht_cap(_adapter *padapter, struct _ADAPTER_LINK *padapter_l
 			u8 *vht_cap_ie)
 {
 	/* Initialize VHT capability element */
-	rtw_vht_get_real_setting(padapter, padapter_link);
+	rtw_vht_get_real_setting(padapter, padapter_link, _TRUE);
 
 	RTW_INFO("Don't setting VHT capability IE from hostap, builded by driver temporarily\n");
-	rtw_build_vht_cap_ie(padapter, padapter_link, vht_cap_ie);
+	rtw_build_vht_cap_ie(padapter, padapter_link, vht_cap_ie, _TRUE);
 }
 
 void rtw_check_vht_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
@@ -1642,8 +1654,10 @@ void rtw_update_probe_rsp_vht_cap(struct _ADAPTER *a, u8 *ies, sint ies_len)
 	sint ie_len;
 
 	vht_cap_ie = rtw_get_ie(ies, WLAN_EID_VHT_CAPABILITY, &ie_len, ies_len);
-	if (vht_cap_ie)
-		rtw_build_vht_cap_ie(a, a_link, vht_cap_ie);
+	if (vht_cap_ie) {
+		rtw_vht_get_real_setting(a, a_link, _FALSE);
+		rtw_build_vht_cap_ie(a, a_link, vht_cap_ie, _TRUE);
+	}
 }
 
 void rtw_reattach_vht_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, WLAN_BSSID_EX *pnetwork)
@@ -1655,17 +1669,15 @@ void rtw_reattach_vht_ies(_adapter *padapter, struct _ADAPTER_LINK *padapter_lin
 
 	RTW_INFO(FUNC_ADPT_FMT"\n", FUNC_ADPT_ARG(padapter));
 
-	if (vht_cap_ie != NULL) {
-		vht_op_ie = rtw_set_ie(vht_cap_ie, EID_VHTCapability, VHT_CAP_IE_LEN,
-			pvhtpriv->vht_cap_ie_backup, &(pnetwork->IELength));
+	vht_op_ie = rtw_set_ie(vht_cap_ie, EID_VHTCapability, VHT_CAP_IE_LEN,
+		pvhtpriv->vht_cap_ie_backup, &(pnetwork->IELength));
 
-		rtw_set_ie(vht_op_ie, EID_VHTOperation, VHT_OP_IE_LEN,
-			pvhtpriv->vht_op_ie_backup, &(pnetwork->IELength));
+	rtw_set_ie(vht_op_ie, EID_VHTOperation, VHT_OP_IE_LEN,
+		pvhtpriv->vht_op_ie_backup, &(pnetwork->IELength));
 
-		rtw_add_ext_cap_info(pmlmepriv->ext_capab_ie_data, &(pmlmepriv->ext_capab_ie_len), OP_MODE_NOTIFICATION);
-		rtw_update_ext_cap_ie(pmlmepriv->ext_capab_ie_data, pmlmepriv->ext_capab_ie_len, pnetwork->IEs \
-		, &(pnetwork->IELength), _BEACON_IE_OFFSET_);
-	}
+	rtw_add_ext_cap_info(pmlmepriv->ext_capab_ie_data, &(pmlmepriv->ext_capab_ie_len), OP_MODE_NOTIFICATION);
+	rtw_update_ext_cap_ie(pmlmepriv->ext_capab_ie_data, pmlmepriv->ext_capab_ie_len, pnetwork->IEs \
+	, &(pnetwork->IELength), _BEACON_IE_OFFSET_);
 
 	pmlmepriv->vhtpriv.vht_option = _TRUE;
 }

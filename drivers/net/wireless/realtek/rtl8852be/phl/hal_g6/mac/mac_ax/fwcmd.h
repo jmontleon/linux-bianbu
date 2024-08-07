@@ -39,6 +39,8 @@
 #define H2C_DATA_LEN		256
 #define H2C_LONG_DATA_LEN	2048
 
+#define H2C_MAX_TOTAL_LEN 2048
+
 #define SET_FWCMD_ID(_t, _ca, _cl, _f)                                         \
 		(SET_WORD(_t, H2C_HDR_DEL_TYPE) | SET_WORD(_ca, H2C_HDR_CAT) | \
 		 SET_WORD(_cl, H2C_HDR_CLASS) | SET_WORD(_f, H2C_HDR_FUNC))
@@ -152,6 +154,16 @@ struct h2c_buf {
 #define H2CB_FLAGS_FREED	BIT(0)
 	u32 flags;
 	u8 h2c_seq;
+};
+
+struct h2c_info {
+	u8 h2c_cat;
+	u8 h2c_class;
+	u8 h2c_func;
+	u8 rec_ack;
+	u8 done_ack;
+	u8 agg_en;
+	u16 content_len;
 };
 
 /**
@@ -630,7 +642,8 @@ u32 mac_process_c2h(struct mac_ax_adapter *adapter, u8 *buf, u32 len,
  * @return Please Place Description here.
  * @retval u8
  */
-u8 c2h_field_parsing(struct fwcmd_hdr *hdr, struct rtw_c2h_info *info);
+u8 c2h_field_parsing(struct mac_ax_adapter *adapter,
+		     struct fwcmd_hdr *hdr, struct rtw_c2h_info *info);
 /**
  * @}
  * @}
@@ -675,6 +688,9 @@ u32 mac_fw_log_cfg(struct mac_ax_adapter *adapter,
  */
 u32 mac_send_bcn_h2c(struct mac_ax_adapter *adapter,
 		     struct mac_ax_bcn_info *info);
+
+u32 mac_set_bcn_dynamic_mech(struct mac_ax_adapter *adapter,
+			     struct mac_ax_bcn_dynamic_mech *bcn_dynamic_mech);
 /**
  * @}
  * @}
@@ -846,5 +862,8 @@ u32 mac_get_c2h_event(struct mac_ax_adapter *adapter,
 
 u32 mac_notify_fw_dbcc(struct mac_ax_adapter *adapter, u8 en);
 
+u32 mac_set_h2c_c2h_mon(struct mac_ax_adapter *adapter, u8 en);
+
+u32 mac_h2c_common(struct mac_ax_adapter *adapter, struct h2c_info *info, u32 *content);
 #endif
 

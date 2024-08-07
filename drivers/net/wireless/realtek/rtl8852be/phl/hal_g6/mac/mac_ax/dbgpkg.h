@@ -32,15 +32,9 @@
 #define RSVD_PLE_OFST_8851B 0x2f800
 #define RSVD_PLE_OFST_8851E 0x6f800
 #define RSVD_PLE_OFST_8852D 0x6f800
+#define RSVD_PLE_OFST_8852BT 0x6f800
 #define FW_RSVD_PLE_DBG_SIZE 0x100
 #define RSVD_PLE_OFST_DBG_START 0x400
-#define SHARE_BUFFER_SIZE_8852A 0x70000
-#define SHARE_BUFFER_SIZE_8852B 0x30000
-#define SHARE_BUFFER_SIZE_8852C 0x70000
-#define SHARE_BUFFER_SIZE_8192XB 0x70000
-#define SHARE_BUFFER_SIZE_8851B 0x30000
-#define SHARE_BUFFER_SIZE_8851E 0x70000
-#define SHARE_BUFFER_SIZE_8852D 0x70000
 #define STA_SCHED_MEM_SIZE 0x1200
 #define RXPLD_FLTR_CAM_MEM_SIZE 0x200
 #define SECURITY_CAM_MEM_SIZE 0x800
@@ -122,6 +116,7 @@
 #define SS_WMM_NUM_8851B   2
 #define SS_WMM_NUM_8851E   4
 #define SS_WMM_NUM_8852D   4
+#define SS_WMM_NUM_8852BT   2
 #define SS_UL_SUPPORT_8852A    1
 #define SS_UL_SUPPORT_8852B    0
 #define SS_UL_SUPPORT_8852C    1
@@ -129,6 +124,7 @@
 #define SS_UL_SUPPORT_8851B    0
 #define SS_UL_SUPPORT_8851E    1
 #define SS_UL_SUPPORT_8852D    1
+#define SS_UL_SUPPORT_8852BT    0
 #define SS_FW_SUPPORT_8852A    1
 #define SS_FW_SUPPORT_8852B    0
 #define SS_FW_SUPPORT_8852C    1
@@ -136,6 +132,7 @@
 #define SS_FW_SUPPORT_8851B    0
 #define SS_FW_SUPPORT_8851E    1
 #define SS_FW_SUPPORT_8852D    1
+#define SS_FW_SUPPORT_8852BT    0
 #define SS_POLL_UNEXPECTED	0xFFFFFFFF
 
 /* MAC debug port */
@@ -1515,4 +1512,65 @@ u32 fw_pc_dbg_dump_ax(struct mac_ax_adapter *adapter);
  * @}
  * @}
  */
+
+/**
+ * @brief mac_test_l12
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_test_l12(struct mac_ax_adapter *adapter);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief c2h_pcie_l12_test
+ *
+ * @param *adapter
+ * @param *buf
+ * @param len
+ * @param *info
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 c2h_pcie_l12_test(struct mac_ax_adapter *adapter, u8 *buf, u32 len,
+		      struct rtw_c2h_info *info);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_get_test_l12_done
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_get_test_l12_done(struct mac_ax_adapter *adapter);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief mac_get_test_l12_rpt
+ *
+ * @param *adapter
+ * @param *test_l12_status_code
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 mac_get_test_l12_rpt(struct mac_ax_adapter *adapter, u32 *test_l12_status_code);
+/**
+ * @}
+ * @}
+ */
+
+u32 mac_dle_status_dump(struct mac_ax_adapter *adapter);
+
+u32 mac_wdt_log(struct mac_ax_adapter *adapter);
 #endif

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2022 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -31,6 +31,7 @@ enum {
 #define RTW_PRINT(x, ...) do {} while (0)
 #define RTW_ERR(x, ...) do {} while (0)
 #define RTW_WARN(x,...) do {} while (0)
+#define RTW_WARN_LMT(x,...) do {} while (0)
 #define RTW_INFO(x,...) do {} while (0)
 #define RTW_DBG(x,...) do {} while (0)
 #define RTW_PRINT_SEL(x,...) do {} while (0)
@@ -75,8 +76,63 @@ enum {
 	#define EX_INFO_FMT	T_PID_FMT CPU_INFO_FMT
 	#define EX_INFO_ARG	T_PID_ARG, CPU_INFO_ARG
 
+	#ifdef RTW_APPEND_LOGLEVEL
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 31))
+	#define KERN_DEFAULT	""
+	#endif
+
+	/* Log level mapping from driver to Linux kernel */
+	#ifndef RTW_LL_PRINT
+	#define RTW_LL_PRINT	KERN_CRIT
+	#endif
+	#ifndef RTW_LL_ERR
+	#define RTW_LL_ERR	KERN_ERR
+	#endif
+	#ifndef RTW_LL_WARN
+	#define RTW_LL_WARN	KERN_WARNING
+	#endif
+	#ifndef RTW_LL_INFO
+	#define RTW_LL_INFO	KERN_INFO
+	#endif
+	#ifndef RTW_LL_DBG
+	#define RTW_LL_DBG	KERN_DEBUG
+	#endif
+	#ifndef RTW_LL_DEFAULT
+	#define RTW_LL_DEFAULT	KERN_DEFAULT
+	#endif
+
+	#define _dbgdump_lv(lv, fmt, arg...)		printk(lv EX_INFO_FMT fmt, EX_INFO_ARG, ##arg)
+	#define _dbgdump_print(fmt, arg...)		_dbgdump_lv(RTW_LL_PRINT, fmt, ##arg)
+	#define _dbgdump_err(fmt, arg...)		_dbgdump_lv(RTW_LL_ERR, fmt, ##arg)
+	#define _dbgdump_warn(fmt, arg...)		_dbgdump_lv(RTW_LL_WARN, fmt, ##arg)
+	#define _dbgdump_info(fmt, arg...)		_dbgdump_lv(RTW_LL_INFO, fmt, ##arg)
+	#define _dbgdump_dbg(fmt, arg...)		_dbgdump_lv(RTW_LL_DBG, fmt, ##arg)
+	#define _dbgdump(fmt, arg...)			_dbgdump_lv(RTW_LL_DEFAULT, fmt, ##arg)
+
+	#define _dbgdump_lv_lmt(lv, fmt, arg...)	printk_ratelimited(lv EX_INFO_FMT fmt, EX_INFO_ARG, ##arg)
+	#define _dbgdump_print_lmt(fmt, arg...)		_dbgdump_lv_lmt(RTW_LL_PRINT, fmt, ##arg)
+	#define _dbgdump_err_lmt(fmt, arg...)		_dbgdump_lv_lmt(RTW_LL_ERR, fmt, ##arg)
+	#define _dbgdump_warn_lmt(fmt, arg...)		_dbgdump_lv_lmt(RTW_LL_WARN, fmt, ##arg)
+	#define _dbgdump_info_lmt(fmt, arg...)		_dbgdump_lv_lmt(RTW_LL_INFO, fmt, ##arg)
+	#define _dbgdump_dbg_lmt(fmt, arg...)		_dbgdump_lv_lmt(RTW_LL_DBG, fmt, ##arg)
+	#define _dbgdump_lmt(fmt, arg...)		_dbgdump_lv_lmt(RTW_LL_DEFAULT, fmt, ##arg)
+
+	#else /* !RTW_APPEND_LOGLEVEL */
+
 	#define _dbgdump(fmt, arg...)	printk(EX_INFO_FMT fmt, EX_INFO_ARG, ##arg)
+	#define _dbgdump_print		_dbgdump
+	#define _dbgdump_err		_dbgdump
+	#define _dbgdump_warn		_dbgdump
+	#define _dbgdump_info		_dbgdump
+	#define _dbgdump_dbg		_dbgdump
+
 	#define _dbgdump_lmt(fmt, arg...)	printk_ratelimited(EX_INFO_FMT fmt, EX_INFO_ARG, ##arg)
+	#define _dbgdump_print_lmt		_dbgdump_lmt
+	#define _dbgdump_err_lmt		_dbgdump_lmt
+	#define _dbgdump_warn_lmt		_dbgdump_lmt
+	#define _dbgdump_info_lmt		_dbgdump_lmt
+	#define _dbgdump_dbg_lmt		_dbgdump_lmt
+	#endif /* !RTW_APPEND_LOGLEVEL */
 
 	#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 24))
 	#define KERN_CONT
@@ -116,7 +172,7 @@ extern uint rtw_drv_log_level;
 #define RTW_PRINT(fmt, arg...)     \
 	do {\
 		if (_DRV_ALWAYS_ <= rtw_drv_log_level) {\
-			_dbgdump(DRIVER_PREFIX fmt, ##arg);\
+			_dbgdump_print(DRIVER_PREFIX fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -124,7 +180,7 @@ extern uint rtw_drv_log_level;
 #define RTW_PRINT_LMT(fmt, arg...)     \
 	do {\
 		if (_DRV_ALWAYS_ <= rtw_drv_log_level) {\
-			_dbgdump_lmt(DRIVER_PREFIX fmt, ##arg);\
+			_dbgdump_print_lmt(DRIVER_PREFIX fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -132,7 +188,7 @@ extern uint rtw_drv_log_level;
 #define RTW_ERR(fmt, arg...)     \
 	do {\
 		if (_DRV_ERR_ <= rtw_drv_log_level) {\
-			_dbgdump(DRIVER_PREFIX "ERROR " fmt, ##arg);\
+			_dbgdump_err(DRIVER_PREFIX "ERROR " fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -140,7 +196,7 @@ extern uint rtw_drv_log_level;
 #define RTW_ERR_LMT(fmt, arg...)     \
 	do {\
 		if (_DRV_ERR_ <= rtw_drv_log_level) {\
-			_dbgdump_lmt(DRIVER_PREFIX "ERROR " fmt, ##arg);\
+			_dbgdump_err_lmt(DRIVER_PREFIX "ERROR " fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -148,7 +204,7 @@ extern uint rtw_drv_log_level;
 #define RTW_WARN(fmt, arg...)     \
 	do {\
 		if (_DRV_WARNING_ <= rtw_drv_log_level) {\
-			_dbgdump(DRIVER_PREFIX "WARN " fmt, ##arg);\
+			_dbgdump_warn(DRIVER_PREFIX "WARN " fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -156,7 +212,7 @@ extern uint rtw_drv_log_level;
 #define RTW_WARN_LMT(fmt, arg...)     \
 	do {\
 		if (_DRV_WARNING_ <= rtw_drv_log_level) {\
-			_dbgdump_lmt(DRIVER_PREFIX "WARN " fmt, ##arg);\
+			_dbgdump_warn_lmt(DRIVER_PREFIX "WARN " fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -164,7 +220,7 @@ extern uint rtw_drv_log_level;
 #define RTW_INFO(fmt, arg...)     \
 	do {\
 		if (_DRV_INFO_ <= rtw_drv_log_level) {\
-			_dbgdump(DRIVER_PREFIX fmt, ##arg);\
+			_dbgdump_info(DRIVER_PREFIX fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -172,7 +228,7 @@ extern uint rtw_drv_log_level;
 #define RTW_INFO_LMT(fmt, arg...)     \
 	do {\
 		if (_DRV_INFO_ <= rtw_drv_log_level) {\
-			_dbgdump_lmt(DRIVER_PREFIX fmt, ##arg);\
+			_dbgdump_info_lmt(DRIVER_PREFIX fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -180,7 +236,7 @@ extern uint rtw_drv_log_level;
 #define RTW_DBG(fmt, arg...)     \
 	do {\
 		if (_DRV_DEBUG_ <= rtw_drv_log_level) {\
-			_dbgdump(DRIVER_PREFIX fmt, ##arg);\
+			_dbgdump_dbg(DRIVER_PREFIX fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -188,7 +244,7 @@ extern uint rtw_drv_log_level;
 #define RTW_DBG_LMT(fmt, arg...)     \
 	do {\
 		if (_DRV_DEBUG_ <= rtw_drv_log_level) {\
-			_dbgdump_lmt(DRIVER_PREFIX fmt, ##arg);\
+			_dbgdump_dbg_lmt(DRIVER_PREFIX fmt, ##arg);\
 		} \
 	} while (0)
 
@@ -537,8 +593,6 @@ int proc_get_sreset(struct seq_file *m, void *v);
 ssize_t proc_set_sreset(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 #endif /* DBG_CONFIG_ERROR_DETECT */
 
-int proc_get_phy_adaptivity(struct seq_file *m, void *v);
-
 #ifdef CONFIG_DBG_COUNTER
 int proc_get_rx_logs(struct seq_file *m, void *v);
 int proc_get_tx_logs(struct seq_file *m, void *v);
@@ -589,6 +643,7 @@ int proc_get_p2p_wowlan_info(struct seq_file *m, void *v);
 #endif /* CONFIG_P2P_WOWLAN */
 
 #ifdef CONFIG_POWER_SAVE
+int proc_get_ps_info(struct seq_file *m, void *v);
 ssize_t proc_set_ps_info(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 #endif /* CONFIG_POWER_SAVE */
 
@@ -684,6 +739,11 @@ int proc_get_tx_ul_mu_disable(struct seq_file *m, void *v);
 ssize_t proc_set_tx_ul_mu_disable(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
 int proc_get_vcs(struct seq_file *m, void *v);
 ssize_t proc_set_vcs(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+
+#ifdef CONFIG_RTW_CSI_CHANNEL_INFO
+int proc_get_csi_ch_info(struct seq_file *m, void *v);
+ssize_t proc_set_csi_ch_info(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data);
+#endif
 
 #define _drv_always_		1
 #define _drv_emerg_			2

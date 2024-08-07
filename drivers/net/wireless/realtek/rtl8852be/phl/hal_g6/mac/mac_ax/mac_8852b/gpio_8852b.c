@@ -18,6 +18,8 @@
 #include "gpio_8852b.h"
 #if MAC_AX_8852B_SUPPORT
 
+#define MAC_AX_GPIO_MAX_8852B (sizeof(PIN_LIST_8852B) / sizeof(struct mac_ax_pin_list *))
+
 /* GPIO0 definition */
 #define GPIO0_BT_GPIO0_8852B	\
 	{MAC_AX_SWGPIO, MAC_AX_GPIO0, MAC_AX_GPIO_IN_OUT, \
@@ -1910,7 +1912,7 @@ u32 mac_set_gpio_func_8852b(struct mac_ax_adapter *adapter,
 	u8 val, is_set = 0;
 	u8 gpio;
 
-	if (gpio_cfg < MAC_AX_GPIO_MIN || gpio_cfg > RTW_MAC_GPIO_MAX) {
+	if (gpio_cfg < MAC_AX_GPIO_MIN || gpio_cfg >= MAC_AX_GPIO_MAX_8852B) {
 		PLTFM_MSG_ERR("The GPIO number is wrong: %d", gpio_cfg);
 		return MACGPIONUM;
 	}
@@ -1938,7 +1940,7 @@ u32 mac_set_gpio_func_8852b(struct mac_ax_adapter *adapter,
 u32 mac_get_gpio_status_8852b(struct mac_ax_adapter *adapter,
 			      enum rtw_mac_gfunc *func, u8 gpio)
 {
-	if (gpio > RTW_MAC_GPIO_MAX) {
+	if (gpio >= MAC_AX_GPIO_MAX_8852B) {
 		PLTFM_MSG_ERR("The GPIO number is wrong: %d", gpio);
 		return MACGPIONUM;
 	}
@@ -1946,5 +1948,15 @@ u32 mac_get_gpio_status_8852b(struct mac_ax_adapter *adapter,
 	*func = mac_get_gpio_status(adapter, PIN_LIST_8852B[gpio]);
 
 	return MACSUCCESS;
+}
+
+u32 mac_cfg_wps_8852b(struct mac_ax_adapter *adapter,
+		      struct mac_ax_cfg_wps *wps)
+{
+	if (wps->gpio >= MAC_AX_GPIO_MAX_8852B) {
+		PLTFM_MSG_ERR("%s: Wrong GPIO num: %d", __func__, wps->gpio);
+		return MACGPIONUM;
+	}
+	return mac_cfg_wps(adapter, wps);
 }
 #endif /* #if MAC_AX_8852B_SUPPORT */

@@ -42,38 +42,36 @@ fail:
 
 static u32 mac_h2c_agg_tx_single_agg_h2c(struct mac_ax_adapter *adapter, u8 *agg_h2cb)
 {
+	u32 ret = MACSUCCESS;
+	struct h2c_info h2c_info = {0};
+	u8 *content;
+	u32 cur_h2cb_len = 0;
 #if MAC_AX_PHL_H2C
 	struct rtw_h2c_pkt *tx_h2cb = (struct rtw_h2c_pkt *)agg_h2cb;
+	cur_h2cb_len = tx_h2cb->data_len;
 #else
 	struct h2c_buf *tx_h2cb = (struct h2c_buf *)agg_h2cb;
-#endif
-	u32 ret = MACSUCCESS;
-
-	ret = h2c_pkt_set_hdr(adapter,
-			      tx_h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD,
-			      FWCMD_H2C_FUNC_H2C_AGG,
-			      0,
-			      0);
-	if (ret)
-		goto fail;
-
-	ret = h2c_pkt_build_txd(adapter, tx_h2cb);
-	if (ret)
-		goto fail;
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(tx_h2cb);
-#else
-	ret = PLTFM_TX(tx_h2cb->data, tx_h2cb->len);
-	if (ret)
-		goto fail;
-	h2cb_free(adapter, tx_h2cb);
+	cur_h2cb_len = tx_h2cb->len;
 #endif
 
-fail:
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = cur_h2cb_len - FWCMD_HDR_LEN;
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_H2C_AGG;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
+
+	content = (u8 *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!content)
+		return MACBUFALLOC;
+
+	PLTFM_MEMCPY(content, (agg_h2cb + FWCMD_HDR_LEN), h2c_info.content_len);
+
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content);
+
+	PLTFM_FREE(content, h2c_info.content_len);
+
 	return ret;
 }
 

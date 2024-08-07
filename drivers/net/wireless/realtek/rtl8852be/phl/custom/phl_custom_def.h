@@ -23,6 +23,8 @@ enum rtw_customer_feature_id {
 	CUS_ID_FB = 1,
 	CUS_ID_XH = 2,
 	CUS_ID_VR = 3,
+
+	CUS_ID_ANT_TOOL = 4,
 	CUS_ID_MAX
 };
 
@@ -94,6 +96,9 @@ enum rtw_msg_custom_evt_id {
 	MSG_EVT_CFG_REGULATORY_DOMAIN = PRIVATE_EVT_START + 59,
 	MSG_EVT_CFG_LED_LIGHTING = PRIVATE_EVT_START + 60,
 	MSD_EVT_SET_ECSA_START = PRIVATE_EVT_START + 61,
+	MSG_EVT_ANT_TOOL_OP_HDLR = PRIVATE_EVT_START + 62,
+	MSG_EVT_SET_SPATIAL_REUSE = PRIVATE_EVT_START + 63,
+	MSG_EVT_GET_SPATIAL_REUSE = PRIVATE_EVT_START + 64
 };
 
 enum custom_type {
@@ -115,16 +120,13 @@ struct rtw_custom_decrpt {
 };
 #pragma pack()
 
-enum rtw_phl_vr_test_mode {
+enum rtw_phl_vr_test_mode
+{
+	VR_TEST_MODE_FAKE_TX_CYCLE = BIT0,
 	VR_TEST_MODE_USE_STA_MAC = BIT1,
+	VR_TEST_MODE_OP_CH_BY_PASS = BIT2,
 	VR_TEST_MODE_MAX = BIT16
 };
-
-enum rtw_phl_fb_test_mode {
-	FB_TEST_MODE_FAKE_TX_CYCLE = BIT0,
-	FB_TEST_MODE_MAX = BIT16
-};
-
 
 struct rtw_phl_custom_ampdu_cfg {
 	u32 max_agg_time_32us;

@@ -74,6 +74,6 @@ struct rx_base_desc {
 	void *os_rsvd[1];
 	u8 cache;
 	u16 host_idx;
-	u16 avail_num;
+	u16 hw_idx;
 };
 #endif	/* _PHL_TRX_DEF_PCIE_H_ */

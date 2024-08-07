@@ -25,14 +25,47 @@
 #include "halbb_precomp.h"
 
 #ifdef HALBB_FW_OFLD_SUPPORT
+
+void halbb_fwofld_flag_init(struct bb_info *bb)
+{
+	bool drv_fw_ofld = false, drv_dbcc_fw_ofld = false;
+	bool halbb_fw_ofld = false;
+	bool halbb_dbcc_fw_ofld = false;
+	bool halbb_normal_fw_ofld = false;
+
+	#ifdef CONFIG_PHL_IO_OFLD
+	drv_fw_ofld = true;
+	#endif
+
+	#ifdef CONFIG_FW_DBCC_OFLD_SUPPORT
+	drv_dbcc_fw_ofld = true;
+	#endif
+
+	#ifdef HALBB_FW_OFLD_SUPPORT
+	halbb_fw_ofld = true;
+	#endif
+
+	#ifdef HALBB_FW_NORMAL_OFLD_SUPPORT
+	halbb_normal_fw_ofld = true;
+	#endif
+
+	#ifdef HALBB_FW_DBCC_OFLD_SUPPORT
+	halbb_dbcc_fw_ofld = true;
+	#endif
+
+	BB_DBG(bb, DBG_FW_INFO, "[Drv]   drv_fw_ofld =%d, drv_dbcc_fw_ofld=%d\n",
+	       drv_fw_ofld, drv_dbcc_fw_ofld);
+	BB_DBG(bb, DBG_FW_INFO, "[HALBB] halbb_fw_ofld=%d, halbb_normal_fw_ofld=%d, halbb_dbcc_fw_ofld=%d\n",
+	       halbb_fw_ofld, halbb_normal_fw_ofld, halbb_dbcc_fw_ofld);
+}
+
 bool halbb_check_fw_ofld(struct bb_info *bb)
 {
-	bool ret = bb->phl_com->dev_cap.fw_cap.offload_cap & BIT0;
-
+	//bool ret = bb->phl_com->dev_cap.fw_cap.offload_cap & BIT0;
+	bool ret = bb->phl_com->dev_cap.io_ofld;
 	BB_DBG(bb, DBG_FW_INFO, "[Offload_cap CHK] FW ofld ret = %d\n", (u8)ret);
 	return ret;
 }
-
 
 bool halbb_dbcc_check_fw_ofld(struct bb_info *bb)
 {
@@ -110,6 +143,15 @@ void halbb_fwofld_bitmap_en(struct bb_info *bb, bool en, enum fw_ofld_type app)
 
 void halbb_fwofld_bitmap_init(struct bb_info *bb)
 {
+	bool phl_fw_ofld_en = halbb_check_fw_ofld(bb);
+
+	if (!phl_fw_ofld_en) {
+		bb->bb_cmn_hooker->bb_fwofld_sup_bitmap = 0;
+		BB_DBG(bb, DBG_FW_INFO, "[%s] phl_fw_ofld_en = %d, bb_fwofld_sup_bitmap = 0x%x\n", __func__,
+		       phl_fw_ofld_en, bb->bb_cmn_hooker->bb_fwofld_sup_bitmap);
+		return;
+	}
+
 	bb->bb_cmn_hooker->bb_fwofld_sup_bitmap =
 					#ifdef HALBB_FW_NORMAL_OFLD_SUPPORT
 						  BIT(FW_OFLD_PHY_0_CR_INIT) |
@@ -1212,6 +1254,15 @@ void halbb_fwofld_set_pmac_tx_8852a_2(struct bb_info *bb, struct halbb_pmac_info
 		       tx_info->period, phy_idx);
 }
 #endif
+
+void halbb_fwofld_init(struct bb_info *bb)
+{
+	BB_DBG(bb, DBG_FW_INFO, "[%s]\n", __func__);
+
+	halbb_fwofld_flag_init(bb);
+	halbb_fwofld_bitmap_init(bb);
+}
+
 void halbb_fw_ofld_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		       char *output, u32 *_out_len)
 {

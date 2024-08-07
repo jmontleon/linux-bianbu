@@ -199,4 +199,50 @@ enum rtw_hal_status rtw_hal_mp_rx_set_gain_offset(
 	return hal_status;
 }
 
+enum rtw_hal_status rtw_hal_mp_rx_set_rx_fltr(
+	struct mp_context *mp, struct mp_rx_arg *arg)
+{
+	struct phl_info_t *phl_info = mp->phl;
+	struct hal_info_t *hal_info = (struct hal_info_t *)mp->hal;
+	struct rtw_phl_stainfo_t * sta = NULL;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	u16 macid;
+
+	macid = rtw_phl_get_macid_by_addr(phl_info, arg->rx_fltr_addr);
+	sta = rtw_phl_get_stainfo_by_macid(phl_info, macid);
+
+	if(sta) {
+		if(arg->rx_fltr_enable) {
+			sta->rlink->mstate = MLME_LINKING;
+			hal_status = rtw_hal_mac_addr_cam_change_entry(hal_info, sta, PHL_UPD_STA_INFO_CHANGE, true);
+			if (RTW_HAL_STATUS_SUCCESS != hal_status)
+				return hal_status;
+
+			hal_status = rtw_hal_mac_set_rxfltr_opt_by_mode(hal_com, HW_BAND_0, RX_FLTR_OPT_MODE_MP);
+			if (RTW_HAL_STATUS_SUCCESS != hal_status)
+				return hal_status;
+
+			hal_status = rtw_hal_set_rxfltr_type_by_mode(hal_info, HW_BAND_0, RX_FLTR_TYPE_MODE_MP);
+			if (RTW_HAL_STATUS_SUCCESS != hal_status)
+				return hal_status;
+		}
+		else {
+			sta->rlink->mstate = MLME_NO_LINK;
+			hal_status = rtw_hal_mac_addr_cam_change_entry(hal_info, sta, PHL_UPD_STA_INFO_CHANGE, true);
+			if (RTW_HAL_STATUS_SUCCESS != hal_status)
+				return hal_status;
+
+			hal_status = rtw_hal_mac_set_rxfltr_opt_by_mode(hal_com, HW_BAND_0, RX_FLTR_OPT_MODE_STA_NORMAL);
+			if (RTW_HAL_STATUS_SUCCESS != hal_status)
+				return hal_status;
+
+			hal_status = rtw_hal_set_rxfltr_type_by_mode(hal_info, HW_BAND_0, RX_FLTR_TYPE_MODE_HAL_INIT);
+			if (RTW_HAL_STATUS_SUCCESS != hal_status)
+				return hal_status;
+		}
+		PHL_INFO("%s: status = %d\n", __FUNCTION__, hal_status);
+	}
+	return hal_status;
+}
 #endif /* CONFIG_HAL_TEST_MP */

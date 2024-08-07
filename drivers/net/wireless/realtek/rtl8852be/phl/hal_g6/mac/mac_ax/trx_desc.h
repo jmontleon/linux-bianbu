@@ -40,6 +40,9 @@
 #if MAC_AX_8852D_SUPPORT
 #include "mac_8852d/trx_desc_8852d.h"
 #endif
+#if MAC_AX_8852BT_SUPPORT
+#include "mac_8852bt/trx_desc_8852bt.h"
+#endif
 #if MAC_AX_1115E_SUPPORT
 #include "mac_1115e/trx_desc_1115e.h"
 #endif

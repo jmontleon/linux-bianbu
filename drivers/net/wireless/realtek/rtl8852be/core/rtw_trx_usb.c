@@ -17,26 +17,8 @@
 
 
 /********************************xmit section*******************************/
-static void usb_xmit_tasklet(unsigned long data)
-{
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-	_adapter *padapter = (_adapter *) data;
-
-	core_tx_amsdu_tasklet(padapter);
-#endif
-}
-
 s32 usb_init_xmit_priv(_adapter *adapter)
 {
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-	struct xmit_priv *pxmitpriv = &adapter->xmitpriv;
-	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
-
-	rtw_tasklet_init(&pxmitpriv->xmit_tasklet,
-		     usb_xmit_tasklet,
-		     (unsigned long)adapter);
-
-#endif
 	return _SUCCESS;
 }
 

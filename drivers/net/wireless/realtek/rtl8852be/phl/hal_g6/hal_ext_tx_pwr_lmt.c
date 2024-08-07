@@ -31,7 +31,7 @@ rtw_hal_set_power_limit(void *hal, u8 band_idx)
 			return status;
 		}
 	}
-	status = rtw_hal_rf_set_power(hal_info, phy_idx, PWR_LIMIT);
+	status = rtw_hal_rf_set_power(hal_info, phy_idx, (PWR_LIMIT | PWR_LIMIT_RU));
 	return status;
 }
 

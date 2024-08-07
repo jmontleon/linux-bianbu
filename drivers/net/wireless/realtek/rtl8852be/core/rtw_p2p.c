@@ -1583,6 +1583,11 @@ static void rtw_change_p2pie_ch_list(_adapter *padapter, const u8 *frame_body, u
 	u8 *ies, *p2p_ie;
 	u32 ies_len, p2p_ielen;
 
+#ifdef CONFIG_MCC_MODE
+	if (GET_PHL_COM(adapter_to_dvobj(padapter))->dev_cap.mcc_sup == true)
+		return;
+#endif /* CONFIG_MCC_MODE */
+
 	ies = (u8 *)(frame_body + _PUBLIC_ACTION_IE_OFFSET_);
 	ies_len = len - _PUBLIC_ACTION_IE_OFFSET_;
 
@@ -1629,6 +1634,11 @@ static bool rtw_chk_p2pie_ch_list_with_buddy(_adapter *padapter, const u8 *frame
 	u8 union_ch = 0;
 	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
 	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+
+#ifdef CONFIG_MCC_MODE
+	if (GET_PHL_COM(adapter_to_dvobj(padapter))->dev_cap.mcc_sup == true)
+		return fit;
+#endif /* CONFIG_MCC_MODE */
 
 	if (rtw_phl_mr_get_chandef(dvobj->phl, padapter->phl_role,
 				padapter_link->wrlink, &u_chdef)
@@ -1689,6 +1699,11 @@ static bool rtw_chk_p2pie_op_ch_with_buddy(_adapter *padapter, const u8 *frame_b
 	struct rtw_chan_def u_chdef = {0};
 	u8 union_ch = 0;
 
+#ifdef CONFIG_MCC_MODE
+	if (GET_PHL_COM(adapter_to_dvobj(padapter))->dev_cap.mcc_sup == true)
+		return;
+#endif /* CONFIG_MCC_MODE */
+
 	if (rtw_phl_mr_get_chandef(dvobj->phl, padapter->phl_role, &u_chdef)
 							!= RTW_PHL_STATUS_SUCCESS) {
 		RTW_ERR("%s get union chandef failed\n", __func__);
@@ -1733,6 +1748,11 @@ static void rtw_cfg80211_adjust_p2pie_channel(_adapter *padapter, const u8 *fram
 	u8 union_ch = 0;
 	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
 	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+
+#ifdef CONFIG_MCC_MODE
+	if (GET_PHL_COM(adapter_to_dvobj(padapter))->dev_cap.mcc_sup == true)
+		return;
+#endif /* CONFIG_MCC_MODE */
 
 	if (rtw_phl_mr_get_chandef(dvobj->phl, padapter->phl_role,
 					padapter_link->wrlink, &u_chdef)
@@ -2842,6 +2862,69 @@ void rtw_append_probe_resp_p2p_go_noa(struct xmit_frame *xframe)
 	}
 }
 #endif /* CONFIG_P2P_PS */
+
+void rtw_append_probe_resp_vendor_ie(struct xmit_frame *xframe)
+{
+	_adapter *adapter = xframe->padapter;
+	struct wifidirect_info *wdinfo = &adapter->wdinfo;
+	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
+	u8 *frame = xframe->buf_addr + TXDESC_OFFSET;
+	u8 *frame_tail = frame + xframe->attrib.pktlen;
+	u8 frame_ie_offset = WLAN_HDR_A3_LEN + _PROBERSP_IE_OFFSET_;
+	u8 *vendor_ie = NULL;
+	u32 len = 0;
+
+	if (!MLME_IS_GO(adapter))
+		return;
+
+	vendor_ie = rtw_get_vendor_ie(frame + frame_ie_offset,
+				xframe->attrib.pktlen - frame_ie_offset,
+				NULL, NULL);
+	if (vendor_ie)
+		return;
+
+	if (pmlmepriv->probe_rsp) {
+		len = pmlmepriv->probe_rsp_len;
+		if (len > 0) {
+			_rtw_memcpy(frame_tail, pmlmepriv->probe_rsp, len);
+			xframe->attrib.pktlen += len;
+			frame_tail = frame + xframe->attrib.pktlen;
+		}
+	}
+}
+
+void rtw_append_probe_resp_p2p_ie(struct xmit_frame *xframe)
+{
+	_adapter *adapter = xframe->padapter;
+	struct wifidirect_info *wdinfo = &adapter->wdinfo;
+	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
+	u8 *frame = xframe->buf_addr + TXDESC_OFFSET;
+	u8 *frame_tail = frame + xframe->attrib.pktlen;
+	u8 frame_ie_offset = WLAN_HDR_A3_LEN + _PROBERSP_IE_OFFSET_;
+	u8 *p2p_ie = NULL;
+	u32 len = 0;
+
+	if (!MLME_IS_GO(adapter))
+		return;
+
+	p2p_ie = rtw_get_p2p_ie(frame + frame_ie_offset,
+				xframe->attrib.pktlen - frame_ie_offset,
+				NULL, NULL);
+	if (p2p_ie)
+		return;
+
+	if (pmlmepriv->p2p_go_probe_resp_ie) {
+		len = pmlmepriv->p2p_go_probe_resp_ie_len;
+		if (len > 0) {
+			_rtw_memcpy(frame_tail, pmlmepriv->p2p_go_probe_resp_ie, len);
+			xframe->attrib.pktlen += len;
+			frame_tail = frame + xframe->attrib.pktlen;
+		}
+	}
+
+	len = build_probe_resp_wfd_ie(wdinfo, frame_tail, 0);
+	xframe->attrib.pktlen += len;
+}
 
 void reset_global_wifidirect_info(_adapter *padapter)
 {

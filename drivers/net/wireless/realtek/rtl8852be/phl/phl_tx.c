@@ -399,9 +399,7 @@ enum rtw_phl_status phl_deregister_tx_ring(void *phl, u16 macid)
 
 	if (RTW_PHL_STATUS_SUCCESS == phl_status) {
 		/* defer the free operation to avoid racing with _phl_tx_callback_xxx */
-		_os_spinlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
-		list_add_tail(&phl_tring_list->list, &phl_info->t_ring_free_list);
-		_os_spinunlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
+		pq_push(drv_priv, &phl_info->t_ring_free_q, &phl_tring_list->list, _tail, _bh);
 	}
 
 	return phl_status;
@@ -447,24 +445,12 @@ phl_re_register_tx_ring(void *phl, u16 macid, u8 hw_band, u8 hw_wmm, u8 hw_port)
 void phl_free_deferred_tx_ring(struct phl_info_t *phl_info)
 {
 	void *drv_priv = phl_to_drvpriv(phl_info);
-	struct rtw_phl_tring_list *phl_tring_list = NULL, *t;
 	_os_list *ring_list = NULL;
 
-	ring_list = &phl_info->t_ring_free_list;
-
-	_os_spinlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
-	if (list_empty(ring_list) == false) {
-		phl_list_for_loop_safe(phl_tring_list, t, struct rtw_phl_tring_list,
-						ring_list, list) {
-			list_del(&phl_tring_list->list);
-			_os_spinunlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
-			_phl_free_phl_tring_list(phl_info, phl_tring_list);
-			_os_spinlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
-		}
+	while (pq_pop(drv_priv, &phl_info->t_ring_free_q, &ring_list, _first, _bh)) {
+		_phl_free_phl_tring_list(phl_info, (struct rtw_phl_tring_list *)ring_list);
 	}
-	_os_spinunlock(drv_priv, &phl_info->t_ring_free_list_lock, _bh, NULL);
 }
-
 
 struct phl_ring_status *phl_alloc_ring_sts(struct phl_info_t *phl_info)
 {
@@ -1379,7 +1365,7 @@ phl_trx_free_sw_rsc(void *phl)
 	_os_spinlock_free(drv_priv, &phl_info->t_ring_list_lock);
 	_os_spinlock_free(drv_priv, &phl_info->rx_ring_lock);
 	_os_spinlock_free(drv_priv, &phl_info->t_fctrl_result_lock);
-	_os_spinlock_free(drv_priv, &phl_info->t_ring_free_list_lock);
+	pq_deinit(drv_priv, &phl_info->t_ring_free_q);
 
 	FUNCOUT();
 }
@@ -1454,24 +1440,25 @@ enum rtw_phl_status phl_datapath_init(struct phl_info_t *phl_info)
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct phl_hci_trx_ops *hci_trx_ops = phl_info->hci_trx_ops;
 	struct rtw_phl_handler *event_handler = &phl_info->phl_event_handler;
+#ifdef CONFIG_RTW_EVENT_HDL_USE_WQ
+	_os_workitem *workitem = &event_handler->os_handler.u.workitem;
+#endif
 	void *drv_priv = NULL;
 	FUNCIN_WSTS(pstatus);
 	drv_priv = phl_to_drvpriv(phl_info);
 
 	do {
 #ifdef CONFIG_RTW_EVENT_HDL_USE_WQ
-		_os_workitem *workitem = &event_handler->os_handler.u.workitem;
+		_os_workitem_config_cpu(drv_priv, workitem, "EVENT_HDL", CPU_ID_EVENT_HDL);
 #endif
 		INIT_LIST_HEAD(&phl_info->t_ring_list);
 		INIT_LIST_HEAD(&phl_info->t_fctrl_result);
-		INIT_LIST_HEAD(&phl_info->t_ring_free_list);
 		_os_spinlock_init(drv_priv, &phl_info->t_ring_list_lock);
 		_os_spinlock_init(drv_priv, &phl_info->rx_ring_lock);
 		_os_spinlock_init(drv_priv, &phl_info->t_fctrl_result_lock);
-		_os_spinlock_init(drv_priv, &phl_info->t_ring_free_list_lock);
+		pq_init(drv_priv, &phl_info->t_ring_free_q);
 
 #if defined(CONFIG_RTW_EVENT_HDL_USE_WQ) || defined(CONFIG_PHL_HANDLER_WQ_HIGHPRI)
-		_os_workitem_config_cpu(drv_priv, workitem, "EVENT_HDL", CPU_ID_EVENT_HDL);
 		event_handler->type = RTW_PHL_HANDLER_PRIO_LOW;
 #else
 #ifdef CONFIG_RTW_RX_EVENT_USE_THREAD
@@ -1525,11 +1512,7 @@ _phl_tx_pwr_notify(void *phl)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_SUCCESS;
 
-#ifdef SDIO_TX_THREAD
-	phl_tx_sdio_wake_thrd((struct phl_info_t *)phl);
-#else
 	pstatus = rtw_phl_tx_req_notify(phl);
-#endif
 
 	return pstatus;
 }
@@ -1564,7 +1547,7 @@ static void _phl_datapath_req_pwr(struct phl_info_t *phl_info, u8 type)
 	struct phl_msg msg = {0};
 	struct phl_msg_attribute attr = {0};
 
-	PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
+	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
 	          "%s(): [DATA_CTRL] SW datapath paused by ps module and request power\n",
 	          __func__);
 
@@ -1618,7 +1601,7 @@ static bool _phl_datapath_chk_pwr(struct phl_info_t *phl_info, u8 type)
 	}
 
 	if (pause_id & ~(DATA_CTRL_MDL_PS)) {
-		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
 		          "%s(): [DATA_CTRL] SW datapath paused by module(0x%x)\n",
 		          __func__,
 		          pause_id);
@@ -1687,6 +1670,9 @@ enum rtw_phl_status rtw_phl_tx_req_notify(void *phl)
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 
+#ifdef SDIO_TX_THREAD
+	phl_tx_sdio_wake_thrd(phl_info);
+#endif
 	pstatus = phl_schedule_handler(phl_info->phl_com,
 					&phl_info->phl_tx_handler);
 
@@ -1827,7 +1813,6 @@ enum rtw_phl_status rtw_phl_recycle_tx_buf(void *phl, u8 *tx_buf_ptr)
 #endif
 	return pstatus;
 }
-
 
 static enum rtw_phl_status
 _phl_cfg_tx_ampdu(void *phl, struct rtw_phl_stainfo_t *sta)

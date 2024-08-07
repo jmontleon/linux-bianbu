@@ -565,9 +565,9 @@
 //bit[29]
 #define DMAC_HDT_CHKSUM_FSM_ERR_SER_EN SER_DISABLE
 //bit[30]
-#define DMAC_HDT_RX_WRITE_OVERFLOW_SER_EN SER_DISABLE
+#define DMAC_HDT_RX_WRITE_OVERFLOW_SER_EN SER_ENABLE
 //bit[31]
-#define DMAC_HDT_RX_WRITE_UNDERFLOW_SER_EN SER_DISABLE
+#define DMAC_HDT_RX_WRITE_UNDERFLOW_SER_EN SER_ENABLE
 
 //CPU_DISPATCHER_ERR_IMR 0x8854
 //bit[0]
@@ -809,5 +809,8 @@ u32 mac_chk_err_status(struct mac_ax_adapter *adapter, u8 *ser_status);
 u32 mac_dbg_log_dump(struct mac_ax_adapter *adapter);
 u32 mac_dbg_log_lvl_adjust(struct mac_ax_adapter *adapter, struct mac_debug_log_lvl *lvl);
 u32 mac_dump_ser_cnt(struct mac_ax_adapter *adapter, struct mac_ser_status *status);
+u32 mac_set_l0_dbg_mode(struct mac_ax_adapter *adapter);
+u32 mac_set_l1_dbg_mode(struct mac_ax_adapter *adapter);
+u32 mac_reset_dbg_mode(struct mac_ax_adapter *adapter);
 
 #endif

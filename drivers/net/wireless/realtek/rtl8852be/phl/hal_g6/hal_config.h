@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -61,7 +61,10 @@
 
 /*8851B*/
 #ifdef CONFIG_RTL8851B
+#ifndef PHL_PLATFORM_UEFI
 #define MAC_FW_8851B_U1
+#endif
+#define MAC_FW_8851B_U2
 #endif
 
 /*8852A*/
@@ -88,6 +91,10 @@
 #define MAC_FW_CATEGORY_NIC_BPLUS
 #endif /*CONFIG_RTL8852BP*/
 
+#ifdef CONFIG_RTL8852BT
+#define MAC_FW_8852BT_U1
+#endif /*CONFIG_RTL8852BT*/
+
 #include "mac/fw_ax/rtl8852b/hal8852b_fw_cap.h"
 #include "rtl8852b/hal_feature_8852b.h"
 #endif  /*(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BP)*/
@@ -98,6 +105,10 @@
 /*CATEG*/
 /*#define MAC_FW_CATEGORY_VRAP*/ /*sd7 only*/
 #endif /*CONFIG_RTL8852C*/
+
+#ifdef CONFIG_RTL8852D
+#define MAC_FW_8852D_U1
+#endif /*CONFIG_RTL8852D*/
 
 #if defined(CONFIG_RTL8192XB) || defined(CONFIG_RTL8832BR)
 #define MAC_FW_8192XB_U1

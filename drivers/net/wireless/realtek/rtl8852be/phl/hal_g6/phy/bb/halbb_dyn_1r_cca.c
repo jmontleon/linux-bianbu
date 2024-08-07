@@ -67,7 +67,7 @@ void halbb_dyn_1r_cca(struct bb_info *bb)
 	enum rf_path cfg = RF_PATH_AB;
 	bool sta_found = false;
 	u16 rssi_diff, rssi_min; /*RSSI  u(16,5)*/
-	u8 i, j;
+	u16 i = 0, j = 0;
 
 	if (!dyn_1r_cca->dyn_1r_cca_en)
 		return;

@@ -422,6 +422,7 @@ u32 halbb_dlru_fixtbl_univrsl(struct bb_info *bb,
 	//	BB_WARNING("halbb_upd_dlru_fixtbl: tble length mismatch!!\n");
 
 	fix_tbl_i = hal_mem_alloc(bb->hal_com, pkt_len);
+	halbb_mem_set(bb, fix_tbl_i, 0, pkt_len);
 
 	bb_h2c = (u32 *) fix_tbl_i;
 	info->tbl_hdr.len= sizeof(struct halbb_dlru_fixtbl_info_univrsl)-sizeof(struct halbb_rua_tbl_hdr_info);
@@ -439,6 +440,7 @@ u32 halbb_dlru_fixtbl_univrsl(struct bb_info *bb,
 	fix_tbl_i->fixru_flag = info->fixru_flag;
 	fix_tbl_i->rupos_csht_flag = info->rupos_csht_flag;
 	fix_tbl_i->ru_swp_flg = info->ru_swp_flg;
+	fix_tbl_i->ch20_with_data = info->ch20_with_data;
 	for (i = 0; i < HALBB_MAX_RU_STA_NUM; i++)
 		halbb_dlfix_sta_i_ext_cfg(bb, &(info->sta[i]), &(fix_tbl_i->sta[i]));
 
@@ -1104,7 +1106,7 @@ u32 halbb_swgrp_hdl(struct bb_info *bb, struct rtw_sw_grp_set *info)
 		goto out;
 	*/
 	for (i = 0; i < 8; i++) {
-		swgrp_i->swgrp_bitmap[i].macid= info->swgrp_bitmap[i].macid;
+		swgrp_i->swgrp_bitmap[i].macid= (u8) info->swgrp_bitmap[i].macid;
 		swgrp_i->swgrp_bitmap[i].en_upd_dl_swgrp = info->swgrp_bitmap[i].en_upd_dl_swgrp;
 		swgrp_i->swgrp_bitmap[i].en_upd_ul_swgrp = info->swgrp_bitmap[i].en_upd_ul_swgrp;
 		for (j = 0; j < 4; j++) {
@@ -1300,7 +1302,7 @@ u32 halbb_dlmacid_cfg(struct bb_info *bb, struct rtw_dl_macid_cfg *cfg)
 }
 
 
-u32 halbb_ulmacid_cfg(struct bb_info *bb, struct rtw_ul_macid_set *cfg)
+u32 halbb_ulmacid_upd(struct bb_info *bb, struct rtw_ul_macid_set *cfg)
 {
 	u32 ret = RTW_HAL_STATUS_FAILURE;
 	u8 len = sizeof(struct rtw_ul_macid_set);
@@ -1318,7 +1320,7 @@ u32 halbb_ulmacid_cfg(struct bb_info *bb, struct rtw_ul_macid_set *cfg)
 	bb_h2c = (u32 *) ulmac_i;
 
 	for (i = 0; i < 8; i++) {
-		ulmac_i->ul_macid_cfg[i].macid= (u8)cfg->ul_macid_cfg[i].macid;
+		ulmac_i->ul_macid_cfg[i].macid= (u8) (cfg->ul_macid_cfg[i].macid & 0xff);
 		ulmac_i->ul_macid_cfg[i].endcmd = (u8)cfg->ul_macid_cfg[i].endcmd;
 
 		ulmac_i->ul_macid_cfg[i].ul_su_info_en = (u8)cfg->ul_macid_cfg[i].ul_su_info_en;
@@ -1350,41 +1352,139 @@ u32 halbb_ulmacid_cfg(struct bb_info *bb, struct rtw_ul_macid_set *cfg)
 }
 
 
-u32 halbb_ch_bw_upd(struct bb_info *bb, struct rtw_ch_bw_notif *cfg){
+u32 halbb_ulmacid_upd_ext(struct bb_info *bb, struct rtw_ul_macid_set *cfg)
+{
 	u32 ret = RTW_HAL_STATUS_FAILURE;
+	u8 len = sizeof(struct rtw_ul_macid_set);
+	struct halbb_ul_macid_set_ext *ulmac_i;
+	u8 pkt_len = sizeof(struct halbb_ul_macid_set_ext);
+	u32 *bb_h2c = NULL;
+	u8 i = 0;
+	bool ret_v = false;
 
+	BB_DBG(bb, DBG_RUA_TBL, "halbb_ulmacid_cfg: in_len = %d, out_len = %d\n", len, pkt_len);
+	// if (len != pkt_len)
+	//	 BB_WARNING("halbb_ulmacid_cfg: tble length mismatch!!\n");
+	ulmac_i = hal_mem_alloc(bb->hal_com, pkt_len);
+	halbb_mem_set(bb, ulmac_i, 0, pkt_len);
+	bb_h2c = (u32 *) ulmac_i;
+
+	for (i = 0; i < 8; i++) {
+		ulmac_i->ul_macid_cfg[i].macid_l = (u8) (cfg->ul_macid_cfg[i].macid & 0xff);
+		ulmac_i->ul_macid_cfg[i].macid_m = (u8) ((cfg->ul_macid_cfg[i].macid & 0xff00)>>8);
+
+		ulmac_i->ul_macid_cfg[i].endcmd = (u8)cfg->ul_macid_cfg[i].endcmd;
+
+		ulmac_i->ul_macid_cfg[i].ul_su_info_en = (u8)cfg->ul_macid_cfg[i].ul_su_info_en;
+
+		ulmac_i->ul_macid_cfg[i].ul_su_bw = (u8)cfg->ul_macid_cfg[i].ul_su_bw;
+		ulmac_i->ul_macid_cfg[i].ul_su_gi_ltf= (u8)cfg->ul_macid_cfg[i].ul_su_gi_ltf;
+		ulmac_i->ul_macid_cfg[i].ul_su_doppler_ctrl = (u8)cfg->ul_macid_cfg[i].ul_su_doppler_ctrl;
+		ulmac_i->ul_macid_cfg[i].ul_su_dcm= (u8)cfg->ul_macid_cfg[i].ul_su_dcm;
+
+		ulmac_i->ul_macid_cfg[i].ul_su_ss = (u8)cfg->ul_macid_cfg[i].ul_su_ss;
+		ulmac_i->ul_macid_cfg[i].ul_su_mcs= (u8)cfg->ul_macid_cfg[i].ul_su_mcs;
+		ulmac_i->ul_macid_cfg[i].ul_su_coding = (u8)cfg->ul_macid_cfg[i].ul_su_coding;
+		ulmac_i->ul_macid_cfg[i].ul_su_rssi_m_l= (u8)(cfg->ul_macid_cfg[i].ul_su_rssi_m & 0x1);
+		ulmac_i->ul_macid_cfg[i].ul_su_rssi_m_m= (u8)(cfg->ul_macid_cfg[i].ul_su_rssi_m & 0x1fe)>>1;
+
+		ulmac_i->ul_macid_cfg[i].fix_ru_pos = (u8)cfg->ul_macid_cfg[i].fix_ru_pos;
+		ulmac_i->ul_macid_cfg[i].fix_rate = (u8)cfg->ul_macid_cfg[i].fix_rate;
+		ulmac_i->ul_macid_cfg[i].fix_dbw = (u8)cfg->ul_macid_cfg[i].fix_dbw;
+		ulmac_i->ul_macid_cfg[i].fix_giltf = (u8)cfg->ul_macid_cfg[i].fix_giltf;
+		ulmac_i->ul_macid_cfg[i].fix_tgt_rssi = (u8)cfg->ul_macid_cfg[i].fix_tgt_rssi;
+		ulmac_i->ul_macid_cfg[i].fix_coding = (u8)cfg->ul_macid_cfg[i].fix_coding;
+		ulmac_i->ul_macid_cfg[i].tx_mode_ul = (u8)cfg->ul_macid_cfg[i].tx_mode_ul;
+		ulmac_i->ul_macid_cfg[i].ps160 = (u8)cfg->ul_macid_cfg[i].ps160;
+		ulmac_i->ul_macid_cfg[i].ru_pos = (u8)cfg->ul_macid_cfg[i].ru_pos;
+		if (ulmac_i->ul_macid_cfg[i].endcmd)
+			break;
+	}
+
+	BB_DBG(bb, DBG_RUA_TBL, "content %x %x %x \n", bb_h2c[0], bb_h2c[1], bb_h2c[2]);
+	ret_v = halbb_fill_h2c_cmd(bb, pkt_len, RUA_H2C_UL_MACID, HALBB_H2C_RUA, bb_h2c);
+//out:
+	if (ulmac_i)
+		hal_mem_free(bb->hal_com, ulmac_i, pkt_len);
+	if (ret_v)
+		ret = RTW_HAL_STATUS_SUCCESS;
+	return ret;
+
+}
+
+
+u32 halbb_ulmacid_cfg(struct bb_info *bb, struct rtw_ul_macid_set *cfg)
+{
+	u32 ret = RTW_HAL_STATUS_FAILURE;
+	switch (bb->ic_type) {
+
+	#ifdef BB_8852A_2_SUPPORT
+	case BB_RTL8852A:
+		ret = halbb_ulmacid_upd(bb, cfg);
+		break;
+	#endif
+
+	#ifdef BB_8852B_SUPPORT
+	case BB_RTL8852B:
+		ret = halbb_ulmacid_upd(bb, cfg);
+		break;
+	#endif
+
+	#ifdef BB_8852C_SUPPORT
+	case BB_RTL8852C:
+		ret = halbb_ulmacid_upd(bb, cfg);
+		break;
+	#endif
+
+	#ifdef BB_8192XB_SUPPORT
+	case BB_RTL8192XB:
+		ret = halbb_ulmacid_upd(bb, cfg);
+		break;
+	#endif
+
+	#ifdef BB_8851B_SUPPORT
+	case BB_RTL8851B:
+		ret = halbb_ulmacid_upd(bb, cfg);
+		break;
+	#endif
+
+	#ifdef BB_1115_SUPPORT
+	case BB_RLE1115:
+		ret = halbb_ulmacid_upd_ext(bb, cfg);
+		break;
+	#endif
+
+	default:
+		ret = RTW_HAL_STATUS_FAILURE;
+		break;
+	}
+
+	return ret;
+}
+
+
+u32 halbb_ch_bw_upd(struct bb_info *bb, struct rtw_ch_bw_notif *cfg) {
+	u32 ret = RTW_HAL_STATUS_FAILURE;
 	u8 band_idx = cfg->band_idx;
 	u8 pri_ch = cfg->pri_ch;
 	u8 central_ch = cfg->central_ch;
 	u8 band_type = cfg->band_type;
 	enum channel_width cbw = cfg->cbw;
-
 	u8 txsc_20 = 0;
 	u8 txsc_40 = 0;
 	u8 txsc_80 = 0;
 	u8 txsc_160 = 0;
-
 	struct rtw_bbinfo_cfg h2c_pkt;
 
-	switch (cbw) {
-	case CHANNEL_WIDTH_160:
-		txsc_80 = halbb_get_txsc(bb, pri_ch,
-						 central_ch, cbw,
-						 CHANNEL_WIDTH_80);
-		fallthrough;
-	case CHANNEL_WIDTH_80:
-		txsc_40 = halbb_get_txsc(bb, pri_ch,
-						 central_ch, cbw,
-						 CHANNEL_WIDTH_40);
-		fallthrough;
-	case CHANNEL_WIDTH_40:
-		txsc_20 = halbb_get_txsc(bb, pri_ch,
-						 central_ch, cbw,
-						 CHANNEL_WIDTH_20);
-		break;
-	default:
-		break;
-	}
+	if (cbw >= CHANNEL_WIDTH_40)
+		txsc_20 = halbb_get_txsc(bb, pri_ch, central_ch, cbw,
+					 CHANNEL_WIDTH_20);
+	if (cbw >= CHANNEL_WIDTH_80)
+		txsc_40 = halbb_get_txsc(bb, pri_ch, central_ch, cbw,
+					 CHANNEL_WIDTH_40);
+	if (cbw >= CHANNEL_WIDTH_160)
+		txsc_80 = halbb_get_txsc(bb, pri_ch, central_ch, cbw,
+					 CHANNEL_WIDTH_80);
 
 	h2c_pkt.chbw_upd_en = 1;
 	h2c_pkt.band_idx = band_idx;
@@ -1519,8 +1619,8 @@ u32 halbb_cqi_cfg(struct bb_info *bb, struct rtw_cqi_set *cfg)
 u32 halbb_rua_rawread(struct bb_info *bb, u8 band, u8 src_sel, u8 id, u8 ofst32){
 	u32 ret = RTW_HAL_STATUS_FAILURE;
 
-	u8 *bbinfo_i;
-	u8 pkt_len = sizeof(u32);
+	struct halbb_rua_rawread_cfg *cfg = NULL;
+	u8 pkt_len = sizeof(struct halbb_rua_rawread_cfg);
 	u8 len = pkt_len;
 	u32 *bb_h2c = NULL;
 	//u8 i,j = 0;
@@ -1529,20 +1629,20 @@ u32 halbb_rua_rawread(struct bb_info *bb, u8 band, u8 src_sel, u8 id, u8 ofst32)
 	BB_DBG(bb, DBG_RUA_TBL, "halbb rua_dbg: in_len = %d, out_len = %d\n", len, pkt_len);
 	// if (len != pkt_len)
 	//	 BB_WARNING("halbb_bbinfo_cfg: tble length mismatch!!\n");
-	bbinfo_i = hal_mem_alloc(bb->hal_com, pkt_len);
+	cfg = hal_mem_alloc(bb->hal_com, pkt_len);
 
-	bb_h2c = (u32 *) bbinfo_i;
+	bb_h2c = (u32 *) cfg;
 
-	bbinfo_i[0] = src_sel;
-	bbinfo_i[1]= id;
-	bbinfo_i[2]= ofst32;
-	bbinfo_i[3]= band & 0x3;
+	cfg->src_sel = src_sel;
+	cfg->id = id;
+	cfg->ofst32 = ofst32;
+	cfg->band = band & 0x3;
 
 	//BB_DBG(bb, DBG_RUA_TBL, "content %x %x %x \n", *bb_h2c, *(bb_h2c+1), *(bb_h2c+2));
 	ret_v = halbb_fill_h2c_cmd(bb, pkt_len, RUA_H2C_DBG, HALBB_H2C_RUA, bb_h2c);
 //out:
-	if (bbinfo_i)
-		hal_mem_free(bb->hal_com, bbinfo_i, pkt_len);
+	if (cfg)
+		hal_mem_free(bb->hal_com, cfg, pkt_len);
 	if (ret_v)
 		ret = RTW_HAL_STATUS_SUCCESS;
 	return ret;
@@ -1552,8 +1652,8 @@ u32 halbb_rua_rawread(struct bb_info *bb, u8 band, u8 src_sel, u8 id, u8 ofst32)
 u32 halbb_rua_rawwrite(struct bb_info *bb, u8 band, u8 src_sel, u8 id, u8 ofst32, u8 ofst8, u32 w_val){
 	u32 ret = RTW_HAL_STATUS_FAILURE;
 
-	u8 *bbinfo_i;
-	u8 pkt_len = sizeof(u32)*3;
+	struct halbb_rua_rawwrite_cfg *cfg = NULL;
+	u8 pkt_len = sizeof(struct halbb_rua_rawwrite_cfg);
 	u8 len = pkt_len;
 	u32 *bb_h2c = NULL;
 	//u8 i,j = 0;
@@ -1562,28 +1662,28 @@ u32 halbb_rua_rawwrite(struct bb_info *bb, u8 band, u8 src_sel, u8 id, u8 ofst32
 	BB_DBG(bb, DBG_RUA_TBL, "halbb rua_dbg_w: in_len = %d, out_len = %d\n", len, pkt_len);
 	// if (len != pkt_len)
 	//	 BB_WARNING("halbb_bbinfo_cfg: tble length mismatch!!\n");
-	bbinfo_i = hal_mem_alloc(bb->hal_com, pkt_len);
+	cfg = hal_mem_alloc(bb->hal_com, pkt_len);
 
-	bb_h2c = (u32 *) bbinfo_i;
+	bb_h2c = (u32 *) cfg;
 
-	bbinfo_i[0] = src_sel;
-	bbinfo_i[1]= id;
-	bbinfo_i[2]= ofst32;
-	bbinfo_i[3]= ofst8;
+	cfg->src_sel = src_sel;
+	cfg->id = id;
+	cfg->ofst32 = ofst32;
+	cfg->ofst8 = ofst8;
 
-	bbinfo_i[4] = w_val & 0xff;
-	bbinfo_i[5] = (w_val>>8) & 0xff;
-	bbinfo_i[6] = (w_val>>16) & 0xff;
-	bbinfo_i[7] = (w_val>>24) & 0xff;
+	cfg->w_val_0 = w_val & 0xff;
+	cfg->w_val_1 = (w_val>>8) & 0xff;
+	cfg->w_val_2 = (w_val>>16) & 0xff;
+	cfg->w_val_3 = (w_val>>24) & 0xff;
 
-	bbinfo_i[8] = band & 0x3;
+	cfg->band = band & 0x3;
 	//bb_h2c[1] = w_val;
 
 	//BB_DBG(bb, DBG_RUA_TBL, "content %x %x %x \n", *bb_h2c, *(bb_h2c+1), *(bb_h2c+2));
 	ret_v = halbb_fill_h2c_cmd(bb, pkt_len, RUA_H2C_DBG_W, HALBB_H2C_RUA, bb_h2c);
 //out:
-	if (bbinfo_i)
-		hal_mem_free(bb->hal_com, bbinfo_i, pkt_len);
+	if (cfg)
+		hal_mem_free(bb->hal_com, cfg, pkt_len);
 	if (ret_v)
 		ret = RTW_HAL_STATUS_SUCCESS;
 	return ret;
@@ -2090,7 +2190,7 @@ void halbb_test_dl_fix_tbl(struct bb_info *bb, union rtw_dlru_fixtbl *tbl)
 
 void halbb_test_ru_sta_info(struct bb_info *bb, struct rtw_ru_sta_info *tbl)
 {
-	halbb_mem_set(bb, tbl,0,sizeof(union rtw_dlru_fixtbl));
+	halbb_mem_set(bb, tbl,0, sizeof(struct rtw_ru_sta_info));
 
 	tbl->tbl_hdr.rw = 1; /* write */
 	tbl->tbl_hdr.idx = 0;
@@ -2672,6 +2772,22 @@ void halbb_test_cqi_cfg(struct bb_info *bb, struct rtw_cqi_set *cfg)
 void halbb_test_bbinfo_cfg(struct bb_info *bb, struct rtw_bbinfo_cfg *cfg)
 {
 //	cfg->p20_ch_bitmap= 168;
+	cfg->chbw_upd_en = 0;
+	cfg->band_idx = 0;
+	cfg->band_type = 0;
+	cfg->pri_ch = 0;
+	cfg->central_ch = 0;
+	cfg->cbw = 0;
+	//trx path info update
+	cfg->trxpath_upd_en = 0;
+	cfg->txpath_num = 0;
+	cfg->rxpath_num = 0;
+	//txsc info update
+	cfg->txsc_upd_en = 0;
+	cfg->txsc_20 = 0;
+	cfg->txsc_40 = 0;
+	cfg->txsc_80 = 0;
+	cfg->txsc_160 = 0;
 }
 
 void halbb_test_pbr_tbl_cfg(struct bb_info *bb, struct rtw_pwr_by_rt_tbl *cfg)

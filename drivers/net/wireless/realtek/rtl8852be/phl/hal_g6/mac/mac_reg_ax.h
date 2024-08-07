@@ -7563,9 +7563,10 @@
 #define B_AX_DBG_SYS_CFG_SH 0
 #define B_AX_DBG_SYS_CFG_MSK 0xffffffffL
 
-#define R_AX_UDM4 0x0504
-#define B_AX_UDM4_SH 0
-#define B_AX_UDM4_MSK 0xffffffffL
+#define R_AX_DBG_WOW 0x0504
+#define B_AX_DBG_WOW_CPU_IO_RX_EN BIT(8)
+#define B_AX_DBG_WOW_REASON_SH 0
+#define B_AX_DBG_WOW_REASON_MSK 0xff
 
 #define R_AX_UDM5 0x0508
 #define B_AX_UDM5_SH 0

@@ -300,8 +300,6 @@ void mp_change_mode(struct mp_context *mp_ctx, enum rtw_drv_mode driver_mode)
 		#ifdef RTW_WKARD_AP_MP
 		rtw_hal_bb_rx_ndp_mp(mp_ctx->hal);
 		/* RSSI flow process under MP mode */
-		rtw_hal_bb_dm_init_mp(mp_ctx->hal);
-		rtw_hal_rf_dm_init_mp(mp_ctx->hal);
 		rtw_hal_mac_set_rxfltr_mp_mode(hal_info, 0, 0x1c00);
 		#endif
 	}

@@ -65,7 +65,7 @@ sint rtw_endofpktfile(struct pkt_file *pfile)
 
 void rtw_set_tx_chksum_offload(struct sk_buff *pkt, struct pkt_attrib *pattrib)
 {
-#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX	
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	struct sk_buff *skb = (struct sk_buff *)pkt;
 	struct iphdr *iph = NULL;
 	struct ipv6hdr *i6ph = NULL;
@@ -329,12 +329,10 @@ void rtw_os_xmit_schedule(_adapter *padapter)
 	_rtw_spinlock_bh(&pxmitpriv->lock);
 
 	if (rtw_txframes_pending(padapter))
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-#ifdef CONFIG_RTW_TX_AMSDU_USE_WQ
+#if defined(CONFIG_TX_AMSDU_SW_MODE) && defined(CONFIG_RTW_TX_AMSDU_USE_WQ)
 	_set_workitem_cpu(&pxmitpriv->xmit_workitem);
 #else
 	rtw_tasklet_hi_schedule(&pxmitpriv->xmit_tasklet);
-#endif
 #endif
 
 	_rtw_spinunlock_bh(&pxmitpriv->lock);
@@ -417,7 +415,7 @@ int _rtw_xmit_entry(struct sk_buff *pkt, _nic_hdl pnetdev)
 {
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(pnetdev);
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
-#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX	
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
 	struct sk_buff *skb = pkt;
 	struct sk_buff *segs, *nskb;
 	netdev_features_t features = padapter->pnetdev->features;
@@ -596,6 +594,11 @@ int rtw_os_tx(struct sk_buff *pkt, _nic_hdl pnetdev)
 	u16 os_qid = 0;
 	s32 res = 0;
 
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
+	struct sk_buff *skb = pkt;
+	struct sk_buff *segs, *nskb;
+	netdev_features_t features = padapter->pnetdev->features;
+#endif
 #ifdef RTW_PHL_DBG_CMD
 	core_add_record(padapter, REC_TX_DATA, pkt);
 #endif
@@ -621,6 +624,33 @@ int rtw_os_tx(struct sk_buff *pkt, _nic_hdl pnetdev)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
 	os_qid = skb_get_queue_mapping(pkt);
+#endif
+
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
+	if (skb_shinfo(skb)->gso_size) {
+		/*	split a big(65k) skb into several small(1.5k) skbs */
+		features &= ~(NETIF_F_TSO | NETIF_F_TSO6);
+		segs = skb_gso_segment(skb, features);
+		if (IS_ERR(segs) || !segs)
+			goto drop_packet;
+
+		do {
+			nskb = segs;
+			segs = segs->next;
+			nskb->next = NULL;
+			rtw_mstat_update( MSTAT_TYPE_SKB, MSTAT_ALLOC_SUCCESS, nskb->truesize);
+			res = rtw_core_tx(padapter, &nskb, NULL, os_qid);
+			if (res < 0) {
+				#ifdef DBG_TX_DROP_FRAME
+				RTW_INFO("DBG_TX_DROP_FRAME %s rtw_xmit fail\n", __FUNCTION__);
+				#endif
+				pxmitpriv->tx_drop++;
+				rtw_os_pkt_complete(padapter, nskb);
+			}
+		} while (segs);
+		rtw_os_pkt_complete(padapter, skb);
+		goto exit;
+	}
 #endif
 
 	PHLTX_LOG;

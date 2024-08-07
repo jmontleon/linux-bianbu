@@ -399,6 +399,32 @@ inline int rtw_test_and_set_bit(int nr, unsigned long *addr)
 	return test_and_set_bit(nr, addr);
 }
 
+#if defined(CONFIG_RTW_ANDROID_GKI) && !defined(CONFIG_LOAD_FILE_BY_REQ_FW_API)
+#define CONFIG_LOAD_FILE_BY_REQ_FW_API
+#endif
+
+#ifdef CONFIG_LOAD_FILE_BY_REQ_FW_API
+#include <linux/firmware.h>
+
+static const char *get_file_name_from_path(const char *path)
+{
+	char *ret;
+	size_t path_len;
+
+	if (!path)
+		return NULL;
+
+	path_len = strlen(path);
+	if (path_len == 0)
+		return NULL;
+
+	ret = strrchr(path, '/');
+	if (ret && ret - path < path_len)
+		return ret + 1;
+	return NULL;
+}
+#endif /* CONFIG_LOAD_FILE_BY_REQ_FW_API */
+
 #if !defined(CONFIG_RTW_ANDROID_GKI)
 /*
 * Open a file with the specific @param path, @param flag, @param mode
@@ -508,6 +534,7 @@ static int isDirReadable(const char *pathname, u32 *sz)
 
 	return kern_path(pathname, LOOKUP_FOLLOW, &path);
 }
+#endif /* !defined(CONFIG_RTW_ANDROID_GKI)*/
 
 /*
 * Test if the specifi @param path is a file and readable
@@ -517,6 +544,38 @@ static int isDirReadable(const char *pathname, u32 *sz)
 */
 static int isFileReadable(const char *path, u32 *sz)
 {
+#if defined(CONFIG_LOAD_FILE_BY_REQ_FW_API)
+	int ret = -EINVAL;
+	const struct firmware *fw = NULL;
+	const char *name;
+
+	if (path == NULL) {
+		RTW_ERR("%s() NULL pointer\n", __func__);
+		goto exit;
+	}
+
+	name = get_file_name_from_path(path);
+	if (name == NULL) {
+		RTW_ERR("%s() parsing file name fail\n", __func__);
+		goto exit;
+	}
+
+	/* request_firmware() will find file in /vendor/firmware but not in path */
+	ret = request_firmware(&fw, name, NULL);
+	if (ret != 0) {
+		RTW_ERR("%s() request_firmware file : %s, error : %d\n", __func__, name, ret);
+		goto exit;
+	}
+
+	if (sz)
+		*sz = (u32)fw->size;
+
+exit:
+	if (fw)
+		release_firmware(fw);
+
+	return ret;
+#else /* !defined(CONFIG_LOAD_FILE_BY_REQ_FW_API) */
 	struct file *fp;
 	int ret = 0;
 	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
@@ -554,8 +613,8 @@ static int isFileReadable(const char *path, u32 *sz)
 		filp_close(fp, NULL);
 	}
 	return ret;
+#endif /* defined(CONFIG_LOAD_FILE_BY_REQ_FW_API) */
 }
-#endif /* !defined(CONFIG_RTW_ANDROID_GKI)*/
 
 /*
 * Open the file with @param path and retrive the file content into memory starting from @param buf for @param sz at most
@@ -566,33 +625,17 @@ static int isFileReadable(const char *path, u32 *sz)
 */
 static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 {
-#if defined(CONFIG_RTW_ANDROID_GKI)
+#if defined(CONFIG_LOAD_FILE_BY_REQ_FW_API)
 	int ret = -EINVAL;
 	const struct firmware *fw = NULL;
-	char* const delim = "/";
-	char *name, *token, *cur, *path_tmp = NULL;
-
+	const char *name;
 
 	if (path == NULL || buf == NULL) {
 		RTW_ERR("%s() NULL pointer\n", __func__);
 		goto err;
 	}
 
-	path_tmp = kstrdup(path, GFP_KERNEL);
-	if (path_tmp == NULL) {
-		RTW_ERR("%s() cannot copy path for parsing file name\n", __func__);
-		goto err;
-	}
-
-	/* parsing file name from path */
-	cur = path_tmp;
-	token = strsep(&cur, delim);
-	while (token != NULL) {
-		token = strsep(&cur, delim);
-		if(token)
-			name = token;
-	}
-
+	name = get_file_name_from_path(path);
 	if (name == NULL) {
 		RTW_ERR("%s() parsing file name fail\n", __func__);
 		goto err;
@@ -603,7 +646,7 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 	if (ret == 0) {
 		RTW_INFO("%s() Success. retrieve file : %s, file size : %zu\n", __func__, name, fw->size);
 
-		if ((u32)fw->size < sz) {
+		if ((u32)fw->size <= sz) {
 			_rtw_memcpy(buf, fw->data, (u32)fw->size);
 			ret = (u32)fw->size;
 			goto exit;
@@ -622,12 +665,10 @@ static int retriveFromFile(const char *path, u8 *buf, u32 sz)
 err:
 	RTW_ERR("%s() Fail. retrieve file : %s, error : %d\n", __func__, path, ret);
 exit:
-	if (path_tmp)
-		kfree(path_tmp);
 	if (fw)
 		release_firmware(fw);
 	return ret;
-#else /* !defined(CONFIG_RTW_ANDROID_GKI) */
+#else /* !defined(CONFIG_LOAD_FILE_BY_REQ_FW_API) */
 	int ret = -1;
 	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 	mm_segment_t oldfs;
@@ -664,7 +705,7 @@ exit:
 		ret =  -EINVAL;
 	}
 	return ret;
-#endif /* defined(CONFIG_RTW_ANDROID_GKI) */
+#endif /* defined(CONFIG_LOAD_FILE_BY_REQ_FW_API) */
 }
 
 #if !defined(CONFIG_RTW_ANDROID_GKI)
@@ -736,15 +777,10 @@ int rtw_is_dir_readable(const char *path)
 */
 int rtw_is_file_readable(const char *path)
 {
-#if !defined(CONFIG_RTW_ANDROID_GKI)
 	if (isFileReadable(path, NULL) == 0)
 		return _TRUE;
 	else
 		return _FALSE;
-#else
-	RTW_INFO("%s() Android GKI prohibbit kernel_read, return _TRUE\n", __func__);
-	return  _TRUE;
-#endif /* !defined(CONFIG_RTW_ANDROID_GKI) */
 }
 
 /*
@@ -755,18 +791,11 @@ int rtw_is_file_readable(const char *path)
 */
 int rtw_is_file_readable_with_size(const char *path, u32 *sz)
 {
-#if !defined(CONFIG_RTW_ANDROID_GKI)
 	if (isFileReadable(path, sz) == 0)
 		return _TRUE;
 	else
 		return _FALSE;
-#else
-	RTW_INFO("%s() Android GKI prohibbit kernel_read, return _TRUE\n", __func__);
-	*sz = 0;
-	return  _TRUE;
-#endif /* !defined(CONFIG_RTW_ANDROID_GKI) */
 }
-
 
 /*
 * Open the file with @param path and retrive the file content into memory starting from @param buf for @param sz at most
@@ -862,66 +891,6 @@ RETURN:
 	return;
 }
 
-int rtw_change_ifname(_adapter *padapter, const char *ifname)
-{
-	struct dvobj_priv *dvobj;
-	struct net_device *pnetdev;
-	struct net_device *cur_pnetdev;
-	struct rereg_nd_name_data *rereg_priv;
-	int ret;
-	u8 rtnl_lock_needed;
-
-	if (!padapter)
-		goto error;
-
-	dvobj = adapter_to_dvobj(padapter);
-	cur_pnetdev = padapter->pnetdev;
-	rereg_priv = &padapter->rereg_nd_name_priv;
-
-	/* free the old_pnetdev */
-	if (rereg_priv->old_pnetdev) {
-		free_netdev(rereg_priv->old_pnetdev);
-		rereg_priv->old_pnetdev = NULL;
-	}
-
-	rtnl_lock_needed = rtw_rtnl_lock_needed(dvobj);
-
-	if (rtnl_lock_needed)
-		unregister_netdev(cur_pnetdev);
-	else
-		unregister_netdevice(cur_pnetdev);
-
-	rereg_priv->old_pnetdev = cur_pnetdev;
-
-	pnetdev = rtw_init_netdev(padapter);
-	if (!pnetdev)  {
-		ret = -1;
-		goto error;
-	}
-
-	SET_NETDEV_DEV(pnetdev, dvobj_to_dev(adapter_to_dvobj(padapter)));
-
-	rtw_init_netdev_name(pnetdev, ifname);
-
-	dev_addr_mod(pnetdev, 0, adapter_mac_addr(padapter), ETH_ALEN);
-
-	if (rtnl_lock_needed)
-		ret = register_netdev(pnetdev);
-	else
-		ret = register_netdevice(pnetdev);
-
-	if (ret != 0) {
-		goto error;
-	}
-
-	return 0;
-
-error:
-
-	return -1;
-
-}
-
 #ifdef CONFIG_PLATFORM_SPRD
 #ifdef do_div
 	#undef do_div
@@ -954,3 +923,10 @@ inline u32 rtw_random32(void)
 	return random32();
 #endif
 }
+void rtw_wiphy_rfkill_set_hw_state(struct wiphy *wiphy, bool blocked)
+{
+	wiphy_rfkill_set_hw_state(wiphy, blocked);
+}
+
+u16 rtw_warn_on_cnt;
+

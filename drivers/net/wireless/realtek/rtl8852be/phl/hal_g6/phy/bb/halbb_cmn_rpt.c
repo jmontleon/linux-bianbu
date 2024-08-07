@@ -542,6 +542,7 @@ void halbb_basic_dbg_07_hist_su_per_path(struct bb_info *bb)
 	u16 valid_cnt = pkt_cnt->pkt_cnt_t + pkt_cnt->pkt_cnt_ofdm;
 	u8 i = 0;
 	bool print_en = false;
+	u8 snr_tmp[4] = {0};
 
 	//BB_DBG(bb, BIT14, "[%s]\n", __func__);
 
@@ -553,12 +554,12 @@ void halbb_basic_dbg_07_hist_su_per_path(struct bb_info *bb)
 
 		avg->snr_per_path_avg[i] = (u8)HALBB_DIV(acc->snr_per_path_acc[i], valid_cnt);
 		print_en = true;
+		snr_tmp[i] = avg->snr_per_path_avg[i];
 	}
 
 	if (print_en) {
 		BB_DBG(bb, DBG_CMN, "[SNR path[A:D] = {%d, %d, %d, %d}\n", 
-		       avg->snr_per_path_avg[0], avg->snr_per_path_avg[1],
-		       avg->snr_per_path_avg[2], avg->snr_per_path_avg[3]);
+		       snr_tmp[0], snr_tmp[1], snr_tmp[2], snr_tmp[3]);
 	}
 }
 
@@ -626,7 +627,7 @@ void halbb_basic_dbg_07_hist_su(struct bb_info *bb)
 			       HALBB_SNPRINT_SIZE);
 	BB_DBG(bb, DBG_CMN, "  %-8s %-9s  %s\n", "[TH]", "(Avg)", bb->dbg_buf);
 	/*val*/
-	avg->cn_avg = (u8)HALBB_DIV(acc->cn_avg_acc, pkt_cnt->pkt_cnt_2ss);
+	avg->cn_avg = (u8)HALBB_DIV(acc->cn_avg_acc, acc->pkt_cnt_cn_valid);
 	halbb_print_hist_2_buf(bb, hist->cn_avg_hist, BB_HIST_SIZE, bb->dbg_buf,
 			       HALBB_SNPRINT_SIZE);
 	BB_DBG(bb, DBG_CMN, "%-9s (%02d.%03d)  %s\n", "[CN_avg]",
@@ -988,6 +989,74 @@ void halbb_show_rssi_and_rate_distribution_su(struct bb_info *bb)
 
 	}
 
+	/*@======EHT==========================================================*/
+	if (pkt_cnt->eht_pkt_not_zero) {
+		for (i = 0; i < rate_num; i++) {
+			ss_ofst = EHT_NUM_MCS * i;
+
+			for (j = 0; j < EHT_NUM_MCS ; j++) {
+				pkt_cnt_ss += pkt_cnt->pkt_cnt_eht[ss_ofst + j];
+			}
+
+			if (pkt_cnt_ss == 0) {
+				rssi_avg_tmp = 0;
+				rssi_tmp[0] = 0;
+				rssi_tmp[1] = 0;
+			} else {
+				rssi_avg_tmp = avg->rssi_t_avg >> 1;
+				rssi_tmp[0] = avg->rssi_t[0] >> 1;
+				rssi_tmp[1] = avg->rssi_t[1] >> 1;
+			}
+			if (bb->num_rf_path >= 2)
+				BB_DBG(bb, DBG_CMN,
+					  "*EHT %d-SS RSSI:{%02d| %02d,%02d} cnt:{%03d| %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d}\n",
+					  (i + 1),
+					  rssi_avg_tmp, rssi_tmp[0], rssi_tmp[1],
+					  pkt_cnt_ss,
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 0],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 1],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 2],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 3],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 4],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 5],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 6],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 7],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 8],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 9],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 10],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 11],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 12],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 13],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 14],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 15]);
+			else
+				BB_DBG(bb, DBG_CMN,
+					  "*EHT %d-SS RSSI:{%02d| %02d} cnt:{%03d| %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d}\n",
+					  (i + 1),
+					  rssi_avg_tmp, rssi_tmp[0],
+					  pkt_cnt_ss,
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 0],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 1],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 2],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 3],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 4],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 5],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 6],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 7],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 8],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 9],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 10],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 11],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 12],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 13],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 14],
+					  pkt_cnt->pkt_cnt_eht[ss_ofst + 15]);
+
+			pkt_cnt_ss = 0;
+		}
+
+	}
+
 	/*@======SC_BW========================================================*/
 	if (pkt_cnt->sc20_occur) {
 		for (i = 0; i < rate_num; i++) {
@@ -1248,11 +1317,16 @@ void halbb_rx_pkt_su_phy_hist(struct bb_info *bb)
 	hist->snr_avg_hist[intvl]++;
 
 	/*CN_avg Histogram*/
-	if (rate_i->ss == 2)
-		acc->cn_avg_acc += psts_1->cn_avg;
-	intvl = halbb_find_intrvl(bb, (psts_1->cn_avg >> 1), hist_th->cn_hist_th, BB_HIST_TH_SIZE);
-	hist->cn_avg_hist[intvl]++;
-	
+	if (rate_i->ss >= 2) {
+		if ((bb->ic_type & (BB_RTL8852A | BB_RTL8852B)) ||
+		      rate_i->gi_ltf <= RTW_GILTF_SGI_4XHE08) {
+			acc->cn_avg_acc += psts_1->cn_avg;
+			acc->pkt_cnt_cn_valid++;
+			intvl = halbb_find_intrvl(bb, (psts_1->cn_avg >> 1), hist_th->cn_hist_th, BB_HIST_TH_SIZE);
+			hist->cn_avg_hist[intvl]++;
+		}
+	}
+
 	/*CFO_avg Histogram*/
 	if (bb_cfo_trk->cfo_src == CFO_SRC_FD)
 		cfo = psts_1->cfo_avg;
@@ -1315,7 +1389,7 @@ void halbb_rx_pkt_su_store_in_sta_info(struct bb_info *bb, struct physts_rxd *de
 	struct rtw_phl_stainfo_t *phl_sta;
 	struct rtw_rssi_info *rssi_t = NULL;
 	u8 ma_fac = 2;
-	u8 bb_macid;
+	u16 bb_macid = 0;
 	u8 i = 0;
 
 	if (desc->macid_su > PHL_MAX_STA_NUM)
@@ -1514,6 +1588,25 @@ void halbb_cmn_rpt(struct bb_info *bb, struct physts_rxd *desc, u32 physts_bitma
 	}
 	halbb_rx_pop_hist(bb);
 	halbb_idle_time_pwr_physts(bb, desc, cmn_rpt->is_cck_rate);
+
+	if (physts_bitmap & BIT(IE01_CMN_OFDM)) {
+		if (psts_1->is_ldpc)
+			cmn_rpt->bb_pkt_cnt_all_i.pkt_cnt_ldpc++;
+		else
+			cmn_rpt->bb_pkt_cnt_all_i.pkt_cnt_bcc++;
+
+		if (psts_1->is_stbc)
+			cmn_rpt->bb_pkt_cnt_all_i.pkt_cnt_stbc++;
+
+		if (desc->is_su) {
+			if (psts_1->is_bf) /*only valid in SU*/
+				cmn_rpt->bb_pkt_cnt_all_i.pkt_cnt_subf++;
+			else
+				cmn_rpt->bb_pkt_cnt_all_i.pkt_cnt_su_non_bf++;
+		} else {
+			cmn_rpt->bb_pkt_cnt_all_i.pkt_cnt_mu++;
+		}
+	}
 }
 
 void halbb_physts_hist_init(struct bb_info *bb)

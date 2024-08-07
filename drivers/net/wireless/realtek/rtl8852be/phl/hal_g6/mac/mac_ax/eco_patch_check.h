@@ -39,6 +39,8 @@ bool chk_patch_snd_ng3_setting(struct mac_ax_adapter *adapter);
 bool chk_patch_wmac_timer_src(struct mac_ax_adapter *adapter);
 bool chk_patch_v_pulse_control(struct mac_ax_adapter *adapter);
 bool chk_patch_cmac_hiq_drop(struct mac_ax_adapter *adapter);
+bool chk_patch_csi_append_zero(struct mac_ax_adapter *adapter);
+bool chk_patch_rx_agg_small_pkt(struct mac_ax_adapter *adapter);
 bool chk_patch_reg_sdio(struct mac_ax_adapter *adapter);
 bool chk_patch_pcie_sw_ltr(struct mac_ax_adapter *adapter);
 bool chk_patch_ltssm_card_loss(struct mac_ax_adapter *adapter);
@@ -61,6 +63,7 @@ bool chk_patch_pcie_hci_ldo(struct mac_ax_adapter *adapter);
 bool chk_patch_pcie_l2_rxen_lat(struct mac_ax_adapter *adapter);
 bool chk_patch_pcie_autok_x(struct mac_ax_adapter *adapter);
 bool chk_patch_pcie_hang(struct mac_ax_adapter *adapter);
+bool chk_patch_usb_on_ioh_sw_rst(struct mac_ax_adapter *adapter);
+bool chk_patch_sdio_icg_direct_write_on_reg(struct mac_ax_adapter *adapter);
 bool chk_patch_cmac_io_fail(struct mac_ax_adapter *adapter);
-bool chk_patch_flash_boot_timing(struct mac_ax_adapter *adapter);
 #endif /* __ECO_PATCH_CHECK_H__ */

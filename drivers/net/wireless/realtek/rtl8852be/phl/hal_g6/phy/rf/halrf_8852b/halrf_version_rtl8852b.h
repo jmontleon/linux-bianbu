@@ -23,4 +23,4 @@
  *
  *****************************************************************************/
 /*RTL8852B RF Parameters*/
-#define	RF_RELEASE_VERSION_8852B	0x32
+#define	RF_RELEASE_VERSION_8852B	0x36

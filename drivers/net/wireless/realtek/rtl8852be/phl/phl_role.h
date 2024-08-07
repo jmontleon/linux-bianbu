@@ -36,6 +36,9 @@ phl_get_rlink_by_hw_band(struct rtw_wifi_role_t *wrole,
                          u8 hw_band);
 
 struct rtw_wifi_role_t *
+rtw_phl_get_role_by_band_port(void *phl, u8 hw_band, u8 hw_port);
+
+struct rtw_wifi_role_t *
 phl_get_wrole_by_addr(struct phl_info_t *phl_info, u8 *mac_addr);
 
 enum rtw_phl_status

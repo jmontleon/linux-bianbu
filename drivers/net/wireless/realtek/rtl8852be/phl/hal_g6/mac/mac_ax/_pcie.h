@@ -91,6 +91,7 @@
 #define PCIE_1115E_AGG_NUM 0x100
 #define PCIE_8851E_AGG_NUM 0x40 // temp setting for Drv  request
 #define PCIE_8852D_AGG_NUM 0x40 // temp setting for Drv  request
+#define PCIE_8852BT_AGG_NUM 0x40
 
 #define PCIE_AUTOK_DIV_2048 0x0
 #define PCIE_AUTOK_MGN 0x8
@@ -1007,5 +1008,47 @@ u32 sync_trx_bd_idx_pcie(struct mac_ax_adapter *adapter);
  * @}
  * @}
  */
+
+/**
+ * @brief ctrl_txdma_pcie
+ *
+ * @param *adapter
+ * @param opt
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 ctrl_txdma_pcie(struct mac_ax_adapter* adapter, u8 opt);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief poll_txdma_idle_pcie
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 poll_txdma_idle_pcie(struct mac_ax_adapter* adapter);
+/**
+ * @}
+ * @}
+ */
+
+/**
+ * @brief clr_hci_trx_pcie
+ *
+ * @param *adapter
+ * @return Please Place Description here.
+ * @retval u32
+ */
+u32 clr_hci_trx_pcie(struct mac_ax_adapter* adapter);
+/**
+ * @}
+ * @}
+ */
+
+u32 mac_read_pcie_cfg_spc(struct mac_ax_adapter *adapter, u16 addr, u32 *val);
 
 #endif

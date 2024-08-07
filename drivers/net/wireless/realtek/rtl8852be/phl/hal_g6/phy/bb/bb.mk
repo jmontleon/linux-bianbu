@@ -18,6 +18,10 @@ path_halbb_d1 := $(phl_path)/phy/bb
 
 halbb-y += $(path_halbb_d1)/halbb.o \
 			$(path_halbb_d1)/halbb_api.o \
+			$(path_halbb_d1)/halbb_api_be.o \
+			$(path_halbb_d1)/halbb_api_be_hw.o \
+			$(path_halbb_d1)/halbb_api_be_sw.o \
+			$(path_halbb_d1)/halbb_api_be_intg.o \
 			$(path_halbb_d1)/halbb_rua_tbl.o \
 			$(path_halbb_d1)/halbb_auto_dbg.o\
 			$(path_halbb_d1)/halbb_cfo_trk.o \
@@ -55,7 +59,9 @@ halbb-y += $(path_halbb_d1)/halbb.o \
 			$(path_halbb_d1)/halbb_dyn_1r_cca.o \
 			$(path_halbb_d1)/halbb_snif.o\
 			$(path_halbb_d1)/halbb_dyn_dtr.o\
-			$(path_halbb_d1)/halbb_dbg_cnsl_out.o
+			$(path_halbb_d1)/halbb_dbg_cnsl_out.o\
+			$(path_halbb_d1)/halbb_bb_wrapper.o\
+			$(path_halbb_d1)/halbb_spatial_reuse.o
 
 ifeq ($(CONFIG_RTL8852A), y)
 bb_ic := 8852a
@@ -89,6 +95,19 @@ halbb-y += $(path_halbb_8852b)/halbb_8852b.o \
 			$(path_halbb_8852b)/halbb_8852b_fwofld_api.o \
 			$(path_halbb_8852b)/halbb_hwimg_8852b.o \
 			$(path_halbb_8852b)/halbb_reg_cfg_8852b.o
+endif
+
+ifeq ($(CONFIG_RTL8852D), y)
+bb_ic := 8852c
+# Level 2 directory
+path_halbb_8852c := $(path_halbb_d1)/halbb_$(bb_ic)
+
+halbb-y += $(path_halbb_8852c)/halbb_8852c.o \
+			$(path_halbb_8852c)/halbb_8852c_api.o \
+			$(path_halbb_8852c)/halbb_8852c_fwofld_api.o \
+			$(path_halbb_8852c)/halbb_hwimg_8852c.o \
+			$(path_halbb_8852c)/halbb_reg_cfg_8852c.o \
+			$(path_halbb_8852c)/halbb_8852c_dcra.o 
 endif
 
 ifeq ($(CONFIG_RTL8852C), y)
@@ -165,4 +184,26 @@ halbb-y += $(path_halbb_8851b)/halbb_8851b.o \
 			$(path_halbb_8851b)/halbb_reg_cfg_8851b.o
 endif
 
+ifeq ($(CONFIG_RTL8852BT), y)
+bb_ic := 8852b
+# Level 2 directory
+path_halbb_8852b := $(path_halbb_d1)/halbb_$(bb_ic)
+
+halbb-y += $(path_halbb_8852b)/halbb_8852b.o \
+			$(path_halbb_8852b)/halbb_8852b_api.o \
+			$(path_halbb_8852b)/halbb_8852b_fwofld_api.o \
+			$(path_halbb_8852b)/halbb_hwimg_8852b.o \
+			$(path_halbb_8852b)/halbb_reg_cfg_8852b.o
+endif
+
+ifeq ($(CONFIG_RTL8934A), y)
+bb_ic := 8934a
+# Level 2 directory
+path_halbb_8934a := $(path_halbb_d1)/halbb_$(bb_ic)
+
+halbb-y += $(path_halbb_8934a)/halbb_8934a.o \
+			$(path_halbb_8934a)/halbb_8934a_api.o \
+			$(path_halbb_8934a)/halbb_hwimg_8934a.o \
+			$(path_halbb_8934a)/halbb_reg_cfg_8934a.o
+endif
 _HAL_BB_FILES +=	$(halbb-y)

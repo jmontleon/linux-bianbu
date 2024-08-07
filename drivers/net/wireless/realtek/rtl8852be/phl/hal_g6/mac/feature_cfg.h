@@ -46,7 +46,7 @@
 #define MAC_AX_FEATURE_DBGDEC		1
 
 /* For USB IO Offload Accelerate enable*/
-#if defined(CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(CONFIG_FW_IO_OFLD_SUPPORT)
+#if defined(CONFIG_FW_DBCC_OFLD_SUPPORT) || defined(CONFIG_PHL_IO_OFLD)
 #define MAC_USB_IO_ACC_ON	1
 #else
 #define MAC_USB_IO_ACC_ON	0

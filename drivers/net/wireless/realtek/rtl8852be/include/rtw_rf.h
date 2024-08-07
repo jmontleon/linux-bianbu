@@ -258,6 +258,9 @@ typedef enum _RF_TX_NUM {
 
 #define RF_TYPE_VALID(rf_type) (rf_type < RF_TYPE_MAX)
 
+extern const u8 _rf_type_to_rf_path[];
+#define rf_type_to_rf_path(rf_type) (RF_TYPE_VALID(rf_type) ? _rf_type_to_rf_path[rf_type] : 1)
+
 extern const u8 _rf_type_to_rf_tx_cnt[];
 #define rf_type_to_rf_tx_cnt(rf_type) (RF_TYPE_VALID(rf_type) ? _rf_type_to_rf_tx_cnt[rf_type] : 0)
 

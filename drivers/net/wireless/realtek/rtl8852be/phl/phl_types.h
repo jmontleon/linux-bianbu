@@ -92,6 +92,7 @@ enum cache_addr_type {
 	#define _os_thread RT_THREAD
 	#define _os_spinlockfg unsigned int
 	#define _os_workitem RT_WORK_ITEM
+	#define _os_va_list va_list
 
 	#define _os_path_sep "\\"
 	#define HAL_FILE_CONFIG_PATH ""
@@ -147,6 +148,7 @@ enum cache_addr_type {
 	#define _os_workitem _workitem
 #endif
 	#define _os_spinlockfg unsigned long
+	#define _os_va_list va_list
 
 	#define	_os_path_sep "/"
 
@@ -164,6 +166,39 @@ enum cache_addr_type {
 	#else
 	#define PLATFOM_IS_LITTLE_ENDIAN 0
 	#endif
+
+#elif defined(PHL_PLATFORM_UEFI)
+
+	#define MAC_ALEN 6
+	#define _dma unsigned int
+	#define _os_timer RT_TIMER
+	#define _os_lock RT_SPIN_LOCK
+	#define _os_mutex PlatformMutex
+	#define _os_sema PlatformSemaphore
+	#define _os_event PlatformEvent
+	#define _os_list struct list_head
+
+	#define _os_atomic volatile long
+
+	#define _os_dbgdump DbgPrint
+	#define _os_dbgdump_c DbgPrint
+	#define _os_dbgdump_lmt DbgPrint
+
+	#define KERN_CONT
+	#define _os_assert
+	#define _os_warn_on
+
+		/*#define _os_completion unsigned long*/
+	#define _os_tasklet struct uefi_tasklet
+	#define _os_thread RT_THREAD
+	#define _os_spinlockfg unsigned int
+	#define _os_workitem RT_WORK_ITEM
+	#define _os_va_list unsigned int
+
+	#define _os_path_sep "\\"
+	#define HAL_FILE_CONFIG_PATH ""
+	#define FW_FILE_CONFIG_PATH ""
+	#define PLATFOM_IS_LITTLE_ENDIAN 1
 
 #else
 
@@ -216,6 +251,7 @@ enum cache_addr_type {
 	#define _os_tasklet unsigned long
 	#define _os_thread unsigned long
 	#define _os_workitem unsigned long
+	#define _os_va_list unsigned long
 
 	#define	_os_path_sep "/"
 	#define HAL_FILE_CONFIG_PATH	""

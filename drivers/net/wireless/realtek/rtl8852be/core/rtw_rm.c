@@ -1102,11 +1102,11 @@ static u8 *rm_gen_bcn_detail_elem(_adapter *padapter, u8 *pframe,
 	unsigned int *fr_len)
 {
 	WLAN_BSSID_EX *pbss = &pnetwork->network;
-	unsigned int my_len;
-	int j, k, len;
-	u8 *plen;
-	u8 *ptr;
-	u8 val8, eid;
+	unsigned int my_len = 0;
+	int j = 0 , k = 0, len = 0;
+	u8 *plen = NULL;
+	u8 *ptr = NULL;
+	u8 val8 = 0, eid = 0;
 
 
 	my_len = 0;
@@ -1630,7 +1630,7 @@ int issue_link_meas_req(struct rm_obj *prm)
 	 * But if we fix TX rate then we can get specific tx power
 	 */
 	pattr->rate = MGN_6M;
-	rm_get_tx_power(padapter, RF_PATH_A, MGN_6M, &pwr_used);
+	rm_get_tx_power(padapter, (enum band_type)RF_PATH_A, MGN_6M, &pwr_used);
 	pframe = rtw_set_fixed_ie(pframe,
 		1, &pwr_used, &pattr->pktlen);
 
@@ -1652,6 +1652,7 @@ int issue_link_meas_rep(struct rm_obj *prm)
 	u8 *pframe;
 	unsigned int my_len;
 	_adapter *padapter = prm->psta->padapter;
+	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
 	struct xmit_frame *pmgntframe;
 	struct pkt_attrib *pattr;
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
@@ -1678,7 +1679,7 @@ int issue_link_meas_rep(struct rm_obj *prm)
 	my_len = 0;
 
 	/* TPC report */
-	rm_get_tx_power(padapter, RF_PATH_A, MGN_6M, &pwr_used);
+	rm_get_tx_power(padapter, padapter_link->mlmeextpriv.chandef.band, MGN_6M, &pwr_used);
 	tpc[0] = EID_TPC;
 	tpc[1] = 2; /* length */
 
@@ -2045,18 +2046,18 @@ int retrieve_radio_meas_result(struct rm_obj *prm)
 
 int issue_radio_meas_rep(struct rm_obj *prm)
 {
-	u8 val8;
-	u8 *pframe;
-	u8 *plen;
-	u16 val16;
-	u64 val64;
-	unsigned int my_len;
+	u8 val8 = 0;
+	u8 *pframe = NULL;
+	u8 *plen = NULL;
+	u16 val16 = 0;
+	u64 val64 = 0;
+	unsigned int my_len = 0;
 	_adapter *padapter = prm->psta->padapter;
-	struct xmit_frame *pmgntframe;
-	struct pkt_attrib *pattr;
+	struct xmit_frame *pmgntframe = NULL;
+	struct pkt_attrib *pattr = NULL;
 	struct xmit_priv *pxmitpriv = &(padapter->xmitpriv);
 	struct sta_info *psta = prm->psta;
-	int i;
+	int i = 0;
 
 
 	RTW_INFO("RM: %s\n", __func__);

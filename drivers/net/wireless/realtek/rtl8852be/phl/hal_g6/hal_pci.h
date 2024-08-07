@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -26,12 +26,16 @@ void hal_pci_set_io_ops(struct rtw_hal_com_t *hal, struct hal_io_ops *pops);
 #include "rtl8852a/rtl8852a.h"
 #endif
 
-#if defined(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BP)
+#if defined(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BP) || defined(CONFIG_RTL8852BT)
 #include "rtl8852b/rtl8852b.h"
 #endif
 
 #ifdef CONFIG_RTL8852C
 #include "rtl8852c/rtl8852c.h"
+#endif
+
+#ifdef CONFIG_RTL8852D
+#include "rtl8852d/rtl8852d.h"
 #endif
 
 #if defined(CONFIG_RTL8832BR) || defined(CONFIG_RTL8192XB)
@@ -56,9 +60,10 @@ static inline void hal_set_ops_pci(struct rtw_phl_com_t *phl_com,
 	}
 #endif
 
-#if defined(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BP)
+#if defined(CONFIG_RTL8852B) || defined(CONFIG_RTL8852BP) || defined(CONFIG_RTL8852BT)
 	if (hal_get_chip_id(hal->hal_com) == CHIP_WIFI6_8852B ||
-	    hal_get_chip_id(hal->hal_com) == CHIP_WIFI6_8852BP) {
+	    hal_get_chip_id(hal->hal_com) == CHIP_WIFI6_8852BP ||
+		hal_get_chip_id(hal->hal_com) == CHIP_WIFI6_8852BT) {
 		hal_set_ops_8852be(phl_com, hal);
 		hal_hook_trx_ops_8852be(phl_com, hal);
 	}
@@ -68,6 +73,13 @@ static inline void hal_set_ops_pci(struct rtw_phl_com_t *phl_com,
 	if (hal_get_chip_id(hal->hal_com) == CHIP_WIFI6_8852C) {
 		hal_set_ops_8852ce(phl_com, hal);
 		hal_hook_trx_ops_8852ce(phl_com, hal);
+	}
+#endif
+
+#ifdef CONFIG_RTL8852D
+	if (hal_get_chip_id(hal->hal_com) == CHIP_WIFI6_8852D) {
+		hal_set_ops_8852de(phl_com, hal);
+		hal_hook_trx_ops_8852de(phl_com, hal);
 	}
 #endif
 

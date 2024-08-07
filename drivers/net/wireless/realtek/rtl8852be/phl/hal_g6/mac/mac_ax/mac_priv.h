@@ -211,6 +211,7 @@ struct mac_ax_priv_ops {
 	u32 (*mac_auto_refclk_cal_pcie)(struct mac_ax_adapter *adapter,
 					enum mac_ax_pcie_func_ctrl en);
 	u32 (*sync_trx_bd_idx)(struct mac_ax_adapter *adapter);
+	u32 (*read_pcie_cfg_spc)(struct mac_ax_adapter *adapter, u16 addr, u32 *val);
 #ifdef RTW_WKARD_GET_PROCESSOR_ID
 	u32 (*chk_proc_long_ldy_pcie)(struct mac_ax_adapter *adapter, u8 *val);
 #endif
@@ -246,6 +247,8 @@ struct mac_ax_priv_ops {
 	u32 (*usb_ep_cfg)(struct mac_ax_adapter *adapter,
 			  struct mac_ax_usb_ep *cfg);
 #endif
+	/* WOWLAN */
+	u32 (*get_wake_reason)(struct mac_ax_adapter *adapter, u8 *wowlan_wake_reason);
 };
 
 u32 get_mac_ax_priv_size(void);

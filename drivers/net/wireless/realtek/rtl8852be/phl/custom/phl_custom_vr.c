@@ -18,9 +18,6 @@
 #ifdef CONFIG_PHL_CUSTOM_FEATURE_VR
 #include "phl_custom_vr.h"
 
-#define LLC_HDR_LENGTH                  6
-#define SNAP_HDR_LENGTH                 2
-
 enum phl_mdl_ret_code
 _is_vr_mode_valid(void* custom_ctx,
                   struct _custom_vr_ctx* vr_ctx,
@@ -573,6 +570,117 @@ exit:
 }
 
 enum phl_mdl_ret_code
+_phl_custom_vr_edca_query(void* custom_ctx,
+                          struct _custom_vr_ctx* vr_ctx,
+                          struct phl_msg* msg)
+{
+	enum phl_mdl_ret_code ret = MDL_RET_FAIL;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct phl_info_t *phl = phl_custom_get_phl_info(custom_ctx);
+	struct rtw_custom_decrpt *cmd = (struct rtw_custom_decrpt *)(msg->inbuf);
+	struct rtw_edca_param edca_param = {0};
+	struct rtw_wifi_role_t *wifi_role = NULL;
+	struct rtw_wifi_role_link_t *rlink = NULL;
+	u8 idx = 0;
+
+	edca_param.ac = 0xFF;
+	ret = _is_vr_mode_valid(custom_ctx, vr_ctx, msg, sizeof(u8));
+	if (ret != MDL_RET_SUCCESS)
+		goto exit;
+
+	wifi_role = vr_ctx->init.wifi_role;
+	edca_param.ac = *((u8*)(cmd->data));
+
+	for (idx = 0; idx < wifi_role->rlink_num; idx++) {
+		rlink = get_rlink(wifi_role, idx);
+
+		hal_status = rtw_hal_get_edca(phl->hal,
+		                              rlink,
+		                              &edca_param);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS)
+			ret = MDL_RET_FAIL;
+	}
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS)
+		edca_param.ac = 0xFF;
+
+	PHL_INFO("%s, custom_vr_edca_param rpt: ac(%d), param(0x%x)\n",
+	         __FUNCTION__,
+	         edca_param.ac,
+	         edca_param.param);
+exit:
+	phl_custom_prepare_evt_rpt(custom_ctx,
+	                           cmd->evt_id,
+	                           cmd->customer_id,
+	                           (u8*)&edca_param,
+	                           sizeof(struct rtw_edca_param));
+
+	return MDL_RET_SUCCESS;
+}
+
+enum phl_mdl_ret_code
+_phl_custom_vr_sr_cfg(void* custom_ctx,
+                       struct _custom_vr_ctx* vr_ctx,
+                       struct phl_msg* msg)
+{
+	enum phl_mdl_ret_code ret = MDL_RET_FAIL;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct phl_info_t *phl = phl_custom_get_phl_info(custom_ctx);
+	struct rtw_custom_decrpt *cmd = (struct rtw_custom_decrpt *)(msg->inbuf);
+	u32 size = sizeof(u32);
+	bool sr_enable = false;
+
+	ret = _is_vr_mode_valid(custom_ctx, vr_ctx, msg, size);
+	if (ret != MDL_RET_SUCCESS) {
+		goto exit;
+	}
+
+	sr_enable = *(bool*)(cmd->data);
+	PHL_INFO("%s, sr_enable(%d)\n", __FUNCTION__, sr_enable);
+
+	hal_status = rtw_hal_set_spatial_reuse_en(phl->hal, (bool)sr_enable);
+	if (hal_status != RTW_HAL_STATUS_SUCCESS)
+		ret = MDL_RET_FAIL;
+
+exit:
+	phl_custom_prepare_evt_rpt(custom_ctx,
+	                           cmd->evt_id,
+	                           cmd->customer_id,
+	                           (u8*)&ret,
+	                           sizeof(u8));
+
+	return ret;
+}
+
+enum phl_mdl_ret_code
+_phl_custom_vr_sr_query(void* custom_ctx,
+                         struct _custom_vr_ctx* vr_ctx,
+                         struct phl_msg* msg)
+{
+	enum phl_mdl_ret_code ret = MDL_RET_FAIL;
+	struct phl_info_t *phl = phl_custom_get_phl_info(custom_ctx);
+	struct rtw_custom_decrpt *cmd = (struct rtw_custom_decrpt *)(msg->inbuf);
+	u32 size = sizeof(u32);
+	u32 sr_enable = 0xff;
+
+	ret = _is_vr_mode_valid(custom_ctx, vr_ctx, msg, size);
+	if (ret != MDL_RET_SUCCESS){
+		goto exit;
+	}
+
+	sr_enable = rtw_hal_is_spatial_reuse_en(phl->hal);
+	PHL_INFO("%s, sr_en(%d)\n", __FUNCTION__, sr_enable);
+exit:
+	phl_custom_prepare_evt_rpt(custom_ctx,
+	                           cmd->evt_id,
+	                           cmd->customer_id,
+	                           (u8*)&sr_enable,
+	                            sizeof(u32));
+
+	return ret;
+}
+
+enum phl_mdl_ret_code
 phl_custom_hdl_vr_evt(void* dispr,
                       void* custom_ctx,
                       struct _custom_vr_ctx* vr_ctx,
@@ -623,6 +731,15 @@ phl_custom_hdl_vr_evt(void* dispr,
 			break;
 		case MSG_EVT_GET_TX_RATE_RTY_TBL:
 			ret = _phl_custom_vr_get_tx_rate_rty_tbl(custom_ctx, vr_ctx, msg);
+			break;
+		case MSG_EVT_EDCA_QUERY:
+			ret = _phl_custom_vr_edca_query(custom_ctx, vr_ctx, msg);
+			break;
+		case MSG_EVT_SET_SPATIAL_REUSE:
+			ret = _phl_custom_vr_sr_cfg(custom_ctx, vr_ctx, msg);
+			break;
+		case MSG_EVT_GET_SPATIAL_REUSE:
+			ret = _phl_custom_vr_sr_query(custom_ctx, vr_ctx, msg);
 			break;
 		default:
 			ret = MDL_RET_SUCCESS;

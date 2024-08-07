@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -15,10 +15,12 @@
 #define _PHL_INIT_C_
 #include "phl_headers.h"
 
+#ifdef CONFIG_PHL_CHSWOFLD
 static void phl_chsw_ofld_info_init(struct rtw_phl_com_t *phl_com)
 {
 	rtw_phl_set_chsw_ofld_info(phl_com, false, false, false);
 }
+#endif
 
 void _phl_com_init_rssi_stat(struct rtw_phl_com_t *phl_com)
 {
@@ -367,7 +369,9 @@ static enum rtw_phl_status phl_com_init(void *drv_priv,
 
 	_os_spinlock_init(drv_priv, &phl_info->phl_com->evt_info.evt_lock);
 
+#ifdef CONFIG_PHL_CHSWOFLD
 	phl_chsw_ofld_info_init(phl_info->phl_com);
+#endif
 
 	phl_fw_init(phl_info);
 	#ifdef CONFIG_PHL_CHANNEL_INFO
@@ -549,6 +553,10 @@ static enum rtw_phl_status _phl_hci_ops_check(struct phl_info_t *phl_info)
 	}
 	if (!trx_ops->recycle_busy_h2c) {
 		phl_ops_error_msg("recycle_busy_h2c");
+		status = RTW_PHL_STATUS_FAILURE;
+	}
+	if (!trx_ops->read_hw_rx) {
+		phl_ops_error_msg("read_hw_rx");
 		status = RTW_PHL_STATUS_FAILURE;
 	}
 #endif
@@ -895,37 +903,6 @@ struct rtw_phl_com_t *rtw_phl_get_com(void *phl)
 	return phl_info->phl_com;
 }
 
-static void phl_regulation_init(void *drv_priv, void *phl)
-{
-	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
-	struct rtw_regulation *rg = NULL;
-
-	if (!drv_priv || !phl)
-		return;
-
-	rg = &phl_info->regulation;
-
-	_os_spinlock_init(drv_priv, &rg->lock);
-	rg->init = 1;
-	rg->domain.code = INVALID_DOMAIN_CODE;
-	rg->domain_6g.code = INVALID_DOMAIN_CODE;
-	rg->tpo = TPO_NA;
-	phl_regu_policy_init(drv_priv, phl);
-}
-
-static void phl_regulation_deinit(void *drv_priv, void *phl)
-{
-	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
-	struct rtw_regulation *rg = NULL;
-
-	if (!drv_priv || !phl)
-		return;
-
-	rg = &phl_info->regulation;
-
-	_os_spinlock_free(drv_priv, &rg->lock);
-}
-
 enum rtw_phl_status rtw_phl_init(void *drv_priv, void **phl,
 					struct rtw_ic_info *ic_info)
 {
@@ -942,8 +919,6 @@ enum rtw_phl_status rtw_phl_init(void *drv_priv, void **phl,
 	}
 	_os_mem_set(drv_priv, phl_info, 0, sizeof(struct phl_info_t));
 	*phl = phl_info;
-
-	phl_regulation_init(drv_priv, phl_info);
 
 	phl_status = phl_com_init(drv_priv, phl_info, ic_info);
 	if (phl_status != RTW_PHL_STATUS_SUCCESS) {
@@ -1098,7 +1073,6 @@ error_hci_init:
 	phl_com_deinit(phl_info, phl_info->phl_com);
 error_phl_com_mem:
 	if (phl_info) {
-		phl_regulation_deinit(drv_priv, phl_info);
 		_os_mem_free(drv_priv, phl_info, sizeof(struct phl_info_t));
 		*phl = phl_info = NULL;
 	}
@@ -1130,7 +1104,6 @@ void rtw_phl_deinit(void *phl)
 		#endif
 		phl_hci_deinit(phl_info, phl_info->hci);
 		phl_com_deinit(phl_info, phl_info->phl_com);
-		phl_regulation_deinit(drv_priv, phl_info);
 		_os_mem_free(drv_priv, phl_info,
 					sizeof(struct phl_info_t));
 	}
@@ -1570,12 +1543,17 @@ enum rtw_phl_status rtw_phl_start(void *phl)
 #endif
 
 #ifdef CONFIG_POWER_SAVE
-	if (ps_cap->init_rf_state == RTW_RF_OFF)
+	if (ps_cap->init_rf_state == RTW_RF_OFF) {
 		PHL_INFO("%s: init_rf_state is RTW_RF_OFF\n", __func__);
-	else
+#ifdef CONFIG_PCI_HCI
+		if (TEST_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_RESUMING))
+			rtw_hal_set_pcicfg(phl_info->phl_com, phl_info->hal);
+#endif /* CONFIG_PCI_HCI */
+	} else
 #endif /* CONFIG_POWER_SAVE */
+	{
 		hal_status = rtw_hal_start(phl_info->phl_com, phl_info->hal);
-
+	}
 
 	if (hal_status == RTW_HAL_STATUS_MAC_INIT_FAILURE) {
 		phl_status = RTW_PHL_STATUS_HAL_INIT_FAILURE;
@@ -1732,7 +1710,7 @@ void rtw_phl_stop(void *phl)
 
 	phl_free_deferred_tx_ring(phl_info);
 
-	phl_info->phl_com->dev_state = 0;
+	CLEAR_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_WORKING);
 }
 
 enum rtw_phl_status phl_wow_start(struct phl_info_t *phl_info, struct rtw_phl_stainfo_t *sta)
@@ -1792,8 +1770,11 @@ enum rtw_phl_status phl_wow_start(struct phl_info_t *phl_info, struct rtw_phl_st
 			goto end;
 #ifdef CONFIG_POWER_SAVE
 		/* power saving */
-		phl_wow_ps_proto_cfg(wow_info, true);
+		pstatus = phl_wow_ps_proto_cfg(wow_info, true);
+		if (RTW_PHL_STATUS_SUCCESS != pstatus)
+			goto end;
 
+		phl_wow_ps_judge_pwr_lvl(wow_info, true);
 		phl_wow_ps_pwr_ntfy(wow_info, true);
 #endif
 		pstatus = phl_wow_init_postcfg(wow_info);
@@ -1806,7 +1787,9 @@ enum rtw_phl_status phl_wow_start(struct phl_info_t *phl_info, struct rtw_phl_st
 		#endif
 #ifdef CONFIG_POWER_SAVE
 		/* power saving */
-		phl_wow_ps_pwr_cfg(wow_info, true);
+		pstatus = phl_wow_ps_pwr_cfg(wow_info, true);
+		if (RTW_PHL_STATUS_SUCCESS != pstatus)
+			goto end;
 #endif
 		pstatus = RTW_PHL_STATUS_SUCCESS;
 	}
@@ -2157,7 +2140,10 @@ enum rtw_phl_status rtw_phl_suspend(void *phl, struct rtw_phl_stainfo_t *sta, u8
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_SUCCESS;
 
-	PHL_INFO("%s enter with wow_en(%d)\n.", __func__, wow_en);
+	PHL_INFO("%s: enter with wow_en(%d), (dev_state 0x%x)\n.",
+	        __func__, wow_en, phl_info->phl_com->dev_state);
+
+	SET_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_SUSPENDING);
 #ifdef CONFIG_WOWLAN
 	pstatus = _phl_cmd_send_msg_phy_on(phl_info);
 	if (RTW_PHL_STATUS_SUCCESS != pstatus) {
@@ -2178,7 +2164,10 @@ enum rtw_phl_status rtw_phl_suspend(void *phl, struct rtw_phl_stainfo_t *sta, u8
 	rtw_phl_stop(phl);
 #endif
 
-	FUNCOUT_WSTS(pstatus);
+	CLEAR_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_SUSPENDING);
+	SET_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_SUSPENDED);
+
+	PHL_INFO("%s: exit with (dev_state 0x%x)\n.", __func__, phl_info->phl_com->dev_state);
 
 	return pstatus;
 }
@@ -2204,7 +2193,8 @@ enum rtw_phl_status rtw_phl_resume(void *phl, struct rtw_phl_stainfo_t *sta, u8 
 	 * "rtw_phl_resume" because core layer will not perform any other tasks when
 	 * calling rtw_phl_resume which is relatively simple enough.
 	 */
-	PHL_INFO("%s enter...\n.", __func__);
+	PHL_INFO("%s: enter...(dev_state 0x%x)\n.", __func__, phl_info->phl_com->dev_state);
+	CLEAR_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_SUSPENDED);
 	SET_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_RESUMING);
 
 #ifdef CONFIG_WOWLAN
@@ -2234,7 +2224,8 @@ enum rtw_phl_status rtw_phl_resume(void *phl, struct rtw_phl_stainfo_t *sta, u8 
 
 	CLEAR_STATUS_FLAG(phl_info->phl_com->dev_state, RTW_DEV_RESUMING);
 
-	PHL_INFO("%s exit with hw_reinit %d.\n.", __func__, *hw_reinit);
+	PHL_INFO("%s: exit with hw_reinit %d (dev_state 0x%x).\n.", __func__,
+	         *hw_reinit, phl_info->phl_com->dev_state);
 
 	return pstatus;
 }
@@ -2432,11 +2423,11 @@ enum rtw_phl_status rtw_phl_interrupt_handler(void *phl)
 #if defined(CONFIG_SDIO_HCI) && defined(CONFIG_PHL_SDIO_READ_RXFF_IN_INT)
 		phl_info->hci_trx_ops->recv_rxfifo(phl);
 #else
-		phl_status = rtw_phl_start_rx_process(phl);
-#endif
 
-#if defined(CONFIG_PCI_HCI) && !defined(CONFIG_DYNAMIC_RX_BUF)
-		/* phl_status = hci_trx_ops->recycle_busy_wd(phl); */
+#if defined(CONFIG_PCI_HCI)
+		phl_info->hci_trx_ops->read_hw_rx(phl);
+#endif
+		phl_status = rtw_phl_start_rx_process(phl);
 #endif
 	}
 
@@ -2468,14 +2459,21 @@ enum rtw_phl_status rtw_phl_interrupt_handler(void *phl)
 	if (int_hdler_msk & BIT7)
 		phl_status = _phl_gtimer_event(gt_ctx, &skip_tx);
 
-	if (skip_tx)
-		goto end;
+	/* rp interrupt */
+	if (int_hdler_msk & BIT8) {
+#if defined(CONFIG_PCI_HCI)
+		phl_info->hci_trx_ops->read_hw_rx(phl);
+#endif
+		phl_status = rtw_phl_start_rx_process(phl);
+		if (!skip_tx) {
+			phl_status = phl_schedule_handler(phl_info->phl_com,
+		                                  &phl_info->phl_tx_handler);
+		}
+	}
 
 	if (phl_status != RTW_PHL_STATUS_SUCCESS)
 		PHL_INFO("rtw_phl_interrupt_handler fail !!\n");
 
-	/* schedule tx process */
-	phl_status = phl_schedule_handler(phl_info->phl_com, &phl_info->phl_tx_handler);
 end:
 
 #ifdef CONFIG_SYNC_INTERRUPT
@@ -2694,6 +2692,7 @@ void rtw_phl_reset_stat_ma_rssi(struct rtw_phl_com_t *phl_com)
 			for (j = 0; j < PHL_RSSI_MAVG_NUM; j++)
 				phl_com->rssi_stat.ma_rssi_ele[i][j] = 0;
 		}
+		phl_com->rssi_stat.last_rx_freerun = 0;
 		_os_spinunlock(phl_com->drv_priv,
 			       &(phl_com->rssi_stat.lock), _bh, NULL);
 	} while (0);
@@ -2718,6 +2717,26 @@ rtw_phl_get_ma_rssi(struct rtw_phl_com_t *phl_com,
 
 	return ret;
 }
+
+
+u32
+rtw_phl_get_last_rssi_rx_freerun(struct rtw_phl_com_t *phl_com)
+{
+
+	u32 ret = 0;
+	if (NULL == phl_com)
+		return ret;
+
+	_os_spinlock(phl_com->drv_priv,
+		     &(phl_com->rssi_stat.lock), _bh, NULL);
+	ret = phl_com->rssi_stat.last_rx_freerun;
+	_os_spinunlock(phl_com->drv_priv,
+		       &(phl_com->rssi_stat.lock), _bh, NULL);
+
+	return ret;
+}
+
+
 
 #ifdef RTW_WKARD_DYNAMIC_BFEE_CAP
 enum rtw_phl_status
@@ -2787,6 +2806,9 @@ rtw_phl_get_ic_id(void *phl)
 	case CHIP_WIFI6_8852C:
 		ic_id = RTL8852C;
 		break;
+	case CHIP_WIFI6_8852D:
+		ic_id = RTL8852D;
+		break;
 	case CHIP_WIFI6_8192XB:
 		ic_id = RTL8192XB;
 		break;
@@ -2795,6 +2817,9 @@ rtw_phl_get_ic_id(void *phl)
 		break;
 	case CHIP_WIFI6_8852BP:
 		ic_id = RTL8852BP;
+		break;
+	case CHIP_WIFI6_8852BT:
+		ic_id = RTL8852BT;
 		break;
 	case CHIP_WIFI6_8851B:
 		ic_id = RTL8851B;
@@ -2819,3 +2844,41 @@ rtw_phl_pwr_switch_mac(void *phl, bool on)
 	}
 	return pstatus;
 }
+
+#ifdef CONFIG_SMART_ANTENNA
+void
+rtw_phl_get_antenna_info(void *phl, struct rtw_phl_smart_ant_info_t *antenna_info, bool reset_cnt)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	u32 rx_ok = 0, rx_fail = 0, rx_FA = 0;
+	u32 *p_rx_ok=&rx_ok, *p_rx_fail=&rx_fail, *p_rx_FA=&rx_FA;
+	u32 numer,denomer;
+
+	/* get information from bb */
+	rtw_hal_bb_get_antenna_info(phl_info->hal, antenna_info, reset_cnt);
+
+	/* get information from mac */
+	rtw_hal_mac_get_rx_cnt_info(phl_info->hal, 0, 0, p_rx_ok);
+	rtw_hal_mac_get_rx_cnt_info(phl_info->hal, 0, 1, p_rx_fail);
+	rtw_hal_mac_get_rx_cnt_info(phl_info->hal, 0, 2, p_rx_FA);
+
+	if ( (rx_ok > 0xffff) || (rx_fail > 0xffff) ){
+		antenna_info->rx_per = 0xffff;
+	} else {
+		denomer = rx_ok + rx_fail + rx_FA;
+		numer = rx_fail + rx_FA + (denomer >> 1);
+		antenna_info->rx_per = (u16)(denomer ? (numer * 100)/denomer : 0);
+	}
+}
+
+void
+rtw_phl_get_antenna_info_acs(void *phl, struct rtw_phl_smart_ant_info_t *antenna_info)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	struct phl_acs_info *acs_info = (struct phl_acs_info *)phl_info->acs_info;
+
+	_os_mem_cpy(phl_to_drvpriv(phl_info), antenna_info->acs_rpt, acs_info->rpt, sizeof(antenna_info->acs_rpt));
+}
+#endif
+
+

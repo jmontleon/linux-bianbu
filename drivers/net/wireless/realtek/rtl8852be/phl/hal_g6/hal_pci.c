@@ -116,6 +116,23 @@ void rtw_hal_cfg_dma_io(void *hal, u8 en)
 		PHL_ERR("%s failure \n", __func__);
 }
 
+enum rtw_hal_status
+rtw_hal_pcie_cfg_get(void *hal, struct rtw_pcie_cfgspc_param *cfg)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+	struct mac_ax_pcie_cfgspc_param pcicfg;
+
+	_os_mem_set(hal_to_drvpriv(hal_info), &pcicfg, 0, sizeof(pcicfg));
+
+	if (!hal_info->hal_ops.get_pcicfg)
+		return RTW_HAL_STATUS_FAILURE;
+
+	hsts = hal_info->hal_ops.get_pcicfg(hal_info, cfg);
+
+	return hsts;
+}
+
 #ifdef RTW_WKARD_DYNAMIC_LTR
 enum rtw_hal_status
 rtw_hal_ltr_en_hw_mode(void *hal, bool hw_mode)
@@ -188,4 +205,18 @@ bool rtw_hal_ltr_is_hw_ctrl(struct rtw_phl_com_t *phl_com, void *hal)
 }
 
 #endif
+
+void rtw_hal_set_pcicfg(struct rtw_phl_com_t *phl_com, void *hal)
+{
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_FAILURE;
+	struct hal_ops_t *hal_ops = hal_get_ops(hal_info);
+
+	if (NULL != hal_ops->hal_set_pcicfg)
+		hal_status = hal_ops->hal_set_pcicfg(hal_info);
+
+	if (hal_status != RTW_HAL_STATUS_SUCCESS)
+		PHL_ERR("%s: set pci cfg fail\n", __func__);
+}
+
 #endif /*CONFIG_PCI_HCI*/

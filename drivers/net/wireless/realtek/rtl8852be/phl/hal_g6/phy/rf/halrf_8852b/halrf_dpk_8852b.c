@@ -25,7 +25,7 @@
 #include "../halrf_precomp.h"
 #ifdef RF_8852B_SUPPORT
 
-/*8852B DPK ver:0xf 2022902*/
+/*8852B DPK ver:0x12 20230628*/
 
 void _dpk_bkup_kip_8852b(
 	struct rf_info *rf,
@@ -125,6 +125,8 @@ u8 _dpk_one_shot_8852b(
 	enum rf_path path,
 	enum dpk_id id)
 {
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
+
 	u8 r_bff8 = 0x0, phy_map;
 	u16 dpk_cmd = 0x0;
 	u32 r_80fc = 0x0, cnt1 = 0, cnt2 = 0;
@@ -138,34 +140,44 @@ u8 _dpk_one_shot_8852b(
 	halrf_wreg(rf, 0x8000, MASKDWORD, dpk_cmd);
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xbff8, MASKBYTE0, 0x55, 20000))
-		RF_DBG(rf, DBG_RF_DPK, " %s 0xbff8 == 0x55 Timeout !!!\n", __func__);
-	r_bff8 = 0x0;
-#else
-	r_bff8 = (u8)halrf_rreg(rf, 0xbff8, MASKBYTE0);
-	while (r_bff8 != 0x55 && cnt1 < 20000) {
-		halrf_delay_us(rf, 1);
-		r_bff8 = (u8)halrf_rreg(rf, 0xbff8, MASKBYTE0);
-		cnt1++;
-	}
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0xbff8, MASKBYTE0, 0x55, 20000)) {
+			RF_DBG(rf, DBG_RF_DPK, " %s 0xbff8 == 0x55 Timeout !!!\n", __func__);
+			rfk_dz->dpk_dz_code |= BIT(8 * path);
+		}
+		r_bff8 = 0x0;
+	} else
 #endif
+	{
+		r_bff8 = (u8)halrf_rreg(rf, 0xbff8, MASKBYTE0);
+		while (r_bff8 != 0x55 && cnt1 < 20000) {
+			halrf_delay_us(rf, 1);
+			r_bff8 = (u8)halrf_rreg(rf, 0xbff8, MASKBYTE0);
+			cnt1++;
+		}
+	}
 
 	halrf_delay_us(rf, 1);
 
 	halrf_wreg(rf, 0x80d4, MASKDWORD, 0x00030000);	/*rpt_sel*/
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0x80fc, MASKLWORD, 0x8000, 2000))
-		RF_DBG(rf, DBG_RF_DPK, " %s 0x80fc == 0x8000 Timeout !!!\n", __func__);
-	r_80fc = 0x0;
-#else
-	r_80fc = halrf_rreg(rf, 0x80fc, MASKLWORD);
-	while (r_80fc != 0x8000 && cnt2 < 2000) {
-		halrf_delay_us(rf, 1);
-		r_80fc = halrf_rreg(rf, 0x80fc, MASKLWORD);
-		cnt2++;
-	}
+	if (rf->phl_com->dev_cap.io_ofld) {
+		if (!halrf_polling_bb(rf, 0x80fc, MASKLWORD, 0x8000, 2000)) {
+			RF_DBG(rf, DBG_RF_DPK, " %s 0x80fc == 0x8000 Timeout !!!\n", __func__);
+			rfk_dz->dpk_dz_code |= BIT(8 * path);
+		}
+		r_80fc = 0x0;
+	} else
 #endif
+	{
+		r_80fc = halrf_rreg(rf, 0x80fc, MASKLWORD);
+		while (r_80fc != 0x8000 && cnt2 < 2000) {
+			halrf_delay_us(rf, 1);
+			r_80fc = halrf_rreg(rf, 0x80fc, MASKLWORD);
+			cnt2++;
+		}
+	}
 
 	halrf_wreg(rf, 0x8010, MASKBYTE0, 0x0);
 #if 0
@@ -181,9 +193,17 @@ u8 _dpk_one_shot_8852b(
 
 	if (cnt1 == 20000 || cnt2 == 20000) {
 		RF_DBG(rf, DBG_RF_DPK, "[DPK] one-shot over 20ms!!!!\n");
+		rfk_dz->dpk_dz_code |= BIT(8 * path);
 		return 1;
 	} else
 		return 0;
+}
+
+u8 _dpk_xdbm_to_txagc_8852b(
+	struct rf_info *rf,
+	s8 xdbm)
+{
+	return xdbm - 7 + 0x2e; /*7dBm = 0x2e*/
 }
 
 void _dpk_information_8852b(
@@ -391,6 +411,21 @@ void _dpk_kip_restore_8852b(
 	RF_DBG(rf, DBG_RF_DPK, "[DPK] S%d restore KIP\n", path);
 }
 
+u8 _dpk_txagc_check_8852b(
+	struct rf_info *rf,
+	enum rf_path path,
+	u8 txagc)
+{
+	struct halrf_dpk_info *dpk = &rf->dpk;
+
+	if (txagc >= dpk->max_dpk_txagc[path])
+		txagc = dpk->max_dpk_txagc[path];
+
+	RF_DBG(rf, DBG_RF_DPK, "[DPK] Set TxAGC = 0x%x\n", txagc);
+
+	return txagc;
+}
+
 void _dpk_kip_set_txagc_8852b(
 	struct rf_info *rf,
 	enum phl_phy_idx phy,
@@ -399,7 +434,7 @@ void _dpk_kip_set_txagc_8852b(
 {
 	//halrf_write_fwofld_start(rf);		/*FW Offload Start*/
 
-	halrf_wrf(rf, path, 0x10001, MASKRF, txagc);
+	halrf_wrf(rf, path, 0x10001, MASKRF, _dpk_txagc_check_8852b(rf, path, txagc));
 	halrf_wreg(rf, 0x5864, BIT(29), 0x1);
 	_dpk_one_shot_8852b(rf, phy, path, DPK_TXAGC);
 	halrf_wreg(rf, 0x5864, BIT(29), 0x0);
@@ -419,8 +454,14 @@ void _dpk_kip_set_rxagc_8852b(
 	_dpk_one_shot_8852b(rf, phy, path, DPK_RXAGC);
 	halrf_wreg(rf, 0x5864, BIT(29), 0x0); /*disable kip control RFC*/
 
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (!rf->phl_com->dev_cap.io_ofld) {
+		halrf_wreg(rf, 0x80d4, 0x000F0000, 0x8);
+		RF_DBG(rf, DBG_RF_DPK, "[DPK] set RXBB = 0x%x (RF0x0[9:5] = 0x%x)\n",
+			halrf_rreg(rf, 0x80fc, 0x0000001F),
+			halrf_rrf(rf, path, 0x00, MASKRFRXBB));
+	}
+#else
 	halrf_wreg(rf, 0x80d4, 0x000F0000, 0x8);
 	RF_DBG(rf, DBG_RF_DPK, "[DPK] set RXBB = 0x%x (RF0x0[9:5] = 0x%x)\n",
 		halrf_rreg(rf, 0x80fc, 0x0000001F),
@@ -491,8 +532,11 @@ void _dpk_lbk_rxiqk_8852b(
 
 	_dpk_one_shot_8852b(rf, phy, path, LBK_RXIQK);
 
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	RF_DBG(rf, DBG_RF_DPK, "[DPK] S%d LBK RXIQC = 0x%x\n", path, halrf_rreg(rf, 0x813c, MASKDWORD));
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (!rf->phl_com->dev_cap.io_ofld)
+		RF_DBG(rf, DBG_RF_DPK, "[DPK] S%d LBK RXIQC = 0x%x\n", path, halrf_rreg(rf, 0x813c + (path << 8) , MASKDWORD));
+#else
+	RF_DBG(rf, DBG_RF_DPK, "[DPK] S%d LBK RXIQC = 0x%x\n", path, halrf_rreg(rf, 0x813c + (path << 8), MASKDWORD));
 #endif
 	halrf_wreg(rf, 0x5864, BIT(29), 0x0);
 
@@ -518,32 +562,6 @@ void _dpk_get_thermal_8852b(struct rf_info *rf, u8 kidx, enum rf_path path)
 	dpk->bp[path][kidx].ther_dpk = halrf_get_thermal_8852b(rf, path);
 
 	RF_DBG(rf, DBG_RF_DPK, "[DPK] thermal@DPK (by RFC)= 0x%x\n", dpk->bp[path][kidx].ther_dpk);
-}
-
-void _dpk_tx_mapping_8852b(
-	struct rf_info *rf,
-	enum rf_path path,
-	u8 kidx,
-	u8 txagc)
-{
-	struct halrf_dpk_info *dpk = &rf->dpk;
-
-	u16 table_g[18] = {0xa043, 0xb043, 0xc043, 0xd043, 0xe043,
-			0xf043, 0xa053, 0xb053, 0xc053, 0xd053,
-			0xe053, 0xf053, 0x9063, 0xa063, 0xb063,
-			0xc063, 0xd063, 0xe063};
-	u16 table_a[18] = {0xd033, 0xe033, 0xf033, 0x3043, 0x4043,
-			0x5043, 0x4053, 0x5053, 0x6053, 0x3063,
-			0x4063, 0x5063, 0x6063, 0x7063, 0x8063,
-			0x9063, 0xa063, 0xb063};
-	u16 tx_gain = 0;
-
-	if (dpk->bp[path][kidx].band == BAND_ON_24G)
-		tx_gain = table_g[txagc - 0x2e];
-	if (dpk->bp[path][kidx].band == BAND_ON_5G)
-		tx_gain = table_a[txagc - 0x2e];
-
-	halrf_wrf(rf, path, 0x11, MASKRF, tx_gain);
 }
 
 void _dpk_rf_setting_8852b(
@@ -580,8 +598,13 @@ void _dpk_rf_setting_8852b(
 	/*rxbb filter*/
 	halrf_wrf(rf, path, 0x1a, BIT(11) | BIT(10), 0x0);
 
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (!rf->phl_com->dev_cap.io_ofld)
+		RF_DBG(rf, DBG_RF_DPK, "[DPK] ARF 0x0/0x11/0x1a = 0x%x/ 0x%x/ 0x%x\n",
+		       halrf_rrf(rf, path, 0x00, MASKRF),
+		       halrf_rrf(rf, path, 0x11, MASKRF),
+		       halrf_rrf(rf, path, 0x1a, MASKRF));
+#else
 	RF_DBG(rf, DBG_RF_DPK, "[DPK] ARF 0x0/0x11/0x1a = 0x%x/ 0x%x/ 0x%x\n",
 	       halrf_rrf(rf, path, 0x00, MASKRF),
 	       halrf_rrf(rf, path, 0x11, MASKRF),
@@ -631,16 +654,24 @@ void _dpk_bypass_rxcfir_8852b(
 		halrf_wreg(rf, 0x813c + (path << 8), BIT(2), 0x1);
 		halrf_wreg(rf, 0x813c + (path << 8), BIT(0), 0x1);
 		//halrf_wreg(rf, 0x813c + (path << 8), MASKDWORD, 0x00004002);
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (!rf->phl_com->dev_cap.io_ofld)
 		RF_DBG(rf, DBG_RF_DPK, "[DPK] Bypass RXIQC (0x8%d3c = 0x%x)\n",
 		       1 + path, halrf_rreg(rf, 0x813c + (path << 8), MASKDWORD));
+#else
+	RF_DBG(rf, DBG_RF_DPK, "[DPK] Bypass RXIQC (0x8%d3c = 0x%x)\n",
+	       1 + path, halrf_rreg(rf, 0x813c + (path << 8), MASKDWORD));
 #endif
 	} else {
 		halrf_wreg(rf, 0x813c + (path << 8), BIT(2), 0x0);
 		halrf_wreg(rf, 0x813c + (path << 8), BIT(0), 0x0);
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (!rf->phl_com->dev_cap.io_ofld)
 		RF_DBG(rf, DBG_RF_DPK, "[DPK] restore 0x8%d3c = 0x%x\n",
 		       1 + path, halrf_rreg(rf, 0x813c + (path << 8), MASKDWORD));
+#else
+	RF_DBG(rf, DBG_RF_DPK, "[DPK] restore 0x8%d3c = 0x%x\n",
+	       1 + path, halrf_rreg(rf, 0x813c + (path << 8), MASKDWORD));
 #endif
 	}
 
@@ -669,6 +700,7 @@ bool _dpk_sync_check_8852b(
 	u8 kidx)
 {
 	struct halrf_dpk_info *dpk = &rf->dpk;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
 
 	u16 dc_i, dc_q;
 	u8 corr_val, corr_idx;
@@ -702,9 +734,10 @@ bool _dpk_sync_check_8852b(
 	dpk->dc_i[path][kidx] = dc_i;
 	dpk->dc_q[path][kidx] = dc_q;
 
-	if ((dc_i > 200) || (dc_q > 200) || (corr_val < 170))
+	if ((dc_i > 200) || (dc_q > 200) || (corr_val < 170)) {
+		rfk_dz->dpk_dz_code |= BIT(8 * path + 1);
 		return true;
-	else
+	} else
 		return false;
 }
 
@@ -922,16 +955,17 @@ u8 _dpk_agc_8852b(
 	u8 init_txagc,
 	u8 loss_only)
 {
+	struct halrf_dpk_info *dpk = &rf->dpk;
+
 	u8 tmp_txagc, tmp_rxbb = 0, i = 0, tmp_gl_idx = 0;
 	u8 goout = 0, agc_cnt = 0, limited_rxbb = 0;
 	s8 offset = 0;
 	u16 dgain = 0;
-	u8 cur_rxbb;
 	u32 rf_18;
 
 	tmp_txagc = init_txagc;
 
-	cur_rxbb = (u8)halrf_rrf(rf, path, 0x00, MASKRFRXBB);
+	tmp_rxbb = (u8)halrf_rrf(rf, path, 0x00, MASKRFRXBB);
 	rf_18 = halrf_rrf(rf, path, 0x18, MASKRF);
 	
 	do {
@@ -945,7 +979,7 @@ u8 _dpk_agc_8852b(
 				if (rf->hal_com->band[phy].cur_chandef.bw < 2)
 					_dpk_bypass_rxcfir_8852b(rf, path, true);
 				else
-					_dpk_lbk_rxiqk_8852b(rf, phy, path, cur_rxbb, rf_18);
+					_dpk_lbk_rxiqk_8852b(rf, phy, path, tmp_rxbb, rf_18);
 			}
 
 			halrf_write_fwofld_end(rf);		/*FW Offload End*/
@@ -966,7 +1000,7 @@ u8 _dpk_agc_8852b(
 			break;
 
 		case 1: /*Gain adjustment*/
-			//tmp_rxbb = (u8)halrf_rrf(rf, path, 0x00, MASKRFRXBB);
+			tmp_rxbb = (u8)halrf_rrf(rf, path, 0x00, MASKRFRXBB);
 
 			if (tmp_rxbb + offset > 0x1f) {
 				tmp_rxbb = 0x1f;
@@ -983,7 +1017,7 @@ u8 _dpk_agc_8852b(
 			RF_DBG(rf, DBG_RF_DPK, "[DPK] Adjust RXBB (%d) = 0x%x\n", offset, tmp_rxbb);
 #if 1
 			if (rf->hal_com->band[phy].cur_chandef.bw == CHANNEL_WIDTH_80)
-				_dpk_lbk_rxiqk_8852b(rf, phy, path, cur_rxbb, rf_18);
+				_dpk_lbk_rxiqk_8852b(rf, phy, path, tmp_rxbb, rf_18);
 #endif
 			if ((dgain > 1922) || (dgain < 342))
 				i = 0;
@@ -1009,7 +1043,7 @@ u8 _dpk_agc_8852b(
 			break;
 
 		case 3: /*GL > criterion*/
-			if (tmp_txagc == 0x2e) {
+			if (tmp_txagc == 0x2e || (tmp_txagc == dpk->max_dpk_txagc[path])) {
 				goout = 1;
 				RF_DBG(rf, DBG_RF_DPK, "[DPK] Txagc@lower bound!!\n");
 			} else {
@@ -1030,7 +1064,7 @@ u8 _dpk_agc_8852b(
 			break;
 
 		case 4:	/*GL < criterion*/
-			if (tmp_txagc == 0x3f) {
+			if (tmp_txagc == 0x3f || (tmp_txagc == dpk->max_dpk_txagc[path])) {
 				goout = 1;
 				RF_DBG(rf, DBG_RF_DPK, "[DPK] Txagc@upper bound!!\n");
 			} else {
@@ -1543,6 +1577,61 @@ u8 _dpk_bypass_check_8852b(
 	return result;
 }
 
+u8 _dpk_max_txagc_check_8852b(
+	struct rf_info *rf,
+	enum phl_phy_idx phy,
+	u8 kpath)
+{
+	struct halrf_dpk_info *dpk = &rf->dpk;
+	struct halrf_tssi_info *tssi_info = &rf->tssi;
+	struct rtw_tpu_info *tpu = &rf->hal_com->band[phy].rtw_tpu_i;
+
+	u8 result, path;
+	u8 bw, ch;
+	s8 pwr, default_txagc_ofst = 0;
+	u8 cid, iid;
+
+	cid = (rf->phl_com->id.id & 0xff00) >> 8;
+	iid = rf->phl_com->id.id & 0xff;
+
+	RF_DBG(rf, DBG_RF_DPK, "[DPK] phl_com->id.id = 0x%x\n", rf->phl_com->id.id);
+		
+	if ((tpu->pwr_lmt_en == false) || (iid != 0x0a) || (cid != 0x0) || dpk->is_dpk_pwr_unlmt) {
+		dpk->max_dpk_txagc[RF_PATH_A] = 0x3f;
+		dpk->max_dpk_txagc[RF_PATH_B] = 0x3f;
+		RF_DBG(rf, DBG_RF_DPK, "[DPK] Limit DPK PWR off\n");
+		return 0;
+	}
+
+	bw = rf->hal_com->band[phy].cur_chandef.bw;
+	ch = rf->hal_com->band[phy].cur_chandef.center_ch;
+
+	for (path = 0; path < DPK_RF_PATH_MAX_8852B; path++) {
+		if (kpath & BIT(path)) {
+			pwr = halrf_get_power_limit(rf, phy, path, RTW_DATA_RATE_HE_NSS1_MCS0,
+							bw, PW_LMT_NONBF, PW_LMT_PH_1T, ch) / 4;
+			if (pwr == 0)
+				dpk->max_dpk_txagc[path] = 0x3f;
+			else {
+				default_txagc_ofst = (s8)tssi_info->default_txagc_offset[path] >> 3;
+				dpk->max_dpk_txagc[path] = _dpk_xdbm_to_txagc_8852b(rf, pwr) + default_txagc_ofst;
+			}
+			RF_DBG(rf, DBG_RF_DPK, "[DPK] S%d default_txagc_ofst = %d\n", path, default_txagc_ofst);
+			RF_DBG(rf, DBG_RF_DPK, "[DPK] S%d Power limit %ddBm, max_dpk_txagc 0x%x\n",
+				path, pwr, dpk->max_dpk_txagc[path]);
+		}
+	}
+
+	if ((kpath == RF_B) && (dpk->max_dpk_txagc[RF_PATH_B] < 0x2e)) {
+		result = 1;
+	} else if (dpk->max_dpk_txagc[RF_PATH_A] < 0x2e) {
+		result = 1;
+	} else
+		result = 0;
+
+	return result;
+}
+
 void _dpk_force_bypass_8852b(
 	struct rf_info *rf,
 	enum phl_phy_idx phy)
@@ -1567,7 +1656,7 @@ void halrf_dpk_8852b(
 
 	RF_DBG(rf, DBG_RF_DPK, "[DPK] Driver mode = %d\n", rf->phl_com->drv_mode);
 #if 1
-	if (_dpk_bypass_check_8852b(rf, phy))
+	if ((_dpk_bypass_check_8852b(rf, phy) == 1) || (_dpk_max_txagc_check_8852b(rf, phy, RF_AB) == 1))
 		_dpk_force_bypass_8852b(rf, phy);
 	else
 		_dpk_cal_select_8852b(rf, force, phy, RF_AB);

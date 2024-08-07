@@ -344,6 +344,23 @@ inline u8 *rtw_set_ie_secondary_ch_offset(u8 *buf, u32 *buf_len, u8 secondary_ch
 	return rtw_set_ie(buf, WLAN_EID_SECONDARY_CHANNEL_OFFSET,  1, &secondary_ch_offset, buf_len);
 }
 
+inline u8 *rtw_set_ie_wide_bw_ch_switch(u8 *buf, u32 *buf_len,
+	u8 ch_width, u8 seg_0, u8 seg_1)
+{
+	u8 csw_data[3] = {0};
+
+	/*
+	* [0] : New Channel Width
+	* [1] : New Channel Center Frequency Segment 0
+	* [2] : New Channel Center Frequency Segment 1
+	*/
+	csw_data[0] = ch_width;
+	csw_data[1] = seg_0;
+	csw_data[2] = seg_1;
+
+	return rtw_set_ie(buf, WLAN_EID_VHT_WIDE_BW_CHSWITCH, 3, csw_data, buf_len);
+}
+
 inline u8 *rtw_set_ie_mesh_ch_switch_parm(u8 *buf, u32 *buf_len, u8 ttl,
 		u8 flags, u16 reason, u16 precedence)
 {
@@ -1833,23 +1850,16 @@ static int rtw_ieee802_11_parse_ext_elems(u8 *start, uint elen, struct rtw_ieee8
 	}
 }
 
-/**
- * ieee802_11_parse_elems - Parse information elements in management frames
- * @start: Pointer to the start of IEs
- * @len: Length of IE buffer in octets
- * @elems: Data structure for parsed elements
- * @show_errors: Whether to show parsing errors in debug log
- * Returns: Parsing result
- */
-ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
+static ParseRes _rtw_ieee802_11_parse_elems(u8 *start, uint len,
 				    struct rtw_ieee802_11_elems *elems,
-				    int show_errors)
+				    int show_errors, bool reset)
 {
 	uint left = len;
 	u8 *pos = start;
 	int unknown = 0;
 
-	_rtw_memset(elems, 0, sizeof(*elems));
+	if (reset)
+		_rtw_memset(elems, 0, sizeof(*elems));
 
 	while (left >= 2) {
 		u8 id, elen;
@@ -1963,6 +1973,14 @@ ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
 			elems->rm_en_cap = pos;
 			elems->rm_en_cap_len = elen;
 			break;
+		case WLAN_EID_AP_CHANNEL_RPT:
+			elems->ap_channel_rpt= pos;
+			elems->ap_channel_rpt_len = elen;
+			break;
+		case WLAN_EID_COUNTRY:
+			elems->country_info= pos;
+			elems->country_info_len = elen;
+			break;
 #ifdef CONFIG_RTW_MESH
 		case WLAN_EID_PREQ:
 			elems->preq = pos;
@@ -1979,6 +1997,16 @@ ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
 		case WLAN_EID_RANN:
 			elems->rann = pos;
 			elems->rann_len = elen;
+			break;
+#endif
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+		case WLAN_EID_MULTIPLE_BSSID:
+			elems->mbssid = pos;
+			elems->mbssid_len = elen;
+			break;
+		case WLAN_EID_NON_TX_BSSID_CAP:
+			elems->non_tx_bssid_cap = pos;
+			elems->non_tx_bssid_cap_len = elen;
 			break;
 #endif
 		case WLAN_EID_EXTENSION:
@@ -2004,6 +2032,121 @@ ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
 	return unknown ? ParseUnknown : ParseOK;
 
 }
+
+/**
+ * ieee802_11_parse_elems - Parse information elements in management frames
+ * @start: Pointer to the start of IEs
+ * @len: Length of IE buffer in octets
+ * @elems: Data structure for parsed elements
+ * @show_errors: Whether to show parsing errors in debug log
+ * Returns: Parsing result
+ */
+ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
+				    struct rtw_ieee802_11_elems *elems,
+				    int show_errors)
+{
+	return _rtw_ieee802_11_parse_elems(start, len, elems, show_errors, true);
+}
+
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+static bool rtw_mbssid_ntbssid_profile_match_id(u8 *profile, uint len, u8 mbssid_idx)
+{
+	uint left = len;
+	u8 *pos = profile;
+
+	while (left >= 2) {
+		u8 id, elen;
+
+		id = *pos++;
+		elen = *pos++;
+		left -= 2;
+
+		if (elen > left)
+			return false;
+
+		switch (id) {
+		case WLAN_EID_MULTI_BSSID_IDX:
+			if (GET_MULTIPLE_BSSID_IDX_INDEX(pos - 2) == mbssid_idx)
+				return true;
+			break;
+		default:
+			break;
+		}
+
+		left -= elen;
+		pos += elen;
+	}
+
+	return false;
+}
+
+/**
+ * rtw_ieee802_11_override_elems_by_mbssid - override information elements in management frames
+ * @mbssid_ie: Pointer to the start of mbssid IE
+ * @mbssid_ie_len: Length of IE buffer in octets
+ * @mbssid_idx: the specific mbssid index to get for override
+ * @elems: Data structure for parsed elements
+ * @show_errors: Whether to show parsing errors in debug log
+ * Returns: Parsing result
+ */
+ParseRes rtw_ieee802_11_override_elems_by_mbssid(
+	u8 *mbssid_ie, uint mbssid_ie_len, u8 mbssid_idx, struct rtw_ieee802_11_elems *elems
+	, int show_errors)
+{
+	uint left = mbssid_ie_len;
+	u8 *pos = mbssid_ie;
+	u8 max_bssid_indicator;
+	int unknown = 0;
+
+	if (left < 3) {
+		RTW_WARN("%s mbssid_ie_len < 3\n", __func__);
+		return ParseFailed;
+	}
+
+	max_bssid_indicator = GET_MBSSID_MAX_BSSID_INDOCATOR(pos);
+	if (mbssid_idx >= (1 << max_bssid_indicator)) {
+		RTW_WARN("%s mbssid_idx >= max_bssid_indicator(%u)\n"
+			, __func__, 1 << max_bssid_indicator);
+		return ParseFailed;
+	}
+
+	pos += MBSSID_MAX_BSSID_INDICATOR_OFFSET;
+	left -= MBSSID_MAX_BSSID_INDICATOR_OFFSET;
+
+	while (left >= 2) {
+		u8 id, elen;
+
+		id = *pos++;
+		elen = *pos++;
+		left -= 2;
+
+		if (elen > left) {
+			if (show_errors) {
+				RTW_INFO("%s parse failed (id=%d elen=%d left=%lu)\n"
+					, __func__, id, elen, (unsigned long) left);
+			}
+			return ParseFailed;
+		}
+
+		switch (id) {
+		case MBSSID_NONTRANSMITTED_BSSID_PROFILE_ID:
+			if (rtw_mbssid_ntbssid_profile_match_id(pos, elen, mbssid_idx))
+				_rtw_ieee802_11_parse_elems(pos, elen, elems, show_errors, false);
+			break;
+		default:
+			break;
+		}
+		left -= elen;
+		pos += elen;
+	}
+
+	if (left)
+		return ParseFailed;
+
+	return unknown ? ParseUnknown : ParseOK;
+
+}
+#endif /* CONFIG_STA_MULTIPLE_BSSID */
 
 static u8 key_char2num(u8 ch);
 static u8 key_char2num(u8 ch)
@@ -2100,7 +2243,7 @@ extern char *rtw_initmac;
 void rtw_macaddr_cfg(u8 *out, const u8 *hw_mac_addr)
 {
 #define DEFAULT_RANDOM_MACADDR 1
-	u8 mac[ETH_ALEN];
+	u8 mac[ETH_ALEN] = {0};
 
 	if (out == NULL) {
 		rtw_warn_on(1);
@@ -2410,8 +2553,8 @@ void rtw_ies_get_bchbw(u8 *ies, int ies_len, enum band_type *band, u8 *chan, u8 
 			if (band)
 				*band = BAND_ON_6G;
 			if (!rtw_get_offset_by_bchbw(BAND_ON_6G, *chan, *bw, offset)) {
-				RTW_INFO("%s get 6ghz channel offset fail, band=%u, chan=%u, bw=%u\n",
-					__func__, *band, *chan, *bw);
+				RTW_INFO("%s get 6ghz channel offset fail, chan=%u, bw=%u\n",
+					__func__, *chan, *bw);
 			}
 		}
 	}
@@ -2581,6 +2724,51 @@ u8 *rtw_get_p2p_ie(const u8 *in_ie, int in_len, u8 *p2p_ie, uint *p2p_ielen)
 	}
 
 	return (u8 *)p2p_ie_ptr;
+}
+
+u8 *rtw_get_vendor_ie(const u8 *in_ie, int in_len, u8 *vendor_ie, uint *vendor_ielen)
+{
+	uint cnt;
+	const u8 *vendor_ie_ptr = NULL;
+	u8 eid, vendor_oui[4] = {0xC8, 0x3A, 0x6B, 0x01};
+
+	if (vendor_ielen)
+		*vendor_ielen = 0;
+
+	if (!in_ie || in_len < 0) {
+		rtw_warn_on(1);
+		return (u8 *)vendor_ie_ptr;
+	}
+
+	if (in_len <= 0)
+		return (u8 *)vendor_ie_ptr;
+
+	cnt = 0;
+
+	while (cnt + 1 + 4 < in_len) {
+		eid = in_ie[cnt];
+
+		if (cnt + 1 + 4 >= MAX_IE_SZ) {
+			rtw_warn_on(1);
+			return NULL;
+		}
+
+		if (eid == WLAN_EID_VENDOR_SPECIFIC && _rtw_memcmp(&in_ie[cnt + 2], vendor_oui, 4) == _TRUE) {
+			vendor_ie_ptr = in_ie + cnt;
+
+			if (vendor_ie)
+				_rtw_memcpy(vendor_ie, &in_ie[cnt], in_ie[cnt + 1] + 2);
+
+			if (vendor_ielen)
+				*vendor_ielen = in_ie[cnt + 1] + 2;
+
+			break;
+		} else
+			cnt += in_ie[cnt + 1] + 2;
+
+	}
+
+	return (u8 *)vendor_ie_ptr;
 }
 
 /**

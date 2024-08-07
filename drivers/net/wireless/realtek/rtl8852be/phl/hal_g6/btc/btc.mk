@@ -31,8 +31,8 @@ halbtc-y += $(path_halbtc_8852a)/btc_8852a.o
 
 endif
 
-# 8852B/8852BP Support
-ifneq ($(filter y,$(CONFIG_RTL8852B) $(CONFIG_RTL8852BP) $(CONFIG_RTL8851B)),)
+# 8852B/8852BP/8852BT Support
+ifneq ($(filter y,$(CONFIG_RTL8852B) $(CONFIG_RTL8852BP) $(CONFIG_RTL8851B) $(CONFIG_RTL8852BT)),)
 ic := 8852b
 # Level 2 directory
 path_halbtc_8852b := $(path_halbtc_d1)/btc_$(ic)
@@ -46,6 +46,14 @@ ic := 8852c
 path_halbtc_8852c := $(path_halbtc_d1)/btc_$(ic)
 
 halbtc-y += $(path_halbtc_8852c)/btc_8852c.o
+endif
+
+ifeq ($(CONFIG_RTL8852D), y)
+ic := 8852d
+# Level 2 directory
+path_halbtc_8852d := $(path_halbtc_d1)/btc_$(ic)
+
+halbtc-y += $(path_halbtc_8852d)/btc_8852d.o
 endif
 
 _BTC_FILES +=	$(halbtc-y)

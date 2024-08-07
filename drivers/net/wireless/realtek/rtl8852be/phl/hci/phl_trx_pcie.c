@@ -1895,10 +1895,10 @@ _phl_alloc_rxbuf_pool_pcie(struct phl_info_t *phl_info, u8 ch_num)
 /* } */
 
 static void _phl_free_wd_page_pcie(struct phl_info_t *phl_info,
-					struct rtw_wd_page_ring *wd_page_ring)
+					struct rtw_wd_page_ring *wd_page_ring,
+					struct rtw_wd_page *wd_page)
 {
 	void *rtw_dma_pool = NULL;
-	struct rtw_wd_page *wd_page = wd_page_ring->wd_page;
 	u16 i = 0, wd_num = 0;
 #ifdef CONFIG_WD_PAGE_NONCACHE_ADDR
 	rtw_dma_pool = phl_info->hci->wd_dma_pool;
@@ -1972,7 +1972,8 @@ static void _phl_free_wd_ring_pcie(struct phl_info_t *phl_info, u8 *wd_page_buf,
 							&wd_page_ring[i]);
 			}
 			_phl_free_wd_work_ring(phl_info, &wd_page_ring[i]);
-			_phl_free_wd_page_pcie(phl_info, &wd_page_ring[i]);
+			_phl_free_wd_page_pcie(phl_info, &wd_page_ring[i],
+			                       wd_page_ring[i].wd_page);
 			wd_page_ring[i].wd_page = NULL;
 			_os_spinlock_free(drv_priv,
 						&wd_page_ring[i].idle_lock);
@@ -2144,7 +2145,7 @@ static struct rtw_wd_page *_phl_alloc_wd_page_pcie(
 	}
 
 	if (RTW_PHL_STATUS_SUCCESS != pstatus) {
-		_phl_free_wd_page_pcie(phl_info, wd_page_ring);
+		_phl_free_wd_page_pcie(phl_info, wd_page_ring, wd_page);
 		wd_page = NULL;
 	}
 
@@ -2346,7 +2347,7 @@ _phl_alloc_rxbd_pcie(struct phl_info_t *phl_info, u8 ch_num)
 			}
 			rxbd[i].buf_len = buf_len;
 			rxbd[i].host_idx = 0;
-			rxbd[i].avail_num = rxbd_num;
+			rxbd[i].hw_idx = 0;
 			pstatus = RTW_PHL_STATUS_SUCCESS;
 		}
 	}
@@ -2501,10 +2502,9 @@ enum rtw_phl_status _phl_update_default_rx_bd(struct phl_info_t *phl_info)
 static void _phl_reset_rxbd(struct phl_info_t *phl_info,
 					struct rx_base_desc *rxbd, u8 ch_idx)
 {
-	u16 rxbd_num = rtw_hal_get_rxbd_num(phl_info->hal, ch_idx);
 	_os_mem_set(phl_to_drvpriv(phl_info), rxbd->vir_addr, 0, rxbd->buf_len);
 	rxbd->host_idx = 0;
-	rxbd->avail_num = rxbd_num;
+	rxbd->hw_idx = 0;
 }
 
 
@@ -2911,6 +2911,12 @@ enum rtw_phl_status phl_trx_init_pcie(struct phl_info_t *phl_info)
 	struct rtw_phl_handler *tx_handler = &phl_info->phl_tx_handler;
 	struct rtw_phl_handler *rx_handler = &phl_info->phl_rx_handler;
 	struct rtw_phl_handler *ser_handler = &phl_info->phl_ser_handler;
+#ifdef CONFIG_RTW_TX_HDL_USE_WQ
+	_os_workitem *workitem_tx = &tx_handler->os_handler.u.workitem;
+#endif
+#ifdef CONFIG_RTW_RX_HDL_USE_WQ
+	_os_workitem *workitem_rx = &rx_handler->os_handler.u.workitem;
+#endif
 	void *drv_priv = phl_to_drvpriv(phl_info);
 
 	u8 txch_num = 0, rxch_num = 0;
@@ -2938,14 +2944,13 @@ enum rtw_phl_status phl_trx_init_pcie(struct phl_info_t *phl_info)
 
 	do {
 #ifdef CONFIG_RTW_TX_HDL_USE_WQ
-		_os_workitem *workitem_tx = &tx_handler->os_handler.u.workitem;
+		_os_workitem_config_cpu(drv_priv, workitem_tx, "TX_HDL", CPU_ID_TX_HDL);
 #endif
 #ifdef CONFIG_RTW_RX_HDL_USE_WQ
-		_os_workitem *workitem_rx = &rx_handler->os_handler.u.workitem;
+		_os_workitem_config_cpu(drv_priv, workitem_rx, "RX_HDL", CPU_ID_RX_HDL);
 #endif
 
 #if defined(CONFIG_RTW_TX_HDL_USE_WQ) || defined (CONFIG_PHL_HANDLER_WQ_HIGHPRI)
-		_os_workitem_config_cpu(drv_priv, workitem_tx, "TX_HDL", CPU_ID_TX_HDL);
 		tx_handler->type = RTW_PHL_HANDLER_PRIO_LOW;
 #else
 #ifdef CONFIG_RTW_TX_HDL_USE_THREAD
@@ -2979,7 +2984,6 @@ enum rtw_phl_status phl_trx_init_pcie(struct phl_info_t *phl_info)
 #else
 #if defined(CONFIG_TX_REQ_NONCACHE_ADDR) || defined(CONFIG_RTW_RX_HDL_USE_WQ) || defined(CONFIG_PHL_HANDLER_WQ_HIGHPRI)
 		/* prevent dma_free_coherent() being called in atomic context */
-		_os_workitem_config_cpu(drv_priv, workitem_rx, "RX_HDL", CPU_ID_RX_HDL);
 		rx_handler->type = RTW_PHL_HANDLER_PRIO_LOW;
 #else
 		rx_handler->type = RTW_PHL_HANDLER_PRIO_HIGH;
@@ -3603,6 +3607,10 @@ phl_handle_pending_wd(struct phl_info_t *phl_info,
 				wd_ring->cur_hw_res -= cnt;
 			else
 				wd_ring->cur_hw_res = 0;
+
+			#ifdef CONFIG_PHL_OFDMA_GROUP_STATISTIC
+			phl_com->trigger_txstart_ok++;
+			#endif
 		}
 	}
 
@@ -4246,6 +4254,9 @@ void _phl_rx_handle_wp_report(struct phl_info_t *phl_info,
 		if (0 == rsize)
 			break;
 
+#ifdef DEBUG_PHL_RX
+		phl_info->rx_stats.rx_type_wp++;
+#endif
 		phl_rx_wp_report_record_sts(phl_info, macid, ac_queue, txsts);
 
 		if (false == sw_retry) {
@@ -4291,9 +4302,6 @@ static void phl_rx_process_pcie(struct phl_info_t *phl_info,
 #endif
 		break;
 	case RTW_RX_TYPE_TX_WP_RELEASE_HOST:
-#ifdef DEBUG_PHL_RX
-		phl_info->rx_stats.rx_type_wp++;
-#endif
 		_phl_rx_handle_wp_report(phl_info, phl_rx);
 		phl_recycle_rx_buf(phl_info, phl_rx);
 		break;
@@ -4342,10 +4350,11 @@ static enum rtw_phl_status phl_rx_pcie(struct phl_info_t *phl_info)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct hci_info_t *hci_info = (struct hci_info_t *)phl_info->hci;
+	struct rtw_hal_com_t *hal_com = rtw_hal_get_halcom(phl_info->hal);
 	struct rtw_rx_buf_ring *rx_buf_ring = NULL;
 	struct rx_base_desc *rxbd = NULL;
 	struct rtw_phl_rx_pkt *phl_rx = NULL;
-	u16 i = 0, rxcnt = 0, host_idx = 0, hw_idx = 0, idle_rxbuf_cnt = 0;
+	u16 i = 0, rxcnt = 0, idle_rxbuf_cnt = 0;
 	u8 ch = 0;
 
 	FUNCIN_WSTS(pstatus);
@@ -4363,6 +4372,14 @@ static enum rtw_phl_status phl_rx_pcie(struct phl_info_t *phl_info)
 #endif
 
 	for (ch = 0; ch < hci_info->total_rxch_num; ch++) {
+		rxcnt = phl_calc_avail_rptr(rxbd[ch].host_idx, rxbd[ch].hw_idx,
+		                            (u16)hal_com->bus_cap.rxbd_num);
+		if (rxcnt == 0) {
+			PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
+				"no avail hw rx\n");
+			pstatus = RTW_PHL_STATUS_SUCCESS;
+			continue;
+		}
 
 		idle_rxbuf_cnt = _phl_get_idle_rxbuf_cnt(phl_info,
 							 &rx_buf_ring[ch]);
@@ -4389,15 +4406,6 @@ static enum rtw_phl_status phl_rx_pcie(struct phl_info_t *phl_info)
 			continue;
 		}
 #endif
-
-		rxcnt = rtw_hal_rx_res_query(phl_info->hal, ch, &host_idx, &hw_idx);
-
-		if (rxcnt == 0) {
-			PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
-				"no avail hw rx\n");
-			pstatus = RTW_PHL_STATUS_SUCCESS;
-			continue;
-		}
 
 		/* only handle affordable amount of rxpkt */
 		if (rxcnt > idle_rxbuf_cnt) {
@@ -4662,6 +4670,22 @@ phl_tx_watchdog_pcie(struct phl_info_t *phl_info)
 
 }
 
+void
+phl_read_hw_rx(struct phl_info_t *phl_info)
+{
+	struct hci_info_t *hci_info = (struct hci_info_t *)phl_info->hci;
+	struct rx_base_desc *rxbd = NULL;
+	u16 host_idx = 0;
+	u8 ch = 0;
+
+	rxbd = (struct rx_base_desc *)hci_info->rxbd_buf;
+
+	for (ch = 0; ch < hci_info->total_rxch_num; ch++) {
+		rtw_hal_rx_res_query(phl_info->hal, ch, &host_idx,
+		                     &rxbd[ch].hw_idx);
+	}
+}
+
 static struct phl_hci_trx_ops ops= {0};
 void phl_hci_trx_ops_init(void)
 {
@@ -4675,6 +4699,7 @@ void phl_hci_trx_ops_init(void)
 	ops.trx_stop = phl_trx_stop_pcie;
 	ops.recycle_busy_wd = phl_recycle_busy_wd;
 	ops.recycle_busy_h2c = phl_recycle_busy_h2c;
+	ops.read_hw_rx = phl_read_hw_rx;
 	ops.pltfm_tx = phl_pltfm_tx_pcie;
 	ops.alloc_h2c_pkt_buf = _phl_alloc_h2c_pkt_buf_pcie;
 	ops.free_h2c_pkt_buf = _phl_free_h2c_pkt_buf_pcie;

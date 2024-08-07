@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2019 Realtek Corporation.
+ * Copyright(c) 2019 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -1012,45 +1012,45 @@ void phl_record_wow_stat(struct phl_wow_info *wow_info)
 		++wow_stat->aoac_rpt_fail_cnt;
 }
 
-#ifdef CONFIG_PCI_HCI
 enum rtw_phl_status _init_precfg(struct phl_info_t *phl_info, u8 band)
 {
 	enum rtw_hal_status hstatus = RTW_HAL_STATUS_FAILURE;
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	u8 status = false;
 
-	do {
-		/* 1. stop Tx DMA */
-		rtw_hal_wow_cfg_txdma(phl_info->hal, false);
+	/* 1. config Tx DMA */
+	rtw_hal_wow_cfg_txdma(phl_info->hal, RTW_MAC_CTRL_TXDMA_H2C2H_ONLY);
 
-		/* 2. stop HW Tx */
-		hstatus = rtw_hal_wow_drop_tx(phl_info->hal, band);
-		if (RTW_HAL_STATUS_SUCCESS != hstatus) {
-			PHL_ERR("[wow] rtw_hal_wow_drop_tx fail!\n");
-			break;
-		}
+	/* 2. stop HW Tx */
+	hstatus = rtw_hal_wow_drop_tx(phl_info->hal, band);
+	if (RTW_HAL_STATUS_SUCCESS != hstatus) {
+		PHL_ERR("[wow] rtw_hal_wow_drop_tx fail!\n");
+		goto exit;
+	}
 
-		/* 3. poll dma idle */
-		status = rtw_hal_poll_txdma_idle(phl_info->hal);
-		if (!status) {
-			PHL_ERR("[wow] rtw_hal_poll_txdma_idle fail!\n");
-			break;
-		}
+	/* 3. poll dma idle */
+	status = rtw_hal_poll_txdma_idle(phl_info->hal);
+	if (!status) {
+		PHL_ERR("[wow] rtw_hal_poll_txdma_idle fail!\n");
+		goto exit;
+	}
 
-	} while (0);
+	pstatus = RTW_PHL_STATUS_SUCCESS;
 
-	if (RTW_HAL_STATUS_SUCCESS != hstatus)
-		pstatus = RTW_PHL_STATUS_FAILURE;
-	else
-		pstatus = RTW_PHL_STATUS_SUCCESS;
-
+exit:
 	FUNCOUT_WSTS(pstatus);
 
 	return pstatus;
 }
+
 enum rtw_phl_status _init_postcfg(struct phl_info_t *phl_info)
 {
-	/* stop tx/rx hci */
+	struct phl_hci_trx_ops *trx_ops = phl_info->hci_trx_ops;
+
+	/* stop driver tx/rx hci */
+	trx_ops->trx_stop(phl_info);
+
+	/* stop mac tx/rx hci */
 	rtw_hal_cfg_txhci(phl_info->hal, false);
 	rtw_hal_cfg_rxhci(phl_info->hal, false);
 
@@ -1058,30 +1058,6 @@ enum rtw_phl_status _init_postcfg(struct phl_info_t *phl_info)
 
 	return RTW_PHL_STATUS_SUCCESS;
 }
-#elif defined(CONFIG_USB_HCI)
-enum rtw_phl_status _init_precfg(struct phl_info_t *phl_info, u8 band)
-{
-	return RTW_PHL_STATUS_SUCCESS;
-}
-enum rtw_phl_status _init_postcfg(struct phl_info_t *phl_info)
-{
-	struct phl_hci_trx_ops *trx_ops = phl_info->hci_trx_ops;
-
-	trx_ops->trx_stop(phl_info);
-
-	return RTW_PHL_STATUS_SUCCESS;
-}
-#elif defined(CONFIG_SDIO_HCI)
-enum rtw_phl_status _init_precfg(struct phl_info_t *phl_info, u8 band)
-{
-	return RTW_PHL_STATUS_SUCCESS;
-}
-enum rtw_phl_status _init_postcfg(struct phl_info_t *phl_info)
-{
-	return RTW_PHL_STATUS_SUCCESS;
-}
-
-#endif
 
 static enum rtw_phl_status _init_precfg_set_rxfltr(struct phl_info_t *phl_info)
 {
@@ -1113,6 +1089,7 @@ static void _wow_start_datapath(struct phl_info_t *phl_info, u8 type)
 
 	if (type & PHL_CTRL_RX) {
 		trx_ops->trx_resume(phl_info, PHL_CTRL_RX);
+		rtw_phl_start_rx_process(phl_info);
 	}
 }
 
@@ -1379,47 +1356,21 @@ void phl_wow_handle_wake_rsn(struct phl_wow_info *wow_info, u8 *reset)
 	_phl_indic_wake_rsn(wow_info);
 }
 
-#ifdef CONFIG_PCI_HCI
 enum rtw_phl_status _deinit_precfg(struct phl_info_t *phl_info)
 {
-#ifdef DBG_RST_BDRAM_TIME
-	u32 rst_bdram_start = _os_get_cur_time_ms();
-#endif /* DBG_RST_BDRAM_TIME */
+	struct phl_hci_trx_ops *trx_ops = phl_info->hci_trx_ops;
 
-	rtw_hal_clear_bdidx(phl_info->hal);
-
-#ifdef DBG_RST_BDRAM_TIME
-	rst_bdram_start = _os_get_cur_time_ms();
-#endif
-	rtw_hal_rst_bdram(phl_info->hal);
-
-#ifdef DBG_RST_BDRAM_TIME
-	PHL_TRACE(COMP_PHL_WOW, _PHL_INFO_, "[wow] %s : Reset bdram takes %u (ms).\n"
-		, __func__, phl_get_passing_time_ms(rst_bdram_start));
-#endif
+	rtw_hal_clear_rwptr(phl_info->hal);
 
 	rtw_hal_cfg_txhci(phl_info->hal, true);
 	rtw_hal_cfg_rxhci(phl_info->hal, true);
 
-	rtw_hal_wow_cfg_txdma(phl_info->hal, true);
-
-	return RTW_PHL_STATUS_SUCCESS;
-}
-#elif defined(CONFIG_USB_HCI)
-enum rtw_phl_status _deinit_precfg(struct phl_info_t *phl_info)
-{
-	struct phl_hci_trx_ops *trx_ops = phl_info->hci_trx_ops;
+	rtw_hal_wow_cfg_txdma(phl_info->hal, RTW_MAC_CTRL_TXDMA_EN_ALL);
 
 	trx_ops->trx_cfg(phl_info);
 
 	return RTW_PHL_STATUS_SUCCESS;
 }
-#elif defined(CONFIG_SDIO_HCI)
-enum rtw_phl_status _deinit_precfg(struct phl_info_t *phl_info)
-{
-	return RTW_PHL_STATUS_SUCCESS;
-}
-#endif
 
 enum rtw_phl_status phl_wow_deinit_precfg(struct phl_wow_info *wow_info)
 {
@@ -1849,31 +1800,18 @@ void phl_wow_decide_op_mode(struct phl_wow_info *wow_info,
                             struct rtw_phl_stainfo_t *sta)
 {
 	enum mlme_state mstat = sta->wrole->mstate;
-	struct rtw_ps_cap_t *ps_cap = _get_ps_cap(wow_info->phl_info);
 
 	wow_info->sta = sta;
-	wow_info->ps_pwr_lvl = PS_PWR_LVL_PWRON;
 
-	if (mstat == MLME_NO_LINK && wow_info->no_link_mode) {
+	if (mstat == MLME_NO_LINK && wow_info->no_link_mode)
 		wow_info->op_mode = RTW_WOW_OP_DISCONNECT_STBY;
-		#ifdef CONFIG_POWER_SAVE
-		if (ps_cap->ips_wow_en)
-			wow_info->ps_pwr_lvl = phl_ps_judge_pwr_lvl(ps_cap->ips_wow_cap,
-			                                            PS_MODE_IPS, true);
-		#endif
-	} else if (mstat == MLME_LINKED) {
+	else if (mstat == MLME_LINKED)
 		wow_info->op_mode = RTW_WOW_OP_CONNECT_STBY;
-		#ifdef CONFIG_POWER_SAVE
-		if (ps_cap->lps_wow_en)
-			wow_info->ps_pwr_lvl = phl_ps_judge_pwr_lvl(ps_cap->lps_wow_cap,
-			                                            PS_MODE_LPS, true);
-		#endif
-	} else {
+	else
 		wow_info->op_mode = RTW_WOW_OP_PWR_DOWN;
-	}
 
-	PHL_TRACE(COMP_PHL_WOW, _PHL_INFO_, "[wow] %s op mode set to %d, pwr lvl %s.\n.",
-			  __func__, wow_info->op_mode, phl_ps_pwr_lvl_to_str(wow_info->ps_pwr_lvl));
+	PHL_TRACE(COMP_PHL_WOW, _PHL_INFO_, "[wow] %s op mode set to %d.\n.",
+			  __func__, wow_info->op_mode);
 }
 
 #ifdef CONFIG_POWER_SAVE
@@ -1909,11 +1847,13 @@ enum rtw_phl_status phl_wow_ps_proto_cfg(struct phl_wow_info *wow_info, bool ent
 
 		/* LPS */
 		if (ps_cap->lps_wow_en) {
+			cfg.wow = true;
 			cfg.macid = wow_info->sta->macid;
 			cfg.awake_interval = ps_cap->lps_wow_awake_interval;
 			cfg.listen_bcn_mode = ps_cap->lps_wow_listen_bcn_mode;
 			cfg.smart_ps_mode = ps_cap->lps_wow_smart_ps_mode;
 			cfg.bcnnohit_en = ps_cap->lps_wow_bcnnohit_en;
+			cfg.lps_force_tx = ps_cap->lps_force_tx;
 			pstatus = phl_ps_lps_cfg(phl_info, &cfg, enter_ps);
 		}
 	} else {
@@ -1921,10 +1861,36 @@ enum rtw_phl_status phl_wow_ps_proto_cfg(struct phl_wow_info *wow_info, bool ent
 	}
 
 exit:
-	PHL_TRACE(COMP_PHL_WOW, _PHL_INFO_, "[wow] %s : op mode %d, enter ps %d, pwr lvl %s.\n.",
-			  __func__, wow_info->op_mode, enter_ps, phl_ps_pwr_lvl_to_str(wow_info->ps_pwr_lvl));
+	PHL_TRACE(COMP_PHL_WOW, _PHL_INFO_, "[wow] %s : op mode %d, enter ps %d.\n.",
+			  __func__, wow_info->op_mode, enter_ps);
 
 	return pstatus;
+}
+
+/**
+ * phl_wow_ps_judge_pwr_lvl - configure the power level under wowlan
+ * @wow_info: see struct phl_wow_info
+ * @enter_ps: enter low power or not
+ *
+ */
+void phl_wow_ps_judge_pwr_lvl(struct phl_wow_info *wow_info, bool enter_ps)
+{
+	struct rtw_ps_cap_t *ps_cap = _get_ps_cap(wow_info->phl_info);
+
+	if (wow_info->op_mode == RTW_WOW_OP_DISCONNECT_STBY) {
+		/* IPS */
+		wow_info->ps_pwr_lvl = phl_ps_judge_pwr_lvl(ps_cap->ips_wow_cap,
+							    PS_MODE_IPS, enter_ps);
+	} else if (wow_info->op_mode == RTW_WOW_OP_CONNECT_STBY) {
+		/* LPS */
+		wow_info->ps_pwr_lvl = phl_ps_judge_pwr_lvl(ps_cap->lps_wow_cap,
+							    PS_MODE_LPS, enter_ps);
+	} else {
+		PHL_ERR("%s : undefined wowlan op mode.\n", __func__);
+	}
+
+	PHL_TRACE(COMP_PHL_WOW, _PHL_INFO_, "[wow] %s : op mode %d, enter ps %d, pwr lvl %s.\n.",
+			  __func__, wow_info->op_mode, enter_ps, phl_ps_pwr_lvl_to_str(wow_info->ps_pwr_lvl));
 }
 
 /**
@@ -1935,7 +1901,6 @@ exit:
  */
 void phl_wow_ps_pwr_ntfy(struct phl_wow_info *wow_info, bool enter_ps)
 {
-	struct phl_info_t *phl_info = wow_info->phl_info;
 
 	if (wow_info->ps_pwr_lvl == PS_PWR_LVL_PWRON)
 		return;
@@ -1944,7 +1909,7 @@ void phl_wow_ps_pwr_ntfy(struct phl_wow_info *wow_info, bool enter_ps)
 		/* IPS */
 	} else if (wow_info->op_mode == RTW_WOW_OP_CONNECT_STBY) {
 		#ifdef CONFIG_BTCOEX
-		rtw_hal_btc_radio_state_ntfy(phl_info->hal, (enter_ps == true ?
+		rtw_hal_btc_radio_state_ntfy(wow_info->phl_info->hal, (enter_ps == true ?
 							BTC_RFCTRL_FW_CTRL : BTC_RFCTRL_WL_ON));
 		#endif
 	} else {

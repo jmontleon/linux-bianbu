@@ -84,6 +84,13 @@ u32 halbb_phy0_to_phy1_ofst(struct bb_info *bb, u32 addr, enum phl_phy_idx phy_i
 		ofst = (addr < 0x10000) ? 0x20000 : 0;
 		break;
 	#endif
+#if (HLABB_CODE_BASE_NUM >= 33) //will be removed when (022+032) branch phase out
+	#ifdef BB_8922A_SUPPORT
+	case BB_RTL8922A:
+		ofst = halbb_phy0_to_phy1_ofst_8922a(bb, addr);
+		break;
+	#endif
+#endif
 
 	default:
 		break;
@@ -113,10 +120,37 @@ void halbb_delay_us(struct bb_info *bb, u32 us)
 	_os_delay_us(bb->hal_com->drv_priv, us);
 }
 
-void halbb_set_cr(struct bb_info *bb, u32 addr, u32 val)
+void halbb_set_bb_wrap_reg_cmn(struct bb_info* bb, enum phl_phy_idx bb_phy_idx, u32 addr, u32 val)
 {
-	if (bb->bb_dbg_i.cr_recorder_en)
+	rtw_hal_mac_set_pwr_reg(bb->hal_com, (u8)bb_phy_idx, addr, val);
+}
+
+void halbb_set_cr(struct bb_info *bb, u32 addr, u32 mask, u32 val)
+{
+	u8 mask_lsb = 0, mask_msb = 0;
+
+	if (bb->bb_dbg_i.cr_recorder_en) {
 		BB_TRACE("[W] 0x%04x = 0x%08x\n", addr, val);
+	} else if (bb->bb_dbg_i.cr_mp_recorder_en) {
+		if ((addr != 0xF9) && (addr != 0xFA) && (addr != 0xFB) && (addr != 0xFD) && (addr != 0xFE)) {
+			mask_lsb = halbb_bitmask_lsb(bb, mask);
+			mask_msb = halbb_bitmask_msb(bb, mask);
+
+			if (halbb_ones_num_in_bitmap(mask, 32) == 1)
+				BB_TRACE("[MP] op 0x%x[%d] 0x%x\n", addr, mask_lsb, ((val & mask) >> mask_lsb));
+			else if (mask == MASKDWORD)
+				BB_TRACE("[MP] od 0x%x 0x%x\n", addr, val);
+			else
+				BB_TRACE("[MP] op 0x%x[%d:%d] 0x%x\n", addr, mask_msb, mask_lsb, ((val & mask) >> mask_lsb));
+		} else {
+			if ((addr == 0xF9) || (addr == 0xFA) || (addr == 0xFB)) // Delay log (1ms)
+				BB_TRACE("[MP] delay 1\n"); // Smallest resolusion of MP script is 1ms
+			else if (addr == 0xFD) // Delay log (5ms)
+				BB_TRACE("[MP] delay 5\n");
+			else if (addr == 0xFE) // Delay log (50ms)
+				BB_TRACE("[MP] delay 50\n");
+		}
+	}
 
 	hal_write32(bb->hal_com, (addr + bb->bb0_cr_offset), val);
 
@@ -126,13 +160,26 @@ void halbb_set_cr(struct bb_info *bb, u32 addr, u32 val)
 #endif
 }
 
-u32 halbb_get_cr(struct bb_info *bb, u32 addr)
+u32 halbb_get_cr(struct bb_info *bb, u32 addr, u32 mask)
 {
 	u32 val = hal_read32(bb->hal_com, (addr + bb->bb0_cr_offset));
+	u8 mask_lsb = 0, mask_msb = 0;
 
 	if (bb->bb_dbg_i.cr_recorder_en)
 		BB_TRACE("[R] 0x%04x = 0x%08x\n", addr, val);
+#if 0
+	if (bb->bb_dbg_i.cr_mp_recorder_en) {
+		mask_lsb = halbb_bitmask_lsb(bb, mask);
+		mask_msb = halbb_bitmask_msb(bb, mask);
 
+		if (mask_lsb == mask_msb)
+			BB_TRACE("[MP] id 0x%x[%d]\n", addr, mask_lsb);
+		else if ((mask_lsb == 0) && (mask_msb == 31))
+			BB_TRACE("[MP] id 0x%x\n", addr);
+		else
+			BB_TRACE("[MP] id 0x%x[%d:%d]\n", addr, mask_msb, mask_lsb);
+	}
+#endif
 #if 0
 	if (bb->bb0_cr_offset != 0x10000)
 		BB_WARNING("[R] bb0_ofst=0x%x, 0x%04x = 0x%08x\n", bb->bb0_cr_offset, addr, val);
@@ -169,12 +216,12 @@ void halbb_set_reg(struct bb_info *bb, u32 addr, u32 mask, u32 val)
 	#endif
 
 	if (mask != MASKDWORD) {
-		ori_val = halbb_get_cr(bb, addr);
+		ori_val = halbb_get_cr(bb, addr, mask);
 		shift = halbb_cal_bit_shift(mask);
 		val = ((ori_val) & (~mask)) | (((val << shift)) & mask);
 	}
 
-	halbb_set_cr(bb, addr, val);
+	halbb_set_cr(bb, addr, mask, val);
 }
 
 void halbb_set_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask, u32 val)
@@ -188,11 +235,11 @@ void halbb_set_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask, u32 val)
 	if (mask != MASKDWORD) {
 		shift = halbb_cal_bit_shift(mask);
 		
-		ori_val = halbb_get_cr(bb, addr);
+		ori_val = halbb_get_cr(bb, addr, mask);
 		val_mod = ((ori_val) & (~mask)) | (((val << shift)) & mask);
 	}
 
-	halbb_set_cr(bb, addr, val_mod);*/
+	halbb_set_cr(bb, addr, mask, val_mod);*/
 	halbb_set_reg_cmn(bb, addr, mask, val, phy_idx);
 }
 
@@ -215,11 +262,11 @@ void halbb_set_reg_cmn(struct bb_info *bb, u32 addr, u32 mask, u32 val, enum phl
 	if (mask != MASKDWORD) {
 		shift = halbb_cal_bit_shift(mask);
 		
-		ori_val = halbb_get_cr(bb, addr);
+		ori_val = halbb_get_cr(bb, addr, mask);
 		val_mod = ((ori_val) & (~mask)) | (((val << shift)) & mask);
 	}
 
-	halbb_set_cr(bb, addr, val_mod);
+	halbb_set_cr(bb, addr, mask, val_mod);
 }
 
 void halbb_set_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 val)
@@ -231,11 +278,11 @@ void halbb_set_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 val)
 	/*if (mask != MASKDWORD) {
 		shift = halbb_cal_bit_shift(mask);
 		
-		ori_val = halbb_get_cr(bb, addr);
+		ori_val = halbb_get_cr(bb, addr, mask);
 		val_mod = ((ori_val) & (~mask)) | (((val << shift)) & mask);
 	}
 
-	halbb_set_cr(bb, addr, val_mod);*/
+	halbb_set_cr(bb, addr, mask, val_mod);*/
 	halbb_set_reg(bb, addr, mask, val);
 
 	ofst_val = halbb_phy0_to_phy1_ofst(bb, addr, HW_PHY_1);
@@ -245,10 +292,10 @@ void halbb_set_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 val)
 
 	addr += ofst_val;
 	/*if (mask != MASKDWORD) {
-		ori_val = halbb_get_cr(bb, addr);
+		ori_val = halbb_get_cr(bb, addr, mask);
 		val_mod = ((ori_val) & (~mask)) | (((val << shift)) & mask);
 	}
-	halbb_set_cr(bb, addr, val_mod);*/
+	halbb_set_cr(bb, addr, mask, val_mod);*/
 	halbb_set_reg(bb, addr, mask, val);
 }
 
@@ -261,7 +308,7 @@ u32 halbb_get_reg(struct bb_info *bb, u32 addr, u32 mask)
         addr += halbb_phy0_to_phy1_ofst(bb, addr, HW_PHY_1);
 #endif
 
-	val_0 = (halbb_get_cr(bb, addr) & mask) >> halbb_cal_bit_shift(mask);
+	val_0 = (halbb_get_cr(bb, addr, mask) & mask) >> halbb_cal_bit_shift(mask);
 
 	return val_0;
 }
@@ -272,7 +319,7 @@ u32 halbb_get_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask)
 	u32 val_0 = 0;
 
 	addr += halbb_phy0_to_phy1_ofst(bb, addr, phy_idx);
-	val_0 = (halbb_get_cr(bb, addr) & mask) >> halbb_cal_bit_shift(mask);
+	val_0 = (halbb_get_cr(bb, addr, mask) & mask) >> halbb_cal_bit_shift(mask);
 
 	return val_0;
 }
@@ -287,7 +334,7 @@ u32 halbb_get_reg_cmn(struct bb_info *bb, u32 addr, u32 mask, enum phl_phy_idx p
 	shift_val = halbb_cal_bit_shift(mask);
 	shift_val = (shift_val >= 31) ? 31 : shift_val;
 
-	val_0 = (halbb_get_cr(bb, addr) & mask) >> shift_val;
+	val_0 = (halbb_get_cr(bb, addr, mask) & mask) >> shift_val;
 
 	return val_0;
 }
@@ -298,7 +345,7 @@ u32 halbb_get_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 *val_1)
 	u32 shift = halbb_cal_bit_shift(mask);
 	u32 ofst_val;
 
-	val_0 = (halbb_get_cr(bb, addr) & mask) >> shift;
+	val_0 = (halbb_get_cr(bb, addr, mask) & mask) >> shift;
 
 	ofst_val = halbb_phy0_to_phy1_ofst(bb, addr, HW_PHY_1);
 
@@ -308,7 +355,7 @@ u32 halbb_get_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 *val_1)
 	}
 
 	addr += ofst_val;
-	*val_1 = (halbb_get_cr(bb, addr) & mask) >> shift;
+	*val_1 = (halbb_get_cr(bb, addr, mask) & mask) >> shift;
 
 	return val_0;
 }
@@ -329,6 +376,11 @@ bool halbb_fill_h2c_cmd(struct bb_info *bb, u16 cmdlen, u8 cmdid,
 	hal_com = bb->hal_com;
 	BB_DBG(bb, DBG_FW_INFO, "H2C: %x %x %x\n", classid, cmdid, cmdlen);
 	rt_val =  rtw_hal_mac_send_h2c(hal_com, &hdr, pval);
+
+	if (cmdlen % 4) {
+		BB_WARNING("[%s] cmdlen = %d\n", __func__, cmdlen);
+	}
+
 	if (rt_val != 0) {
 		BB_WARNING("Error H2C CLASS=%d, ID=%d, Rt_v = %d\n", classid, cmdid, rt_val);
 		return false;
@@ -353,7 +405,6 @@ bool halbb_test_h2c_c2h_flow(struct bb_info *bb)
 	}
 }
 
-
 u32 halbb_c2h_mu_gptbl_rpt(struct bb_info *bb, u16 len, u8 *c2h)
 {
 	/* Set MU grouping table and return value */
@@ -361,14 +412,29 @@ u32 halbb_c2h_mu_gptbl_rpt(struct bb_info *bb, u16 len, u8 *c2h)
 	u8 i = 0;
 	u8 j = 0;
 	u8 k = 0;
-	u8 mask = 0x03;
+	/*u8 mask = 0x03;*/
 	struct hal_mu_score_tbl *mu_sc_tbl = &bb->hal_com->bb_mu_score_tbl;
+	u16 mu_score = 0;
 
 	/* 
-	 Need to do MU protect to prevent error c2h sending
-	 this function will be return to prevent error c2h 
+	Need to do MU protect to prevent error c2h sending
+	this function will be return to prevent error c2h
 	*/
-	return val;
+	/*return val;*/
+
+	mu_sc_tbl->mu_ctrl.mu_sc_thr = 1;
+	mu_sc_tbl->mu_ctrl.mu_opt = 0;
+
+	for (i = 0; i < HAL_MAX_MU_STA_NUM; i++) {
+		k = (i << 1);
+		mu_score = (c2h[k] | c2h[k + 1] << 8); /*check endian*/
+
+		for (j = 0; j < (HAL_MAX_MU_STA_NUM - 1); j++) {
+			mu_sc_tbl->mu_score[i].score[j] = (mu_score & 3);
+			mu_score >>= 2;
+		}
+	}
+#if 0
 	for (i = 0; i < HAL_MAX_MU_STA_NUM; i++)
 		for (j = 0; j < HAL_MAX_MU_SCORE_SIZE; j++) {
 			if (mask == 0x03) {
@@ -386,6 +452,8 @@ u32 halbb_c2h_mu_gptbl_rpt(struct bb_info *bb, u16 len, u8 *c2h)
 				k++;
 			}
 		}
+#endif 
+
 	return val;
 }
 
@@ -472,6 +540,9 @@ u32 halbb_c2h_ra_parsing(struct bb_info *bb, u8 cmdid, u16 len, u8 *c2h)
 	case HALBB_C2HRA_TXSTS:
 		val = halbb_get_txsts_rpt(bb, len, c2h);
 		break;
+	case HALBB_C2HRA_TX_DBG_INFO:
+		val = halbb_get_fw_ra_dbgrpt_wifi7(bb, len, c2h);
+		break;
 	default:
 		break;
 	}
@@ -504,6 +575,13 @@ u32 halbb_c2h_dm_parsing(struct bb_info *bb, u8 cmdid, u16 len, u8 *c2h)
 		val = halbb_c2h_mccdm_check(bb, len, c2h);
 		break;
 	#endif
+	#ifdef HALBB_PMAC_TX_SUPPORT
+	case DM_C2H_EHTSIG:
+		val = halbb_c2h_ehtsig_rpt(bb, len, c2h);
+		break;
+	#endif
+	case DM_C2H_DBG:
+		val = halbb_c2h_fw_dbg(bb, len, c2h);
 	default:
 		break;
 	}

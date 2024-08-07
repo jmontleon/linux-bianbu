@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2019 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -277,6 +277,7 @@ struct sta_info {
 	_lock	lock;
 	_list	list; /* free_sta_queue */
 	_list	hash_list; /* sta_hash */
+	bool is_freeing;
 	/* _list asoc_list; */ /* 20061114 */
 	/* _list sleep_list; */ /* sleep_q */
 	/* _list wakeup_list; */ /* wakeup_q */
@@ -558,14 +559,6 @@ struct sta_info {
 //	u8 tbtx_timeslot;		/* This sta_info belong to which time slot.	*/
 #endif
 
-	/*
-	 * Vaiables for queuing TX pkt a short period of time
-	 * to wait something ready.
-	 */
-	u8 tx_q_enable;
-	struct __queue tx_queue;
-	_workitem tx_q_work;
-
 #ifdef CONFIG_CORE_TXSC
 	u32 txsc_cache_hit;
 	u32 txsc_cache_miss;
@@ -589,6 +582,8 @@ struct sta_info {
 
 	ATOMIC_T deleting;
 };
+
+#define STA_MACADDR(sta) (sta)->phl_sta->mac_addr
 
 #ifdef CONFIG_RTW_MESH
 #define STA_SET_MESH_PLINK(sta, link) (sta)->plink = link
@@ -727,6 +722,9 @@ struct	sta_priv {
 
 	_lock sta_hash_lock;
 	_list   sta_hash[NUM_STA];
+#ifdef PRIVATE_R
+	_lock last_rx_uc_data_lock;
+#endif
 	int asoc_sta_count;
 	_queue sleep_q;
 	_queue wakeup_q;
@@ -837,14 +835,25 @@ extern bool rtw_is_self_stainfo(_adapter *padapter, struct sta_info *sta);
 extern u32 rtw_free_mld_stainfo(_adapter *padapter, struct rtw_phl_mld_t *mld);
 extern struct sta_info *rtw_get_stainfo_by_macid(struct sta_priv *pstapriv, u16 macid);
 extern struct sta_info *rtw_get_bcmc_stainfo(_adapter *padapter, struct _ADAPTER_LINK *padapter_link);
-extern struct sta_info *rtw_get_stainfo(struct sta_priv *pstapriv, const u8 *hwaddr);
+extern struct sta_info *rtw_get_stainfo(struct sta_priv *stapriv, const u8 *hwaddr);
+extern struct sta_info *rtw_get_link_stainfo(struct sta_priv *stapriv, struct rtw_phl_mld_t *pmld, u8 lidx);
+extern struct sta_info *rtw_get_primary_stainfo(struct sta_priv *stapriv, struct sta_info *psta);
+extern struct sta_info *rtw_get_primary_stainfo_by_addr(struct sta_priv *stapriv, const u8 *hwaddr);
 
 u32	rtw_free_self_stainfo(_adapter *adapter);
 u32 rtw_init_self_stainfo(_adapter *adapter, enum phl_cmd_type cmd_type);
 
+struct sta_info *rtw_get_stainfo_to_free(struct sta_priv *stapriv, const u8 *hwaddr);
+void rtw_stainfo_claim_to_free_no_lock(struct sta_info *sta);
+void rtw_stainfo_claim_to_free(struct sta_info *sta);
+
 #ifdef CONFIG_AP_MODE
 u16 rtw_aid_alloc(_adapter *adapter, struct sta_info *sta);
 void dump_aid_status(void *sel, _adapter *adapter);
+void rtw_stapriv_asoc_list_lock(struct sta_priv *stapriv);
+void rtw_stapriv_asoc_list_unlock(struct sta_priv *stapriv);
+void rtw_stapriv_asoc_list_add(struct sta_priv *stapriv, struct sta_info *sta);
+void rtw_stapriv_asoc_list_del(struct sta_priv *stapriv, struct sta_info *sta);
 #endif
 
 #if CONFIG_RTW_MACADDR_ACL

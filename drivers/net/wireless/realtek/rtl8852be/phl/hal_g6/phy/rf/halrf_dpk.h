@@ -64,6 +64,7 @@ struct halrf_dpk_info {
 	bool	is_dpk_track_en;
 	bool	is_dpk_reload_en;
 	bool	is_dpk_pwr_unlmt;
+	bool	is_limited_txagc[KPATH];
 	u8	dpk_gs[2];			/*PHY*/
 	u8	ther_avg[KPATH][AVG_THERMAL_NUM_DPK];	/*path*/
 	u8	pre_pwsf[KPATH];
@@ -94,6 +95,7 @@ struct halrf_dpk_info {
 	u8	rek_chk[KPATH][2][5];			/*path/is_first/rek_cnt*/
 	u32	dpk_rxiqc[KPATH];			/*path*/
 	u8	dpk_order[KPATH];			/*path*/
+	u8	limited_txagc[KPATH];			/*path*/
 #if 0
 	u8	ov_pa[KPATH];				/*path*/
 	u32	dpk_pwr[KPATH];

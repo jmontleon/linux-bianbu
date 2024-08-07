@@ -22,6 +22,8 @@ void rtw_phl_set_edcca_mode(void *phl, enum rtw_edcca_mode mode)
 
 	PHL_INFO("[Cert], set phl_com edcca_mode : %d !! \n", mode);
 	phl_info->phl_com->edcca_mode = mode;
+
+	rtw_phl_cmd_edcca_mode_cfg(phl, mode, PHL_CMD_NO_WAIT, 0);
 }
 
 enum rtw_edcca_mode rtw_phl_get_edcca_mode(void *phl)
@@ -29,6 +31,88 @@ enum rtw_edcca_mode rtw_phl_get_edcca_mode(void *phl)
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 
 	return phl_info->phl_com->edcca_mode;
+}
+
+enum rtw_phl_status
+phl_edcca_cfg(struct phl_info_t *phl_info)
+{
+	struct rtw_phl_com_t *phl_com = phl_info->phl_com;
+	enum rtw_phl_status phl_status = RTW_PHL_STATUS_SUCCESS;
+	enum rtw_hal_status hal_status = RTW_HAL_STATUS_SUCCESS;
+
+	if (RTW_EDCCA_FCC == phl_com->edcca_mode) {
+		hal_status = rtw_hal_sifs_chk_cca_en(phl_info->hal, HW_BAND_0, true);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s: enable rtw_hal_sifs_chk_cca_en failed!\n", __FUNCTION__);
+			phl_status = RTW_PHL_STATUS_FAILURE;
+		}
+
+		hal_status = rtw_hal_set_resp_ack_chk_cca(phl_info->hal, HW_BAND_0, true);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s: enable rtw_hal_set_resp_ack_chk_cca failed!\n", __FUNCTION__);
+			phl_status = RTW_PHL_STATUS_FAILURE;
+		}
+	} else {
+		hal_status = rtw_hal_sifs_chk_cca_en(phl_info->hal, HW_BAND_0, false);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s: disable rtw_hal_sifs_chk_cca_en failed!\n", __FUNCTION__);
+			phl_status = RTW_PHL_STATUS_FAILURE;
+		}
+
+		hal_status = rtw_hal_set_resp_ack_chk_cca(phl_info->hal, HW_BAND_0, false);
+		if (hal_status != RTW_HAL_STATUS_SUCCESS) {
+			PHL_ERR("%s: disable rtw_hal_set_resp_ack_chk_cca failed!\n", __FUNCTION__);
+			phl_status = RTW_PHL_STATUS_FAILURE;
+		}
+	}
+
+	return phl_status;
+}
+
+enum rtw_phl_status
+phl_cmd_edcca_cfg_hdl(struct phl_info_t *phl_info, u8 *param)
+{
+	return phl_edcca_cfg(phl_info);
+}
+
+enum rtw_phl_status
+rtw_phl_cmd_edcca_mode_cfg(void *phl,
+			   enum rtw_edcca_mode mode,
+                           enum phl_cmd_type cmd_type,
+                           u32 cmd_timeout)
+{
+	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+
+	phl_info->phl_com->edcca_mode = mode;
+
+#ifdef CONFIG_CMD_DISP
+	if (cmd_type == PHL_CMD_DIRECTLY) {
+		psts = phl_edcca_cfg(phl_info);
+		goto _exit;
+	}
+
+	psts = phl_cmd_enqueue(phl_info,
+			HW_BAND_0,
+			MSG_EVT_EDCCA_CFG,
+			NULL, 0,
+			NULL,
+			cmd_type, cmd_timeout);
+
+	if (is_cmd_failure(psts)) {
+		/* Send cmd success, but wait cmd fail*/
+		psts = RTW_PHL_STATUS_FAILURE;
+	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		psts = RTW_PHL_STATUS_FAILURE;
+	}
+
+_exit:
+	return psts;
+#else
+	PHL_ERR("%s : CONFIG_CMD_DISP need to be enabled for MSG_EVT_EDCCA_CFG !! \n", __func__);
+	return psts;
+#endif
 }
 
 #ifdef CONFIG_PCI_HCI
@@ -129,6 +213,7 @@ void phl_ltr_ctrl_watchdog(struct phl_info_t *phl_info)
 
 	if (start && tx_tp_m < TP_MBPS && rx_tp_m < TP_MBPS) {
 		start = false;
+		rtw_hal_ltr_sw_trigger(phl_info->hal, RTW_PCIE_LTR_SW_IDLE);
 		rtw_hal_ltr_en_hw_mode(phl_info->hal, true);
 	}
 }

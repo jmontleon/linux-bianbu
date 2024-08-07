@@ -72,7 +72,7 @@ typedef struct _RT_CHANNEL_INFO {
 
 	u8 hidden_bss_cnt; /* per scan count */
 
-#ifdef CONFIG_IOCTL_CFG80211
+#if defined(CONFIG_IOCTL_CFG80211) && !RTW_PER_ADAPTER_WIPHY
 	void *os_chan;
 #endif
 } RT_CHANNEL_INFO, *PRT_CHANNEL_INFO;

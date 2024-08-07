@@ -151,6 +151,8 @@
 #define MACARDYDONE	131 /* The flow is already done */
 #define MACPSSTATPWRBITFAIL	132 /* protocol power state check pwr bit fail */
 #define MACIOERRINSEC	133 /* Security ic not allow indirect access */
+#define MACIOTESTERR	140 /* general io test error */
+#define MACFWNOSUPPORT	145 /* FW no support */
 
 /*MAC DBG Status Indication*/
 #define MACSCH_NONEMPTY	1 /* MAC Scheduler non empty */
@@ -203,19 +205,51 @@
 
 #if MAC_AX_DBG_MSG_EN
 
+#undef PLTFM_MSG_ALWAYS
+
+#define	MAC_DBG_MSG(max_buff_len, used_len, buff_addr, remain_len, fmt, ...)\
+do {									\
+	u32 *used_len_tmp = &(used_len);				\
+	PLTFM_MUTEX_LOCK(&adapter->fw_dbgcmd.lock);			\
+	if (*used_len_tmp < max_buff_len)				\
+		*used_len_tmp += PLTFM_SNPRINTF(buff_addr, remain_len, fmt, ##__VA_ARGS__);\
+	PLTFM_MUTEX_UNLOCK(&adapter->fw_dbgcmd.lock);			\
+} while (0)
+
+#define	MAC_LOG2OUTPUT(prefix, ...)\
+do {									\
+	char *output_tmp = adapter->fw_dbgcmd.buf;				\
+	u32 output_len_tmp = adapter->fw_dbgcmd.out_len;			\
+	u32 *used_tmp = &adapter->fw_dbgcmd.used;				\
+	if (adapter->fw_dbgcmd.dbg_console_log_on) {				\
+		MAC_DBG_MSG(output_len_tmp, *used_tmp, output_tmp + *used_tmp, \
+			    output_len_tmp - *used_tmp, \
+			    prefix); \
+		MAC_DBG_MSG(output_len_tmp, *used_tmp, output_tmp + *used_tmp, \
+			    output_len_tmp - *used_tmp, \
+			    ##__VA_ARGS__); \
+	}									\
+} while (0)
+
 #ifdef CONFIG_NEW_HALMAC_INTERFACE
 
 	#if (MAC_AX_MSG_LEVEL >= MAC_AX_MSG_LEVEL_ALWAYS)
-	#define PLTFM_MSG_ALWAYS(...)                                         \
-		_os_dbgdump("[MAC][LOG] " fmt, ##__VA_ARGS__)
+	#define PLTFM_MSG_ALWAYS(...)   do { \
+		if (adapter->fw_dbgcmd.dbg_bg_log_on)			\
+			_os_dbgdump("[MAC][LOG] " fmt, ##__VA_ARGS__);	\
+		MAC_LOG2OUTPUT("[MAC][LOG] ", fmt, ##__VA_ARGS__);\
+	} while (0)
 	#else
 	#define PLTFM_MSG_ALWAYS(...)	do {} while (0)
 	#endif
 
 	/* Enable debug msg depends on  HALMAC_MSG_LEVEL */
 	#if (MAC_AX_MSG_LEVEL >= MAC_AX_MSG_LEVEL_ERR)
-	#define PLTFM_MSG_ERR(...)                                           \
-		_os_dbgdump("[MAC][ERR] " fmt, ##__VA_ARGS__)
+	#define PLTFM_MSG_ERR(...)      do {\
+		if (adapter->fw_dbgcmd.dbg_bg_log_on)			\
+			_os_dbgdump("[MAC][ERR] " fmt, ##__VA_ARGS__);	\
+		MAC_LOG2OUTPUT("[MAC][ERR] ", fmt, ##__VA_ARGS__);\
+	} while (0)
 	#else
 	#define PLTFM_MSG_ERR(...)	do {} while (0)
 	#endif
@@ -237,16 +271,24 @@
 #else
 
 	#if (MAC_AX_MSG_LEVEL >= MAC_AX_MSG_LEVEL_ALWAYS)
-	#define PLTFM_MSG_ALWAYS(...)                                         \
-		adapter->pltfm_cb->msg_print(adapter->drv_adapter, _PHL_ALWAYS_, __VA_ARGS__)
+	#define PLTFM_MSG_ALWAYS(...)   do {\
+		if (adapter->fw_dbgcmd.dbg_bg_log_on)				\
+			adapter->pltfm_cb->msg_print(adapter->drv_adapter,	\
+						     _PHL_ALWAYS_, __VA_ARGS__);\
+		MAC_LOG2OUTPUT("[MAC][LOG] ", __VA_ARGS__);\
+	} while (0)
 	#else
 	#define PLTFM_MSG_ALWAYS(...)	do {} while (0)
 	#endif
 
 	/* Enable debug msg depends on  HALMAC_MSG_LEVEL */
 	#if (MAC_AX_MSG_LEVEL >= MAC_AX_MSG_LEVEL_ERR)
-	#define PLTFM_MSG_ERR(...)                                           \
-		adapter->pltfm_cb->msg_print(adapter->drv_adapter, _PHL_ERR_, __VA_ARGS__)
+	#define PLTFM_MSG_ERR(...)      do {\
+		if (adapter->fw_dbgcmd.dbg_bg_log_on)				\
+			adapter->pltfm_cb->msg_print(adapter->drv_adapter,	\
+						     _PHL_ERR_, __VA_ARGS__);	\
+		MAC_LOG2OUTPUT("[MAC][ERR] ", __VA_ARGS__);\
+	} while (0)
 	#else
 	#define PLTFM_MSG_ERR(...)	do {} while (0)
 	#endif

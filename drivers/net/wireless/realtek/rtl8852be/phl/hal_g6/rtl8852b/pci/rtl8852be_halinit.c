@@ -22,13 +22,102 @@ _hal_set_each_pcicfg(enum rtw_pcie_bus_func_cap_t ctrl)
 	switch(ctrl) {
 
 		case RTW_PCIE_BUS_FUNC_DISABLE:
-			return (enum   mac_ax_pcie_func_ctrl)MAC_AX_PCIE_DISABLE;
+			return MAC_AX_PCIE_DISABLE;
 		case RTW_PCIE_BUS_FUNC_ENABLE:
-			return (enum   mac_ax_pcie_func_ctrl)MAC_AX_PCIE_ENABLE;
+			return MAC_AX_PCIE_ENABLE;
 		default:
-			return (enum   mac_ax_pcie_func_ctrl)MAC_AX_PCIE_DEFAULT;
+			return MAC_AX_PCIE_DEFAULT;
 	}
 
+}
+
+static enum rtw_pcie_bus_func_cap_t
+_trans_func_ctrl(enum mac_ax_pcie_func_ctrl ctrl)
+{
+
+	switch (ctrl) {
+	case MAC_AX_PCIE_DISABLE:
+		return RTW_PCIE_BUS_FUNC_DISABLE;
+	case MAC_AX_PCIE_ENABLE:
+		return RTW_PCIE_BUS_FUNC_ENABLE;
+	case MAC_AX_PCIE_DEFAULT:
+		return RTW_PCIE_BUS_FUNC_DEFAULT;
+	case MAC_AX_PCIE_IGNORE:
+		return RTW_PCIE_BUS_FUNC_IGNORE;
+	default:
+		PHL_ERR("%s : unknown\n", __func__);
+		return RTW_PCIE_BUS_FUNC_IGNORE;
+	}
+}
+
+#define case_mac_ax_pcie_dly(src) \
+	case MAC_AX_PCIE_##src: return RTW_PHL_PCIE_##src
+
+static u8 _trans_l0sdly(enum mac_ax_pcie_l0sdly val)
+{
+	switch (val) {
+	case_mac_ax_pcie_dly(L0SDLY_1US);
+	case_mac_ax_pcie_dly(L0SDLY_2US);
+	case_mac_ax_pcie_dly(L0SDLY_3US);
+	case_mac_ax_pcie_dly(L0SDLY_4US);
+	case_mac_ax_pcie_dly(L0SDLY_5US);
+	case_mac_ax_pcie_dly(L0SDLY_6US);
+	case_mac_ax_pcie_dly(L0SDLY_7US);
+	case_mac_ax_pcie_dly(L0SDLY_R_ERR);
+	case_mac_ax_pcie_dly(L0SDLY_DEF);
+	case_mac_ax_pcie_dly(L0SDLY_IGNORE);
+	default:
+		return val;
+	};
+}
+
+static u8 _trans_l1dly(enum mac_ax_pcie_l1dly val)
+{
+	switch (val) {
+	case_mac_ax_pcie_dly(L1DLY_16US);
+	case_mac_ax_pcie_dly(L1DLY_32US);
+	case_mac_ax_pcie_dly(L1DLY_64US);
+	case_mac_ax_pcie_dly(L1DLY_INFI);
+	case_mac_ax_pcie_dly(L1DLY_R_ERR);
+	case_mac_ax_pcie_dly(L1DLY_DEF);
+	case_mac_ax_pcie_dly(L1DLY_IGNORE);
+	default:
+		return val;
+	};
+};
+
+static u8 _trans_clkdly(enum mac_ax_pcie_clkdly val)
+{
+	switch (val) {
+	case_mac_ax_pcie_dly(CLKDLY_0);
+	case_mac_ax_pcie_dly(CLKDLY_5US);
+	case_mac_ax_pcie_dly(CLKDLY_6US);
+	case_mac_ax_pcie_dly(CLKDLY_11US);
+	case_mac_ax_pcie_dly(CLKDLY_15US);
+	case_mac_ax_pcie_dly(CLKDLY_19US);
+	case_mac_ax_pcie_dly(CLKDLY_25US);
+	case_mac_ax_pcie_dly(CLKDLY_30US);
+	case_mac_ax_pcie_dly(CLKDLY_38US);
+	case_mac_ax_pcie_dly(CLKDLY_50US);
+	case_mac_ax_pcie_dly(CLKDLY_64US);
+	case_mac_ax_pcie_dly(CLKDLY_100US);
+	case_mac_ax_pcie_dly(CLKDLY_128US);
+	case_mac_ax_pcie_dly(CLKDLY_150US);
+	case_mac_ax_pcie_dly(CLKDLY_192US);
+	case_mac_ax_pcie_dly(CLKDLY_200US);
+	case_mac_ax_pcie_dly(CLKDLY_300US);
+	case_mac_ax_pcie_dly(CLKDLY_400US);
+	case_mac_ax_pcie_dly(CLKDLY_500US);
+	case_mac_ax_pcie_dly(CLKDLY_1MS);
+	case_mac_ax_pcie_dly(CLKDLY_3MS);
+	case_mac_ax_pcie_dly(CLKDLY_5MS);
+	case_mac_ax_pcie_dly(CLKDLY_10MS);
+	case_mac_ax_pcie_dly(CLKDLY_R_ERR);
+	case_mac_ax_pcie_dly(CLKDLY_DEF);
+	case_mac_ax_pcie_dly(CLKDLY_IGNORE);
+	default:
+		return val;
+	};
 }
 
 static enum rtw_hal_status _hal_aspm_disable_8852be(struct hal_info_t *hal_info)
@@ -62,32 +151,33 @@ static enum rtw_hal_status _hal_aspm_disable_8852be(struct hal_info_t *hal_info)
 	return hsts;
 }
 
-enum rtw_hal_status _hal_set_pcicfg_8852be(struct hal_info_t *hal_info)
+enum rtw_hal_status
+hal_get_pcicfg_8852be(struct hal_info_t *hal_info,
+		      struct rtw_pcie_cfgspc_param *cfg)
 {
-	struct mac_ax_pcie_cfgspc_param pcicfg;
 	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
-	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+	struct mac_ax_pcie_cfgspc_param pcicfg = {0};
 
 	_os_mem_set(hal_to_drvpriv(hal_info), &pcicfg, 0, sizeof(pcicfg));
-	pcicfg.write = 1;
-	pcicfg.l0s_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.l0s_ctrl);
-	pcicfg.l1_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.l1_ctrl);
-	pcicfg.l1ss_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.l1ss_ctrl);
-	pcicfg.wake_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.wake_ctrl);
-	pcicfg.crq_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.crq_ctrl);
-	pcicfg.clkdly_ctrl = hal_com->bus_cap.clkdly_ctrl;
-	pcicfg.l0sdly_ctrl = hal_com->bus_cap.l0sdly_ctrl;
-	pcicfg.l1dly_ctrl = hal_com->bus_cap.l1dly_ctrl;
-
-
-	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
-		"%s : l0s/l1/l1ss/wake/crq/l0sdly/l1dly/clkdly = %#X/%#X/%#X/%#X/%#X/%#X/%#X/%#X \n",
-		__func__, pcicfg.l0s_ctrl, pcicfg.l1_ctrl, pcicfg.l1ss_ctrl, pcicfg.wake_ctrl,
-		pcicfg.crq_ctrl, pcicfg.l0sdly_ctrl, pcicfg.l1dly_ctrl, pcicfg.clkdly_ctrl);
+	pcicfg.read = 1;
 
 	hsts = rtw_hal_mac_set_pcicfg(hal_info, &pcicfg);
 
-	return hsts;
+	if (hsts != RTW_HAL_STATUS_SUCCESS) {
+		PHL_ERR("%s : status %u\n", __func__, hsts);
+		return hsts;
+	}
+
+	cfg->l0s_ctrl = _trans_func_ctrl(pcicfg.l0s_ctrl);
+	cfg->l1_ctrl = _trans_func_ctrl(pcicfg.l1_ctrl);
+	cfg->l1ss_ctrl = _trans_func_ctrl(pcicfg.l1ss_ctrl);
+	cfg->wake_ctrl = _trans_func_ctrl(pcicfg.wake_ctrl);
+	cfg->crq_ctrl = _trans_func_ctrl(pcicfg.crq_ctrl);
+	cfg->l0sdly = _trans_l0sdly(pcicfg.l0sdly_ctrl);
+	cfg->l1dly = _trans_l1dly(pcicfg.l1dly_ctrl);
+	cfg->clkdly = _trans_clkdly(pcicfg.clkdly_ctrl);
+
+	return RTW_HAL_STATUS_SUCCESS;
 }
 
 enum rtw_hal_status _hal_ltr_sw_init_state_8852be(struct hal_info_t *hal_info)
@@ -330,6 +420,34 @@ enum rtw_hal_status hal_get_efuse_8852be(struct rtw_phl_com_t *phl_com,
 	return hal_get_efuse_8852b(phl_com, hal_info, &init_52be);
 }
 
+enum rtw_hal_status hal_set_pcicfg_8852be(struct hal_info_t *hal_info)
+{
+	struct mac_ax_pcie_cfgspc_param pcicfg;
+	enum rtw_hal_status hsts = RTW_HAL_STATUS_FAILURE;
+	struct rtw_hal_com_t *hal_com = hal_info->hal_com;
+
+	_os_mem_set(hal_to_drvpriv(hal_info), &pcicfg, 0, sizeof(pcicfg));
+	pcicfg.write = 1;
+	pcicfg.l0s_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.l0s_ctrl);
+	pcicfg.l1_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.l1_ctrl);
+	pcicfg.l1ss_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.l1ss_ctrl);
+	pcicfg.wake_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.wake_ctrl);
+	pcicfg.crq_ctrl = _hal_set_each_pcicfg(hal_com->bus_cap.crq_ctrl);
+	pcicfg.clkdly_ctrl = hal_com->bus_cap.clkdly_ctrl;
+	pcicfg.l0sdly_ctrl = hal_com->bus_cap.l0sdly_ctrl;
+	pcicfg.l1dly_ctrl = hal_com->bus_cap.l1dly_ctrl;
+
+
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_,
+	 "%s : l0s/l1/l1ss/wake/crq/l0sdly/l1dly/clkdly = %#X/%#X/%#X/%#X/%#X/%#X/%#X/%#X \n",
+	 __func__, pcicfg.l0s_ctrl, pcicfg.l1_ctrl, pcicfg.l1ss_ctrl, pcicfg.wake_ctrl,
+	 pcicfg.crq_ctrl, pcicfg.l0sdly_ctrl, pcicfg.l1dly_ctrl, pcicfg.clkdly_ctrl);
+
+	hsts = rtw_hal_mac_set_pcicfg(hal_info, &pcicfg);
+
+	return hsts;
+}
+
 enum rtw_hal_status hal_init_8852be(struct rtw_phl_com_t *phl_com,
 				    struct hal_info_t *hal_info)
 {
@@ -415,7 +533,7 @@ enum rtw_hal_status hal_start_8852be(struct rtw_phl_com_t *phl_com,
 		return hal_status;
 	}
 
-	hal_status = _hal_set_pcicfg_8852be(hal_info);
+	hal_status = hal_set_pcicfg_8852be(hal_info);
 	if(RTW_HAL_STATUS_SUCCESS != hal_status) {
 		PHL_ERR("_hal_set_pcicfg_8852be: status = %u\n",hal_status);
 		return hal_status;
@@ -523,7 +641,7 @@ hal_wow_deinit_8852be(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info
 		return hal_status;
 	}
 
-	if (RTW_HAL_STATUS_SUCCESS != _hal_set_pcicfg_8852be(hal_info))
+	if (RTW_HAL_STATUS_SUCCESS != hal_set_pcicfg_8852be(hal_info))
 		PHL_ERR("_hal_set_pcicfg_8852be: status = %u\n", hal_status);
 
 
@@ -618,18 +736,26 @@ void hal_enable_int_8852be(struct hal_info_t *hal)
 {
 	struct rtw_hal_com_t *hal_com = hal->hal_com;
 
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s ISR: %04X : %08X, %04X : %08X, %04X : %08X, %04X : %08X\n",
+	          __func__,
+	          R_AX_PCIE_HISR00, hal_read32(hal_com, R_AX_PCIE_HISR00),
+	          R_AX_PCIE_HISR10, hal_read32(hal_com, R_AX_PCIE_HISR10),
+	          R_AX_HISR0, hal_read32(hal_com, R_AX_HISR0),
+	          R_AX_HD0ISR, hal_read32(hal_com, R_AX_HD0ISR)
+	          );
+
 	hal_write32(hal_com, R_AX_PCIE_HIMR00, hal_com->int_mask[0]);
 	hal_write32(hal_com, R_AX_PCIE_HIMR10, hal_com->int_mask[1]);
 	hal_write32(hal_com, R_AX_HIMR0, hal_com->intr.halt_c2h_int.val_mask);
 	hal_write32(hal_com, R_AX_HD0IMR, hal_com->intr.watchdog_timer_int.val_mask);
 
-	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s : \n%04X : %08X\n%04X : %08X\n%04X : %08X\n%04X : %08X\n",
-			__func__,
-			R_AX_PCIE_HIMR00, hal_read32(hal_com, R_AX_PCIE_HIMR00),
-			R_AX_PCIE_HIMR10, hal_read32(hal_com, R_AX_PCIE_HIMR10),
-			 R_AX_HIMR0, hal_read32(hal_com, R_AX_HIMR0),
-			 R_AX_HD0IMR, hal_read32(hal_com, R_AX_HD0IMR)
-			);
+	PHL_TRACE(COMP_PHL_DBG, _PHL_INFO_, "%s IMR: %04X : %08X, %04X : %08X, %04X : %08X, %04X : %08X\n",
+	          __func__,
+	          R_AX_PCIE_HIMR00, hal_read32(hal_com, R_AX_PCIE_HIMR00),
+	          R_AX_PCIE_HIMR10, hal_read32(hal_com, R_AX_PCIE_HIMR10),
+	          R_AX_HIMR0, hal_read32(hal_com, R_AX_HIMR0),
+	          R_AX_HD0IMR, hal_read32(hal_com, R_AX_HD0IMR)
+	          );
 
 }
 
@@ -778,8 +904,8 @@ static u32 hal_rx_handler_8852be(struct hal_info_t *hal, u32 *handled)
 	struct rtw_hal_com_t *hal_com = hal->hal_com;
 	static const u32 rx_handle_irq = (
 					B_AX_RXDMA_INT_EN |
-					B_AX_RPQDMA_INT_EN|
 					B_AX_RDU_INT_EN |
+					B_AX_RPQDMA_INT_EN |
 					B_AX_RPQBD_FULL_INT_EN);
 	u32	handled0 = (hal_com->int_array[0] & rx_handle_irq);
 
@@ -802,6 +928,40 @@ static u32 hal_rx_handler_8852be(struct hal_info_t *hal, u32 *handled)
 		hal_com->trx_stat.rx_rdu_cnt++;
 
 	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "RX IRQ A4 : %08X (%08X)\n", handled0, hal_com->int_array[0]);
+
+	return ret;
+
+}
+
+static u32 hal_rp_handler_8852be(struct hal_info_t *hal, u32 *handled)
+{
+	u32 ret = 0;
+	struct rtw_hal_com_t *hal_com = hal->hal_com;
+	static const u32 rp_handle_irq = (
+					B_AX_RXDMA_INT_EN |
+					B_AX_RDU_INT_EN |
+					B_AX_RPQDMA_INT_EN |
+					B_AX_RPQBD_FULL_INT_EN);
+	u32	handled0 = (hal_com->int_array[0] & rp_handle_irq);
+
+	if (handled0 == 0)
+		return ret;
+
+	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "RX IRQ B4 : %08X (%08X)\n",
+	          handled0, hal_com->int_array[0]);
+	/* Disable RX interrupts, RX tasklet will enable them after processed RX */
+	hal_com->int_mask[0] &= ~rp_handle_irq;
+#ifndef CONFIG_SYNC_INTERRUPT
+	hal_write32(hal_com, R_AX_PCIE_HIMR00, hal_com->int_mask[0]);
+#endif /* CONFIG_SYNC_INTERRUPT */
+#ifdef PHL_RXSC_ISR
+	hal_com->rx_int_array = handled0;
+#endif
+	handled[0] |= handled0;
+	ret = 1;
+
+	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "RX IRQ A4 : %08X (%08X)\n",
+	          handled0, hal_com->int_array[0]);
 
 	return ret;
 
@@ -907,6 +1067,11 @@ u32 hal_int_hdler_8852be(struct hal_info_t *hal)
 	/* <6> watchdog timer related */
 	int_hdler_msk |= (hal_watchdog_timer_handler_8852be(hal, generalhandled)<<5);
 
+	/* bit 7 : rsvd for gt3 interrupt*/
+
+	/* bit 8 : rx rp queue related */
+	int_hdler_msk |= (hal_rp_handler_8852be(hal, handled) << 8);
+
 	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s : int_hdler_msk = 0x%x\n", __func__, int_hdler_msk);
 
 	if ((hal_com->int_array[0] & (~handled[0]))
@@ -915,7 +1080,7 @@ u32 hal_int_hdler_8852be(struct hal_info_t *hal)
 		|| (hal_com->int_array[3] & (~handled[3]))) {
 		/*if (printk_ratelimit()) */
 		{
-			PHL_WARN("Unhandled ISR => %x, %x, %x, %x\nIMR : %08X\nISR : %08X\n",
+			PHL_WARN("Unhandled ISR => %x, %x, %x, %x, IMR : %08X, ISR : %08X\n",
 				(hal_com->int_array[0] & (~handled[0])),
 				(hal_com->int_array[1] & (~handled[1])),
 				(hal_com->int_array[2] & (~handled[2])),
@@ -931,7 +1096,7 @@ u32 hal_int_hdler_8852be(struct hal_info_t *hal)
 		(hal_com->intr.watchdog_timer_int.intr & (~generalhandled[1]))) {
 		/*if (printk_ratelimit()) */
 		{
-			PHL_WARN("Unhandled ISR => %x\nIMR : %08X\nISR : %08X,\n%x\nIMR : %08X\nISR : %08X\n",
+			PHL_WARN("Unhandled ISR => %x IMR : %08X, ISR : %08X; %x IMR : %08X, ISR : %08X\n",
 				(hal_com->intr.halt_c2h_int.intr & (~generalhandled[0])),
 				hal_read32(hal_com, R_AX_HIMR0),
 				hal_read32(hal_com, R_AX_HISR0),
@@ -961,7 +1126,7 @@ void hal_rx_int_restore_8852be(struct hal_info_t *hal)
 #ifndef CONFIG_SYNC_INTERRUPT
 	hal_write32(hal_com, R_AX_PCIE_HIMR00, hal_com->int_mask[0]);
 	_os_spinunlock(hal->phl_com->drv_priv, &hal->phl_com->imr_lock, _irq, &sp_flags);
-	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s : \n%04X : %08X\n%04X : %08X\n",
+	PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_, "%s : %04X : %08X, %04X : %08X\n",
 			  __func__,
 			  R_AX_PCIE_HIMR00, hal_read32(hal_com, R_AX_PCIE_HIMR00),
 			  R_AX_PCIE_HIMR10, hal_read32(hal_com, R_AX_PCIE_HIMR10)

@@ -17,6 +17,11 @@
 #include <drv_types.h>
 #include "_hal_rate.h"
 
+#ifdef CONFIG_MP_INCLUDED
+#include <rtw_mp.h>
+#endif
+
+
 #ifdef CONFIG_RTW_DEBUG
 const char *rtw_log_level_str[] = {
 	"_DRV_NONE_ = 0",
@@ -126,6 +131,7 @@ void dump_drv_cfg(void *sel)
 	RTW_PRINT_SEL(sel, "CONFIG_MINIMAL_MEMORY_USAGE\n");
 #endif
 
+	RTW_PRINT_SEL(sel, "CONFIG_RTW_EDCCA_MODE_SEL = %d\n", CONFIG_RTW_EDCCA_MODE_SEL);
 	RTW_PRINT_SEL(sel, "CONFIG_RTW_ADAPTIVITY_EN = %d\n", CONFIG_RTW_ADAPTIVITY_EN);
 	RTW_PRINT_SEL(sel, "CONFIG_RTW_ADAPTIVITY_MODE = %d\n", CONFIG_RTW_ADAPTIVITY_MODE);
 
@@ -159,6 +165,13 @@ void dump_drv_cfg(void *sel)
 		      BUSY_TRAFFIC_SCAN_DENY_PERIOD);
 #endif
 
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_TX
+	RTW_PRINT_SEL(sel, "CONFIG_TCP_CSUM_OFFLOAD_TX\n");
+#endif
+
+#ifdef CONFIG_TCP_CSUM_OFFLOAD_RX
+	RTW_PRINT_SEL(sel, "CONFIG_TCP_CSUM_OFFLOAD_RX\n");
+#endif
 
 #ifdef CONFIG_USB_HCI
 #ifdef CONFIG_SUPPORT_USB_INT
@@ -939,6 +952,10 @@ int proc_get_sta_tx_stat(struct seq_file *m, void *v)
 		stats = &sta->sta_stats;
 		RTW_PRINT_SEL(m, "MAC: " MAC_FMT " fail: %u retry: %u\n",
 			      MAC_ARG(mac), stats->tx_fail_cnt_sum, stats->tx_retry_cnt_sum);
+		if (ret == _SUCCESS)
+			ret = 0;
+		else
+			ret = -ENODATA;
 	} else
 		ret = -ENODATA;
 	return ret;
@@ -1338,8 +1355,8 @@ ssize_t proc_set_scan_param(struct file *file, const char __user *buffer, size_t
 #define SCAN_PARAM_INPUT_ARG , &scan_ch_ms
 #ifdef CONFIG_80211N_HT
 	u8 rx_ampdu_accept;
-	u8 rx_ampdu_size;
-#define SCAN_PARAM_INPUT_FMT_HT " %hhu %hhu"
+	u16 rx_ampdu_size;
+#define SCAN_PARAM_INPUT_FMT_HT " %hhu %hu"
 #define SCAN_PARAM_INPUT_ARG_HT , &rx_ampdu_accept, &rx_ampdu_size
 #else
 #define SCAN_PARAM_INPUT_FMT_HT ""
@@ -1621,6 +1638,56 @@ static int wireless_mode_to_str(u32 mode, char *str)
 	return strlen(str);
 }
 
+static void dump_ap_channel_rpt_ie(void *sel, struct link_mlme_ext_priv *pmlmeext)
+{
+	int i = 0;
+	if (pmlmeext->op_class != 0) {
+		RTW_PRINT_SEL(sel, "Operating Class=%d\n", pmlmeext->op_class);
+		while (i < MAX_CHANNEL_NUM && pmlmeext->channel_list[i] != 0) {
+			RTW_PRINT_SEL(sel, "Channel List = %d\n", pmlmeext->channel_list[i]);
+			i++;
+		}
+	}
+}
+
+static const char *rtw_env_str(char env)
+{
+	switch (env) {
+	case ' ':
+		return "ANY";
+	case 'O':
+		return "INDOOR";
+	case 'I':
+		return "OUTDOOR";
+	case 'X':
+		return "NONCOUNTRY";
+	default:
+		return "OPERATING_ClASS";
+	}
+}
+
+static void dump_country_element_ie(void *sel, struct link_mlme_ext_priv *pmlmeext)
+{
+	int i = 0;
+	/* check the country code valid or not.*/
+	if (is_alpha(pmlmeext->country[0]) == _FALSE
+	    || is_alpha(pmlmeext->country[1]) == _FALSE)
+		return;
+
+	RTW_PRINT_SEL(sel, "country=%c%c \n", pmlmeext->country[0], pmlmeext->country[1]);
+	if (strcmp(rtw_env_str(pmlmeext->country[2]), "OPERATING_ClASS") == 0)
+		RTW_PRINT_SEL(sel, "Operating class =%c \n", pmlmeext->country[2]);
+	else
+		RTW_PRINT_SEL(sel, "Environment=%s \n", rtw_env_str(pmlmeext->country[2]));
+
+	while (i < MAX_CHANNEL_NUM && pmlmeext->ch_info[i].first_ch != 0) {
+		RTW_PRINT_SEL(sel, "First channel number = %d ", pmlmeext->ch_info[i].first_ch);
+		RTW_PRINT_SEL(sel, "Number of channel = %d ", pmlmeext->ch_info[i].num_of_ch);
+		RTW_PRINT_SEL(sel, "Maximum Transmit power level = %d dBm\n", pmlmeext->ch_info[i].power_level);
+		i++;
+	}
+}
+
 int proc_get_ap_info(struct seq_file *m, void *v)
 {
 	struct net_device *dev = m->private;
@@ -1634,6 +1701,7 @@ int proc_get_ap_info(struct seq_file *m, void *v)
 	struct mlme_ext_info	*pmlmeinfo = &(padapter->mlmeextpriv.mlmext_info);
 	struct sta_priv *pstapriv = &padapter->stapriv;
 	char wl_mode[16];
+	u32 mbps = 0;
 
 	/* ap vendor */
 	char vendor[VENDOR_NAME_LEN] = {0};
@@ -1642,9 +1710,11 @@ int proc_get_ap_info(struct seq_file *m, void *v)
 
 	psta = rtw_get_stainfo(pstapriv, cur_network->network.MacAddress);
 	if (psta) {
+		mbps = ((u32)rtw_get_cur_max_rate(padapter) / 10);
 		wireless_mode_to_str(psta->phl_sta->wmode, wl_mode);
 		RTW_PRINT_SEL(m, "SSID=%s\n", cur_network->network.Ssid.Ssid);
 		RTW_PRINT_SEL(m, "sta's macaddr:" MAC_FMT "\n", MAC_ARG(psta->phl_sta->mac_addr));
+		RTW_PRINT_SEL(m, "Max Bit Rate=%u (Mbps)\n", mbps);
 		RTW_PRINT_SEL(m, "cur_channel=%d, cur_bwmode=%d(%s), cur_ch_offset=%d\n", pmlmeext->chandef.chan, pmlmeext->chandef.bw, ch_width_str(pmlmeext->chandef.bw), pmlmeext->chandef.offset);
 		RTW_PRINT_SEL(m, "wireless_mode=0x%x(%s), rtsen=%d, cts2slef=%d hw_rts_en=%d\n",
 				psta->phl_sta->wmode, wl_mode, psta->rtsen, psta->cts2self, psta->hw_rts_en);
@@ -1653,6 +1723,10 @@ int proc_get_ap_info(struct seq_file *m, void *v)
 			psta->state, psta->phl_sta->aid, psta->phl_sta->macid, psta->phl_sta->ra_info.rate_id); */
 		RTW_PRINT_SEL(m, "state=0x%x, aid=%d, macid=%d\n",
 			psta->state, psta->phl_sta->aid, psta->phl_sta->macid);
+		if (MLME_IS_STA(padapter)) {
+			dump_country_element_ie(m, pmlmeext);
+			dump_ap_channel_rpt_ie(m, pmlmeext);
+		}
 #ifdef CONFIG_80211N_HT
 		RTW_PRINT_SEL(m, "qos_en=%d, ht_en=%d, init_rate=%d\n", psta->qos_option, psta->htpriv.ht_option, psta->init_rate);
 		RTW_PRINT_SEL(m, "bwmode=%d, ch_offset=%d, sgi_20m=%d,sgi_40m=%d\n"
@@ -2742,29 +2816,27 @@ int proc_get_rx_signal(struct seq_file *m, void *v)
 #endif /* CONFIG_SNR_RPT */
 
 	RTW_PRINT_SEL(m, "rssi:%d\n", padapter->recvinfo.rssi);
-#if 0//def CONFIG_MP_INCLUDED
+#ifdef CONFIG_MP_INCLUDED
 	if (padapter->registrypriv.mp_mode == 1) {
-		struct dm_struct *odm = adapter_to_phydm(padapter);
-		if (padapter->mppriv.antenna_rx == ANTENNA_A)
+		if (padapter->mppriv.antenna_trx == MP_ANTENNA_A)
 			RTW_PRINT_SEL(m, "Antenna: A\n");
-		else if (padapter->mppriv.antenna_rx == ANTENNA_B)
+		else if (padapter->mppriv.antenna_trx == MP_ANTENNA_B)
 			RTW_PRINT_SEL(m, "Antenna: B\n");
-		else if (padapter->mppriv.antenna_rx == ANTENNA_C)
+		else if (padapter->mppriv.antenna_trx == MP_ANTENNA_C)
 			RTW_PRINT_SEL(m, "Antenna: C\n");
-		else if (padapter->mppriv.antenna_rx == ANTENNA_D)
+		else if (padapter->mppriv.antenna_trx == MP_ANTENNA_D)
 			RTW_PRINT_SEL(m, "Antenna: D\n");
-		else if (padapter->mppriv.antenna_rx == ANTENNA_AB)
+		else if (padapter->mppriv.antenna_trx == MP_ANTENNA_AB)
 			RTW_PRINT_SEL(m, "Antenna: AB\n");
-		else if (padapter->mppriv.antenna_rx == ANTENNA_BC)
+		else if (padapter->mppriv.antenna_trx == MP_ANTENNA_BC)
 			RTW_PRINT_SEL(m, "Antenna: BC\n");
-		else if (padapter->mppriv.antenna_rx == ANTENNA_CD)
+		else if (padapter->mppriv.antenna_trx == MP_ANTENNA_CD)
 			RTW_PRINT_SEL(m, "Antenna: CD\n");
 		else
 			RTW_PRINT_SEL(m, "Antenna: __\n");
-
-		RTW_PRINT_SEL(m, "rx_rate = %s\n", HDATA_RATE(odm->rx_rate));
+		RTW_PRINT_SEL(m, "rx_rate = %s\n", MGN_RATE_STR(hwrate_to_mrate(padapter->mppriv.rx_rate)));
 		return 0;
-	} else 
+	} else
 #endif
 	{
 		/* RTW_PRINT_SEL(m, "rxpwdb:%d\n", padapter->recvinfo.rxpwdb); */
@@ -2962,10 +3034,10 @@ void dump_regsty_rx_ampdu_size_limit(void *sel, _adapter *adapter)
 	struct registry_priv *regsty = adapter_to_regsty(adapter);
 	int i;
 
-	RTW_PRINT_SEL(sel, "%-3s %-3s %-3s %-3s %-4s\n"
+	RTW_PRINT_SEL(sel, "%-3s %-5s %-5s %-5s %-5s\n"
 		, "", "20M", "40M", "80M", "160M");
 	for (i = 0; i < 4; i++)
-		RTW_PRINT_SEL(sel, "%dSS %3u %3u %3u %4u\n", i + 1
+		RTW_PRINT_SEL(sel, "%dSS %5u %5u %5u %5u\n", i + 1
 			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][0]
 			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][1]
 			, regsty->rx_ampdu_sz_limit_by_nss_bw[i][2]
@@ -3006,7 +3078,7 @@ ssize_t proc_set_rx_ampdu(struct file *file, const char __user *buffer, size_t c
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	char tmp[32];
 	u8 accept;
-	u8 size;
+	u16 size;
 
 	if (count < 1)
 		return -EFAULT;
@@ -3018,7 +3090,7 @@ ssize_t proc_set_rx_ampdu(struct file *file, const char __user *buffer, size_t c
 
 	if (buffer && !copy_from_user(tmp, buffer, count)) {
 
-		int num = sscanf(tmp, "%hhu %hhu", &accept, &size);
+		int num = sscanf(tmp, "%hhu %hu", &accept, &size);
 
 		if (num >= 1)
 			rtw_rx_ampdu_set_accept(padapter, accept, RX_AMPDU_DRV_FIXED);
@@ -3080,12 +3152,21 @@ int proc_get_tx_ampdu_num(struct seq_file *m, void *v)
 {
 	struct net_device *dev = m->private;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-	struct rtw_phl_com_t *phl_com = GET_PHL_COM(dvobj);
+	struct dvobj_priv *dvobj;
+	struct rtw_phl_com_t *phl_com;
+	u8 hw_band_num = 1;
 	int i;
 
 	if (padapter) {
-		for (i = HW_BAND_0 ; i < HW_BAND_MAX ; i++) {
+		dvobj = adapter_to_dvobj(padapter);
+		phl_com = GET_PHL_COM(dvobj);
+
+#ifdef CONFIG_DBCC_SUPPORT
+		if (is_dbcc_sup(phl_com))
+			hw_band_num = HW_BAND_MAX;
+#endif
+
+		for (i = HW_BAND_0 ; i < hw_band_num ; i++) {
 			RTW_PRINT_SEL(m, "===== HW band index %d =====\n", i);
 			RTW_PRINT_SEL(m, "[phy_cap] tx ampdu num = %s",
 						  phl_com->phy_cap[i].txagg_num ? "":"not yet set");
@@ -3100,14 +3181,6 @@ int proc_get_tx_ampdu_num(struct seq_file *m, void *v)
 				RTW_PRINT_SEL(m, "%d\n", phl_com->phy_sw_cap[i].txagg_num);
 			else
 				RTW_PRINT_SEL(m, "\n");
-
-			if (i >= HW_BAND_0) {
-#ifdef CONFIG_DBCC_SUPPORT
-				if (phl_com->dev_cap.dbcc_sup == true)
-					continue;
-#endif
-				break;
-			}
 		}
 	}
 
@@ -3286,11 +3359,13 @@ int proc_get_tx_amsdu(struct seq_file *m, void *v)
 	struct net_device *dev = m->private;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
+	struct registry_priv *regpriv = &padapter->registrypriv;
 	int i;
 
 	if (padapter)
 	{
-		RTW_PRINT_SEL(m, "tx amsdu = %d\n", padapter->tx_amsdu);
+		RTW_PRINT_SEL(m, "regpriv->tx_amsdu_aggnum = %d\n", regpriv->tx_amsdu_aggnum);
+		RTW_PRINT_SEL(m, "padapter->tx amsdu = %d\n", padapter->tx_amsdu);
 		RTW_PRINT_SEL(m, "amsdu set timer conut = %u\n", pxmitpriv->amsdu_debug_set_timer);
 		RTW_PRINT_SEL(m, "amsdu time out count = %u\n", pxmitpriv->amsdu_debug_timeout);
 		for (i = 0; i < (AMSDU_DEBUG_MAX_COUNT - 1); i++) {
@@ -3312,6 +3387,7 @@ ssize_t proc_set_tx_amsdu(struct file *file, const char __user *buffer, size_t c
 	struct net_device *dev = data;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
+	struct registry_priv *regpriv = &padapter->registrypriv;
 	char tmp[32];
 	u32 i, amsdu;
 
@@ -3340,6 +3416,7 @@ ssize_t proc_set_tx_amsdu(struct file *file, const char __user *buffer, size_t c
 					pxmitpriv->amsdu_debug_coalesce[i] = 0;
 			} else {
 				padapter->tx_amsdu = amsdu;
+				regpriv->tx_amsdu_aggnum = amsdu;
 			}
 		}
 	}
@@ -3528,9 +3605,9 @@ void rtw_get_dft_phy_cap(void *sel, _adapter *adapter)
 	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
 	struct _ADAPTER_LINK *adapter_link = GET_PRIMARY_LINK(adapter);
 	RTW_PRINT_SEL(sel, "\n ======== PHY CAP protocol ========\n");
-	rtw_ht_use_default_setting(adapter, adapter_link);
+	rtw_ht_use_default_setting(adapter, adapter_link, _TRUE);
 	#ifdef CONFIG_80211AC_VHT
-	rtw_vht_get_real_setting(adapter, adapter_link);
+	rtw_vht_get_real_setting(adapter, adapter_link, _TRUE);
 	#endif
 	#ifdef CONFIG_80211N_HT
 	rtw_dump_dft_phy_cap(sel, adapter);
@@ -3823,7 +3900,7 @@ int proc_get_sta_active_time(struct seq_file *m, void *v)
 	u32 i, macid_rec_idx = 0;
 	u8 sta_mac[NUM_STA][ETH_ALEN]={{0}};
 
-	_rtw_spinlock_bh(&pstapriv->asoc_list_lock);
+	rtw_stapriv_asoc_list_lock(pstapriv);
 	phead = &pstapriv->asoc_list;
 	plist = get_next(phead);
 
@@ -3833,7 +3910,7 @@ int proc_get_sta_active_time(struct seq_file *m, void *v)
 		_rtw_memcpy(&sta_mac[macid_rec_idx][0], psta->phl_sta->mac_addr, ETH_ALEN);
 		macid_rec_idx++;
 	}
-	_rtw_spinunlock_bh(&pstapriv->asoc_list_lock);
+	rtw_stapriv_asoc_list_unlock(pstapriv);
 
 	for(i = 0; i < macid_rec_idx; i++){
 		psta = rtw_get_stainfo(pstapriv, &sta_mac[i][0]);
@@ -4857,7 +4934,7 @@ int proc_get_wakeup_reason(struct seq_file *m, void *v)
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
 	struct wow_priv *wowpriv = adapter_to_wowlan(padapter);
 
-	RTW_PRINT_SEL(m, "last wake reason: %#02x\n", wowpriv->wow_wake_reason);
+	RTW_PRINT_SEL(m, "last wake reason: 0x%02x\n", wowpriv->wow_wake_reason);
 
 	return 0;
 }
@@ -5043,11 +5120,59 @@ int proc_get_p2p_wowlan_info(struct seq_file *m, void *v)
 #endif /* CONFIG_P2P_WOWLAN */
 
 #ifdef CONFIG_POWER_SAVE
-enum ps_mode {
-	PS_MODE_NONE,
-	PS_MODE_LPS,
-	PS_MODE_IPS
-};
+int proc_get_ps_info(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+	struct rtw_phl_com_t *phl_com = dvobj->phl_com;
+	struct rtw_ps_cap_t *ps_cap = &phl_com->dev_cap.ps_cap;
+	u8 ips_mode = ps_cap->ips_en;
+	u8 lps_mode = ps_cap->lps_en;
+	u8 lps_cap = ps_cap->lps_cap;
+	char str[80] = {0};
+
+	RTW_PRINT_SEL(m, "======Power Saving Info:======\n");
+
+	RTW_PRINT_SEL(m, "*IPS:\n");
+
+	if (ips_mode == PS_OP_MODE_DISABLED)
+		strcpy(str, "IPS_NONE");
+	else if (ips_mode == PS_OP_MODE_FORCE_ENABLED)
+		strcpy(str, "IPS_FORCE_ENABLED");
+	else if (ips_mode == PS_OP_MODE_AUTO)
+		strcpy(str, "IPS_NORMAL");
+	else
+		strcpy(str, "Invalid");
+
+	RTW_PRINT_SEL(m, " IPS mode: %s\n", str);
+
+	RTW_PRINT_SEL(m, "*LPS:\n");
+
+	if (lps_mode == PS_OP_MODE_DISABLED)
+		strcpy(str, "LPS_NONE");
+	else if (ips_mode == PS_OP_MODE_FORCE_ENABLED)
+		strcpy(str, "LPS_FORCE_ENABLED");
+	else if (ips_mode == PS_OP_MODE_AUTO)
+		strcpy(str, "LPS_NORMAL");
+	else
+		strcpy(str, "Invalid");
+
+	RTW_PRINT_SEL(m, " LPS mode: %s\n", str);
+
+	if (lps_cap & PS_CAP_PWR_GATED)
+		strcpy(str, "LPS_PG");
+	else if (lps_cap & PS_CAP_CLK_GATED)
+		strcpy(str, "LPS_LCLK");
+	else if (lps_cap & PS_CAP_RF_OFF)
+		strcpy(str, "LPS_NORMAL");
+	else
+		strcpy(str, "Invalid");
+
+	RTW_PRINT_SEL(m, " LPS level: %s\n", str);
+	RTW_PRINT_SEL(m, "=============================\n");
+	return 0;
+}
 
 ssize_t proc_set_ps_info(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
 {
@@ -5076,6 +5201,23 @@ ssize_t proc_set_ps_info(struct file *file, const char __user *buffer, size_t co
 		goto exit;
 	}
 
+	if (num == 1 && ps_mode == 0) {
+		/* back to original LPS/IPS Mode */
+		RTW_INFO("%s: back to original LPS/IPS Mode\n", __FUNCTION__);
+#ifdef CONFIG_RTW_IPS
+		if (ps_cap_p->ips_en != registry_par->ips_mode)
+			rtw_phl_dbg_ps_op_mode(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_IPS, registry_par->ips_mode);
+#endif /* CONFIG_RTW_IPS */
+#ifdef CONFIG_RTW_LPS
+		if (ps_cap_p->lps_en != registry_par->lps_mode)
+			rtw_phl_dbg_ps_op_mode(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_LPS, registry_par->lps_mode);
+
+		if (ps_cap_p->lps_cap != registry_par->lps_cap)
+			rtw_phl_dbg_ps_cap(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_LPS, registry_par->lps_cap);
+#endif /* CONFIG_RTW_LPS */
+		goto exit;
+	}
+
 	if (ps_mode == 1) {
 #ifdef CONFIG_RTW_LPS
 		switch (ps_cap) {
@@ -5099,11 +5241,10 @@ ssize_t proc_set_ps_info(struct file *file, const char __user *buffer, size_t co
 		if (ps_cap == 0) {
 			rtw_phl_dbg_ps_op_mode(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_LPS, PS_OP_MODE_DISABLED);
 		} else {
-			if (ps_cap_p->lps_cap != lps_cap) {
-				if (ps_cap_p->lps_en != registry_par->lps_mode)
-					rtw_phl_dbg_ps_op_mode(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_LPS, registry_par->lps_mode);
+			if (ps_cap_p->lps_en == PS_OP_MODE_DISABLED)
+				rtw_phl_dbg_ps_op_mode(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_LPS, PS_OP_MODE_AUTO);
+			if (ps_cap_p->lps_cap != lps_cap)
 				rtw_phl_dbg_ps_cap(GET_PHL_INFO(dvobj), HW_BAND_0, PS_MODE_LPS, lps_cap);
-			}
 		}
 #endif /* CONFIG_RTW_LPS */
 	} else if (ps_mode == 2) {
@@ -5721,6 +5862,8 @@ ssize_t proc_set_tx_sa_query(struct file *file, const char __user *buffer, size_
 			return count;
 		}
 		RTW_INFO("0: set sa query request , key_type=%d\n", key_type);
+	} else {
+		return -EFAULT;
 	}
 
 	if (MLME_IS_STA(padapter)
@@ -5808,6 +5951,8 @@ ssize_t proc_set_tx_deauth(struct file *file, const char __user *buffer, size_t 
 			return count;
 		}
 		RTW_INFO("key_type=%d\n", key_type);
+	} else {
+		return -EFAULT;
 	}
 	if (key_type > 4)
 		return count;
@@ -5848,18 +5993,13 @@ ssize_t proc_set_tx_deauth(struct file *file, const char __user *buffer, size_t 
 
 					psta = rtw_get_stainfo(pstapriv, &mac_addr[index][0]);
 					if (psta && key_type != IEEE80211W_WRONG_KEY && key_type != IEEE80211W_NO_KEY) {
-						_rtw_spinlock_bh(&pstapriv->asoc_list_lock);
+						rtw_stapriv_asoc_list_lock(pstapriv);
 						if (rtw_is_list_empty(&psta->asoc_list) == _FALSE) {
-							rtw_list_delete(&psta->asoc_list);
-							pstapriv->asoc_list_cnt--;
-							#ifdef CONFIG_RTW_TOKEN_BASED_XMIT
-							if (psta->tbtx_enable)
-								pstapriv->tbtx_asoc_list_cnt--;
-							#endif
+							rtw_stapriv_asoc_list_del(pstapriv, psta);
 							updated |= ap_free_sta(padapter, psta, _FALSE, WLAN_REASON_PREV_AUTH_NOT_VALID, _TRUE, _FALSE);
 
 						}
-						_rtw_spinunlock_bh(&pstapriv->asoc_list_lock);
+						rtw_stapriv_asoc_list_unlock(pstapriv);
 					}
 
 					RTW_INFO("STA[%u]:"MAC_FMT"\n", index , MAC_ARG(&mac_addr[index][0]));
@@ -5898,7 +6038,7 @@ ssize_t proc_set_tx_auth(struct file *file, const char __user *buffer, size_t co
 	char tmp[16];
 	u8	mac_addr[NUM_STA][ETH_ALEN];
 	u8 bc_addr[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	u32 tx_auth;
+	u32 tx_auth = 0;
 	u8 index;
 
 
@@ -6781,7 +6921,48 @@ ssize_t proc_set_mr_test(struct file *file, const char __user *buffer, size_t co
 					rtw_ssmps_leave(padapter, psta);
 			}
 		}
+		else if (mode == 13) {
+			#ifdef CONFIG_DBCC_SUPPORT
+			dvobj->dis_dbcc_scan = param;
+			RTW_INFO("%s dis_dbcc_scan %d\n",
+					__func__, dvobj->dis_dbcc_scan);
+			#endif
+		}
+		#ifdef CONFIG_DBCC_P2P_BG_LISTEN
+		else if (mode == 14) {
+			/*mode
+			param - 0: rtw_phl_cmd_dbcc_enable, 1 :rtw_phl_cmd_dbcc_disable
+			param_1 - iface_id
+			param_2 - cmd_type : 0:PHL_CMD_DIRECTLY,1:PHL_CMD_NO_WAIT,2:PHL_CMD_WAIT*/
 
+			_adapter *target_adp = NULL;
+			struct _ADAPTER_LINK *target_alink;
+			struct rtw_wifi_role_link_t *target_rlink;
+
+			if (param == 0)
+				RTW_INFO("%s dbcc enable cmd test - iface_id %d cmd_type:%d\n",
+					__func__, param_1, param_2);
+			else /* if (param == 1)*/
+				RTW_INFO("%s dbcc disable cmd test - iface_id %d cmd_type:%d\n",
+					__func__, param_1, param_2);
+
+			target_adp = dvobj->padapters[param_1];
+			target_alink = GET_PRIMARY_LINK(target_adp);
+			target_rlink = target_alink->wrlink;
+
+			RTW_INFO(FUNC_ADPT_FMT" at HW_B(%d)\n",
+				FUNC_ADPT_ARG(target_adp), target_rlink->hw_band);
+			if (param == 0) {
+				rtw_phl_cmd_dbcc_enable(target_adp->phl_role,
+							  target_rlink->hw_band,
+							  param_2, 0);
+			} else {
+				rtw_phl_cmd_dbcc_disable(target_adp->phl_role,
+							  target_rlink->hw_band,
+							  param_2, 0);
+			}
+		}
+		#endif
 #endif
 	}
 
@@ -6899,6 +7080,218 @@ ssize_t proc_set_tx_ul_mu_disable(struct file *file, const char __user *buffer, 
 			rtw_he_set_om_info(padapter, padapter_link, om_mask, &om_info);
 			issue_qos_nulldata(padapter, padapter_link,
 					NULL, 0, 0, 3, 10, _TRUE);
+		}
+	}
+
+	return count;
+}
+#endif
+
+#ifdef CONFIG_RTW_CSI_CHANNEL_INFO
+int proc_get_csi_ch_info(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct dvobj_priv *d = padapter->dvobj;
+	void *phl = GET_PHL_INFO(d);
+	struct csi_header_t csi_header;
+	u8 buff[512] = {0};
+	u32 buf_len;
+	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
+
+	_rtw_memset(&csi_header, 0, sizeof(csi_header));
+	status = rtw_phl_query_chan_info(phl, 512, buff, &buf_len, &csi_header);
+	if (status == RTW_PHL_STATUS_SUCCESS) {
+		RTW_DUMP_SEL(m, buff, buf_len);
+		RTW_PRINT_SEL(m, "rxsc=%d\n", csi_header.rxsc);
+		RTW_PRINT_SEL(m, "nc=%d\n", csi_header.nc);
+		RTW_PRINT_SEL(m, "nr=%d\n", csi_header.nr);
+		RTW_PRINT_SEL(m, "avg_idle_noise_pwr=%d\n", csi_header.avg_idle_noise_pwr);
+		RTW_PRINT_SEL(m, "csi_data_length=%d\n", csi_header.csi_data_length);
+		RTW_PRINT_SEL(m, "csi_valid=%d\n", csi_header.csi_valid);
+		RTW_PRINT_SEL(m, "evm[0]=%d\n", csi_header.evm[0]);
+		RTW_PRINT_SEL(m, "evm[1]=%d\n", csi_header.evm[1]);
+		RTW_PRINT_SEL(m, "rssi[0]=%d%%\n", csi_header.rssi[0] >> 1);
+		RTW_PRINT_SEL(m, "rssi[1]=%d%%\n", csi_header.rssi[1] >> 1);
+		RTW_PRINT_SEL(m, "timestamp=%d\n", csi_header.hw_assigned_timestamp);
+		RTW_PRINT_SEL(m, "rx_data_rate=%d\n", csi_header.rx_data_rate);
+		RTW_PRINT_SEL(m, "bandwidth=%d\n", csi_header.bandwidth);
+	}
+	return 0;
+}
+
+ssize_t proc_set_csi_ch_info(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *adapter = (_adapter *)rtw_netdev_priv(dev);
+	struct dvobj_priv *d = adapter->dvobj;
+	void *phl = GET_PHL_INFO(d);
+	struct _ADAPTER_LINK *adapter_link = NULL;
+	struct rtw_wifi_role_t *wrole = NULL;
+	struct rtw_wifi_role_link_t *wrlink = NULL;
+	struct rtw_phl_stainfo_t *phl_sta = NULL;
+	struct rtw_chinfo_action_parm act_parm;
+	char tmp[32];
+	u8 en, group_num, accuracy, mode, en_mode, period, addr[ETH_ALEN];
+	int i, num;
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	adapter_link = GET_PRIMARY_LINK(adapter);
+	if (adapter_link == NULL) {
+		RTW_ERR("adapter_link = NULL\n");
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	wrole = adapter->phl_role;
+	if (wrole == NULL) {
+		RTW_ERR("wrole = NULL\n");
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	wrlink = adapter_link->wrlink;
+	if (wrlink == NULL) {
+		RTW_ERR("wrlink = NULL\n");
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	phl_sta = rtw_phl_get_stainfo_self(phl, wrlink);
+	if (phl_sta == NULL) {
+		RTW_ERR("phl_sta = NULL\n");
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	RTW_INFO("sta mac addr: "MAC_FMT"\n", MAC_ARG(phl_sta->mac_addr));
+	RTW_INFO("sta->wrole mac addr: "MAC_FMT"\n", MAC_ARG(phl_sta->wrole->mac_addr));
+	RTW_INFO("sta->rlink mac addr: "MAC_FMT"\n", MAC_ARG(phl_sta->rlink->mac_addr));
+
+	_rtw_memset(&act_parm, 0, sizeof(struct rtw_chinfo_action_parm));
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+		num = sscanf(tmp, "%hhx %hhx %hhx %hhx %hhx %hhd %hhx %hhx %hhx %hhx %hhx %hhx",
+					&en, &group_num, &accuracy, &mode, &en_mode, &period,
+					addr, addr + 1, addr + 2, addr + 3, addr + 4, addr + 5);
+		if ((num == 1) || (num == 6))
+			goto csi_set_next;
+
+		num = sscanf(tmp, "%hhx %hhx %hhx %hhx %hhx %hhd %hhx %hhx %hhx %hhx %hhx %hhx",
+					&en, &group_num, &accuracy, &mode, &en_mode, &period,
+					addr, addr + 1, addr + 2, addr + 3, addr + 4, addr + 5);
+		if (num == 12)
+			goto csi_set_next;
+
+		num = sscanf(tmp, "%hhx %hhx %hhx %hhx %hhx %hhx %hhx",
+					&en, addr, addr + 1, addr + 2, addr + 3, addr + 4, addr + 5);
+		if (num == 7)
+			goto csi_set_next;
+
+csi_set_next:
+		RTW_INFO("%s: arguments num=%d\n", __func__, num);
+		RTW_INFO("%s: client mac addr: "MAC_FMT"\n", __func__, MAC_ARG(addr));
+		RTW_INFO("%s: wrole type = %d\n", __func__, wrole->type);
+
+		/*
+		 * num=1: for STA mode, default setting
+		 * num=6: for STA mode, changed setting
+		 * num=7: for softAP mode, default setting + associated client MAC address
+		 * num=12: for softAP mode, changed setting + associated client MAC address
+		 */
+		if ((num != 1) && (num != 6) && (num !=7) && (num != 12)) {
+			RTW_ERR("%s: Wrong setting (%d arguments), only accept 1, 6, 7, or 12 arguments\n", __func__, num);
+			return -EFAULT;
+		}
+
+		if (wrole->type == PHL_RTYPE_AP) {
+			if ((num == 1) || (num == 6)) {
+				if (en == 1) {
+					RTW_ERR("%s: Current is AP mode, you need assigned associated client MAC address!\n", __func__);
+					return -EFAULT;
+				}
+			}
+		}
+		else if (wrole->type == PHL_RTYPE_STATION) {
+			if ((num == 7) || (num == 12)) {
+				RTW_WARN("%s: Current is STA mode, assigned client MAC address will be ignored!\n", __func__);
+			}
+		}
+		else {
+			RTW_ERR("%s: wrole type %d is not supported!\n", __func__, wrole->type);
+			return -EFAULT;
+		}
+
+
+		switch (num) {
+		case 1:
+		case 7:
+			/* default setting */
+			if (wrole->type == PHL_RTYPE_AP) {
+				act_parm.ap_csi = true;
+				_rtw_memcpy(&act_parm.assign_client_mac[0], addr, ETH_ALEN);
+			} else
+				act_parm.ap_csi = false;
+
+			act_parm.act = CHINFO_ACT_CFG;
+			act_parm.group_num = CHINFO_GROUP_NUM_16;
+			act_parm.accuracy = CHINFO_ACCU_1BYTE;
+			//act_parm.mode = CHINFO_MODE_MACID;
+			act_parm.mode = CHINFO_MODE_ACK;
+			act_parm.enable_mode = CHINFO_EN_RICH_MODE; //if set cause 100ms CSI
+			act_parm.sta = phl_sta;
+			act_parm.enable = en;
+			act_parm.trig_period = 30;
+			act_parm.tx_nss = 2;
+			act_parm.rx_nss = 2;
+			if (act_parm.mode == CHINFO_MODE_ACK)
+				act_parm.ele_bitmap = 0x0101; /* For ACK, Legacy, only H00, H01 */
+			else
+				act_parm.ele_bitmap = 0x0303;
+			rtw_phl_cmd_cfg_chinfo(phl, &act_parm, PHL_CMD_WAIT, 500);
+			act_parm.act = CHINFO_ACT_EN;
+			rtw_phl_cmd_cfg_chinfo(phl, &act_parm, PHL_CMD_WAIT, 500);
+			break;
+		case 6:
+		case 12:
+			/* changed setting */
+			if (wrole->type == PHL_RTYPE_AP) {
+				act_parm.ap_csi = true;
+				_rtw_memcpy(&act_parm.assign_client_mac[0], addr, ETH_ALEN);
+			} else
+				act_parm.ap_csi = false;
+
+			/*default: 1 3 0 0*/
+			act_parm.act = CHINFO_ACT_CFG;
+			act_parm.group_num = group_num; /* 0~3: num 1/2/4/16 */
+			act_parm.accuracy = accuracy; 	/* 0: 1byte, 1: 2 bytes */
+			//act_parm.mode = CHINFO_MODE_MACID;
+			act_parm.mode = mode;		/* 0: ACK mode, 1: MACID, 2: NDP */
+			act_parm.enable_mode = en_mode; /* 0: Light mode, 1: Rich mode, 2: auto mode */
+			act_parm.sta = phl_sta;
+			act_parm.enable = en;
+			act_parm.trig_period = period;
+			act_parm.tx_nss = 2;
+			act_parm.rx_nss = 2;
+			if (act_parm.mode == CHINFO_MODE_ACK)
+				act_parm.ele_bitmap = 0x0101; /* For ACK, Legacy, only H00, H01 */
+			else
+				act_parm.ele_bitmap = 0x0303;
+			rtw_phl_cmd_cfg_chinfo(phl, &act_parm, PHL_CMD_WAIT, 500);
+			act_parm.act = CHINFO_ACT_EN;
+			rtw_phl_cmd_cfg_chinfo(phl, &act_parm, PHL_CMD_WAIT, 500);
+			break;
+		default:
+			RTW_ERR("%s: Wrong setting, only accept 1, 6, 7, or 12 arguments\n", __func__);
+			return -EFAULT;
+			break;
 		}
 	}
 

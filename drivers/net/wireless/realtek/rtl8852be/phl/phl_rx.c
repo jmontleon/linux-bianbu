@@ -380,6 +380,7 @@ enum rtw_phl_status _phl_add_rx_pkt(struct phl_info_t *phl_info,
 	if (wptr >= MAX_PHL_RX_RING_ENTRY_NUM)
 		wptr = 0;
 
+	_phl_record_rx_stats(recvpkt);
 	ring->entry[wptr] = recvpkt;
 
 	if (wptr)
@@ -399,9 +400,6 @@ enum rtw_phl_status _phl_add_rx_pkt(struct phl_info_t *phl_info,
 
 out:
 	_os_spinunlock(drv, &phl_info->rx_ring_lock, _bh, NULL);
-
-	if(pstatus == RTW_PHL_STATUS_SUCCESS)
-		_phl_record_rx_stats(recvpkt);
 
 	FUNCOUT_WSTS(pstatus);
 
@@ -598,8 +596,14 @@ static void phl_release_reorder_frame(struct phl_info_t *phl_info,
 	meta->rx_deferred_release = 1;
 	list_add_tail(&pkt->list, frames);
 
+	PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "release mpdu_seq_num 0x%03x (tid=%u)\n",
+	          r->head_seq_num, r->tid);
+
 out:
 	r->head_seq_num = seq_inc(r->head_seq_num);
+
+	PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "update head_seq_num 0x%03x (tid=%u)\n",
+	          r->head_seq_num, r->tid);
 }
 
 #define HT_RX_REORDER_BUF_TIMEOUT_MS 500
@@ -664,6 +668,9 @@ static void phl_reorder_release(struct phl_info_t *phl_info,
 			 */
 			r->head_seq_num =
 				(r->head_seq_num + skipped) & SEQ_MASK;
+
+			PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_, "release an RX reorder frame, new head_seq 0x%03x (tid=%u)\n",
+			          r->head_seq_num, r->tid);
 			skipped = 0;
 		}
 	} else while (r->reorder_buf[index]) {
@@ -846,9 +853,8 @@ static bool phl_manage_sta_reorder_buf(struct phl_info_t *phl_info,
 	}
 
 	if (r->sleep) {
-		PHL_INFO("tid = %d reorder buffer handling after wake up\n",
-		         r->tid);
-		PHL_INFO("Update head seq(0x%03x) to the first rx seq(0x%03x) after wake up\n",
+		PHL_INFO("Reorder buffer handling after wake up (tid=%u)\n", r->tid);
+		PHL_INFO("Update head seq 0x%03x to the first rx seq 0x%03x after wake up\n",
 		         r->head_seq_num, mpdu_seq_num);
 		r->head_seq_num = mpdu_seq_num;
 		head_seq_num = r->head_seq_num;
@@ -857,8 +863,8 @@ static bool phl_manage_sta_reorder_buf(struct phl_info_t *phl_info,
 
 	/* frame with out of date sequence number */
 	if (seq_less(mpdu_seq_num, head_seq_num)) {
-		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "Rx drop: old seq 0x%03x head 0x%03x\n",
-				meta->seq, r->head_seq_num);
+		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "Rx drop (out of date): old seq 0x%03x, head 0x%03x (tid=%u)\n",
+				meta->seq, r->head_seq_num, r->tid);
 		hci_trx_ops->recycle_rx_pkt(phl_info, pkt);
 #ifdef DEBUG_PHL_RX
 		phl_info->rx_stats.rx_drop_reorder++;
@@ -883,8 +889,8 @@ static bool phl_manage_sta_reorder_buf(struct phl_info_t *phl_info,
 
 	/* check if we already stored this frame */
 	if (r->reorder_buf[index]) {
-		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "Rx drop: old seq 0x%03x head 0x%03x\n",
-				meta->seq, r->head_seq_num);
+		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "Rx drop (already stored): old seq 0x%03x, head 0x%03x (tid %d)\n",
+				meta->seq, r->head_seq_num, r->tid);
 		hci_trx_ops->recycle_rx_pkt(phl_info, pkt);
 #ifdef DEBUG_PHL_RX
 		phl_info->rx_stats.rx_drop_reorder++;
@@ -902,10 +908,17 @@ static bool phl_manage_sta_reorder_buf(struct phl_info_t *phl_info,
 	if (mpdu_seq_num == r->head_seq_num &&
 		r->stored_mpdu_num == 0) {
 		r->head_seq_num = seq_inc(r->head_seq_num);
+		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "indicate directly, mpdu_seq_num 0x%03x (tid=%u)\n",
+		          mpdu_seq_num, r->tid);
 		#ifdef PHL_RXSC_AMPDU
 		_phl_rxsc_cache_entry(phl_info, r, meta);
 		#endif
 		return false;
+	}
+
+	if (r->stored_mpdu_num == 0) {
+		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "start reorder, mpdu_seq_num 0x%03x (tid=%u)\n",
+		          mpdu_seq_num, r->tid);
 	}
 
 	/* put the frame in the reordering buffer */
@@ -933,6 +946,9 @@ enum rtw_phl_status phl_rx_reorder(struct phl_info_t *phl_info,
 	struct rtw_phl_stainfo_t *sta = NULL;
 	struct phl_tid_ampdu_rx *r;
 	struct phl_hci_trx_ops *hci_trx_ops = phl_info->hci_trx_ops;
+#ifdef CONFIG_PHL_TDLS
+	struct rtw_phl_tdls_ops *ops = &phl_info->tdls_info.ops;
+#endif
 
 	if (phl_info->phl_com->drv_mode == RTW_DRV_MODE_SNIFFER) {
 		goto dont_reorder;
@@ -992,11 +1008,19 @@ enum rtw_phl_status phl_rx_reorder(struct phl_info_t *phl_info,
 
 	if (!sta) {
 		PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_,
-		          "%s(): stainfo not found, cam=%u, macid=%u\n",
-		          __FUNCTION__, meta->addr_cam, meta->macid);
+		          "%s(): stainfo not found, bb_sel=%u, cam=%u, macid=%u\n",
+		          __FUNCTION__, meta->bb_sel, meta->addr_cam, meta->macid);
 		goto dont_reorder;
 	}
-
+	/* Ignore TDLS action frames for rx-reorder */
+	#ifdef CONFIG_PHL_TDLS
+	if (ops->check_tdls_frame) {
+		if (ops->check_tdls_frame(ops->priv, sta, &phl_rx->r)) {
+			meta->is_tdls_frame = 1;
+			goto dont_reorder;
+		}
+	}
+	#endif
 	phl_rx->r.tx_sta = sta;
 	phl_rx->r.rx_role = sta->wrole;
 
@@ -1061,7 +1085,7 @@ void dump_phl_rx_ring(void *phl)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	void *drv_priv = phl_to_drvpriv(phl_info);
-	s16	diff = 0;
+	s16 diff = 0;
 	u16 idx = 0, endidx = 0;
 	u16 phl_idx = 0, core_idx = 0;
 
@@ -1074,14 +1098,14 @@ void dump_phl_rx_ring(void *phl)
 			core_idx,
 			phl_idx);
 
-	diff= phl_idx-core_idx;
+	diff = phl_idx - core_idx;
 	if(diff < 0)
-		diff= 4096+diff;
+		diff = MAX_PHL_RX_RING_ENTRY_NUM + diff;
 
 	endidx = diff > 5 ? (core_idx+6): phl_idx;
-	for (idx = core_idx+1; idx < endidx; idx++) {
+	for (idx = core_idx + 1; idx < endidx; idx++) {
 		PHL_TRACE(COMP_PHL_RECV, _PHL_DEBUG_, "entry[%d] = %p\n", idx,
-				phl_info->phl_rx_ring.entry[idx%4096]);
+				phl_info->phl_rx_ring.entry[idx % MAX_PHL_RX_RING_ENTRY_NUM]);
 	}
 }
 
@@ -1284,19 +1308,20 @@ void rtw_phl_rx_bar(void *phl, struct rtw_phl_stainfo_t *sta, u8 tid, u16 seq)
 	r = sta->tid_rx[tid];
 	if (!r) {
 		_os_spinunlock(drv_priv, &sta->tid_rx_lock, _bh, NULL);
-		PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_, "BAR for non-existing TID %d\n", tid);
+		PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_, "%s: non-existing tid %u\n",
+		          __func__, tid);
 		return;
 	}
 
 	if (seq_less(seq, r->head_seq_num)) {
 		_os_spinunlock(drv_priv, &sta->tid_rx_lock, _bh, NULL);
-		PHL_TRACE(COMP_PHL_RECV, _PHL_ERR_, "BAR Seq 0x%03x preceding head 0x%03x\n",
-					seq, r->head_seq_num);
+		PHL_TRACE(COMP_PHL_RECV, _PHL_WARNING_, "%s: bar seq 0x%03x, preceding head 0x%03x (tid=%u)\n",
+				  __func__, seq, r->head_seq_num, tid);
 		return;
 	}
 
-	PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_, "BAR: TID %d Seq 0x%03x head 0x%03x\n",
-				tid, seq, r->head_seq_num);
+	PHL_TRACE(COMP_PHL_RECV, _PHL_INFO_, "%s: bar seq 0x%03x, head 0x%03x (tid=%u)\n",
+			  __func__, seq, r->head_seq_num, tid);
 
 	phl_release_reorder_frames(phl_info, r, seq, &frames);
 

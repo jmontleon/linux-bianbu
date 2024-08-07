@@ -593,7 +593,8 @@ u32 set_hw_sch_tx_en(struct mac_ax_adapter *adapter,
 
 	if (chip_id == MAC_AX_CHIP_ID_8852A ||
 	    chip_id == MAC_AX_CHIP_ID_8852B ||
-	    chip_id == MAC_AX_CHIP_ID_8851B) {
+	    chip_id == MAC_AX_CHIP_ID_8851B ||
+	    chip_id == MAC_AX_CHIP_ID_8852BT) {
 		if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
 			val16 = MAC_REG_R16(band ? R_AX_CTN_TXEN_C1 :
 					    R_AX_CTN_TXEN);
@@ -632,18 +633,8 @@ u32 hw_sch_tx_en_h2c_pkt(struct mac_ax_adapter *adapter, u8 band,
 			 u16 tx_en_u16, u16 mask_u16)
 {
 	u32 ret = MACSUCCESS;
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-	#else
-	struct h2c_buf *h2cb;
-	#endif
-	u8 *buf;
 	struct fwcmd_sch_tx_en_pkt *write_ptr;
-
-	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
-		PLTFM_MSG_ERR("[ERR]%s fw not ready\n", __func__);
-		return MACNOFW;
-	}
+	struct h2c_info h2c_info = {0};
 
 	if (adapter->sm.sch_tx_en_ofld != MAC_AX_OFLD_H2C_IDLE) {
 		PLTFM_MSG_ERR("[ERR]SchTxEn PKT state machine not MAC_AX_OFLD_H2C_IDLE\n");
@@ -652,45 +643,45 @@ u32 hw_sch_tx_en_h2c_pkt(struct mac_ax_adapter *adapter, u8 band,
 
 	adapter->sm.sch_tx_en_ofld = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_sch_tx_en_pkt);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_SCH_TX_EN_PKT;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
 
-	buf = h2cb_put(h2cb, sizeof(struct fwcmd_sch_tx_en_pkt));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto end;
-	}
-	write_ptr = (struct fwcmd_sch_tx_en_pkt *)buf;
+	write_ptr = (struct fwcmd_sch_tx_en_pkt *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!write_ptr)
+		return MACBUFALLOC;
+
 	write_ptr->dword0 =
 		cpu_to_le32(SET_WORD(tx_en_u16, FWCMD_H2C_H2CPKT_SCH_TX_PAUSE_TX_EN));
 	write_ptr->dword1 =
 		cpu_to_le32(SET_WORD(mask_u16, FWCMD_H2C_H2CPKT_SCH_TX_PAUSE_MASK) |
 			    (band ? FWCMD_H2C_H2CPKT_SCH_TX_PAUSE_BAND : 0));
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C, FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD, FWCMD_H2C_FUNC_SCH_TX_EN_PKT,
-			      0, 1);
-	if (ret)
-		goto end;
-
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret)
-		goto end;
-
-	#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-	#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-	#endif
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]platform tx\n");
-		goto end;
-	}
-end:
-	h2cb_free(adapter, h2cb);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)write_ptr);
+	PLTFM_FREE(write_ptr, h2c_info.content_len);
 	return ret;
+}
+
+static u32 get_io_latency(struct mac_ax_adapter *adapter, u8 band, u32 *io_latency_us)
+{
+	struct mac_ax_freerun free0, free1;
+	u32 ret;
+
+	free0.band = band;
+	free1.band = band;
+	ret = mac_get_freerun(adapter, &free0);
+	if (ret != MACSUCCESS)
+		return ret;
+	ret = mac_get_freerun(adapter, &free1);
+	if (ret != MACSUCCESS)
+		return ret;
+	*io_latency_us = (free1.freerun_l - free0.freerun_l) / 2;
+
+	return MACSUCCESS;
 }
 
 u32 hw_sch_tx_en(struct mac_ax_adapter *adapter, u8 band,
@@ -698,11 +689,23 @@ u32 hw_sch_tx_en(struct mac_ax_adapter *adapter, u8 band,
 {
 #define RETRY_WAIT_US 1
 #define RETRY_WAIT_PKT_US 50
+#define IO_LATENCY_THRESHOLD_US 1000
+#define PATH_C2H_TBD 0
+#define PATH_C2H_PKT 1
+#define PATH_C2H_REG 2
 	u32 ret, cnt;
 	struct mac_ax_h2creg_info h2c = {0};
 	struct mac_ax_c2hreg_poll c2h = {0};
+	u32 io_latency_us = 0;
+	static u8 c2h_path = PATH_C2H_TBD;
 
-	if (adapter->drv_stats.rx_ok) {
+	if (c2h_path == PATH_C2H_TBD) {
+		if (adapter->hw_info->intf == MAC_AX_INTF_PCIE)
+			c2h_path = PATH_C2H_REG;
+		else if (adapter->hw_info->intf != MAC_AX_INTF_USB)
+			c2h_path = PATH_C2H_PKT;
+	}
+	if (adapter->drv_stats.rx_ok && c2h_path != PATH_C2H_REG) {
 		ret = hw_sch_tx_en_h2c_pkt(adapter, band, tx_en_u16, mask_u16);
 		if (ret) {
 			PLTFM_MSG_ERR("[ERR]SchTxEn PKT %d\n", ret);
@@ -714,11 +717,23 @@ u32 hw_sch_tx_en(struct mac_ax_adapter *adapter, u8 band,
 		while (--cnt) {
 			if (adapter->sm.sch_tx_en_ofld == MAC_AX_OFLD_H2C_DONE)
 				break;
-			PLTFM_DELAY_US(RETRY_WAIT_PKT_US);
+			PLTFM_SLEEP_US(RETRY_WAIT_PKT_US);
 		}
 		adapter->sm.sch_tx_en_ofld = MAC_AX_OFLD_H2C_IDLE;
 		if (!cnt) {
 			PLTFM_MSG_ERR("[ERR]SchTxEn DONE ACK timeout\n");
+			if (c2h_path == PATH_C2H_TBD) {
+				ret = get_io_latency(adapter, band, &io_latency_us);
+				if (ret != MACSUCCESS) {
+					PLTFM_MSG_ERR("[ERR] %s: get_io_latency fail\n",
+						      __func__);
+					return MACPROCERR;
+				}
+				/* if IO too slow, c2h reg not feasible */
+				c2h_path = io_latency_us > IO_LATENCY_THRESHOLD_US ?
+					   PATH_C2H_PKT : PATH_C2H_REG;
+			}
+
 			return MACPROCERR;
 		}
 		return MACSUCCESS;
@@ -763,7 +778,8 @@ u32 get_hw_sch_tx_en(struct mac_ax_adapter *adapter,
 
 	if (chip_id == MAC_AX_CHIP_ID_8852A ||
 	    chip_id == MAC_AX_CHIP_ID_8852B ||
-	    chip_id == MAC_AX_CHIP_ID_8851B) {
+	    chip_id == MAC_AX_CHIP_ID_8851B ||
+	    chip_id == MAC_AX_CHIP_ID_8852BT) {
 		val16 = MAC_REG_R16(band ? R_AX_CTN_TXEN_C1 : R_AX_CTN_TXEN);
 		u16_2_sch(adapter, &tx_en, val16);
 		cfg->tx_en = tx_en;
@@ -1418,13 +1434,8 @@ void u32_2_sch(struct mac_ax_adapter *adapter,
 static u32 h2c_usr_edca(struct mac_ax_adapter *adapter,
 			struct mac_ax_usr_edca_param *param)
 {
-	u8 *buf;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
 	struct fwcmd_usr_edca *fwcmd_tbl;
+	struct h2c_info h2c_info = {0};
 	u32 ret;
 
 	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
@@ -1432,17 +1443,18 @@ static u32 h2c_usr_edca(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_usr_edca);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_USR_EDCA;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
 
-	buf = h2cb_put(h2cb, sizeof(struct fwcmd_usr_edca));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto usr_edca_fail;
-	}
+	fwcmd_tbl = (struct fwcmd_usr_edca *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!fwcmd_tbl)
+		return MACBUFALLOC;
 
-	fwcmd_tbl = (struct fwcmd_usr_edca *)buf;
 	fwcmd_tbl->dword0 =
 	cpu_to_le32(SET_WORD(param->idx, FWCMD_H2C_USR_EDCA_PARAM_SEL) |
 		    (param->enable ? FWCMD_H2C_USR_EDCA_ENABLE : 0) |
@@ -1450,57 +1462,28 @@ static u32 h2c_usr_edca(struct mac_ax_adapter *adapter,
 		    (param->wmm ? FWCMD_H2C_USR_EDCA_WMM : 0) |
 		    SET_WORD(param->ac, FWCMD_H2C_USR_EDCA_AC));
 	fwcmd_tbl->dword1 =
-	cpu_to_le32(SET_WORD(param->aggressive.txop_32us, B_AX_BE_0_TXOPLMT) |
+	cpu_to_le32(SET_WORD(param->aggressive.txop_32us, TXOPLMT) |
 		    SET_WORD((param->aggressive.ecw_max << 4) |
-			     param->aggressive.ecw_min, B_AX_BE_0_CW) |
-		    SET_WORD(param->aggressive.aifs_us, B_AX_BE_0_AIFS));
+			     param->aggressive.ecw_min, CW) |
+		    SET_WORD(param->aggressive.aifs_us, AIFS));
 	fwcmd_tbl->dword2 =
-	cpu_to_le32(SET_WORD(param->moderate.txop_32us, B_AX_BE_0_TXOPLMT) |
+	cpu_to_le32(SET_WORD(param->moderate.txop_32us, TXOPLMT) |
 		    SET_WORD((param->moderate.ecw_max << 4) |
-			     param->moderate.ecw_min, B_AX_BE_0_CW) |
-		    SET_WORD(param->moderate.aifs_us, B_AX_BE_0_AIFS));
+			     param->moderate.ecw_min, CW) |
+		    SET_WORD(param->moderate.aifs_us, AIFS));
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD,
-			      FWCMD_H2C_FUNC_USR_EDCA,
-			      0,
-			      0);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)fwcmd_tbl);
 
-	if (ret != MACSUCCESS)
-		goto usr_edca_fail;
+	PLTFM_FREE(fwcmd_tbl, h2c_info.content_len);
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret != MACSUCCESS)
-		goto usr_edca_fail;
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-	if (ret)
-		goto usr_edca_fail;
-
-	h2cb_free(adapter, h2cb);
-	return MACSUCCESS;
-
-usr_edca_fail:
-	h2cb_free(adapter, h2cb);
 	return ret;
 }
 
 static u32 h2c_usr_tx_rpt(struct mac_ax_adapter *adapter,
 			  struct mac_ax_usr_tx_rpt_cfg *param)
 {
-	u8 *buf;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
 	struct fwcmd_usr_tx_rpt *fwcmd_tbl;
+	struct h2c_info h2c_info = {0};
 	u32 ret;
 
 	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) {
@@ -1508,17 +1491,18 @@ static u32 h2c_usr_tx_rpt(struct mac_ax_adapter *adapter,
 		return MACFWNONRDY;
 	}
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_usr_tx_rpt);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_USR_TX_RPT;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
 
-	buf = h2cb_put(h2cb, sizeof(struct fwcmd_usr_tx_rpt));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
-	}
+	fwcmd_tbl = (struct fwcmd_usr_tx_rpt *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!fwcmd_tbl)
+		return MACBUFALLOC;
 
-	fwcmd_tbl = (struct fwcmd_usr_tx_rpt *)buf;
 	fwcmd_tbl->dword0 =
 	cpu_to_le32(SET_WORD(param->mode, FWCMD_H2C_USR_TX_RPT_MODE) |
 		    (param->rpt_start ? FWCMD_H2C_USR_TX_RPT_RTP_START : 0));
@@ -1528,34 +1512,10 @@ static u32 h2c_usr_tx_rpt(struct mac_ax_adapter *adapter,
 		    SET_WORD(param->port, FWCMD_H2C_USR_TX_RPT_PORT));
 	fwcmd_tbl->dword2 = cpu_to_le32(param->rpt_period_us);
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD,
-			      FWCMD_H2C_FUNC_USR_TX_RPT,
-			      0,
-			      0);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)fwcmd_tbl);
 
-	if (ret != MACSUCCESS)
-		goto fail;
+	PLTFM_FREE(fwcmd_tbl, h2c_info.content_len);
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret != MACSUCCESS)
-		goto fail;
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-	if (ret)
-		goto fail;
-
-	h2cb_free(adapter, h2cb);
-	return MACSUCCESS;
-
-fail:
-	h2cb_free(adapter, h2cb);
 	return ret;
 }
 
@@ -1826,29 +1786,17 @@ u32 mac_tx_duty_stop(struct mac_ax_adapter *adapter)
 u32 tx_duty_h2c(struct mac_ax_adapter *adapter,
 		u16 pause_intvl, u16 tx_intvl)
 {
-	u32 ret, size;
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-	#else
-	struct h2c_buf *h2cb;
-	#endif
-	u8 *buf;
+	u32 ret;
 	struct fwcmd_tx_duty cfg;
+	struct h2c_info h2c_info = {0};
 
-	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
-		return MACNOFW;
-
-	size = sizeof(struct fwcmd_tx_duty);
-
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
-	if (!h2cb)
-		return MACNPTR;
-
-	buf = h2cb_put(h2cb, size);
-	if (!buf) {
-		h2cb_free(adapter, h2cb);
-		return MACNOBUF;
-	}
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_tx_duty);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_TX_DUTY;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
 
 	cfg.dword0 =
 	cpu_to_le32(SET_WORD(pause_intvl, FWCMD_H2C_TX_DUTY_PAUSE_INTVL) |
@@ -1856,36 +1804,8 @@ u32 tx_duty_h2c(struct mac_ax_adapter *adapter,
 	);
 	cfg.dword1 = cpu_to_le32(pause_intvl ? 0 : FWCMD_H2C_TX_DUTY_STOP);
 
-	PLTFM_MEMCPY(buf, &cfg, size);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)&cfg);
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C, FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD, FWCMD_H2C_FUNC_TX_DUTY,
-			      0, 0);
-	if (ret != MACSUCCESS) {
-		h2cb_free(adapter, h2cb);
-		return ret;
-	}
-
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret != MACSUCCESS) {
-		h2cb_free(adapter, h2cb);
-		return ret;
-	}
-
-	#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-	#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-	#endif
-	if (ret != MACSUCCESS) {
-		PLTFM_MSG_ERR("[ERR]platform tx\n");
-		h2cb_free(adapter, h2cb);
-		return ret;
-	}
-
-	h2cb_free(adapter, h2cb);
-
-	return MACSUCCESS;
+	return ret;
 }
 

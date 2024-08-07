@@ -295,28 +295,28 @@ u32 mac_upd_addr_cam(struct mac_ax_adapter *adapter,
 		     enum mac_ax_role_opmode op)
 {
 	u32 tbl[21];
-	u32 ret;
+	u32 ret = MACSUCCESS;
+	u32 offset, val32;
 	u32 i;
-	u8 *buf;
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-	#else
-	struct h2c_buf *h2cb;
-	#endif
-	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	struct h2c_info h2c_info = {0};
 	struct fwcmd_addrcam_info *fwcmd_tbl;
+	//struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	u8 ctlinfo_aidx_off;
 
+	h2c_info.agg_en = 1;
+	h2c_info.content_len = sizeof(struct fwcmd_addrcam_info);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_ADDR_CAM_UPDATE;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_ADDRCAM_INFO;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
+
 	if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
-		h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_DATA);
-		if (!h2cb)
-			return MACNPTR;
-		buf = h2cb_put(h2cb, sizeof(struct fwcmd_addrcam_info));
-		if (!buf) {
-			ret = MACNOBUF;
-			goto FWOFLD_END;
+		fwcmd_tbl = (struct fwcmd_addrcam_info *)PLTFM_MALLOC(h2c_info.content_len);
+		if (!fwcmd_tbl) {
+			PLTFM_MSG_ERR("[ERR]malloc fwcmd_tbl\n");
+			return MACBUFALLOC;
 		}
-		fwcmd_tbl = (struct fwcmd_addrcam_info *)buf;
 
 		if (op == CHG)
 			ret = change_addr_cam_info(adapter, info, fwcmd_tbl);
@@ -326,36 +326,12 @@ u32 mac_upd_addr_cam(struct mac_ax_adapter *adapter,
 			goto FWOFLD_END;
 		// dword 0
 
-		ret = h2c_pkt_set_hdr(adapter,
-				      h2cb,
-				      FWCMD_TYPE_H2C,
-				      FWCMD_H2C_CAT_MAC,
-				      FWCMD_H2C_CL_ADDR_CAM_UPDATE,
-				      FWCMD_H2C_FUNC_ADDRCAM_INFO,
-				      0,
-				      1);
+		ret = mac_h2c_common(adapter, &h2c_info, (u32 *)fwcmd_tbl);
 		if (ret)
-			goto FWOFLD_END;
-
-		// Return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
-		// The H2C shall be sent by mac_h2c_agg_tx.
-		ret = h2c_agg_enqueue(adapter, h2cb);
-		if (ret == MACSUCCESS)
-			return MACSUCCESS;
-
-		ret = h2c_pkt_build_txd(adapter, h2cb);
-		if (ret)
-			goto FWOFLD_END;
-		#if MAC_AX_PHL_H2C
-		ret = PLTFM_TX(h2cb);
-		#else
-		ret = PLTFM_TX(h2cb->data, h2cb->len);
-		#endif
+			PLTFM_MSG_ERR("[ERR]%s: Send H2C fail\n", __func__);
 
 FWOFLD_END:
-		h2cb_free(adapter, h2cb);
-		if (!ret)
-			h2c_end_flow(adapter);
+		PLTFM_FREE(fwcmd_tbl, h2c_info.content_len);
 
 		return ret;
 	}
@@ -371,22 +347,29 @@ FWOFLD_END:
 	if (ret)
 		return ret;
 	// Indirect write addr cam
-	for (i = 0; i < (u32)((info->a_info.len)) / 4; i++)
-		mac_sram_dbg_write(adapter, (info->a_info.addr_cam_idx *
-					     info->a_info.len) + (i * 4),
-				   le32_to_cpu(tbl[i + 2]), ADDR_CAM_SEL);
+	for (i = 0; i < (u32)((info->a_info.len)) / 4; i++) {
+		ret = mac_sram_dbg_write(adapter, (info->a_info.addr_cam_idx *
+						   info->a_info.len) + (i * 4),
+					 le32_to_cpu(tbl[i + 2]), ADDR_CAM_SEL);
+		if (ret != MACSUCCESS)
+			return ret;
+	}
 
 	// Indirect write BSSID cam
-	for (i = 0; i < (u32)((info->b_info.len)) / 4; i++)
-		mac_sram_dbg_write(adapter, (info->b_info.bssid_cam_idx *
-					     info->b_info.len) + (i * 4),
-				   le32_to_cpu(tbl[i + 13]), BSSID_CAM_SEL);
+	for (i = 0; i < (u32)((info->b_info.len)) / 4; i++) {
+		ret = mac_sram_dbg_write(adapter, (info->b_info.bssid_cam_idx *
+						   info->b_info.len) + (i * 4),
+					 le32_to_cpu(tbl[i + 13]), BSSID_CAM_SEL);
+		if (ret != MACSUCCESS)
+			return ret;
+	}
 
 	// Indirect write cmac table addr cam idx
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A))
 		ctlinfo_aidx_off = 0x18;
 	else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-		 is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))
+		 is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		 is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT))
 		ctlinfo_aidx_off = 0x18;
 	else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 		 is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
@@ -396,13 +379,12 @@ FWOFLD_END:
 	else
 		ctlinfo_aidx_off = 0xFF;
 	PLTFM_MSG_WARN("%s ind access cmac tbl start\n", __func__);
-	PLTFM_MUTEX_LOCK(&adapter->hw_info->ind_access_lock);
-	adapter->hw_info->ind_aces_cnt++;
-	MAC_REG_W8(R_AX_INDIR_ACCESS_ENTRY +
-		   info->macid * CCTL_INFO_SIZE + ctlinfo_aidx_off,
-		   info->a_info.addr_cam_idx);
-	adapter->hw_info->ind_aces_cnt--;
-	PLTFM_MUTEX_UNLOCK(&adapter->hw_info->ind_access_lock);
+	offset = info->macid * CCTL_INFO_SIZE + ctlinfo_aidx_off;
+	val32 = mac_sram_dbg_read(adapter, offset, CMAC_TBL_SEL);
+	val32 = SET_CLR_WORD(val32, info->a_info.addr_cam_idx, CCTRL_INFO_ADDR_CAM_IDX);
+	ret = mac_sram_dbg_write(adapter, offset, val32, CMAC_TBL_SEL);
+	if (ret != MACSUCCESS)
+		return ret;
 	PLTFM_MSG_WARN("%s ind access cmac tbl end\n", __func__);
 
 	return MACSUCCESS;
@@ -771,7 +753,8 @@ u8 get_addr_cam_size(struct mac_ax_adapter *adapter)
 {
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT))
 		return ADDR_CAM_ENT_LONG_SIZE;
 	else
 		return ADDR_CAM_ENT_SHORT_SIZE;

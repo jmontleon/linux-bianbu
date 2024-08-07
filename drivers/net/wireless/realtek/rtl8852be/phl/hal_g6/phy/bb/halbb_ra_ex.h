@@ -35,4 +35,6 @@ extern bool rtw_halbb_ra_deregistered(struct bb_info *bb, struct rtw_phl_stainfo
 extern bool rtw_halbb_query_txsts(struct bb_info *bb, u16 macid0, u16 macid1);
 void halbb_drv_cmac_rpt_parsing(struct bb_info *bb, u8 *rpt);
 void halbb_ra_shift_darf_tc(struct bb_info *bb, bool enable, u8 *init_fb_cnt);
+extern void halbb_update_low_latency_macid(struct bb_info *bb, u16 macid,
+				    bool is_low_latency);
 #endif

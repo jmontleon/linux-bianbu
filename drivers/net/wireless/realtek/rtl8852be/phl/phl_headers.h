@@ -34,12 +34,11 @@
  */
 #include "phl_ie.h"
 #include "phl_regulation_def.h"
-#include "phl_chnlplan.h"
-#include "phl_country.h"
 #include "phl_scan_instance.h"
 #include "phl_regulation.h"
 #include "phl_trx_def.h"
 #include "phl_wow_def.h"
+#include "phl_ps_def.h"
 #include "phl_btc_def.h"
 #include "phl_p2pps_def.h"
 #include "phl_cmd_dispatch.h"
@@ -47,6 +46,7 @@
 #include "phl_chan.h"
 #include "phl_role.h"
 #include "phl_wow.h"
+#include "phl_tdls.h"
 #include "phl_struct.h"
 #include "phl_mcc_def.h"
 #include "phl_test_def.h"
@@ -73,6 +73,7 @@
 
 #include "phl_ps.h"
 #include "phl_scan.h"
+#include "phl_diagnose.h"
 
 #ifdef CONFIG_FSM
 #include "phl_fsm.h"
@@ -134,12 +135,14 @@
 
 #ifdef CONFIG_WIFI_6
 #include "hal_g6/hal_general_def.h"
+#include "hal_g6/phy/bb/halbb_bb_wrapper_outsrc.h"
 #include "hal_g6/hal_def.h"
 #include "hal_g6/hal_api.h"
 #include "hal_g6/hal_scanofld.h"
 #else
 /*temporarily*/
 #include "hal_g6/hal_general_def.h"
+#include "hal_g6/phy/bb/halbb_bb_wrapper_outsrc.h"
 #include "hal_g6/hal_def.h"
 #include "hal_g6/hal_api.h"
 #include "hal_g6/hal_scanofld.h"

@@ -151,5 +151,7 @@ void phl_fun_monitor_start(u32 *start_t, bool show_caller, const char *caller);
 
 void phl_fun_monitor_end(u32 *start_t, const char *caller);
 #endif /* DBG_MONITOR_TIME */
+
+enum rtw_ac phl_tid_to_ac(u8 tid);
 #endif /*_PHL_UTIL_H_*/
 

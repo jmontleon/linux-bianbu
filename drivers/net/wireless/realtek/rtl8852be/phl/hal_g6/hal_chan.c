@@ -26,21 +26,24 @@ enum rtw_hal_status rtw_hal_set_ch_bw(void *hal, u8 band_idx,
 	u8 central_ch_seg1 = 0;
 	enum band_type change_band;
 	enum phl_phy_idx phy_idx = HW_PHY_0;
-#ifdef DBG_DBCC_MONITOR_TIME
-	u32 start_t = 0;
-
-	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
-#endif /* DBG_DBCC_MONITOR_TIME */
 	enum channel_width tmp_bw = chdef->bw;
 	struct rtw_phl_com_t *phl_com = hal_info->phl_com;
-	#ifdef CONFIG_PHL_NARROW_BW
+#ifdef DBG_DBCC_MONITOR_TIME
+	u32 start_t = 0;
+#endif
+
+#ifdef CONFIG_PHL_NARROW_BW
 	struct dev_cap_t *dev_cap = &phl_com->dev_cap;
 
 	if (dev_cap->nb_config == CHANNEL_WIDTH_10)
 		tmp_bw = CHANNEL_WIDTH_10;
 	else if (dev_cap->nb_config == CHANNEL_WIDTH_5)
 		tmp_bw = CHANNEL_WIDTH_5;
-	#endif /*CONFIG_PHL_NARROW_BW*/
+#endif /*CONFIG_PHL_NARROW_BW*/
+
+#ifdef DBG_DBCC_MONITOR_TIME
+	phl_fun_monitor_start(&start_t, true, __FUNCTION__);
+#endif /* DBG_DBCC_MONITOR_TIME */
 
 
 	phy_idx = rtw_hal_hw_band_to_phy_idx(band_idx);
@@ -51,7 +54,10 @@ enum rtw_hal_status rtw_hal_set_ch_bw(void *hal, u8 band_idx,
 	    (tmp_bw != cur_chdef->bw) ||
 	    (chdef->offset != cur_chdef->offset)) {
 
-		if (!phl_com->chsw_ofld_info.chsw_ofld_en) {
+#ifdef CONFIG_PHL_CHSWOFLD
+		if (!phl_com->chsw_ofld_info.chsw_ofld_en)
+#endif
+		{
 			status = rtw_hal_reset(hal_com, phy_idx, band_idx, true);
 			if (status != RTW_HAL_STATUS_SUCCESS) {
 				PHL_ERR("%s rtw_hal_reset en - failed\n", __func__);
@@ -65,6 +71,7 @@ enum rtw_hal_status rtw_hal_set_ch_bw(void *hal, u8 band_idx,
 
 		change_band = chdef->band;
 
+#ifdef CONFIG_PHL_CHSWOFLD
 		if (phl_com->chsw_ofld_info.chsw_ofld_en) {
 			status = rtw_hal_mac_ch_switch_ofld(hal, band_idx, chdef->chan,
 						center_ch, change_band, chdef->bw, phl_com->chsw_ofld_info.rf_reload);
@@ -72,7 +79,9 @@ enum rtw_hal_status rtw_hal_set_ch_bw(void *hal, u8 band_idx,
 				PHL_ERR("%s rtw_hal_mac_ch_switch_ofld - failed\n", __func__);
 				return status;
 			}
-		} else {
+		} else
+#endif
+		{
 			status = rtw_hal_mac_set_bw(hal_info, band_idx, chdef->chan,
 							center_ch, central_ch_seg1, change_band,
 							tmp_bw);
@@ -132,7 +141,10 @@ enum rtw_hal_status rtw_hal_set_ch_bw(void *hal, u8 band_idx,
 		PHL_INFO("%s phy_idx:%d, band:%d, ch:%d, bw:%d, offset:%d\n",
 			__func__, phy_idx, chdef->band, chdef->chan, tmp_bw, chdef->offset);
 
-		if (!phl_com->chsw_ofld_info.chsw_ofld_en) {
+#ifdef CONFIG_PHL_CHSWOFLD
+		if (!phl_com->chsw_ofld_info.chsw_ofld_en)
+#endif
+		{
 			status = rtw_hal_reset(hal_com, phy_idx, band_idx, false);
 			if (status != RTW_HAL_STATUS_SUCCESS) {
 				PHL_ERR("%s rtw_hal_reset dis- failed\n", __func__);

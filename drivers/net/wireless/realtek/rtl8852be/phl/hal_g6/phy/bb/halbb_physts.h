@@ -109,6 +109,8 @@ struct bb_physts_rslt_hdr_info {
 	u8 rssi_td[4];
 	u8 rssi_avg;
 	enum bb_physts_bitmap_t ie_map_type;
+	bool bt_rx_during_cca;
+	bool bt_tx_during_cca;
 };
 
 struct bb_physts_rslt_0_info {
@@ -676,10 +678,12 @@ struct bb_physts_cnt_info {
 	u16 err_ie_cnt;
 	u16 ok_ie_cnt;
 	u16 err_len_cnt;
-	bool invalid_he_occur;
 	u32 invalid_he_cnt;
 	u32 cck_brk_cnt;
 	u32 ie_cnt[PHYSTS_BITMAP_NUM];
+	u32 bt_rx_during_cca_cnt;
+	u32 bt_tx_during_cca_cnt;
+	u32 bt_polluted_bcn_cnt;
 };
 
 struct bb_physts_cr_info {
@@ -715,6 +719,9 @@ struct bb_physts_info {
 	u8 frc_mu; /*force data type to SU/MU(debug mode)*/
 	u8 tmp_mcs;/*fake MCS (debug mode)*/
 	u8 tmp_sts;/*fake STS (debug mode)*/
+	bool invalid_he_occur;
+	bool bypass_bt_rx_during_cca;
+	bool bypass_bt_tx_during_cca;
 	struct bb_rate_info		bb_rate_i;
 	struct bb_rate_info		bb_rate_mu_i;
 	struct bb_physts_cr_info	bb_physts_cr_i;
@@ -771,6 +778,7 @@ u32 halbb_physts_ie_bitmap_get(struct bb_info *bb, enum bb_physts_bitmap_t ie_pa
 void halbb_physts_ie_bitmap_en(struct bb_info *bb, enum bb_physts_bitmap_t type,
 			       enum bb_physts_ie_t ie, bool en);
 void halbb_phy_sts_manual_trig(struct bb_info *bb, enum bb_mode_type mode, u8 ss);
+void halbb_physts_cnt_reset(struct bb_info *bb);
 void halbb_physts_watchdog(struct bb_info *bb);
 void halbb_physts_parsing_init_io_en(struct bb_info *bb);
 void halbb_physts_parsing_init(struct bb_info *bb);
@@ -780,5 +788,7 @@ void halbb_physts_brk_fail_rpt_en(struct bb_info* bb, bool enable, enum phl_phy_
 void halbb_physts_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 		  char *output, u32 *_out_len);
 void halbb_cr_cfg_physts_init(struct bb_info *bb);
-
+bool halbb_physts_bt_polluted(struct bb_info *bb, struct physts_rxd *desc,
+			      bool is_pkt_with_data, bool bt_rx_during_cca,
+			      bool bt_tx_during_cca);
 #endif

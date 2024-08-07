@@ -64,7 +64,7 @@ _CORE_FILES :=	core/rtw_cmd.o \
 		core/rtw_pwrctrl.o \
 		core/rtw_rf.o \
 		core/rtw_chplan.o \
-		core/rtw_regdb_$(CONFIG_RTW_REGDB).o \
+		core/regdb/rtw_regdb_$(CONFIG_RTW_REGDB).o \
 		core/rtw_chset.o \
 		core/rtw_dfs.o \
 		core/rtw_txpwr.o \
@@ -89,7 +89,8 @@ _CORE_FILES :=	core/rtw_cmd.o \
 		core/rtw_rm_util.o \
 		core/rtw_trx.o \
 		core/rtw_beamforming.o \
-		core/rtw_scan.o
+		core/rtw_scan.o \
+		core/rtw_twt.o \
 		#core/efuse/rtw_efuse.o
 
 _CORE_FILES +=	core/rtw_phl.o \
@@ -109,7 +110,8 @@ _CORE_FILES += core/crypto/aes-internal.o \
 		core/crypto/sha256.o \
 		core/crypto/sha256-prf.o \
 		core/crypto/rtw_crypto_wrap.o \
-		core/rtw_swcrypto.o		
+		core/rtw_swcrypto.o \
+		core/rtw_csi.o
 
 ifeq ($(CONFIG_WOWLAN), y)
 _CORE_FILES += core/rtw_wow.o

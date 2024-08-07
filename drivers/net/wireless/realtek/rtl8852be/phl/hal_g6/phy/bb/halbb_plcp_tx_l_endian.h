@@ -207,6 +207,13 @@ struct bb_h2c_sig_info {
 
 #else
 
+struct halbb_ehtsig_rpt_info {
+	u8 ehtsig_sym_num;
+	u8 ru2su_flag;
+	u8 c2h_done;
+	u8 rsvd1;
+};
+
 struct cr_address_t {
 	u8 address_0;
 	u8 address_1;
@@ -258,7 +265,7 @@ struct ehtsig_sigb_info {
 struct bb_h2c_ehtsig_sigb {
 	u8 ehtsig_sigb; // (True): EHT-SIG / (False): SIG-B
 	u8 ehtsig_sigb_mcs;
-	u8 rsvd2;
+	u8 phy_idx;
 	u8 rsvd3;
 	struct ehtsig_sigb_info ehtsig_sigb_i;
 	struct cr_address_t ehtsig_sigb_cr[80];

@@ -990,13 +990,19 @@ void halbb_statistics(struct bb_info *bb)
 void halbb_statistics_init(struct bb_info *bb)
 {
 	struct bb_stat_info *stat_t = &bb->bb_stat_i;
+	struct bb_stat_hang_info *hang = &bb->bb_stat_i.bb_stat_hang_i;
+
 	stat_t->chk_hang_cnt = 0;
+	hang->consecutive_no_tx_cnt = 0;
+	hang->consecutive_no_rx_cnt = 0;
+	hang->hang_occur = false;
+
 	stat_t->hang_recovery_en = HANG_RECOVERY;
 	stat_t->chk_hang_limit = HANG_LIMIT;
 	stat_t->cnt_reset_en = true;
 	halbb_statistics_reset(bb);
 	halbb_set_crc32_cnt2_rate(bb, BB_06M);
-	if (bb->ic_type == BB_IC_BE_SERIES) {
+	if (bb->ic_type & BB_IC_BE_SERIES) {
 		halbb_set_crc32_cnt2_rate(bb, BE_BB_HT_MCS0);
 		halbb_set_crc32_cnt2_rate(bb, BE_BB_VHT_1SS_MCS0);
 		halbb_set_crc32_cnt2_rate(bb, BE_BB_HE_1SS_MCS0);
@@ -1717,6 +1723,188 @@ void halbb_cr_cfg_stat_init(struct bb_info *bb)
 		break;
 	#endif
 
+	#ifdef HALBB_COMPILE_BE1_SERIES
+	case BB_BE1:
+		cr->cck_cca = CNT_CCK_CCA_P0_BE1;
+		cr->cck_cca_m = CNT_CCK_CCA_P0_BE1_M;
+		cr->cck_crc16fail = CNT_CCK_CRC16FAIL_P0_BE1;
+		cr->cck_crc16fail_m = CNT_CCK_CRC16FAIL_P0_BE1_M;
+		cr->cck_crc32ok = CNT_CCK_CRC32OK_P0_BE1;
+		cr->cck_crc32ok_m = CNT_CCK_CRC32OK_P0_BE1_M;
+		cr->cck_crc32fail = CNT_CCK_CRC32FAIL_P0_BE1;
+		cr->cck_crc32fail_m = CNT_CCK_CRC32FAIL_P0_BE1_M;
+		cr->cca_spoofing = CNT_CCA_SPOOFING_BE1;
+		cr->cca_spoofing_m = CNT_CCA_SPOOFING_BE1_M;
+		cr->lsig_brk_s_th = CNT_LSIG_BRK_S_TH_BE1;
+		cr->lsig_brk_s_th_m = CNT_LSIG_BRK_S_TH_BE1_M;
+		cr->lsig_brk_l_th = CNT_LSIG_BRK_L_TH_BE1;
+		cr->lsig_brk_l_th_m = CNT_LSIG_BRK_L_TH_BE1_M;
+		cr->htsig_crc8_err_s_th = CNT_HTSIG_CRC8_ERR_S_TH_BE1;
+		cr->htsig_crc8_err_s_th_m = CNT_HTSIG_CRC8_ERR_S_TH_BE1_M;
+		cr->htsig_crc8_err_l_th = CNT_HTSIG_CRC8_ERR_L_TH_BE1;
+		cr->htsig_crc8_err_l_th_m = CNT_HTSIG_CRC8_ERR_L_TH_BE1_M;
+		cr->brk = CNT_BRK_BE1;
+		cr->brk_m = CNT_BRK_BE1_M;
+		cr->brk_sel = CNT_BRK_SEL_BE1;
+		cr->brk_sel_m = CNT_BRK_SEL_BE1_M;
+		cr->rxl_err_parity = CNT_RXL_ERR_PARITY_BE1;
+		cr->rxl_err_parity_m = CNT_RXL_ERR_PARITY_BE1_M;
+		cr->rxl_err_rate = CNT_RXL_ERR_RATE_BE1;
+		cr->rxl_err_rate_m = CNT_RXL_ERR_RATE_BE1_M;
+		cr->ht_err_crc8 = CNT_HT_ERR_CRC8_BE1;
+		cr->ht_err_crc8_m = CNT_HT_ERR_CRC8_BE1_M;
+		cr->vht_err_siga_crc8 = CNT_VHT_ERR_SIGA_CRC8_BE1;
+		cr->vht_err_siga_crc8_m = CNT_VHT_ERR_SIGA_CRC8_BE1_M;
+		cr->ht_not_support_mcs = CNT_HT_NOT_SUPPORT_MCS_BE1;
+		cr->ht_not_support_mcs_m = CNT_HT_NOT_SUPPORT_MCS_BE1_M;
+		cr->vht_not_support_mcs = CNT_VHT_NOT_SUPPORT_MCS_BE1;
+		cr->vht_not_support_mcs_m = CNT_VHT_NOT_SUPPORT_MCS_BE1_M;
+		cr->err_during_bt_tx = CNT_ERR_DURING_BT_TX_BE1;
+		cr->err_during_bt_tx_m = CNT_ERR_DURING_BT_TX_BE1_M;
+		cr->err_during_bt_rx = CNT_ERR_DURING_BT_RX_BE1;
+		cr->err_during_bt_rx_m = CNT_ERR_DURING_BT_RX_BE1_M;
+		cr->edge_murx_nsts0 = CNT_EDGE_MURX_NSTS0_BE1;
+		cr->edge_murx_nsts0_m = CNT_EDGE_MURX_NSTS0_BE1_M;
+		cr->search_fail = CNT_SEARCH_FAIL_BE1;
+		cr->search_fail_m = CNT_SEARCH_FAIL_BE1_M;
+		cr->ofdm_cca = CNT_OFDM_CCA_BE1;
+		cr->ofdm_cca_m = CNT_OFDM_CCA_BE1_M;
+		cr->ofdm_cca_s20 = CNT_OFDM_CCA_S20_BE1;
+		cr->ofdm_cca_s20_m = CNT_OFDM_CCA_S20_BE1_M;
+		cr->ofdm_cca_s40 = CNT_OFDM_CCA_S40_BE1;
+		cr->ofdm_cca_s40_m = CNT_OFDM_CCA_S40_BE1_M;
+		cr->ofdm_cca_s80 = CNT_OFDM_CCA_S80_BE1;
+		cr->ofdm_cca_s80_m = CNT_OFDM_CCA_S80_BE1_M;
+		cr->ccktxon = CNT_CCKTXON_BE1;
+		cr->ccktxon_m = CNT_CCKTXON_BE1_M;
+		cr->ccktxen = CNT_CCKTXEN_BE1;
+		cr->ccktxen_m = CNT_CCKTXEN_BE1_M;
+		cr->ofdmtxon = CNT_OFDMTXON_BE1;
+		cr->ofdmtxon_m = CNT_OFDMTXON_BE1_M;
+		cr->ofdmtxen = CNT_OFDMTXEN_BE1;
+		cr->ofdmtxen_m = CNT_OFDMTXEN_BE1_M;
+		cr->drop_trig = CNT_DROP_TRIG_BE1;
+		cr->drop_trig_m = CNT_DROP_TRIG_BE1_M;
+		cr->pop_trig = CNT_POP_TRIG_BE1;
+		cr->pop_trig_m = CNT_POP_TRIG_BE1_M;
+		cr->tx_conflict = CNT_TX_CONFLICT_BE1;
+		cr->tx_conflict_m = CNT_TX_CONFLICT_BE1_M;
+		cr->wmac_rstb = CNT_WMAC_RSTB_BE1;
+		cr->wmac_rstb_m = CNT_WMAC_RSTB_BE1_M;
+		cr->en_tb_ppdu_fix_gain = CNT_EN_TB_PPDU_FIX_GAIN_BE1;
+		cr->en_tb_ppdu_fix_gain_m = CNT_EN_TB_PPDU_FIX_GAIN_BE1_M;
+		cr->en_tb_cca_pw_th = CNT_EN_TB_CCA_PWR_TH_BE1;
+		cr->en_tb_cca_pw_th_m = CNT_EN_TB_CCA_PWR_TH_BE1_M;
+		cr->eht_crc_ok = CNT_EHT_CRC_OK_BE1;
+		cr->eht_crc_ok_m = CNT_EHT_CRC_OK_BE1_M;
+		cr->eht_crc_err = CNT_EHT_CRC_ERR_BE1;
+		cr->eht_crc_err_m = CNT_EHT_CRC_ERR_BE1_M;
+		cr->he_crc_ok = CNT_HE_CRC_OK_BE1;
+		cr->he_crc_ok_m = CNT_HE_CRC_OK_BE1_M;
+		cr->he_crc_err = CNT_HE_CRC_ERR_BE1;
+		cr->he_crc_err_m = CNT_HE_CRC_ERR_BE1_M;
+		cr->vht_crc_ok = CNT_VHT_CRC_OK_BE1;
+		cr->vht_crc_ok_m = CNT_VHT_CRC_OK_BE1_M;
+		cr->vht_crc_err = CNT_VHT_CRC_ERR_BE1;
+		cr->vht_crc_err_m = CNT_VHT_CRC_ERR_BE1_M;
+		cr->ht_crc_ok = CNT_HT_CRC_OK_BE1;
+		cr->ht_crc_ok_m = CNT_HT_CRC_OK_BE1_M;
+		cr->ht_crc_err = CNT_HT_CRC_ERR_BE1;
+		cr->ht_crc_err_m = CNT_HT_CRC_ERR_BE1_M;
+		cr->l_crc_ok = CNT_L_CRC_OK_BE1;
+		cr->l_crc_ok_m = CNT_L_CRC_OK_BE1_M;
+		cr->l_crc_err = CNT_L_CRC_ERR_BE1;
+		cr->l_crc_err_m = CNT_L_CRC_ERR_BE1_M;
+		cr->eht_crc_ok2 = CNT_EHT_CRC_OK2_BE1;
+		cr->eht_crc_ok2_m = CNT_EHT_CRC_OK2_BE1_M;
+		cr->eht_crc_err2 = CNT_EHT_CRC_ERR2_BE1;
+		cr->eht_crc_err2_m = CNT_EHT_CRC_ERR2_BE1_M;
+		cr->he_crc_ok2 = CNT_HE_CRC_OK2_BE1;
+		cr->he_crc_ok2_m = CNT_HE_CRC_OK2_BE1_M;
+		cr->he_crc_err2 = CNT_HE_CRC_ERR2_BE1;
+		cr->he_crc_err2_m = CNT_HE_CRC_ERR2_BE1_M;
+		cr->vht_crc_ok2 = CNT_VHT_CRC_OK2_BE1;
+		cr->vht_crc_ok2_m = CNT_VHT_CRC_OK2_BE1_M;
+		cr->vht_crc_err2 = CNT_VHT_CRC_ERR2_BE1;
+		cr->vht_crc_err2_m = CNT_VHT_CRC_ERR2_BE1_M;
+		cr->ht_crc_ok2 = CNT_HT_CRC_OK2_BE1;
+		cr->ht_crc_ok2_m = CNT_HT_CRC_OK2_BE1_M;
+		cr->ht_crc_err2 = CNT_HT_CRC_ERR2_BE1;
+		cr->ht_crc_err2_m = CNT_HT_CRC_ERR2_BE1_M;
+		cr->l_crc_ok2 = CNT_L_CRC_OK2_BE1;
+		cr->l_crc_ok2_m = CNT_L_CRC_OK2_BE1_M;
+		cr->l_crc_err2 = CNT_L_CRC_ERR2_BE1;
+		cr->l_crc_err2_m = CNT_L_CRC_ERR2_BE1_M;
+		cr->l_crc_ok3 = CNT_L_CRC_OK3_BE1;
+		cr->l_crc_ok3_m = CNT_L_CRC_OK3_BE1_M;
+		cr->l_crc_err3 = CNT_L_CRC_ERR3_BE1;
+		cr->l_crc_err3_m = CNT_L_CRC_ERR3_BE1_M;
+		cr->ampdu_rxon = CNT_AMPDU_RXON_BE1;
+		cr->ampdu_rxon_m = CNT_AMPDU_RXON_BE1_M;
+		cr->ampdu_miss = CNT_AMPDU_MISS_BE1;
+		cr->ampdu_miss_m = CNT_AMPDU_MISS_BE1_M;
+		cr->ampdu_crc_ok = CNT_AMPDU_RX_CRC32_OK_BE1;
+		cr->ampdu_crc_ok_m = CNT_AMPDU_RX_CRC32_OK_BE1_M;
+		cr->ampdu_crc_err = CNT_AMPDU_RX_CRC32_ERR_BE1;
+		cr->ampdu_crc_err_m = CNT_AMPDU_RX_CRC32_ERR_BE1_M;
+		cr->hesu_err_sig_a_crc4 = CNT_HESU_ERR_SIG_A_CRC4_BE1;
+		cr->hesu_err_sig_a_crc4_m = CNT_HESU_ERR_SIG_A_CRC4_BE1_M;
+		cr->heersu_err_sig_a_crc4 = CNT_HEERSU_ERR_SIG_A_CRC4_BE1;
+		cr->heersu_err_sig_a_crc4_m = CNT_HEERSU_ERR_SIG_A_CRC4_BE1_M;
+		cr->hemu_err_sig_a_crc4 = CNT_HEMU_ERR_SIG_A_CRC4_BE1;
+		cr->hemu_err_sig_a_crc4_m = CNT_HEMU_ERR_SIG_A_CRC4_BE1_M;
+		cr->hemu_err_sigb_ch1_comm_crc4 = CNT_HEMU_ERR_SIGB_CH1_COMM_CRC4_BE1;
+		cr->hemu_err_sigb_ch1_comm_crc4_m = CNT_HEMU_ERR_SIGB_CH1_COMM_CRC4_BE1_M;
+		cr->hemu_err_sigb_ch2_comm_crc4 = CNT_HEMU_ERR_SIGB_CH2_COMM_CRC4_BE1;
+		cr->hemu_err_sigb_ch2_comm_crc4_m = CNT_HEMU_ERR_SIGB_CH2_COMM_CRC4_BE1_M;
+		cr->he_u0_err_bcc_mcs = CNT_HE_U0_ERR_BCC_MCS_BE1;
+		cr->he_u0_err_bcc_mcs_m = CNT_HE_U0_ERR_BCC_MCS_BE1_M;
+		cr->he_u0_err_mcs = CNT_HE_U0_ERR_MCS_BE1;
+		cr->he_u0_err_mcs_m = CNT_HE_U0_ERR_MCS_BE1_M;
+		cr->he_u0_err_dcm_mcs = CNT_HE_U0_ERR_DCM_MCS_BE1;
+		cr->he_u0_err_dcm_mcs_m = CNT_HE_U0_ERR_DCM_MCS_BE1_M;
+		cr->r1b_rx_rpt_rst = R1B_RX_RPT_RST_BE1;
+		cr->r1b_rx_rpt_rst_m = R1B_RX_RPT_RST_BE1_M;
+		cr->rst_all_cnt = TOP_CTRL_P0_R_RST_ALL_CNT_BE1;
+		cr->rst_all_cnt_m = TOP_CTRL_P0_R_RST_ALL_CNT_BE1_M;
+		cr->enable_all_cnt = TOP_CTRL_P0_R_ENABLE_ALL_CNT_BE1;
+		cr->enable_all_cnt_m = TOP_CTRL_P0_R_ENABLE_ALL_CNT_BE1_M;
+		cr->enable_ofdm = TOP_CTRL_P0_R_ENABLE_OFDM_BE1;
+		cr->enable_ofdm_m = TOP_CTRL_P0_R_ENABLE_OFDM_BE1_M;
+		cr->enable_cck = TOP_CTRL_P0_R_ENABLE_CCK_BE1;
+		cr->enable_cck_m = TOP_CTRL_P0_R_ENABLE_CCK_BE1_M;
+		cr->r1b_rx_dis_cca = R1B_RX_DIS_CCA_BE1;
+		cr->r1b_rx_dis_cca_m = R1B_RX_DIS_CCA_BE1_M;
+		cr->intf_r_rate = INTF_R_CNT_RATE_BE1;
+		cr->intf_r_rate_m = INTF_R_CNT_RATE_BE1_M;
+		cr->intf_r_mcs = INTF_R_CNT_MCS_BE1;
+		cr->intf_r_mcs_m = INTF_R_CNT_MCS_BE1_M;
+		cr->intf_r_vht_mcs = INTF_R_CNT_VHT_MCS_BE1;
+		cr->intf_r_vht_mcs_m = INTF_R_CNT_VHT_MCS_BE1_M;
+		cr->intf_r_he_mcs = INTF_R_CNT_HE_MCS_BE1;
+		cr->intf_r_he_mcs_m = INTF_R_CNT_HE_MCS_BE1_M;
+		cr->intf_r_eht_mcs = INTF_R_CNT_EHT_MCS_BE1;
+		cr->intf_r_eht_mcs_m = INTF_R_CNT_EHT_MCS_BE1_M;
+		cr->intf_r_vht_nss = INTF_R_CNT_VHT_NSS_BE1;
+		cr->intf_r_vht_nss_m = INTF_R_CNT_VHT_NSS_BE1_M;
+		cr->intf_r_he_nss = INTF_R_CNT_HE_NSS_BE1;
+		cr->intf_r_he_nss_m = INTF_R_CNT_HE_NSS_BE1_M;
+		cr->intf_r_eht_nss = INTF_R_CNT_EHT_NSS_BE1;
+		cr->intf_r_eht_nss_m = INTF_R_CNT_EHT_NSS_BE1_M;
+		cr->intf_r_mac_hdr_type = INTF_R_MAC_HDR_TYPE_BE1;
+		cr->intf_r_mac_hdr_type_m = INTF_R_MAC_HDR_TYPE_BE1_M;
+		cr->intf_r_pkt_type = INTF_R_PKT_TYPE_BE1;
+		cr->intf_r_pkt_type_m = INTF_R_PKT_TYPE_BE1_M;
+		cr->dbcc = DBCC_BE1;
+		cr->dbcc_m = DBCC_BE1_M;
+		cr->dbcc_2p4g_band_sel = DBCC_2P4G_BAND_SEL_BE1;
+		cr->dbcc_2p4g_band_sel_m = DBCC_2P4G_BAND_SEL_BE1_M;
+		cr->cnt_pop_trig = CNT_POP_TRIG_BE1;
+		cr->cnt_pop_trig_m = CNT_POP_TRIG_BE1_M;
+		cr->max_cnt_pop = MAX_CNT_POP_BE1;
+		cr->max_cnt_pop_m = MAX_CNT_POP_BE1_M;
+		break;
+	#endif
 	default:
 		BB_WARNING("[%s] BBCR Hook FAIL!\n", __func__);
 		if (bb->bb_dbg_i.cr_fake_init_hook_en) {
@@ -1735,6 +1923,32 @@ void halbb_cr_cfg_stat_init(struct bb_info *bb)
 #define DVLP_DBCC	1
 
 #if DVLP_DBCC
+
+void halbb_auto_debug_pmac_cnt_chk(struct bb_info *bb)
+{
+	struct bb_stat_info *stat = &bb->bb_stat_i;
+	struct bb_tx_cnt_info *tx = &stat->bb_tx_cnt_i;
+	struct bb_cca_info *cca = &stat->bb_cca_i;
+	struct bb_stat_hang_info *hang = &bb->bb_stat_i.bb_stat_hang_i;
+
+	if (tx->cck_mac_txen == 0 && tx->ofdm_mac_txen == 0)
+		hang->consecutive_no_tx_cnt++;
+	else
+		hang->consecutive_no_tx_cnt = 0;
+
+	if (cca->cnt_cca_all == 0)
+		hang->consecutive_no_rx_cnt++;
+	else
+		hang->consecutive_no_rx_cnt = 0;
+
+	if (hang->consecutive_no_tx_cnt > 30 && hang->consecutive_no_rx_cnt > 30)
+		hang->hang_occur = true;
+	else
+		hang->hang_occur = false;
+
+	BB_DBG(bb, DBG_FA_CNT, "[%s] consecutive no TX/Rx cnt = {%d, %d} hang_occur=%d\n",
+	       __func__, hang->consecutive_no_tx_cnt, hang->consecutive_no_rx_cnt, hang->hang_occur);
+}
 
 void halbb_pmac_cck_tx_cnt(struct bb_info *bb)
 {
@@ -1915,7 +2129,7 @@ void halbb_pmac_ofdm_cnt(struct bb_info *bb)
 	crc2->cnt_he2_crc32_error = (ret_value & cr->he_crc_err2_m) >> 16;
 
 #ifdef HALBB_COMPILE_BE0_SERIES
-	if (bb->ic_type == BB_IC_BE_SERIES) {
+	if (bb->ic_type & BB_IC_BE_SERIES) {
 		/*read EHT CRC32 counter */
 		ret_value = halbb_get_reg_cmn(bb, cr->eht_crc_ok, MASKDWORD, phy_idx);
 		crc->cnt_eht_crc32_ok = ret_value & cr->eht_crc_ok_m;
@@ -2165,9 +2379,9 @@ void halbb_pmac_print_cnt2(struct bb_info *bb)
 			  bb->dbg_buf, crc2->cnt_he2_crc32_error,
 			  crc2->cnt_he2_crc32_ok, crc2->he2_pcr);
 	}
-	
+
 #ifdef BB_1115_DVLP_SPF
-	if (bb->ic_type == BB_IC_BE_SERIES) {
+	if (bb->ic_type & BB_IC_BE_SERIES) {
 		if (usr_set->eht2_rate_idx) {
 			tmp = crc2->cnt_eht2_crc32_error +
 			      crc2->cnt_eht2_crc32_ok;
@@ -2322,6 +2536,10 @@ void halbb_pmac_statistics_io_en(struct bb_info *bb)
 	halbb_pmac_print_cnt(bb, cck_en);
 	halbb_pmac_print_cnt2(bb);
 	halbb_pmac_print_cnt3(bb);
+
+	#ifdef HALBB_AUTO_DBG_SUPPORT
+	halbb_auto_debug_pmac_cnt_chk(bb);
+	#endif
 
 	if (bb->bb_stat_i.cnt_reset_en)
 		halbb_pmac_cnt_reg_reset(bb, cck_en);

@@ -479,6 +479,7 @@ const char *const _rtw_edcca_mode_str[] = {
 	[RTW_EDCCA_NORM]	= "NORMAL",
 	[RTW_EDCCA_CS]		= "CS",
 	[RTW_EDCCA_ADAPT]	= "ADAPT",
+	[RTW_EDCCA_CBP]		= "CBP",
 };
 
 const char *const _rtw_dfs_regd_str[] = {
@@ -529,11 +530,21 @@ const REGULATION_TXPWR_LMT _txpwr_lmt_alternate[] = {
 };
 
 const enum rtw_edcca_mode_t _rtw_regd_to_edcca_mode[RTW_REGD_NUM] = {
-	[RTW_REGD_NA] = RTW_EDCCA_MODE_NUM,
-	[RTW_REGD_MKK] = RTW_EDCCA_CS,
-	[RTW_REGD_ETSI] = RTW_EDCCA_ADAPT,
-	[RTW_REGD_WW] = RTW_EDCCA_ADAPT,
+	[RTW_REGD_NA]	= RTW_EDCCA_MODE_NUM,
+	[RTW_REGD_MKK]	= RTW_EDCCA_CS,
+	[RTW_REGD_ETSI]	= RTW_EDCCA_ADAPT,
+	[RTW_REGD_WW]	= RTW_EDCCA_ADAPT,
 };
+
+#if CONFIG_IEEE80211_BAND_6GHZ
+const enum rtw_edcca_mode_t _rtw_regd_to_edcca_mode_6g[RTW_REGD_NUM] = {
+	[RTW_REGD_NA]	= RTW_EDCCA_MODE_NUM,
+	[RTW_REGD_FCC]	= RTW_EDCCA_CBP,
+	[RTW_REGD_MKK]	= RTW_EDCCA_CS,
+	[RTW_REGD_ETSI]	= RTW_EDCCA_ADAPT,
+	[RTW_REGD_WW]	= RTW_EDCCA_CBP,
+};
+#endif
 
 const REGULATION_TXPWR_LMT _rtw_regd_to_txpwr_lmt[] = {
 	[RTW_REGD_NA]		= TXPWR_LMT_NUM,
@@ -608,13 +619,13 @@ exit:
 	return buf;
 }
 
-static enum rtw_edcca_mode rtw_edcca_mode_get_strictest(enum rtw_edcca_mode_t a, enum rtw_edcca_mode_t b)
+static enum rtw_edcca_mode_t rtw_edcca_mode_get_strictest(enum rtw_edcca_mode_t a, enum rtw_edcca_mode_t b)
 {
 	if (a >= RTW_EDCCA_MODE_NUM)
-		return (enum rtw_edcca_mode)(b < RTW_EDCCA_MODE_NUM ? b : RTW_EDCCA_MODE_NUM);
+		return b < RTW_EDCCA_MODE_NUM ? b : RTW_EDCCA_MODE_NUM;
 	if (b >= RTW_EDCCA_MODE_NUM)
-		return (enum rtw_edcca_mode)(a < RTW_EDCCA_MODE_NUM ? a : RTW_EDCCA_MODE_NUM);
-	return (enum rtw_edcca_mode)rtw_max(a,b);
+		return a;
+	return rtw_max(a,b);
 }
 
 static void rtw_edcca_mode_update_by_regd_reqs(struct dvobj_priv *dvobj, bool req_lock)
@@ -654,7 +665,7 @@ static void rtw_edcca_mode_update_by_regd_reqs(struct dvobj_priv *dvobj, bool re
 
 		#if CONFIG_IEEE80211_BAND_6GHZ
 		tmp_mode = chplan->edcca_mode_6g_override != RTW_EDCCA_DEF ? chplan->edcca_mode_6g_override :
-			rtw_regd_to_edcca_mode(rtw_chplan_get_default_regd_6g(chplan->domain_code_6g));
+			rtw_regd_to_edcca_mode_6g(rtw_chplan_get_default_regd_6g(chplan->domain_code_6g));
 		mode[BAND_ON_6G] = rtw_edcca_mode_get_strictest(mode[BAND_ON_6G], tmp_mode);
 		#endif
 	}
@@ -680,7 +691,7 @@ void rtw_edcca_mode_update(struct dvobj_priv *dvobj, bool req_lock)
 	struct registry_priv *regsty = dvobj_to_regsty(dvobj);
 	struct rf_ctl_t *rfctl = dvobj_to_rfctl(dvobj);
 
-	if (regsty->adaptivity_en == 0) {
+	if (regsty->edcca_mode_sel == RTW_EDCCA_NORM) {
 		/* force disable */
 		rfctl->edcca_mode_2g = RTW_EDCCA_NORM;
 		#if CONFIG_IEEE80211_BAND_5GHZ
@@ -690,27 +701,35 @@ void rtw_edcca_mode_update(struct dvobj_priv *dvobj, bool req_lock)
 		rfctl->edcca_mode_6g = RTW_EDCCA_NORM;
 		#endif
 
-	} else if (regsty->adaptivity_en == 1) {
-		/* force enable */
-		if (!regsty->adaptivity_mode) {
-			/* adaptivity */
-			rfctl->edcca_mode_2g = RTW_EDCCA_ADAPT;
-			#if CONFIG_IEEE80211_BAND_5GHZ
-			rfctl->edcca_mode_5g = RTW_EDCCA_ADAPT;
-			#endif
-			#if CONFIG_IEEE80211_BAND_6GHZ
-			rfctl->edcca_mode_6g = RTW_EDCCA_ADAPT;
-			#endif
-		} else {
-			/* carrier sense */
-			rfctl->edcca_mode_2g = RTW_EDCCA_CS;
-			#if CONFIG_IEEE80211_BAND_5GHZ
-			rfctl->edcca_mode_5g = RTW_EDCCA_CS;
-			#endif
-			#if CONFIG_IEEE80211_BAND_6GHZ
-			rfctl->edcca_mode_6g = RTW_EDCCA_CS;
-			#endif
-		}
+	} else if (regsty->edcca_mode_sel == RTW_EDCCA_CS) {
+		/* carrier sense */
+		rfctl->edcca_mode_2g = RTW_EDCCA_CS;
+		#if CONFIG_IEEE80211_BAND_5GHZ
+		rfctl->edcca_mode_5g = RTW_EDCCA_CS;
+		#endif
+		#if CONFIG_IEEE80211_BAND_6GHZ
+		rfctl->edcca_mode_6g = RTW_EDCCA_CS;
+		#endif
+
+	} else if (regsty->edcca_mode_sel == RTW_EDCCA_ADAPT) {
+		/* adaptivity */
+		rfctl->edcca_mode_2g = RTW_EDCCA_ADAPT;
+		#if CONFIG_IEEE80211_BAND_5GHZ
+		rfctl->edcca_mode_5g = RTW_EDCCA_ADAPT;
+		#endif
+		#if CONFIG_IEEE80211_BAND_6GHZ
+		rfctl->edcca_mode_6g = RTW_EDCCA_ADAPT;
+		#endif
+
+	} else if (regsty->edcca_mode_sel == RTW_EDCCA_CBP) {
+		/* adaptivity */
+		rfctl->edcca_mode_2g = RTW_EDCCA_NORM;
+		#if CONFIG_IEEE80211_BAND_5GHZ
+		rfctl->edcca_mode_5g = RTW_EDCCA_NORM;
+		#endif
+		#if CONFIG_IEEE80211_BAND_6GHZ
+		rfctl->edcca_mode_6g = RTW_EDCCA_CBP;
+		#endif
 
 	} else {
 		/* by regulatory setting */
@@ -1188,7 +1207,7 @@ static void rtw_country_chplan_get_edcca_mode_of_bands(const struct country_chpl
 	#if CONFIG_IEEE80211_BAND_6GHZ
 	mode_of_band[BAND_ON_6G] =
 		ent->edcca_mode_6g_override != RTW_EDCCA_DEF ? ent->edcca_mode_6g_override :
-		rtw_regd_to_edcca_mode(rtw_chplan_get_default_regd_6g(ent->domain_code_6g));
+		rtw_regd_to_edcca_mode_6g(rtw_chplan_get_default_regd_6g(ent->domain_code_6g));
 	#endif
 }
 
@@ -1972,11 +1991,19 @@ static int rtw_chplan_rtk_priv_req_prehdl_domain_code(struct rf_ctl_t *rfctl, st
 	}
 
 	/* use original value when unspecified */
-	if (param->channel_plan == RTW_CHPLAN_UNSPECIFIED)
-		param->channel_plan = rfctl->domain_code;
+	if (param->channel_plan == RTW_CHPLAN_UNSPECIFIED) {
+		if (rfctl->user_req)
+			param->channel_plan = rfctl->user_req->chplan.domain_code;
+		else
+			param->channel_plan = rfctl->init_req.chplan.domain_code;
+	}
 	#if CONFIG_IEEE80211_BAND_6GHZ
-	if (param->channel_plan_6g == RTW_CHPLAN_6G_UNSPECIFIED)
-		param->channel_plan_6g = rfctl->domain_code_6g;
+	if (param->channel_plan_6g == RTW_CHPLAN_6G_UNSPECIFIED) {
+		if (rfctl->user_req)
+			param->channel_plan_6g = rfctl->user_req->chplan.domain_code_6g;
+		else
+			param->channel_plan_6g = rfctl->init_req.chplan.domain_code_6g;
+	}
 	#endif
 
 	return _SUCCESS;
@@ -3301,9 +3328,16 @@ u8 rtw_get_chplan_hdl(_adapter *adapter, u8 *pbuf)
 
 	chplan->chs_len = chset->chs_len;
 	_rtw_memcpy(chplan->chs, chset->chs, sizeof(RT_CHANNEL_INFO) * chset->chs_len);
-	*param->chplan = chplan;
+	param->chplan = chplan;
 
 	return	H2C_SUCCESS;
+}
+
+void rtw_get_chplan_callback(_adapter *adapter, struct cmd_obj *cmdobj)
+{
+	struct get_channel_plan_param *param = (struct get_channel_plan_param *)cmdobj->parmbuf;
+
+	cmdobj->sctx_rsp_buf = param->chplan;
 }
 
 u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chplan)
@@ -3314,21 +3348,24 @@ u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chp
 	struct submit_ctx sctx;
 	u8 res = _FAIL;
 
-	if (!(flags & (RTW_CMDF_DIRECTLY | RTW_CMDF_WAIT_ACK)))
+	if (!(flags & (RTW_CMDF_DIRECTLY | RTW_CMDF_WAIT_ACK))) {
+		rtw_warn_on(1);
 		goto exit;
+	}
 
 	/* prepare cmd parameter */
 	parm = rtw_zmalloc(sizeof(*parm));
 	if (parm == NULL)
 		goto exit;
-	parm->chplan = chplan;
 
 	if (flags & RTW_CMDF_DIRECTLY) {
 		/* no need to enqueue, do the cmd hdl directly and free cmd parameter */
-		if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm))
+		if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm)) {
+			*chplan = parm->chplan;
 			res = _SUCCESS;
+		}
 		rtw_mfree((u8 *)parm, sizeof(*parm));
-	} else {
+	} else { /* case of RTW_CMDF_WAIT_ACK */
 		/* need enqueue, prepare cmd_obj and enqueue */
 		cmdobj = (struct cmd_obj *)rtw_zmalloc(sizeof(*cmdobj));
 		if (cmdobj == NULL) {
@@ -3341,20 +3378,21 @@ u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chp
 		CMD_OBJ_SET_HWBAND(cmdobj, HW_BAND_0);
 		cmdobj->no_io = true;
 
-		if (flags & RTW_CMDF_WAIT_ACK) {
-			cmdobj->sctx = &sctx;
-			rtw_sctx_init(&sctx, 2000);
-		}
+		cmdobj->sctx = &sctx;
+		rtw_sctx_init(&sctx, 2000);
+		cmdobj->sctx_rsp_buf_free = (void *)rtw_free_get_chplan_resp;
 
 		res = rtw_enqueue_cmd(pcmdpriv, cmdobj);
 
-		if (res == _SUCCESS && (flags & RTW_CMDF_WAIT_ACK)) {
+		if (res == _SUCCESS) {
 			rtw_sctx_wait(&sctx, __func__);
 			_rtw_mutex_lock_interruptible(&pcmdpriv->sctx_mutex);
 			if (sctx.status == RTW_SCTX_SUBMITTED)
 				cmdobj->sctx = NULL;
 			_rtw_mutex_unlock(&pcmdpriv->sctx_mutex);
-			if (sctx.status != RTW_SCTX_DONE_SUCCESS)
+			if (sctx.status == RTW_SCTX_DONE_SUCCESS)
+				*chplan = sctx.rsp;
+			else
 				res = _FAIL;
 		}
 
@@ -3363,10 +3401,11 @@ u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chp
 			parm = rtw_zmalloc(sizeof(*parm));
 			if (parm == NULL)
 				goto exit;
-			parm->chplan = chplan;
 
-			if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm))
+			if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm)) {
+				*chplan = parm->chplan;
 				res = _SUCCESS;
+			}
 
 			rtw_mfree((u8 *)parm, sizeof(*parm));
 		}

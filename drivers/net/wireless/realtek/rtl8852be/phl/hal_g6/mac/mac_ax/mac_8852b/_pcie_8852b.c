@@ -1201,10 +1201,7 @@ u32 set_pcie_speed_8852b(struct mac_ax_adapter *adapter,
 		return MACFUNCINPUT;
 	}
 
-	ret = dbi_r32_pcie(adapter, PCIE_CAPABILITY_SPEED, &support_gen);
-	if (ret != MACSUCCESS)
-		return ret;
-	support_gen = GET_FIEL2(support_gen, PCIE_SUPPORT_GEN_SH, PCIE_LINK_SPEED_BITS_MSK);
+	support_gen = get_pcie_sup_speed_8852b(adapter);
 
 	if (support_gen == MAC_AX_PCIE_PHY_GEN1) {
 		if (set_speed == MAC_AX_PCIE_PHY_GEN1) {
@@ -1272,6 +1269,20 @@ u32 get_pcie_speed_8852b(struct mac_ax_adapter *adapter,
 	}
 
 	return ret;
+}
+
+u32 get_pcie_sup_speed_8852b(struct mac_ax_adapter *adapter)
+{
+	u32 ret;
+	u32 support_gen;
+
+	ret = dbi_r32_pcie(adapter, PCIE_CAPABILITY_SPEED, &support_gen);
+	if (ret != MACSUCCESS)
+		return ret;
+	support_gen = GET_FIEL2(support_gen, PCIE_SUPPORT_GEN_SH, PCIE_LINK_SPEED_BITS_MSK);
+	PLTFM_MSG_TRACE("pcie support highest link speed: %d\n", support_gen);
+
+	return support_gen;
 }
 
 u32 ctrl_wpdma_pcie_8852b(struct mac_ax_adapter *adapter,

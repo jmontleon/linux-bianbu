@@ -198,6 +198,7 @@ static u32 txdes_proc_data_8852b(struct mac_ax_adapter *adapter,
 			    (info->smh_en ? AX_TXD_SMH_EN : 0) |
 			    (info->hw_sec_iv ? AX_TXD_HW_AES_IV : 0) |
 			    (info->wdinfo_en ? AX_TXD_WDINFO_EN : 0) |
+			    (info->chk_en ? AX_TXD_CHK_EN : 0) |
 			    SET_WORD(info->wp_offset,
 				     AX_TXD_WP_OFFSET));
 	wdb->dword1 =

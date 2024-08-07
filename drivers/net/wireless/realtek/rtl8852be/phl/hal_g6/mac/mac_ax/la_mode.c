@@ -119,6 +119,15 @@ u32 mac_lamode_buf_cfg(struct mac_ax_adapter *adapter,
 			param->end_addr = LA_BUF_END_8852D_128K;
 			break;
 #endif
+#ifdef MAC_AX_8852BT_SUPPORT /*temp setting, will move to per IC files later*/
+		case MAC_AX_CHIP_ID_8852BT:
+			val32 = SET_CLR_WORD(val32, LA_SIZE_128K_BUF_BNDY_8852BT,
+					     B_AX_LA_BUF_BNDY);
+			param->start_addr = LA_SIZE_128K_BUF_BNDY_8852BT *
+					    DLE_BLOCK_SIZE;
+			param->end_addr = DLE_BUF_BNDY_8852BT;
+			break;
+#endif
 		default:
 			PLTFM_MSG_ERR("[ERR]Non support 128K buffer sel\n");
 			break;

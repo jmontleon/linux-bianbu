@@ -538,13 +538,6 @@ hal_handle_rx_buffer_8852b(struct rtw_phl_com_t *phl_com,
 #ifdef CONFIG_PHL_TEST_SUITE
 	struct test_bp_info bp_info;
 #endif
-#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
-	struct mac_ax_adapter *mac = hal_to_mac(hal);
-	u8 status;
-	u32 result;
-	u32 offset;
-#endif
-
 	hstatus = hal_parsing_rx_wd_8852b(phl_com, hal, buf,
 					&pkt->vir_addr, &pkt->length, mdata);
 
@@ -552,16 +545,6 @@ hal_handle_rx_buffer_8852b(struct rtw_phl_com_t *phl_com,
 		return hstatus;
 	if( (pkt->vir_addr + pkt->length) > (buf + buf_len) )
 		return RTW_HAL_STATUS_FAILURE;
-
-#ifdef CONFIG_PHL_CSUM_OFFLOAD_RX
-	if (mdata->chksum_ofld_en) {
-		offset = pkt->length;
-		offset = _ALIGN(offset, 8);
-		status = *(pkt->vir_addr + offset);
-		result = mac->ops->chk_rx_tcpip_chksum_ofd(mac, status);
-		rtw_hal_mac_parse_rxd_checksume(hal->hal_com, mdata, result);
-	}
-#endif /* CONFIG_PHL_CSUM_OFFLOAD_RX */
 
 	/* hana_todo */
 	r->pkt_cnt = 1;
@@ -589,6 +572,10 @@ hal_handle_rx_buffer_8852b(struct rtw_phl_com_t *phl_com,
 	{
 		struct hal_ppdu_sts ppdu_sts = {0};
 		u8 is_su = 1;
+#ifdef RTW_WKARD_MU_PPDU_STS_RX_RATE
+		struct rtw_phl_ppdu_sts_info *ppdu_info = NULL;
+		enum phl_band_idx band = HW_BAND_0;
+#endif
 
 		phl_rx->type = RTW_RX_TYPE_PPDU_STATUS;
 		PHL_TRACE(COMP_PHL_PSTS, _PHL_INFO_,
@@ -608,6 +595,11 @@ hal_handle_rx_buffer_8852b(struct rtw_phl_com_t *phl_com,
 			   (mdata->ppdu_type == RX_8852B_DESC_PPDU_T_HE_MU)||
 			   (mdata->ppdu_type == RX_8852B_DESC_PPDU_T_HE_TB)) {
 				is_su = 0;
+#ifdef RTW_WKARD_MU_PPDU_STS_RX_RATE
+				ppdu_info = &phl_com->ppdu_sts_info;
+				band = (mdata->bb_sel > 0) ? HW_BAND_1 : HW_BAND_0;
+				mdata->rx_rate = ppdu_info->sts_ent[band][mdata->ppdu_cnt].rx_rate;
+#endif
 			}
 			if(rtw_hal_bb_parse_phy_sts(hal,
 						(void *)&ppdu_sts,
@@ -636,30 +628,34 @@ hal_handle_rx_buffer_8852b(struct rtw_phl_com_t *phl_com,
 		struct mac_ax_dfs_rpt dfs_rpt = {0};
 		struct hal_dfs_rpt hal_dfs = {0};
 		struct phl_msg msg = {0};
+		enum rtw_hal_status mac_status = RTW_HAL_STATUS_FAILURE;
 
 		phl_rx->type = RTW_RX_TYPE_DFS_RPT;
 
-		rtw_hal_mac_parse_dfs(hal,pkt->vir_addr, mdata->pktlen, &dfs_rpt);
-		#ifdef DBG_PHL_DFS
-		PHL_INFO("RX DFS RPT, pkt_len:%d\n", mdata->pktlen);
-		PHL_INFO("[DFS] mac-hdr dfs_num:%d\n", dfs_rpt.dfs_num);
-		PHL_INFO("[DFS] mac-hdr drop_num:%d\n", dfs_rpt.drop_num);
-		PHL_INFO("[DFS] mac-hdr max_cont_drop:%d\n", dfs_rpt.max_cont_drop);
-		PHL_INFO("[DFS] mac-hdr total_drop:%d\n", dfs_rpt.total_drop);
-		#endif
-		hal_dfs.dfs_ptr = dfs_rpt.dfs_ptr;
-		hal_dfs.dfs_num = dfs_rpt.dfs_num;
-		hal_dfs.phy_idx = 0;
+		mac_status = rtw_hal_mac_parse_dfs(hal,pkt->vir_addr, mdata->pktlen, &dfs_rpt);
 
-		if (rtw_hal_bb_radar_detect(hal, &hal_dfs)) {
-			SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_MDL_RX);
-			SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_DFS_RD_IS_DETECTING);
-			rtw_phl_msg_hub_hal_send(phl_com, NULL, &msg);
+		if (mac_status == RTW_HAL_STATUS_SUCCESS) {
+			#ifdef DBG_PHL_DFS
+			PHL_INFO("RX DFS RPT, pkt_len:%d\n", mdata->pktlen);
+			PHL_INFO("[DFS] mac-hdr dfs_num:%d\n", dfs_rpt.dfs_num);
+			PHL_INFO("[DFS] mac-hdr drop_num:%d\n", dfs_rpt.drop_num);
+			PHL_INFO("[DFS] mac-hdr max_cont_drop:%d\n", dfs_rpt.max_cont_drop);
+			PHL_INFO("[DFS] mac-hdr total_drop:%d\n", dfs_rpt.total_drop);
+			#endif
+			hal_dfs.dfs_ptr = dfs_rpt.dfs_ptr;
+			hal_dfs.dfs_num = dfs_rpt.dfs_num;
+			hal_dfs.phy_idx = 0;
 
-			phl_com->dfs_info.is_radar_detectd = true;
-			PHL_INFO("[DFS] radar detected\n");
+			if (rtw_hal_bb_radar_detect(hal, &hal_dfs)) {
+				SET_MSG_MDL_ID_FIELD(msg.msg_id, PHL_MDL_RX);
+				SET_MSG_EVT_ID_FIELD(msg.msg_id, MSG_EVT_DFS_RD_IS_DETECTING);
+				rtw_phl_msg_hub_hal_send(phl_com, NULL, &msg);
+
+				phl_com->dfs_info.is_radar_detectd = true;
+				PHL_INFO("[DFS] radar detected\n");
+			}
 		}
-		#endif
+		#endif /*CONFIG_PHL_DFS*/
 	}
 	break;
 	case RX_8852B_DESC_PKT_T_CHANNEL_INFO :

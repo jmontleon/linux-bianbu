@@ -180,6 +180,9 @@ struct rtw_t_meta_data {
 	u8 hw_ssn_sel;
 	u16 sw_seq;
 
+	/*checksum offload*/
+	u8 chk_en;
+
 	/* hdr conversion & hw amsdu */
 	u8 smh_en;
 	u8 hw_amsdu;
@@ -314,6 +317,9 @@ struct rtw_r_meta_data {
 	u8 chksum_status; /*return mac_chk_rx_tcpip_chksum_ofd,0 is ok ,1 is fail*/
 #endif
 	u8 rx_deferred_release;
+#ifdef CONFIG_PHL_TDLS
+	u8 is_tdls_frame;
+#endif
 
 	u16 pktlen;
 	u8 shift;
@@ -718,6 +724,10 @@ enum rtw_rx_fltr_opt_mode {
 	RX_FLTR_OPT_MODE_STA_LINKING,
 	RX_FLTR_OPT_MODE_STA_NORMAL,
 	RX_FLTR_OPT_MODE_AP_NORMAL,
+	RX_FLTR_OPT_MODE_LSN_DISCOV,
+#ifdef CONFIG_PHL_TEST_MP
+	RX_FLTR_OPT_MODE_MP,
+#endif
 	RX_FLTR_OPT_MODE_RESTORE = 0xFF
 };
 

@@ -40,7 +40,7 @@ u32 rm_gen_rmid(_adapter *padapter, struct rm_obj *prm, u8 role);
 int is_wildcard_bssid(u8 *bssid);
 
 int rm_get_path_a_max_tx_power(_adapter *adapter, s8 *path_a);
-int rm_get_tx_power(_adapter *adapter, enum rf_path path, enum MGN_RATE rate, s8 *pwr);
+int rm_get_tx_power(_adapter *adapter, enum band_type band, enum MGN_RATE rate, s8 *pwr);
 int rm_get_rx_sensitivity(_adapter *adapter, enum channel_width bw, enum MGN_RATE rate, s8 *pwr);
 
 #endif /* _RTW_RM_UTIL_H_ */

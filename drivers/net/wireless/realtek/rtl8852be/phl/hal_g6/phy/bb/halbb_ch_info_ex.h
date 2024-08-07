@@ -160,7 +160,7 @@ void halbb_ch_info_physts_en(struct bb_info *bb, bool en,
 void halbb_ch_info_status_en(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx);
 void halbb_ch_trig_select(struct bb_info *bb, u8 event);
 void halbb_ch_info_close_powersaving(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx);
-void halbb_ch_info_calc_pertone_snr(struct bb_info *bb, u8 snrvalue, u16 *addr, u32 len);
+bool halbb_ch_info_calc_pertone_snr(struct bb_info *bb, u8 snrvalue, u16 *addr, u32 len);
 u8 halbb_ch_info_ack_verify(struct bb_info *bb, u16 *addr, u8 datasize, u16 len);
 
 enum bb_ch_info_t halbb_ch_info_parsing(struct bb_info *bb, u8 *addr, u32 len,

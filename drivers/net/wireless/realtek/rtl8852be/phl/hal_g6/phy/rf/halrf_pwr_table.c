@@ -28,9 +28,11 @@ const char * const _pw_lmt_regu_type_str[PW_LMT_MAX_REGULATION_NUM] = {
 	[PW_LMT_REGU_MEXICO]		= "MEXICO",
 	[PW_LMT_REGU_CHILE]		= "CHILE",
 	[PW_LMT_REGU_UKRAINE]		= "UKRAINE",
-	[PW_LMT_REGU_CN]		= "CN",
+	[PW_LMT_REGU_CNOLD]		= "CNOLD",
 	[PW_LMT_REGU_QATAR]		= "QATAR",
 	[PW_LMT_REGU_UK]		= "UK",
+	[PW_LMT_REGU_CN]		= "CN",
+	[PW_LMT_REGU_THAILAND]		= "THAILAND",
 	[PW_LMT_REGU_EXT_PWR]		= "EXT",
 	[PW_LMT_REGU_INTERSECT]		= "INTERSECT",
 	[PW_LMT_REGU_NULL]		= NULL,
@@ -68,20 +70,206 @@ const enum halrf_pw_lmt_regulation_type _regulation_to_pw_lmt_regu_type[REGULATI
 	[REGULATION_MEX]	= PW_LMT_REGU_MEXICO,
 };
 
+#define regulation_to_pw_lmt_regu_type(reg) ((reg) < REGULATION_MAX ? _regulation_to_pw_lmt_regu_type[(reg)] : PW_LMT_REGU_WW13)
+
 const enum halrf_pw_lmt_regulation_type _tpo_to_pw_lmt_regu_type[TPO_NA] = {
 	/* elements not listed here will get PW_LMT_REGU_WW13(0) */
 	[TPO_CHILE]		= PW_LMT_REGU_CHILE,
 	[TPO_QATAR]		= PW_LMT_REGU_QATAR,
 	[TPO_UKRAINE]		= PW_LMT_REGU_UKRAINE,
-	[TPO_CN]		= PW_LMT_REGU_CN,
+	//[TPO_CNOLD]		= PW_LMT_REGU_CNOLD,
 	[TPO_UK]		= PW_LMT_REGU_UK,
+	[TPO_CN]		= PW_LMT_REGU_CN,
+	//[TPO_THAILAND]		= PW_LMT_REGU_THAILAND,
 };
+
+#define tpo_to_pw_lmt_regu_type(reg) ((reg) < TPO_NA ? _tpo_to_pw_lmt_regu_type[(reg)] : PW_LMT_REGU_WW13)
+
+const char * const _pw_lmt_6g_type_str[PW_LMT_6G_MAX] = {
+	/* elements not listed here will get NULL */
+	[PW_LMT_6G_LOW]		= "LPI",
+	[PW_LMT_6G_STD]		= "STD",
+	[PW_LMT_6G_VLOW]	= "VLP",
+};
+
+#define pw_lmt_6g_type_str(cate) ((cate) < PW_LMT_6G_MAX ? _pw_lmt_6g_type_str[(cate)] : NULL)
+
+const char * const _pw_lmt_regu_type_str_6g[PW_LMT_MAX_6G_REGULATION_NUM] = {
+	/* elements not listed here will get NULL */
+	[PW_LMT_REGU_6G_NA]		= "NA",
+	[PW_LMT_REGU_6G_WW13]		= "WW",
+	[PW_LMT_REGU_6G_INTERSECT]	= "INTERSECT",
+	[PW_LMT_REGU_6G_EXT_PWR]	= "EXT",
+	[PW_LMT_REGU_6G_ETSI_LPI]	= "ETSI_LPI",
+	[PW_LMT_REGU_6G_ETSI_STD]	= "ETSI_STD",
+	[PW_LMT_REGU_6G_ETSI_VLP]	= "ETSI_VLP",
+	[PW_LMT_REGU_6G_FCC_LPI]	= "FCC_LPI",
+	[PW_LMT_REGU_6G_FCC_STD]	= "FCC_STD",
+	[PW_LMT_REGU_6G_FCC_VLP]	= "FCC_VLP",
+	[PW_LMT_REGU_6G_MKK_LPI]	= "MKK_LPI",
+	[PW_LMT_REGU_6G_MKK_STD]	= "MKK_STD",
+	[PW_LMT_REGU_6G_MKK_VLP]	= "MKK_VLP",
+	[PW_LMT_REGU_6G_IC_LPI]		= "IC_LPI",
+	[PW_LMT_REGU_6G_IC_STD]		= "IC_STD",
+	[PW_LMT_REGU_6G_IC_VLP]		= "IC_VLP",
+	[PW_LMT_REGU_6G_KCC_LPI]	= "KCC_LPI",
+	[PW_LMT_REGU_6G_KCC_STD]	= "KCC_STD",
+	[PW_LMT_REGU_6G_KCC_VLP]	= "KCC_VLP",
+	[PW_LMT_REGU_6G_ACMA_LPI]	= "ACMA_LPI",
+	[PW_LMT_REGU_6G_ACMA_STD]	= "ACMA_STD",
+	[PW_LMT_REGU_6G_ACMA_VLP]	= "ACMA_VLP",
+	[PW_LMT_REGU_6G_NCC_LPI]	= "NCC_LPI",
+	[PW_LMT_REGU_6G_NCC_STD]	= "NCC_STD",
+	[PW_LMT_REGU_6G_NCC_VLP]	= "NCC_VLP",
+	[PW_LMT_REGU_6G_MEXICO_LPI]	= "MEXICO_LPI",
+	[PW_LMT_REGU_6G_MEXICO_STD]	= "MEXICO_STD",
+	[PW_LMT_REGU_6G_MEXICO_VLP]	= "MEXICO_VLP",
+	[PW_LMT_REGU_6G_CHILE_LPI]	= "CHILE_LPI",
+	[PW_LMT_REGU_6G_CHILE_STD]	= "CHILE_STD",
+	[PW_LMT_REGU_6G_CHILE_VLP]	= "CHILE_VLP",
+	[PW_LMT_REGU_6G_UKRAINE_LPI]	= "UKRAINE_LPI",
+	[PW_LMT_REGU_6G_UKRAINE_STD]	= "UKRAINE_STD",
+	[PW_LMT_REGU_6G_UKRAINE_VLP]	= "UKRAINE_VLP",
+	[PW_LMT_REGU_6G_CNOLD_LPI]	= "CNOLD_LPI",
+	[PW_LMT_REGU_6G_CNOLD_STD]	= "CNOLD_STD",
+	[PW_LMT_REGU_6G_CNOLD_VLP]	= "CNOLD_VLP",
+	[PW_LMT_REGU_6G_QATAR_LPI]	= "QATAR_LPI",
+	[PW_LMT_REGU_6G_QATAR_STD]	= "QATAR_STD",
+	[PW_LMT_REGU_6G_QATAR_VLP]	= "QATAR_VLP",
+	[PW_LMT_REGU_6G_UK_LPI]		= "UK_LPI",
+	[PW_LMT_REGU_6G_UK_STD]		= "UK_STD",
+	[PW_LMT_REGU_6G_UK_VLP]		= "UK_VLP",
+	[PW_LMT_REGU_6G_CN_LPI]		= "CN_LPI",
+	[PW_LMT_REGU_6G_CN_STD]		= "CN_STD",
+	[PW_LMT_REGU_6G_CN_VLP]		= "CN_VLP",
+	[PW_LMT_REGU_6G_THAILAND_LPI]	= "THAILAND_LPI",
+	[PW_LMT_REGU_6G_THAILAND_STD]	= "THAILAND_STD",
+	[PW_LMT_REGU_6G_THAILAND_VLP]	= "THAILAND_VLP",
+	[PW_LMT_REGU_6G_NULL]		= NULL,
+};
+
+static int halrf_get_predefined_pw_lmt_regu_type_from_str_6g(const char *str)
+{
+	int i;
+
+	for (i = 0; i < PW_LMT_MAX_6G_REGULATION_NUM; i++)
+		if (_pw_lmt_regu_type_str_6g[i] && _os_strcmp(_pw_lmt_regu_type_str_6g[i], str) == 0)
+			return i;
+	return -1;
+}
+
+static const char * const *halrf_get_predefined_pw_lmt_regu_type_str_array_6g(u8 *num)
+{
+	if (num)
+		*num = PW_LMT_REGU_6G_PREDEF_NUM;
+	return _pw_lmt_regu_type_str_6g;
+}
+
+const enum halrf_pw_lmt_regulation_type_6g _regulation_cate_to_pw_lmt_regu_type_6g[REGULATION_MAX][PWR_LMT_6G_MAX] = {
+	/* elements not listed here will get PW_LMT_REGU_WW13(0) */
+	[REGULATION_ETSI][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_ETSI_VLP,
+	[REGULATION_ETSI][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_ETSI_LPI,
+	[REGULATION_ETSI][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_ETSI_STD,
+
+	[REGULATION_FCC][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_FCC_VLP,
+	[REGULATION_FCC][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_FCC_LPI,
+	[REGULATION_FCC][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_FCC_STD,
+
+	[REGULATION_MKK][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_MKK_VLP,
+	[REGULATION_MKK][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_MKK_LPI,
+	[REGULATION_MKK][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_MKK_STD,
+
+	[REGULATION_KCC][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_KCC_VLP,
+	[REGULATION_KCC][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_KCC_LPI,
+	[REGULATION_KCC][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_KCC_STD,
+
+	[REGULATION_NCC][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_NCC_VLP,
+	[REGULATION_NCC][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_NCC_LPI,
+	[REGULATION_NCC][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_NCC_STD,
+
+	[REGULATION_ACMA][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_ACMA_VLP,
+	[REGULATION_ACMA][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_ACMA_LPI,
+	[REGULATION_ACMA][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_ACMA_STD,
+
+	[REGULATION_IC][PWR_LMT_6G_VLP]		= PW_LMT_REGU_6G_IC_VLP,
+	[REGULATION_IC][PWR_LMT_6G_LPI]		= PW_LMT_REGU_6G_IC_LPI,
+	[REGULATION_IC][PWR_LMT_6G_STD]		= PW_LMT_REGU_6G_IC_STD,
+
+	[REGULATION_CHILE][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_CHILE_VLP,
+	[REGULATION_CHILE][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_CHILE_LPI,
+	[REGULATION_CHILE][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_CHILE_STD,
+
+	[REGULATION_MEX][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_MEXICO_VLP,
+	[REGULATION_MEX][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_MEXICO_LPI,
+	[REGULATION_MEX][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_MEXICO_STD,
+
+	[REGULATION_NA][PWR_LMT_6G_VLP]		= (enum halrf_pw_lmt_regulation_type_6g)PW_LMT_REGU_NA,
+	[REGULATION_NA][PWR_LMT_6G_LPI]		= (enum halrf_pw_lmt_regulation_type_6g)PW_LMT_REGU_NA,
+	[REGULATION_NA][PWR_LMT_6G_STD]		= (enum halrf_pw_lmt_regulation_type_6g)PW_LMT_REGU_NA,
+};
+
+#define regulation_cate_to_pw_lmt_regu_type_6g(reg, cate) (((reg) < REGULATION_MAX && (cate) < PWR_LMT_6G_MAX) ? _regulation_cate_to_pw_lmt_regu_type_6g[reg][cate] : PW_LMT_REGU_WW13)
+
+const enum halrf_pw_lmt_regulation_type_6g _tpo_cate_to_pw_lmt_regu_type_6g[TPO_NA][PWR_LMT_6G_MAX] = {
+	/* elements not listed here will get PW_LMT_REGU_WW13(0) */
+
+	[TPO_CHILE][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_CHILE_VLP,
+	[TPO_CHILE][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_CHILE_LPI,
+	[TPO_CHILE][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_CHILE_STD,
+
+	[TPO_UK][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_UK_VLP,
+	[TPO_UK][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_UK_LPI,
+	[TPO_UK][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_UK_STD,
+
+	[TPO_QATAR][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_QATAR_VLP,
+	[TPO_QATAR][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_QATAR_LPI,
+	[TPO_QATAR][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_QATAR_STD,
+
+	[TPO_UKRAINE][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_UKRAINE_VLP,
+	[TPO_UKRAINE][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_UKRAINE_LPI,
+	[TPO_UKRAINE][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_UKRAINE_STD,
+	
+	//[TPO_CNOLD][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_CNOLD_VLP,
+	//[TPO_CNOLD][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_CNOLD_LPI,
+	//[TPO_CNOLD][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_CNOLD_STD,
+
+	[TPO_CN][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_CN_VLP,
+	[TPO_CN][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_CN_LPI,
+	[TPO_CN][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_CN_STD,
+
+	//[TPO_THAILAND][PWR_LMT_6G_VLP]	= PW_LMT_REGU_6G_THAILAND_VLP,
+	//[TPO_THAILAND][PWR_LMT_6G_LPI]	= PW_LMT_REGU_6G_THAILAND_LPI,
+	//[TPO_THAILAND][PWR_LMT_6G_STD]	= PW_LMT_REGU_6G_THAILAND_STD,
+};
+
+#define tpo_cate_to_pw_lmt_regu_type_6g(reg, cate) (((reg) < TPO_NA && (cate) < PWR_LMT_6G_MAX) ? _tpo_cate_to_pw_lmt_regu_type_6g[reg][cate] : PW_LMT_REGU_WW13)
+
+const char *pw_lmt_regu_type_of_band_str(u8 band, u8 lmt)
+{
+	if (band == BAND_ON_6G)
+		return pw_lmt_regu_type_str_6g(lmt);
+	return pw_lmt_regu_type_str(lmt);
+}
+
+int halrf_get_predef_pw_lmt_regu_type_of_band_from_str(enum band_type band, const char *str)
+{
+	if (band == BAND_ON_6G)
+		return halrf_get_predefined_pw_lmt_regu_type_from_str_6g(str);
+	return halrf_get_predefined_pw_lmt_regu_type_from_str(str);
+}
+
+const char * const *halrf_get_predef_pw_lmt_regu_type_of_band_str_array(enum band_type band, u8 *num)
+{	
+	if (band == BAND_ON_6G)
+		return halrf_get_predefined_pw_lmt_regu_type_str_array_6g(num);
+	return halrf_get_predefined_pw_lmt_regu_type_str_array(num);
+}
 
 bool halrf_reg_tbl_exist(struct rf_info *rf, u8 band, u8 reg)
 {
 	struct halrf_pwr_info *pwr = &rf->pwr_info;
 
-	return pwr->regulation[band][reg];
+	return reg <= PW_LMT_MAX_PER_BAND_REGU_NUM && pwr->regulation[band][reg];
 }
 
 u8 halrf_get_regulation_info_force(struct rf_info *rf, u8 band)
@@ -109,25 +297,39 @@ u8 halrf_get_regulation_info(struct rf_info *rf, u8 band)
 
 	RF_DBG(rf, DBG_RF_POWER, "======>%s\n", __func__);
 
-	if (pwr->regulation_force_en != true && pwr->extra_regd_idx != 0xff) {
-		RF_DBG(rf, DBG_RF_POWER, "======>%s pwr->regulation_force_en != true, pwr->extra_regd_idx=%d\n",
-			__func__, pwr->extra_regd_idx);
-		return (u8)pwr->extra_regd_idx;
+	if (pwr->regulation_force_en != true) {
+		if (band == BAND_ON_6G) {
+			if (pwr->extra_regd_idx_6g != 0xff) {
+				RF_DBG(rf, DBG_RF_POWER, "======>%s pwr->regulation_force_en != true, pwr->extra_regd_idx_6g=%d\n",
+					__func__, pwr->extra_regd_idx_6g);
+				return (u8)pwr->extra_regd_idx_6g;
+			}
+		} else {
+			if (pwr->extra_regd_idx != 0xff) {
+				RF_DBG(rf, DBG_RF_POWER, "======>%s pwr->regulation_force_en != true, pwr->extra_regd_idx=%d\n",
+					__func__, pwr->extra_regd_idx);
+				return (u8)pwr->extra_regd_idx;
+			}
+		}
 	}
 
 #ifdef RTW_FLASH_98D
 	if (pwr->regulation_idx != 0xff) {
 		RF_DBG(rf, DBG_RF_POWER, "======>%s pwr->regulation_idx(0x%x) != 0xff\n",
 			__func__, pwr->regulation_idx);
+		/* TODO: adding category to get pwr_lmt_regu for 6G */
 		return pwr->regulation_idx;
 	}
 #endif
 
-	if (phl_is_mp_mode(rf->phl_com)) {
-		RF_DBG(rf, DBG_RF_POWER, "======>%s phl_is_mp_mode(rf->phl_com)== true, Return pwr->mp_regulation=%d\n",
-			__func__, pwr->mp_regulation);
-		return regulation_to_pw_lmt_regu_type(pwr->mp_regulation);
-	}
+	//if (phl_is_mp_mode(rf->phl_com)) {
+	//	RF_DBG(rf, DBG_RF_POWER, "======>%s phl_is_mp_mode(rf->phl_com)== true, Return pwr->mp_regulation=%d\n",
+	//		__func__, pwr->mp_regulation);
+	//	if (band == BAND_ON_6G) /* TODO: adding category to get pwr_lmt_regu for 6G */
+	//		return regulation_cate_to_pw_lmt_regu_type_6g(pwr->mp_regulation, PW_LMT_6G_LOW);
+	//	else
+	//		return regulation_to_pw_lmt_regu_type(pwr->mp_regulation);
+	//}
 
 	if (pwr->regulation_force_en == true) {
 		pw_lmt_type = halrf_get_regulation_info_force(rf, band);
@@ -156,21 +358,28 @@ u8 halrf_get_regulation_info(struct rf_info *rf, u8 band)
 	}
 
 	if (rg_info.tpo != TPO_NA) {
-		pw_lmt_type = tpo_to_pw_lmt_regu_type(rg_info.tpo);	
+		if (band == BAND_ON_6G)
+			pw_lmt_type = tpo_cate_to_pw_lmt_regu_type_6g(rg_info.tpo, rg_info.category_6g);	
+		else
+			pw_lmt_type = tpo_to_pw_lmt_regu_type(rg_info.tpo);	
+
 		RF_DBG(rf, DBG_RF_POWER, "%s extra pw_lmt_regu=%s(%d)\n",
-			bstr, pw_lmt_regu_type_str(pw_lmt_type), pw_lmt_type);
+			bstr, pw_lmt_regu_type_of_band_str(band, pw_lmt_type), pw_lmt_type);
 	} else {
 		if (reg == REGULATION_NA) {
 			RF_DBG(rf, DBG_RF_POWER, "======>%s reg == REGULATION_NA\n", __func__);
 			return PW_LMT_REGU_NULL; /* return this to distinguish from PW_LMT_REGU_NA done by NONE option from TXPWR_LMT.txt */
 		}
-		pw_lmt_type = regulation_to_pw_lmt_regu_type(reg);
+		if (band == BAND_ON_6G)
+			pw_lmt_type = regulation_cate_to_pw_lmt_regu_type_6g(reg, rg_info.category_6g);
+		else
+			pw_lmt_type = regulation_to_pw_lmt_regu_type(reg);
 	}
 
 reg_tbl_chk:
 	if (pwr->regulation[band][pw_lmt_type] != true) {
 		RF_DBG(rf, DBG_RF_POWER, "%s pw_lmt_regu=%s(%d) is not exist return WW13 !!!\n",
-			bstr, pw_lmt_regu_type_str(pw_lmt_type), pw_lmt_type);
+			bstr, pw_lmt_regu_type_of_band_str(band, pw_lmt_type), pw_lmt_type);
 		return PW_LMT_REGU_WW13;
 	}
 
@@ -372,11 +581,11 @@ void halrf_force_regulation(struct rf_info *rf, bool enable,
 		pwr->reg_5g = PW_LMT_REGU_INTERSECT;
 
 	if (reg_6g_len == 0)
-		pwr->reg_6g = PW_LMT_REGU_NULL;
+		pwr->reg_6g = PW_LMT_REGU_6G_NULL;
 	else if (reg_6g_len == 1)
 		pwr->reg_6g = reg_6g[0];
 	else
-		pwr->reg_6g = PW_LMT_REGU_INTERSECT;
+		pwr->reg_6g = PW_LMT_REGU_6G_INTERSECT;
 
 	pwr->regulation_force_en = enable;
 
@@ -401,7 +610,7 @@ void halrf_force_regulation(struct rf_info *rf, bool enable,
 	}
 
 	for (i = 0; i < reg_6g_len; i++) {
-		if (i >= PW_LMT_MAX_REGULATION_NUM)
+		if (i >= PW_LMT_MAX_6G_REGULATION_NUM)
 			break;
 		pwr->reg_array_6g[i] = reg_6g[i];
 		RF_DBG(rf, DBG_RF_POWER, "======>%s   reg_6g[%d]=%d   reg_6g_len=%d\n",
@@ -418,7 +627,7 @@ const char *halrf_get_pw_lmt_regu_type_str(struct rf_info *rf, u8 band)
 {
 	u8 reg = halrf_get_regulation_info(rf, band);
 
-	return pw_lmt_regu_type_str(reg);
+	return pw_lmt_regu_type_of_band_str(band, reg);
 }
 
 #ifndef RF_8730A_SUPPORT
@@ -427,12 +636,17 @@ const char *halrf_get_pw_lmt_regu_type_str_extra(struct rf_info *rf, u8 band)
 	struct rtw_para_pwrlmt_info_t *pwrlmt_info = NULL;
 	u8 reg = halrf_get_regulation_info(rf, band);
 
-	pwrlmt_info = &rf->phl_com->phy_sw_cap[HW_PHY_0].rf_txpwrlmt_info;
-
-	if (reg >= PW_LMT_REGU_PREDEF_NUM)
+	if (band == BAND_ON_6G) {
+		if (reg >= PW_LMT_REGU_6G_PREDEF_NUM) {
+				pwrlmt_info = &rf->phl_com->phy_sw_cap[HW_PHY_0].rf_txpwrlmt_6g_info;
+				return pwrlmt_info->ext_regd_name[reg];
+		}
+	} else if (reg >= PW_LMT_REGU_PREDEF_NUM) {
+		pwrlmt_info = &rf->phl_com->phy_sw_cap[HW_PHY_0].rf_txpwrlmt_info;
 		return pwrlmt_info->ext_regd_name[reg];
+	}
 
-	return pw_lmt_regu_type_str(reg);
+	return pw_lmt_regu_type_of_band_str(band, reg);
 }
 #endif
 
@@ -989,7 +1203,7 @@ void halrf_power_limit_set_worldwide(struct rf_info *rf)
 				for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 					for (bw = 0; bw < PW_LMT_MAX_BANDWIDTH_NUM; bw++) {
 						tmp = 127;
-						for (reg = 0; reg < PW_LMT_MAX_REGULATION_NUM; reg++) {
+						for (reg = 0; reg < PW_LMT_MAX_6G_REGULATION_NUM; reg++) {
 							RF_DBG(rf, DBG_RF_INIT, "pwr->tx_pwr_limit_6g[%d][%d][%d][%d][%d][%d]=   %d\n",
 								reg, bw, rate, bf, ch, tx_num, pwr->tx_pwr_limit_6g[reg][bw][rate][bf][ch][tx_num]);
 							if (tmp > pwr->tx_pwr_limit_6g[reg][bw][rate][bf][ch][tx_num] &&
@@ -1109,7 +1323,7 @@ void halrf_power_limit_ru_set_worldwide(struct rf_info *rf)
 			for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 				for (bw = 0; bw < PW_LMT_RU_BW_NULL; bw++) {
 					tmp = 127;
-					for (reg = 0; reg < PW_LMT_MAX_REGULATION_NUM; reg++) {
+					for (reg = 0; reg < PW_LMT_MAX_6G_REGULATION_NUM; reg++) {
 						RF_DBG(rf, DBG_RF_INIT, "pwr->tx_pwr_limit_ru_6g[%d][%d][%d][%d][%d]=   %d\n",
 							reg, bw, rate, ch, tx_num, pwr->tx_pwr_limit_ru_6g[reg][bw][rate][ch][tx_num]);
 
@@ -1418,19 +1632,19 @@ void halrf_set_ext_power_limit_table(struct rf_info *rf,
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_6G; ch++) {
 			real_ch = halrf_get_limit_ch_idx_to_ch_idx(rf, PW_LMT_BAND_6G, (u8)ch);
 
-			if (real_ch >= 1 && real_ch <= 45)
+			if (real_ch >= 1 && real_ch <= 41)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_5_1[tx_num];
-			else if (real_ch >= 49 && real_ch <= 93)
+			else if (real_ch >= 45 && real_ch <= 93)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_5_2[tx_num];
-			else if (real_ch >= 97 && real_ch <= 117)
+			else if (real_ch >= 97 && real_ch <= 113)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_6[tx_num];
-			else if (real_ch >= 121 && real_ch <= 149)
+			else if (real_ch >= 117 && real_ch <= 149)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_7_1[tx_num];
-			else if (real_ch >= 153 && real_ch <= 189)
+			else if (real_ch >= 153 && real_ch <= 185)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_7_2[tx_num];
-			else if (real_ch >= 193 && real_ch <= 237)
+			else if (real_ch >= 189 && real_ch <= 233)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_8[tx_num];
-			else if (real_ch >= 241 && real_ch <= 253)
+			else if (real_ch >= 237 && real_ch <= 253)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_8[tx_num];
 
 			for (bf = 0; bf < PW_LMT_MAX_BF_NUM; bf++) {
@@ -1744,19 +1958,19 @@ void halrf_set_ext_power_limit_ru_table(struct rf_info *rf,
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_6G; ch++) {
 			real_ch = halrf_get_limit_ch_idx_to_ch_idx(rf, PW_LMT_BAND_6G, (u8)ch);
 
-			if (real_ch >= 1 && real_ch <= 45)
+			if (real_ch >= 1 && real_ch <= 41)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_5_1[tx_num];
-			else if (real_ch >= 49 && real_ch <= 93)
+			else if (real_ch >= 45 && real_ch <= 93)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_5_2[tx_num];
-			else if (real_ch >= 97 && real_ch <= 117)
+			else if (real_ch >= 97 && real_ch <= 113)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_6[tx_num];
-			else if (real_ch >= 121 && real_ch <= 149)
+			else if (real_ch >= 117 && real_ch <= 149)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_7_1[tx_num];
-			else if (real_ch >= 153 && real_ch <= 189)
+			else if (real_ch >= 153 && real_ch <= 185)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_7_2[tx_num];
-			else if (real_ch >= 193 && real_ch <= 237)
+			else if (real_ch >= 189 && real_ch <= 233)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_8[tx_num];
-			else if (real_ch >= 241 && real_ch <= 253)
+			else if (real_ch >= 237 && real_ch <= 253)
 				ext_pwr = ext_pwr_info->ext_pwr_lmt_6g_unii_8[tx_num];
 
 			for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
@@ -1799,10 +2013,12 @@ void halrf_power_limit_set_ext_pwr_limit_table(struct rf_info *rf,
 {
 #ifdef SPF_PHL_RF_019_SAR
 	struct rtw_hal_com_t *hal_com = rf->hal_com;
+	u8 rfe_type = rf->phl_com->dev_cap.rfe_type;
 
-	RF_DBG(rf, DBG_RF_POWER, "======>%s   phy=%d\n", __func__, phy);
+	RF_DBG(rf, DBG_RF_POWER, "======>%s   phy=%d   rfe_type=%d\n",
+		__func__, phy, rfe_type);
 
-	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+	if (hal_com->chip_id == CHIP_WIFI6_8851B && rfe_type == 2)
 		halrf_set_ext_ant12_pwr_limit_table(rf, phy);
 	else
 		halrf_set_ext_power_limit_table(rf, phy);
@@ -1815,10 +2031,12 @@ void halrf_power_limit_set_ext_pwr_limit_ru_table(struct rf_info *rf,
 {
 #ifdef SPF_PHL_RF_019_SAR
 	struct rtw_hal_com_t *hal_com = rf->hal_com;
+	u8 rfe_type = rf->phl_com->dev_cap.rfe_type;
 
-	RF_DBG(rf, DBG_RF_POWER, "======>%s   phy=%d\n", __func__, phy);
+	RF_DBG(rf, DBG_RF_POWER, "======>%s   phy=%d   rfe_type=%d\n",
+		__func__, phy, rfe_type);
 
-	if (hal_com->chip_id == CHIP_WIFI6_8851B)
+	if (hal_com->chip_id == CHIP_WIFI6_8851B && rfe_type == 2)
 		halrf_set_ext_ant12_pwr_limit_ru_table(rf, phy);
 	else
 		halrf_set_ext_power_limit_ru_table(rf, phy);
@@ -1837,6 +2055,7 @@ s8 halrf_get_power_by_rate(struct rf_info *rf,
 {
 	struct halrf_pwr_info *pwr = &rf->pwr_info;
 	u32 band = rf->hal_com->band[phy].cur_chandef.band;
+	u8 bw = rf->hal_com->band[phy].cur_chandef.bw;
 	u16 rate_tmp;
 	s8 pwr_by_rate = 0;
 
@@ -1867,9 +2086,20 @@ s8 halrf_get_power_by_rate(struct rf_info *rf,
 			pwr_by_rate, band, rate_tmp, band);
 	}
 
-	if (offset == 0)
-		return pwr_by_rate + halrf_get_pwr_control(rf, phy) + halrf_get_tx_rate_pwr_control(rf, phy);
-	else
+	if (offset == 0) {
+		pwr_by_rate = pwr_by_rate + halrf_get_pwr_control(rf, phy) + halrf_get_tx_rate_pwr_control(rf, phy);
+
+		if (pwr->max_tx_rate_power_en == true) {
+			if (pwr_by_rate > pwr->max_tx_rate_power[phy] * 2)
+				pwr_by_rate = pwr->max_tx_rate_power[phy] * 2;
+		}
+
+		if (pwr->pwr_by_rate_bw_oft_en == true && bw != CHANNEL_WIDTH_160) {
+			return halrf_get_pwr_by_rate_bw_control(rf, phy, rate, band, pwr_by_rate);
+		}
+
+		return pwr_by_rate;
+	} else
 		return pwr_by_rate;
 }
 
@@ -2236,9 +2466,21 @@ bool halrf_set_power(struct rf_info *rf, enum phl_phy_idx phy,
 	}
 #endif
 
+#ifdef RF_8852BT_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852BT) {
+		halrf_set_power_8852bt(rf, phy, pwr_table);
+	}
+#endif
+
 #ifdef RF_8852C_SUPPORT
 	if (hal_com->chip_id == CHIP_WIFI6_8852C) {
 		halrf_set_power_8852c(rf, phy, pwr_table);
+	}
+#endif
+
+#ifdef RF_8852D_SUPPORT
+	if (hal_com->chip_id == CHIP_WIFI6_8852D) {
+		halrf_set_power_8852d(rf, phy, pwr_table);
 	}
 #endif
 
@@ -2323,7 +2565,7 @@ void halrf_set_power_table_switch(struct rf_info *rf,
 }
 
 #ifndef RF_8730A_SUPPORT
-u8 halrf_get_power_limit_extra(struct rf_info *rf)
+void halrf_get_power_limit_extra(struct rf_info *rf)
 {
 	struct halrf_pwr_info *pwr = &rf->pwr_info;
 	struct rtw_regulation_info rg_info = {0};
@@ -2332,7 +2574,8 @@ u8 halrf_get_power_limit_extra(struct rf_info *rf)
 		RF_DBG(rf, DBG_RF_POWER, "======>%s   pwr->regulation_force_en=%d   Return!!!\n",
 			__func__, pwr->regulation_force_en);
 		pwr->extra_regd_idx = 0xff; 
-		goto exit;
+		pwr->extra_regd_idx_6g = 0xff;
+		return;
 	}
 
 	halrf_query_regulation_info(rf, &rg_info);
@@ -2341,14 +2584,39 @@ u8 halrf_get_power_limit_extra(struct rf_info *rf)
 		rg_info.domain_code, rg_info.country, rg_info.regulation_2g, rg_info.regulation_5g, rg_info.regulation_6g, rg_info.chplan_ver, rg_info.country_ver);
 
 	pwr->extra_regd_idx = halrf_file_regd_ext_search(rf, rg_info.domain_code, rg_info.country, NULL);
+	pwr->extra_regd_idx_6g = halrf_file_regd_ext_of_band_search(rf, BAND_ON_6G, rg_info.domain_code_6g, rg_info.country, rg_info.category_6g, NULL);
 
-	RF_DBG(rf, DBG_RF_POWER, "Return regd_idx = %d\n", pwr->extra_regd_idx);
-
-exit:
-	return (u8)pwr->extra_regd_idx;
+	RF_DBG(rf, DBG_RF_POWER, "Return regd_idx=%d regd_idx_6g=%d\n", pwr->extra_regd_idx, pwr->extra_regd_idx_6g);
 }
 
-u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country, int *aidx_match)
+static bool match_reg_name_of_band(enum band_type band, char *target, enum rtw_power_limit_6g_info cate_6g, char *reg_name)
+{
+	if (band == BAND_ON_6G) {
+		/*
+		* reg_name could be target + '_' + one of pw_lmt_6g_type_str
+		* ex: target="FCC", reg_name could be "FCC_LPI", "FCC_STD", "FCC_VLP"
+		*/
+		size_t target_len = _os_strlen(target); 
+		int i;
+
+		if (target_len >= _os_strlen(reg_name) || _os_strncmp(target, reg_name, target_len) != 0)
+			return false;
+
+		for (i = 0; i < PW_LMT_6G_MAX; i++) {
+			if (cate_6g != PWR_LMT_6G_MAX && i != cate_6g)
+				continue;
+			if (reg_name[target_len] == '_' && _os_strcmp(reg_name + target_len + 1, pw_lmt_6g_type_str(i)) == 0)
+				return true;
+		}
+
+		return false;
+
+	} else
+		return _os_strcmp(target, reg_name) == 0;
+}
+
+u8 halrf_file_regd_ext_of_band_search(struct rf_info *rf, enum band_type band, u16 domain_code, char *country
+	, enum rtw_power_limit_6g_info cate_6g, int *aidx_match)
 {
 	struct rtw_para_pwrlmt_info_t *pwrlmt_info = NULL;
 	struct _halrf_file_regd_ext *pregd_codemap = NULL;
@@ -2359,7 +2627,11 @@ u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country
 	if (aidx_match)
 		*aidx_match = -1;
 
-	pwrlmt_info = &rf->phl_com->phy_sw_cap[HW_PHY_0].rf_txpwrlmt_info;
+	if (band == BAND_ON_6G)
+		pwrlmt_info = &rf->phl_com->phy_sw_cap[HW_PHY_0].rf_txpwrlmt_6g_info;
+	else
+		pwrlmt_info = &rf->phl_com->phy_sw_cap[HW_PHY_0].rf_txpwrlmt_info;
+	
 	pregd_codemap = (struct _halrf_file_regd_ext *) pwrlmt_info->ext_reg_codemap;
 
 	if (pwrlmt_info->para_src == 0) {
@@ -2368,8 +2640,8 @@ u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country
 		return 0xff;
 	}
 
-	RF_DBG(rf, DBG_RF_POWER, "======>%s  total_regd_idx=%d  extra_limit_idx=%d\n",
-		__func__, pwrlmt_info->ext_regd_arridx, pwrlmt_info->ext_reg_map_num);
+	RF_DBG(rf, DBG_RF_POWER, "======>%s band:%u total_regd_idx=%d  extra_limit_idx=%d, cate_6g:%u\n",
+		__func__, band, pwrlmt_info->ext_regd_arridx, pwrlmt_info->ext_reg_map_num, cate_6g);
 
 	for (i = 0; i <= pwrlmt_info->ext_regd_arridx; i++)
 		RF_DBG(rf, DBG_RF_POWER, "ext_regd_name[%d]=%s\n", i, pwrlmt_info->ext_regd_name[i]);
@@ -2386,7 +2658,7 @@ u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country
 		if (domain_code == array->domain) {
 			RF_DBG(rf, DBG_RF_POWER, "Search rg_info.domain_code == Power limit array->domain\n");
 			for (j = 0; j <= pwrlmt_info->ext_regd_arridx; j++) {
-				if (_os_strcmp(array->reg_name, pwrlmt_info->ext_regd_name[j]) == 0) {
+				if (match_reg_name_of_band(band, array->reg_name, cate_6g, pwrlmt_info->ext_regd_name[j])) {
 					regd_idx = j;
 					if (aidx_match)
 						*aidx_match = i;
@@ -2411,7 +2683,7 @@ u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country
 		if (hal_mem_cmp(hal, country, array->country, 2) == 0 && _os_strcmp(country, "") != 0) {
 			RF_DBG(rf, DBG_RF_POWER, "Search rg_info.country == Power limit array->country\n");
 			for (j = 0; j <= pwrlmt_info->ext_regd_arridx; j++) {
-				if (_os_strcmp(array->reg_name, pwrlmt_info->ext_regd_name[j]) == 0) {
+				if (match_reg_name_of_band(band, array->reg_name, cate_6g, pwrlmt_info->ext_regd_name[j])) {
 					regd_idx = j;
 					if (aidx_match)
 						*aidx_match = i;
@@ -2425,6 +2697,11 @@ u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country
 	RF_DBG(rf, DBG_RF_POWER, "<======   End Country code Search\n");
 
 	return (u8)regd_idx;
+}
+
+u8 halrf_file_regd_ext_search(struct rf_info *rf, u16 domain_code, char *country, int *aidx_match)
+{
+	return halrf_file_regd_ext_of_band_search(rf, BAND_ON_24G/* 2G and 5G use same array */, domain_code, country, PWR_LMT_6G_MAX, aidx_match);
 }
 
 void halrf_reload_pwr_limit_tbl_and_set(struct rf_info *rf,
@@ -3097,40 +3374,70 @@ void halrf_set_ant_gain_offset(struct rf_info *rf,
 	enum phl_phy_idx phy, struct rtw_phl_regu_dyn_ant_gain *regu)
 {
 	struct halrf_pwr_info *pwr = &rf->pwr_info;
+	struct rtw_regulation_info rg_info = {0};
 	u32 bw, rate, bf, ch, tx_num;
 	s8 ext_pwr = 0;
+	enum halrf_pw_lmt_regulation_type pw_lmt_type;
+	enum halrf_pw_lmt_regulation_type_6g pw_lmt_type_6g[PWR_LMT_6G_MAX];
+	u8 i;
 
 	RF_DBG(rf, DBG_RF_POWER, "======>%s\n", __func__);
 	
-	RF_DBG(rf, DBG_RF_POWER, "regu=%d  ag_2g_comp=%d  ag_5g_comp=%d  regu->ag_6g_comp=%d\n",
+	RF_DBG(rf, DBG_RF_POWER, "regu->regu=%d  regu->ag_2g_comp=%d  regu->ag_5g_comp=%d  regu->ag_6g_comp=%d\n",
 		regu->regu, regu->ag_2g_comp, regu->ag_5g_comp, regu->ag_6g_comp);
-	
-	if (regu->regu < PW_LMT_MAX_REGULATION_NUM) {
-		pwr->ant_gain_reg[regu->regu] = regu->regu;
-		pwr->ant_gain_2g_oft[regu->regu] = regu->ag_2g_comp;
-		pwr->ant_gain_5g_oft[regu->regu] = regu->ag_5g_comp;
-		pwr->ant_gain_6g_oft[regu->regu] = regu->ag_6g_comp;
+
+	halrf_query_regulation_info(rf, &rg_info);
+
+	RF_DBG(rf, DBG_RF_POWER, "domain_code=%d   regulation_2g=%d   regulation_5g=%d   regulation_6g=%d   chplan_ver=%d   country_ver=%d   rg_info.tpor=%d\n",
+		rg_info.domain_code, rg_info.regulation_2g, rg_info.regulation_5g, rg_info.regulation_6g, rg_info.chplan_ver, rg_info.country_ver, rg_info.tpo);
+
+	if (rg_info.tpo != TPO_NA) {
+		pw_lmt_type = tpo_to_pw_lmt_regu_type(rg_info.tpo);	
+		for (i = 0; i < PWR_LMT_6G_MAX; i++)
+			pw_lmt_type_6g[i] = tpo_cate_to_pw_lmt_regu_type_6g(rg_info.tpo, i);
+		RF_DBG(rf, DBG_RF_POWER, "extra pw_lmt_regu=%s(%d)\n",
+			pw_lmt_regu_type_str(pw_lmt_type), pw_lmt_type);
+	} else if (regu->regu == REGULATION_NA) {
+		RF_DBG(rf, DBG_RF_POWER, "======>%s reg == REGULATION_NA\n", __func__);
+		pw_lmt_type = PW_LMT_REGU_NULL;
+		for (i = 0; i < PWR_LMT_6G_MAX; i++)
+			pw_lmt_type_6g[i] = (enum halrf_pw_lmt_regulation_type_6g)PW_LMT_REGU_NULL;
+	} else {
+		pw_lmt_type = regulation_to_pw_lmt_regu_type(regu->regu);
+		for (i = 0; i < PWR_LMT_6G_MAX; i++)
+			pw_lmt_type_6g[i] = regulation_cate_to_pw_lmt_regu_type_6g(regu->regu, i);
 	}
+
+	RF_DBG(rf, DBG_RF_POWER, "======>%s   pw_lmt_type=%d(%s)\n",
+		__func__, pw_lmt_type,
+		pw_lmt_regu_type_str(pw_lmt_type));
+
+	pwr->ant_gain_reg[pw_lmt_type] = pw_lmt_type;
+	pwr->ant_gain_2g_oft[pw_lmt_type] = regu->ag_2g_comp;
+	pwr->ant_gain_5g_oft[pw_lmt_type] = regu->ag_5g_comp;
+	for (i = 0; i < PWR_LMT_6G_MAX; i++)
+		pwr->ant_gain_6g_oft[pw_lmt_type_6g[i]] = regu->ag_6g_comp;
 
 	for (tx_num = 0; tx_num < MAX_HALRF_PATH; tx_num++) {
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_2G; ch++) {
 			for (bf = 0; bf < PW_LMT_MAX_BF_NUM; bf++) {
 				for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 					for (bw = 0; bw < PW_LMT_MAX_2G_BANDWITH_NUM; bw++) {
+						if (pw_lmt_type >= PW_LMT_MAX_REGULATION_NUM)
+							continue;
 						RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_2g[%d][%d][%d][%d][%d][%d] =   %d\n",
-							regu->regu, bw, rate, bf, ch, tx_num ,
-							pwr->tx_pwr_limit_2g[regu->regu][bw][rate][bf][ch][tx_num]);
+							pw_lmt_type, bw, rate, bf, ch, tx_num ,
+							pwr->tx_pwr_limit_2g[pw_lmt_type][bw][rate][bf][ch][tx_num]);
 
-						if (regu->regu < PW_LMT_MAX_REGULATION_NUM &&
-							pwr->tx_pwr_limit_2g[regu->regu][bw][rate][bf][ch][tx_num] != -128 &&
-							pwr->tx_pwr_limit_2g[regu->regu][bw][rate][bf][ch][tx_num] != 127) {
-							pwr->tx_pwr_limit_2g[regu->regu][bw][rate][bf][ch][tx_num] =
-								pwr->tx_pwr_limit_2g[regu->regu][bw][rate][bf][ch][tx_num] + regu->ag_2g_comp;
+						if (pwr->tx_pwr_limit_2g[pw_lmt_type][bw][rate][bf][ch][tx_num] != -128 &&
+							pwr->tx_pwr_limit_2g[pw_lmt_type][bw][rate][bf][ch][tx_num] != 127) {
+							pwr->tx_pwr_limit_2g[pw_lmt_type][bw][rate][bf][ch][tx_num] =
+								pwr->tx_pwr_limit_2g[pw_lmt_type][bw][rate][bf][ch][tx_num] + regu->ag_2g_comp;
 						}
 
 						RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_2g[%d][%d][%d][%d][%d][%d] =   %d\n",
-							regu->regu, bw, rate, bf, ch, tx_num ,
-							pwr->tx_pwr_limit_2g[regu->regu][bw][rate][bf][ch][tx_num]);
+							pw_lmt_type, bw, rate, bf, ch, tx_num ,
+							pwr->tx_pwr_limit_2g[pw_lmt_type][bw][rate][bf][ch][tx_num]);
 					}
 				}
 			}
@@ -3142,20 +3449,21 @@ void halrf_set_ant_gain_offset(struct rf_info *rf,
 			for (bf = 0; bf < PW_LMT_MAX_BF_NUM; bf++) {
 				for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 					for (bw = 0; bw < PW_LMT_MAX_BANDWIDTH_NUM; bw++) {
+						if (pw_lmt_type >= PW_LMT_MAX_REGULATION_NUM)
+							continue;
 						RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_5g[%d][%d][%d][%d][%d][%d]=   %d\n",
-							regu->regu, bw, rate, bf, ch, tx_num,
-							pwr->tx_pwr_limit_5g[regu->regu][bw][rate][bf][ch][tx_num]);
+							pw_lmt_type, bw, rate, bf, ch, tx_num,
+							pwr->tx_pwr_limit_5g[pw_lmt_type][bw][rate][bf][ch][tx_num]);
 
-						if (regu->regu < PW_LMT_MAX_REGULATION_NUM &&
-							pwr->tx_pwr_limit_5g[regu->regu][bw][rate][bf][ch][tx_num] != -128 &&
-							pwr->tx_pwr_limit_5g[regu->regu][bw][rate][bf][ch][tx_num] != 127) {
-							pwr->tx_pwr_limit_5g[regu->regu][bw][rate][bf][ch][tx_num] =
-								pwr->tx_pwr_limit_5g[regu->regu][bw][rate][bf][ch][tx_num] + regu->ag_5g_comp;
+						if (pwr->tx_pwr_limit_5g[pw_lmt_type][bw][rate][bf][ch][tx_num] != -128 &&
+							pwr->tx_pwr_limit_5g[pw_lmt_type][bw][rate][bf][ch][tx_num] != 127) {
+							pwr->tx_pwr_limit_5g[pw_lmt_type][bw][rate][bf][ch][tx_num] =
+								pwr->tx_pwr_limit_5g[pw_lmt_type][bw][rate][bf][ch][tx_num] + regu->ag_5g_comp;
 						}
 
 						RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_5g[%d][%d][%d][%d][%d][%d]=   %d\n",
-							regu->regu, bw, rate, bf, ch, tx_num,
-							pwr->tx_pwr_limit_5g[regu->regu][bw][rate][bf][ch][tx_num]);
+							pw_lmt_type, bw, rate, bf, ch, tx_num,
+							pwr->tx_pwr_limit_5g[pw_lmt_type][bw][rate][bf][ch][tx_num]);
 					}
 				}
 			}
@@ -3167,20 +3475,23 @@ void halrf_set_ant_gain_offset(struct rf_info *rf,
 			for (bf = 0; bf < PW_LMT_MAX_BF_NUM; bf++) {
 				for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 					for (bw = 0; bw < PW_LMT_MAX_BANDWIDTH_NUM; bw++) {
-						RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_6g[%d][%d][%d][%d][%d][%d] =	 %d\n",
-							regu->regu, bw, rate, bf, ch, tx_num ,
-							pwr->tx_pwr_limit_6g[regu->regu][bw][rate][bf][ch][tx_num]);
+						for (i = 0; i < PWR_LMT_6G_MAX; i++) {
+							if (pw_lmt_type_6g[i] >= PW_LMT_MAX_6G_REGULATION_NUM)
+								continue;
+							RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_6g[%d][%d][%d][%d][%d][%d] =	 %d\n",
+								pw_lmt_type_6g[i], bw, rate, bf, ch, tx_num ,
+								pwr->tx_pwr_limit_6g[pw_lmt_type_6g[i]][bw][rate][bf][ch][tx_num]);
 
-						if (regu->regu < PW_LMT_MAX_REGULATION_NUM &&
-							pwr->tx_pwr_limit_6g[regu->regu][bw][rate][bf][ch][tx_num] != -128 &&
-							pwr->tx_pwr_limit_6g[regu->regu][bw][rate][bf][ch][tx_num] != 127) {
-							pwr->tx_pwr_limit_6g[regu->regu][bw][rate][bf][ch][tx_num] =
-								pwr->tx_pwr_limit_6g[regu->regu][bw][rate][bf][ch][tx_num] + regu->ag_6g_comp;
+							if (pwr->tx_pwr_limit_6g[pw_lmt_type_6g[i]][bw][rate][bf][ch][tx_num] != -128 &&
+								pwr->tx_pwr_limit_6g[pw_lmt_type_6g[i]][bw][rate][bf][ch][tx_num] != 127) {
+								pwr->tx_pwr_limit_6g[pw_lmt_type_6g[i]][bw][rate][bf][ch][tx_num] =
+									pwr->tx_pwr_limit_6g[pw_lmt_type_6g[i]][bw][rate][bf][ch][tx_num] + regu->ag_6g_comp;
+							}
+
+							RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_6g[%d][%d][%d][%d][%d][%d] =   %d\n",
+								pw_lmt_type_6g[i], bw, rate, bf, ch, tx_num ,
+								pwr->tx_pwr_limit_6g[pw_lmt_type_6g[i]][bw][rate][bf][ch][tx_num]);
 						}
-
-						RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_6g[%d][%d][%d][%d][%d][%d] =   %d\n",
-							regu->regu, bw, rate, bf, ch, tx_num ,
-							pwr->tx_pwr_limit_6g[regu->regu][bw][rate][bf][ch][tx_num]);
 					}
 				}
 			}
@@ -3191,20 +3502,21 @@ void halrf_set_ant_gain_offset(struct rf_info *rf,
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_2G; ch++) {
 			for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 				for (bw = 0; bw < PW_LMT_RU_BW_NULL; bw++) {
+					if (pw_lmt_type >= PW_LMT_MAX_REGULATION_NUM)
+						continue;
 					RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_ru_2g[%d][%d][%d][%d][%d] =   %d\n",
-						regu->regu, bw, rate, ch, tx_num,
-						pwr->tx_pwr_limit_ru_2g[regu->regu][bw][rate][ch][tx_num]);
+						pw_lmt_type, bw, rate, ch, tx_num,
+						pwr->tx_pwr_limit_ru_2g[pw_lmt_type][bw][rate][ch][tx_num]);
 
-					if (regu->regu < PW_LMT_MAX_REGULATION_NUM &&
-						pwr->tx_pwr_limit_ru_2g[regu->regu][bw][rate][ch][tx_num] != -128 &&
-						pwr->tx_pwr_limit_ru_2g[regu->regu][bw][rate][ch][tx_num] != 127) {
-						pwr->tx_pwr_limit_ru_2g[regu->regu][bw][rate][ch][tx_num] =
-							pwr->tx_pwr_limit_ru_2g[regu->regu][bw][rate][ch][tx_num] + regu->ag_2g_comp;
+					if (pwr->tx_pwr_limit_ru_2g[pw_lmt_type][bw][rate][ch][tx_num] != -128 &&
+						pwr->tx_pwr_limit_ru_2g[pw_lmt_type][bw][rate][ch][tx_num] != 127) {
+						pwr->tx_pwr_limit_ru_2g[pw_lmt_type][bw][rate][ch][tx_num] =
+							pwr->tx_pwr_limit_ru_2g[pw_lmt_type][bw][rate][ch][tx_num] + regu->ag_2g_comp;
 					}
 
 					RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_ru_2g[%d][%d][%d][%d][%d] =   %d\n",
-						regu->regu, bw, rate, ch, tx_num,
-						pwr->tx_pwr_limit_ru_2g[regu->regu][bw][rate][ch][tx_num]);
+						pw_lmt_type, bw, rate, ch, tx_num,
+						pwr->tx_pwr_limit_ru_2g[pw_lmt_type][bw][rate][ch][tx_num]);
 				}
 			}
 		}
@@ -3214,20 +3526,21 @@ void halrf_set_ant_gain_offset(struct rf_info *rf,
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_5G; ch++) {
 			for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 				for (bw = 0; bw < PW_LMT_RU_BW_NULL; bw++) {
+					if (pw_lmt_type >= PW_LMT_MAX_REGULATION_NUM)
+						continue;
 					RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_ru_5g[%d][%d][%d][%d][%d]=   %d\n",
-						regu->regu, bw, rate, ch, tx_num,
-						pwr->tx_pwr_limit_ru_5g[regu->regu][bw][rate][ch][tx_num]);
+						pw_lmt_type, bw, rate, ch, tx_num,
+						pwr->tx_pwr_limit_ru_5g[pw_lmt_type][bw][rate][ch][tx_num]);
 					
-					if (regu->regu < PW_LMT_MAX_REGULATION_NUM &&
-						pwr->tx_pwr_limit_ru_5g[regu->regu][bw][rate][ch][tx_num] != -128 &&
-						pwr->tx_pwr_limit_ru_5g[regu->regu][bw][rate][ch][tx_num] != 127) {
-						pwr->tx_pwr_limit_ru_5g[regu->regu][bw][rate][ch][tx_num] =
-							pwr->tx_pwr_limit_ru_5g[regu->regu][bw][rate][ch][tx_num] + regu->ag_5g_comp;
+					if (pwr->tx_pwr_limit_ru_5g[pw_lmt_type][bw][rate][ch][tx_num] != -128 &&
+						pwr->tx_pwr_limit_ru_5g[pw_lmt_type][bw][rate][ch][tx_num] != 127) {
+						pwr->tx_pwr_limit_ru_5g[pw_lmt_type][bw][rate][ch][tx_num] =
+							pwr->tx_pwr_limit_ru_5g[pw_lmt_type][bw][rate][ch][tx_num] + regu->ag_5g_comp;
 					}
 
 					RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_ru_5g[%d][%d][%d][%d][%d]=   %d\n",
-						regu->regu, bw, rate, ch, tx_num,
-						pwr->tx_pwr_limit_ru_5g[regu->regu][bw][rate][ch][tx_num]);
+						pw_lmt_type, bw, rate, ch, tx_num,
+						pwr->tx_pwr_limit_ru_5g[pw_lmt_type][bw][rate][ch][tx_num]);
 				}
 			}
 		}
@@ -3237,20 +3550,23 @@ void halrf_set_ant_gain_offset(struct rf_info *rf,
 		for (ch = 0; ch < PW_LMT_MAX_CHANNEL_NUMBER_6G; ch++) {
 			for (rate = 0; rate < PW_LMT_MAX_RS_NUM; rate++) {
 				for (bw = 0; bw < PW_LMT_RU_BW_NULL; bw++) {
-					RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_ru_6g[%d][%d][%d][%d][%d] =   %d\n",
-						regu->regu, bw, rate, ch, tx_num,
-						pwr->tx_pwr_limit_ru_6g[regu->regu][bw][rate][ch][tx_num]);
-					
-					if (regu->regu < PW_LMT_MAX_REGULATION_NUM &&
-						pwr->tx_pwr_limit_ru_6g[regu->regu][bw][rate][ch][tx_num] != -128 &&
-						pwr->tx_pwr_limit_ru_6g[regu->regu][bw][rate][ch][tx_num] != 127) {
-						pwr->tx_pwr_limit_ru_6g[regu->regu][bw][rate][ch][tx_num] =
-							pwr->tx_pwr_limit_ru_6g[regu->regu][bw][rate][ch][tx_num] + regu->ag_6g_comp;
-					}
+					for (i = 0; i < PWR_LMT_6G_MAX; i++) {
+						if (pw_lmt_type_6g[i] >= PW_LMT_MAX_6G_REGULATION_NUM)
+							continue;
+						RF_DBG(rf, DBG_RF_POWER, "Org   pwr->tx_pwr_limit_ru_6g[%d][%d][%d][%d][%d] =   %d\n",
+							pw_lmt_type_6g[i], bw, rate, ch, tx_num,
+							pwr->tx_pwr_limit_ru_6g[pw_lmt_type_6g[i]][bw][rate][ch][tx_num]);
+						
+						if (pwr->tx_pwr_limit_ru_6g[pw_lmt_type_6g[i]][bw][rate][ch][tx_num] != -128 &&
+							pwr->tx_pwr_limit_ru_6g[pw_lmt_type_6g[i]][bw][rate][ch][tx_num] != 127) {
+							pwr->tx_pwr_limit_ru_6g[pw_lmt_type_6g[i]][bw][rate][ch][tx_num] =
+								pwr->tx_pwr_limit_ru_6g[pw_lmt_type_6g[i]][bw][rate][ch][tx_num] + regu->ag_6g_comp;
+						}
 
-					RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_ru_6g[%d][%d][%d][%d][%d] =   %d\n",
-						regu->regu, bw, rate, ch, tx_num,
-						pwr->tx_pwr_limit_ru_6g[regu->regu][bw][rate][ch][tx_num]);
+						RF_DBG(rf, DBG_RF_POWER, "Chage pwr->tx_pwr_limit_ru_6g[%d][%d][%d][%d][%d] =   %d\n",
+							pw_lmt_type_6g[i], bw, rate, ch, tx_num,
+							pwr->tx_pwr_limit_ru_6g[pw_lmt_type_6g[i]][bw][rate][ch][tx_num]);
+					}
 				}
 			}
 		}
@@ -3273,5 +3589,88 @@ void halrf_set_dynamic_ant_gain(struct rf_info *rf,
 
 	/*Set to HW Register*/
 	halrf_set_power(rf, phy, (PWR_LIMIT & PWR_LIMIT_RU));
+}
+
+u8 _halrf_get_ch_idx_fw_scan_limit(struct rf_info *rf, u8 ch)
+{
+	u8 chidx = 0;
+
+	if (ch >= 1 && ch <= 14)
+		chidx = ch - 1;
+	else if (ch >= 36 && ch <= 64)
+		chidx = (ch - 36) / 4;
+	else if (ch >= 100 && ch <= 144)
+		chidx = ((ch - 100) / 4) + 8;
+	else if (ch >= 149 && ch <= 177)
+		chidx = ((ch - 149) / 4) + 20;
+	else
+		chidx = 0;
+
+	return chidx;
+}
+
+void halrf_set_scan_power_table_to_fw_no_6g(struct rf_info *rf)
+{
+	struct rtw_hal_com_t *hal = rf->hal_com;
+	struct halrf_fw_scan_pwr_info *pwr_fw = &rf->pwr_fw_info;
+	u8 ant, chidx, reg;
+	u8 bw20m_ch_list[BW20M_2G_5G_CH_NUM] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+			36, 40, 44, 48, 52, 56, 60, 64,
+			100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144,
+			149, 153, 157, 161, 165, 169, 173, 177};
+
+	RF_DBG(rf, DBG_RF_POWER, "=======>%s\n", __func__);
+
+	hal_mem_set(hal, pwr_fw, 0, sizeof(*pwr_fw));
+
+	pwr_fw->fw_scan_pwr_enable = 1;
+
+	pwr_fw->cck_11m_1m =
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_CCK11, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f) << 24 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_CCK5_5, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f) << 16 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_CCK2, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f) << 8 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_CCK1, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f);
+
+	pwr_fw->ofdm_2g_18m_6m =
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM18, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f) << 24 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM12, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f) << 16 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM9, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f) << 8 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM6, 0, 0, PW_LMT_BAND_2_4G) / 2) & 0x7f);
+
+	pwr_fw->ofdm_5g_18m_6m =
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM18, 0, 0, PW_LMT_BAND_5G) / 2) & 0x7f) << 24 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM12, 0, 0, PW_LMT_BAND_5G) / 2) & 0x7f) << 16 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM9, 0, 0, PW_LMT_BAND_5G) / 2) & 0x7f) << 8 |
+		((halrf_get_power_by_rate_band(rf, HW_PHY_0, RTW_DATA_RATE_OFDM6, 0, 0, PW_LMT_BAND_5G) / 2) & 0x7f);
+
+	for (ant = 0; ant < TX_NUM; ant++) {
+		for (chidx = 0; chidx < BW20M_2G_5G_CH_NUM; chidx++) {
+			if (bw20m_ch_list[chidx] <= 14) {
+				reg = halrf_get_regulation_info(rf, BAND_ON_24G);
+				pwr_fw->pwr_lmt[ant][chidx] =
+					(halrf_get_power_limit_option(rf, HW_PHY_0, RF_PATH_A, RTW_DATA_RATE_CCK11, PW_LMT_BW_20M,
+						PW_LMT_NONBF, ant, bw20m_ch_list[chidx], BAND_ON_24G, reg) / 2) & 0x7f;
+			} else {
+				reg = halrf_get_regulation_info(rf, BAND_ON_5G);
+				pwr_fw->pwr_lmt[ant][chidx] =
+					(halrf_get_power_limit_option(rf, HW_PHY_0, RF_PATH_A, RTW_DATA_RATE_OFDM54, PW_LMT_BW_20M,
+						PW_LMT_NONBF, ant, bw20m_ch_list[chidx], BAND_ON_5G, reg) / 2) & 0x7f;
+			}
+		}
+	}
+
+	RF_DBG(rf, DBG_RF_POWER, "pwr_fw->cck_11m_1m=0x%08x\n", pwr_fw->cck_11m_1m);
+	RF_DBG(rf, DBG_RF_POWER, "pwr_fw->ofdm_2g_18m_6m=0x%08x\n", pwr_fw->ofdm_2g_18m_6m);
+	RF_DBG(rf, DBG_RF_POWER, "pwr_fw->ofdm_5g_18m_6m=0x%08x\n", pwr_fw->ofdm_5g_18m_6m);
+
+	for (ant = 0; ant < TX_NUM; ant++) {
+		for (chidx = 0; chidx < BW20M_2G_5G_CH_NUM; chidx++) {
+			RF_DBG(rf, DBG_RF_POWER, "pwr_fw->pwr_lmt[ant(%d)][chidx(%d)]=0x%08x\n",
+				ant, chidx, pwr_fw->pwr_lmt[ant][chidx]);
+		}
+	}
+
+	halrf_fill_h2c_cmd(rf, sizeof(*pwr_fw),
+		FWCMD_H2C_PWR_TBL_OFFLOAD, 0xa, H2CB_TYPE_LONG_DATA, (u32 *) pwr_fw);
 }
 

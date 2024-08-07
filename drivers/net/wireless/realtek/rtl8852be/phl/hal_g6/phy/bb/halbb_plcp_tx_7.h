@@ -40,6 +40,8 @@
 
 struct bb_info;
 
+u32 halbb_c2h_ehtsig_rpt(struct bb_info *bb, u16 len, u8 *c2h);
+
 void halbb_cr_cfg_plcp_init_7(struct bb_info *bb);
 
 void halbb_plcp_init_7(struct bb_info *bb);

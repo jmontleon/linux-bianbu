@@ -93,28 +93,33 @@ static const struct mac_hal_cmd_info mac_hal_cmd_i[] = {
 	{"-h", MAC_HAL_HELP, cmd_mac_help, ""},
 	/*@do not move this element to other position*/
 	/*for MAC Debug Command Usage*/
-	{"dd_dbg", MAC_MAC_DD_DBG, cmd_mac_dbg_dump, ""},
-	{"reg_dump", MAC_MAC_REG_DUMP, cmd_mac_reg_dump, ""},
-	{"error_dump", MAC_MAC_ERROR_DUMP, cmd_mac_error_dump, ""},
-	{"dbg_tx", MAC_MAC_DBG_TX, cmd_mac_dbg_tx_dump, ""},
-	{"dbg_rx", MAC_MAC_DBG_RX, cmd_mac_dbg_rx_dump, ""},
-	{"dbg_cmac", MAC_MAC_DBG_CMAC, cmd_mac_dbg_rx_dump, ""},
-	{"dbg_dmac", MAC_MAC_DBG_DMAC, cmd_mac_dbg_rx_dump, ""},
-	{"dbg_bdsts", MAC_MAC_DBG_BDSTS, cmd_mac_bd_status, ""},
+	{"dd_dbg", MAC_MAC_DD_DBG, cmd_mac_dbg_dump, \
+	 "mac debug port dump for detailed information"},
+	{"reg_dump", MAC_MAC_REG_DUMP, cmd_mac_reg_dump, "mac reg dump all"},
+	{"error_dump", MAC_MAC_ERROR_DUMP, cmd_mac_error_dump, "history error record"},
+	{"dbg_tx", MAC_MAC_DBG_TX, cmd_mac_dbg_tx_dump, "dump tx path detailed debug information"},
+	{"dbg_rx", MAC_MAC_DBG_RX, cmd_mac_dbg_rx_dump, "dump rx path detailed debug information"},
+	{"dbg_cmac", MAC_MAC_DBG_CMAC, cmd_mac_dbg_cmac, "dump cmac detailed debug information"},
+	{"dbg_dmac", MAC_MAC_DBG_DMAC, cmd_mac_dbg_dmac, "dump dmac detailed debug information"},
+	{"dbg_bdsts", MAC_MAC_DBG_BDSTS, cmd_mac_bd_status, "dump TX/RX BD detailed information"},
 	{"dbg_bcn", MAC_MAC_DBG_BCN, cmd_mac_dbg_bcn, \
-	 "param1: <Band Number> (0 or 1)"},
-	{"dbg_tx_cnt", MAC_MAC_DBG_TX_CNT, cmd_mac_tx_cnt, ""},
-	{"dbg_rx_cnt", MAC_MAC_DBG_RX_CNT, cmd_mac_rx_cnt, ""},
-	{"ser_cnt", MAC_MAC_SER_CNT_DUMP, cmd_mac_ser_cnt_dump, "Show SER Count Status"},
+	 "dump bcn related information for debugging, param1: <Band Number> (0 or 1)"},
+	{"dbg_tx_cnt", MAC_MAC_DBG_TX_CNT, cmd_mac_tx_cnt, \
+	 "dump TX Counter information, param1<band>"},
+	{"dbg_rx_cnt", MAC_MAC_DBG_RX_CNT, cmd_mac_rx_cnt, \
+	 "dump RX Counter information, param1<band>"},
+	{"ser_cnt", MAC_MAC_SER_CNT_DUMP, cmd_mac_ser_cnt_dump, "dump SER counter information"},
 	{"set_ser_log_lvl", MAC_MAC_SET_SER_LVL, cmd_mac_ser_level_set, \
 	 "param1: <One Byte Hex Number> (Bit0:mac_reg, Bit1:txflow, Bit2:dmac," \
 	 "Bit3:cmac, Bit4:share_mem, Bit5:dbgprt)"},
 	{"get_ser_log_lvl", MAC_MAC_GET_SER_LVL, cmd_mac_ser_level_dump, "Get the SER log level"},
-	{"bcn_stats", MAC_MAC_QC_START, cmd_mac_bcn_stats, ""},
+	{"bcn_stats", MAC_MAC_QC_START, cmd_mac_bcn_stats, \
+	 "Show current bcn_early, bcn_ok counter and bcn rx ratio; parameter: " \
+	 "<process> (start or end)"},
 	{"dbg_read", MAC_MAC_DBG_READ, cmd_mac_dbg_read, "MAC CMD for SRAM FIFO Debug Read"\
-	" 'cmd mac dbg_read <enum sel> <offset> <size>'"},
+	 " 'cmd mac dbg_read <enum sel> <offset> <size>'"},
 	{"dbg_write", MAC_MAC_DBG_WRITE, cmd_mac_dbg_write, "MAC CMD for SRAM FIFO Write"\
-	" 'cmd mac dbg_write <enum sel> <offset> <write_val>'"},
+	 " 'cmd mac dbg_write <enum sel> <offset> <write_val>'"},
 	{"trx_info_macid", MAC_MAC_TRX_INFO_MACID, cmd_mac_trx_info_macid, \
 	 "Per MACID T/RX information"},
 	{"trx_info_global", MAC_MAC_TRX_INFO_GLOBAL, cmd_mac_trx_info_global, \
@@ -124,6 +129,11 @@ static const struct mac_hal_cmd_info mac_hal_cmd_i[] = {
 	{"pkt_cal", MAC_MAC_PKT_CAL, cmd_mac_pkt_cal, "Packet Per Second calculation"},
 	{"trg_ser_l0", MAC_MAC_TRG_SER_L0, cmd_mac_trigger_l0_err, "Trigger SER L0"},
 	{"trg_ser_l1", MAC_MAC_TRG_SER_L1, cmd_mac_trigger_l1_err, "Trigger SER L1"},
+	{"set_cmac_dbg", MAC_MAC_SET_SER_L0_DBG, cmd_mac_set_l0_dbg_mode, "Set SER L0 debug mode"},
+	{"set_dmac_dbg", MAC_MAC_SET_SER_L1_DBG, cmd_mac_set_l1_dbg_mode, "Set SER L1 debug mode"},
+	{"rst_dbg_mode", MAC_MAC_RST_SER_DBG, cmd_mac_rst_dbg_mode, "Reset SER debug mode"},
+	{"wdt_log", MAC_MAC_WDT_LOG, cmd_mac_wdt_log, "Dump log for watchdog"},
+	{"dbg_msg_en", MAC_MAC_DBG_MSG_EN, cmd_mac_dbg_msg_en, "set foreground/background dump"},
 	 /*for FW Debug Command Usage*/
 	{"fw_dbg", MAC_MAC_FW_DBG, cmd_mac_fw_dump, ""},
 	{"help", MAC_HAL_HELP, cmd_mac_help, ""},
@@ -140,7 +150,10 @@ static const struct mac_hal_cmd_info mac_hal_cmd_i[] = {
 	{"chsw", MAC_MAC_CHSW, cmd_mac_fw_chsw, ""},
 	{"chsw_ret", MAC_MAC_CHSW_RET, cmd_mac_fw_chsw_ret, ""},
 	{"rpt_queue_sts", MAC_MAC_RPT_QUEUE_STS, cmd_mac_rpt_queue_sts, \
-	 "Number and Status of RPT enqueue(AXIDMA/RPT QUEUE)"}
+	 "Number and Status of RPT enqueue(AXIDMA/RPT QUEUE)"},
+	{"check_reg", MAC_MAC_CHK_REG, cmd_check_reg, ""},
+	{"swtx", MAC_MAC_SWTXMODE, cmd_mac_fw_swtx, ""},
+	{"h2c_mon", MAC_MAC_H2C_MON, cmd_h2c_mon, ""},
 	/*@do not move this element to other position*/
 };
 
@@ -170,6 +183,7 @@ static struct fw_status_proc_class fw_status_proc_sys[] = {
 	{FW_STATUS_HEAPINFO, fw_status_heapinfo_handler},
 	{FW_STATUS_MEMINFO_FAST, fw_status_meminfo_fast_handler},
 	{FW_STATUS_MEMINFO_SLOW, fw_status_meminfo_slow_handler},
+	{FW_STATUS_HEAP_DETAIL, fw_status_heap_detail_handler},
 	{FW_STATUS_PSINFO, fw_status_psinfo_handler},
 	{FW_STATUS_H2C_C2HINFO, fw_status_h2c_c2hinfo_handler},
 	{FW_STATUS_ISRINFO, fw_status_isrinfo_handler},
@@ -177,8 +191,97 @@ static struct fw_status_proc_class fw_status_proc_sys[] = {
 	{FW_STATUS_MAX, NULL},
 };
 
+#if MAC_AX_8852A_SUPPORT
+static struct check_reg_info check_reg_8852A[] = {
+	{R_AX_LTR_CTRL_0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
+#if MAC_AX_8852B_SUPPORT
+static struct check_reg_info check_reg_8852B[] = {
+	{R_AX_LTR_CTRL_0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
+#if MAC_AX_8852C_SUPPORT
+static struct check_reg_info check_reg_8852C[] = {
+	{R_AX_LTR_DEC_CTRL, 0x7, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX2, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX3, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_0, 0x73, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
+#if MAC_AX_8192XB_SUPPORT
+static struct check_reg_info check_reg_8192XB[] = {
+	{R_AX_LTR_DEC_CTRL, 0x7, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX2, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX3, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_0, 0x73, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
+#if MAC_AX_8851B_SUPPORT
+static struct check_reg_info check_reg_8851B[] = {
+	{R_AX_LTR_CTRL_0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
+#if MAC_AX_8851E_SUPPORT
+static struct check_reg_info check_reg_8851E[] = {
+	{R_AX_LTR_DEC_CTRL, 0x7, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX2, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX3, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_0, 0x73, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
+#if MAC_AX_8852D_SUPPORT
+static struct check_reg_info check_reg_8852D[] = {
+	{R_AX_LTR_DEC_CTRL, 0x7, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX0, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX2, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_LATENCY_IDX3, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_0, 0x73, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_CTRL_1, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_IDLE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+	{R_AX_LTR_ACTIVE_LATENCY, 0xffffffff, CHK_REG_INTF_PCIE},
+};
+#endif
+
 u8 qc_cmd_id;
 u32 fheap_start, sheap_start;
+u8 heap_all_end = 1, heap_slow_flag, heap_slow_chk_fail, heap_fast_chk_fail;
+u8 fstart_num, sstart_num, fsearched_num, ssearched_num, fheap_diff_num, sheap_diff_num;
+struct heap_info fheap_info_start[F_MSID_FUNC_NUM_MAX];
+struct heap_info sheap_info_start[S_MSID_FUNC_NUM_MAX];
+u32 *reg_start_val32;
+u8 reg_chk_start, reg_chk_fail;
 
 u32 cmd_mac_help(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
 		 char *output, u32 out_len, u32 *used)
@@ -426,9 +529,10 @@ u32 cmd_mac_dbg_bcn(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV],
 		    char *output, u32 out_len, u32 *used)
 {
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-	u8 i, band, en_port_num = 0;
-	u32 reg, address;
+	u8 i, band, en_port_num = 0, bcn_space = 0, bcn_subspace = 0;
+	u32 reg, address, total_cnt;
 	char mac_ver[20], fw_ver[20];
+	struct mac_ax_bcn_rpt_stats *prpt_stats;
 
 	cmd_mac_get_version(adapter, mac_ver, sizeof(mac_ver));
 	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
@@ -437,149 +541,321 @@ u32 cmd_mac_dbg_bcn(struct mac_ax_adapter *adapter,  char input[][MAC_MAX_ARGV],
 	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
 		    "FW version %s\n", fw_ver);
 
-	if (input_num == 2) {
-		band = PLTFM_STRCMP(input[1], "1") == 0 ? 1 : 0;
-		PLTFM_MSG_ERR("Select band: %d\n", band);
+	if (input_num != 2) {
+		PLTFM_MSG_ERR("Command example: \"cmd mac dbg_bcn <band number>\"\n");
+		return MACSUCCESS;
+	}
 
-		/* TRX Setting */
-		/* Check MACID Sleep */
+	band = PLTFM_STRCMP(input[1], "1") == 0 ? 1 : 0;
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Select band: %d\n", band);
+
+	/* Check Common Setting */
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "\n***** Check Common Setting *****\n");
+	/* Check BCNQ Lock */
+	address = (band == MAC_AX_BAND_0) ?
+		  R_AX_BCNQ_CTRL : R_AX_BCNQ_CTRL_C1;
+	reg = MAC_REG_R32(address);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check BCNQ Lock:\t0x%08x[31:0] = 0x%08x\n", address, reg);
+	if ((reg & B_AX_BCNQ_LOCK) == B_AX_BCNQ_LOCK)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[0] should not be 1\n", address);
+
+	/* Get the BCN Number in BCNQ */
+	MAC_REG_W32(R_AX_PTCL_DBG, 0x108);
+	reg = MAC_REG_R32(R_AX_PTCL_DBG_INFO);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "BCN number in BCNQ:\t0x%08x[31:0] = 0x%08x\n", R_AX_PTCL_DBG_INFO, reg);
+
+	/* Check MACID Sleep */
+	address = (band == MAC_AX_BAND_0) ?
+		  R_AX_MACID_SLEEP_0 : R_AX_MACID_SLEEP_0_C1;
+	reg = MAC_REG_R32(address);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check MACID Sleep:\t0x%08x[31:0] = 0x%08x\n", address, reg);
+	if ((reg & 0xffff) != 0)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[15:0] should not be enable\n", address);
+
+	/* Check MACID Pause */
+	reg = MAC_REG_R32(R_AX_SS_MACID_PAUSE_0);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check MACID Pause:\t0x%08x[31:0] = 0x%08x\n", R_AX_SS_MACID_PAUSE_0, reg);
+	if ((reg & 0xffff) != 0)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[15:0] should not be enable\n", R_AX_SS_MACID_PAUSE_0);
+
+	/* Check Contention EN */
+	address = (band == MAC_AX_BAND_0) ? R_AX_CTN_TXEN : R_AX_CTN_TXEN_C1;
+	reg = MAC_REG_R32(address);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check Contention EN Flag:\t0x%08x[31:0] = 0x%08x\n", address, reg);
+	if ((reg & B_AX_CTN_TXEN_MGQ) != B_AX_CTN_TXEN_MGQ)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[8] should enable MGQ\n", address);
+	if ((reg & B_AX_CTN_TXEN_MGQ1) != B_AX_CTN_TXEN_MGQ1)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[9] should enable MGQ1\n", address);
+	if ((reg & B_AX_CTN_TXEN_HGQ) != B_AX_CTN_TXEN_HGQ)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[11] should enable HGQ\n", address);
+	if ((reg & B_AX_CTN_TXEN_BCNQ) != B_AX_CTN_TXEN_BCNQ)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[12] should enable BCNQ\n", address);
+		/* Check DRV Contention EN */
+	address = (band == MAC_AX_BAND_0) ? R_AX_CTN_DRV_TXEN : R_AX_CTN_DRV_TXEN_C1;
+	reg = MAC_REG_R32(address);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check DRV Contention EN Flag:\t0x%08x[31:0] = 0x%08x\n", address, reg);
+	if ((reg & B_AX_CTN_TXEN_MGQ) != B_AX_CTN_TXEN_MGQ)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[8] should enable MGQ\n", address);
+	if ((reg & B_AX_CTN_TXEN_MGQ1) != B_AX_CTN_TXEN_MGQ1)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[9] should enable MGQ1\n", address);
+	if ((reg & B_AX_CTN_TXEN_HGQ) != B_AX_CTN_TXEN_HGQ)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[11] should enable HGQ\n", address);
+	if ((reg & B_AX_CTN_TXEN_BCNQ) != B_AX_CTN_TXEN_BCNQ)
+		PLTFM_MSG_ERR("[ERR] 0x%08x[12] should enable BCNQ\n", address);
+
+	/* Check TXON */
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used, "Check PTCL TXON Status:\n");
+	for (i = 0; i < 5; i++) {
 		address = (band == MAC_AX_BAND_0) ?
-			  R_AX_MACID_SLEEP_0 : R_AX_MACID_SLEEP_0_C1;
+		R_AX_PTCL_TX_CTN_SEL : R_AX_PTCL_TX_CTN_SEL_C1;
 		reg = MAC_REG_R32(address);
 		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check MACID Sleep:\t0x%08x[31:0] = 0x%08x\n",
-			    address, reg);
-		if ((reg & 0x1) != 0)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[0] should not be 1\n", address);
+			    "\t0x%08x[31:0] = 0x%08x\n", address, reg);
+		if (reg == 0x12)
+			break;
+		PLTFM_DELAY_MS(100);
+	}
 
-		/* Check MACID Pause */
-		reg = MAC_REG_R32(R_AX_SS_MACID_PAUSE_0);
-		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check MACID Pause:\t0x%08x[31:0] = 0x%08x\n",
-			    R_AX_SS_MACID_PAUSE_0, reg);
-		if ((reg & 0x1) != 0)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[0] should not be 1\n", R_AX_SS_MACID_PAUSE_0);
-
-		/* Check Contention EN */
-		address = (band == MAC_AX_BAND_0) ? R_AX_CTN_TXEN : R_AX_CTN_TXEN_C1;
+	/* Check Port Setting */
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "\n***** Check Port Setting *****\n");
+	/* Check BCN Setting */
+	for (i = 0; i < MAC_AX_PORT_NUM; i++) {
+		/* Check PortN EN, TXBCN EN, TXBCNRPT EN */
+		address = ((band == MAC_AX_BAND_0) ?
+			   R_AX_PORT_CFG_P0 : R_AX_PORT_CFG_P0_C1)
+			   + i * PORT_CFG_OFFSET;
 		reg = MAC_REG_R32(address);
 		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check Contention EN Flag:\t0x%08x[31:0] = 0x%08x\n",
-			    address, reg);
-		if ((reg & B_AX_CTN_TXEN_MGQ) != B_AX_CTN_TXEN_MGQ)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[8] should enable MGQ\n", address);
-		if ((reg & B_AX_CTN_TXEN_MGQ1) != B_AX_CTN_TXEN_MGQ1)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[9] should enable MGQ1\n", address);
-		if ((reg & B_AX_CTN_TXEN_HGQ) != B_AX_CTN_TXEN_HGQ)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[11] should enable HGQ\n", address);
-		if ((reg & B_AX_CTN_TXEN_BCNQ) != B_AX_CTN_TXEN_BCNQ)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[12] should enable BCNQ\n", address);
-
-		address = (band == MAC_AX_BAND_0) ? R_AX_CTN_DRV_TXEN : R_AX_CTN_DRV_TXEN_C1;
-		reg = MAC_REG_R32(address);
-		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check Driver Contention EN Flag:\t0x%08x[31:0] = 0x%08x\n",
-			    address, reg);
-		if ((reg & B_AX_CTN_TXEN_MGQ) != B_AX_CTN_TXEN_MGQ)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[8] should enable MGQ\n", address);
-		if ((reg & B_AX_CTN_TXEN_MGQ1) != B_AX_CTN_TXEN_MGQ1)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[9] should enable MGQ1\n", address);
-		if ((reg & B_AX_CTN_TXEN_HGQ) != B_AX_CTN_TXEN_HGQ)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[11] should enable HGQ\n", address);
-		if ((reg & B_AX_CTN_TXEN_BCNQ) != B_AX_CTN_TXEN_BCNQ)
-			PLTFM_MSG_ERR("[ERR] 0x%08x[12] should enable BCNQ\n", address);
-
-		/* Check TXON */
-		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check PTCL TXON Status:\n");
-		for (i = 0; i < 5; i++) {
-			address = (band == MAC_AX_BAND_0) ?
-			R_AX_PTCL_TX_CTN_SEL : R_AX_PTCL_TX_CTN_SEL_C1;
+			    "Check Port%d Beacon Setting:\t0x%08x[31:0] = 0x%08x",
+			    i, address, reg);
+		if ((reg & BIT(2)) == BIT(2)) {
+			en_port_num++;
+			if ((reg & BIT(12)) != BIT(12))
+				PLTFM_MSG_ERR("[ERR] Please enable port%d BCNTX, "\
+					      "set 0x%08x[12] = 1\n", i, address);
+			if ((reg & BIT(1)) != BIT(1))
+				PLTFM_MSG_ERR("[ERR] Please enable port%d TXBCNRPT, "\
+					      "set 0x%08x[1] = 1\n", i, address);
+			/* Check BCN Space */
+			address = ((band == MAC_AX_BAND_0) ?
+				R_AX_BCN_SPACE_CFG_P0 : R_AX_BCN_SPACE_CFG_P0_C1)
+				+ i * PORT_CFG_OFFSET;
 			reg = MAC_REG_R32(address);
 			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-				    "\t0x%08x[31:0] = 0x%08x\n", address, reg);
-			if (reg == 0x12)
-				break;
-			PLTFM_DELAY_MS(100);
-		}
+				    "\nCheck Port%d Beacon Space:\t0x%08x[31:0] = 0x%08x\n",
+				    i, address, reg);
+			bcn_space = reg & 0xffff;
+			bcn_subspace = (reg >> 16) & 0xffff;
+			if (i == 0) {
+				address = ((band == MAC_AX_BAND_0) ?
+					  R_AX_TBTT_PROHIB_P0 : R_AX_TBTT_PROHIB_P0_C1);
+				reg = MAC_REG_R32(address);
+				MAC_DBG_MSG(out_len, *used, output + *used,
+					    out_len - *used, "Check Port%d hold time:\t\t"
+					    "0x%08x[31:0] = 0x%08x\n", i, address, reg);
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
-MAC_AX_8852D_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT)
-	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
-		address = (band == MAC_AX_BAND_0) ?
-			  R_AX_MBSSID_CTRL : R_AX_MBSSID_CTRL_C1;
-		reg = MAC_REG_R32(address);
-		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check MBSSID EN:\t0x%08x[31:0] = 0x%08x\n", address, reg);
-		PLTFM_MSG_ERR("Number of enable MBSSID: %d\n", (reg >> 16) & 0xf);
-
-		address = (band == MAC_AX_BAND_0) ? R_AX_MBSSID_DROP_0 : R_AX_MBSSID_DROP_0_C1;
-		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-			    "Check MBSSID Drop:\t0x%08x[31:0] = 0x%08x\n",
-			    address, MAC_REG_R32(address));
-	}
+MAC_AX_8852D_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT)
+				if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+				    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+				    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+				    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+				    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+				    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+				    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
+					address = (band == MAC_AX_BAND_0) ?
+						  R_AX_MBSSID_CTRL : R_AX_MBSSID_CTRL_C1;
+					reg = MAC_REG_R32(address);
+					MAC_DBG_MSG(out_len, *used, output + *used,
+						    out_len - *used,
+						    "Number of enable MBSSID: %d\n"
+						    , (reg >> 16) & 0xf);
+					if (((reg >> 16) & 0xf) * bcn_subspace > bcn_space)
+						PLTFM_MSG_ERR("Please check the "\
+							      "BCN subspace\n");
+					MAC_DBG_MSG(out_len, *used, output + *used,
+						    out_len - *used, "Check MBSSID EN:\t\t"
+						    "0x%08x[31:0] = 0x%08x\n", address, reg);
+					address = (band == MAC_AX_BAND_0) ?
+						  R_AX_MBSSID_DROP_0 : R_AX_MBSSID_DROP_0_C1;
+					MAC_DBG_MSG(out_len, *used, output + *used,
+						    out_len - *used, "Check MBSSID Drop:\t\t"
+						    "0x%08x[31:0] = 0x%08x\n",
+						    address, MAC_REG_R32(address));
+				}
 #endif
-
-		/* Check BCN Setting */
-		for (i = 0; i < MAC_AX_PORT_NUM; i++) {
+			} else if (i == 1) {
+				/* Check BCN Hold Time */
+				address = ((band == MAC_AX_BAND_0) ?
+					  R_AX_TBTT_PROHIB_P0 : R_AX_TBTT_PROHIB_P0_C1);
+				reg = MAC_REG_R32(address);
+				MAC_DBG_MSG(out_len, *used, output + *used,
+					    out_len - *used, "Check Port%d hold time:\t"
+					    "0x%08x[31:0] = 0x%08x\n", i, address, reg);
+			}
 			/* Check BCN ISR Flag */
-			address = ((band == MAC_AX_BAND_0) ? R_AX_FWC01ISR : R_AX_FWC01ISR_C1)
+			address = ((band == MAC_AX_BAND_0) ?
+				  R_AX_FWC01ISR : R_AX_FWC01ISR_C1)
 				  + i * FWCISR_OFFSET;
 			reg = MAC_REG_R32(address);
 			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
 				    "Check Port%d Beacon ISR Flag:\t0x%08x[31:0] = 0x%08x\n",
 				    i, address, reg);
-			if (reg != 0x0)
-				PLTFM_MSG_ERR("[ERR] Please clear port%d beacon ISR flag "\
-					      "and read again\n", i);
-
-			/* Check TXBCNEN */
-			address = ((band == MAC_AX_BAND_0) ?
-				   R_AX_PORT_CFG_P0 : R_AX_PORT_CFG_P0_C1)
-				   + i * PORT_CFG_OFFSET;
-			reg = MAC_REG_R32(address);
-			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-				    "Check Port%d Beacon Setting:\t0x%08x[31:0] = 0x%08x\n",
-				    i, address, reg);
-			en_port_num += (((reg >> 12) & 0x1) == 0) ? 0 : 1;
-
-			/* Check BCN Space */
-			address = ((band == MAC_AX_BAND_0) ?
-				   R_AX_BCN_SPACE_CFG_P0 : R_AX_BCN_SPACE_CFG_P0_C1)
-				   + i * PORT_CFG_OFFSET;
-			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-				    "Check Port%d Beacon Space:\t0x%08x[31:0] = 0x%08x\n",
-				    i, address, MAC_REG_R32(address));
 
 			/* Check BCN Error Flag */
 			address = ((band == MAC_AX_BAND_0) ?
-				   R_AX_BCN_ERR_FLAG_P0 : R_AX_BCN_ERR_FLAG_P0_C1)
-				   + i * PORT_CFG_OFFSET;
+				  R_AX_BCN_ERR_FLAG_P0 : R_AX_BCN_ERR_FLAG_P0_C1)
+				  + i * PORT_CFG_OFFSET;
 			reg = MAC_REG_R32(address);
 			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
 				    "Check Port%d Beacon Error Flag:\t0x%08x[31:0] = 0x%08x\n",
 				    i, address, reg);
-			if ((reg & 0xffff) != 0x0000)
-				PLTFM_MSG_ERR("[ERR] 0x%08x[15:0] should be all 0\n", address);
 
 			/* Check BCN Error Counter */
 			address = ((band == MAC_AX_BAND_0) ?
-				   R_AX_BCN_ERR_CNT_P0 : R_AX_BCN_ERR_CNT_P0_C1)
-				   + i * PORT_CFG_OFFSET;
+				  R_AX_BCN_ERR_CNT_P0 : R_AX_BCN_ERR_CNT_P0_C1)
+				  + i * PORT_CFG_OFFSET;
 			reg = MAC_REG_R32(address);
 			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-				    "Check Port%d Beacon Error Counter:\t0x%08x[31:0] = 0x%08x\n",
+				    "Check Port%d Beacon Error Cnt:\t0x%08x[31:0] = 0x%08x\n",
 				    i, address, reg);
-			if (reg != 0x0)
-				PLTFM_MSG_ERR("[ERR] 0x%08x[31:0] should be all 0\n", address);
+		} else {
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    " (Port%d is not enable)\n", i);
 		}
-		PLTFM_MSG_ERR("Number of enable port: %d\n", en_port_num);
+	}
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Number of enable port: %d\n", en_port_num);
+
+	/* Check MAC/FW status */
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "\n***** Check MAC/FW status *****\n");
+
+	if (band == MAC_AX_BAND_0) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Check H2C BCN UPD Sent band0\t0x%08x\n",
+			    adapter->hw_info->h2c_bcn_upd_sent_band0);
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Check C2H BCN UPD Done band0\t0x%08x\n",
+			    adapter->hw_info->c2h_bcn_upd_done_band0);
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Check BCN Drop all band0\t0x%08x\n",
+			    adapter->hw_info->bcn_drop_all_band0);
 	} else {
-		PLTFM_MSG_ERR("Command example: \"cmd mac dbg_bcn <band number>\"\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Check C2H BCN UPD Done band1\t0x%08x\n",
+			    adapter->hw_info->c2h_bcn_upd_done_band1);
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Check H2C BCN UPD Sent band1\t0x%08x\n",
+			    adapter->hw_info->h2c_bcn_upd_sent_band1);
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Check BCN Drop all band1\t0x%08x\n",
+			    adapter->hw_info->bcn_drop_all_band1);
+	}
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check Packet Drop all\t\t0x%08x\n", adapter->hw_info->bcn_pkt_drop);
+
+	/* HAXIDMA TX */
+	reg = MAC_REG_R32(R_AX_CH12_TXBD_IDX);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check HAXIDMA FWCMDQ TX IDX\t0x%08x[31:0] = 0x%08x\n",
+		    R_AX_CH12_TXBD_IDX, reg);
+	if (((reg >> 16) & 0xffff) != (reg & 0xffff))
+		PLTFM_MSG_ERR("Please check HAXIDMA FWCMDQ TX IDX\n");
+
+	/* AXIDMA RX */
+	reg = mac_sram_dbg_read(adapter, R_PL_AXIDMA_CH0_RXBD_IDX, AXIDMA_SEL);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check AXIDMA CH0 RX IDX\t\t0x%08x\n", reg);
+
+	/* Check FW Program Counter*/
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check FW Program Counter:\n");
+	for (i = 0; i < 5; i++) {
+		if (i > 0 && reg == MAC_REG_R32(R_AX_DBG_PORT_SEL)) {
+			PLTFM_MSG_ERR("FW Program Counter Repeat\n");
+			break;
+		}
+		reg = MAC_REG_R32(R_AX_DBG_PORT_SEL);
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\t0x%08x[31:0] = 0x%08x\n", R_AX_DBG_PORT_SEL, reg);
+		PLTFM_DELAY_MS(100);
+	}
+
+	/* AXIDMA TX */
+	reg = mac_sram_dbg_read(adapter, R_PL_AXIDMA_CH0_TXBD_IDX, AXIDMA_SEL);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check AXIDMA CH0 TX IDX\t\t0x%08x\n", reg);
+
+	/* HAXIDMA RX */
+	reg = MAC_REG_R32(R_AX_RXQ_RXBD_IDX_V1);
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "Check HAXIDMA RXQ IDX\t0x%08x[31:0] = 0x%08x\n",
+		    R_AX_RXQ_RXBD_IDX_V1, reg);
+	if (((reg >> 16) & 0xffff) != (reg & 0xffff))
+		PLTFM_MSG_ERR("Please check HAXIDMA RXQ IDX\n");
+
+	/* Check TXBCNRPT */
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "\n***** Check TXBCNRPT *****\n");
+	for (i = 0; i < MAC_AX_PORT_NUM + MAC_AX_P0_MBID_LAST - 1; i++) {
+		prpt_stats = &adapter->bcn_rpt_stats
+			     [band * (MAC_AX_PORT_NUM + MAC_AX_P0_MBID_LAST - 1) + i];
+		total_cnt = prpt_stats->cca_cnt +
+			    prpt_stats->edcca_cnt +
+			    prpt_stats->nav_cnt +
+			    prpt_stats->txon_cnt +
+			    prpt_stats->mac_cnt +
+			    prpt_stats->others_cnt +
+			    prpt_stats->lock_cnt +
+			    prpt_stats->cmp_cnt +
+			    prpt_stats->invalid_cnt +
+			    prpt_stats->srchend_cnt +
+			    prpt_stats->ok_cnt;
+		if (total_cnt != 0) {
+			if (i == 0) {
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "Port%d Beacon Error Reason\n", i);
+			} else if (i >= MAC_AX_P0_MBID_LAST) {
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "Port%d Beacon Error Reason\n",
+					    i - MAC_AX_P0_MBID_LAST + 1);
+			} else {
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "MBSSID%d Beacon Error Reason\n", i);
+			}
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "cca_cnt:\t%d\n"
+				    "edcca_cnt:\t%d\n"
+				    "nav_cnt:\t%d\n"
+				    "txon_cnt:\t%d\n"
+				    "mac_cnt:\t%d\n"
+				    "others_cnt:\t%d\n"
+				    "lock_cnt:\t%d\n"
+				    "cmp_cnt:\t%d\n"
+				    "invalid_cnt:\t%d\n"
+				    "srchend_cnt:\t%d\n"
+				    "ok_cnt:\t\t%d\n\n"
+				    , prpt_stats->cca_cnt
+				    , prpt_stats->edcca_cnt
+				    , prpt_stats->nav_cnt
+				    , prpt_stats->txon_cnt
+				    , prpt_stats->mac_cnt
+				    , prpt_stats->others_cnt
+				    , prpt_stats->lock_cnt
+				    , prpt_stats->cmp_cnt
+				    , prpt_stats->invalid_cnt
+				    , prpt_stats->srchend_cnt
+				    , prpt_stats->ok_cnt);
+		}
 	}
 	return MACSUCCESS;
 }
@@ -949,6 +1225,12 @@ u32 cmd_mac_dl_sym(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
 						 &file_size);
 			break;
 #endif
+#if MAC_AX_8852BT_SUPPORT
+		case MAC_AX_CHIP_ID_8852BT:
+			ret = PLTFM_LD_FW_SYMBOL("hal8852bt_msg_symbol.bin", &symbol_ptr,
+						 &file_size);
+			break;
+#endif
 		default:
 			return MACFWSTATUSFAIL;
 			break;
@@ -1063,6 +1345,46 @@ u32 cmd_mac_qc_start(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
 			    "\nFW STATUS H2C Fail!\n");
 		return MACFWSTATUSFAIL;
 	}
+	PLTFM_DELAY_MS(QC_CMD_DLY_MS);
+
+	/* dump heap detail */
+	heap_all_end = 0;
+	fstart_num = 0;
+	sstart_num = 0;
+	reg_chk_fail = 0;
+	PLTFM_MEMSET(fheap_info_start, 0, F_MSID_FUNC_NUM_MAX * sizeof(struct heap_info));
+	PLTFM_MEMSET(sheap_info_start, 0, S_MSID_FUNC_NUM_MAX * sizeof(struct heap_info));
+
+	// Fast Heap
+	heap_slow_flag = 0;
+	data.dword0 = (u32)FW_STATUS_HEAP_DETAIL;
+	data.dword1 = 1;
+	data.dword2 = 0;
+	if (mac_fw_status_cmd(adapter, &data)) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[heap_all]FW STATUS Fast Heap H2C Fail!\n");
+		heap_all_end = 1;
+		return MACFWSTATUSFAIL;
+	}
+	PLTFM_DELAY_MS(QC_CMD_DLY_MS);
+
+	// Slow Heap
+	data.dword2 = 1;
+	if (mac_fw_status_cmd(adapter, &data)) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[heap_all]FW STATUS Slow Heap H2C Fail!\n");
+		heap_all_end = 1;
+		return MACFWSTATUSFAIL;
+	}
+	PLTFM_DELAY_MS(QC_CMD_DLY_MS);
+
+	PLTFM_MEMCPY(input[1], "start", sizeof("start"));
+	if (cmd_check_reg(adapter, input, input_num, output, out_len, used)) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[check_reg] check_reg start cmd Fail!\n");
+		reg_chk_start = 0;
+		return MACFWSTATUSFAIL;
+	}
 
 	return MACSUCCESS;
 }
@@ -1121,6 +1443,56 @@ u32 cmd_mac_qc_end(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u
 			    "\nFW STATUS H2C Fail!\n");
 		return MACFWSTATUSFAIL;
 	}
+	PLTFM_DELAY_MS(QC_CMD_DLY_MS);
+
+	/* dump heap detail */
+	if (heap_all_end != 0) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\nqc_start has not been called!\n");
+		return MACFWSTATUSFAIL;
+	}
+
+	heap_all_end = 1;
+	fsearched_num = 0;
+	ssearched_num = 0;
+	fheap_diff_num = 0;
+	sheap_diff_num = 0;
+	heap_slow_chk_fail = 0xF;
+	heap_fast_chk_fail = 0xF;
+
+	// Fast Heap
+	heap_slow_flag = 0;
+	data.dword0 = (u32)FW_STATUS_HEAP_DETAIL;
+	data.dword1 = 1;
+	data.dword2 = 0;
+	if (mac_fw_status_cmd(adapter, &data)) {
+		//PLTFM_MSG_ALWAYS("FW STATUS H2C Fail!\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[heap_all]FW STATUS Fast Heap H2C Fail!\n");
+		heap_all_end = 0;
+		return MACFWSTATUSFAIL;
+	}
+	PLTFM_DELAY_MS(QC_CMD_DLY_MS);
+
+	// Slow Heap
+	data.dword2 = 1;
+	if (mac_fw_status_cmd(adapter, &data)) {
+		//PLTFM_MSG_ALWAYS("FW STATUS H2C Fail!\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[heap_all]FW STATUS Slow Heap H2C Fail!\n");
+		heap_all_end = 0;
+		return MACFWSTATUSFAIL;
+	}
+	PLTFM_DELAY_MS(QC_CMD_DLY_MS);
+
+	PLTFM_MEMCPY(input[1], "end", sizeof("end"));
+	if (cmd_check_reg(adapter, input, input_num, output, out_len, used)) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[check_reg] check_reg end cmd Fail!\n");
+		return MACFWSTATUSFAIL;
+	}
+
+	print_qc_result(adapter);
 
 	return MACSUCCESS;
 }
@@ -1677,6 +2049,50 @@ u32 cmd_mac_rpt_queue_sts(struct mac_ax_adapter *adapter, char input[][MAC_MAX_A
 	return ret;
 }
 
+u32 cmd_mac_wdt_log(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		    char *output, u32 out_len, u32 *used)
+{
+	u32 log_en_val, val_size, en_size, ret = MACSUCCESS;
+
+	if (input_num < 2) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\ninvalid argument\n");
+		return MACFWSTATUSFAIL;
+	}
+
+	log_en_val = PLTFM_STRTOUL(input[1], 16);
+	val_size = sizeof(log_en_val);
+	en_size = sizeof(struct mac_wdt_log_en);
+	PLTFM_MEMSET(&adapter->wdt_log_en, 0, en_size);
+	PLTFM_MEMCPY(&adapter->wdt_log_en, &log_en_val,
+		     en_size <= val_size ? en_size : val_size);
+
+	ret = mac_wdt_log(adapter);
+
+	return ret;
+}
+
+u32 cmd_mac_dbg_msg_en(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		       char *output, u32 out_len, u32 *used)
+{
+	if (input_num != 3) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\ninvalid argument\n");
+		return MACFWSTATUSFAIL;
+	}
+
+#if MAC_AX_FEATURE_DBGCMD
+	adapter->fw_dbgcmd.dbg_console_log_en = PLTFM_STRTOUL(input[1], 16) ? 1 : 0;
+	adapter->fw_dbgcmd.dbg_bg_log_en = PLTFM_STRTOUL(input[2], 16) ? 1 : 0;
+#else
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "\ncompile flag disabled\n");
+	return MACNOITEM;
+#endif
+
+	return MACSUCCESS;
+}
+
 s32 mac_halmac_cmd(struct mac_ax_adapter *adapter, char *input, char *output, u32 out_len)
 {
 	char *token;
@@ -1723,6 +2139,7 @@ void mac_halmac_cmd_parser(struct mac_ax_adapter *adapter,
 	u32 hal_cmd_ary_size = sizeof(mac_hal_cmd_i) / sizeof(struct mac_hal_cmd_info);
 	u32 i = 0;
 	u32 *used;
+	u8 bg_log_disabled = 0;
 
 	if (output) {
 		adapter->fw_dbgcmd.buf = output;
@@ -1741,6 +2158,13 @@ void mac_halmac_cmd_parser(struct mac_ax_adapter *adapter,
 
 	/* Parsing Cmd ID */
 	if (input_num) {
+#if MAC_AX_FEATURE_DBGCMD
+		bg_log_disabled = adapter->fw_dbgcmd.dbg_bg_log_en;
+		if (!bg_log_disabled)
+			PLTFM_MSG_WARN("[WARN] LOG/WARN disabled due to mac cmd\n");
+		adapter->fw_dbgcmd.dbg_console_log_on = adapter->fw_dbgcmd.dbg_console_log_en;
+		adapter->fw_dbgcmd.dbg_bg_log_on = adapter->fw_dbgcmd.dbg_bg_log_en;
+#endif
 		for (i = 0; i < hal_cmd_ary_size; i++) {
 			//PLTFM_MSG_TRACE("input string : %s\n, input_num = %d",
 			//		input[0], input_num);
@@ -1758,6 +2182,12 @@ void mac_halmac_cmd_parser(struct mac_ax_adapter *adapter,
 				break;
 			}
 		}
+#if MAC_AX_FEATURE_DBGCMD
+		adapter->fw_dbgcmd.dbg_console_log_on = 0;
+		adapter->fw_dbgcmd.dbg_bg_log_on = 1;
+		if (!bg_log_disabled)
+			PLTFM_MSG_WARN("[WARN] LOG/WARN enabled after mac cmd\n");
+#endif
 		if (i == hal_cmd_ary_size) {
 			//PLTFM_MSG_TRACE("HAL command not found!\n");
 			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
@@ -1986,6 +2416,7 @@ u32 fw_status_meminfo_fast_handler(struct mac_ax_adapter *adapter, u8 *buf, u32 
 		mem_info++;
 	}
 	#endif
+
 	return MACSUCCESS;
 }
 
@@ -2019,6 +2450,84 @@ u32 fw_status_meminfo_slow_handler(struct mac_ax_adapter *adapter, u8 *buf, u32 
 		mem_info++;
 	}
 	#endif
+
+	return MACSUCCESS;
+}
+
+u32 fw_status_heap_detail_handler(struct mac_ax_adapter *adapter, u8 *buf, u32 len)
+{
+	char *output = adapter->fw_dbgcmd.buf;
+	u32 *used = &adapter->fw_dbgcmd.used;
+	u32 out_len = adapter->fw_dbgcmd.out_len;
+	u32 remain_len = out_len - *used;
+	u16 i, heap_info_num;
+
+	if (len > remain_len)
+		return MACFWSTATUSFAIL;
+
+	if (heap_slow_flag) {
+		heap_slow_chk_fail = 0;
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Slow Heap:\n");
+	} else {
+		heap_fast_chk_fail = 0;
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Fast Heap:\n");
+	}
+
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "MSID\t\tGroup(Func)\t\tCounter\tTotalSize(B)\tHistorical High\n");
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "-----------------------------------------");
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "-----------------------------------------\n");
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "%s\n", (const char *)buf);
+
+	fw_status_heap_detail_parser(adapter, buf);
+	// FAST HEAP
+	if (heap_slow_flag == 0) {
+		heap_slow_flag = 1;
+		return MACSUCCESS;
+	}
+	// SLOW HEAP
+	if (heap_all_end) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "[Fast Heap Diff]:\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "MSID\t\tGroup\t\tTotalSize Diff(B)\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "---------------------------------------------------\n");
+		heap_info_num = fstart_num + fheap_diff_num;
+		for (i = 0; i < heap_info_num; i++) {
+			if (fheap_info_start[i].total_size) {
+				heap_fast_chk_fail = 1;
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "%d\t\t%d\t\t%d\n", fheap_info_start[i].msid,
+					    fheap_info_start[i].group,
+					    fheap_info_start[i].total_size);
+			}
+		}
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Slow Heap Diff]:\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "MSID\t\tGroup\t\tTotalSize Diff(B)\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "---------------------------------------------------\n");
+		heap_info_num = sstart_num + sheap_diff_num;
+		for (i = 0; i < heap_info_num; i++) {
+			if (sheap_info_start[i].total_size) {
+				heap_slow_chk_fail = 1;
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "%d\t\t%d\t\t%d\n", sheap_info_start[i].msid,
+					    sheap_info_start[i].group,
+					    sheap_info_start[i].total_size);
+			}
+		}
+	}
+	heap_slow_flag = 0;
+
 	return MACSUCCESS;
 }
 
@@ -2110,65 +2619,514 @@ u32 mac_bdinfo_dump(struct mac_ax_adapter *adapter)
 	u32 *used = &adapter->fw_dbgcmd.used;
 	u32 out_len = adapter->fw_dbgcmd.out_len;
 
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "TX Related Infomation\n");
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH0_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH0_TXBD_IDX), MAC_REG_R32(R_AX_ACH0_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH1_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH1_TXBD_IDX), MAC_REG_R32(R_AX_ACH1_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH2_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH2_TXBD_IDX), MAC_REG_R32(R_AX_ACH2_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH3_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH3_TXBD_IDX), MAC_REG_R32(R_AX_ACH3_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH4_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH4_TXBD_IDX), MAC_REG_R32(R_AX_ACH4_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH5_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH5_TXBD_IDX), MAC_REG_R32(R_AX_ACH5_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH6_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH6_TXBD_IDX), MAC_REG_R32(R_AX_ACH6_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH7_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_ACH7_TXBD_IDX), MAC_REG_R32(R_AX_ACH7_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH8_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_CH8_TXBD_IDX), MAC_REG_R32(R_AX_CH8_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH9_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_CH9_TXBD_IDX), MAC_REG_R32(R_AX_CH9_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH10_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_CH10_TXBD_IDX), MAC_REG_R32(R_AX_CH10_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH11_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_CH11_TXBD_IDX), MAC_REG_R32(R_AX_CH11_PAGE_INFO));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "CH12_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
-		    MAC_REG_R32(R_AX_CH12_TXBD_IDX), MAC_REG_R32(R_AX_CH12_PAGE_INFO));
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "TX Related Infomation\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH0_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH0_TXBD_IDX), MAC_REG_R32(R_AX_ACH0_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH1_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH1_TXBD_IDX), MAC_REG_R32(R_AX_ACH1_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH2_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH2_TXBD_IDX), MAC_REG_R32(R_AX_ACH2_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH3_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH3_TXBD_IDX), MAC_REG_R32(R_AX_ACH3_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH4_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH4_TXBD_IDX), MAC_REG_R32(R_AX_ACH4_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH5_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH5_TXBD_IDX), MAC_REG_R32(R_AX_ACH5_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH6_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH6_TXBD_IDX), MAC_REG_R32(R_AX_ACH6_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH7_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH7_TXBD_IDX), MAC_REG_R32(R_AX_ACH7_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH8_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH8_TXBD_IDX), MAC_REG_R32(R_AX_CH8_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH9_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH9_TXBD_IDX), MAC_REG_R32(R_AX_CH9_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH10_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH10_TXBD_IDX), MAC_REG_R32(R_AX_CH10_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH11_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH11_TXBD_IDX), MAC_REG_R32(R_AX_CH11_PAGE_INFO));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH12_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH12_TXBD_IDX), MAC_REG_R32(R_AX_CH12_PAGE_INFO));
 
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "Used page for group 0/1: 0x%08x\n", MAC_REG_R32(R_AX_PUB_PAGE_INFO1));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "Available page for group 0/1: 0x%08x\n", MAC_REG_R32(R_AX_PUB_PAGE_INFO3));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "Available page for public: 0x%08x\n", MAC_REG_R32(R_AX_PUB_PAGE_INFO2));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "Available page for WP: 0x%08x\n", MAC_REG_R32(R_AX_WP_PAGE_INFO1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Used page for group 0/1: 0x%08x\n", MAC_REG_R32(R_AX_PUB_PAGE_INFO1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for group 0/1: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO3));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for public: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO2));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for WP: 0x%08x\n", MAC_REG_R32(R_AX_WP_PAGE_INFO1));
 
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "RX Related Infomation\n");
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "RXQ0 BD IDX: 0x%08x\n", MAC_REG_R32(R_AX_RXQ_RXBD_IDX));
-	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
-		    "RPQ0 BD IDX: 0x%08x\n", MAC_REG_R32(R_AX_RPQ_RXBD_IDX));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "RX Related Infomation\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "RXQ0 BD IDX: 0x%08x\n", MAC_REG_R32(R_AX_RXQ_RXBD_IDX));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "RPQ0 BD IDX: 0x%08x\n", MAC_REG_R32(R_AX_RPQ_RXBD_IDX));
+#endif
+	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		   is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+		   is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+#if MAC_AX_8852C_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8852D_SUPPORT
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "TX Related Infomation\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH0_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH0_TXBD_IDX), MAC_REG_R32(R_AX_ACH0_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH1_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH1_TXBD_IDX), MAC_REG_R32(R_AX_ACH1_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH2_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH2_TXBD_IDX), MAC_REG_R32(R_AX_ACH2_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH3_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH3_TXBD_IDX), MAC_REG_R32(R_AX_ACH3_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH4_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH4_TXBD_IDX), MAC_REG_R32(R_AX_ACH4_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH5_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH5_TXBD_IDX), MAC_REG_R32(R_AX_ACH5_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH6_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH6_TXBD_IDX), MAC_REG_R32(R_AX_ACH6_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH7_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH7_TXBD_IDX), MAC_REG_R32(R_AX_ACH7_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH8_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH8_TXBD_IDX), MAC_REG_R32(R_AX_CH8_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH9_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH9_TXBD_IDX), MAC_REG_R32(R_AX_CH9_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH10_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH10_TXBD_IDX_V1),
+			    MAC_REG_R32(R_AX_CH10_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH11_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH11_TXBD_IDX_V1),
+			    MAC_REG_R32(R_AX_CH11_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH12_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH12_TXBD_IDX), MAC_REG_R32(R_AX_CH12_PAGE_INFO_V1));
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Used page for group 0/1: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO1_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for group 0/1: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO3_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for public: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO2_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for WP: 0x%08x\n",
+			    MAC_REG_R32(R_AX_WP_PAGE_INFO1_V1));
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "RX Related Infomation\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "RXQ0 BD IDX: 0x%08x\n", MAC_REG_R32(R_AX_RXQ_RXBD_IDX_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "RPQ0 BD IDX: 0x%08x\n", MAC_REG_R32(R_AX_RPQ_RXBD_IDX_V1));
+#endif
+	} else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8851E)) {
+#if MAC_AX_8851E_SUPPORT
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "TX Related Infomation\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH0_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH0_TXBD_IDX), MAC_REG_R32(R_AX_ACH0_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH2_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_ACH2_TXBD_IDX), MAC_REG_R32(R_AX_ACH2_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH8_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH8_TXBD_IDX), MAC_REG_R32(R_AX_CH8_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH9_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH9_TXBD_IDX), MAC_REG_R32(R_AX_CH9_PAGE_INFO_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "CH12_TXBD IDX = 0x%08x PAGE = 0x%08x\n",
+			    MAC_REG_R32(R_AX_CH12_TXBD_IDX), MAC_REG_R32(R_AX_CH12_PAGE_INFO_V1));
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Used page for group 0/1: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO1_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for group 0/1: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO3_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for public: 0x%08x\n",
+			    MAC_REG_R32(R_AX_PUB_PAGE_INFO2_V1));
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Available page for WP: 0x%08x\n",
+			    MAC_REG_R32(R_AX_WP_PAGE_INFO1_V1));
+#endif
+	}
 
 	return MACSUCCESS;
+}
+
+u32 fw_status_heap_detail_parser(struct mac_ax_adapter *adapter, u8 *buf)
+{
+	char *buf_temp;
+	u8 msid;
+	u8 group;
+	int total_size;
+
+	buf_temp = (char *)buf;
+
+	buf_temp = PLTFM_STRPBRK(buf_temp, "(") + 1;
+	while (buf_temp) {
+		msid = (u8)PLTFM_STRTOUL(buf_temp + 1, 10);
+		buf_temp = PLTFM_STRPBRK(buf_temp, "\t") + 1;
+		group = (u8)PLTFM_STRTOUL(buf_temp, 10);
+		buf_temp = PLTFM_STRPBRK(buf_temp, "\t") + 1;
+		total_size = (int)PLTFM_STRTOUL(buf_temp, 10);
+		if (heap_all_end) {
+			fw_status_heap_detail_search_diff(adapter, msid, group, total_size);
+		} else {
+			if (heap_slow_flag) {
+				sheap_info_start[sstart_num].msid = msid;
+				sheap_info_start[sstart_num].group = group;
+				sheap_info_start[sstart_num].total_size = total_size;
+				sstart_num++;
+			} else {
+				fheap_info_start[fstart_num].msid = msid;
+				fheap_info_start[fstart_num].group = group;
+				fheap_info_start[fstart_num].total_size = total_size;
+				fstart_num++;
+			}
+		}
+		buf_temp = PLTFM_STRPBRK(buf_temp, "\n") + 1;
+		buf_temp = PLTFM_STRPBRK(buf_temp, "(");
+	}
+
+	return MACSUCCESS;
+}
+
+u32 fw_status_heap_detail_search_diff(struct mac_ax_adapter *adapter,
+				      u8 msid, u8 group, int total_size)
+{
+	u8 i, j;
+
+	if (heap_slow_flag) {
+		for (j = ssearched_num; j < sstart_num; j++) {
+			if (msid == sheap_info_start[j].msid &&
+			    group == sheap_info_start[j].group) {
+				sheap_info_start[j].total_size = total_size -
+				sheap_info_start[j].total_size;
+				for (i = ssearched_num; i < j; i++)
+					sheap_info_start[i].total_size = 0 -
+					sheap_info_start[i].total_size;
+				ssearched_num = j + 1;
+				return MACSUCCESS;
+			}
+		}
+		sheap_info_start[sstart_num + sheap_diff_num].msid = msid;
+		sheap_info_start[sstart_num + sheap_diff_num].group = group;
+		sheap_info_start[sstart_num + sheap_diff_num].total_size = total_size;
+		sheap_diff_num++;
+	} else {
+		for (j = fsearched_num; j < fstart_num; j++) {
+			if (msid == fheap_info_start[j].msid &&
+			    group == fheap_info_start[j].group) {
+				fheap_info_start[j].total_size = total_size -
+				fheap_info_start[j].total_size;
+				for (i = fsearched_num; i < j; i++)
+					fheap_info_start[i].total_size = 0 -
+					fheap_info_start[i].total_size;
+				fsearched_num = j + 1;
+				return MACSUCCESS;
+			}
+		}
+		fheap_info_start[fstart_num + fheap_diff_num].msid = msid;
+		fheap_info_start[fstart_num + fheap_diff_num].group = group;
+		fheap_info_start[fstart_num + fheap_diff_num].total_size = total_size;
+		fheap_diff_num++;
+	}
+
+	return MACSUCCESS;
+}
+
+u32 cmd_check_reg(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+		  u32 input_num, char *output, u32 out_len, u32 *used)
+{
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u8 i;
+	u32 *val32;
+	u32 reg_num = 0;
+	struct check_reg_info *check_reg_i = NULL;
+
+#if MAC_AX_8852A_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A)) {
+		check_reg_i = check_reg_8852A;
+		reg_num = sizeof(check_reg_8852A) / sizeof(check_reg_8852A[0]);
+	}
+#endif
+#if MAC_AX_8852B_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) {
+		check_reg_i = check_reg_8852B;
+		reg_num = sizeof(check_reg_8852B) / sizeof(check_reg_8852B[0]);
+	}
+#endif
+#if MAC_AX_8852C_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C)) {
+		check_reg_i = check_reg_8852C;
+		reg_num = sizeof(check_reg_8852C) / sizeof(check_reg_8852C[0]);
+	}
+#endif
+#if MAC_AX_8192XB_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB)) {
+		check_reg_i = check_reg_8192XB;
+		reg_num = sizeof(check_reg_8192XB) / sizeof(check_reg_8192XB[0]);
+	}
+#endif
+#if MAC_AX_8851B_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+		check_reg_i = check_reg_8851B;
+		reg_num = sizeof(check_reg_8851B) / sizeof(check_reg_8851B[0]);
+	}
+#endif
+#if MAC_AX_8851E_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8851E)) {
+		check_reg_i = check_reg_8851E;
+		reg_num = sizeof(check_reg_8851E) / sizeof(check_reg_8851E[0]);
+	}
+#endif
+#if MAC_AX_8852D_SUPPORT
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		check_reg_i = check_reg_8852D;
+		reg_num = sizeof(check_reg_8852D) / sizeof(check_reg_8852D[0]);
+	}
+#endif
+
+	//error
+	if (!check_reg_i) {
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\ncheck_reg_i = NULL\n");
+		return MACFWSTATUSFAIL;
+	}
+
+	if (PLTFM_STRCMP(input[1], "start") == 0) {
+		reg_start_val32 = (u32 *)PLTFM_MALLOC(reg_num * sizeof(u32));
+		if (!reg_start_val32)
+			return MACFWSTATUSFAIL;
+		PLTFM_MEMSET(reg_start_val32, 0, reg_num);
+
+		reg_chk_start = 1;
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Register Check Start]:\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Addr\t\tmsk\t\tValue\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "---------------------------------------------------\n");
+
+		for (i = 0; i < reg_num; i++) {
+			if ((adapter->hw_info->intf == MAC_AX_INTF_USB &&
+			     check_reg_i[i].intf & CHK_REG_INTF_USB) ||
+			    (adapter->hw_info->intf == MAC_AX_INTF_SDIO &&
+			     check_reg_i[i].intf & CHK_REG_INTF_SDIO) ||
+			    (adapter->hw_info->intf == MAC_AX_INTF_PCIE &&
+			     check_reg_i[i].intf & CHK_REG_INTF_PCIE)) {
+				reg_start_val32[i] = MAC_REG_R32(check_reg_i[i].addr);
+				reg_start_val32[i] &= check_reg_i[i].mask;
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "0x%04x\t\t0x%08x\t0x%08x\n",
+					    check_reg_i[i].addr, check_reg_i[i].mask,
+					    reg_start_val32[i]);
+			}
+		}
+	} else if (PLTFM_STRCMP(input[1], "end") == 0) {
+		val32 = (u32 *)PLTFM_MALLOC(reg_num * sizeof(u32));
+		if (!val32)
+			return MACFWSTATUSFAIL;
+		PLTFM_MEMSET(val32, 0, reg_num);
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Register Check End]:\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Addr\t\tmsk\t\tValue\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "---------------------------------------------------\n");
+
+		for (i = 0; i < reg_num; i++) {
+			if ((adapter->hw_info->intf == MAC_AX_INTF_USB &&
+			     check_reg_i[i].intf & CHK_REG_INTF_USB) ||
+			    (adapter->hw_info->intf == MAC_AX_INTF_SDIO &&
+			     check_reg_i[i].intf & CHK_REG_INTF_SDIO) ||
+			    (adapter->hw_info->intf == MAC_AX_INTF_PCIE &&
+			     check_reg_i[i].intf & CHK_REG_INTF_PCIE)) {
+				val32[i] = MAC_REG_R32(check_reg_i[i].addr);
+				val32[i] &= check_reg_i[i].mask;
+				MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+					    "0x%04x\t\t0x%08x\t0x%08x\n",
+					    check_reg_i[i].addr, check_reg_i[i].mask, val32[i]);
+			}
+		}
+
+		if (reg_chk_start != 1) {
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "\ncheck_reg_start has not been called!\n");
+			PLTFM_FREE(val32, reg_num * sizeof(u32));
+			return MACSUCCESS;
+		}
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Register Value Change]:\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "Addr\t\tmsk\t\tStart Value\tEnd Value\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "-----------------------------------------------------------------\n");
+
+		for (i = 0; i < reg_num; i++) {
+			if ((adapter->hw_info->intf == MAC_AX_INTF_USB &&
+			     check_reg_i[i].intf & CHK_REG_INTF_USB) ||
+			    (adapter->hw_info->intf == MAC_AX_INTF_SDIO &&
+			     check_reg_i[i].intf & CHK_REG_INTF_SDIO) ||
+			    (adapter->hw_info->intf == MAC_AX_INTF_PCIE &&
+			     check_reg_i[i].intf & CHK_REG_INTF_PCIE)) {
+				if (val32[i] != reg_start_val32[i]) {
+					reg_chk_fail = 1;
+					MAC_DBG_MSG(out_len, *used, output + *used,
+						    out_len - *used,
+						    "0x%04x\t\t0x%08x\t",
+						    check_reg_i[i].addr, check_reg_i[i].mask);
+					MAC_DBG_MSG(out_len, *used, output + *used,
+						    out_len - *used,
+						    "0x%08x\t0x%08x\n",
+						    reg_start_val32[i], val32[i]);
+				}
+			}
+		}
+
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n---------------------------------------------------------------\n");
+
+		reg_chk_start = 0;
+		PLTFM_FREE(reg_start_val32, reg_num * sizeof(u32));
+		PLTFM_FREE(val32, reg_num * sizeof(u32));
+
+	} else {
+		return MACFWSTATUSFAIL;
+	}
+
+	return MACSUCCESS;
+}
+
+u32 cmd_mac_fw_swtx(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV], u32 input_num,
+		    char *output, u32 out_len, u32 *used)
+{
+	u8 swtx = 0;
+
+	if (input_num < 1) {
+		//PLTFM_MSG_TRACE("invalid argument\n");
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    " invalid argument\n");
+		return MACFWSTATUSFAIL;
+	}
+
+	swtx = (u8)PLTFM_STRTOUL(input[1], 10);
+
+	mac_txmode_switch(adapter, swtx);
+
+	return MACSUCCESS;
+}
+
+u32 cmd_h2c_mon(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+		u32 input_num, char *output, u32 out_len, u32 *used)
+{
+	u32 ret = 0;
+
+	if (PLTFM_STRCMP(input[1], "1") == 0) {
+		ret = mac_set_h2c_c2h_mon(adapter, MAC_AX_H2C_C2H_MON_ON);
+		if (ret == 0)
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "set_h2c_c2h_mon = %d SUCCESS\n", MAC_AX_H2C_C2H_MON_ON);
+		else
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "set_h2c_c2h_mon = %d FAIL %d\n", MAC_AX_H2C_C2H_MON_ON, ret);
+	} else if (PLTFM_STRCMP(input[1], "0") == 0) {
+		ret = mac_set_h2c_c2h_mon(adapter, MAC_AX_H2C_C2H_MON_OFF);
+		if (ret == 0)
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "set_h2c_c2h_mon = %d SUCCESS\n", MAC_AX_H2C_C2H_MON_OFF);
+		else
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "set_h2c_c2h_mon = %d FAIL %d\n", MAC_AX_H2C_C2H_MON_OFF, ret);
+	} else {
+		return MACFWSTATUSFAIL;
+	}
+
+	return MACSUCCESS;
+}
+
+static void print_qc_result(struct mac_ax_adapter *adapter)
+{
+	char *output = adapter->fw_dbgcmd.buf;
+	u32 *used = &adapter->fw_dbgcmd.used;
+	u32 out_len = adapter->fw_dbgcmd.out_len;
+	u16 poll_cnt;
+
+	MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+		    "\n----------------------[QC Result]-------------------");
+
+	if (reg_chk_fail)
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Check Reg]: FAIL !\n");
+	else
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Check Reg]: PASS !\n");
+
+	poll_cnt = QC_POLL_CNT;
+	while (heap_fast_chk_fail == 0xf || heap_slow_chk_fail == 0xf) {
+		if (poll_cnt <= 0) { // polling WOWLAN_RESUME_READY timeout
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "\n[Check Fast Heap]: NO CHECK\n");
+			MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+				    "\n[Check Slow Heap]: NO CHECK\n");
+			return;
+		}
+		PLTFM_DELAY_MS(QC_POLL_DLY_MS);
+		poll_cnt--;
+	}
+
+	if (heap_fast_chk_fail)
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Check Fast Heap]: FAIL !\n");
+	else
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Check Fast Heap]: PASS !\n");
+
+	if (heap_slow_chk_fail)
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Check Slow Heap]: FAIL !\n");
+	else
+		MAC_DBG_MSG(out_len, *used, output + *used, out_len - *used,
+			    "\n[Check Slow Heap]: PASS !\n");
 }
 
 #if MAC_AX_FEATURE_DBGDEC
@@ -2702,6 +3660,11 @@ u32 fw_log_scan_array(struct mac_ax_adapter *adapter, u32 msgno)
 			msg_last = MSG_8852D_LAST;
 			break;
 #endif
+#if MAC_AX_8852BT_SUPPORT
+		case MAC_AX_CHIP_ID_8852BT:
+			msg_last = MSG_8852BT_LAST;
+			break;
+#endif
 		default:
 			PLTFM_MSG_WARN("array not exist\n");
 			return 0;
@@ -2756,6 +3719,11 @@ void fw_log_set_array(struct mac_ax_adapter *adapter)
 #if MAC_AX_8852D_SUPPORT
 	case MAC_AX_CHIP_ID_8852D:
 		adapter->fw_log_array = fw_log_8852d;
+		break;
+#endif
+#if MAC_AX_8852BT_SUPPORT
+	case MAC_AX_CHIP_ID_8852BT:
+		adapter->fw_log_array = fw_log_8852bt;
 		break;
 #endif
 	default:
@@ -2981,6 +3949,79 @@ u32 cmd_mac_trigger_l1_err(struct mac_ax_adapter *adapter, char input[][MAC_MAX_
 		PLTFM_MSG_ALWAYS("[ERR]Err %d\n", ret);
 		return ret;
 	}
+	return MACSUCCESS;
+}
+
+u32 cmd_mac_set_l0_dbg_mode(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			    u32 input_num, char *output, u32 out_len, u32 *used)
+{
+	u32 ret;
+
+	ret = adapter->ops->set_l0_dbg_mode(adapter);
+	if (ret != MACSUCCESS) {
+		PLTFM_MSG_ALWAYS("[ERR]Err %d\n", ret);
+		return ret;
+	}
+	PLTFM_MSG_ALWAYS("set SER CMAC debug mode success\n");
+	return MACSUCCESS;
+}
+
+u32 cmd_mac_set_l1_dbg_mode(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			    u32 input_num, char *output, u32 out_len, u32 *used)
+{
+	u32 ret;
+
+	ret = adapter->ops->set_l1_dbg_mode(adapter);
+	if (ret != MACSUCCESS) {
+		PLTFM_MSG_ALWAYS("[ERR]Err %d\n", ret);
+		return ret;
+	}
+	PLTFM_MSG_ALWAYS("set SER DMAC debug mode success\n");
+	return MACSUCCESS;
+}
+
+u32 mac_fw_general_io_test(struct mac_ax_adapter* adapter)
+{
+	struct mac_ax_intf_ops* ops = adapter_to_intf_ops(adapter);
+	u32 cnt = 100;
+	u32 ret = MACSUCCESS;
+
+	MAC_REG_W32(R_AX_UDM0, 0);
+	MAC_REG_W32(R_AX_HALT_H2C, (u32)(SET_WORD(1000, MAC_AX_MP_TEST_CNT) | MAC_AX_MP_TEST_SEL));
+	MAC_REG_W32(R_AX_HALT_H2C_CTRL, 0x1);
+
+	while (--cnt) {
+		if (MAC_REG_R32(R_AX_UDM0) & (MAC_AX_MP_TEST_PASS | MAC_AX_MP_TEST_FAIL))
+			break;
+		PLTFM_DELAY_US(500);
+	}
+
+	if (!cnt) {
+		PLTFM_MSG_ERR("Polling general io test status fail\n");
+		ret = MACPOLLTO;
+		goto end;
+	}
+
+	if (MAC_REG_R32(R_AX_UDM0) & MAC_AX_MP_TEST_PASS)
+		ret = MACSUCCESS;
+	else
+		ret = MACIOTESTERR;
+
+end:
+	return ret;
+}
+
+u32 cmd_mac_rst_dbg_mode(struct mac_ax_adapter *adapter, char input[][MAC_MAX_ARGV],
+			 u32 input_num, char *output, u32 out_len, u32 *used)
+{
+	u32 ret;
+
+	ret = adapter->ops->reset_dbg_mode(adapter);
+	if (ret != MACSUCCESS) {
+		PLTFM_MSG_ALWAYS("[ERR]Err %d\n", ret);
+		return ret;
+	}
+	PLTFM_MSG_ALWAYS("reset SER debug mode success\n");
 	return MACSUCCESS;
 }
 #endif

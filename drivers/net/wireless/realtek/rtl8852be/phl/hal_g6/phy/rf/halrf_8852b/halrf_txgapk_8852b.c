@@ -341,14 +341,65 @@ void _halrf_txgapk_before_one_shot_enable_8852b
 
 	/* set 0x80d4[21:16]=0x03 (before oneshot NCTL) to get report later */
 	halrf_wreg(rf, 0x80d4, 0x003F0000, 0x03);
-		
-	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> before set one-shot bit, 0x%x= 0x%x\n", 0x8010, halrf_rreg(rf, 0x8010, MASKDWORD));
+
+	#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (!rf->phl_com->dev_cap.io_ofld)
+	#endif
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> before set one-shot bit, 0x%x= 0x%x\n", 0x8010, halrf_rreg(rf, 0x8010, MASKDWORD));
+	
 }
 
-void _halrf_txgapk_one_shot_nctl_done_check_8852b
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+void _halrf_txgapk_one_shot_nctl_done_check_io_ofld_8852b
 	(struct rf_info *rf, enum txgapk_id id, enum rf_path path)
 {
 	struct halrf_gapk_info *txgapk_info = &rf->gapk;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
+
+	/* for check status */
+	u32 r_bff8 = 0;
+	u32 r_80fc = 0;
+	bool is_ready = false;
+	u16 count = 1;
+
+	r_bff8 = 0;
+	r_80fc = 0;
+
+	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> %s\n", __func__);
+
+	/* for 0xbff8 check NCTL DONE */
+	if (!halrf_polling_bb(rf, 0xbff8, MASKBYTE0, 0x55, 2000)) {
+		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK] 0xbff8[7:0] == 0x55 timeout!!!\n");
+		rfk_dz->txgapk_dz_code |= BIT(8 * path);
+		is_ready = false;
+	} else
+		is_ready = true;
+	count = 1;
+
+	halrf_delay_us(rf, 1);
+	txgapk_info->txgapk_chk_cnt[path][id][0] = count; 
+	
+	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> check 0xBFF8[7:0] = 0x%x, IsReady = %d, ReadTimes = %d,delay 1 us\n", r_bff8, is_ready, count);
+
+	
+
+	/* for 0x80fc check NCTL DONE */
+	halrf_delay_us(rf, 10);
+	txgapk_info->txgapk_chk_cnt[path][id][1] = count; 
+	txgapk_info->is_txgapk_ok = is_ready;
+		
+	halrf_wreg(rf, 0x8010, 0x000000ff, 0x00);
+
+	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> check 0x80fc[15:0] = 0x%x, IsReady = %d, ReadTimes = %d, 0x%x= 0x%x \n", r_80fc, is_ready, count, 0x8010, halrf_rreg(rf, 0x8010, MASKDWORD) ); 
+		
+}
+#endif
+
+void _halrf_txgapk_one_shot_nctl_done_check_default_8852b
+	(struct rf_info *rf, enum txgapk_id id, enum rf_path path)
+{
+	struct halrf_gapk_info *txgapk_info = &rf->gapk;
+	struct halrf_rfk_dz_rpt *rfk_dz = &rf->rfk_dz_rpt;
 	
 	/* for check status */
 	u32 r_bff8 = 0;
@@ -356,17 +407,12 @@ void _halrf_txgapk_one_shot_nctl_done_check_8852b
 	bool is_ready = false;
 	u16 count = 1;
 
+	r_bff8 = 0;
+	r_80fc = 0;
+
 	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> %s\n", __func__);
 
 	/* for 0xbff8 check NCTL DONE */
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0xbff8, MASKBYTE0, 0x55, 2000)) {
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK] 0xbff8[7:0] == 0x55 timeout!!!\n");
-		is_ready = false;
-	} else
-		is_ready = true;
-	count = 1;
-#else
 	while (count < 2000) {	
 		r_bff8 = halrf_rreg(rf, 0xbff8, MASKBYTE0);
 				
@@ -377,8 +423,9 @@ void _halrf_txgapk_one_shot_nctl_done_check_8852b
 		/* r_bff8 = 0; */
 		halrf_delay_us(rf, 10);
 		count++;
+		if (count == 2000)
+			rfk_dz->txgapk_dz_code |= BIT(8 * path);
 	}
-#endif
 
 	halrf_delay_us(rf, 1);
 
@@ -389,14 +436,6 @@ void _halrf_txgapk_one_shot_nctl_done_check_8852b
 	
 
 	/* for 0x80fc check NCTL DONE */
-#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-	if (!halrf_polling_bb(rf, 0x80fc, MASKLWORD, 0x8000, 2000)) {
-		RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK] 0x80fc[31:0] == 0x8000 timeout!!!\n");
-		is_ready = false;
-	} else
-		is_ready = true;
-	count = 1;
-#else
 	count = 1;
 	is_ready = false;
 	while (count < 2000) {			
@@ -409,18 +448,35 @@ void _halrf_txgapk_one_shot_nctl_done_check_8852b
 		/* r_80fc = 0; */
 		halrf_delay_us(rf, 1);
 		count++;
+		if (count == 2000)
+			rfk_dz->txgapk_dz_code |= BIT(8 * path);
 	}
-#endif
 
 	halrf_delay_us(rf, 1);
 	txgapk_info->txgapk_chk_cnt[path][id][1] = count; 
-	if (!is_ready)
-		txgapk_info->is_txgapk_ok = false;
+
+	txgapk_info->is_txgapk_ok = is_ready;
 		
 	halrf_wreg(rf, 0x8010, 0x000000ff, 0x00);
 
 	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> check 0x80fc[15:0] = 0x%x, IsReady = %d, ReadTimes = %d, 0x%x= 0x%x \n", r_80fc, is_ready, count, 0x8010, halrf_rreg(rf, 0x8010, MASKDWORD) ); 
 		
+}
+
+
+void _halrf_txgapk_one_shot_nctl_done_check_8852b
+	(struct rf_info *rf, enum txgapk_id id, enum rf_path path)
+{
+
+#ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+	if (rf->phl_com->dev_cap.io_ofld)
+		_halrf_txgapk_one_shot_nctl_done_check_io_ofld_8852b(rf, id, path);
+	else 
+#endif
+	{
+		_halrf_txgapk_one_shot_nctl_done_check_default_8852b(rf, id, path);
+	}
+	
 }
 
 
@@ -2494,9 +2550,9 @@ void _halrf_do_non_dbcc_txgapk_8852b(struct rf_info *rf,
 					enum phl_phy_idx phy)
 {
 	u8 i;
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT	
+//#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT	
 	struct halrf_gapk_info *txgapk_info = &rf->gapk;
-#endif	
+//#endif	
 	u32 bb_reg[1] = {0x2344};
 	u32 bb_reg_backup[1] = {0};
 	u32 backup_num = 1;	
@@ -2508,6 +2564,8 @@ void _halrf_do_non_dbcc_txgapk_8852b(struct rf_info *rf,
 	u32 rf_reg[TXGAPK_RF_REG_NUM_8852B] = {0xdf};
 
 	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> %s   phy=%d\n", __func__, phy);
+
+	txgapk_info->txgapk_time = 0;
 
 	
 	_txgapk_backup_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
@@ -2552,46 +2610,49 @@ void _halrf_do_non_dbcc_txgapk_8852b(struct rf_info *rf,
 		/*halrf_tmac_tx_pause(rf, phy, true);*/
 
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
-		_halrf_txgapk_track_table_nctl_8852b(rf, phy, i);
-	
-		halrf_write_fwofld_start(rf);	/*FW Offload Start*/
-		_halrf_txgapk_write_track_table_8852b(rf, phy, i);
-		halrf_write_fwofld_end(rf); 	/*FW Offload End*/
-
-		_halrf_txgapk_power_table_nctl_8852b(rf, phy, i);
-
-		halrf_write_fwofld_start(rf);	/*FW Offload Start*/	
-		_halrf_txgapk_write_power_table_8852b(rf, phy, i);
-
-		/*halrf_tmac_tx_pause(rf, phy, false);*/
-		/*halrf_btc_rfk_ntfy(rf, (BIT(phy) << 4), RF_BTC_TSSI, RFK_STOP);*/
-
-		_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, i, false);
-		_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, i, false);
-
-		halrf_write_fwofld_end(rf); 	/*FW Offload End*/
-#else		
-		_halrf_txgapk_track_table_nctl_8852b(rf, phy, i);
-
-		if (txgapk_info->d_bnd_ok)
+		if (rf->phl_com->dev_cap.io_ofld) {
+			_halrf_txgapk_track_table_nctl_8852b(rf, phy, i);
+		
+			halrf_write_fwofld_start(rf);	/*FW Offload Start*/
 			_halrf_txgapk_write_track_table_8852b(rf, phy, i);
-		else
-			_halrf_txgapk_write_track_table_default_8852b(rf, phy, i);
-			
+			halrf_write_fwofld_end(rf); 	/*FW Offload End*/
 
-		_halrf_txgapk_power_table_nctl_8852b(rf, phy, i);
+			_halrf_txgapk_power_table_nctl_8852b(rf, phy, i);
 
-		if (txgapk_info->d_bnd_ok)
+			halrf_write_fwofld_start(rf);	/*FW Offload Start*/	
 			_halrf_txgapk_write_power_table_8852b(rf, phy, i);
-		else {
-			_halrf_txgapk_write_track_table_default_8852b(rf, phy, i);
-			_halrf_txgapk_write_power_table_default_8852b(rf, phy, i);
+
+			/*halrf_tmac_tx_pause(rf, phy, false);*/
+			/*halrf_btc_rfk_ntfy(rf, (BIT(phy) << 4), RF_BTC_TSSI, RFK_STOP);*/
+
+			_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, i, false);
+			_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, i, false);
+
+			halrf_write_fwofld_end(rf); 	/*FW Offload End*/
 		}
-
-		_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, i, false);
-		_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, i, false);
-
+		else 
 #endif
+		{
+			_halrf_txgapk_track_table_nctl_8852b(rf, phy, i);
+
+			if (txgapk_info->d_bnd_ok)
+				_halrf_txgapk_write_track_table_8852b(rf, phy, i);
+			else
+				_halrf_txgapk_write_track_table_default_8852b(rf, phy, i);
+				
+
+			_halrf_txgapk_power_table_nctl_8852b(rf, phy, i);
+
+			if (txgapk_info->d_bnd_ok)
+				_halrf_txgapk_write_power_table_8852b(rf, phy, i);
+			else {
+				_halrf_txgapk_write_track_table_default_8852b(rf, phy, i);
+				_halrf_txgapk_write_power_table_default_8852b(rf, phy, i);
+			}
+
+			_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, i, false);
+			_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, i, false);
+		}
 	}
 
 	/*halrf_wrf(rf, RF_PATH_A, 0x0, 0x00001, rf_0[RF_PATH_A]);*/
@@ -2621,10 +2682,12 @@ void _halrf_do_dbcc_txgapk_8852b(struct rf_info *rf,
 	u32 backup_num = 1;
 	u32 rf_3wire[2] = {0};
 	enum rf_path path = 0;
-#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
+//#ifndef HALRF_CONFIG_FW_IO_OFLD_SUPPORT
 	struct halrf_gapk_info *txgapk_info = &rf->gapk;
-#endif
+//#endif
 	RF_DBG(rf, DBG_RF_TXGAPK, "[TXGAPK]======> %s   phy=%d\n", __func__, phy);
+
+	txgapk_info->txgapk_time = 0;
 	
 	_txgapk_backup_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
 					backup_num);
@@ -2661,58 +2724,62 @@ void _halrf_do_dbcc_txgapk_8852b(struct rf_info *rf,
 	halrf_write_fwofld_end(rf);		/*FW Offload End*/
 	
 #ifdef HALRF_CONFIG_FW_IO_OFLD_SUPPORT	
-	_halrf_txgapk_track_table_nctl_8852b(rf, phy, path);
+	if (rf->phl_com->dev_cap.io_ofld) {
+		_halrf_txgapk_track_table_nctl_8852b(rf, phy, path);
 
-	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
-	_halrf_txgapk_write_track_table_8852b(rf, phy, path);
-	halrf_write_fwofld_end(rf);		/*FW Offload End*/
-
-		
-	_halrf_txgapk_power_table_nctl_8852b(rf, phy, path);
-	
-	halrf_write_fwofld_start(rf);		/*FW Offload Start*/
-
-	_halrf_txgapk_write_power_table_8852b(rf, phy, path);
-
-
-	_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, path, true);
-	_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, path, true);
-
-
-	halrf_wrf(rf, RF_PATH_A, 0x5, 0xfffff, rf_3wire[RF_PATH_A]);
-	halrf_wrf(rf, RF_PATH_B, 0x5, 0xfffff, rf_3wire[RF_PATH_B]);
-
-	_txgapk_reload_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
-					backup_num);
-
-	halrf_write_fwofld_end(rf);		/*FW Offload End*/
-#else
-	_halrf_txgapk_track_table_nctl_8852b(rf, phy, path);
-
-	if (txgapk_info->d_bnd_ok)
+		halrf_write_fwofld_start(rf);		/*FW Offload Start*/
 		_halrf_txgapk_write_track_table_8852b(rf, phy, path);
-	else 
-		_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
-	
-	_halrf_txgapk_power_table_nctl_8852b(rf, phy, path);
+		halrf_write_fwofld_end(rf);		/*FW Offload End*/
 
-	if (txgapk_info->d_bnd_ok)
+			
+		_halrf_txgapk_power_table_nctl_8852b(rf, phy, path);
+		
+		halrf_write_fwofld_start(rf);		/*FW Offload Start*/
+
 		_halrf_txgapk_write_power_table_8852b(rf, phy, path);
-	else {
-		_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
-		_halrf_txgapk_write_power_table_default_8852b(rf, phy, path);
+
+
+		_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, path, true);
+		_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, path, true);
+
+
+		halrf_wrf(rf, RF_PATH_A, 0x5, 0xfffff, rf_3wire[RF_PATH_A]);
+		halrf_wrf(rf, RF_PATH_B, 0x5, 0xfffff, rf_3wire[RF_PATH_B]);
+
+		_txgapk_reload_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
+						backup_num);
+
+		halrf_write_fwofld_end(rf);		/*FW Offload End*/
 	}
-
-	_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, path, true);
-	_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, path, true);
-
-
-	halrf_wrf(rf, RF_PATH_A, 0x5, 0xfffff, rf_3wire[RF_PATH_A]);
-	halrf_wrf(rf, RF_PATH_B, 0x5, 0xfffff, rf_3wire[RF_PATH_B]);
-
-	_txgapk_reload_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
-					backup_num);
+	else 
 #endif
+	{
+		_halrf_txgapk_track_table_nctl_8852b(rf, phy, path);
+
+		if (txgapk_info->d_bnd_ok)
+			_halrf_txgapk_write_track_table_8852b(rf, phy, path);
+		else 
+			_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
+		
+		_halrf_txgapk_power_table_nctl_8852b(rf, phy, path);
+
+		if (txgapk_info->d_bnd_ok)
+			_halrf_txgapk_write_power_table_8852b(rf, phy, path);
+		else {
+			_halrf_txgapk_write_track_table_default_8852b(rf, phy, path);
+			_halrf_txgapk_write_power_table_default_8852b(rf, phy, path);
+		}
+
+		_halrf_txgapk_iqk_bk_reg_by_mode_8852b(rf, phy, path, true);
+		_halrf_txgapk_afe_bk_reg_by_mode_8852b(rf, phy, path, true);
+
+
+		halrf_wrf(rf, RF_PATH_A, 0x5, 0xfffff, rf_3wire[RF_PATH_A]);
+		halrf_wrf(rf, RF_PATH_B, 0x5, 0xfffff, rf_3wire[RF_PATH_B]);
+
+		_txgapk_reload_bb_registers_8852b(rf, phy, bb_reg, bb_reg_backup,
+						backup_num);
+	}
 	
 }
 void _halrf_txgapk_get_ch_info_8852b(struct rf_info *rf, enum phl_phy_idx phy)

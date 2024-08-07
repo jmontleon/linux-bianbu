@@ -1149,6 +1149,12 @@ void halrf_pwr_by_rate_info_8852b(struct rf_info *rf,
 		halrf_show_pwr_table(rf, pwr->tx_rate_power_control[HW_PHY_0] / 2) / 10,
 		halrf_show_pwr_table(rf, pwr->tx_rate_power_control[HW_PHY_0] / 2) % 10);
 
+	RF_DBG_CNSL(out_len, used, output + used, out_len - used, " %-30s = %s%d.%ddB\n",
+		"TX Rate MAX Power",
+		halrf_pwr_is_minus(rf, pwr->max_tx_rate_power[HW_PHY_0]) ? "-" : "",
+		halrf_show_pwr_table(rf, pwr->max_tx_rate_power[HW_PHY_0]) / 10,
+		halrf_show_pwr_table(rf, pwr->max_tx_rate_power[HW_PHY_0]) % 10);
+
 	RF_DBG_CNSL(out_len, used, output + used, out_len - used, "1TX\n");
 
 	reg_tmp = halrf_mac_get_pwr_reg_8852b(rf, 0, 0xd2c0, 0xffffffff);

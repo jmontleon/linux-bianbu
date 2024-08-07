@@ -15,6 +15,11 @@
 #ifndef _RTW_HT_H_
 #define _RTW_HT_H_
 
+/* ********************************************* */
+/* IEEE802.11 BA BUFFER SIZE IN ADDBA DEFINITION */
+/* ********************************************* */
+#define MAX_BA_BUFFER_SIZE_HT 64 /* HT & VHT */
+
 #define HT_CAP_IE_LEN 26
 #define HT_OP_IE_LEN 22
 

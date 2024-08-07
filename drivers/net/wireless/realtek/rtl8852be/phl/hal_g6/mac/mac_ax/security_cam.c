@@ -211,28 +211,26 @@ u32 fill_addr_cam_sec_only(struct mac_ax_adapter *adapter,
 u32 mac_upd_sec_infotbl(struct mac_ax_adapter *adapter,
 			struct fwcmd_seccam_info *info)
 {
-	u32 ret = 0, s_info_tbl[6], cam_address = 0;
-	u8 *buf, i;
-	#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-	#else
-	struct h2c_buf *h2cb;
-	#endif
+	u32 ret = MACSUCCESS;
+	struct h2c_info h2c_info = {0};
+	u32 s_info_tbl[6], cam_address = 0, i;
+
 	struct fwcmd_seccam_info *tbl;
 	struct mac_ax_sec_cam_info *s_info;
 
-	/*h2c access*/
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
-	if (!h2cb)
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_seccam_info);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_SEC_CAM;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_SECCAM_INFO;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
+
+	tbl = (struct fwcmd_seccam_info *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!tbl) {
+		PLTFM_MSG_ERR("%s malloc h2c error\n", __func__);
 		return MACNPTR;
-
-	buf = h2cb_put(h2cb, sizeof(struct fwcmd_seccam_info));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
 	}
-
-	tbl = (struct fwcmd_seccam_info *)buf;
 
 	tbl->dword0 = info->dword0;
 	tbl->dword1 = info->dword1;
@@ -242,39 +240,8 @@ u32 mac_upd_sec_infotbl(struct mac_ax_adapter *adapter,
 	tbl->dword5 = info->dword5;
 
 	if (adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY) {
-		ret = h2c_pkt_set_hdr(adapter, h2cb,
-				      FWCMD_TYPE_H2C,
-				      FWCMD_H2C_CAT_MAC,
-				      FWCMD_H2C_CL_SEC_CAM,
-				      FWCMD_H2C_FUNC_SECCAM_INFO,
-				      0,
-				      1);
-
-		if (ret != MACSUCCESS)
-			goto fail;
-
-		// Return MACSUCCESS if h2c aggregation is enabled and enqueued successfully.
-		// The H2C shall be sent by mac_h2c_agg_tx.
-		ret = h2c_agg_enqueue(adapter, h2cb);
-		if (ret == MACSUCCESS)
-			return MACSUCCESS;
-
-		ret = h2c_pkt_build_txd(adapter, h2cb);
-		if (ret != MACSUCCESS)
-			goto fail;
-
-		#if MAC_AX_PHL_H2C
-		ret = PLTFM_TX(h2cb);
-		#else
-		ret = PLTFM_TX(h2cb->data, h2cb->len);
-		#endif
-		if (ret != MACSUCCESS)
-			goto fail;
-
-		h2cb_free(adapter, h2cb);
-		return MACSUCCESS;
-fail:
-		h2cb_free(adapter, h2cb);
+		ret = mac_h2c_common(adapter, &h2c_info, (u32 *)tbl);
+		PLTFM_FREE(tbl, h2c_info.content_len);
 	} else {
 		/* Indirect Access */
 		s_info = (struct mac_ax_sec_cam_info *)info;
@@ -293,7 +260,8 @@ fail:
 					   cpu_to_le32(s_info_tbl[i + 1]),
 					   SEC_CAM_SEL);
 		PLTFM_MSG_WARN("%s ind access end\n", __func__);
-
+		// free allocate memory
+		PLTFM_FREE(tbl, h2c_info.content_len);
 		return MACSUCCESS;
 	}
 

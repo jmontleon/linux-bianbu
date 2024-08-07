@@ -23,10 +23,11 @@ static void restore_flr_lps(struct mac_ax_adapter *adapter)
 
 	MAC_REG_W32(R_AX_WCPU_FW_CTRL, 0);
 
-#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 		MAC_REG_W32(R_AX_AFE_CTRL1, MAC_REG_R32(R_AX_AFE_CTRL1) &
 			    ~B_AX_CMAC_CLK_SEL);
 
@@ -295,6 +296,7 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 	u32 (*pwr_func)(struct mac_ax_adapter *adapter);
 	u32 val32;
+	u32 cnt = PWR_POLL_CNT;
 
 	val32 = MAC_REG_R32(R_AX_GPIO_MUXCFG) & B_AX_BOOT_MODE;
 	if (val32 == B_AX_BOOT_MODE) {
@@ -343,26 +345,54 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 	}
 
 	if (on) {
-		ret = mac_ps_pwr_state(adapter, MAC_AX_PWR_STATE_ACT_REQ,
-				       MAC_AX_RPWM_REQ_PWR_STATE_ACTIVE);
-		if (ret != MACSUCCESS) {
-			PLTFM_MSG_ERR("MAC_AX_PWR_STATE_ACT_REQ fail %X\n", ret);
-			goto END;
+		/* Read 0x3F0 */
+		val32 = MAC_REG_R32(R_AX_IC_PWR_STATE);
+		val32 = GET_FIELD(val32, B_AX_WLMAC_PWR_STE);
+		if (val32 != MAC_AX_MAC_OFF) {
+			/* 0x04[16] = 1 */
+			val32 = MAC_REG_R32(R_AX_SYS_PW_CTRL);
+			MAC_REG_W32(R_AX_SYS_PW_CTRL, val32 | B_AX_EN_WLON);
+			/* 0x04[9] = 1 */
+			val32 = MAC_REG_R32(R_AX_SYS_PW_CTRL);
+			MAC_REG_W32(R_AX_SYS_PW_CTRL, val32 | B_AX_APFM_OFFMAC);
+			/* polling 0x04[9] = 0 */
+			while (--cnt) {
+				val32 = MAC_REG_R32(R_AX_SYS_PW_CTRL);
+				val32 = val32 & B_AX_APFM_OFFMAC;
+				val32 = val32 >> B_AX_REG_CP_ICP_SEL_FAST_SH;
+				//val32 = GET_FIELD(val32, B_AX_APFM_OFFMAC);
+				if (val32 == MAC_AX_MAC_OFF)
+					break;
+				PLTFM_DELAY_US(PWR_POLL_DLY_US);
+			}
 		}
+		/* 0x04[16] = 0 */
+		val32 = MAC_REG_R32(R_AX_SYS_PW_CTRL);
+		MAC_REG_W32(R_AX_SYS_PW_CTRL, val32 & ~B_AX_EN_WLON);
+		/* 0x04[10] = 0 */
+		val32 = MAC_REG_R32(R_AX_SYS_PW_CTRL);
+		MAC_REG_W32(R_AX_SYS_PW_CTRL, val32 & ~B_AX_APFM_SWLPS);
 
 		PLTFM_DELAY_MS(1);
 
-#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 		MAC_REG_W32(R_AX_AFE_CTRL1, MAC_REG_R32(R_AX_AFE_CTRL1) &
 			    ~B_AX_CMAC_CLK_SEL);
 	}
 #endif
+		#if 0
+		while (--cnt) {
+			val32 = MAC_REG_R32(R_AX_IC_PWR_STATE);
+			val32 = GET_FIELD(val32, B_AX_WLMAC_PWR_STE);
+			if (val32 != MAC_AX_MAC_LPS)
+				break;
+			PLTFM_DELAY_US(PWR_POLL_DLY_US);
+		}
 
-		val32 = MAC_REG_R32(R_AX_IC_PWR_STATE);
-		val32 = GET_FIELD(val32, B_AX_WLMAC_PWR_STE);
 		if (val32 == MAC_AX_MAC_ON) {
 			PLTFM_MSG_WARN("MAC has already powered on %d\n", val32);
 			ret = MACALRDYON;
@@ -372,6 +402,7 @@ u32 mac_pwr_switch(struct mac_ax_adapter *adapter, u8 on)
 			ret = MACPWRSTAT;
 			goto END;
 		}
+		#endif
 	}
 
 	if (!pwr_func) {

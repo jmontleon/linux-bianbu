@@ -220,7 +220,11 @@ u8 _phl_build_sta_info(struct rtw_phl_com_t *phl_com,
 		p += ETH_ALEN;
 	}
 	if (GET_STA_CTRL_BEACON_INTEREVAL_PRESENT(sta_ctrl)) {
+#ifdef RTW_PHL_BCN
 		u16 bcn_interval = (u16)info->rlink->bcn_cmn.bcn_interval;
+#else
+		u16 bcn_interval = 100;
+#endif
 
 		_os_mem_cpy(drv, p, &(bcn_interval), 2);
 		p += 2;

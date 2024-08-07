@@ -31,7 +31,14 @@ _chinfo_chk_pkt_offload(struct phl_info_t *phl_info,
 	*id = phl_pkt_ofld_get_id(phl_info, act_param->sta->macid,
 							PKT_TYPE_NULL_DATA);
 	if (NOT_USED == *id) {
-		_os_mem_cpy(d, &(null_info.a1[0]), &(act_param->sta->mac_addr[0]),
+
+#ifdef CONFIG_PHL_WKARD_CHANNEL_INFO_SAP
+		if (act_param->ap_csi == true)
+			_os_mem_cpy(d, &(null_info.a1[0]), &(act_param->assign_client_mac[0]),
+						MAC_ADDRESS_LENGTH);
+		else
+#endif
+			_os_mem_cpy(d, &(null_info.a1[0]), &(act_param->sta->mac_addr[0]),
 						MAC_ADDRESS_LENGTH);
 
 		_os_mem_cpy(d,&(null_info.a2[0]), &(act_param->sta->rlink[0].mac_addr[0]),

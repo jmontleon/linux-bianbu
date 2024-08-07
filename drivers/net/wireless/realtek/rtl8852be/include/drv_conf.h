@@ -17,6 +17,7 @@
 #include "autoconf.h"
 
 #define CONFIG_RSSI_PRIORITY
+#define CONFIG_POST_CORE_KEEP_ALIVE
 
 /*temporary defination,this flag will be removed later*/
 #define CONFIG_PHL_WACHDOG_REFINE
@@ -32,12 +33,6 @@
 #if defined(CONFIG_MCC_MODE) && (!defined(CONFIG_CONCURRENT_MODE))
 
 	#error "Enable CONCURRENT_MODE before enable MCC MODE\n"
-
-#endif
-
-#if defined(CONFIG_MCC_MODE) && defined(CONFIG_BTC)
-
-	#error "Disable BT COEXIST before enable MCC MODE\n"
 
 #endif
 
@@ -153,6 +148,12 @@
 	#endif
 
 #endif // CONFIG_RTW_ANDROID
+
+#define RTW_PER_ADAPTER_WIPHY 0
+
+#if defined(CONFIG_REGD_SRC_FROM_OS) && RTW_PER_ADAPTER_WIPHY
+#error "CONFIG_REGD_SRC_FROM_OS is not supported when enable RTW_PER_ADAPTER_WIPHY"
+#endif
 
 /*
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_RESUME_IN_WORKQUEUE)
@@ -295,20 +296,16 @@
 	#define CONFIG_RTW_HIQ_FILTER 1
 #endif
 
+#ifndef CONFIG_RTW_EDCCA_MODE_SEL
+#define CONFIG_RTW_EDCCA_MODE_SEL 0 /* 0:RTW_EDCCA_NORM, 0xFF:RTW_EDCCA_AUTO */
+#endif
+
 #ifndef CONFIG_RTW_ADAPTIVITY_EN
-	#define CONFIG_RTW_ADAPTIVITY_EN 0
+#define CONFIG_RTW_ADAPTIVITY_EN 0
 #endif
 
 #ifndef CONFIG_RTW_ADAPTIVITY_MODE
-	#define CONFIG_RTW_ADAPTIVITY_MODE 0
-#endif
-
-#ifndef CONFIG_RTW_ADAPTIVITY_TH_L2H_INI
-	#define CONFIG_RTW_ADAPTIVITY_TH_L2H_INI 0
-#endif
-
-#ifndef CONFIG_RTW_ADAPTIVITY_TH_EDCCA_HL_DIFF
-	#define CONFIG_RTW_ADAPTIVITY_TH_EDCCA_HL_DIFF 0
+#define CONFIG_RTW_ADAPTIVITY_MODE 0
 #endif
 
 #ifndef CONFIG_RTW_EXCL_CHS
@@ -469,16 +466,16 @@
 /*#define CONFIG_EXTEND_LOWRATE_TXOP			*/
 
 #ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS
-	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS {0xFF, 0xFF, 0xFF, 0xFF}
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_1SS {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}
 #endif
 #ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS
-	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS {0xFF, 0xFF, 0xFF, 0xFF}
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_2SS {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}
 #endif
 #ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_3SS
-	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_3SS {0xFF, 0xFF, 0xFF, 0xFF}
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_3SS {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}
 #endif
 #ifndef CONFIG_RTW_RX_AMPDU_SZ_LIMIT_4SS
-	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_4SS {0xFF, 0xFF, 0xFF, 0xFF}
+	#define CONFIG_RTW_RX_AMPDU_SZ_LIMIT_4SS {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF}
 #endif
 
 #ifndef CONFIG_RTW_TARGET_TX_PWR_2G_A
@@ -677,7 +674,9 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 	#endif
 	/* #define CONFIG_WRC_WOW_MAGIC */
 	#define DBG_RX_DFRAME_RAW_DATA
-	#define DBG_RX_SIGNAL_DISPLAY_RAW_DATA 
+	#define DBG_RX_SIGNAL_DISPLAY_RAW_DATA
+	#define CONFIG_GO_APPEND_COUNTRY_IE
+	#define RTW_IOT_ID 0x112;
 #endif
 
 #ifdef CONFIG_80211AX_HE
@@ -692,6 +691,27 @@ power down etc.) in last time, we can unmark this flag to avoid some unpredictab
 #define RTW_FUNC_2G_5G_ONLY __attribute__ ((deprecated("ch utility consider only 2G/5G is not allowed")))
 #else
 #define RTW_FUNC_2G_5G_ONLY /* tag for channel functions/macros consider only 2G/5G, place at the same line with symbol name */
+#endif
+
+#ifndef RTW_IOT_ID
+	#define  RTW_IOT_ID 0x0
+#endif
+
+#ifdef CONFIG_TDLS_CH_SW
+	#ifndef CONFIG_CHSW_OFLD
+	#define CONFIG_CHSW_OFLD
+	#endif
+#endif
+
+/*
+ * Channel switch FW offload config:
+ * drv needs to call function rtw_phl_set_chsw_ofld_info
+ * to effectively enable channel switch fw offload
+*/
+#ifdef CONFIG_CHSW_OFLD
+	#ifndef CONFIG_PHL_CHSWOFLD
+	#define CONFIG_PHL_CHSWOFLD
+	#endif
 #endif
 
 /*

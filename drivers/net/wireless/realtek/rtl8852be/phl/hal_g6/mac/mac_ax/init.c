@@ -65,7 +65,8 @@ static u32 clr_pcie_avoid_pldr_polling_fail(struct mac_ax_adapter *adapter)
 
 	if (!(is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	      is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	      is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)))
+	      is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	      is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)))
 		return MACSUCCESS;
 
 	ret = p_ops->ctrl_trxdma_pcie(adapter, MAC_AX_PCIE_DISABLE,
@@ -163,6 +164,12 @@ struct mac_ax_adapter *get_mac_ax_adapter(enum mac_ax_intf intf,
 						pltfm_cb);
 		break;
 #endif
+#if MAC_AX_8852BT_SUPPORT
+	case MAC_AX_CHIP_ID_8852BT:
+		adapter = get_mac_8852bt_adapter(intf, cv, drv_adapter,
+						pltfm_cb);
+		break;
+#endif
 #if MAC_AX_1115E_SUPPORT
 	case MAC_BE_CHIP_ID_1115E:
 		adapter = get_mac_1115e_adapter(intf, cv, drv_adapter,
@@ -184,7 +191,7 @@ u32 hci_func_en(struct mac_ax_adapter *adapter)
 	u32 val32, reg;
 	u32 ret = MACSUCCESS;
 
-#if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT)
+#if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT
 	reg = R_AX_HCI_FUNC_EN;
 #else
 	reg = R_AX_HCI_FUNC_EN_V1;
@@ -192,7 +199,8 @@ u32 hci_func_en(struct mac_ax_adapter *adapter)
 
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 		val32 = MAC_REG_R32(reg) |
 			B_AX_HCI_TXDMA_EN | B_AX_HCI_RXDMA_EN;
 		MAC_REG_W32(reg, val32);
@@ -218,13 +226,19 @@ u32 dmac_pre_init(struct mac_ax_adapter *adapter, enum mac_ax_qta_mode mode, u8 
 	if (!fwdl)
 		return MACSUCCESS;
 
-	ret = dle_init(adapter, MAC_AX_QTA_DLFW, mode);
+	if (adapter->hw_info->intf == MAC_AX_INTF_SDIO)
+		ret = dle_init(adapter, mode, mode);
+	else
+		ret = dle_init(adapter, MAC_AX_QTA_DLFW, mode);
 	if (ret) {
 		PLTFM_MSG_ERR("[ERR]DLE pre init %d\n", ret);
 		return ret;
 	}
 
-	ret = hfc_init(adapter, 1, 0, 1);
+	if (adapter->hw_info->intf == MAC_AX_INTF_SDIO)
+		ret = hfc_init(adapter, 1, 1, 1);
+	else
+		ret = hfc_init(adapter, 1, 0, 1);
 	if (ret) {
 		PLTFM_MSG_ERR("[ERR]HCI FC pre init %d\n", ret);
 		return ret;
@@ -311,7 +325,8 @@ u32 chip_func_en(struct mac_ax_adapter *adapter)
 
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 		/* patch for OCP */
 		val32 = MAC_REG_R32(R_AX_SPS_DIG_ON_CTRL0);
 		val32 |= SET_WOR2(B_AX_OCP_L1_MSK, B_AX_OCP_L1_SH,
@@ -451,6 +466,9 @@ u32 mac_hal_init(struct mac_ax_adapter *adapter,
 			case MAC_AX_CHIP_ID_8852D:
 				rom_addr = RTL8852D_ROM_ADDR;
 				break;
+			case MAC_AX_CHIP_ID_8852BT:
+				rom_addr = RTL8852BT_ROM_ADDR;
+				break;
 			default:
 				PLTFM_MSG_ERR("[ERR]chip id\n");
 				return MACNOITEM;
@@ -568,6 +586,7 @@ u32 mac_hal_deinit(struct mac_ax_adapter *adapter)
 	struct mac_ax_ops *ops = adapter_to_mac_ops(adapter);
 	struct mac_ax_intf_ops *intf_ops = adapter_to_intf_ops(adapter);
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	struct mac_ax_intf_deinit_info intf_deinit_info = {0};
 #if MAC_AX_FEATURE_DBGPKG
 	struct mac_ax_dbgpkg dbg_val = {0};
 	struct mac_ax_dbgpkg_en dbg_en = {0};
@@ -585,7 +604,8 @@ u32 mac_hal_deinit(struct mac_ax_adapter *adapter)
 	}
 
 	if (!(is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
-	      is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))) {
+	      is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	      is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT))) {
 		ret = rst_port_info(adapter, MAC_AX_BAND_1);
 		if (ret != MACSUCCESS) {
 			PLTFM_MSG_ERR("[ERR]reset port info %d\n", ret);
@@ -623,7 +643,8 @@ u32 mac_hal_deinit(struct mac_ax_adapter *adapter)
 		return ret;
 	}
 
-	ret = intf_ops->intf_deinit(adapter, NULL);
+	intf_deinit_info.fast_deinit_flag = 0;
+	ret = intf_ops->intf_deinit(adapter, &intf_deinit_info);
 	if (ret != MACSUCCESS) {
 		PLTFM_MSG_ERR("[ERR]intf deinit\n");
 		goto end;
@@ -745,6 +766,9 @@ u32 mac_hal_fast_init(struct mac_ax_adapter *adapter,
 			case MAC_AX_CHIP_ID_8852D:
 				rom_addr = RTL8852D_ROM_ADDR;
 				break;
+			case MAC_AX_CHIP_ID_8852BT:
+				rom_addr = RTL8852BT_ROM_ADDR;
+				break;
 			default:
 				PLTFM_MSG_ERR("[ERR]chip id\n");
 				return MACNOITEM;
@@ -812,6 +836,7 @@ u32 mac_hal_fast_deinit(struct mac_ax_adapter *adapter)
 {
 	struct mac_ax_ops *ops = adapter_to_mac_ops(adapter);
 	struct mac_ax_intf_ops *intf_ops = adapter_to_intf_ops(adapter);
+	struct mac_ax_intf_deinit_info intf_deinit_info = {0};
 #if MAC_AX_FEATURE_DBGPKG
 	struct mac_ax_dbgpkg dbg_val = {0};
 	struct mac_ax_dbgpkg_en dbg_en = {0};
@@ -820,7 +845,8 @@ u32 mac_hal_fast_deinit(struct mac_ax_adapter *adapter)
 
 	adapter->sm.mac_rdy = MAC_AX_MAC_NOT_RDY;
 
-	ret = intf_ops->intf_deinit(adapter, NULL);
+	intf_deinit_info.fast_deinit_flag = 1;
+	ret = intf_ops->intf_deinit(adapter, &intf_deinit_info);
 	if (ret) {
 		PLTFM_MSG_ERR("[ERR]intf deinit\n");
 		goto end;
@@ -880,6 +906,9 @@ u32 mix_info_init(struct mac_ax_adapter *adapter)
 	PLTFM_MUTEX_INIT(&adapter->scanofld_info.drv_chlist_state_lock);
 	PLTFM_MUTEX_INIT(&adapter->scanofld_info.fw_chlist_state_lock);
 	PLTFM_MUTEX_INIT(&adapter->csi_info.state_lock);
+#if MAC_AX_FEATURE_DBGCMD
+	PLTFM_MUTEX_INIT(&adapter->fw_dbgcmd.lock);
+#endif
 	adapter->hw_info->ind_aces_cnt = 0;
 	adapter->hw_info->dbg_port_cnt = 0;
 
@@ -906,6 +935,9 @@ u32 mix_info_exit(struct mac_ax_adapter *adapter)
 	PLTFM_MUTEX_DEINIT(&adapter->scanofld_info.drv_chlist_state_lock);
 	PLTFM_MUTEX_DEINIT(&adapter->scanofld_info.fw_chlist_state_lock);
 	PLTFM_MUTEX_DEINIT(&adapter->csi_info.state_lock);
+#if MAC_AX_FEATURE_DBGCMD
+	PLTFM_MUTEX_DEINIT(&adapter->fw_dbgcmd.lock);
+#endif
 	adapter->hw_info->ind_aces_cnt = 0;
 	adapter->hw_info->dbg_port_cnt = 0;
 

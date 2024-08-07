@@ -81,7 +81,9 @@ enum HALBB_CMD_ID {
 	HALBB_SNIFFER_MODE,
 	HALBB_DTR_DBG,
 	HALBB_FW_OFLD,
-	HALBB_MATH
+	HALBB_MATH,
+	HALBB_LPS_CH_INFO,
+	HALBB_SPATIAL_REUSE
 };
 
 /*@--------------------------[Structure]-------------------------------------*/
@@ -107,7 +109,7 @@ static const struct halbb_cmd_info halbb_cmd_i[] = {
 	{"lamode", HALBB_LA_MODE},
 	{"psd", HALBB_PSD},
 	{"dumpreg", HALBB_DUMP_REG},
-	//{"auto_dbg", HALBB_AUTO_DBG},
+	{"auto_dbg", HALBB_AUTO_DBG},
 	{"dd_dbg", HALBB_DD_DBG},
 	{"cfo_trk", HALBB_CFO_TRK},
 	{"ul_tb", HALBB_UL_TB},
@@ -150,7 +152,9 @@ static const struct halbb_cmd_info halbb_cmd_i[] = {
 	{"cmn_info", HALBB_CMN_INFO},
 	{"snif", HALBB_SNIFFER_MODE},
 	{"fw_ofld", HALBB_FW_OFLD},
-	{"math", HALBB_MATH}
+	{"math", HALBB_MATH},
+	{"lps_ch_info", HALBB_LPS_CH_INFO},
+	{"sr", HALBB_SPATIAL_REUSE}
 	};
 
 /*@--------------------------[Prptotype]-------------------------------------*/

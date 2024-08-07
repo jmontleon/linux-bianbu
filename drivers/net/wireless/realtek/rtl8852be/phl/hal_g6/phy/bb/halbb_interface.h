@@ -105,6 +105,7 @@ enum halbb_h2c_ra_cmdid {
 	RA_H2C_RA_D_O_TIMER	= 0x5,
 	RA_H2C_RA_CLS		= 0x6,
 	RA_H2C_RA_SHIFT_DARF_TC	= 0x7,
+	RA_H2C_RA_TX_INFO	= 0x8,
 	RA_H2C_MUCFG		= 0x10,
 	RA_MAX_H2CCMD
 };
@@ -144,6 +145,7 @@ enum halbb_h2c_dm_cmdid {
 	DM_H2C_FW_L6M_WA	= 0x7,
 	DM_H2C_FW_ENV_MNTR	= 0x8,
 	DM_H2C_FW_LPS_INFO	= 0x9,
+	DM_H2C_FW_LPS_CH_INFO	= 0xb,
 	DM_MAX_H2CCMD
 };
 
@@ -158,6 +160,7 @@ enum halbb_c2h_ra_cmdid {
 	HALBB_C2HRA_STS_RPT		= 0x0,
 	HALBB_C2HRA_MU_GPTBL_RPT	= 0x1,
 	HALBB_C2HRA_TXSTS		= 0x2,
+	HALBB_C2HRA_TX_DBG_INFO		= 0x3,
 	HALBB_MAX_C2HRACMD
 };
 
@@ -174,6 +177,8 @@ enum halbb_c2h_dm_cmdid {
 	DM_C2H_LOWRT_RTY		= 0x3,
 	DM_C2H_MCC_DIG			= 0x4,
 	DM_C2H_FW_ENV_MNTR		= 0x5,
+	DM_C2H_DBG		= 0x6,
+	DM_C2H_EHTSIG		=0x7,
 	HALBB_MAX_C2HDMCMD
 };
 
@@ -206,6 +211,17 @@ struct halbb_pwr_by_rate_tbl {
 	u8 pwr_by_rate[PWR_TBL_NUM*2];
 };
 
+struct halbb_lps_chb {
+	u8 pri_ch;
+	u8 c_ch;
+	u8 bw;
+	u8 band;
+};
+
+struct halbb_lsp_ch_info {
+	struct halbb_lps_chb bw_ch_i[HW_PHY_MAX];
+	u32 mlo_dbcc_mode_lps;
+};
 /*@--------------------------[Prptotype]-------------------------------------*/
 struct bb_info;
 
@@ -214,8 +230,9 @@ void halbb_cfg_timers(struct bb_info *bb, enum bb_timer_cfg_t cfg,
 u32 halbb_get_sys_time(struct bb_info *bb);
 u32 halbb_phy0_to_phy1_ofst(struct bb_info *bb, u32 addr, enum phl_phy_idx phy_idx);
 void halbb_delay_us(struct bb_info *bb, u32 us);
-void halbb_set_cr(struct bb_info *bb, u32 addr, u32 val);
-u32 halbb_get_cr(struct bb_info *bb, u32 addr);
+void halbb_set_bb_wrap_reg_cmn(struct bb_info* bb, enum phl_phy_idx bb_phy_idx, u32 addr, u32 val);
+void halbb_set_cr(struct bb_info *bb, u32 addr, u32 mask, u32 val);
+u32 halbb_get_cr(struct bb_info *bb, u32 addr, u32 mask);
 void halbb_set_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask, u32 val);
 void halbb_set_reg_phy0_1(struct bb_info *bb, u32 addr, u32 mask, u32 val);
 u32 halbb_get_reg_curr_phy(struct bb_info *bb, u32 addr, u32 mask);

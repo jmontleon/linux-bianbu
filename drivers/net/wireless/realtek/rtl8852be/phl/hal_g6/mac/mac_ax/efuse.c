@@ -15,13 +15,6 @@
 #include "efuse.h"
 #include "mac_priv.h"
 
-static struct mac_efuse_tbl efuse_tbl;
-struct mac_bank_efuse_info bank_efuse_info;
-u16 efuse_ctrl = R_AX_EFUSE_CTRL;
-u16 read_efuse_cnt = EFUSE_WAIT_CNT;
-bool OTP_test;
-enum rtw_dv_sel dv_sel = DDV;
-
 static struct efuse_info_item offset_pcie = {
 	0x400, /* mac_addr */
 	0, /* pid */
@@ -50,6 +43,15 @@ static struct efuse_info_item offset_usb_8852b = {
 };
 
 static struct efuse_info_item offset_usb_8851b = {
+	0x488, /* mac_addr */
+	0x482, /* pid */
+	0, /* did */
+	0x480, /* vid */
+	0, /* svid */
+	0, /* smid */
+};
+
+static struct efuse_info_item offset_usb_8852bt = {
 	0x488, /* mac_addr */
 	0x482, /* pid */
 	0, /* did */
@@ -95,6 +97,15 @@ static struct efuse_info_item def_val_usb_8852b = {
 };
 
 static struct efuse_info_item def_val_usb_8851b = {
+	0x0, /* mac_addr */
+	0x5B, /* pid */
+	0, /* did */
+	0xDA, /* vid */
+	0, /* svid */
+	0, /* smid */
+};
+
+static struct efuse_info_item def_val_usb_8852bt = {
 	0x0, /* mac_addr */
 	0x5B, /* pid */
 	0, /* did */
@@ -160,6 +171,12 @@ static struct efuse_info efuse_info_usb_8852b = {
 static struct efuse_info efuse_info_usb_8851b = {
 	&offset_usb_8851b, /* offset */
 	&def_val_usb_8851b, /* def_val */
+	&len_usb, /* len */
+};
+
+static struct efuse_info efuse_info_usb_8852bt = {
+	&offset_usb_8852bt, /* offset */
+	&def_val_usb_8852bt, /* def_val */
 	&len_usb, /* len */
 };
 
@@ -238,12 +255,11 @@ u32 mac_dump_efuse_map_wl_plus(struct mac_ax_adapter *adapter,
 	u8 chip_id = hw_info->chip_id;
 	bool dav_exist = (hw_info->dav_full_efuse_size == 0) ? false : true;
 
-	if (chip_id == MAC_AX_CHIP_ID_8852A) {
+	switch (chip_id) {
+	case MAC_AX_CHIP_ID_8852A:
 		ret = mac_dump_efuse_map_wl(adapter, cfg, efuse_map);
-	} else if ((chip_id == MAC_AX_CHIP_ID_8852B) ||
-		   (chip_id == MAC_AX_CHIP_ID_8852C) ||
-		   (chip_id == MAC_AX_CHIP_ID_8851E) ||
-		   (chip_id == MAC_AX_CHIP_ID_8852D)) {
+		break;
+	default:
 		ret = mac_dump_efuse_map_wl(adapter, cfg, efuse_map);
 		if (ret)
 			return ret;
@@ -252,16 +268,7 @@ u32 mac_dump_efuse_map_wl_plus(struct mac_ax_adapter *adapter,
 			ret = mac_dump_efuse_map_wl(adapter, cfg, efuse_map + hw_info->efuse_size);
 			switch_dv(adapter, DDV);
 		}
-	} else {
-		ret = mac_dump_efuse_map_wl(adapter, cfg, efuse_map);
-		if (ret)
-			return ret;
-		if (dav_exist) {
-			switch_dv(adapter, DAV);
-			ret = mac_dump_efuse_map_wl(adapter, MAC_AX_EFUSE_R_DRV,
-						    efuse_map + hw_info->efuse_size);
-			switch_dv(adapter, DDV);
-		}
+		break;
 	}
 
 	if (ret)
@@ -275,17 +282,10 @@ u32 mac_dump_efuse_map_wl(struct mac_ax_adapter *adapter,
 {
 	u32 ret, stat;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
-#if 0
-	if (cfg == MAC_AX_EFUSE_R_FW ||
-	    (cfg == MAC_AX_EFUSE_R_AUTO &&
-	     adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY))
-		return MACNOITEM;
-#else
-	if (cfg == MAC_AX_EFUSE_R_FW &&
-	    adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) // no fw file
+	if (cfg == MAC_AX_EFUSE_R_FW && adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
-#endif
 
 	PLTFM_MSG_TRACE("[TRACE]cfg = %d\n", cfg);
 
@@ -337,16 +337,8 @@ u32 mac_dump_efuse_map_bt(struct mac_ax_adapter *adapter,
 	u32 ret, stat;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 
-#if 0
-	if (cfg == MAC_AX_EFUSE_R_FW ||
-	    (cfg == MAC_AX_EFUSE_R_AUTO &&
-	     adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY))
-		return MACNOITEM;
-#else
-	if (cfg == MAC_AX_EFUSE_R_FW &&
-	    adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY) // no fw file
+	if (cfg == MAC_AX_EFUSE_R_FW && adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
-#endif
 
 	PLTFM_MSG_TRACE("[TRACE]cfg = %d\n", cfg);
 
@@ -441,6 +433,7 @@ u32 mac_write_efuse(struct mac_ax_adapter *adapter, u32 addr, u8 val,
 {
 	u32 ret, stat, efuse_size = 0;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	bool OTP_test = adapter->efuse_param.OTP_test;
 
 	if (bank == MAC_AX_EFUSE_BANK_WIFI) {
 		if (OTP_test)
@@ -564,6 +557,7 @@ u32 mac_read_efuse(struct mac_ax_adapter *adapter, u32 addr, u32 size, u8 *val,
 {
 	u32 ret, stat, efuse_size = 0;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	bool OTP_test = adapter->efuse_param.OTP_test;
 
 	if (bank == MAC_AX_EFUSE_BANK_WIFI) {
 		if (OTP_test)
@@ -710,10 +704,10 @@ static u32 proc_dump_hidden(struct mac_ax_adapter *adapter)
 			return ret;
 		}
 
-		PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
 		PLTFM_MEMCPY(adapter->efuse_param.hidden_rf_map, map, hidden_efuse_rf_size);
 		adapter->efuse_param.hidden_rf_map_valid = 1;
-		PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 		PLTFM_FREE(map, hidden_efuse_rf_size);
 	}
 
@@ -726,6 +720,8 @@ u32 mac_get_efuse_avl_size(struct mac_ax_adapter *adapter, u32 *size)
 	u8 *map;
 	u32 efuse_size = adapter->hw_info->log_efuse_size;
 	struct mac_ax_efuse_param *efuse_param = &adapter->efuse_param;
+
+	PLTFM_MSG_ERR("[TRACE]%s\n", __func__);
 
 	map = (u8 *)PLTFM_MALLOC(efuse_size);
 	if (!map) {
@@ -810,17 +806,10 @@ u32 mac_dump_log_efuse_plus(struct mac_ax_adapter *adapter,
 					break;
 				}
 			}
-			if ((is_chip_id(adapter, MAC_AX_CHIP_ID_8852B)) ||
-			    (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C)) ||
-			    (is_chip_id(adapter, MAC_AX_CHIP_ID_8851E)) ||
-			    (is_chip_id(adapter, MAC_AX_CHIP_ID_8852D))) {
-				ret = mac_dump_log_efuse(adapter, parser_cfg, cfg,
-							 efuse_map + map_size, 0);
-			} else {
-				ret = mac_dump_log_efuse(adapter, parser_cfg,
-							 MAC_AX_EFUSE_R_DRV,
-							 efuse_map + map_size, 0);
-			}
+
+			ret = mac_dump_log_efuse(adapter, parser_cfg, cfg,
+						 efuse_map + map_size, 0);
+
 			switch_dv(adapter, DDV);
 		}
 	}
@@ -840,17 +829,13 @@ u32 mac_dump_log_efuse(struct mac_ax_adapter *adapter,
 	u32 ret, stat;
 	u32 efuse_size;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
-#if 0
-	if (cfg == MAC_AX_EFUSE_R_FW ||
-	    (cfg == MAC_AX_EFUSE_R_AUTO &&
-	     adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY))
-		return MACNOITEM;
-#else
 	if (cfg == MAC_AX_EFUSE_R_FW &&
 	    adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
-#endif
+
 	PLTFM_MSG_TRACE("[TRACE]cfg = %d\n", cfg);
 
 	ret = efuse_proc_ck(adapter);
@@ -870,7 +855,7 @@ u32 mac_dump_log_efuse(struct mac_ax_adapter *adapter,
 		return ret;
 	}
 
-	efuse_size = *bank_efuse_info.log_map_size;
+	efuse_size = *bank_efuse_info->log_map_size;
 
 	if (dv_sel == DAV) {
 		ret = efuse_map_init(adapter, EFUSE_MAP_SEL_PHY_DAV);
@@ -886,7 +871,7 @@ u32 mac_dump_log_efuse(struct mac_ax_adapter *adapter,
 	if (ret)
 		return ret;
 
-	if (*bank_efuse_info.log_map_valid == 0) {
+	if (*bank_efuse_info->log_map_valid == 0) {
 		ret = proc_dump_efuse(adapter, cfg);
 		if (ret != 0) {
 			PLTFM_MSG_ERR("[ERR]dump efuse\n");
@@ -896,7 +881,7 @@ u32 mac_dump_log_efuse(struct mac_ax_adapter *adapter,
 			return ret;
 		}
 
-		if (*bank_efuse_info.phy_map_valid == 1) {
+		if (*bank_efuse_info->phy_map_valid == 1) {
 			map = (u8 *)PLTFM_MALLOC(efuse_size);
 			if (!map) {
 				PLTFM_MSG_ERR("[ERR]malloc map\n");
@@ -907,7 +892,7 @@ u32 mac_dump_log_efuse(struct mac_ax_adapter *adapter,
 				return MACBUFALLOC;
 			}
 
-			ret = eeprom_parser(adapter, *bank_efuse_info.phy_map,
+			ret = eeprom_parser(adapter, *bank_efuse_info->phy_map,
 					    map, parser_cfg);
 			if (ret != 0) {
 				PLTFM_FREE(map, efuse_size);
@@ -917,11 +902,11 @@ u32 mac_dump_log_efuse(struct mac_ax_adapter *adapter,
 					return stat;
 				return ret;
 			}
-			PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-			PLTFM_MEMCPY(*bank_efuse_info.log_map, map,
+			PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+			PLTFM_MEMCPY(*bank_efuse_info->log_map, map,
 				     efuse_size);
-			*bank_efuse_info.log_map_valid = 1;
-			PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+			*bank_efuse_info->log_map_valid = 1;
+			PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 			PLTFM_FREE(map, efuse_size);
 		}
 	}
@@ -988,6 +973,8 @@ u32 mac_read_log_efuse(struct mac_ax_adapter *adapter, u32 addr, u32 size,
 	u32 ret = 0, stat;
 	u32 efuse_size;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	ret = efuse_proc_ck(adapter);
 	if (ret != 0)
@@ -1006,7 +993,7 @@ u32 mac_read_log_efuse(struct mac_ax_adapter *adapter, u32 addr, u32 size,
 		return ret;
 	}
 
-	efuse_size = *bank_efuse_info.log_map_size;
+	efuse_size = *bank_efuse_info->log_map_size;
 
 	if (addr >= efuse_size || addr + size > efuse_size) {
 		PLTFM_MSG_ERR("[ERR] Wrong efuse index\n");
@@ -1046,9 +1033,9 @@ u32 mac_read_log_efuse(struct mac_ax_adapter *adapter, u32 addr, u32 size,
 		return ret;
 	}
 
-	PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
 	PLTFM_MEMCPY(val, map + addr, size);
-	PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 	PLTFM_FREE(map, efuse_size);
 
 	stat = cnv_efuse_state(adapter, MAC_AX_EFUSE_IDLE);
@@ -1091,6 +1078,8 @@ u32 mac_write_log_efuse(struct mac_ax_adapter *adapter, u32 addr, u8 val)
 {
 	u32 ret, stat;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	ret = efuse_proc_ck(adapter);
 	if (ret != 0)
@@ -1109,7 +1098,7 @@ u32 mac_write_log_efuse(struct mac_ax_adapter *adapter, u32 addr, u8 val)
 		return ret;
 	}
 
-	if (addr >= *bank_efuse_info.log_map_size) {
+	if (addr >= *bank_efuse_info->log_map_size) {
 		PLTFM_MSG_ERR("[ERR]addr is too large\n");
 		return MACEFUSESIZE;
 	}
@@ -1155,16 +1144,9 @@ u32 mac_dump_log_efuse_bt(struct mac_ax_adapter *adapter,
 	struct mac_ax_efuse_param *efuse_param = &adapter->efuse_param;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
 
-#if 0
-	if (cfg == MAC_AX_EFUSE_R_FW ||
-	    (cfg == MAC_AX_EFUSE_R_AUTO &&
-	     adapter->sm.fwdl == MAC_AX_FWDL_INIT_RDY))
-		return MACNOITEM;
-#else
 	if (cfg == MAC_AX_EFUSE_R_FW &&
 	    adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
 		return MACNOFW;
-#endif
 
 	PLTFM_MSG_TRACE("[TRACE]cfg = %d\n", cfg);
 
@@ -1223,11 +1205,11 @@ u32 mac_dump_log_efuse_bt(struct mac_ax_adapter *adapter,
 					return stat;
 				return ret;
 			}
-			PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
+			PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
 			PLTFM_MEMCPY(efuse_param->bt_log_efuse_map, map,
 				     efuse_size);
 			efuse_param->bt_log_efuse_map_valid = 1;
-			PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+			PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 			PLTFM_FREE(map, efuse_size);
 		}
 	}
@@ -1307,9 +1289,9 @@ u32 mac_read_log_efuse_bt(struct mac_ax_adapter *adapter, u32 addr, u32 size,
 		return ret;
 	}
 
-	PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
 	PLTFM_MEMCPY(val, map + addr, size);
-	PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 	PLTFM_FREE(map, efuse_size);
 
 	ret = p_ops->switch_efuse_bank(adapter, MAC_AX_EFUSE_BANK_WIFI);
@@ -1534,6 +1516,7 @@ u32 mac_pg_efuse_by_map(struct mac_ax_adapter *adapter,
 	u32 map_size = adapter->hw_info->log_efuse_size;
 	u32 ver_len = 0;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	if (is_limit) {
 		switch (intf) {
@@ -1691,6 +1674,13 @@ u32 mac_pg_efuse_by_map_bt(struct mac_ax_adapter *adapter,
 			return stat;
 		return ret;
 	}
+
+	ret = efuse_map_init(adapter, EFUSE_MAP_SEL_PHY_BT);
+	if (ret)
+		return ret;
+	ret = efuse_map_init(adapter, EFUSE_MAP_SEL_LOG_BT);
+	if (ret)
+		return ret;
 
 	ret = proc_pg_efuse_by_map(adapter, info, cfg);
 	if (ret != 0) {
@@ -1895,6 +1885,8 @@ u32 mac_get_efuse_info(struct mac_ax_adapter *adapter, u8 *efuse_map,
 			info = efuse_info_usb_8852b;
 		else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))
 			info = efuse_info_usb_8851b;
+		else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT))
+			info = efuse_info_usb_8852bt;
 		else
 			info = efuse_info_usb_8852b;
 		break;
@@ -1965,6 +1957,8 @@ u32 mac_set_efuse_info(struct mac_ax_adapter *adapter, u8 *efuse_map,
 			info = efuse_info_usb_8852b;
 		else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8851B))
 			info = efuse_info_usb_8851b;
+		else if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT))
+			info = efuse_info_usb_8852bt;
 		else
 			info = efuse_info_usb_8852b;
 		break;
@@ -2077,6 +2071,7 @@ u32 mac_read_hidden_rpt(struct mac_ax_adapter *adapter,
 	GET_FIELD(c2h_content->dword2, FWCMD_C2HREG_EFUSE_HIDDEN_UUID_BYTE_0);
 	rpt->tx_path_num = GET_FIELD(c2h_content->dword3, FWCMD_C2HREG_EFUSE_HIDDEN_TX_PATH_NUM);
 	rpt->rx_path_num = GET_FIELD(c2h_content->dword3, FWCMD_C2HREG_EFUSE_HIDDEN_RX_PATH_NUM);
+	rpt->band_sel = GET_FIELD(c2h_content->dword3, FWCMD_C2HREG_EFUSE_HIDDEN_BAND_SEL);
 
 	ret = cnv_efuse_state(adapter, MAC_AX_EFUSE_IDLE);
 	if (ret != MACSUCCESS)
@@ -2187,6 +2182,8 @@ u32 mac_pg_simulator(struct mac_ax_adapter *adapter,
 	u32 map_size = adapter->hw_info->log_efuse_size;
 	u32 ver_len = 0;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
 
 	if (info->efuse_map_size != adapter->hw_info->log_efuse_size) {
 		switch (intf) {
@@ -2243,14 +2240,14 @@ u32 mac_pg_simulator(struct mac_ax_adapter *adapter,
 	if (ret)
 		return ret;
 
-	ret = eeprom_parser(adapter, phy_map, *bank_efuse_info.log_map,
+	ret = eeprom_parser(adapter, phy_map, *bank_efuse_info->log_map,
 			    MAC_AX_EFUSE_PARSER_MAP);
 	if (ret != 0) {
 		PLTFM_MSG_ERR("[ERR]logical map parser\n");
 		return ret;
 	}
-	PLTFM_MEMCPY(*bank_efuse_info.phy_map, phy_map,
-		     *bank_efuse_info.phy_map_size);
+	PLTFM_MEMCPY(*bank_efuse_info->phy_map, phy_map,
+		     *bank_efuse_info->phy_map_size);
 
 	updated_mask = (u8 *)PLTFM_MALLOC(mask_size);
 	if (!updated_mask) {
@@ -2279,8 +2276,8 @@ u32 mac_pg_simulator(struct mac_ax_adapter *adapter,
 
 	PLTFM_FREE(updated_mask, mask_size);
 
-	PLTFM_MEMCPY(phy_map, *bank_efuse_info.phy_map,
-		     *bank_efuse_info.phy_map_size);
+	PLTFM_MEMCPY(phy_map, *bank_efuse_info->phy_map,
+		     *bank_efuse_info->phy_map_size);
 	ret = eeprom_parser(adapter, phy_map, info->efuse_map,
 			    MAC_AX_EFUSE_PARSER_MAP);
 	if (ret != 0) {
@@ -2290,8 +2287,8 @@ u32 mac_pg_simulator(struct mac_ax_adapter *adapter,
 	}
 
 	/* For subsequent dump */
-	*bank_efuse_info.log_map_valid = 0;
-	*bank_efuse_info.phy_map_valid = 0;
+	*bank_efuse_info->log_map_valid = 0;
+	*bank_efuse_info->phy_map_valid = 0;
 
 	return MACSUCCESS;
 
@@ -2392,73 +2389,40 @@ u32 mac_disable_rf_ofld_by_info(struct mac_ax_adapter *adapter,
 				struct mac_disable_rf_ofld_info info)
 {
 	u32 ret;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
-	u8 *buf;
-	struct fwcmd_disable_rf *write_ptr;
-
-	/* H2C */
-	if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
-		return MACNOFW;
+	struct h2c_info h2c_info = {0};
+	struct fwcmd_disable_rf *content;
 
 	if (adapter->sm.disable_rf != MAC_AX_OFLD_H2C_IDLE)
 		return MACPROCERR;
 
 	adapter->sm.disable_rf = MAC_AX_OFLD_H2C_SENDING;
 
-	h2cb = h2cb_alloc(adapter, (enum rtw_h2c_pkt_type)H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_disable_rf);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_DISABLE_RF;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 0;
 
-	buf = h2cb_put(h2cb, sizeof(struct mac_ax_pkt_ofld_hdr));
-	if (!buf) {
-		h2cb_free(adapter, h2cb);
-		return MACNOBUF;
-	}
+	content = (struct fwcmd_disable_rf *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!content)
+		return MACBUFALLOC;
 
-	write_ptr = (struct fwcmd_disable_rf *)buf;
-	write_ptr->dword0 =
-	cpu_to_le32(SET_WORD(info.func, FWCMD_H2C_DISABLE_RF_FUNC) |
-		    SET_WORD(info.type, FWCMD_H2C_DISABLE_RF_NET_TYPE)
-	);
+	content->dword0 =
+		cpu_to_le32(SET_WORD(info.func, FWCMD_H2C_DISABLE_RF_FUNC) |
+			    SET_WORD(info.type, FWCMD_H2C_DISABLE_RF_NET_TYPE));
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C, FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD, FWCMD_H2C_FUNC_DISABLE_RF,
-			      0, 0);
-	if (ret) {
-		h2cb_free(adapter, h2cb);
-		return ret;
-	}
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content);
 
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret) {
-		h2cb_free(adapter, h2cb);
-		return ret;
-	}
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-	if (ret) {
-		PLTFM_MSG_ERR("[ERR]platform tx\n");
-		h2cb_free(adapter, h2cb);
-		return ret;
-	}
-
-	h2cb_free(adapter, h2cb);
+	PLTFM_FREE(content, h2c_info.content_len);
 
 	if (adapter->sm.disable_rf != MAC_AX_OFLD_H2C_SENDING)
 		return MACPROCERR;
 
 	adapter->sm.disable_rf = MAC_AX_OFLD_H2C_IDLE;
 
-	return MACSUCCESS;
+	return ret;
 }
 
 u32 _patch_otp_power_issue(struct mac_ax_adapter *adapter)
@@ -2467,25 +2431,19 @@ u32 _patch_otp_power_issue(struct mac_ax_adapter *adapter)
 	u8 val8;
 	u32 ret, stat;
 
-	ret = mac_set_efuse_ctrl(adapter, secure);
-	if (ret != MACSUCCESS)
-		return ret;
-	read_efuse_cnt = CHK_OTP_WAIT_CNT;
+	adapter->efuse_param.read_efuse_cnt = CHK_OTP_WAIT_CNT;
 
 	ret = mac_read_efuse_plus(adapter, CHK_OTP_ADDR, 1, &val8,
 				  MAC_AX_EFUSE_BANK_WIFI);
 	if (ret != MACSUCCESS) {
-		read_efuse_cnt = EFUSE_WAIT_CNT;
+		adapter->efuse_param.read_efuse_cnt = EFUSE_WAIT_CNT;
 		stat = mac_set_efuse_ctrl(adapter, !secure);
 		if (stat != MACSUCCESS)
 			return stat;
 		return ret;
 	}
 
-	read_efuse_cnt = EFUSE_WAIT_CNT;
-	ret = mac_set_efuse_ctrl(adapter, !secure);
-	if (ret != MACSUCCESS)
-		return ret;
+	adapter->efuse_param.read_efuse_cnt = EFUSE_WAIT_CNT;
 
 	return MACSUCCESS;
 }
@@ -2493,9 +2451,11 @@ u32 _patch_otp_power_issue(struct mac_ax_adapter *adapter)
 u32 mac_set_efuse_ctrl(struct mac_ax_adapter *adapter, bool is_secure)
 {
 	if (is_secure)
-		efuse_ctrl = R_AX_EFUSE_CTRL_S;
+		adapter->efuse_param.efuse_ctrl = R_AX_EFUSE_CTRL_S;
 	else
-		efuse_ctrl = R_AX_EFUSE_CTRL;
+		adapter->efuse_param.efuse_ctrl = R_AX_EFUSE_CTRL;
+	PLTFM_MSG_TRACE("[TRACE]is_secure= 0x%x, adapter->efuse_ctrl = 0x%x\n", is_secure,
+			adapter->efuse_param.efuse_ctrl);
 
 	return MACSUCCESS;
 }
@@ -2503,9 +2463,11 @@ u32 mac_set_efuse_ctrl(struct mac_ax_adapter *adapter, bool is_secure)
 u32 mac_otp_test(struct mac_ax_adapter *adapter, bool is_OTP_test)
 {
 	if (is_OTP_test)
-		OTP_test = 1;
+		adapter->efuse_param.OTP_test = 1;
 	else
-		OTP_test = 0;
+		adapter->efuse_param.OTP_test = 0;
+	PLTFM_MSG_TRACE("[TRACE]is_OTP_test= 0x%x, adapter->OTP_test = 0x%x\n", is_OTP_test,
+			adapter->efuse_param.OTP_test);
 
 	return MACSUCCESS;
 }
@@ -2529,14 +2491,15 @@ u32 get_fv_info(struct mac_ax_adapter *adapter)
 
 #if (MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8852C_SUPPORT || \
 MAC_AX_8192XB_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8851E_SUPPORT || \
-MAC_AX_8852D_SUPPORT)
+MAC_AX_8852D_SUPPORT || MAC_AX_8852BT_SUPPORT)
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 		ret = mac_ops->read_efuse(adapter, EF_FV_OFSET_AX, 1, &efv,
 		      MAC_AX_EFUSE_BANK_WIFI);
 	}
@@ -2587,9 +2550,10 @@ MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT)
 		}
 	}
 #endif
-#if (MAC_AX_8851B_SUPPORT || MAC_AX_8192XB_SUPPORT)
+#if MAC_AX_8851B_SUPPORT || MAC_AX_8192XB_SUPPORT || MAC_AX_8852BT_SUPPORT
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
-	    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB)) {
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8192XB) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
 		switch (efv) {
 		case FV_TYPE1:
 			adapter->hw_info->fv = FTV;
@@ -2632,27 +2596,75 @@ MAC_AX_8851E_SUPPORT || MAC_AX_8852D_SUPPORT)
 		}
 #endif
 	}
-	PLTFM_MSG_ALWAYS("fv = %x\n", adapter->hw_info->fv);
+	PLTFM_MSG_ALWAYS("fv = %x, ecv = %x\n", adapter->hw_info->fv, ecv);
 
 	return ret;
 }
 
-u32 efuse_tbl_init(struct mac_ax_adapter *adapter)
+u32 efuse_info_init(struct mac_ax_adapter *adapter)
 {
-	u32 ret;
+	PLTFM_MUTEX_INIT(&adapter->efuse_param.efuse_tbl.lock);
 
-	PLTFM_MUTEX_INIT(&efuse_tbl.lock);
-
-	ret = get_fv_info(adapter);
-	if (ret != MACSUCCESS)
-		PLTFM_MSG_ERR("[ERR]get_fv_info error\n");
+	adapter->efuse_param.dv_sel = DDV;
+	adapter->efuse_param.efuse_ctrl = R_AX_EFUSE_CTRL;
+	adapter->efuse_param.read_efuse_cnt = EFUSE_WAIT_CNT;
 
 	return MACSUCCESS;
 }
 
-u32 efuse_tbl_exit(struct mac_ax_adapter *adapter)
+u32 efuse_info_exit(struct mac_ax_adapter *adapter)
 {
-	PLTFM_MUTEX_DEINIT(&efuse_tbl.lock);
+	struct mac_ax_efuse_param *efuse_param = &adapter->efuse_param;
+	struct mac_ax_efuse_ofld_info *efuse_ofld_info = &adapter->efuse_ofld_info;
+
+	PLTFM_MUTEX_DEINIT(&adapter->efuse_param.efuse_tbl.lock);
+
+	if (efuse_ofld_info->buf) {
+		PLTFM_FREE(efuse_ofld_info->buf, CMD_OFLD_MAX_LEN);
+		efuse_ofld_info->buf = NULL;
+	}
+
+	if (efuse_param->efuse_map) {
+		PLTFM_FREE(efuse_param->efuse_map,
+			   adapter->hw_info->efuse_size);
+		efuse_param->efuse_map = (u8 *)NULL;
+	}
+
+	if (efuse_param->bt_efuse_map) {
+		PLTFM_FREE(efuse_param->bt_efuse_map,
+			   adapter->hw_info->bt_efuse_size);
+		efuse_param->bt_efuse_map = (u8 *)NULL;
+	}
+
+	if (efuse_param->log_efuse_map) {
+		PLTFM_FREE(efuse_param->log_efuse_map,
+			   adapter->hw_info->log_efuse_size);
+		efuse_param->log_efuse_map = (u8 *)NULL;
+	}
+
+	if (efuse_param->bt_log_efuse_map) {
+		PLTFM_FREE(efuse_param->bt_log_efuse_map,
+			   adapter->hw_info->bt_log_efuse_size);
+		efuse_param->bt_log_efuse_map = (u8 *)NULL;
+	}
+
+	if (efuse_param->dav_efuse_map) {
+		PLTFM_FREE(efuse_param->dav_efuse_map,
+			   adapter->hw_info->dav_efuse_size);
+		efuse_param->dav_efuse_map = (u8 *)NULL;
+	}
+
+	if (efuse_param->dav_log_efuse_map) {
+		PLTFM_FREE(efuse_param->dav_log_efuse_map,
+			   adapter->hw_info->dav_log_efuse_size);
+		efuse_param->dav_log_efuse_map = (u8 *)NULL;
+	}
+
+	if (efuse_param->hidden_rf_map) {
+		PLTFM_FREE(efuse_param->hidden_rf_map,
+			   adapter->hw_info->hidden_efuse_rf_size);
+		efuse_param->hidden_rf_map = (u8 *)NULL;
+	}
 
 	return MACSUCCESS;
 }
@@ -2843,16 +2855,38 @@ static u32 proc_dump_efuse(struct mac_ax_adapter *adapter,
 			   enum mac_ax_efuse_read_cfg cfg)
 {
 	u32 ret;
+	struct rtw_phl_com_t *phl_com = (struct rtw_phl_com_t *)adapter->phl_adapter;
+	struct rtw_wcpu_cap_t *wcpu_cap = &phl_com->dev_cap.wcpu_cap;
+	bool cap_efuse_dump;
+	struct mac_ax_hw_info *hw_info = adapter->hw_info;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	bool is_bt = 0;
+	u32 log_efuse_size = *bank_efuse_info->log_map_size;
 
-	if (cfg == MAC_AX_EFUSE_R_AUTO) {
-		if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY)
-			ret = dump_efuse_drv(adapter);
+	if (log_efuse_size == hw_info->bt_log_efuse_size)
+		is_bt = 1;
+
+	if (is_bt == 0) {
+		if (adapter->efuse_param.dv_sel == DAV)
+			cap_efuse_dump = (bool)(wcpu_cap->mac_ofld_cap.adie_efuse_dump_offload);
 		else
+			cap_efuse_dump = (bool)(wcpu_cap->mac_ofld_cap.efuse_dump_offload);
+
+		if (cfg == MAC_AX_EFUSE_R_AUTO) {
+			if (adapter->sm.fwdl != MAC_AX_FWDL_INIT_RDY || cap_efuse_dump == false)
+				ret = dump_efuse_drv(adapter);
+			else
+				ret = dump_efuse_fw(adapter);
+		} else if (cfg == MAC_AX_EFUSE_R_FW) {
 			ret = dump_efuse_fw(adapter);
-	} else if (cfg == MAC_AX_EFUSE_R_FW) {
-		ret = dump_efuse_fw(adapter);
+		} else {
+			ret = dump_efuse_drv(adapter);
+		}
 	} else {
-		ret = dump_efuse_drv(adapter);
+		if (cfg == MAC_AX_EFUSE_R_FW)
+			ret = MACFWNOSUPPORT;
+		else
+			ret = dump_efuse_drv(adapter);
 	}
 
 	if (ret != 0) {
@@ -2870,8 +2904,12 @@ static u32 read_hw_efuse(struct mac_ax_adapter *adapter, u32 offset, u32 size,
 	u32 tmp32 = 0;
 	u32 cnt;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
-	u32 efuse_start = *bank_efuse_info.efuse_start;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 efuse_start = *bank_efuse_info->efuse_start;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
+	u16 read_efuse_cnt = adapter->efuse_param.read_efuse_cnt;
+	u16 efuse_ctrl = adapter->efuse_param.efuse_ctrl;
 
 	offset += efuse_start;
 
@@ -2888,7 +2926,8 @@ static u32 read_hw_efuse(struct mac_ax_adapter *adapter, u32 offset, u32 size,
 			     is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
 			     is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
 			     is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
-			     is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) &&
+			     is_chip_id(adapter, MAC_AX_CHIP_ID_8852D) ||
+			     is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) &&
 			    efuse_ctrl == R_AX_EFUSE_CTRL)
 				cnt = EFUSE_WAIT_CNT_PLUS;
 
@@ -2924,13 +2963,16 @@ static u32 write_hw_efuse(struct mac_ax_adapter *adapter, u32 offset, u8 value)
 	u32 ret;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
 	struct mac_ax_efuse_param *efuse_param = &adapter->efuse_param;
-	u32 efuse_start = *bank_efuse_info.efuse_start;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 efuse_start = *bank_efuse_info->efuse_start;
+	enum rtw_dv_sel dv_sel = adapter->efuse_param.dv_sel;
+	u16 efuse_ctrl = adapter->efuse_param.efuse_ctrl;
 
-	PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-	*bank_efuse_info.phy_map_valid = 0;
-	*bank_efuse_info.log_map_valid = 0;
+	PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+	*bank_efuse_info->phy_map_valid = 0;
+	*bank_efuse_info->log_map_valid = 0;
 	efuse_param->hidden_rf_map_valid = 0;
-	PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 
 	offset += efuse_start;
 
@@ -2980,6 +3022,7 @@ static u32 cmp_hw_efuse(struct mac_ax_adapter *adapter, u32 offset, u16 val)
 	u32 tmp32 = 0;
 	u32 cnt;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u16 efuse_ctrl = adapter->efuse_param.efuse_ctrl;
 
 	val32 = val | ((offset & B_AX_EF_ADDR_MSK) << B_AX_EF_ADDR_SH);
 	MAC_REG_W32(efuse_ctrl, val32 | (MODE_CMP << B_AX_EF_MODE_SEL_SH));
@@ -3017,9 +3060,10 @@ static u32 eeprom_parser(struct mac_ax_adapter *adapter, u8 *phy_map,
 	struct mac_ax_hw_info *hw_info = adapter->hw_info;
 	u32 sec_ctrl_size = hw_info->sec_ctrl_efuse_size;
 	u32 efuse_idx;
-	u32 efuse_size = *bank_efuse_info.phy_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 efuse_size = *bank_efuse_info->phy_map_size;
 	bool is_bt = 0;
-	u32 log_efuse_size = *bank_efuse_info.log_map_size;
+	u32 log_efuse_size = *bank_efuse_info->log_map_size;
 
 	PLTFM_MEMSET(log_map, 0xFF, log_efuse_size);
 
@@ -3076,7 +3120,7 @@ static u32 eeprom_parser(struct mac_ax_adapter *adapter, u8 *phy_map,
 				eeprom_idx = (blk_idx << 3) + (i << 1);
 
 				if ((eeprom_idx + 1) >
-				    *bank_efuse_info.log_map_size) {
+				    *bank_efuse_info->log_map_size) {
 					PLTFM_MSG_ERR("[ERR]efuse idx:0x%X\n",
 						      efuse_idx - 1);
 					PLTFM_MSG_ERR("[ERR]read hdr:0x%X\n",
@@ -3114,7 +3158,7 @@ static u32 eeprom_parser(struct mac_ax_adapter *adapter, u8 *phy_map,
 		}
 	} while (1);
 
-	*bank_efuse_info.efuse_end = efuse_idx;
+	*bank_efuse_info->efuse_end = efuse_idx;
 
 	return MACSUCCESS;
 }
@@ -3123,11 +3167,17 @@ static u32 read_log_efuse_map(struct mac_ax_adapter *adapter, u8 *map,
 			      u32 log_efuse_size)
 {
 	u8 *local_map = NULL;
-	u32 efuse_size = *bank_efuse_info.phy_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 efuse_size = *bank_efuse_info->phy_map_size;
 	u32 ret;
 
-	if (*bank_efuse_info.log_map_valid == 0) {
-		if (*bank_efuse_info.phy_map_valid == 0) {
+	if (!*bank_efuse_info->phy_map || !*bank_efuse_info->log_map) {
+		PLTFM_MSG_ERR("[ERR]malloc map: bank_efuse_info\n");
+		return MACBUFALLOC;
+	}
+
+	if (*bank_efuse_info->log_map_valid == 0) {
+		if (*bank_efuse_info->phy_map_valid == 0) {
 			local_map = (u8 *)PLTFM_MALLOC(efuse_size);
 			if (!local_map) {
 				PLTFM_MSG_ERR("[ERR]malloc map\n");
@@ -3140,28 +3190,28 @@ static u32 read_log_efuse_map(struct mac_ax_adapter *adapter, u8 *map,
 				goto error;
 			}
 
-			PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-			PLTFM_MEMCPY(*bank_efuse_info.phy_map, local_map,
+			PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+			PLTFM_MEMCPY(*bank_efuse_info->phy_map, local_map,
 				     efuse_size);
-			*bank_efuse_info.phy_map_valid = 1;
-			PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+			*bank_efuse_info->phy_map_valid = 1;
+			PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 
 			PLTFM_FREE(local_map, efuse_size);
 		}
 
-		ret = eeprom_parser(adapter, *bank_efuse_info.phy_map, map,
+		ret = eeprom_parser(adapter, *bank_efuse_info->phy_map, map,
 				    MAC_AX_EFUSE_PARSER_MAP);
 		if (ret != 0)
 			return ret;
 
-		PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-		PLTFM_MEMCPY(*bank_efuse_info.log_map, map, log_efuse_size);
-		*bank_efuse_info.log_map_valid = 1;
-		PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+		PLTFM_MEMCPY(*bank_efuse_info->log_map, map, log_efuse_size);
+		*bank_efuse_info->log_map_valid = 1;
+		PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 	} else {
-		PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-		PLTFM_MEMCPY(map, *bank_efuse_info.log_map, log_efuse_size);
-		PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+		PLTFM_MEMCPY(map, *bank_efuse_info->log_map, log_efuse_size);
+		PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 	}
 
 	return MACSUCCESS;
@@ -3176,7 +3226,8 @@ static u32 proc_pg_efuse_by_map(struct mac_ax_adapter *adapter,
 {
 	u8 *updated_mask = NULL;
 	u32 ret;
-	u32 log_efuse_size = *bank_efuse_info.log_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 log_efuse_size = *bank_efuse_info->log_map_size;
 	u32 mask_size = log_efuse_size >> 4;
 
 	updated_mask = (u8 *)PLTFM_MALLOC(mask_size);
@@ -3214,12 +3265,13 @@ error:
 static u32 dump_efuse_drv(struct mac_ax_adapter *adapter)
 {
 	u8 *map = NULL;
-	u32 efuse_size = *bank_efuse_info.phy_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 efuse_size = *bank_efuse_info->phy_map_size;
 	u32 ret;
 
-	PLTFM_MSG_TRACE("[TRACE]dump_efuse_drv\n");
+	PLTFM_MSG_TRACE("[TRACE]%s\n", __func__);
 
-	if (*bank_efuse_info.phy_map_valid == 0) {
+	if (*bank_efuse_info->phy_map_valid == 0) {
 		map = (u8 *)PLTFM_MALLOC(efuse_size);
 		if (!map) {
 			PLTFM_MSG_ERR("[ERR]malloc map\n");
@@ -3232,10 +3284,10 @@ static u32 dump_efuse_drv(struct mac_ax_adapter *adapter)
 			return ret;
 		}
 
-		PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-		PLTFM_MEMCPY(*bank_efuse_info.phy_map, map, efuse_size);
-		*bank_efuse_info.phy_map_valid = 1;
-		PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+		PLTFM_MEMCPY(*bank_efuse_info->phy_map, map, efuse_size);
+		*bank_efuse_info->phy_map_valid = 1;
+		PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 		PLTFM_FREE(map, efuse_size);
 	}
 
@@ -3247,14 +3299,15 @@ static u32 dump_efuse_fw(struct mac_ax_adapter *adapter)
 	u32 ret, cnt;
 	struct mac_ax_ops *ops = adapter->ops;
 	u8 *map = NULL;
-	u32 efuse_size = *bank_efuse_info.phy_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 efuse_size = *bank_efuse_info->phy_map_size;
 	struct mac_ax_hw_info *hw_info = adapter->hw_info;
 	u8 ofld_type = 0;
 
-	PLTFM_MSG_TRACE("[TRACE]dump_efuse_fw\n");
+	PLTFM_MSG_TRACE("[TRACE]%s\n", __func__);
 
-	if (*bank_efuse_info.phy_map_valid == 0) {
-		if (bank_efuse_info.phy_map_size == &hw_info->dav_efuse_size)
+	if (*bank_efuse_info->phy_map_valid == 0) {
+		if (bank_efuse_info->phy_map_size == &hw_info->dav_efuse_size)
 			ofld_type = DUMP_OFLD_TYPE_DAV;
 
 		/* H2C */
@@ -3293,10 +3346,10 @@ static u32 dump_efuse_fw(struct mac_ax_adapter *adapter)
 			return ret;
 		}
 
-		PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-		PLTFM_MEMCPY(*bank_efuse_info.phy_map, map, efuse_size);
-		*bank_efuse_info.phy_map_valid = 1;
-		PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+		PLTFM_MEMCPY(*bank_efuse_info->phy_map, map, efuse_size);
+		*bank_efuse_info->phy_map_valid = 1;
+		PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 		PLTFM_FREE(map, efuse_size);
 	}
 
@@ -3313,7 +3366,8 @@ static u32 proc_write_log_efuse(struct mac_ax_adapter *adapter, u32 offset,
 	u8 hdr;
 	u8 hdr2 = 0;
 	u8 *map = NULL;
-	u32 log_efuse_size = *bank_efuse_info.log_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 log_efuse_size = *bank_efuse_info->log_map_size;
 	u32 end, ret;
 	bool is_bt = 0;
 	struct mac_ax_priv_ops *p_ops = adapter_to_priv_ops(adapter);
@@ -3324,7 +3378,7 @@ static u32 proc_write_log_efuse(struct mac_ax_adapter *adapter, u32 offset,
 		return MACBUFALLOC;
 	}
 
-	if (*bank_efuse_info.log_map_valid == 0) {
+	if (*bank_efuse_info->log_map_valid == 0) {
 		ret = read_log_efuse_map(adapter, map, log_efuse_size);
 		if (ret != 0) {
 			PLTFM_MSG_ERR("[ERR]read logical efuse\n");
@@ -3332,16 +3386,16 @@ static u32 proc_write_log_efuse(struct mac_ax_adapter *adapter, u32 offset,
 			return ret;
 		}
 	} else {
-		PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-		PLTFM_MEMCPY(map, *bank_efuse_info.log_map, log_efuse_size);
-		PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+		PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+		PLTFM_MEMCPY(map, *bank_efuse_info->log_map, log_efuse_size);
+		PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 	}
 
 	if (log_efuse_size == adapter->hw_info->bt_log_efuse_size)
 		is_bt = 1;
 
 	if (*(map + offset) != value) {
-		end = *bank_efuse_info.efuse_end;
+		end = *bank_efuse_info->efuse_end;
 
 		if (is_bt) {
 			if (offset < BT_1B_ENTRY_SIZE) { // 1 byte entry
@@ -3376,7 +3430,7 @@ static u32 proc_write_log_efuse(struct mac_ax_adapter *adapter, u32 offset,
 			byte2 = value;
 		}
 
-		if (*bank_efuse_info.phy_map_size <= 4 + end) { // write 4 bytes
+		if (*bank_efuse_info->phy_map_size <= 4 + end) { // write 4 bytes
 			PLTFM_FREE(map, log_efuse_size);
 			return MACEFUSESIZE;
 		}
@@ -3416,14 +3470,15 @@ static u32 read_efuse(struct mac_ax_adapter *adapter, u32 offset, u32 size,
 		      u8 *map)
 {
 	u32 ret;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
 
 	if (!map) {
 		PLTFM_MSG_ERR("[ERR]malloc map\n");
 		return MACBUFALLOC;
 	}
 
-	if (*bank_efuse_info.phy_map_valid == 1) {
-		PLTFM_MEMCPY(map, *bank_efuse_info.phy_map + offset, size);
+	if (*bank_efuse_info->phy_map_valid == 1) {
+		PLTFM_MEMCPY(map, *bank_efuse_info->phy_map + offset, size);
 	} else {
 		ret = read_hw_efuse(adapter, offset, size, map);
 		if (ret != 0)
@@ -3447,7 +3502,8 @@ static u32 update_eeprom_mask(struct mac_ax_adapter *adapter,
 	u16 map_offset;
 	u16 mask_offset;
 	u32 ret;
-	u32 log_efuse_size = *bank_efuse_info.log_map_size;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 log_efuse_size = *bank_efuse_info->log_map_size;
 
 	map = (u8 *)PLTFM_MALLOC(log_efuse_size);
 	if (!map) {
@@ -3457,7 +3513,7 @@ static u32 update_eeprom_mask(struct mac_ax_adapter *adapter,
 	PLTFM_MEMSET(map, 0xFF, log_efuse_size); // default: 0xFF
 
 	if (pg_sim) { //WL
-		PLTFM_MEMCPY(map, *bank_efuse_info.log_map, log_efuse_size);
+		PLTFM_MEMCPY(map, *bank_efuse_info->log_map, log_efuse_size);
 	} else {
 		ret = read_log_efuse_map(adapter, map, log_efuse_size);
 		if (ret != 0)
@@ -3473,7 +3529,7 @@ static u32 update_eeprom_mask(struct mac_ax_adapter *adapter,
 	}
 	PLTFM_MEMSET(mask_map, 0xFF, log_efuse_size);// default: 0xFF
 
-	ret = eeprom_parser(adapter, *bank_efuse_info.phy_map,
+	ret = eeprom_parser(adapter, *bank_efuse_info->phy_map,
 			    mask_map, MAC_AX_EFUSE_PARSER_MASK);
 	if (ret != 0) {
 		PLTFM_FREE(mask_map, log_efuse_size);
@@ -3542,6 +3598,7 @@ static u32 check_efuse_enough(struct mac_ax_adapter *adapter,
 	u16 j;
 	u32 eeprom_offset;
 	u32 pg_num = 0;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
 
 	for (i = 0; i < info->efuse_map_size; i += 8) {
 		eeprom_offset = i;
@@ -3560,8 +3617,8 @@ static u32 check_efuse_enough(struct mac_ax_adapter *adapter,
 		}
 	}
 
-	if (*bank_efuse_info.phy_map_size
-		< (pg_num + *bank_efuse_info.efuse_end))
+	if (*bank_efuse_info->phy_map_size
+		< (pg_num + *bank_efuse_info->efuse_end))
 		return MACEFUSESIZE;
 
 	return MACSUCCESS;
@@ -3576,13 +3633,14 @@ static u32 proc_pg_efuse(struct mac_ax_adapter *adapter,
 	u8 hdr2 = 0xFF;
 	u8 i;
 	u32 efuse_end, ret;
-	u8 *efuse_map = *bank_efuse_info.phy_map;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u8 *efuse_map = *bank_efuse_info->phy_map;
 	bool is_bt = 0;
 
 	if (info->efuse_map_size == adapter->hw_info->bt_log_efuse_size)
 		is_bt = 1;
 
-	efuse_end = *bank_efuse_info.efuse_end;
+	efuse_end = *bank_efuse_info->efuse_end;
 
 	if (is_bt) {
 		if (eeprom_offset < BT_1B_ENTRY_SIZE) {
@@ -3656,7 +3714,7 @@ static u32 proc_pg_efuse(struct mac_ax_adapter *adapter,
 			}
 		}
 	}
-	*bank_efuse_info.efuse_end = efuse_end;
+	*bank_efuse_info->efuse_end = efuse_end;
 	return MACSUCCESS;
 }
 
@@ -3735,16 +3793,17 @@ static u32 query_status_map(struct mac_ax_adapter *adapter,
 	struct mac_ax_hw_info *hw_info = adapter->hw_info;
 	enum mac_ax_intf intf = adapter->hw_info->intf;
 	u32 map_size = 0;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
 
-	PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
 	switch (feature_id) {
 	case MAC_AX_DUMP_PHYSICAL_EFUSE:
-		map_size = *bank_efuse_info.phy_map_size;
-		PLTFM_MEMCPY(map, *bank_efuse_info.phy_map, map_size);
+		map_size = *bank_efuse_info->phy_map_size;
+		PLTFM_MEMCPY(map, *bank_efuse_info->phy_map, map_size);
 		break;
 	case MAC_AX_DUMP_LOGICAL_EFUSE:
 		if (!is_limit) {
-			map_size = *bank_efuse_info.log_map_size;
+			map_size = *bank_efuse_info->log_map_size;
 		} else {// WL
 			switch (intf) {
 			case MAC_AX_INTF_PCIE:
@@ -3760,12 +3819,12 @@ static u32 query_status_map(struct mac_ax_adapter *adapter,
 				break;
 			}
 		}
-		PLTFM_MEMCPY(map, *bank_efuse_info.log_map, map_size);
+		PLTFM_MEMCPY(map, *bank_efuse_info->log_map, map_size);
 		break;
 	default:
 		return MACFUNCINPUT;
 	}
-	PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 
 	return MACSUCCESS;
 }
@@ -3866,7 +3925,8 @@ static u32 set_check_sum_val(struct mac_ax_adapter *adapter,
 	u8 blk_idx;
 	u8 hdr;
 	u8 hdr2;
-	u32 end = *bank_efuse_info.efuse_end, ret;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
+	u32 end = *bank_efuse_info->efuse_end, ret;
 	u32 offset = chksum_offset_1;
 	u8 i = 0;
 	u8 value8 = (u8)(value & 0xFF);
@@ -3889,7 +3949,7 @@ static u32 set_check_sum_val(struct mac_ax_adapter *adapter,
 			byte2 = value8;
 		}
 
-		if (*bank_efuse_info.phy_map_size <= 4 + end)
+		if (*bank_efuse_info->phy_map_size <= 4 + end)
 			return MACEFUSESIZE;
 
 		ret = write_hw_efuse(adapter, end, hdr);
@@ -4076,11 +4136,12 @@ static u32 write_hw_efuse_dav(struct mac_ax_adapter *adapter, u32 offset,
 	u32 cnt;
 	u32 ret;
 	u8 tmp8;
+	struct mac_bank_efuse_info *bank_efuse_info = &adapter->efuse_param.bank_efuse_info;
 
-	PLTFM_MUTEX_LOCK(&efuse_tbl.lock);
-	*bank_efuse_info.phy_map_valid = 0;
-	*bank_efuse_info.log_map_valid = 0;
-	PLTFM_MUTEX_UNLOCK(&efuse_tbl.lock);
+	PLTFM_MUTEX_LOCK(&adapter->efuse_param.efuse_tbl.lock);
+	*bank_efuse_info->phy_map_valid = 0;
+	*bank_efuse_info->log_map_valid = 0;
+	PLTFM_MUTEX_UNLOCK(&adapter->efuse_param.efuse_tbl.lock);
 
 	/* clear ready bit*/
 	ret = mac_write_xtal_si(adapter, XTAL_SI_CTRL, 0x40, FULL_BIT_MASK);
@@ -4130,6 +4191,8 @@ static u32 write_hw_efuse_dav(struct mac_ax_adapter *adapter, u32 offset,
 
 static void switch_dv(struct mac_ax_adapter *adapter, enum rtw_dv_sel sel)
 {
-	dv_sel = sel;
+	adapter->efuse_param.dv_sel = sel;
+	PLTFM_MSG_TRACE("[TRACE]dv_sel= 0x%x, adapter->dv_sel = 0x%x\n",
+			sel, adapter->efuse_param.dv_sel);
 }
 

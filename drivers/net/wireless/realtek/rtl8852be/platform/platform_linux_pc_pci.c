@@ -18,7 +18,7 @@
 extern struct platform_device *g_pldev;
 #endif
 
-#ifdef CONFIG_PLATFORM_AML_S905_V1
+#ifdef CONFIG_PLATFORM_AML_S905
 extern struct device * g_pcie_reserved_mem_dev;
 #endif
 

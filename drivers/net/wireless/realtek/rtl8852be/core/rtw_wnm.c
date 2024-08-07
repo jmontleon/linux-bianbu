@@ -744,8 +744,12 @@ void rtw_wnm_issue_action(_adapter *padapter,
 			}
 
 #ifdef CONFIG_RTW_MBO
+#ifdef PRIVATE_R
+
+#else
 			rtw_mbo_build_trans_reject_reason_attr(padapter,
 				&pframe, pattrib, &mbo_trans_rej_res);
+#endif /* PRIVATE_R */
 #endif
 
 			RTW_INFO("WNM: BSS Transition Management Response"
@@ -881,12 +885,15 @@ u8 rtw_roam_nb_scan_list_set(
 		pparm->ch_num = 1;
 		pparm->ch[pmlmepriv->ch_cnt].hw_value =
 			pnb->nb_rpt_ch_list[pmlmepriv->ch_cnt].hw_value;
-		pmlmepriv->ch_cnt++;
+		pparm->ch[pmlmepriv->ch_cnt].band =
+			pnb->nb_rpt_ch_list[pmlmepriv->ch_cnt].band;
 		ret = _TRUE;
 
 		RTW_WNM_INFO("%s: ch_cnt=%u, (%u)hw_value=%u\n",
 			__func__, pparm->ch_num, pmlmepriv->ch_cnt,
 			pparm->ch[pmlmepriv->ch_cnt].hw_value);
+
+		pmlmepriv->ch_cnt++;
 
 		if (pmlmepriv->ch_cnt == pnb->nb_rpt_ch_list_num) {
 			pmlmepriv->nb_info.nb_rpt_valid = _FALSE;
@@ -1177,9 +1184,12 @@ u32 rtw_wnm_btm_candidates_survey(
 		pnb->nb_rpt_is_same = _FALSE;
 		pnb->last_nb_rpt_entries = nb_rpt_entries;
 	}
-
+#ifdef PRIVATE_R
+	/* MBO must respond to 11v BTM Requests from the AP with a Reject. */
+#else
 	if ((from_btm) && (nb_rpt_entries != 0))
 		rtw_wnm_btm_candidate_select(padapter);
+#endif /* PRIVATE_R */
 
 	pnb->nb_rpt_valid = _TRUE;
 	ret = _SUCCESS;

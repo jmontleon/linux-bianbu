@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2022 Realtek Corporation.
+ * Copyright(c) 2007 - 2023 Realtek Corporation.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -12,7 +12,7 @@
  * more details.
  *
  *****************************************************************************/
-#define _OS_INTFS_C_
+#define _RTW_CFG_C_
 
 #include <drv_types.h>
 
@@ -45,6 +45,9 @@ int rtw_rts_thresh = 2347;
 int rtw_frag_thresh = 2346;
 int rtw_preamble = PREAMBLE_LONG;/* long, short, auto */
 int rtw_scan_mode = 1;/* active, passive */
+
+int rtw_scan_fw_ofld = 0;/* 0:drv scan, 1:fw scan */
+module_param(rtw_scan_fw_ofld, int, 0644);
 
 #ifdef CONFIG_POWER_SAVE
 #ifdef CONFIG_RTW_IPS
@@ -90,6 +93,22 @@ MODULE_PARM_DESC(rtw_lps_cap, "The default LPS capability");
 	int rtw_lps_cap = PS_CAP_PWRON;
 #endif /* CONFIG_RTW_LPS */
 #ifdef CONFIG_WOWLAN
+#ifdef CONFIG_RTW_IPS_WOW
+	int rtw_ips_wow_en = PS_OP_MODE_FORCE_ENABLED;
+module_param(rtw_ips_wow_en, int, 0644);
+MODULE_PARM_DESC(rtw_ips_wow_en, "The default IPS mode on wowlan mode");
+#ifdef CONFIG_FWIPS_WOW
+        int rtw_ips_wow_cap = PS_CAP_PWRON |
+                        PS_CAP_RF_OFF |
+                        PS_CAP_CLK_GATED |
+                        PS_CAP_PWR_GATED;
+module_param(rtw_ips_wow_cap, int, 0644);
+MODULE_PARM_DESC(rtw_ips_wow_cap, "The default IPS capability on wowlan mode");
+#endif /* CONFIG_FWIPS_WOW */
+#else
+	int rtw_ips_wow_en = PS_OP_MODE_DISABLED;
+#endif /* CONFIG_RTW_IPS_WOW */
+#ifdef CONFIG_RTW_LPS_WOW
 	int rtw_lps_wow_en = PS_OP_MODE_FORCE_ENABLED;
         int rtw_lps_wow_cap = PS_CAP_PWRON |
                         PS_CAP_RF_OFF |
@@ -100,6 +119,10 @@ MODULE_PARM_DESC(rtw_lps_wow_en, "The default LPS mode on wowlan mode");
 
 module_param(rtw_lps_wow_cap, int, 0644);
 MODULE_PARM_DESC(rtw_lps_wow_cap, "The default LPS capability on wowlan mode");
+#else
+	int rtw_lps_wow_en = PS_OP_MODE_DISABLED;
+	int rtw_lps_wow_cap = PS_CAP_PWRON;
+#endif /* CONFIG_RTW_LPS_WOW */
 #endif /* CONFIG_WOWLAN */
 #endif /* CONFIG_POWER_SAVE */
 
@@ -270,13 +293,19 @@ int rtw_stbc_cap = 0x133;
 * BIT8: Enable HE MU Beamformer
 * BIT9: Enable HE MU Beamformee
 */
-int rtw_beamform_cap = BIT(1) | BIT(7);  /* For sw role BF cap. */
-int rtw_sw_proto_bf_cap_phy0 = BIT(1) | BIT(7);
-int rtw_sw_proto_bf_cap_phy1 = BIT(1) | BIT(7);
+#ifndef PRIVATE_R
+int rtw_beamform_cap = BIT(1) | BIT(3) | BIT(7);  /* For sw role BF cap. */
+int rtw_sw_proto_bf_cap_phy0 = BIT(1) | BIT(3) | BIT(7);
+int rtw_sw_proto_bf_cap_phy1 = BIT(1) | BIT(3) | BIT(7);
+#else
+int rtw_beamform_cap = BIT(1) | BIT(3) | BIT(7) | BIT(9);  /* For sw role BF cap. */
+int rtw_sw_proto_bf_cap_phy0 = BIT(1) | BIT(3) | BIT(7) | BIT(9);
+int rtw_sw_proto_bf_cap_phy1 = BIT(1) | BIT(3) | BIT(7) | BIT(9);
+#endif /* PRIVATE_R */
 int rtw_dyn_txbf = 1;
 int rtw_bfer_rf_number = 0; /*BeamformerCapRfNum Rf path number, 0 for auto, others for manual*/
 int rtw_bfee_rf_number = 0; /*BeamformeeCapRfNum  Rf path number, 0 for auto, others for manual*/
-#endif
+#endif /* CONFIG_BEAMFORMING */
 
 #ifdef CONFIG_80211AC_VHT
 int rtw_vht_enable = 1; /* 0:disable, 1:enable, 2:force auto enable */
@@ -307,11 +336,11 @@ int rtw_low_power = 0;
 int rtw_wifi_spec = 0;
 
 #ifdef CONFIG_SPECIAL_RF_PATH /* configure Nss/xTxR IC to 1ss/1T1R */
-int rtw_rf_path = RF_1T1R;
+int rtw_rf_path = rf_type_to_rf_path(RF_1T1R);
 int rtw_tx_nss = 1;
 int rtw_rx_nss = 1;
 #else
-int rtw_rf_path = RF_TYPE_MAX;
+int rtw_rf_path = 0;
 int rtw_tx_nss = 0;
 int rtw_rx_nss = 0;
 #endif
@@ -668,6 +697,10 @@ uint rtw_hiq_filter = CONFIG_RTW_HIQ_FILTER;
 module_param(rtw_hiq_filter, uint, 0644);
 MODULE_PARM_DESC(rtw_hiq_filter, "0:allow all, 1:allow special, 2:deny all");
 
+uint rtw_edcca_mode_sel = CONFIG_RTW_EDCCA_MODE_SEL;
+module_param(rtw_edcca_mode_sel, uint, 0644);
+MODULE_PARM_DESC(rtw_edcca_mode_sel, "0:NORMAL, 1:CS, 2:ADPT, 3:CBP, 0xFF:auto");
+
 uint rtw_adaptivity_en = CONFIG_RTW_ADAPTIVITY_EN;
 module_param(rtw_adaptivity_en, uint, 0644);
 MODULE_PARM_DESC(rtw_adaptivity_en, "0:disable, 1:enable, 2:auto");
@@ -675,15 +708,6 @@ MODULE_PARM_DESC(rtw_adaptivity_en, "0:disable, 1:enable, 2:auto");
 uint rtw_adaptivity_mode = CONFIG_RTW_ADAPTIVITY_MODE;
 module_param(rtw_adaptivity_mode, uint, 0644);
 MODULE_PARM_DESC(rtw_adaptivity_mode, "0:normal, 1:carrier sense");
-
-int rtw_adaptivity_th_l2h_ini = CONFIG_RTW_ADAPTIVITY_TH_L2H_INI;
-module_param(rtw_adaptivity_th_l2h_ini, int, 0644);
-MODULE_PARM_DESC(rtw_adaptivity_th_l2h_ini, "th_l2h_ini for Adaptivity");
-
-int rtw_adaptivity_th_edcca_hl_diff = CONFIG_RTW_ADAPTIVITY_TH_EDCCA_HL_DIFF;
-module_param(rtw_adaptivity_th_edcca_hl_diff, int, 0644);
-MODULE_PARM_DESC(rtw_adaptivity_th_edcca_hl_diff, "th_edcca_hl_diff for Adaptivity");
-
 
 int rtw_adaptivity_idle_probability = 0;
 module_param(rtw_adaptivity_idle_probability, int, 0644);
@@ -706,6 +730,10 @@ MODULE_PARM_DESC(rtw_amplifier_type_2g, "BIT3:2G ext-PA, BIT4:2G ext-LNA");
 uint rtw_amplifier_type_5g = CONFIG_RTW_AMPLIFIER_TYPE_5G;
 module_param(rtw_amplifier_type_5g, uint, 0644);
 MODULE_PARM_DESC(rtw_amplifier_type_5g, "BIT6:5G ext-PA, BIT7:5G ext-LNA");
+
+uint rtw_RFE_type = CONFIG_RTW_RFE_TYPE;
+module_param(rtw_RFE_type, uint, 0644);
+MODULE_PARM_DESC(rtw_RFE_type, "default init value:64");
 
 uint rtw_rfe_type = CONFIG_RTW_RFE_TYPE;
 module_param(rtw_rfe_type, uint, 0644);
@@ -731,6 +759,11 @@ int rtw_dbcc_force_cck_phyidx = 0;
 module_param(rtw_dbcc_force_cck_phyidx, int, 0644);
 MODULE_PARM_DESC(rtw_dbcc_force_cck_phyidx, "cck phy-idx");
 #endif /*CONFIG_DBCC_FORCE*/
+
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN_SIM
+int rtw_dbcc_lg_sim = 0;
+module_param(rtw_dbcc_lg_sim, int, 0644);
+#endif
 #endif /*CONFIG_DBCC_SUPPORT*/
 
 uint rtw_powertracking_type = 64;
@@ -843,6 +876,14 @@ module_param(rtw_path_div_enable, int, 0644);
 MODULE_PARM_DESC(rtw_path_div_enable, "0:Disable, 1:Enable path diversity");
 #endif
 
+#ifdef CONFIG_80211AX_HE
+#ifdef CONFIG_TWT
+int rtw_twt_enable = 0;
+module_param(rtw_twt_enable, int, 0644);
+MODULE_PARM_DESC(rtw_twt_enable, "0:Disable, 1:Enable TWT");
+#endif
+#endif
+
 #ifdef CONFIG_LOAD_PHY_PARA_FROM_FILE
 char *rtw_phy_file_path = REALTEK_CONFIG_PATH;
 module_param(rtw_phy_file_path, charp, 0644);
@@ -885,12 +926,21 @@ uint rtw_fw_ofld_cap = 1;
 module_param(rtw_fw_ofld_cap, uint, 0644);
 #endif /*CONFIG_FW_IO_OFLD_SUPPORT*/
 
+#ifdef CONFIG_CHSW_OFLD
+uint rtw_chsw_ofld_cap = 1;
+module_param(rtw_chsw_ofld_cap, uint, 0644);
+#endif
+
 uint rtw_edcca_th_2g = 0;
 module_param(rtw_edcca_th_2g, uint, 0644);
 uint rtw_edcca_th_5g = 0;
 module_param(rtw_edcca_th_5g, uint, 0644);
 uint rtw_edcca_cs_th = 0;
 module_param(rtw_edcca_cs_th, uint, 0644);
+#if CONFIG_IEEE80211_BAND_6GHZ
+uint rtw_edcca_cbp_th_6g = 0;
+module_param(rtw_edcca_cbp_th_6g, uint, 0644);
+#endif
 
 #ifdef CONFIG_RTW_MESH
 uint rtw_peer_alive_based_preq = 1;
@@ -1160,6 +1210,27 @@ inline void rtw_regsty_load_country_ie_slave_settings(struct registry_priv *regs
 }
 #endif
 
+static void rtw_regsty_load_edcca_mode_settings(struct registry_priv *regsty)
+{
+	regsty->edcca_mode_sel = (u8)rtw_edcca_mode_sel;
+	if (regsty->edcca_mode_sel < RTW_EDCCA_MODE_NUM || regsty->edcca_mode_sel == RTW_EDCCA_AUTO) {
+		if (regsty->edcca_mode_sel == RTW_EDCCA_NORM) {
+			/* consider old interfaces */
+			if (rtw_adaptivity_en == RTW_ADAPTIVITY_EN_ENABLE) {
+				if (rtw_adaptivity_mode == RTW_ADAPTIVITY_MODE_NORMAL)
+					regsty->edcca_mode_sel = RTW_EDCCA_ADAPT;
+				else if (rtw_adaptivity_mode == RTW_ADAPTIVITY_MODE_CARRIER_SENSE)
+					regsty->edcca_mode_sel = RTW_EDCCA_CS;
+			} else if (rtw_adaptivity_en == RTW_ADAPTIVITY_EN_AUTO)
+				regsty->edcca_mode_sel = RTW_EDCCA_AUTO;
+		}
+	} else {
+		RTW_WARN("%s invalid rtw_edcca_mode_sel(%u), set to %s\n", __func__
+			, regsty->edcca_mode_sel, rtw_edcca_mode_str(RTW_EDCCA_NORM));
+		regsty->edcca_mode_sel = RTW_EDCCA_NORM;
+	}
+}
+
 #ifdef CONFIG_DFS_MASTER
 static void rtw_regsty_load_dfs_region_domain_settings(struct registry_priv *regsty)
 {
@@ -1221,6 +1292,8 @@ static void rtw_load_phy_file_path (struct dvobj_priv *dvobj)
 	if (rtw_load_phy_file & LOAD_BB_PHY_REG_FILE) {
 		phl_com->phy_sw_cap[0].bb_phy_reg_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].bb_phy_reg_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].bb_phy_reg_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].bb_phy_reg_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_RADIO_FILE) {
@@ -1228,41 +1301,59 @@ static void rtw_load_phy_file_path (struct dvobj_priv *dvobj)
 		phl_com->phy_sw_cap[1].rf_radio_a_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[0].rf_radio_b_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_radio_b_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_radio_a_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_radio_a_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[0].rf_radio_b_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_radio_b_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_TXPWR_BY_RATE) {
 		phl_com->phy_sw_cap[0].rf_txpwr_byrate_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_txpwr_byrate_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_txpwr_byrate_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_txpwr_byrate_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_TXPWR_TRACK_FILE) {
 		phl_com->phy_sw_cap[0].rf_txpwrtrack_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_txpwrtrack_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_txpwrtrack_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_txpwrtrack_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_TXPWR_LMT_FILE) {
 		phl_com->phy_sw_cap[0].rf_txpwrlmt_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_txpwrlmt_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_txpwrlmt_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_txpwrlmt_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_TXPWR_LMT_RU_FILE) {
 		phl_com->phy_sw_cap[0].rf_txpwrlmt_ru_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_txpwrlmt_ru_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_txpwrlmt_ru_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_txpwrlmt_ru_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_BB_PHY_REG_GAIN_FILE) {
 		phl_com->phy_sw_cap[0].bb_phy_reg_gain_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].bb_phy_reg_gain_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].bb_phy_reg_gain_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].bb_phy_reg_gain_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_TXPWR_LMT_6G_FILE) {
 		phl_com->phy_sw_cap[0].rf_txpwrlmt_6g_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_txpwrlmt_6g_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_txpwrlmt_6g_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_txpwrlmt_6g_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 	if (rtw_load_phy_file & LOAD_RF_TXPWR_LMT_RU_6G_FILE) {
 		phl_com->phy_sw_cap[0].rf_txpwrlmt_ru_6g_info.para_src = RTW_PARA_SRC_EXTNAL;
 		phl_com->phy_sw_cap[1].rf_txpwrlmt_ru_6g_info.para_src = RTW_PARA_SRC_EXTNAL;
+		phl_com->phy_sw_cap[0].rf_txpwrlmt_ru_6g_info.hal_phy_folder = rtw_phy_file_path;
+		phl_com->phy_sw_cap[1].rf_txpwrlmt_ru_6g_info.hal_phy_folder = rtw_phy_file_path;
 	}
 
 #endif/* CONFIG_LOAD_PHY_PARA_FROM_FILE */
@@ -1303,7 +1394,12 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	#endif /* !CONFIG_FILE_FWIMG */
 
 	#ifdef CONFIG_FW_IO_OFLD_SUPPORT
-	phl_com->dev_sw_cap.fw_cap.offload_cap = rtw_fw_ofld_cap;
+	#ifdef CONFIG_PHL_IO_OFLD
+	phl_com->dev_sw_cap.io_ofld = rtw_fw_ofld_cap;
+	#endif
+	#endif
+	#ifdef CONFIG_CHSW_OFLD
+	phl_com->dev_sw_cap.chsw_ofld = rtw_chsw_ofld_cap;
 	#endif
 
 	phl_com->phy_sw_cap[0].proto_sup = rtw_wireless_mode;
@@ -1311,6 +1407,8 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->phy_sw_cap[0].bw_sup = ch_width_to_bw_cap(max_bw_mode + 1) - 1; /* max supported bw */
 	phl_com->phy_sw_cap[0].txss = rtw_tx_nss;
 	phl_com->phy_sw_cap[0].rxss = rtw_rx_nss;
+	phl_com->phy_sw_cap[0].tx_path_num = rtw_rf_path;
+	phl_com->phy_sw_cap[0].rx_path_num = rtw_rf_path;
 	phl_com->phy_sw_cap[0].txagg_num = rtw_tx_ampdu_num;
 
 	phl_com->phy_sw_cap[1].proto_sup = rtw_wireless_mode;
@@ -1318,6 +1416,8 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->phy_sw_cap[1].bw_sup = ch_width_to_bw_cap(max_bw_mode + 1) - 1; /* max supported bw */
 	phl_com->phy_sw_cap[1].txss = rtw_tx_nss;
 	phl_com->phy_sw_cap[1].rxss = rtw_rx_nss;
+	phl_com->phy_sw_cap[1].tx_path_num = rtw_rf_path;
+	phl_com->phy_sw_cap[1].rx_path_num = rtw_rf_path;
 	phl_com->phy_sw_cap[1].txagg_num = rtw_tx_ampdu_num;
 
 #ifdef RTW_WKARD_TX_DROP
@@ -1331,6 +1431,8 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->phy_sw_cap[1].hw_rts_len_th = 4080;
 
 	/*phl_com->dev_sw_cap.pkg_type = rtw_pkg_type;*/
+	if (rtw_RFE_type != CONFIG_RTW_RFE_TYPE)
+		rtw_rfe_type = rtw_RFE_type;
 	phl_com->dev_sw_cap.rfe_type = rtw_rfe_type;
 #ifdef DBG_LA_MODE
 	phl_com->dev_sw_cap.la_mode = rtw_la_mode_en;
@@ -1417,6 +1519,7 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->bus_sw_cap.tx_mgnt_buf_size = MAX_MGNT_XMITBUF_SZ;
 	phl_com->bus_sw_cap.tx_mgnt_buf_num = NR_MGNT_XMITBUFF;
 	phl_com->bus_sw_cap.rx_buf_size = MAX_RECVBUF_SZ;
+	phl_com->bus_sw_cap.rx_buf_align_size = RECVBUF_SZ_ALIGN_SZ;
 	phl_com->bus_sw_cap.rx_buf_num = NR_RECVBUFF;
 	phl_com->bus_sw_cap.in_token_num = NR_RECV_URB;
 #endif
@@ -1484,6 +1587,15 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->proto_sw_cap[1].stbc_rx_greater_80mhz = (rtw_stbc_cap & BIT9) ? 1 : 0;
 
 #ifdef CONFIG_BEAMFORMING
+	if (rtw_wifi_spec == 1) {
+		if ((rtw_beamform_cap & BIT(3)) == 0)
+			RTW_INFO("%s: enable VHT MU-MIMO Beamformee for Logo Test!\n", __func__);
+
+		rtw_beamform_cap |= BIT(3);
+		rtw_sw_proto_bf_cap_phy0 |= BIT(3);
+		rtw_sw_proto_bf_cap_phy1 |= BIT(3);
+	}
+
 	phl_com->role_sw_cap.bf_cap = 0;
 	phl_com->role_sw_cap.bf_cap |= (rtw_beamform_cap & BIT0) ? HW_CAP_BFER_VHT_SU : 0;
 	phl_com->role_sw_cap.bf_cap |= (rtw_beamform_cap & BIT1) ? HW_CAP_BFEE_VHT_SU: 0;
@@ -1554,8 +1666,16 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->dev_sw_cap.ps_cap.lps_cap = rtw_lps_cap;
 #endif /* CONFIG_RTW_LPS */
 #ifdef CONFIG_WOWLAN
+#ifdef CONFIG_RTW_IPS_WOW
+	phl_com->dev_sw_cap.ps_cap.ips_wow_en = rtw_ips_wow_en;
+#ifdef CONFIG_FWIPS_WOW
+	phl_com->dev_sw_cap.ps_cap.ips_wow_cap = rtw_ips_wow_cap;
+#endif /* CONFIG_FWIPS_WOW */
+#endif /* CONFIG_RTW_IPS_WOW */
+#ifdef CONFIG_RTW_LPS_WOW
 	phl_com->dev_sw_cap.ps_cap.lps_wow_en = rtw_lps_wow_en;
 	phl_com->dev_sw_cap.ps_cap.lps_wow_cap = rtw_lps_wow_cap;
+#endif /* CONFIG_RTW_LPS_WOW */
 #endif /* CONFIG_WOWLAN */
 #endif /* CONFIG_POWER_SAVE */
 
@@ -1564,10 +1684,14 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->dev_sw_cap.edcca_cap.edcca_adap_th_2g = rtw_edcca_th_2g;
 	phl_com->dev_sw_cap.edcca_cap.edcca_adap_th_5g = rtw_edcca_th_5g;
 	phl_com->dev_sw_cap.edcca_cap.edcca_carrier_sense_th = rtw_edcca_cs_th;
+#if CONFIG_IEEE80211_BAND_6GHZ
+	phl_com->dev_sw_cap.edcca_cap.edcca_cbp_th_6g = rtw_edcca_cbp_th_6g;
+#endif
 
 	/* ref: rtw_update_phl_iot() */
 	for (i = 0; i < MAX_WIFI_ROLE_NUMBER; i++)
 		phl_com->id.iot_id[i] = IOT_ID(0);
+	phl_com->id.id = RTW_IOT_ID;
 #ifdef CONFIG_RTW_LED
 	rtw_phl_led_set_ctrl_mode(GET_PHL_INFO(dvobj), 0, RTW_LED_CTRL_HW_TX_MODE);
 #endif
@@ -1587,6 +1711,15 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 #endif
 	dvobj->phl_com->dev_sw_cap.sec_cap.hw_sec_iv = false;
 	dvobj->phl_com->dev_sw_cap.sec_cap.hw_tx_search_key = false;
+
+#ifdef CONFIG_80211AX_HE
+#ifdef CONFIG_TWT
+	/* currently we only support to be TWT Requester */
+	phl_com->dev_sw_cap.twt_sup = RTW_PHL_TWT_REQ_SUP | RTW_PHL_TWT_BC_SUP;
+#endif
+#endif
+	phl_com->dev_sw_cap.scan_ofld = rtw_scan_fw_ofld;
+
 }
 
 u8 rtw_load_dvobj_registry(struct dvobj_priv *dvobj)
@@ -1598,11 +1731,14 @@ u8 rtw_load_dvobj_registry(struct dvobj_priv *dvobj)
 	return _SUCCESS;
 }
 
-uint rtw_load_registry(_adapter *padapter)
+uint rtw_load_registry(_adapter *adapter)
 {
 	uint status = _SUCCESS;
-	struct registry_priv  *registry_par = &padapter->registrypriv;
+	struct registry_priv  *registry_par = &adapter->registrypriv;
 
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN_SIM
+	registry_par->dbcc_lg_sim = rtw_dbcc_lg_sim;
+#endif
 
 #ifdef CONFIG_RTW_DEBUG
 	if (rtw_drv_log_level >= _DRV_MAX_)
@@ -1641,12 +1777,9 @@ uint rtw_load_registry(_adapter *padapter)
 		registry_par->channel = 33;
 	}
 
-	registry_par->adaptivity_en = (u8)rtw_adaptivity_en;
-	registry_par->adaptivity_mode = (u8)rtw_adaptivity_mode;
-	registry_par->adaptivity_th_l2h_ini = (s8)rtw_adaptivity_th_l2h_ini;
-	registry_par->adaptivity_th_edcca_hl_diff = (s8)rtw_adaptivity_th_edcca_hl_diff;
-	registry_par->adaptivity_idle_probability = (u8)rtw_adaptivity_idle_probability;
+	rtw_regsty_load_edcca_mode_settings(registry_par);
 
+	registry_par->adaptivity_idle_probability = (u8)rtw_adaptivity_idle_probability;
 	if (registry_par->adaptivity_idle_probability == 1) {
 		rtw_vrtl_carrier_sense = DISABLE_VCS;
 		rtw_vcs_type = NONE_VCS;
@@ -1660,13 +1793,20 @@ uint rtw_load_registry(_adapter *padapter)
 	registry_par->frag_thresh = (u16)rtw_frag_thresh;
 	registry_par->preamble = (u8)rtw_preamble;
 	registry_par->scan_mode = (u8)rtw_scan_mode;
-	#ifdef CONFIG_TDMADIG
+#ifdef CONFIG_TDMADIG
 	registry_par->tdmadig_en = (u8)rtw_tdmadig_en;
 	registry_par->tdmadig_mode = (u8)rtw_tdmadig_mode;
 	registry_par->tdmadig_dynamic = (u8) rtw_dynamic_tdmadig;
-	#endif/*CONFIG_TDMADIG*/
+#endif /* CONFIG_TDMADIG */
+#ifdef CONFIG_POWER_SAVE
+#ifdef CONFIG_RTW_IPS
 	registry_par->ips_mode = (u8)rtw_ips_mode;
+#endif /* CONFIG_RTW_IPS */
+#ifdef CONFIG_RTW_LPS
 	registry_par->lps_mode = (u8)rtw_lps_mode;
+	registry_par->lps_cap = (u8)rtw_lps_cap;
+#endif /* CONFIG_RTW_LPS */
+#endif /* CONFIG_POWER_SAVE */
 	registry_par->en_dyn_rrsr = (u8)rtw_en_dyn_rrsr;
 	registry_par->set_rrsr_value = (u32)rtw_rrsr_value;
 
@@ -1693,7 +1833,7 @@ uint rtw_load_registry(_adapter *padapter)
 
 	registry_par->RegPwrTrimEnable = (u8)rtw_pwrtrim_enable;
 
-	registry_par->tx_bw_mode = (u8)rtw_tx_bw_mode;
+	registry_par->tx_bw_mode = (u16)rtw_tx_bw_mode;
 
 #ifdef CONFIG_80211N_HT
 	registry_par->ht_enable = (u8)rtw_ht_enable;
@@ -1707,7 +1847,7 @@ uint rtw_load_registry(_adapter *padapter)
 		registry_par->rx_ampdu_amsdu = (u8)rtw_rx_ampdu_amsdu;
 #ifdef CONFIG_DISBALE_RX_AMSDU_FOR_BUS_LOW_SPEED
 #ifdef CONFIG_USB_HCI
-		if (dvobj_to_usb(adapter_to_dvobj(padapter))->usb_speed < RTW_USB_SPEED_SUPER)
+		if (dvobj_to_usb(adapter_to_dvobj(adapter))->usb_speed < RTW_USB_SPEED_SUPER)
 			registry_par->rx_ampdu_amsdu = 0;
 #endif
 #endif
@@ -1854,7 +1994,7 @@ int rtw_stbc_cap = 0x13;
 	registry_par->TxBBSwing_2G = (s8)rtw_TxBBSwing_2G;
 	registry_par->TxBBSwing_5G = (s8)rtw_TxBBSwing_5G;
 	registry_par->bEn_RFE = 1;
-	registry_par->RFE_Type = (u8)rtw_rfe_type;
+
 	registry_par->PowerTracking_Type = (u8)rtw_powertracking_type;
 	registry_par->AmplifierType_2G = (u8)rtw_amplifier_type_2g;
 	registry_par->AmplifierType_5G = (u8)rtw_amplifier_type_5g;
@@ -1980,58 +2120,38 @@ int rtw_stbc_cap = 0x13;
 #endif
 #endif
 
+#ifdef CONFIG_80211AX_HE
+#ifdef CONFIG_TWT
+	registry_par->twt_en = rtw_twt_enable;
+#endif
+#endif
+
 	return status;
 }
 
-static void rtw_cfg_adaptivity_en_msg(void *sel, _adapter *adapter)
+static void rtw_cfg_edcca_mode_msg(void *sel, _adapter *adapter)
 {
 	struct registry_priv *regsty = &adapter->registrypriv;
 
-	RTW_PRINT_SEL(sel, "RTW_ADAPTIVITY_EN_");
-
-	if (regsty->adaptivity_en == RTW_ADAPTIVITY_EN_DISABLE)
-		_RTW_PRINT_SEL(sel, "DISABLE\n");
-	else if (regsty->adaptivity_en == RTW_ADAPTIVITY_EN_ENABLE)
-		_RTW_PRINT_SEL(sel, "ENABLE\n");
-	else if (regsty->adaptivity_en == RTW_ADAPTIVITY_EN_AUTO)
+	RTW_PRINT_SEL(sel, "RTW_EDCCA_");
+	if (regsty->edcca_mode_sel == RTW_EDCCA_AUTO)
 		_RTW_PRINT_SEL(sel, "AUTO\n");
 	else
-		_RTW_PRINT_SEL(sel, "INVALID\n");
-}
-
-static void rtw_cfg_adaptivity_mode_msg(void *sel, _adapter *adapter)
-{
-	struct registry_priv *regsty = &adapter->registrypriv;
-
-	if (regsty->adaptivity_en != RTW_ADAPTIVITY_EN_ENABLE)
-		return;
-
-	RTW_PRINT_SEL(sel, "RTW_ADAPTIVITY_MODE_");
-
-	if (regsty->adaptivity_mode == RTW_ADAPTIVITY_MODE_NORMAL)
-		_RTW_PRINT_SEL(sel, "NORMAL\n");
-	else if (regsty->adaptivity_mode == RTW_ADAPTIVITY_MODE_CARRIER_SENSE)
-		_RTW_PRINT_SEL(sel, "CARRIER_SENSE\n");
-	else
-		_RTW_PRINT_SEL(sel, "INVALID\n");
+		_RTW_PRINT_SEL(sel, "%s\n", rtw_edcca_mode_str(regsty->edcca_mode_sel));
 }
 
 void rtw_cfg_adaptivity_config_msg(void *sel, _adapter *adapter)
 {
 	struct registry_priv *regsty = &adapter->registrypriv;
-	rtw_cfg_adaptivity_en_msg(sel, adapter);
-	rtw_cfg_adaptivity_mode_msg(sel, adapter);
+
+	rtw_cfg_edcca_mode_msg(sel, adapter);
 	_RTW_PRINT_SEL(sel, "adaptivity_idle_probability = %u\n", regsty->adaptivity_idle_probability);
 }
 
 bool rtw_cfg_adaptivity_needed(_adapter *adapter)
 {
 	struct registry_priv *regsty = &adapter->registrypriv;
-	bool ret = _FALSE;
 
-	if (regsty->adaptivity_en)
-		ret = _TRUE;
-
-	return ret;
+	return regsty->edcca_mode_sel != RTW_EDCCA_NORM;
 }
 

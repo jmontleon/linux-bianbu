@@ -17,6 +17,26 @@
 
 #ifdef CONFIG_PHL_TWT
 #include "phl_twt.h"
+
+static bool _twt_valid(struct phl_info_t *phl)
+{
+	bool ret = false;
+
+	if (false == twt_sup(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_sup == false\n",
+			__FUNCTION__);
+		goto _exit;
+	}
+	if (false == twt_init(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_init == false\n",
+			__FUNCTION__);
+		goto _exit;
+	}
+	ret = true;
+_exit:
+	return ret;
+}
+
 void _twt_transfer_config_state(enum phl_twt_action action,
 				enum twt_config_state *state)
 {
@@ -65,6 +85,86 @@ u32 _twt_calc_wakeup_dur(u8 dur, enum rtw_phl_wake_dur_unit dur_unit)
 	else if (RTW_PHL_WAKE_1TU == dur_unit)
 		dur_t = dur * 1024;
 	return dur_t;
+}
+
+static void
+_dump_twt_info(struct rtw_phl_twt_info_f *twt_info, const char *caller)
+{
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "=========_dump_twt_info- %s====\n",
+		caller);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "id(%d), rsp_req(%d), next_req(%d), next_size(%d), all_twt(%d), next_twt(0x%08X 0x%08X)\n",
+		twt_info->twt_flow_id, twt_info->rsp_req,
+		twt_info->next_twt_req, twt_info->next_twt_size,
+		twt_info->all_twt, (u32)(twt_info->next_twt >> 32),
+		(u32)twt_info->next_twt);
+}
+
+static void
+_dump_btwt_para_set(struct rtw_phl_bcast_twt_para_set *para, const char *caller)
+{
+	struct rtw_phl_btwt_req_type *req_type = NULL;
+	struct rtw_phl_btwt_i *btwt_i = NULL;
+
+	req_type = &para->req_type;
+	btwt_i = &para->btwt_i;
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "=========_dump_btwt_para_set- %s====\n",
+		caller);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "twt_request(%d), twt_setup_cmd(%d), trigger(%d), lst_bc_para_set(%d), flow_type(%d), btwt_rcmd(%d), twt_wake_int_exp(%d), rsvd(%d)\n",
+		req_type->twt_request, req_type->twt_setup_cmd,
+		req_type->trigger, req_type->lst_bc_para_set,
+		req_type->flow_type, req_type->btwt_rcmd,
+		req_type->twt_wake_int_exp, req_type->rsvd);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "target_wake_t(0x%08x-0x%08x), nom_min_twt_wake_dur(%d), twt_wake_int_mantissa(%d), rsvd(%d), btwt_id(%d), btwt_prstnc(%d)\n",
+		para->target_wake_t_h, para->target_wake_t_l,
+		para->nom_min_twt_wake_dur, para->twt_wake_int_mantissa,
+		btwt_i->rsvd, btwt_i->btwt_id, btwt_i->btwt_prstnc);
+}
+
+static void
+_dump_ctrl_i(struct rtw_phl_twt_control *ctrl, const char *caller)
+{
+
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: twt_ctrl: ndp_paging_indic(%d), responder_pm_mode(%d), nego_type(%d), twt_info_frame_disable(%d), wake_dur_unit(%d)\n",
+		caller, ctrl->ndp_paging_indic, ctrl->responder_pm_mode,
+		ctrl->nego_type, ctrl->twt_info_frame_disable,
+		ctrl->wake_dur_unit);
+}
+
+enum rtw_phl_status _twt_fill_btwt_para_set(
+	struct rtw_phl_bcast_twt_para_set *para, u8 *buf, u8 *len)
+{
+	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_btwt_req_type *req_type = &para->req_type;
+	struct rtw_phl_btwt_i *btwt_i = &para->btwt_i;
+
+	_dump_btwt_para_set(para, __FUNCTION__);
+	/*Request Type*/
+	SET_BTWT_REQ_TYPE_TWT_REQUEST(buf, req_type->twt_request);
+	SET_BTWT_REQ_TYPE_TWT_SETUP_COMMAND(buf, req_type->twt_setup_cmd);
+	SET_BTWT_REQ_TYPE_TRIGGER(buf, req_type->trigger);
+	SET_BTWT_REQ_TYPE_LST_BC_PARA_SET(buf, req_type->lst_bc_para_set);
+	SET_BTWT_REQ_TYPE_FLOW_TYPE(buf, req_type->flow_type);
+	SET_BTWT_REQ_TYPE_RCMD(buf, req_type->btwt_rcmd);
+	SET_BTWT_REQ_TYPE_TWT_WAKE_INTERVAL_EXPONENT(buf,
+					req_type->twt_wake_int_exp);
+	*len = REQUEST_TYPE_LENGTH;
+
+	SET_BTWT_TARGET_WAKE_TIME(buf + (*len), (u16)para->target_wake_t_l);
+	*len += BTWT_TARGET_WAKE_TIME_LENGTH;
+
+	SET_BTWT_NOMINAL_MINIMUM_TWT_WAKE_DURATION(buf + (*len),
+						para->nom_min_twt_wake_dur);
+	*len += NOMINAL_MINIMUM_TWT_WAKE_DURATION_LENGTH;
+
+	SET_BTWT_TWT_WAKE_INTERVAL_MANTISSA(buf + (*len),
+					para->twt_wake_int_mantissa);
+	*len += TWT_WAKE_INTERVAL_MANTISSA_LENGTH;
+	/* BTWT Info */
+	SET_BTWT_ID(buf + (*len), btwt_i->btwt_id);
+	SET_BTWT_PRSTNC(buf + (*len), btwt_i->btwt_prstnc);
+	*len += BTWT_INFO_LENGTH;
+	pstatus = RTW_PHL_STATUS_SUCCESS;
+	return pstatus;
 }
 
 enum rtw_phl_status _twt_fill_individual_twt_para_set(
@@ -116,6 +216,93 @@ enum rtw_phl_status _twt_fill_individual_twt_para_set(
 	}
 	pstatus = RTW_PHL_STATUS_SUCCESS;
 	return pstatus;
+}
+
+enum rtw_phl_status _twt_parse_btwt_para(u8 *buf, u16 len,
+			struct rtw_phl_bcast_twt_para_set *para, u8 *rlen)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_btwt_req_type *req_type = &para->req_type;
+	struct rtw_phl_btwt_i *btwt_i = &para->btwt_i;
+
+	if (len < MIN_BTWT_PARA_LEN) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: pkt len(%d) < MIN_BTWT_PARA_LEN(%d)\n",
+			__FUNCTION__, len, MIN_BTWT_PARA_LEN);
+		return sts;
+	}
+	/*Request Type*/
+	req_type->twt_request = GET_BTWT_REQ_TYPE_TWT_REQUEST(buf);
+	req_type->twt_setup_cmd = GET_BTWT_REQ_TYPE_TWT_SETUP_COMMAND(buf);
+	req_type->trigger = GET_BTWT_REQ_TYPE_TRIGGER(buf);
+	req_type->lst_bc_para_set = GET_BTWT_REQ_TYPE_LST_BC_PARA_SET(buf);
+	req_type->flow_type = GET_BTWT_REQ_TYPE_FLOW_TYPE(buf);
+	req_type->btwt_rcmd = GET_BTWT_REQ_TYPE_RCMD(buf);
+	req_type->twt_wake_int_exp = GET_BTWT_REQ_TYPE_TWT_WAKE_INTERVAL_EXPONENT(buf);
+	*rlen = REQUEST_TYPE_LENGTH;
+
+	para->target_wake_t_l = GET_BTWT_TARGET_WAKE_TIME(buf + (*rlen));
+	*rlen += BTWT_TARGET_WAKE_TIME_LENGTH;
+
+	para->nom_min_twt_wake_dur =
+		GET_BTWT_NOMINAL_MINIMUM_TWT_WAKE_DURATION(buf + (*rlen));
+	*rlen += NOMINAL_MINIMUM_TWT_WAKE_DURATION_LENGTH;
+
+	para->twt_wake_int_mantissa =
+			GET_BTWT_TWT_WAKE_INTERVAL_MANTISSA(buf + (*rlen));
+	*rlen += TWT_WAKE_INTERVAL_MANTISSA_LENGTH;
+	/* BTWT Info */
+	btwt_i->btwt_id = GET_BTWT_ID(buf + (*rlen));
+	btwt_i->btwt_prstnc = GET_BTWT_PRSTNC(buf + (*rlen));
+	*rlen += BTWT_INFO_LENGTH;
+	_dump_btwt_para_set(para, __FUNCTION__);
+	sts = RTW_PHL_STATUS_SUCCESS;
+	return sts;
+}
+
+enum rtw_phl_status _twt_parse_all_btwt_para(u8 *buf, u8 para_len,
+	struct rtw_phl_twt_element *twt_element, u8 *rlen)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_bcast_twt_para_set *bpara = NULL;
+	u8 idx = 0, plen = 0, rem_len = 0;
+
+	*rlen = 0;
+	twt_element->num_btwt_para = 0;
+	rem_len = para_len;
+	do {
+		if (idx >= MAX_BTWT_PARA_SET) {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: idx(%d) >= MAX_BTWT_PARA_SET(%d)\n",
+				__FUNCTION__, idx, MAX_BTWT_PARA_SET);
+			sts = RTW_PHL_STATUS_FAILURE;
+			goto exit;
+		}
+		bpara = &twt_element->info.b_twt_para_set[idx];
+		plen = 0;
+		sts = _twt_parse_btwt_para(buf + (*rlen), rem_len,
+					bpara, &plen);
+		if (sts != RTW_PHL_STATUS_SUCCESS) {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: parse btwt error\n",
+				__FUNCTION__);
+			goto exit;
+		}
+		twt_element->num_btwt_para++;
+		rem_len -= plen;
+		*rlen += plen;
+		if (bpara->req_type.lst_bc_para_set) {
+			break;
+		}
+		if (rem_len < MIN_BTWT_PARA_LEN) {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: rem_len(%d) < MIN_BTWT_PARA_LEN(%d), can't get last para\n",
+				__FUNCTION__, rem_len,
+				MIN_BTWT_PARA_LEN);
+			goto exit;
+		}
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: parse next bpara\n",
+			__FUNCTION__);
+		idx++;
+	} while(true);
+exit:
+	return sts;
 }
 
 enum rtw_phl_status _twt_parse_individual_twt_para(u8 *twt_ele, u16 length,
@@ -370,6 +557,30 @@ _twt_get_twt_sta(
 }
 */
 
+void _twt_fill_config_info_bc(struct rtw_phl_twt_info *twt_info,
+				struct rtw_phl_bcast_twt_para_set *para_set)
+{
+	struct rtw_phl_btwt_req_type *req_type = &para_set->req_type;
+	struct rtw_phl_btwt_i *btwt_i = &para_set->btwt_i;
+
+	twt_info->trigger = req_type->trigger;
+	twt_info->flow_type = req_type->flow_type;
+	twt_info->bcast_twt_id = btwt_i->btwt_id;
+	twt_info->implicit_lastbcast = req_type->lst_bc_para_set;
+	twt_info->twt_wake_int_exp = req_type->twt_wake_int_exp;
+	twt_info->twt_wake_int_mantissa = para_set->twt_wake_int_mantissa;
+	twt_info->nom_min_twt_wake_dur = para_set->nom_min_twt_wake_dur;
+	twt_info->target_wake_time_h = para_set->target_wake_t_h;
+	twt_info->target_wake_time_l = para_set->target_wake_t_l;
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: twt_info: trigger(%d), flow_type(%d), btwt_id(%d), lastbc:(%d), twt_wake_int_exp:%d, twt_wake_int_mantissa:%d, nom_min_twt_wake_dur:%d, target_wake_time(0x%08X-0x%08X)\n",
+		__FUNCTION__, twt_info->trigger, twt_info->flow_type,
+		twt_info->bcast_twt_id,
+		twt_info->implicit_lastbcast,
+		twt_info->twt_wake_int_exp, twt_info->twt_wake_int_mantissa,
+		twt_info->nom_min_twt_wake_dur, twt_info->target_wake_time_h,
+		twt_info->target_wake_time_l);
+}
+
 void _twt_fill_config_info_indiv(struct rtw_phl_twt_info *twt_info,
 				struct rtw_phl_indiv_twt_para_set *para_set)
 {
@@ -384,8 +595,8 @@ void _twt_fill_config_info_indiv(struct rtw_phl_twt_info *twt_info,
 	twt_info->nom_min_twt_wake_dur = para_set->nom_min_twt_wake_dur;
 	twt_info->target_wake_time_h = para_set->target_wake_t_h;
 	twt_info->target_wake_time_l = para_set->target_wake_t_l;
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_fill_config_info_indiv(): twt_info: trigger:%d, flow_type:%d, implicit_lastbcast:%d, twt_protection:%d, twt_wake_int_exp:%d, twt_wake_int_mantissa:%d, nom_min_twt_wake_dur:%d, target_wake_time_h:0x%08X, target_wake_time_l:0x%08X\n",
-		twt_info->trigger, twt_info->flow_type,
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: twt_info: trigger:%d, flow_type:%d, implicit_lastbcast:%d, twt_protection:%d, twt_wake_int_exp:%d, twt_wake_int_mantissa:%d, nom_min_twt_wake_dur:%d, target_wake_time_h:0x%08X, target_wake_time_l:0x%08X\n",
+		__FUNCTION__, twt_info->trigger, twt_info->flow_type,
 		twt_info->implicit_lastbcast, twt_info->twt_protection,
 		twt_info->twt_wake_int_exp, twt_info->twt_wake_int_mantissa,
 		twt_info->nom_min_twt_wake_dur, twt_info->target_wake_time_h,
@@ -401,14 +612,19 @@ void _twt_fill_config_info(struct rtw_phl_twt_info *twt_info,
 	twt_info->responder_pm_mode = twt_ctrl->responder_pm_mode;
 	twt_info->nego_type = twt_ctrl->nego_type;
 	twt_info->wake_dur_unit = twt_ctrl->wake_dur_unit;
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_fill_config_info(): twt_info: responder_pm_mode:%d, nego_type:%d, wake_dur_unit:%d\n",
-		twt_info->responder_pm_mode, twt_info->nego_type,
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: twt_info: responder_pm_mode:%d, nego_type:%d, wake_dur_unit:%d\n",
+		__FUNCTION__, twt_info->responder_pm_mode, twt_info->nego_type,
 		twt_info->wake_dur_unit);
 	if (RTW_PHL_INDIV_TWT == twt_info->nego_type) {
 		_twt_fill_config_info_indiv(twt_info,
-						&twt_ele->info.i_twt_para_set);
+					&twt_ele->info.i_twt_para_set);
+	} else if (RTW_PHL_BCAST_TWT == twt_info->nego_type ||
+		   RTW_PHL_MANAGE_BCAST_TWT == twt_info->nego_type){
+		_twt_fill_config_info_bc(twt_info,
+					&twt_ele->info.b_twt_para_set[0]);
 	} else {
-		/*todo*/
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Unimplemented twt_ctrl->nego_type(%d)\n",
+			__FUNCTION__, twt_info->nego_type);
 	}
 }
 
@@ -416,6 +632,7 @@ void _twt_reset_config_info(struct phl_info_t *phl,
 				struct phl_twt_config *config)
 {
 	config->role = NULL;
+	config->rlink = NULL;
 	_os_mem_set(phl_to_drvpriv(phl), &config->twt_info, 0,
 			sizeof(struct rtw_phl_twt_info));
 }
@@ -502,8 +719,9 @@ void _twt_dump_twt_cfg_info(struct phl_twt_cfg_info *twt_cfg_i)
 	config = (struct phl_twt_config *)twt_cfg_i->twt_cfg_ring;
 
 	for (i = 0; i < twt_cfg_i->twt_cfg_num; i++) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "_twt_dump_twt_cfg_info(): loop i(%d), cfg id(%d), state(%d)\n",
-			i, config[i].idx, config[i].state);
+		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "_twt_dump_twt_cfg_info(): loop i(%d), cfg id(%d), state(%d), role(%p), rlink(%p), StaQ(%d)\n",
+			i, config[i].idx, config[i].state, config[i].role,
+			config[i].rlink, config[i].twt_sta_queue.cnt);
 	}
 }
 
@@ -829,8 +1047,9 @@ enum rtw_phl_status _twt_delete_sta_info(struct phl_info_t *phl_info,
 	}
 	f_config = config;
 	do {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "_twt_delete_sta_info(): while loop, twt_id:%d\n",
-			config->twt_info.twt_id);
+		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "_twt_delete_sta_info(): while loop, idx(%d), state(%d), role(%p), twt_id(%d), nego_type(%d)\n",
+			config->idx, config->state, config->role,
+			config->twt_info.twt_id, config->twt_info.nego_type);
 		if (twt_config_state_free == config->state)
 			goto next_cfg;
 		if (config->role != phl_sta->wrole)
@@ -876,8 +1095,8 @@ next_cfg:
 	else
 		pstatus = RTW_PHL_STATUS_FAILURE;
 exit:
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_delete_sta_info(): pstatus:%d, nego_type = %d, id:%d, bitmap:0x%x\n",
-		pstatus, nego_type, id, *bitmap);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_delete_sta_info(): pstatus:%d, nego_type(%d), ignore_type(%d), id(%d), bitmap(0x%x), wrole(%p)\n",
+		pstatus, nego_type, ignore_type, id, *bitmap, phl_sta->wrole);
 	return pstatus;
 }
 
@@ -1000,11 +1219,12 @@ bool _twt_new_config_is_available(struct phl_info_t *phl_i)
  * Whether the twt flow id of sta exist in any twt config entry.
  * @phl_sta: the specific sta
  * @role: specific role for search twt config entry
- * @id: twt flow id
+ * @id: if nego_t is RTW_PHL_INDIV_TWT : twt flow id, if nego_t is RTW_PHL_BCAST_TWT/RTW_PHL_MANAGE_BCAST_TWT: BTWT ID
  * Note: for sta mode.
 */
-u8 _twt_flow_id_exist(void *phl, struct rtw_phl_stainfo_t *phl_sta,
-				struct rtw_wifi_role_t *role, u8 id)
+u8 _twt_id_exist(void *phl, struct rtw_phl_stainfo_t *phl_sta,
+			struct rtw_wifi_role_t *role, u8 id,
+			enum rtw_phl_nego_type nego_type)
 {
 	struct phl_info_t *phl_info = (struct phl_info_t *)phl;
 	struct phl_twt_info *phl_twt_info = get_twt_info(phl_info);
@@ -1013,26 +1233,28 @@ u8 _twt_flow_id_exist(void *phl, struct rtw_phl_stainfo_t *phl_sta,
 	struct rtw_twt_sta_info *twt_sta = NULL;
 	bool exist = false;
 
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> _twt_flow_id_exist()\n");
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: macid(%d), id(%d), nego_type(%d)\n",
+		__FUNCTION__, phl_sta->macid, id, nego_type);
 	if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl, twt_cfg_i,
 				PHL_GET_HEAD_CONFIG, NULL, &config)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "_twt_flow_id_exist(): Fail to get first allocate config\n");
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Fail to get first allocate config\n",
+			__FUNCTION__);
 		goto exit;
 	}
 	f_config = config;
 	do {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "_twt_flow_id_exist(): while loop\n");
+		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "%s: while loop\n", __FUNCTION__);
 		if (twt_config_state_free == config->state)
 			goto next_cfg;
 		if (config->role != phl_sta->wrole ||
-			RTW_PHL_INDIV_TWT != config->twt_info.nego_type)
+			nego_type != config->twt_info.nego_type)
 			goto next_cfg;
 		twt_sta = _twt_get_sta_info(phl_info, &config->twt_sta_queue,
 						phl_sta);
 		if (NULL != twt_sta && id == twt_sta->id) {
 			exist = true;
-			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_flow_id_exist(): exist the twt_flow_id:%d\n",
-				id);
+			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: exist the twt_flow_id:%d\n",
+				__FUNCTION__, id);
 			break;
 		}
 next_cfg:
@@ -1042,20 +1264,80 @@ next_cfg:
 			break;
 	} while(config != f_config);
 exit:
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== _twt_flow_id_exist(): twt flow id:%d, bexist:%d\n",
-		id, exist);
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: twt flow id:%d, bexist:%d\n",
+		__FUNCTION__, id, exist);
 	return exist;
 }
 
 enum rtw_phl_status _twt_accept_bcast_by_sta(struct phl_info_t *phl,
 			struct rtw_phl_twt_setup_info *setup_info,
-			struct rtw_phl_stainfo_t *phl_sta, u8 *config_id)
+			struct rtw_phl_stainfo_t *sta, u8 *config_id)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_twt_element *twt_ele = &setup_info->twt_element;
+	struct rtw_phl_twt_control *twt_ctrl = &twt_ele->twt_ctrl;
+	struct rtw_phl_bcast_twt_para_set *para = &twt_ele->info.b_twt_para_set[0];
+	struct rtw_phl_btwt_i *btwt_i = &para->btwt_i;
+	u8 bitmap = 0, id = 0, i = 0;
+	u32 tsf_h = 0, tsf_l = 0;
 
-	/*TODO*/
-	PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "==> _twt_accept_bcast_by_sta(): not support, todo\n");
-	pstatus = RTW_PHL_STATUS_FAILURE;
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> %s\n",
+		__FUNCTION__);
+	/* Append high 6byte of tsf, only 2byte of tsf in twt ele. */
+	if (RTW_HAL_STATUS_SUCCESS != rtw_hal_get_tsf(phl->hal,
+							sta->rlink->hw_band,
+							sta->rlink->hw_port,
+							&tsf_h, &tsf_l)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Failed to Get tsf, hw_band(%d), hw_port(%d)\n",
+			__FUNCTION__, sta->rlink->hw_band, sta->rlink->hw_port);
+		goto _exit;
+	}
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: Original BTWT Para tsf(0x%08x %08x)\n",
+		__FUNCTION__, para->target_wake_t_h, para->target_wake_t_l);
+	para->target_wake_t_h = tsf_h;
+	para->target_wake_t_l = (tsf_l & 0xffff0000) | para->target_wake_t_l;
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: Full BTWT Para tsf(0x%08x %08x)\n",
+		__FUNCTION__, para->target_wake_t_h, para->target_wake_t_l);
+	if (_twt_id_exist(phl, sta, sta->wrole,
+				btwt_i->btwt_id, RTW_PHL_BCAST_TWT)) {
+		pstatus = _twt_delete_sta_info(phl, sta, false,
+						twt_ctrl->nego_type,
+						btwt_i->btwt_id, &bitmap);
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: btwt id(%d) exist, first, delete twt sta, pstatus:%d, bitmap:0x%x\n",
+			__FUNCTION__, btwt_i->btwt_id, pstatus, bitmap);
+		if (RTW_PHL_STATUS_SUCCESS == pstatus && bitmap != 0) {
+			id = 0;
+			do {
+				i = ((bitmap >> id) & BIT0);
+				if (i != 0) {
+					bitmap &= ~(BIT(id));
+					break;
+				}
+				id++;
+			} while (true);
+			pstatus = rtw_phl_twt_free_twt_config(phl, id);
+			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s:sta Q is empty in twt config entry(%d), we free it, pstatus:%d \n",
+				__FUNCTION__, id, pstatus);
+			if (bitmap !=0) {
+				PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: TWT config entry bitmap(0x%x) != 0, some twt config entry not free. please check code\n",
+					__FUNCTION__, bitmap);
+			}
+		}
+	}
+	pstatus = rtw_phl_twt_alloc_twt_config(phl, sta->rlink, *setup_info,
+						true, &id);
+	if (RTW_PHL_STATUS_SUCCESS == pstatus) {
+		pstatus = rtw_phl_twt_add_sta_info(phl, sta, id,
+						btwt_i->btwt_id);
+		if (RTW_PHL_STATUS_SUCCESS != pstatus) {
+			rtw_phl_twt_free_twt_config(phl, id);
+		} else {
+			*config_id = id;
+		}
+	}
+_exit:
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: pstatus:%d, config_id:%d\n",
+		__FUNCTION__, pstatus, *config_id);
 	return pstatus;
 }
 
@@ -1071,8 +1353,8 @@ enum rtw_phl_status _twt_accept_indiv_by_sta(struct phl_info_t *phl,
 	u8 bitmap = 0, id = 0, i = 0;
 
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> _twt_accept_indiv_by_sta()\n");
-	if (_twt_flow_id_exist(phl, phl_sta, phl_sta->wrole,
-				req_type->twt_flow_id)) {
+	if (_twt_id_exist(phl, phl_sta, phl_sta->wrole,
+				req_type->twt_flow_id, RTW_PHL_INDIV_TWT)) {
 		pstatus = _twt_delete_sta_info(phl, phl_sta, false,
 						twt_ctrl->nego_type,
 						req_type->twt_flow_id, &bitmap);
@@ -1114,6 +1396,72 @@ enum rtw_phl_status _twt_accept_indiv_by_sta(struct phl_info_t *phl,
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "_twt_accept_indiv_by_sta(): pstatus:%d, config_id:%d\n",
 		pstatus, *config_id);
 	return pstatus;
+}
+
+static u8
+_get_next_twt_subfield_size_bit(u8 size)
+{
+	u8 size_bit = 0;
+
+	if (size == 1)
+		size_bit = 32;
+	else if (size == 2)
+		size_bit = 48;
+	else if (size == 3)
+		size_bit = 64;
+	else
+		size_bit = 0;
+
+	return size_bit;
+}
+
+struct phl_twt_config *
+_twt_get_cfg_by_id(struct phl_info_t *phl, struct rtw_phl_stainfo_t *sta,
+			enum rtw_phl_nego_type nego_type, u8 id)
+{
+	struct phl_twt_info *p_twt_i = NULL;
+	struct phl_twt_cfg_info *twt_cfg_i = NULL;
+	struct phl_twt_config *config = NULL, *f_config = NULL, *tgt_cfg = NULL;
+	struct rtw_twt_sta_info *twt_sta = NULL;
+
+	if (false == _twt_valid(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt invalid\n", __FUNCTION__);
+		goto exit;
+	}
+	p_twt_i = get_twt_info(phl);
+	twt_cfg_i = &p_twt_i->twt_cfg_info;
+	if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl, twt_cfg_i,
+				PHL_GET_HEAD_CONFIG, NULL, &config)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Fail to get first allocate config\n",
+			__FUNCTION__);
+		goto exit;
+	}
+	f_config = config;
+	do {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: while loop\n",
+			__FUNCTION__);
+		if (twt_config_state_free == config->state)
+			goto next_cfg;
+		if (config->role != sta->wrole ||
+		    nego_type != config->twt_info.nego_type)
+			goto next_cfg;
+		twt_sta = _twt_get_sta_info(phl, &config->twt_sta_queue, sta);
+		if (NULL == twt_sta)
+			goto next_cfg;
+		if (twt_sta->id == id) {
+			tgt_cfg = config;
+			break;
+		}
+next_cfg:
+		if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl,
+						twt_cfg_i, PHL_GET_NEXT_CONFIG,
+						(u8 *)&config->idx, &config))
+			goto exit;
+	} while(config != f_config);
+exit:
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: macid(%d), tgt_cfg(%p), nego_type(%d), id(%d)\n",
+		__FUNCTION__, sta->macid, tgt_cfg, nego_type, id);
+	return tgt_cfg;
 }
 
 /*
@@ -1271,6 +1619,7 @@ rtw_phl_twt_alloc_twt_config(void *phl,
 	}
 	if (true == alloc) {
 		*id = config->twt_info.twt_id;
+		config->role = rlink->wrole;
 		config->rlink = rlink;
 		_twt_fill_config_info(&config->twt_info, &setup_info);
 		if (benable) {
@@ -1741,6 +2090,121 @@ exit:
 	return pstatus;
 }
 
+/*
+ * if nego_type is RTW_PHL_INDIV_TWT, return flow id
+ * if nego_type is RTW_PHL_BCAST_TWT or RTW_PHL_MANAGE_BCAST_TWT, return btwt id
+ */
+enum rtw_phl_status
+rtw_phl_twt_get_all_id(void *phl, struct rtw_phl_stainfo_t *phl_sta,
+			enum rtw_phl_nego_type nego_type, u8 *used_map)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_RESOURCE;
+	struct phl_info_t *phl_i = (struct phl_info_t *)phl;
+	struct phl_twt_info *phl_twt_info = NULL;
+	struct phl_twt_cfg_info *twt_cfg_i = NULL;
+	struct phl_twt_config *config = NULL, *f_config = NULL;
+	struct rtw_twt_sta_info *twt_sta = NULL;
+
+	if (false == _twt_valid(phl_i)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt invalid\n", __FUNCTION__);
+		goto exit;
+	}
+	*used_map = 0;
+	phl_twt_info = get_twt_info(phl_i);
+	twt_cfg_i = &phl_twt_info->twt_cfg_info;
+	if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl, twt_cfg_i,
+				PHL_GET_HEAD_CONFIG, NULL, &config)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Fail to get first allocate config\n",
+			__FUNCTION__);
+		goto exit;
+	}
+	f_config = config;
+	do {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_DEBUG_, "%s: while loop\n",
+			__FUNCTION__);
+		if (twt_config_state_free == config->state)
+			goto next_cfg;
+		if (config->role != phl_sta->wrole ||
+			nego_type != config->twt_info.nego_type)
+			goto next_cfg;
+		twt_sta = _twt_get_sta_info(phl_i, &config->twt_sta_queue,
+						phl_sta);
+		if (NULL != twt_sta) {
+			(*used_map) |= (1 << twt_sta->id);
+			PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: config_ID:%d, get match sta, twt_sta->id:%d\n",
+				__FUNCTION__, config->twt_info.twt_id, twt_sta->id);
+		}
+next_cfg:
+		if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl,
+						twt_cfg_i, PHL_GET_NEXT_CONFIG,
+						(u8 *)&config->idx, &config))
+			goto exit;
+	} while(config != f_config);
+	sts = RTW_PHL_STATUS_SUCCESS;
+exit:
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: sts(%d), nego_type(%d), used_map(0x%x)\n",
+		__FUNCTION__, sts, nego_type, *used_map);
+	return sts;
+}
+
+u8
+rtw_phl_twt_get_cfg_id(void *phl, struct rtw_phl_stainfo_t *sta,
+			enum rtw_phl_nego_type nego_type, u8 id, u8 *cfg_id)
+{
+	u8 ret = false;
+	struct phl_info_t *phl_i = (struct phl_info_t *)phl;
+	struct phl_twt_info *p_twt_i = NULL;
+	struct phl_twt_cfg_info *twt_cfg_i = NULL;
+	struct phl_twt_config *config = NULL, *f_config = NULL, *tgt_cfg = NULL;
+	struct rtw_twt_sta_info *twt_sta = NULL;
+
+	if (false == _twt_valid(phl_i)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt invalid\n", __FUNCTION__);
+		goto exit;
+	}
+	p_twt_i = get_twt_info(phl_i);
+	twt_cfg_i = &p_twt_i->twt_cfg_info;
+	if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl_i, twt_cfg_i,
+				PHL_GET_HEAD_CONFIG, NULL, &config)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Fail to get first allocate config\n",
+			__FUNCTION__);
+		goto exit;
+	}
+	f_config = config;
+	do {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: while loop\n",
+			__FUNCTION__);
+		if (twt_config_state_free == config->state)
+			goto next_cfg;
+		if (config->role != sta->wrole ||
+		    nego_type != config->twt_info.nego_type)
+			goto next_cfg;
+		twt_sta = _twt_get_sta_info(phl_i, &config->twt_sta_queue, sta);
+		if (NULL == twt_sta)
+			goto next_cfg;
+		if (twt_sta->id == id) {
+			tgt_cfg = config;
+			break;
+		}
+next_cfg:
+		if (RTW_PHL_STATUS_SUCCESS != _twt_operate_twt_config(phl_i,
+						twt_cfg_i, PHL_GET_NEXT_CONFIG,
+						(u8 *)&config->idx, &config))
+			goto exit;
+	} while(config != f_config);
+exit:
+	if (tgt_cfg) {
+		*cfg_id = tgt_cfg->idx;
+		ret = true;
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: macid(%d), cfg_id(%d), nego_type(%d), flow/b id(%d)\n",
+			__FUNCTION__, sta->macid, *cfg_id, nego_type, id);
+	} else {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: Failed!! macid(%d), nego_type(%d), flow/b id(%d)\n",
+			__FUNCTION__, sta->macid, nego_type, id);
+	}
+	return ret;
+}
+
 static void _phl_twt_get_target_wake_time_done(void *priv, u8 *param,
 				u32 param_len, enum rtw_phl_status sts)
 {
@@ -1891,18 +2355,17 @@ enum rtw_phl_status rtw_phl_twt_fill_twt_element(
 			struct rtw_phl_twt_element *twt_ele, u8 *buf, u8 *len)
 {
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
-	u8 twt_para_length = 0;
+	u8 twt_para_length = 0, idx = 0;
 	struct rtw_phl_twt_control *twt_ctrl = NULL;
+	struct rtw_phl_bcast_twt_para_set *btwt_para = NULL;
 
 	if (twt_ele == NULL || buf == NULL || len == NULL) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_fill_twt_element(): twt_ele or buf or len = NULL\n");
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_ele or buf or len = NULL\n",
+			__FUNCTION__);
 		return pstatus;
 	}
 	twt_ctrl = &twt_ele->twt_ctrl;
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> rtw_phl_twt_fill_twt_element(): twt_ctrl: ndp_paging_indic(%d), responder_pm_mode(%d), nego_type(%d), twt_info_frame_disable(%d), wake_dur_unit(%d)\n",
-		twt_ctrl->ndp_paging_indic, twt_ctrl->responder_pm_mode,
-		twt_ctrl->nego_type, twt_ctrl->twt_info_frame_disable,
-		twt_ctrl->wake_dur_unit);
+	_dump_ctrl_i(twt_ctrl, __FUNCTION__);
 	*len = 0;
 /*Control filed*/
 	SET_TWT_CONTROL_NDP_PAGING_INDICATOR(buf, twt_ctrl->ndp_paging_indic);
@@ -1919,12 +2382,33 @@ enum rtw_phl_status rtw_phl_twt_fill_twt_element(
 					twt_ctrl->ndp_paging_indic,
 					buf + *len, &twt_para_length);
 		*len += twt_para_length;
+	} else if (RTW_PHL_BCAST_TWT == twt_ctrl->nego_type ||
+		   RTW_PHL_MANAGE_BCAST_TWT == twt_ctrl->nego_type) {
+		if (twt_ele->num_btwt_para > MAX_BTWT_PARA_SET) {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_ele->num_btwt_para(%d) > MAX_BTWT_PARA_SET(%d)\n",
+				__FUNCTION__, twt_ele->num_btwt_para,
+				MAX_BTWT_PARA_SET);
+			goto _exit;
+		}
+		for (idx = 0; idx < twt_ele->num_btwt_para; idx++) {
+			btwt_para = &twt_ele->info.b_twt_para_set[idx];
+			if ((idx + 1) == twt_ele->num_btwt_para) {
+				btwt_para->req_type.lst_bc_para_set = 1;
+			} else {
+				btwt_para->req_type.lst_bc_para_set = 0;
+			}
+			pstatus = _twt_fill_btwt_para_set(btwt_para,
+							buf + *len,
+							&twt_para_length);
+			*len += twt_para_length;
+		}
 	} else {
 		/*todo*/
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_fill_twt_element(): not support, todo, twt_ctrl->nego_type(%d)\n",
-			twt_ctrl->nego_type);
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: not support, todo, twt_ctrl->nego_type(%d)\n",
+			__FUNCTION__, twt_ctrl->nego_type);
 	}
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== rtw_phl_fill_twt_element()\n");
+_exit:
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s()\n", __FUNCTION__);
 	return pstatus;
 }
 
@@ -1974,6 +2458,31 @@ enum rtw_phl_status rtw_phl_twt_fill_flow_field(
 	return pstatus;
 }
 
+enum rtw_phl_status rtw_phl_twt_fill_info_field(
+	struct rtw_phl_twt_info_f *twt_info, u8 *buf, u16 *length)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+
+	_dump_twt_info(twt_info, __FUNCTION__);
+	*length = 0;
+	SET_TWT_INFO_FLOW_ID(buf, twt_info->twt_flow_id);
+	SET_TWT_INFO_RSP_REQ(buf, twt_info->rsp_req);
+	SET_TWT_INFO_ALL_TWT(buf, twt_info->all_twt);
+	SET_TWT_INFO_NEXT_TWT_REQ(buf, twt_info->next_twt_req);
+	if (twt_info->next_twt_size) {
+		u8 size_bit =
+			_get_next_twt_subfield_size_bit(twt_info->next_twt_size);
+
+		SET_TWT_INFO_NEXT_TWT_SIZE(buf, twt_info->next_twt_size);
+		SET_TWT_INFO_NEXT_TWT(buf, size_bit, twt_info->next_twt);
+		*length = TWT_INFO_FIELD_BASIC_LENGTH + (size_bit / 8);
+	} else {
+		*length = TWT_INFO_FIELD_BASIC_LENGTH;
+	}
+	sts = RTW_PHL_STATUS_SUCCESS;
+	return sts;
+}
+
 /*
  * Parse twt element from pkt
  * @twt_ele: the address of twt elemant
@@ -1983,57 +2492,51 @@ enum rtw_phl_status rtw_phl_twt_fill_flow_field(
 enum rtw_phl_status rtw_phl_twt_parse_element(u8 *twt_ele, u16 length,
 				struct rtw_phl_twt_element *twt_element)
 {
-	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_twt_control *twt_ctrl = NULL;
-	u8 ele_len = 0, ele_id = 0;
-	u8 *next_buf = twt_ele;
+	u8 ele_len = 0, ele_id = 0, para_len = 0;
+	u8 r_len = 0, plen = 0;
 
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> rtw_phl_twt_parse_element()\n");
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> %s()\n", __FUNCTION__);
 	if (twt_ele == NULL || twt_element == NULL) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_parse_element(): twt_ele or twt_element = NULL\n");
-		return pstatus;
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_ele or twt_element = NULL\n",
+			__FUNCTION__);
+		return sts;
 	}
 	twt_ctrl = &twt_element->twt_ctrl;
-	if (length < (MIN_TWT_ELE_LEN + ELEM_ID_LEN + ELEM_LEN_LEN)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "rtw_phl_twt_parse_element(): error buffer length(%d) < %d\n",
-			length, (MIN_TWT_ELE_LEN + ELEM_ID_LEN + ELEM_LEN_LEN));
-		goto exit;
-	}
-	ele_id = GET_ELE_ID(next_buf);
-	next_buf += ELEM_ID_LEN;
-	ele_len = GET_ELE_LEN(next_buf);
-	next_buf += ELEM_LEN_LEN;
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "rtw_phl_twt_parse_element(): ele_id:%d, ele_len:%d, length:%d\n",
-		ele_id, ele_len, length);
-	if (ele_len < MIN_TWT_ELE_LEN) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "rtw_phl_twt_parse_element(): error ele length(%d) < %d\n",
-			ele_len, MIN_TWT_ELE_LEN);
-		goto exit;
-	}
+	ele_id = GET_ELE_ID(twt_ele);
+	r_len = ELEM_ID_LEN;
+	ele_len = GET_ELE_LEN(twt_ele + r_len);
+	r_len += ELEM_LEN_LEN;
+	para_len = ele_len - CONTROL_LENGTH;
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: ele_id(%d), ele_len(%d), length(%d), para_len(%d)\n",
+		__FUNCTION__, ele_id, ele_len, length, para_len);
 	twt_ctrl->ndp_paging_indic =
-				GET_TWT_CONTROL_NDP_PAGING_INDICATOR(next_buf);
+			GET_TWT_CONTROL_NDP_PAGING_INDICATOR(twt_ele + r_len);
 	twt_ctrl->responder_pm_mode =
-				GET_TWT_CONTROL_RESPONDER_PM_MODE(next_buf);
-	twt_ctrl->nego_type = GET_TWT_CONTROL_NEGOTIATION_TYPE(next_buf);
+			GET_TWT_CONTROL_RESPONDER_PM_MODE(twt_ele + r_len);
+	twt_ctrl->nego_type = GET_TWT_CONTROL_NEGOTIATION_TYPE(twt_ele + r_len);
 	twt_ctrl->twt_info_frame_disable =
-			GET_TWT_CONTROL_TWT_INFORMATION_FRAME_DISABLE(next_buf);
-	twt_ctrl->wake_dur_unit = GET_TWT_CONTROL_WAKE_DURATION_UNIT(next_buf);
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "rtw_phl_twt_parse_element(): twt_ctrl: ndp_paging_indic(%d), responder_pm_mode(%d), nego_type(%d), twt_info_frame_disable(%d), wake_dur_unit(%d)\n",
-		twt_ctrl->ndp_paging_indic, twt_ctrl->responder_pm_mode,
-		twt_ctrl->nego_type, twt_ctrl->twt_info_frame_disable,
-		twt_ctrl->wake_dur_unit);
+		GET_TWT_CONTROL_TWT_INFORMATION_FRAME_DISABLE(twt_ele + r_len);
+	twt_ctrl->wake_dur_unit =
+			GET_TWT_CONTROL_WAKE_DURATION_UNIT(twt_ele + r_len);
+	r_len += CONTROL_LENGTH;
+	_dump_ctrl_i(twt_ctrl, __FUNCTION__);
 	if (RTW_PHL_INDIV_TWT == twt_ctrl->nego_type) {
-		pstatus = _twt_parse_individual_twt_para(twt_ele, length,
+		sts = _twt_parse_individual_twt_para(twt_ele, length,
 							twt_element);
+	} else if (RTW_PHL_BCAST_TWT == twt_ctrl->nego_type ||
+		   RTW_PHL_MANAGE_BCAST_TWT == twt_ctrl->nego_type) {
+		sts = _twt_parse_all_btwt_para(twt_ele + r_len, para_len, twt_element, &plen);
+		r_len += plen;
 	} else {
 		/*todo*/
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "rtw_phl_twt_parse_element(): not support, todo, twt_ctrl->nego_type(%d)\n",
-			twt_ctrl->nego_type);
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: not support, todo, twt_ctrl->nego_type(%d)\n",
+			__FUNCTION__, twt_ctrl->nego_type);
 	}
-exit:
-	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== rtw_phl_twt_parse_element(): pstatus(%d)\n",
-		pstatus);
-	return pstatus;
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: pstatus(%d)\n",
+		__FUNCTION__, sts);
+	return sts;
 }
 
 /*
@@ -2109,6 +2612,42 @@ enum rtw_phl_status rtw_phl_twt_parse_flow_field(u8 *pkt, u16 length,
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== rtw_phl_twt_parse_flow_field(): pstatus(%d)\n",
 		pstatus);
 	return pstatus;
+}
+
+enum rtw_phl_status rtw_phl_twt_parse_info_field(u8 *pkt, u16 length,
+				struct rtw_phl_twt_info_f *twt_info)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s: \n", __FUNCTION__);
+
+	if (length < TWT_INFO_FIELD_BASIC_LENGTH) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "%s: error buffer length(%d) < %d\n",
+			__FUNCTION__, length, TWT_INFO_FIELD_BASIC_LENGTH);
+		goto _exit;
+	}
+	twt_info->twt_flow_id = GET_TWT_INFO_FLOW_ID(pkt);
+	twt_info->rsp_req = GET_TWT_INFO_RSP_REQ(pkt);
+	twt_info->next_twt_req = GET_TWT_INFO_NEXT_TWT_REQ(pkt);
+	twt_info->next_twt_size = GET_TWT_INFO_NEXT_TWT_SIZE(pkt);
+	twt_info->all_twt = GET_TWT_INFO_ALL_TWT(pkt);
+	if (twt_info->next_twt_size) {
+		u8 size_bit = _get_next_twt_subfield_size_bit(
+						twt_info->next_twt_size);
+
+		if (length < (TWT_INFO_FIELD_BASIC_LENGTH + (size_bit / 8))) {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_WARNING_, "%s: next_twt_size(%d), error buffer length(%d) < %d\n",
+				__FUNCTION__,
+				twt_info->next_twt_size,
+				length,
+				(TWT_INFO_FIELD_BASIC_LENGTH + (size_bit / 8)));
+			goto _exit;
+		}
+		GET_TWT_INFO_NEXT_TWT(pkt, size_bit, &twt_info->next_twt);
+	}
+_exit:
+	sts = RTW_PHL_STATUS_SUCCESS;
+	return sts;
 }
 
 /*
@@ -2197,25 +2736,39 @@ enum rtw_phl_status phl_twt_accept_for_sta_mode(struct phl_info_t *phl,
 	struct rtw_phl_twt_setup_info *setup_i = &accept_i->setup_info;
 	struct rtw_phl_twt_element *element = &setup_i->twt_element;
 	struct rtw_phl_twt_control *twt_ctrl =&element->twt_ctrl;
+	struct phl_twt_info *phl_twt_info = get_twt_info(phl);
+	struct rtw_pkt_ofld_null_info null_info = {0};
+	void *d = phl_to_drvpriv(phl);
 	u8 cfg_id = 0;
 
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> %s()\n",
 		__func__);
-	if (false == twt_sup(phl)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_sup == false\n",
-			__func__);
-		return pstatus;
-	}
-	if (false == twt_init(phl)) {
-		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt_init == false\n",
-			__func__);
+	if (false == _twt_valid(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt invalid\n", __FUNCTION__);
 		return pstatus;
 	}
 	if (RTW_PHL_INDIV_TWT == twt_ctrl->nego_type) {
 		pstatus = _twt_accept_indiv_by_sta(phl, setup_i, sta, &cfg_id);
-	} else {
+	} else if (RTW_PHL_BCAST_TWT == twt_ctrl->nego_type ||
+		   RTW_PHL_MANAGE_BCAST_TWT == twt_ctrl->nego_type) {
 		pstatus = _twt_accept_bcast_by_sta(phl, setup_i, sta, &cfg_id);
+	} else {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Unimplemented twt_ctrl->nego_type(%d)\n",
+			__func__, twt_ctrl->nego_type);
 	}
+
+	_os_mem_cpy(d, &(null_info.a1[0]), &(sta->mac_addr[0]),
+			MAC_ADDRESS_LENGTH);
+
+	_os_mem_cpy(d,&(null_info.a2[0]), &(sta->wrole->mac_addr[0]),
+			MAC_ADDRESS_LENGTH);
+
+	_os_mem_cpy(d, &(null_info.a3[0]), &(sta->mac_addr[0]),
+			MAC_ADDRESS_LENGTH);
+
+	rtw_phl_pkt_ofld_request(phl, sta->macid, PKT_TYPE_QOS_NULL,
+		&phl_twt_info->qos_null_pkt_token, &null_info, __func__);
+
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: pstatus:%d, config_id:%d\n",
 		__func__, pstatus, cfg_id);
 	return pstatus;
@@ -2290,6 +2843,7 @@ enum rtw_phl_status phl_twt_teardown_for_sta_mode(struct phl_info_t *phl,
 	enum rtw_phl_status pstatus = RTW_PHL_STATUS_FAILURE;
 	struct rtw_phl_twt_sta_teardown_i *teardown_i =
 				(struct rtw_phl_twt_sta_teardown_i *)param;
+	struct phl_twt_info *phl_twt_info = get_twt_info(phl);
 	u8 bitmap =0; /*bitmap of empty config of twt*/
 	u8 i = 0;
 
@@ -2321,6 +2875,9 @@ enum rtw_phl_status phl_twt_teardown_for_sta_mode(struct phl_info_t *phl,
 		i++;
 	} while ((bitmap >> i) != 0);
 exit:
+	rtw_phl_pkt_ofld_cancel(phl, teardown_i->sta->macid,
+			PKT_TYPE_QOS_NULL, &phl_twt_info->qos_null_pkt_token);
+
 	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: pstatus(%d)\n",
 		__func__, pstatus);
 	return pstatus;
@@ -2368,6 +2925,130 @@ enum rtw_phl_status rtw_phl_twt_teardown_for_sta_mode(void *phl,
 	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
 		/* Send cmd fail */
 		_os_kmem_free(drv_priv, para, para_len);
+		psts = RTW_PHL_STATUS_FAILURE;
+	}
+_exit:
+	return psts;
+}
+
+static void _phl_twt_info_f_hrl_done(void *priv, u8 *param,
+				u32 param_len, enum rtw_phl_status sts)
+{
+	if (param) {
+		_os_kmem_free(priv, param, param_len);
+		param = NULL;
+		PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "%s\n", __func__);
+	}
+}
+
+enum rtw_phl_status phl_twt_info_f_hrl(struct phl_info_t *phl, u8 *param)
+{
+	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
+	struct rtw_phl_twt_info_f_hdr_i *hdr =
+					(struct rtw_phl_twt_info_f_hdr_i *)param;
+	struct rtw_phl_stainfo_t *sta = hdr->sta;
+	struct phl_twt_config *cfg = NULL;
+	u8 size_bit = 0;
+	u32 tsf_h = 0, tsf_l = 0;
+	u64 tsf = 0;
+
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "==> %s\n", __func__);
+	_dump_twt_info(&hdr->info_f, __FUNCTION__);
+	cfg = _twt_get_cfg_by_id(phl, sta, RTW_PHL_INDIV_TWT,
+				hdr->info_f.twt_flow_id);
+	if (NULL == cfg) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Failed to Get cfg, macid(%d), twt_flow_id(%d)\n",
+			__func__, sta->macid, hdr->info_f.twt_flow_id);
+		goto _exit;
+	}
+	if (hdr->info_f.next_twt_size == 0) {
+		/* Only suspend */
+		_twt_info_update(phl->hal, cfg, PHL_TWT_ACTION_DISABLE);
+	} else {
+		if (cfg->state == twt_config_state_enable) {
+			/* suspend */
+			_twt_info_update(phl->hal, cfg, PHL_TWT_ACTION_DISABLE);
+		}
+		/* resume in the future */
+		size_bit = _get_next_twt_subfield_size_bit(hdr->info_f.next_twt_size);
+		if (64 == size_bit) {
+			tsf = hdr->info_f.next_twt;
+			goto _resume;
+		}
+		if (RTW_HAL_STATUS_SUCCESS != rtw_hal_get_tsf(phl->hal,
+							sta->rlink->hw_band,
+							sta->rlink->hw_port,
+							&tsf_h, &tsf_l)) {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Failed to Get tsf, hw_band(%d), hw_port(%d)\n",
+				__func__, sta->rlink->hw_band,
+				sta->rlink->hw_port);
+			goto _exit;
+		}
+		tsf = tsf_h;
+		tsf = (tsf << 32);
+		tsf |= tsf_l;
+		if (32 == size_bit) {
+			tsf = (tsf & 0xFFFFFFFF00000000) | hdr->info_f.next_twt;
+		} else if (48 == size_bit) {
+			tsf = (tsf & 0xFFFF000000000000) | hdr->info_f.next_twt;
+		} else {
+			PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: Error next_twt_size(%d)\n",
+				__func__, hdr->info_f.next_twt_size);
+			goto _exit;
+		}
+		_resume:
+		cfg->twt_info.target_wake_time_h = (u32)(tsf >> 32);
+		cfg->twt_info.target_wake_time_l = (u32)(tsf);
+		_twt_info_update(phl->hal, cfg, PHL_TWT_ACTION_ENABLE);
+	}
+_exit:
+	PHL_TRACE(COMP_PHL_TWT, _PHL_INFO_, "<== %s: sts(%d)\n",
+		__func__, sts);
+	return sts;
+}
+
+/*
+ * Handle sta to config twt when sta accept the twt agreement
+ * @phl_sta: sta entry that you wnat to config twt
+ * @setup_info: twt setup info
+ * @id: Output the id of twt confi entry
+ * Note: for sta mode
+ */
+enum rtw_phl_status rtw_phl_twt_info_f_hrl(void *phl,
+			struct rtw_phl_twt_info_f_hdr_i *hdr)
+{
+	enum rtw_phl_status psts = RTW_PHL_STATUS_FAILURE;
+	struct phl_info_t *phl_i = (struct phl_info_t *)phl;
+	void *priv = phl_to_drvpriv(phl_i);
+	struct rtw_phl_twt_info_f_hdr_i *para = NULL;
+	u32 para_len = 0;
+
+	if (false == _twt_valid(phl)) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s: twt invalid\n", __FUNCTION__);
+		goto _exit;
+	}
+	para_len = sizeof(struct rtw_phl_twt_info_f_hdr_i);
+	para = _os_kmem_alloc(priv, para_len);
+	if (para == NULL) {
+		PHL_TRACE(COMP_PHL_TWT, _PHL_ERR_, "%s - alloc param failed!\n",
+			__func__);
+		goto _exit;
+	}
+	_os_mem_cpy(priv, para, hdr, sizeof(struct rtw_phl_twt_info_f_hdr_i));
+	psts = phl_cmd_enqueue(phl_i,
+				para->sta->rlink->hw_band,
+				MSG_EVT_TWT_INFO_F_HDR,
+				(u8 *)para,
+				para_len,
+				_phl_twt_info_f_hrl_done,
+				PHL_CMD_NO_WAIT,
+				0);
+	if (is_cmd_failure(psts)) {
+		/* Send cmd success, but wait cmd fail*/
+		psts = RTW_PHL_STATUS_FAILURE;
+	} else if (psts != RTW_PHL_STATUS_SUCCESS) {
+		/* Send cmd fail */
+		_os_kmem_free(priv, para, para_len);
 		psts = RTW_PHL_STATUS_FAILURE;
 	}
 _exit:

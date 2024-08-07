@@ -127,6 +127,7 @@ struct phl_hci_trx_ops {
 	enum rtw_phl_status (*recycle_busy_wd)(struct phl_info_t *phl);
 	enum rtw_phl_status (*recycle_busy_h2c)(struct phl_info_t *phl);
 	void (*return_tx_wps)(struct phl_info_t *phl);
+	void (*read_hw_rx)(struct phl_info_t *phl);
 #endif
 
 #ifdef CONFIG_USB_HCI
@@ -338,9 +339,9 @@ struct phl_info_t {
 	struct macid_ctl_t macid_ctrl;
 	struct stainfo_ctl_t sta_ctrl;
 	struct mld_ctl_t mld_ctrl;
+	struct phl_acs_info *acs_info;
 
-	struct rtw_regulation regulation;
-
+	struct rtw_regulation_interface rg_interface;
 	struct rtw_phl_com_t *phl_com;
 	struct rtw_phl_handler phl_tx_handler;
 	struct rtw_phl_handler phl_rx_handler;
@@ -359,10 +360,9 @@ struct phl_info_t {
 	_os_lock t_ring_list_lock;
 	_os_lock rx_ring_lock;
 	_os_lock t_fctrl_result_lock;
-	_os_lock t_ring_free_list_lock;
 	_os_list t_ring_list;
 	_os_list t_fctrl_result;
-	_os_list t_ring_free_list;
+	struct phl_queue t_ring_free_q;
 	void *ring_sts_pool;
 	void *rx_pkt_pool;
 	struct phl_h2c_pkt_pool *h2c_pool;
@@ -395,6 +395,9 @@ struct phl_info_t {
 	void *led_ctrl;
 
 	void *ecsa_ctrl;
+#ifdef CONFIG_PHL_TDLS
+	struct phl_tdls_info_t tdls_info;
+#endif
 	void *phl_twt_info; /* struct phl_twt_info */
 #ifdef PHL_RX_BATCH_IND
 	u8 rx_new_pending;
@@ -410,12 +413,9 @@ struct phl_info_t {
 	struct phl_ps_info ps_info;
 #endif
 
-#ifdef CONFIG_RTW_ACS
-	void *acs_info;
-#endif
-
 #ifdef CONFIG_PHL_TEST_SUITE
 	void *trx_test;
+	struct rtw_phl_handler sw_tx_handler;
 #endif
 
 	struct gtimer_ctx gt3_ctx;

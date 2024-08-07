@@ -138,8 +138,8 @@ enum halbb_dbg_comp_t {
 	DBG_UL_TB_CTRL		= BIT(F_UL_TB_CTRL),
 	/*=== [Non-DM Part] ======================*/
 	DBG_BIT14		= BIT(14),
-	DBG_BIT15		= BIT(15),
-	DBG_BIT16		= BIT(16),
+	DBG_FW_DBG		= BIT(15),
+	DBG_PHY_CONFIG_BE		= BIT(16),
 	DBG_BIT17		= BIT(17),
 	DBG_SNIFFER		= BIT(18),
 	DBG_CH_INFO		= BIT(19),

@@ -39,7 +39,7 @@ void rtw_init_wow(_adapter *padapter)
 	enum rtw_phl_status status = RTW_PHL_STATUS_FAILURE;
 	struct rtw_wow_gpio_info *wow_gpio = &wowpriv->wow_gpio;
 	struct rtw_dev2hst_gpio_info *d2h_gpio_info = &wow_gpio->d2h_gpio_info;
-	u8 toggle_pulse = DEV2HST_TOGGLE, gpio_time_unit = 1, gpio_pulse_count = 3;
+	u8 toggle_pulse = CONFIG_TOGGLE_PULSE, gpio_time_unit = 1, gpio_pulse_count = CONFIG_PULSE_COUNT;
 	u8 gpio_pulse_period = 20, gpio_pulse_dura = 10;
 	u8 rsn_a_en = 0, rsn_a = 0, rsn_a_time_unit = 0, rsn_a_toggle_pulse = DEV2HST_TOGGLE;
 	u8 rsn_a_pulse_count = 0, rsn_a_pulse_period = 0, rsn_a_pulse_duration = 0;

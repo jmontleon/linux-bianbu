@@ -39,6 +39,8 @@ enum halrf_ic {
 	RF_RTL8922A	=	BIT(10),
 	RF_RTL8832CR_VU	=	BIT(11),	
 	RF_RTL8832BR_VT	=	BIT(12),
+	RF_RTL8852D =	BIT(13),
+	RF_RTL8852BT	=	BIT(14),
 };
 
 enum halrf_subdid {
@@ -58,7 +60,7 @@ enum halrf_subdid {
 
 #define RF_AX_1SS		(RF_RTL8851B)
 #define RF_AX_2SS		(RF_RTL8852A | RF_RTL8852B | RF_RTL8852C |\
-				 RF_RTL8832BR | RF_RTL8192XB | RF_RTL8852BP)
+				 RF_RTL8832BR | RF_RTL8192XB | RF_RTL8852BP | RF_RTL8852D | RF_RTL8852BT)
 #define RF_AX_3SS		0
 #define RF_AX_4SS		(RTL8834A)
 
@@ -76,9 +78,9 @@ enum halrf_subdid {
 #define RF_AX_SERIES	(RF_AX_1SS | RF_AX_2SS |\
 				 RF_AX_3SS | RF_AX_4SS)
 /*@==========================================================================*/
-#if defined (RF_8852C_SUPPORT)
+#if (defined(RF_8852C_SUPPORT) || defined(RF_8852D_SUPPORT))
 #define KIP_REG 3136
-#elif defined (RF_8852B_SUPPORT)
+#elif (defined (RF_8852B_SUPPORT) || defined (RF_8852BT_SUPPORT))
 #define KIP_REG 2048
 #else
 #define KIP_REG 2048
@@ -88,7 +90,7 @@ enum halrf_subdid {
 #define KPATH 4
 #elif (defined(RF_8852A_SUPPORT) || defined(RF_8852B_SUPPORT) ||\
        defined(RF_8852C_SUPPORT) || defined(RF_8832BR_SUPPORT) ||\
-       defined(RF_8192XB_SUPPORT) || defined(RF_8852BP_SUPPORT))
+       defined(RF_8192XB_SUPPORT) || defined(RF_8852BP_SUPPORT) || defined(RF_8852D_SUPPORT) || defined(RF_8852BT_SUPPORT))
 #define KPATH 2
 #else
 #define KPATH 1

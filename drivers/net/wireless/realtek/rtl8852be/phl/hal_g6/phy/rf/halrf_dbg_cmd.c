@@ -57,7 +57,8 @@ enum HALRF_CMD_ID {
 	HALRF_CHL_RFK,
 	HALRF_OP5K,
 	HALRF_RFK,
-	HALRF_PSD
+	HALRF_PSD,
+	HALRF_DZ_DBG,
 };
 
 struct halrf_cmd_info halrf_cmd_i[] = {
@@ -98,6 +99,7 @@ struct halrf_cmd_info halrf_cmd_i[] = {
 	{"op5k", HALRF_OP5K},
 	{"rfk", HALRF_RFK},
 	{"psd", HALRF_PSD},
+	{"dz_dbg",HALRF_DZ_DBG},
 };
 
 void halrf_cmd_parser(struct rf_info *rf, char input[][RF_MAX_ARGV],
@@ -264,6 +266,9 @@ void halrf_cmd_parser(struct rf_info *rf, char input[][RF_MAX_ARGV],
 		break;
 	case HALRF_PSD:
 		halrf_psd_cmd(rf, input, &used, output, &out_len);
+		break;
+	case HALRF_DZ_DBG:
+		halrf_dz_dbg_cmd(rf, input, &used, output, &out_len);
 		break;
 	default:
 		RF_DBG_CNSL(out_len, used, output + used, out_len - used,

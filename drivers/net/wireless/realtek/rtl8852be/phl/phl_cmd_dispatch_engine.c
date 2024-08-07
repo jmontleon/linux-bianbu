@@ -172,8 +172,11 @@ phl_disp_eng_start(struct phl_info_t *phl)
 	#if !defined(CONFIG_CMD_DISP_SOLO_MODE)
 	_os_sema_init(d, &(disp_eng->msg_q_sema), 0);
 	if (!disp_eng_is_solo_thread_mode(phl)) {
-		_os_thread_init(d, &(disp_eng->share_thread), share_thread_hdl, phl,
-				"disp_eng_share_thread");
+		if (RTW_PHL_STATUS_SUCCESS != _os_thread_init(d, &(disp_eng->share_thread), share_thread_hdl, phl,
+				"disp_eng_share_thread")) {
+			PHL_ERR("thread init disp_eng_share_thread fail. \n");
+			return RTW_PHL_STATUS_FAILURE;
+		}
 		_os_thread_schedule(d, &(disp_eng->share_thread));
 	}
 	#endif
@@ -438,6 +441,16 @@ static const char *_get_evt_str(u32 evt)
 		return "MSG_EVT_DBG_RX_DUMP";
 	case MSG_EVT_DBG_TX_DUMP:
 		return "MSG_EVT_DBG_TX_DUMP";
+#ifdef CONFIG_DBCC_P2P_BG_LISTEN
+	case MSG_EVT_CONNECT_END_DBCC_EN:
+		return "MSG_EVT_CONNECT_END_DBCC_EN";
+	case MSG_EVT_DISCONNECT_END_DBCC_EN:
+		return "MSG_EVT_DISCONNECT_END_DBCC_EN";
+	case MSG_EVT_CONNECT_CMD_DBCC_DIS:
+		return "MSG_EVT_CONNECT_CMD_DBCC_DIS";
+	case MSG_EVT_DISCONNECT_CMD_DBCC_EN:
+		return "MSG_EVT_DISCONNECT_CMD_DBCC_EN";
+#endif
 	default:
 		return "Unknown";
 	}

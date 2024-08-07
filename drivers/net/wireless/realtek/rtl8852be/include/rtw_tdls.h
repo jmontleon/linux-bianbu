@@ -25,11 +25,13 @@
 #define	TDLS_INITIATOR_STATE		BIT(28)			/* 0x10000000 */
 #define	TDLS_RESPONDER_STATE		BIT(29)			/* 0x20000000 */
 #define	TDLS_LINKED_STATE			BIT(30)			/* 0x40000000 */
+#define	TDLS_RESETUP_STATE			BIT(31)			/* 0x80000000 */
 /* TDLS PU Buffer STA */
 #define	TDLS_WAIT_PTR_STATE			BIT(24)			/* 0x01000000 */	/* Waiting peer's TDLS_PEER_TRAFFIC_RESPONSE frame */
 /* TDLS Check ALive */
 #define	TDLS_ALIVE_STATE			BIT(20)			/* 0x00100000 */	/* Check if peer sta is alived. */
 /* TDLS Channel Switch */
+#define TDLS_WAIT_CH_SW_LAUNCH_STATE	BIT(14)			/* 0x00004000 */
 #define	TDLS_CH_SWITCH_PREPARE_STATE	BIT(15)			/* 0x00008000 */
 #define	TDLS_CH_SWITCH_ON_STATE			BIT(16)			/* 0x00010000 */
 #define	TDLS_PEER_AT_OFF_STATE			BIT(17)			/* 0x00020000 */	/* Could send pkt on target ch */
@@ -105,6 +107,8 @@ static u8 TDLS_EXT_CAPIE[] = {0x00, 0x00, 0x00, 0x50, 0x20, 0x00, 0x00, 0x00};	/
 /* SRC: Supported Regulatory Classes */
 static u8 TDLS_SRC[] = { 0x01, 0x01, 0x02, 0x03, 0x04, 0x0c, 0x16, 0x17, 0x18, 0x19, 0x1b, 0x1c, 0x1d, 0x1e, 0x20, 0x21 };
 
+bool rtw_check_tdls_frame(void *priv, struct rtw_phl_stainfo_t *phl_sta,
+		struct rtw_recv_pkt *phlrx);
 int check_ap_tdls_prohibited(u8 *pframe, u8 pkt_len);
 int check_ap_tdls_ch_switching_prohibited(u8 *pframe, u8 pkt_len);
 
@@ -123,8 +127,8 @@ void rtw_free_tdls_info(struct tdls_info *ptdlsinfo);
 void rtw_free_all_tdls_sta(_adapter *padapter, u8 enqueue_cmd);
 void rtw_enable_tdls_func(_adapter *padapter);
 void rtw_disable_tdls_func(_adapter *padapter, u8 enqueue_cmd);
-int issue_nulldata_to_TDLS_peer_STA(_adapter *padapter, struct _ADAPTER_LINK *padapter_link,
-			unsigned char *da, unsigned int power_mode, int try_cnt, int wait_ms);
+int issue_nulldata_to_TDLS_peer_STA(_adapter *padapter, struct sta_info *sta,
+		unsigned int power_mode, int try_cnt, int wait_ms);
 void rtw_init_tdls_timer(_adapter *padapter, struct sta_info *psta);
 void	rtw_cancel_tdls_timer(struct sta_info *psta);
 void rtw_tdls_teardown_pre_hdl(_adapter *padapter, struct sta_info *psta);

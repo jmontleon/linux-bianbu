@@ -454,6 +454,18 @@ static enum rtw_phl_status _phl_led_ctrl_event_hdlr(struct phl_info_t *phl_info,
 		led_ctrl->state &= ~RTW_LED_STATE_SW_RF_ON;
 		break;
 
+	case RTW_LED_EVENT_IDLE_SLEEP_START:
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: idle sleep start\n",
+		          __func__);
+		led_ctrl->state &= ~RTW_LED_STATE_NOT_IDLE_SLEEP;
+		break;
+
+	case RTW_LED_EVENT_IDLE_SLEEP_END:
+		PHL_TRACE(COMP_PHL_LED, _PHL_INFO_, "%s: idle sleep end\n",
+		          __func__);
+		led_ctrl->state |= RTW_LED_STATE_NOT_IDLE_SLEEP;
+		break;
+
 	default:
 		break;
 	}
@@ -575,7 +587,7 @@ static enum phl_mdl_ret_code _phl_led_module_init(void *phl, void *dispr,
 	phl_info->led_ctrl = led_ctrl;
 
 	/* set default value in led_ctrl */
-	led_ctrl->state = 0;
+	led_ctrl->state = RTW_LED_STATE_NOT_IDLE_SLEEP;
 
 	for (led_id = 0; led_id < RTW_LED_ID_LENGTH; led_id++) {
 		led_info = &(led_ctrl->led_info_arr[led_id]);

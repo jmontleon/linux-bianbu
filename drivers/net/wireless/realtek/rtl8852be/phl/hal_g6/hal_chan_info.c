@@ -125,7 +125,10 @@ void
 _hal_fill_csi_header_remain(void* hal, struct csi_header_t *csi_header
 	, struct rtw_r_meta_data *mdata)
 {
-	/* struct hal_info_t *hal_info = (struct hal_info_t *)hal; */
+	struct hal_info_t *hal_info = (struct hal_info_t *)hal;
+	struct rtw_phl_com_t *phl_com = hal_info->phl_com;
+	struct rtw_chinfo_cur_parm *cur_parm = phl_com->cur_parm;
+	struct rtw_chinfo_action_parm *act_parm = &cur_parm->action_parm;
 	/* struct rtw_hal_com_t *h = hal_info->hal_com; */
 
 	/* from mdata */
@@ -133,10 +136,41 @@ _hal_fill_csi_header_remain(void* hal, struct csi_header_t *csi_header
 	csi_header->rx_data_rate = mdata->rx_rate;
 	csi_header->bandwidth = mdata->bw;
 	csi_header->ch_matrix_report = mdata->get_ch_info;
+
 	/* TODO: from drv define, get value from other side.*/
+	if (act_parm->mode == CHINFO_MODE_ACK) {/* BW is 20M, and non-HT */
+		switch (act_parm->group_num) {
+		case CHINFO_GROUP_NUM_1:
+			csi_header->num_sub_carrier = 52;
+			break;
+		case CHINFO_GROUP_NUM_2:
+			csi_header->num_sub_carrier = 26;
+			break;
+		case CHINFO_GROUP_NUM_4:
+			csi_header->num_sub_carrier = 14;
+			break;
+		case CHINFO_GROUP_NUM_16:
+			csi_header->num_sub_carrier = 4;
+			break;
+		default:
+			csi_header->num_sub_carrier = 0;
+			PHL_ERR("%s: Unknown CSI group_num: %d\n", __func__, act_parm->group_num);
+			break;
+		}
+	} else
+		csi_header->num_sub_carrier = 0;
+
+	if (act_parm->accuracy == CHINFO_ACCU_1BYTE)
+		csi_header->num_bit_per_tone = 8<<1; /* 8 bits per Real and Imag part */
+	else if (act_parm->accuracy == CHINFO_ACCU_2BYTES)
+		csi_header->num_bit_per_tone = 16<<1; /* 16 bits per Real and Imag part */
+	else {
+		csi_header->num_bit_per_tone = 0;
+		PHL_ERR("%s: Unknown CSI accuracy: %d\n", __func__, act_parm->accuracy);
+	}
+
 	csi_header->channel = 0;
-	csi_header->num_sub_carrier = 0;
-	csi_header->num_bit_per_tone = 0;
+
 	/* Others: mac addres not from TA ? */
 	/* hal_mem_cpy(h, &(csi_header->mac_addr[0]), &(mdata->ta[0]), MAC_ALEN); */
 }
@@ -156,7 +190,7 @@ _hal_fill_csi_header_phy_info(void* hal, struct csi_header_t *csi_header
 	csi_header->rssi[1] = phy_info->rssi[1] >> 1;
 	csi_header->rxsc = phy_info->rxsc;
 	/* from ch_rpt_hdr_info */
-	csi_header->nc = ch_hdr_rpt->n_rx;
+	csi_header->nc = ch_hdr_rpt->n_rx - 1;
 	csi_header->nr = ch_hdr_rpt->n_sts;
 	/* shift 1 for remove decimal point */
 	csi_header->avg_idle_noise_pwr = ch_hdr_rpt->avg_noise_pow >> 1;
@@ -341,7 +375,7 @@ rtw_hal_get_ch_info_physts(void *hal,
 	hal_mem_set(hal_com, csi_header, 0, sizeof(struct csi_header_t));
 	/* already remove decimal point in rtw_hal_bb_parse_phy_sts */
 	hal_mem_cpy(hal_com, &(csi_header->rssi[0]), &(phy_info->rssi_path[0]), 2);
-	csi_header->nc = phy_info->n_rx;
+	csi_header->nc = phy_info->n_rx - 1;
 	csi_header->nr = phy_info->n_sts;
 	/* shift 1 for remove decimal point */
 	csi_header->avg_idle_noise_pwr = phy_info->avg_idle_noise_pwr >> 1;
@@ -413,17 +447,17 @@ hal_print_csi_raw_data(struct chan_info_t *chan_info)
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] nr=%d\n",
 											csi_header.nr);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] avg_idle_noise_pwr=%d\n",
-											csi_header.avg_idle_noise_pwr >> 1);
+											csi_header.avg_idle_noise_pwr);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] csi_valid=%d\n",
 											csi_header.csi_valid);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] evm[0]=%d\n",
-											csi_header.evm[0] >> 2);
+											csi_header.evm[0]);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] evm[1]=%d\n",
-											csi_header.evm[1] >> 2);
+											csi_header.evm[1]);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] rssi[0]=%d%%\n",
-											csi_header.rssi[0] >> 1);
+											csi_header.rssi[0]);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] rssi[1]=%d%%\n",
-											csi_header.rssi[1] >> 1);
+											csi_header.rssi[1]);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] timestamp=%d\n",
 											csi_header.hw_assigned_timestamp);
 	PHL_TRACE(COMP_PHL_CHINFO, _PHL_INFO_, "[CH INFO] rx_data_rate=0x%02x\n",

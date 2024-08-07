@@ -23,55 +23,31 @@ u32 mac_enable_cut_hwamsdu(struct mac_ax_adapter *adapter,
 			   enum mac_ax_ex_shift aligned)
 {
 	u32 ret = 0;
-	u8 *buf;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+	struct h2c_info h2c_info = {0};
 	struct mac_ax_en_amsdu_cut *content;
 
 	if (chk_patch_cut_amsdu_rls_ple_issue(adapter) == (u32)PATCH_ENABLE)
 		return MACNOTSUP;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_shcut_update);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_AMSDU_CUT_REG;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
 
-	buf = h2cb_put(h2cb, sizeof(struct mac_ax_en_amsdu_cut));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
-	}
-
-	content = (struct mac_ax_en_amsdu_cut *)buf;
+	content = (struct mac_ax_en_amsdu_cut *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!content)
+		return MACBUFALLOC;
 	content->enable = enable;
 	content->low_th = low_th;
 	content->high_th = high_th;
 	content->aligned = aligned;
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD,
-			      FWCMD_H2C_FUNC_AMSDU_CUT_REG,
-			      0,
-			      1);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content);
 
-	if (ret)
-		goto fail;
-
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret)
-		goto fail;
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-fail:
-	h2cb_free(adapter, h2cb);
+	PLTFM_FREE(content, h2c_info.content_len);
 
 	return ret;
 }
@@ -84,55 +60,31 @@ u32 mac_enable_hwmasdu(struct mac_ax_adapter *adapter,
 
 {
 	u32 ret = 0;
-	u8 *buf;
-#if MAC_AX_PHL_H2C
-	struct rtw_h2c_pkt *h2cb;
-#else
-	struct h2c_buf *h2cb;
-#endif
+	struct h2c_info h2c_info = {0};
 	struct mac_ax_en_hwamsdu *content;
 
 	if (chk_patch_txamsdu_rls_wd_issue(adapter) == (u32)PATCH_ENABLE)
 		return MACNOTSUP;
 
-	h2cb = h2cb_alloc(adapter, H2CB_CLASS_CMD);
-	if (!h2cb)
-		return MACNPTR;
+	h2c_info.agg_en = 0;
+	h2c_info.content_len = sizeof(struct fwcmd_shcut_update);
+	h2c_info.h2c_cat = FWCMD_H2C_CAT_MAC;
+	h2c_info.h2c_class = FWCMD_H2C_CL_FW_OFLD;
+	h2c_info.h2c_func = FWCMD_H2C_FUNC_HWAMSDU_REG;
+	h2c_info.rec_ack = 0;
+	h2c_info.done_ack = 1;
 
-	buf = h2cb_put(h2cb, sizeof(struct mac_ax_en_hwamsdu));
-	if (!buf) {
-		ret = MACNOBUF;
-		goto fail;
-	}
-
-	content = (struct mac_ax_en_hwamsdu *)buf;
+	content = (struct mac_ax_en_hwamsdu *)PLTFM_MALLOC(h2c_info.content_len);
+	if (!content)
+		return MACBUFALLOC;
 	content->enable = enable;
 	content->max_num = max_num;
 	content->en_single_amsdu = en_single_amsdu;
 	content->en_last_amsdu_padding = en_last_amsdu_padding;
 
-	ret = h2c_pkt_set_hdr(adapter, h2cb,
-			      FWCMD_TYPE_H2C,
-			      FWCMD_H2C_CAT_MAC,
-			      FWCMD_H2C_CL_FW_OFLD,
-			      FWCMD_H2C_FUNC_HWAMSDU_REG,
-			      0,
-			      1);
+	ret = mac_h2c_common(adapter, &h2c_info, (u32 *)content);
 
-	if (ret)
-		goto fail;
-
-	ret = h2c_pkt_build_txd(adapter, h2cb);
-	if (ret)
-		goto fail;
-
-#if MAC_AX_PHL_H2C
-	ret = PLTFM_TX(h2cb);
-#else
-	ret = PLTFM_TX(h2cb->data, h2cb->len);
-#endif
-fail:
-	h2cb_free(adapter, h2cb);
+	PLTFM_FREE(content, h2c_info.content_len);
 
 	return ret;
 }

@@ -27,6 +27,7 @@
 #include "efuse_8852b.h"
 #include "hci_fc_8852b.h"
 #include "dle_8852b.h"
+#include "wowlan_8852b.h"
 #if MAC_AX_PCIE_SUPPORT
 #include "_pcie_8852b.h"
 #endif
@@ -129,6 +130,7 @@ static struct mac_ax_priv_ops mac8852b_priv_ops = {
 	chk_proc_long_ldy, /* chk_proc_long_ldy_pcie */
 #endif
 	sync_trx_bd_idx_pcie, /* sync_trx_bd_idx */
+	mac_read_pcie_cfg_spc, /* read_pcie_cfg_spc */
 #endif
 #if MAC_AX_SDIO_SUPPORT
 	r_indir_cmd52_sdio_8852b, /* r_indir_cmd52_sdio */
@@ -154,6 +156,7 @@ static struct mac_ax_priv_ops mac8852b_priv_ops = {
 #if MAC_AX_USB_SUPPORT
 	usb_ep_cfg_8852b, /* USB endpoint pause release */
 #endif
+	get_wake_reason_8852b, /* get_wake_reason */
 };
 
 struct mac_ax_priv_ops *get_mac_8852b_priv_ops(enum mac_ax_intf intf)

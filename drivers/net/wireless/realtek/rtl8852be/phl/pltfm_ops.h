@@ -21,6 +21,8 @@
 #include "pltfm_ops_linux.h"
 #elif defined(PHL_PLATFORM_MACOS)
 #include "pltfm_ops_macos.h"
+#elif defined(PHL_PLATFORM_UEFI)
+#include "pltfm_ops_uefi.h"
 #else
 #include "pltfm_ops_none.h"
 #endif

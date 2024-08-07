@@ -244,6 +244,12 @@ union bb_h2c_ra_cmn_info {
     struct bb_h2c_ra_cfg_info_wifi7 bb_h2c_ra_info_wifi7;
 };
 
+struct bb_ra_drv_info {
+	bool is_fw_fix_rate[PHL_MAX_STA_NUM];
+	u16 last_fw_fix_rate_macid;
+	u16 drv_fw_fix_rate_macid; /*user can select certain macid to fix rate in simple mode*/
+};
+
 struct bb_ra_info {
 	/* Config move to phl_sta_info*/
 	union bb_h2c_ra_cmn_info ra_cfg;
@@ -269,7 +275,7 @@ struct bb_ra_info {
 	u8 rpt_ratio;
 
 	u8 tmp;
-	
+	bool is_low_latency;
 };
 
 union bb_h2c_ra_rssi_info {
@@ -308,6 +314,7 @@ void halbb_ra_dbg(struct bb_info *bb, char input[][16], u32 *_used,
 			 char *output, u32 *_out_len);
 void halbb_rate_idx_parsor(struct bb_info *bb, u16 rate_idx, enum rtw_gi_ltf gi_ltf, struct bb_rate_info *ra_i);
 u32 halbb_get_fw_ra_rpt(struct bb_info *bb, u16 len, u8 *c2h);
+u32 halbb_get_fw_ra_dbgrpt_wifi7(struct bb_info *bb, u16 len, u8 *c2h);
 u32 halbb_get_txsts_rpt(struct bb_info *bb, u16 len, u8 *c2h);
 void halbb_get_ra_dbgreg(struct bb_info *bb);
 #endif

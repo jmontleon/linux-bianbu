@@ -29,6 +29,10 @@
 #define DEFAULT_HIT_MACID 0x0
 
 #define ADDR_CAM_SERCH_RANGE  0x7f
+
+#define CCTRL_INFO_ADDR_CAM_IDX_SH 0
+#define CCTRL_INFO_ADDR_CAM_IDX_MSK 0xFF
+
 /**
  * @addtogroup Basic_TRX
  * @{

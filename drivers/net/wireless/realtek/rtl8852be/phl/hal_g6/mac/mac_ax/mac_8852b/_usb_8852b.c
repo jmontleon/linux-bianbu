@@ -180,22 +180,22 @@ u32 usb_pre_init_8852b(struct mac_ax_adapter *adapter, void *param)
 
 	val32 = PLTFM_REG_R32(R_AX_USB_ENDPOINT_3);
 	if ((val32 & B_AX_BULKOUT0) == B_AX_BULKOUT0)
-		adapter->usb_info.ep5 = ENABLE;
+		adapter->usb_info.ep5 = MAC_AX_USB_EP_PAUSE;
 	if ((val32 & B_AX_BULKOUT1) == B_AX_BULKOUT1)
-		adapter->usb_info.ep6 = ENABLE;
+		adapter->usb_info.ep6 = MAC_AX_USB_EP_PAUSE;
 	if (((PLTFM_REG_R32(R_AX_USB_ENDPOINT_3) >> B_AX_AC_BULKOUT_SH) &
 		B_AX_AC_BULKOUT_MSK) == 1)
-		adapter->usb_info.ep10 = ENABLE;
+		adapter->usb_info.ep10 = MAC_AX_USB_EP_PAUSE;
 	if (((PLTFM_REG_R32(R_AX_USB_ENDPOINT_3) >> B_AX_AC_BULKOUT_SH) &
 		B_AX_AC_BULKOUT_MSK) == 2) {
-		adapter->usb_info.ep10 = ENABLE;
-		adapter->usb_info.ep11 = ENABLE;
+		adapter->usb_info.ep10 = MAC_AX_USB_EP_PAUSE;
+		adapter->usb_info.ep11 = MAC_AX_USB_EP_PAUSE;
 	}
 	if (((PLTFM_REG_R32(R_AX_USB_ENDPOINT_3) >> B_AX_AC_BULKOUT_SH) &
 		B_AX_AC_BULKOUT_MSK) == 3) {
-		adapter->usb_info.ep10 = ENABLE;
-		adapter->usb_info.ep11 = ENABLE;
-		adapter->usb_info.ep12 = ENABLE;
+		adapter->usb_info.ep10 = MAC_AX_USB_EP_PAUSE;
+		adapter->usb_info.ep11 = MAC_AX_USB_EP_PAUSE;
+		adapter->usb_info.ep12 = MAC_AX_USB_EP_PAUSE;
 	}
 	return MACSUCCESS;
 }
@@ -540,66 +540,66 @@ u32 usb_ep_cfg_8852b(struct mac_ax_adapter *adapter, struct mac_ax_usb_ep *cfg)
 		return MACNPTR;
 	ep_cfg = MAC_REG_R32(R_AX_USB_ENDPOINT_3);
 	ep_sts = ep_cfg;
-	if (cfg->ep4) {
+	if (cfg->ep4 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP4_RX_PAUSE;
 		ep_sts |= (B_AX_EP4_RX_PAUSE | B_AX_EP4_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep4 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP4_RX_PAUSE;
 		ep_sts &= (~B_AX_EP4_RX_PAUSE & ~B_AX_EP4_PAUSE_STATE);
 	}
-	if (cfg->ep5) {
+	if (cfg->ep5 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP5_TX_PAUSE;
 		ep_sts |= (B_AX_EP5_TX_PAUSE | B_AX_EP5_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep5 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP5_TX_PAUSE;
 		ep_sts &= (~B_AX_EP5_TX_PAUSE & ~B_AX_EP5_PAUSE_STATE);
 	}
-	if (cfg->ep6) {
+	if (cfg->ep6 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP6_TX_PAUSE;
 		ep_sts |= (B_AX_EP6_TX_PAUSE | B_AX_EP6_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep6 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP6_TX_PAUSE;
 		ep_sts &= (~B_AX_EP6_TX_PAUSE & ~B_AX_EP6_PAUSE_STATE);
 	}
-	if (cfg->ep7) {
+	if (cfg->ep7 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP7_TX_PAUSE;
 		ep_sts |= (B_AX_EP7_TX_PAUSE | B_AX_EP7_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep7 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP7_TX_PAUSE_V1;
 		ep_sts &= (~B_AX_EP7_TX_PAUSE & ~B_AX_EP7_PAUSE_STATE);
 	}
-	if (cfg->ep8) {
+	if (cfg->ep8 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP8_RX_PAUSE;
 		ep_sts |= (B_AX_EP8_RX_PAUSE | B_AX_EP8_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep8 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP8_RX_PAUSE;
 		ep_sts &= (~B_AX_EP8_RX_PAUSE & ~B_AX_EP8_PAUSE_STATE);
 	}
-	if (cfg->ep9) {
+	if (cfg->ep9 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP9_TX_PAUSE;
 		ep_sts |= (B_AX_EP9_TX_PAUSE | B_AX_EP9_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep9 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP9_TX_PAUSE;
 		ep_sts &= (~B_AX_EP9_TX_PAUSE & ~B_AX_EP9_PAUSE_STATE);
 	}
-	if (cfg->ep10) {
+	if (cfg->ep10 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP10_TX_PAUSE;
 		ep_sts |= (B_AX_EP10_TX_PAUSE | B_AX_EP10_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep10 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP10_TX_PAUSE;
 		ep_sts &= (~B_AX_EP10_TX_PAUSE & ~B_AX_EP10_PAUSE_STATE);
 	}
-	if (cfg->ep11) {
+	if (cfg->ep11 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP11_TX_PAUSE;
 		ep_sts |= (B_AX_EP11_TX_PAUSE | B_AX_EP11_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep11 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP11_TX_PAUSE;
 		ep_sts &= (~B_AX_EP11_TX_PAUSE & ~B_AX_EP11_PAUSE_STATE);
 	}
-	if (cfg->ep12) {
+	if (cfg->ep12 == MAC_AX_USB_EP_PAUSE) {
 		ep_cfg |= B_AX_EP12_TX_PAUSE;
 		ep_sts |= (B_AX_EP12_TX_PAUSE | B_AX_EP12_PAUSE_STATE);
-	} else {
+	} else if (cfg->ep12 == MAC_AX_USB_EP_RELEASE) {
 		ep_cfg &= ~B_AX_EP12_TX_PAUSE;
 		ep_sts &= (~B_AX_EP12_TX_PAUSE & ~B_AX_EP12_PAUSE_STATE);
 	}
