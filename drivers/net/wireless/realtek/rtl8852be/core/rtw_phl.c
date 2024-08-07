@@ -1481,10 +1481,10 @@ void rtw_hw_iface_deinit(_adapter *adapter)
 	rtw_phl_ps_set_rt_cap(GET_PHL_INFO(dvobj), HW_BAND_0, ps_allow, PS_RT_CORE_INIT);
 #endif
 	if (adapter->phl_role) {
-+		if (dvobj && dvobj->phl) {
-+			rtw_free_self_stainfo(adapter);
-+			rtw_phl_wifi_role_free(GET_PHL_INFO(dvobj), adapter->phl_role->id);
-+		}
+		if (dvobj && dvobj->phl) {
+			rtw_free_self_stainfo(adapter);
+			rtw_phl_wifi_role_free(GET_PHL_INFO(dvobj), adapter->phl_role->id);
+		}
 		adapter->phl_role = NULL;
 	}
 #if defined(CONFIG_RTW_IPS) || defined(CONFIG_RTW_LPS)
