@@ -52,7 +52,6 @@
 #define DEV_PM_QOS_DEFAULT             7
 
 struct dev_pm_qos_request greq;
-struct reset_control *gcore_reset;
 
 struct spacemit_mbox {
 	const char name[10];
@@ -383,24 +382,6 @@ static struct rpmsg_driver rpmsg_rcpu_pm_client = {
 
 module_rpmsg_driver(rpmsg_rcpu_pm_client);
 
-static int rproc_syscore_suspend(void)
-{
-	/* reset the rcpu */
-	reset_control_assert(gcore_reset);
-
-	return 0;
-}
-
-static void rproc_syscore_resume(void)
-{
-	reset_control_deassert(gcore_reset);
-}
-
-static struct syscore_ops rproc_syscore_ops = {
-	.suspend = rproc_syscore_suspend,
-	.resume = rproc_syscore_resume,
-};
-
 #define RCPU_ENTER_LOW_PWR_MODE		"$"
 
 static int rproc_platform_late(void)
@@ -461,6 +442,10 @@ static void rproc_platfrom_wake(void)
 
 	rproc = dev_get_drvdata(&pdev->dev);
 	srproc = rproc->priv;
+
+	/* de-assert the clk */
+	reset_control_assert(srproc->core_rst);
+	reset_control_deassert(srproc->core_rst);
 
 	genpd = pd_to_genpd(pdev->dev.pm_domain);
 	/* enable the clk & power-switch */
@@ -540,10 +525,8 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	struct rproc *rproc;
 
 	ret = rproc_of_parse_firmware(dev, 0, &fw_name);
-	if (ret < 0 && ret != -EINVAL) {
-		dev_err(dev, "failed to get fw_name: %s\n", fw_name);
+	if (ret < 0 && ret != -EINVAL)
 		return ret;
-	}
 
 	rproc = devm_rproc_alloc(dev, np->name, &spacemit_rproc_ops,
 				fw_name, sizeof(*priv));
@@ -573,8 +556,6 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 		dev_err_probe(dev, ret, "fail to acquire rproc reset\n");
 		return ret;
 	}
-
-	gcore_reset = priv->core_rst;
 
 	priv->core_clk = devm_clk_get(dev, "core");
 	if (IS_ERR(priv->core_clk)) {
@@ -615,8 +596,6 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_PM_SLEEP
 	rpmsg_rcpu_pwr_management_id_table[0].driver_data = (unsigned long long)pdev;
-
-	register_syscore_ops(&rproc_syscore_ops);
 
 	register_platform_pm_ops(&rproc_platform_pm_ops);
 #endif
