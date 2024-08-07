@@ -2075,7 +2075,7 @@ static int serial_pxa_probe_dt(struct platform_device *pdev, struct uart_pxa_por
 
 #ifdef CONFIG_PM
 	if (of_property_read_u32(np, "edge-wakeup-pin", &sport->edge_wakeup_gpio)) {
-		dev_dbg(&pdev->dev, "no edge-wakeup-pin defined.\n");
+		dev_dbg(&pdev->dev, "no edge-wakeup-pin defined\n");
 	}
 #endif
 	sport->device_ctrl_rts = of_property_read_bool(np, "device-control-rts");
