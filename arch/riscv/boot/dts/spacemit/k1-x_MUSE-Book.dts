@@ -198,6 +198,7 @@
 	spacemit-dpu-bitclk = <933000000>;
 	dsi_1v2-supply = <&ldo_5>;
 	vin-supply-names = "dsi_1v2";
+	enable-gpio = <&gpio 83 0>;
 	status = "okay";
 };
 
@@ -322,7 +323,6 @@
 		reg = <0x29>;
 
 		reset-gpio = <&gpio 114 0>;
-		enable-gpio = <&gpio 83 0>;
 		bl-gpio = <&gpio 75 0>;
 		standby-gpio = <&gpio 92 0>;
 
