@@ -308,6 +308,10 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 	drm_crtc_vblank_on(&dpu->crtc);
 
 	spacemit_dpu_init(dpu);
+
+	if (!IS_ERR_OR_NULL(dpu->enable_gpio)) {
+		gpiod_direction_output(dpu->enable_gpio, 1);
+	}
 }
 
 static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
@@ -318,6 +322,10 @@ static void spacemit_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	DRM_INFO("%s(power off)\n", __func__);
 	trace_spacemit_crtc_atomic_disable(dpu->dev_id);
+
+	if (!IS_ERR_OR_NULL(dpu->enable_gpio)) {
+		gpiod_direction_output(dpu->enable_gpio, 0);
+	}
 
 	spacemit_dpu_uninit(dpu);
 
@@ -872,6 +880,7 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	const char *str;
 	u32 dpu_id;
 	u32 dpu_type;
+	static int dpu_num = 0;
 
 	DRM_DEBUG("%s()\n", __func__);
 
@@ -906,6 +915,15 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 
 	DRM_DEBUG("%s() type %d\n", __func__, dpu->type);
 
+	dpu->enable_gpio = devm_gpiod_get_optional(dev, "enable",
+						GPIOD_IN);
+	if (!IS_ERR_OR_NULL(dpu->enable_gpio)) {
+		gpiod_direction_output(dpu->enable_gpio, 0);
+		msleep(50);
+	} else {
+		DRM_DEV_DEBUG(dev, "not found enable gpio\n");
+	}
+
 	if (dpu->type == DSI) {
 		dpu->dsi_reset = devm_reset_control_get_optional_shared(&pdev->dev, "dsi_reset");
 		if (IS_ERR_OR_NULL(dpu->dsi_reset)) {
@@ -933,6 +951,7 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	dpu_num++;
 	pm_runtime_enable(&pdev->dev);
 	/*
 	 * To keep bootloader logo on, below operations must be
@@ -949,9 +968,8 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	}
 
 	rmem_np = of_find_node_by_name(NULL, "reserved-memory");
-	if (rmem_np) {
+	if (rmem_np && (dpu_num >= 2)) {
 		fb_np = of_find_node_by_name(rmem_np, "framebuffer");
-
 		if (fb_np) {
 			ret = of_address_to_resource(fb_np, 0, &rsrv_mem);
 			if (ret < 0) {
