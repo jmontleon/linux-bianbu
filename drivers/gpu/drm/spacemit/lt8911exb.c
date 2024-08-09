@@ -1167,9 +1167,12 @@ static int lt8911exb_panel_disable(struct drm_panel *panel)
 	DRM_INFO("%s()\n", __func__);
 
 	gpiod_direction_output(lt8911exb->bl_gpio, 0);
-	gpiod_direction_output(lt8911exb->standby_gpio, 0);
-	gpiod_direction_output(lt8911exb->enable_gpio, 0);
+	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
+		gpiod_direction_output(lt8911exb->enable_gpio, 0);
+	}
 	usleep_range(50*1000, 100*1000); //100ms
+
+	gpiod_direction_output(lt8911exb->standby_gpio, 0);
 
 	if (lt8911exb->init_work_pending) {
 		cancel_delayed_work_sync(&lt8911exb->init_work);
@@ -1262,7 +1265,9 @@ static void init_work_func(struct work_struct *work)
 
 	PCR_Status(lt8911exb);
 
-	gpiod_direction_output(lt8911exb->enable_gpio, 1);
+	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
+		gpiod_direction_output(lt8911exb->enable_gpio, 1);
+	}
 	gpiod_direction_output(lt8911exb->bl_gpio, 1);
 }
 static int lt8911exb_probe(struct i2c_client *client)
@@ -1309,15 +1314,15 @@ static int lt8911exb_probe(struct i2c_client *client)
 
 	lt8911exb->enable_gpio = devm_gpiod_get_optional(dev, "enable",
 						GPIOD_IN);
-	if (IS_ERR(lt8911exb->enable_gpio)) {
-		dev_err(&client->dev, "Failed get enable gpio\n");
-		return PTR_ERR(lt8911exb->enable_gpio);
+	if (IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
+		DRM_DEBUG("%s() failed get enable gpio\n", __func__);
+		// return PTR_ERR(lt8911exb->enable_gpio);
 	}
 
 	lt8911exb->standby_gpio = devm_gpiod_get_optional(dev, "standby",
 						GPIOD_IN);
 	if (IS_ERR(lt8911exb->standby_gpio)) {
-		dev_err(&client->dev, "Failed get enable gpio\n");
+		dev_err(&client->dev, "Failed get standby gpio\n");
 		return PTR_ERR(lt8911exb->standby_gpio);
 	}
 
@@ -1328,7 +1333,10 @@ static int lt8911exb_probe(struct i2c_client *client)
 		return PTR_ERR(lt8911exb->bl_gpio);
 	}
 	gpiod_direction_output(lt8911exb->bl_gpio, 0);
-	gpiod_direction_output(lt8911exb->enable_gpio, 0);
+	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
+		gpiod_direction_output(lt8911exb->enable_gpio, 0);
+	}
+	usleep_range(50*1000, 100*1000); //100ms
 
 	//disable firstly
 	gpiod_direction_output(lt8911exb->standby_gpio, 0);
@@ -1487,7 +1495,7 @@ static int __init init_lt8911exb(void)
 {
 	int err;
 
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 	mipi_dsi_driver_register(&lt8911exb_dsi_driver);
 	err = i2c_add_driver(&lt8911exb_driver);
 
@@ -1498,7 +1506,7 @@ module_init(init_lt8911exb);
 
 static void __exit exit_lt8911exb(void)
 {
-	DRM_INFO("%s()\n", __func__);
+	DRM_DEBUG("%s()\n", __func__);
 	i2c_del_driver(&lt8911exb_driver);
 	mipi_dsi_driver_unregister(&lt8911exb_dsi_driver);
 }
