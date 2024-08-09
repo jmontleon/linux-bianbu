@@ -16,6 +16,8 @@
 #include <video/videomode.h>
 #include <linux/workqueue.h>
 #include <linux/reset.h>
+#include <linux/gpio/consumer.h>
+#include <linux/gpio/driver.h>
 #include <drm/drm_atomic_uapi.h>
 #include <drm/drm_print.h>
 #include <drm/drm_crtc.h>
@@ -147,6 +149,8 @@ struct spacemit_dpu {
 	struct reset_control *lcd_reset;
 	struct reset_control *esc_reset;
 	struct reset_control *hdmi_reset;
+	struct gpio_desc *enable_gpio;
+
 #ifdef CONFIG_SPACEMIT_DEBUG
 	bool (*is_dpu_running)(struct spacemit_dpu* dpu);
 	struct notifier_block nb;
