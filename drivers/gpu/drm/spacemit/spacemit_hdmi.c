@@ -707,6 +707,27 @@ static struct drm_encoder_helper_funcs spacemit_hdmi_encoder_helper_funcs = {
 	.atomic_check = spacemit_hdmi_encoder_atomic_check,
 };
 
+/* spacemit_hdmi_register_client - register a client notifier */
+int spacemit_hdmi_register_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&hdmi_notifier_list, nb);
+}
+EXPORT_SYMBOL(spacemit_hdmi_register_client);
+
+/* spacemit_hdmi_unregister_client - unregister a client notifier */
+int spacemit_hdmi_unregister_client(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&hdmi_notifier_list, nb);
+}
+EXPORT_SYMBOL(spacemit_hdmi_unregister_client);
+
+/* spacemit_hdmi_notifier_call_chain - notify clients of hdmi status events */
+int spacemit_hdmi_notifier_call_chain(unsigned long val, void *v)
+{
+	return blocking_notifier_call_chain(&hdmi_notifier_list, val, v);
+}
+EXPORT_SYMBOL_GPL(spacemit_hdmi_notifier_call_chain);
+
 static enum drm_connector_status
 spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 {
@@ -724,10 +745,12 @@ spacemit_hdmi_connector_detect(struct drm_connector *connector, bool force)
 
 	if (hdmi_get_plug_in_status(hdmi)) {
 		DRM_INFO("%s() hdmi status connected\n", __func__);
+		spacemit_hdmi_notifier_call_chain(DRM_HDMI_EVENT_CONNECTED, "status");
 		status = connector_status_connected;
 
 	} else {
 		DRM_INFO("%s() hdmi status disconnected\n", __func__);
+		spacemit_hdmi_notifier_call_chain(DRM_HDMI_EVENT_DISCONNECTED, "status");
 		status = connector_status_disconnected;
 	}
 

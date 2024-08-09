@@ -3,6 +3,11 @@
  * Copyright (C) 2023 Spacemit Co., Ltd.
  *
  */
+#ifndef _SPACEMIT_HDMI_H_
+#define _SPACEMIT_HDMI_H_
+
+#include <linux/notifier.h>
+#include <soc/spacemit/spacemit_panel.h>
 
 enum {
 	INFOFRAME_VSI = 0x05,
@@ -48,3 +53,9 @@ struct hdmi_timing
 	unsigned short vpol;
 	unsigned short reserved;
 };
+
+static BLOCKING_NOTIFIER_HEAD(hdmi_notifier_list);
+
+int spacemit_hdmi_notifier_call_chain(unsigned long val, void *v);
+
+#endif
