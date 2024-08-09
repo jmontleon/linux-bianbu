@@ -20,4 +20,14 @@ enum{
 extern int spacemit_drm_register_client(struct notifier_block *nb);
 extern int spacemit_drm_unregister_client(struct notifier_block *nb);
 
+
+/*  complete the definition of hdmi connect status */
+enum{
+	DRM_HDMI_EVENT_CONNECTED = 0,
+	DRM_HDMI_EVENT_DISCONNECTED,
+};
+
+extern int spacemit_hdmi_register_client(struct notifier_block *nb);
+extern int spacemit_hdmi_unregister_client(struct notifier_block *nb);
+
 #endif
