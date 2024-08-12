@@ -23,7 +23,7 @@
  *
  *****************************************************************************/
 #ifndef __HALRF_OPS_RTL8852B_H__
-#define __HALRF_OPS_RTL8852B__
+#define __HALRF_OPS_RTL8852B_H__
 #ifdef RF_8852B_SUPPORT
 
 

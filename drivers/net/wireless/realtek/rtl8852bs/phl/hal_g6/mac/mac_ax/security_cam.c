@@ -308,6 +308,7 @@ u8 check_key_index(u8 addr_cam_sec_mode, u8 key_type, u8 key_index)
 		case SEC_CAM_KEY_TYPE_UNI:
 			if (key_index <= 6)
 				return MACSUCCESS;
+			break;
 		default:
 			break;
 		}
@@ -317,6 +318,7 @@ u8 check_key_index(u8 addr_cam_sec_mode, u8 key_type, u8 key_index)
 		case SEC_CAM_KEY_TYPE_UNI:
 			if (key_index <= 6)
 				return MACSUCCESS;
+			break;
 		default:
 			break;
 		}
