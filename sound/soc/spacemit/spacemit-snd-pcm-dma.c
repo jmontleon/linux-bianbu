@@ -625,13 +625,14 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 	if (!component) {
 		pr_err("%s!! coundn't find component %s\n", __FUNCTION__, DRV_NAME);
 		ret = -1;
-		goto unlock;
+		goto out;
 	}
 
 	dev = snd_soc_component_get_drvdata(component);
 	if (!dev) {
 		pr_err("%s!! get dev error\n", __FUNCTION__);
-		return -1;
+		ret = -1;
+		goto out;
 	}
 	spin_lock_irqsave(&dev->lock, flags);
 
@@ -659,6 +660,7 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 	}
 unlock:
 	spin_unlock_irqrestore(&dev->lock, flags);
+out:
 	pr_debug("%s exit dma_id=%d\n", __FUNCTION__, dmadata->dma_id);
 
 	return ret;
