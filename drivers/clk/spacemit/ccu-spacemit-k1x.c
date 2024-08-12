@@ -1575,6 +1575,9 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 			pr_err("failed to map rcpu2 registers\n");
 			goto out;
 		}
+	} else {
+		pr_err("not spacemit,k1x-clock\n");
+		goto out;
 	}
 	ret = spacemit_ccu_probe(np, clk_info, hw_clks);
 	//LOG_INFO("init clock finish");
