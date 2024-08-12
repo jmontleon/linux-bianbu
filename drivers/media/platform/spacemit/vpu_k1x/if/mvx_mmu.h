@@ -125,7 +125,7 @@ struct mvx_mmu_pages {
 	size_t count;
 	bool is_external;
 	struct list_head dmabuf;
-	phys_addr_t pages[0];
+	DECLARE_FLEX_ARRAY(phys_addr_t, pages);
 };
 
 /**
