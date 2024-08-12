@@ -50,7 +50,7 @@ static int ecb_encrypt(struct skcipher_request *req)
 	int i;
 	unsigned char* map_addr;
 	struct scatterlist* sg, *start_srcsg, *start_dstsg;
-	int len = 0,sgl_len;
+	int len = 0, sgl_len = 0;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
 	int page_len = 0, singal_len = 0;
@@ -112,7 +112,7 @@ static int ecb_decrypt(struct skcipher_request *req)
 	int i;
 	unsigned char* map_addr;
 	struct scatterlist* sg, *start_srcsg, *start_dstsg;
-	int len = 0,sgl_len;
+	int len = 0, sgl_len = 0;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
 	int page_len = 0, singal_len = 0;
@@ -172,7 +172,7 @@ static int cbc_encrypt(struct skcipher_request *req)
 	int i;
 	unsigned char* map_addr;
 	struct scatterlist* sg, *start_srcsg, *start_dstsg;
-	int len = 0,sgl_len;
+	int len = 0, sgl_len = 0;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
 	int page_len = 0, singal_len = 0;
@@ -234,7 +234,7 @@ static int cbc_decrypt(struct skcipher_request *req)
 	int i;
 	unsigned char* map_addr;
 	struct scatterlist* sg, *start_srcsg, *start_dstsg;
-	int len = 0,sgl_len;
+	int len = 0, sgl_len = 0;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
 	int page_len = 0, singal_len = 0;
@@ -294,7 +294,7 @@ static int xts_encrypt(struct skcipher_request *req)
 	int i;
 	unsigned char* map_addr;
 	struct scatterlist* sg, *start_srcsg, *start_dstsg;
-	int len = 0,sgl_len;
+	int len = 0, sgl_len = 0;
 	uint32_t xts_key_len = ctx->key_length / 2;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
@@ -357,7 +357,7 @@ static int xts_decrypt(struct skcipher_request *req)
 	int i;
 	unsigned char* map_addr;
 	struct scatterlist* sg, *start_srcsg, *start_dstsg;
-	int len = 0,sgl_len;
+	int len = 0, sgl_len = 0;
 	uint32_t xts_key_len = ctx->key_length / 2;
 	unsigned char* sg_va,*in_buffer,*out_buffer;
 	int total_len = req->cryptlen;
