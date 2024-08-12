@@ -1822,7 +1822,7 @@ bool halrf_get_dpk_by_rate(void *rf_void,
 	enum phl_phy_idx phy, enum packet_format_t vector_index, u32 rate_index)
 {
 	struct rf_info *rf = (struct rf_info *)rf_void;
-	u32 rate_addr, rate_mask, vector_value;
+	u32 rate_addr = 0, rate_mask = 0, vector_value;
 	u32 dpd_off_over, dpd_off_below, dpd_off_over_mask, dpd_off_below_mask;
 
 	RF_DBG(rf, DBG_RF_POWER, " ======>%s vector_index=%d rate_index=%d, phy=%d\n",

@@ -397,7 +397,7 @@ static inline void *_os_pkt_buf_alloc_rx(void *d, u32 *bus_addr_l,
 #ifdef CONFIG_PCI_HCI
 	PPCI_DATA pci_data = dvobj_to_pci(pobj);
 	struct pci_dev *pdev = pci_data->ppcidev;
-	dma_addr_t dma_addr;
+	dma_addr_t dma_addr = 0;
 
 #ifdef CONFIG_RTW_RXSKB_KMALOC
 	skb = _os_alloc_fake_skb(pdev, buf_sz, cache);

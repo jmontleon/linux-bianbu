@@ -852,6 +852,7 @@ u8 halbb_get_txsc(struct bb_info *bb, u8 pri_ch, u8 central_ch,
 			} else {
 				txsc_idx = 14;
 			}
+			break;
 		default:
 			break;
 	}
