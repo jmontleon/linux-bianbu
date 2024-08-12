@@ -255,13 +255,14 @@ static int i2s_sspa_trigger(struct snd_pcm_substream *substream, int cmd,
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 	struct ssp_device *sspa = sspa_priv->sspa;
 	int ret = 0;
+	unsigned int ssp_top_cfg;
 
 	pr_debug("%s cmd=%d, cnt=%d\n", __FUNCTION__, cmd, sspa_priv->running_cnt);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		unsigned int ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
+		ssp_top_cfg = i2s_sspa_read_reg(sspa, TOP_CTRL);
 		pr_debug("TOP_CTRL:0x%x", ssp_top_cfg);
 		ssp_top_cfg |= TOP_SSE;
 		i2s_sspa_write_reg(sspa, TOP_CTRL, ssp_top_cfg);   //SSP_enable
