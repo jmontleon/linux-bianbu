@@ -948,9 +948,10 @@ static int k1x_spi_probe(struct platform_device *pdev)
 		goto out_error_clk_check;
 	}
 
-    	drv_data->reset = devm_reset_control_get_optional(dev, NULL);
+	drv_data->reset = devm_reset_control_get_optional(dev, NULL);
 	if (IS_ERR_OR_NULL(drv_data->reset)) {
 		dev_err(&pdev->dev, "Failed to get spi's reset\n");
+		status = -ENODEV;
 		goto out_error_clk_check;
 	}
 
