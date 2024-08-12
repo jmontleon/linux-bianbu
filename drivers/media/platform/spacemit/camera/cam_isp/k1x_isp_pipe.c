@@ -929,6 +929,7 @@ long k1xisp_pipe_ioctl_core(struct file *file, unsigned int cmd, unsigned long a
 {
 	int ret = 0;
 	struct k1xisp_pipe_dev *pipe_dev = file->private_data;
+	struct isp_regs_info *user_regs;
 
 	ISP_DRV_CHECK_POINTER(pipe_dev);
 	switch (cmd) {
@@ -939,7 +940,7 @@ long k1xisp_pipe_ioctl_core(struct file *file, unsigned int cmd, unsigned long a
 		ret = k1xisp_pipe_undeploy_driver(pipe_dev, *((u32*)arg));
 		break;
 	case ISP_IOC_SET_REG:
-		struct isp_regs_info *user_regs = (struct isp_regs_info*)arg;
+		user_regs = (struct isp_regs_info*)arg;
 
 		if (pipe_dev->isp_reg_mem[user_regs->mem_index].config) {
 			if (pipe_dev->isp_reg_mem[user_regs->mem_index].mem.fd != user_regs->mem.fd) {
