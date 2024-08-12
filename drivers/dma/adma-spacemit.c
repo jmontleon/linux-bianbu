@@ -83,7 +83,7 @@
 #define STARTUP_MSG		"startup"
 #define STARTUP_OK_MSG		"startup-ok"
 //#define DESC_BUFFER_ADDR
-		
+
 enum {
 	AUDIO_SAMPLE_WORD_8BITS = 0x0,
 	AUDIO_SAMPLE_WORD_12BITS,
@@ -118,15 +118,15 @@ struct adma_ch {
 	enum dma_transfer_direction	dir;
 	struct adma_desc_sw *cyclic_first;
 	bool unpack_sample;
-	
+
 	struct tasklet_struct	tasklet;
 	u32	dev_addr;
-	
+
 	spinlock_t desc_lock;
 	struct list_head chain_pending;
 	struct list_head chain_running;
 	enum dma_status	status;
-	
+
 	struct gen_pool *desc_pool;
 };
 
@@ -172,15 +172,15 @@ static dma_cookie_t adma_tx_submit(struct dma_async_tx_descriptor *tx)
 	struct adma_desc_sw *child;
 	unsigned long flags;
 	dma_cookie_t cookie = -EBUSY;
-	
+
 	spin_lock_irqsave(&achan->desc_lock, flags);
 	list_for_each_entry(child, &desc->tx_list, node) {
 		cookie = dma_cookie_assign(&child->async_tx);
 	}
-	
+
 	list_splice_tail_init(&desc->tx_list, &achan->chain_pending);
 	spin_unlock_irqrestore(&achan->desc_lock, flags);
-	
+
 	return cookie;
 }
 
@@ -195,7 +195,7 @@ static int adma_alloc_chan_resources(struct dma_chan *dchan)
 		pr_err("unable to allocate descriptor pool\n");
 		return -ENOMEM;
 	}
-	if(gen_pool_add_virt(achan->desc_pool, (long)adev->desc_base, DESC_BUF_BASE, 
+	if(gen_pool_add_virt(achan->desc_pool, (long)adev->desc_base, DESC_BUF_BASE,
 		DESC_BUF_SIZE, -1) != 0) {
 		pr_err("gen_pool_add mem error!\n");
 		gen_pool_destroy(achan->desc_pool);
@@ -224,7 +224,7 @@ static void adma_free_chan_resources(struct dma_chan *dchan)
 	struct adma_ch *achan = to_adma_chan(dchan);
 	struct adma_dev *adev = to_adma_dev(achan->chan.device);
 	unsigned long flags;
-	
+
 	spin_lock_irqsave(&achan->desc_lock, flags);
 	adma_free_desc_list(achan, &achan->chain_pending);
 	adma_free_desc_list(achan, &achan->chain_running);
@@ -251,7 +251,7 @@ static struct adma_desc_sw *alloc_descriptor(struct adma_ch *achan)
 	}
 	memset(desc, 0, sizeof(struct adma_desc_sw));
 	pdesc = (dma_addr_t)gen_pool_virt_to_phys(achan->desc_pool, (long)desc);
-	
+
 	INIT_LIST_HEAD(&desc->tx_list);
 	dma_async_tx_descriptor_init(&desc->async_tx, &achan->chan);
 	desc->async_tx.tx_submit = adma_tx_submit;
@@ -260,7 +260,7 @@ static struct adma_desc_sw *alloc_descriptor(struct adma_ch *achan)
 }
 
 static struct dma_async_tx_descriptor *
-adma_prep_cyclic(struct dma_chan *dchan, dma_addr_t buf_addr, 
+adma_prep_cyclic(struct dma_chan *dchan, dma_addr_t buf_addr,
 				size_t len, size_t period_len,
 				enum dma_transfer_direction direction,
 				unsigned long flags)
@@ -291,7 +291,7 @@ adma_prep_cyclic(struct dma_chan *dchan, dma_addr_t buf_addr,
 		new = alloc_descriptor(achan);
 		if(!new) {
 			dev_err(achan->dev, "no memory for desc\n");
-			
+
 		}
 		new->desc.byte_cnt = period_len;
 		new->desc.src_addr = adma_src;
@@ -334,7 +334,7 @@ static void set_desc(struct adma_pchan *phy, dma_addr_t addr)
 
 static void set_ctrl_reg(struct adma_pchan *phy)
 {
-	u32 ctrl_reg_val;
+	u32 ctrl_reg_val = 0;
 	u32 maxburst = 0, sample_bits = 0;
 	enum dma_slave_buswidth width = DMA_SLAVE_BUSWIDTH_UNDEFINED;
 	struct adma_ch *achan = phy->vchan;
@@ -376,7 +376,7 @@ static void enable_chan(struct adma_pchan *phy)
 {
 	u32 ctrl_val;
 	struct adma_ch *achan = phy->vchan;
-	
+
 	if(achan->dir == DMA_MEM_TO_DEV)
 		adma_ch_write_reg(phy, DAR, achan->dev_addr);
 	else if(achan->dir == DMA_DEV_TO_MEM)
@@ -445,7 +445,7 @@ static void disable_chan(struct adma_pchan *phy)
 	u32 reg_val = adma_ch_read_reg(phy,DCR);
 	reg_val |= ADMA_CH_ABORT;
 	adma_ch_write_reg(phy, DCR, reg_val);
-	
+
 	udelay(500);
 	reg_val = adma_ch_read_reg(phy, DCR);
 	reg_val &= ~ADMA_CH_EN;
@@ -505,7 +505,7 @@ static int adma_probe(struct platform_device *pdev)
 	const enum dma_slave_buswidth widths =
 		DMA_SLAVE_BUSWIDTH_1_BYTE | DMA_SLAVE_BUSWIDTH_2_BYTES |
 		DMA_SLAVE_BUSWIDTH_3_BYTES | DMA_SLAVE_BUSWIDTH_4_BYTES;
-	
+
 	of_id = of_match_device(adma_id_table, &pdev->dev);
 	if (!of_id) {
 		pr_err("Unable to match OF ID\n");
@@ -553,11 +553,11 @@ static int adma_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&achan->chain_running);
 	achan->status = DMA_COMPLETE;
 	achan->unpack_sample = !of_property_read_bool(pdev->dev.of_node, "hdmi-sample");
-	
+
 	/* register virt channel to dma engine */
 	list_add_tail(&achan->chan.device_node, &adev->device.channels);
 	idata->achan = achan;
-	
+
 	dma_cap_set(DMA_SLAVE, adev->device.cap_mask);
 	dma_cap_set(DMA_CYCLIC, adev->device.cap_mask);
 	adev->device.dev = dev;
@@ -572,15 +572,15 @@ static int adma_probe(struct platform_device *pdev)
 	adev->device.src_addr_widths = widths;
 	adev->device.dst_addr_widths = widths;
 	adev->device.directions = BIT(DMA_MEM_TO_DEV) | BIT(DMA_DEV_TO_MEM);
-	
+
 	dma_set_mask(adev->dev, adev->dev->coherent_dma_mask);
-	
+
 	ret = dma_async_device_register(&adev->device);
 	if(ret) {
 		dev_err(adev->device.dev, "unable to register\n");
 		return ret;
 	}
-	
+
 	if(pdev->dev.of_node) {
 		ret = of_dma_controller_register(pdev->dev.of_node,
 										adma_dma_xlate,adev);
@@ -590,7 +590,7 @@ static int adma_probe(struct platform_device *pdev)
 			return ret;
 		}
 	}
-	
+
 	platform_set_drvdata(pdev, adev);
 	return 0;
 }
@@ -598,7 +598,7 @@ static int adma_probe(struct platform_device *pdev)
 static int adma_remove(struct platform_device *pdev)
 {
 	struct adma_dev *adev = platform_get_drvdata(pdev);;
-		
+
 	if(pdev->dev.of_node)
 		of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&adev->device);
@@ -630,7 +630,7 @@ static int rpmsg_adma_client_cb(struct rpmsg_device *rpdev, void *data,
 #if 0
 	if (strcmp(data, STARTUP_OK_MSG) == 0) {
 		dev_info(&rpdev->dev, "channel: 0x%x -> 0x%x startup ok!\n",
-					rpdev->src, rpdev->dst);	
+					rpdev->src, rpdev->dst);
 	}
 
 	if (strcmp(data, "#") == 0) {
