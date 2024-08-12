@@ -239,8 +239,10 @@ int spacemit_gem_prime_vmap(struct drm_gem_object *gem_obj, struct iosys_map *ma
 	mutex_lock(&spacemit_obj->vmap_lock);
 
 
-	if (spacemit_obj->vmap_cnt)
+	if (spacemit_obj->vmap_cnt) {
+		vaddr = spacemit_obj->vaddr;
 		goto vmap_success;
+	}
 
 	pages = kvmalloc_array(npages, sizeof(struct page *), GFP_KERNEL);
 	tmp = pages;
