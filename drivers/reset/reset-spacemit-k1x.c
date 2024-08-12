@@ -534,6 +534,9 @@ static void spacemit_reset_init(struct device_node *np)
 			pr_err("failed to map rcpu2 registers\n");
 			goto out;
 		}
+	} else {
+		pr_err("not spacemit,k1x-reset\n");
+		goto out;
 	}
 
 	reset->lock = &g_cru_lock;
