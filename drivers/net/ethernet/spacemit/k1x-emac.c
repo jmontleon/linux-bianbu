@@ -2562,7 +2562,7 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 		dev_dbg(&pdev->dev, "%s dma_burst_len using default value:%d \n",
 			__func__, priv->dma_burst_len);
 	} else {
-		if (priv->dma_burst_len <= 0 && priv->dma_burst_len > 7) {
+		if (priv->dma_burst_len <= 0 || priv->dma_burst_len > 7) {
 			dev_err(&pdev->dev, "%s burst len illegal, use default vallue:%d\n",
 				__func__, DEFAULT_DMA_BURST_LEN);
 			priv->dma_burst_len = DEFAULT_DMA_BURST_LEN;
