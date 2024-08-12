@@ -2242,6 +2242,8 @@ static int emac_phy_connect(struct net_device *dev)
 			" Link = %d\n", __func__,
 			dev->name, phydev->phy_id, phydev->link);
 
+	/* Indicate that the MAC is responsible for PHY PM */
+	phydev->mac_managed_pm = true;
 	dev->phydev = phydev;
 
 	clk_phase_set(priv, TX_PHASE);
