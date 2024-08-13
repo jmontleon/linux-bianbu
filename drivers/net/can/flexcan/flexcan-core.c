@@ -306,7 +306,9 @@ struct instance_data {
 };
 #endif
 
+#ifndef CONFIG_SOC_SPACEMIT_K1X
 static_assert(sizeof(struct flexcan_regs) ==  0x4 * 18 + 0xfb8);
+#endif
 
 static const struct flexcan_devtype_data fsl_mcf5441x_devtype_data = {
 	.quirks = FLEXCAN_QUIRK_BROKEN_PERR_STATE |
@@ -1375,6 +1377,49 @@ static void flexcan_set_bittiming(struct net_device *dev)
 		return flexcan_set_bittiming_ctrl(dev);
 }
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static void flexcan_ram_init(struct net_device *dev)
+{
+	struct flexcan_priv *priv = netdev_priv(dev);
+	struct flexcan_regs __iomem *regs = priv->regs;
+	u32 reg_ctrl2;
+	void __iomem *mb_addr;
+	u32 count;
+	u32 i;
+
+	/* 11.8.3.13 Detection and correction of memory errors:
+	 * CTRL2[WRMFRZ] grants write access to all memory positions
+	 * that require initialization, ranging from 0x080 to 0xADF
+	 * and from 0xF28 to 0xFFF when the CAN FD feature is enabled.
+	 * The RXMGMASK, RX14MASK, RX15MASK, and RXFGMASK registers
+	 * need to be initialized as well. MCR[RFEN] must not be set
+	 * during memory initialization.
+	 */
+	reg_ctrl2 = priv->read(&regs->ctrl2);
+	reg_ctrl2 |= FLEXCAN_CTRL2_WRMFRZ;
+	priv->write(reg_ctrl2, &regs->ctrl2);
+
+	/* use iowrite32 instead of memset_io on riscv */
+	mb_addr = &regs->mb[0][0];
+	count = offsetof(struct flexcan_regs, rx_smb1[3]) -
+		offsetof(struct flexcan_regs, mb[0][0]) + 0x4;
+	for (i = 0; i< count / 4; i++) {
+		priv->write(0, mb_addr + i * 4);
+	}
+
+	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+		mb_addr = &regs->tx_smb_fd[0];
+		count = offsetof(struct flexcan_regs, rx_smb1_fd[17]) -
+			offsetof(struct flexcan_regs, tx_smb_fd[0]) + 0x4;
+		for (i = 0; i< count / 4; i++) {
+			priv->write(0, mb_addr + i * 4);
+		}
+	}
+
+	reg_ctrl2 &= ~FLEXCAN_CTRL2_WRMFRZ;
+	priv->write(reg_ctrl2, &regs->ctrl2);
+}
+#else
 static void flexcan_ram_init(struct net_device *dev)
 {
 	struct flexcan_priv *priv = netdev_priv(dev);
@@ -1401,6 +1446,7 @@ static void flexcan_ram_init(struct net_device *dev)
 	reg_ctrl2 &= ~FLEXCAN_CTRL2_WRMFRZ;
 	priv->write(reg_ctrl2, &regs->ctrl2);
 }
+#endif
 
 static int flexcan_rx_offload_setup(struct net_device *dev)
 {
