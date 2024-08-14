@@ -305,7 +305,7 @@ static int k1x_thermal_probe(struct platform_device *pdev)
 		}
 
 		/* register the thermal sensor to hwmon */
-		if (devm_thermal_add_hwmon_sysfs(s->sdesc[i].tzd))
+		if (devm_thermal_add_hwmon_sysfs(dev, s->sdesc[i].tzd))
 			dev_warn(dev, "Failed to add hwmon sysfs attributes\n");
 
 		/* enable sensor low & higth threshold interrupt */
