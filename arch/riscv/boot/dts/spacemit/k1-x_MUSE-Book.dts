@@ -694,7 +694,21 @@
 	status = "okay";
 };
 
+&otg {
+	usb-role-switch;
+	role-switch-user-control;
+	role-switch-default-mode = "host";
+	status = "okay";
+};
+
+&udc {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "okay";
+};
+
+
 &ehci {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
 };
 
