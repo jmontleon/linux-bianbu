@@ -174,12 +174,6 @@
 			status = "okay";
 		};
 	};
-
-	usb2hub: usb2hub {
-		compatible = "spacemit,usb3-hub";
-		vbus-gpios = <&gpio 123 0>;	/* for usb2 hub output vbus */
-		status = "okay";
-	};
 };
 
 &uart0 {
@@ -830,8 +824,6 @@
 };
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
 	spacemit,udc-mode = <MV_USB_MODE_UDC>;
 	status = "okay";
 };
@@ -840,7 +832,22 @@
 	status = "okay";
 };
 
+&otg1 {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "host";
+	vbus-gpios = <&gpio 123 0>;
+	status = "okay";
+};
+
+&udc1 {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "okay";
+};
+
 &ehci1 {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	spacemit,reset-on-resume;
 	status = "okay";
 };
@@ -862,7 +869,7 @@
 	status = "okay";
 	reset-on-resume;
 	dwc3@c0a00000 {
-		dr_mode = "host";
+		dr_mode = "otg";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
@@ -871,6 +878,8 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
+		usb-role-switch;
+		role-switch-default-mode = "host";
 	};
 };
 
