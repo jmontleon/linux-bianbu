@@ -978,6 +978,20 @@
 		>;
 	};
 
+	pinctrl_r_can_0: r_can_0_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_47,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2)) /* r_can_tx */
+			K1X_PADCONF(GPIO_48,    MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2)) /* r_can_rx */
+		>;
+	};
+
+	pinctrl_r_can_1: r_can_1_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_110,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2)) /* r_can_tx */
+			K1X_PADCONF(GPIO_115,    MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS2)) /* r_can_rx */
+		>;
+	};
+
 	pinctrl_hdmi_0: hdmi_0_grp {
 		pinctrl-single,pins = <
 			K1X_PADCONF(GPIO_86, MUX_MODE1, (EDGE_NONE | PULL_UP   | PAD_1V8_DS2))	/* hdmi_tx_hscl */
