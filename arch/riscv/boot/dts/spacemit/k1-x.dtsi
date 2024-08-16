@@ -1381,6 +1381,38 @@
 			status = "disabled";
 		};
 
+
+		ri2c0: ri2c@c0887000 {
+			compatible = "spacemit,k1x-i2c-rcpu";
+			spacemit,adapter-id = <9>;
+			reg = <0x0 0xc0887000 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&ccu CLK_RCPU_I2C0>;
+			resets = <&reset RESET_RCPU_I2C0>;
+			/*
+			dmas = <&pdma0 DMA_I2C0_RX 1
+				&pdma0 DMA_I2C0_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			rcpu-i2c;
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
+			interconnects = <&dram_range4>;
+			interconnect-names = "dma-mem";
+			status = "okay";
+		};
+
 		pwm0: pwm@d401a000 {
 			compatible = "spacemit,k1x-pwm";
 			reg = <0x0 0xd401a000 0x0 0x10>;
