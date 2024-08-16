@@ -1656,11 +1656,10 @@
 			status = "disabled";
 		};
 
-		flexcan1: fdcan@c0870000 {
-			compatible = "spacemit,k1x-flexcan";
+		r_flexcan: fdcan@c0870000 {
+			compatible = "spacemit,k1x-r-flexcan";
 			reg = <0x0 0xc0870000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
-			clock-frequency = <20000000>;
 			fsl,clk-source = <0>;
 			clocks = <&ccu CLK_RCPU_CAN>,<&ccu CLK_RCPU_CAN_BUS>;
 			clock-names = "per","ipg";
