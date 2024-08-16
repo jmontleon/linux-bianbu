@@ -26,8 +26,24 @@
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/reboot.h>
+#include <linux/of_device.h>
+#include <linux/rpmsg.h>
 
 #include "i2c-k1x.h"
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+
+#define STARTUP_MSG		"startup"
+#define IRQUP_MSG		"irqon"
+
+struct instance_data {
+	struct rpmsg_device *rpdev;
+	struct spacemit_i2c_dev *spacemit_i2c;
+};
+
+static unsigned long long private_data[2];
+static const struct of_device_id r_spacemit_i2c_dt_match[];
+#endif
 
 static inline u32 spacemit_i2c_read_reg(struct spacemit_i2c_dev *spacemit_i2c, int reg)
 {
@@ -1825,6 +1841,11 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 {
 	struct spacemit_i2c_dev *spacemit_i2c;
 	struct device_node *dnode = pdev->dev.of_node;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	struct rpmsg_device *rpdev;
+	struct instance_data *idata;
+	const struct of_device_id *of_id;
+#endif
 	int ret = 0;
 
 	/* allocate memory */
@@ -1868,19 +1889,41 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 		goto err_out;
 	}
 
-	spacemit_i2c->irq = platform_get_irq(pdev, 0);
-	if (spacemit_i2c->irq < 0) {
-		dev_err(spacemit_i2c->dev, "failed to get irq resource\n");
-		ret = spacemit_i2c->irq;
-		goto err_out;
-	}
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (of_get_property(pdev->dev.of_node, "rcpu-i2c", NULL)) {
 
-	ret = devm_request_irq(spacemit_i2c->dev, spacemit_i2c->irq, spacemit_i2c_int_handler,
-			IRQF_NO_SUSPEND | IRQF_NO_AUTOEN,
-			dev_name(spacemit_i2c->dev), spacemit_i2c);
-	if (ret) {
-		dev_err(spacemit_i2c->dev, "failed to request irq\n");
-		goto err_out;
+		of_id = of_match_device(r_spacemit_i2c_dt_match, &pdev->dev);
+		if (!of_id) {
+			pr_err("Unable to match OF ID\n");
+			return -ENODEV;
+		}
+
+		idata = (struct instance_data *)((unsigned long long *)(of_id->data))[0];
+		rpdev = idata->rpdev;
+		idata->spacemit_i2c = spacemit_i2c;
+
+		ret = rpmsg_send(rpdev->ept, STARTUP_MSG, strlen(STARTUP_MSG));
+		if (ret) {
+			dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+			return ret;
+		}
+	} else
+#endif
+	{
+		spacemit_i2c->irq = platform_get_irq(pdev, 0);
+		if (spacemit_i2c->irq < 0) {
+			dev_err(spacemit_i2c->dev, "failed to get irq resource\n");
+			ret = spacemit_i2c->irq;
+			goto err_out;
+		}
+
+		ret = devm_request_irq(spacemit_i2c->dev, spacemit_i2c->irq, spacemit_i2c_int_handler,
+				IRQF_NO_SUSPEND | IRQF_NO_AUTOEN,
+				dev_name(spacemit_i2c->dev), spacemit_i2c);
+		if (ret) {
+			dev_err(spacemit_i2c->dev, "failed to request irq\n");
+			goto err_out;
+		}
 	}
 
 	ret = spacemit_i2c_prepare_dma(spacemit_i2c);
@@ -2042,6 +2085,87 @@ static void __exit spacemit_i2c_exit(void)
 
 subsys_initcall(spacemit_i2c_init);
 module_exit(spacemit_i2c_exit);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static const struct of_device_id r_spacemit_i2c_dt_match[] = {
+	{ .compatible = "spacemit,k1x-i2c-rcpu", .data =(void *)&private_data[0] },
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, r_spacemit_i2c_dt_match);
+
+static struct platform_driver r_spacemit_i2c_driver = {
+	.probe  = spacemit_i2c_probe,
+	.remove = spacemit_i2c_remove,
+	.shutdown = spacemit_i2c_shutdown,
+	.driver = {
+		.name		= "ri2c-spacemit-k1x",
+		/* .pm             = &spacemit_i2c_pm_ops, */
+		.of_match_table	= r_spacemit_i2c_dt_match,
+	},
+};
+
+static struct rpmsg_device_id rpmsg_driver_i2c_id_table[] = {
+	{ .name	= "i2c-service", .driver_data = 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_i2c_id_table);
+
+static int rpmsg_i2c_client_probe(struct rpmsg_device *rpdev)
+{
+	struct instance_data *idata;
+
+	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
+					rpdev->src, rpdev->dst);
+
+	idata = devm_kzalloc(&rpdev->dev, sizeof(*idata), GFP_KERNEL);
+	if (!idata)
+		return -ENOMEM;
+
+	dev_set_drvdata(&rpdev->dev, idata);
+	idata->rpdev = rpdev;
+
+	((unsigned long long *)(r_spacemit_i2c_dt_match[0].data))[0] = (unsigned long long)idata;
+
+	register_restart_handler(&spacemit_i2c_sys_nb);
+	return platform_driver_register(&r_spacemit_i2c_driver);
+}
+
+static int rpmsg_i2c_client_cb(struct rpmsg_device *rpdev, void *data,
+		int len, void *priv, u32 src)
+{
+	int ret;
+	struct instance_data *idata = dev_get_drvdata(&rpdev->dev);
+	struct spacemit_i2c_dev *spacemit_i2c = idata->spacemit_i2c;
+
+	spacemit_i2c_int_handler(0, (void *)spacemit_i2c);
+
+        ret = rpmsg_send(rpdev->ept, IRQUP_MSG, strlen(IRQUP_MSG));
+        if (ret) {
+                dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+                return ret;
+        }
+
+	return 0;
+}
+
+static void rpmsg_i2c_client_remove(struct rpmsg_device *rpdev)
+{
+	dev_info(&rpdev->dev, "rpmsg i2c client driver is removed\n");
+
+	platform_driver_unregister(&r_spacemit_i2c_driver);
+	unregister_restart_handler(&spacemit_i2c_sys_nb);
+}
+
+static struct rpmsg_driver rpmsg_i2c_client = {
+	.drv.name	= KBUILD_MODNAME,
+	.id_table	= rpmsg_driver_i2c_id_table,
+	.probe		= rpmsg_i2c_client_probe,
+	.callback	= rpmsg_i2c_client_cb,
+	.remove		= rpmsg_i2c_client_remove,
+};
+module_rpmsg_driver(rpmsg_i2c_client);
+#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:i2c-spacemit-k1x");
