@@ -38,13 +38,12 @@
 #include <linux/rpmsg.h>
 #define STARTUP_MSG			"startup"
 #define IRQUP_MSG			"irqon"
+static unsigned long long private_data[1];
+#define R_DRV_NAME			"r_flexcan"
 #endif
 
 #define DRV_NAME			"flexcan"
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-static unsigned long long private_data[1];
-#endif
 /* 8 for RX fifo and 2 error handling */
 #define FLEXCAN_NAPI_WEIGHT		(8 + 2)
 
@@ -2192,6 +2191,14 @@ static const struct of_device_id flexcan_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, flexcan_of_match);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static const struct of_device_id r_flexcan_of_match[] = {
+	{ .compatible = "spacemit,k1x-r-flexcan", .data = &spacemit_k1x_devtype_data, },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, r_flexcan_of_match);
+#endif
+
 static const struct platform_device_id flexcan_id_table[] = {
 	{
 		.name = "flexcan-mcf5441x",
@@ -2269,8 +2276,14 @@ static int flexcan_probe(struct platform_device *pdev)
 		irq = platform_get_irq(pdev, 0);
 		if (irq <= 0)
 			return -ENODEV;
-	} else
+	} else {
 		irq = -1;
+		of_id = of_match_device(r_flexcan_of_match, &pdev->dev);
+		if (of_id)
+			devtype_data = of_id->data;
+		else
+			return -ENODEV;
+	}
 #else
  	irq = platform_get_irq(pdev, 0);
  	if (irq <= 0)
@@ -2582,8 +2595,20 @@ static struct platform_driver flexcan_driver = {
 	.remove = flexcan_remove,
 	.id_table = flexcan_id_table,
 };
+module_platform_driver(flexcan_driver);
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
+static struct platform_driver r_flexcan_driver = {
+	.driver = {
+		.name = R_DRV_NAME,
+		.pm = &flexcan_pm_ops,
+		.of_match_table = r_flexcan_of_match,
+	},
+	.probe = flexcan_probe,
+	.remove_new = flexcan_remove,
+	.id_table = flexcan_id_table,
+};
+
 static struct rpmsg_device_id rpmsg_driver_rcan_id_table[] = {
 	{ .name	= "can-service", .driver_data = 0 },
 	{ },
@@ -2607,7 +2632,6 @@ static int rpmsg_rcan_client_cb(struct rpmsg_device *rpdev, void *data,
 	return 0;
 }
 
-
 static int rpmsg_rcan_client_probe(struct rpmsg_device *rpdev)
 {
 	struct instance_data *idata;
@@ -2624,7 +2648,7 @@ static int rpmsg_rcan_client_probe(struct rpmsg_device *rpdev)
 
 	private_data[0] = (unsigned long long)idata;
 
-	platform_driver_register(&flexcan_driver);
+	platform_driver_register(&r_flexcan_driver);
 
 	return 0;
 }
@@ -2643,8 +2667,6 @@ static struct rpmsg_driver rpmsg_rcan_client = {
 	.remove		= rpmsg_rcan_client_remove,
 };
 module_rpmsg_driver(rpmsg_rcan_client);
-#else
-module_platform_driver(flexcan_driver);
 #endif
 
 MODULE_AUTHOR("Sascha Hauer <kernel@pengutronix.de>, "
