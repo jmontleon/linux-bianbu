@@ -233,6 +233,15 @@
 		>;
 	};
 
+	pinctrl_r_uart1: r_uart1_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_49,   MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))  /* r_uart1_cts_n */
+			K1X_PADCONF(GPIO_50,   MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))  /* r_uart1_rts_n */
+			K1X_PADCONF(GPIO_51,   MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))  /* r_uart1_txd */
+			K1X_PADCONF(GPIO_52,   MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))  /* r_uart1_rxd */
+		>;
+	};
+
 	pinctrl_i2c1: i2c1_grp {
 		pinctrl-single,pins =<
 			K1X_PADCONF(GPIO_56, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))	/* i2c1_scl */
