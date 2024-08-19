@@ -28,6 +28,7 @@
 		serial6 = &uart7;
 		serial7 = &uart8;
 		serial8 = &uart9;
+		serial9 = &r_uart1;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
 		mmc2 = &sdhci2;
@@ -939,6 +940,23 @@
 			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
+		};
+
+		r_uart1: r_uart1@c088d000 {
+			compatible = "spacemit,rcpu-pxa-uart";
+			reg = <0x0 0xc088d000 0x0 0x100>;
+			clocks = <&ccu CLK_RCPU_UART1>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
+			resets = <&reset RESET_RCPU_UART1>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
+			rcpu-uart;
+			interconnects = <&dram_range4>;
+			interconnect-names = "dma-mem";
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "ok";
 		};
 
 		mailbox: mailbox@d4013400 {
