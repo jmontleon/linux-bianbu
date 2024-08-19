@@ -287,13 +287,6 @@ static int lt9711_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, lt9711);
 	dev_set_drvdata(dev, lt9711);
 
-	//check i2c communicate
-	ret = lt9711_i2c_detect(lt9711);
-	if (ret < 0) {
-		DRM_INFO("detect DP failed communicate with IC use I2C\n");
-		return ret;
-	}
-
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (!endpoint)
 		return -ENODEV;
@@ -342,6 +335,13 @@ static int lt9711_probe(struct i2c_client *client)
 		dev_err(dev, "DSI device registration failed: %ld\n",
 			PTR_ERR(lt9711->dsi));
 		return PTR_ERR(lt9711->dsi);
+	}
+
+	//check i2c communicate
+	ret = lt9711_i2c_detect(lt9711);
+	if (ret < 0) {
+		DRM_INFO("detect DP failed communicate with IC use I2C\n");
+		return ret;
 	}
 
 	INIT_DELAYED_WORK(&lt9711->detect_work, detect_work_func);
