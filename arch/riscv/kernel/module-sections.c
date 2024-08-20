@@ -55,6 +55,8 @@ unsigned long module_emit_plt_entry(struct module *mod, unsigned long val)
 
 	return (unsigned long)&plt[i];
 }
+/* it seems that the duplicate check is not necessary */
+#ifndef CONFIG_SOC_SPACEMIT
 
 #define cmp_3way(a, b)	((a) < (b) ? -1 : (a) > (b))
 
@@ -69,6 +71,7 @@ static int cmp_rela(const void *a, const void *b)
 		i = cmp_3way(x->r_addend, y->r_addend);
 	return i;
 }
+#endif
 
 static bool duplicate_rela(const Elf_Rela *rela, int idx)
 {
@@ -89,9 +92,17 @@ static void count_max_entries(const Elf_Rela *relas, size_t num,
 		switch (ELF_R_TYPE(relas[i].r_info)) {
 		case R_RISCV_CALL_PLT:
 		case R_RISCV_PLT32:
+#ifndef CONFIG_SOC_SPACEMIT
+/* it seems that the duplicate check is not necessary */
+			if (!duplicate_rela(relas, i))
+#endif
 			(*plts)++;
 			break;
 		case R_RISCV_GOT_HI20:
+#ifndef CONFIG_SOC_SPACEMIT
+/* it seems that the duplicate check is not necessary */
+			if (!duplicate_rela(relas, i))
+#endif
 			(*gots)++;
 			break;
 		default:
