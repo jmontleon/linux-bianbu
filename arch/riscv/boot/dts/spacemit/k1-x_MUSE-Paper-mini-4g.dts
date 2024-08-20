@@ -206,6 +206,19 @@
 	status = "okay";
 };
 
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
+	spacemit,i2c-fast-mode;
+	status = "okay";
+};
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	spacemit,i2c-fast-mode;
+	status = "okay";
+};
+
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
@@ -750,6 +763,96 @@
 		broken-flash-reset;
 		status = "okay";
 	};
+};
+/* MIPI CSI1, clk lane1, Fixme: frontsensor gc2375h */
+&backsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	pwdn-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio 111 0>;
+
+	twsi-index = <0>;
+
+	status = "okay";
+};
+
+/* MIPI CSI3 data line2,3 clk lane2 */
+&backsensor_aux {
+	//af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	//dvdd_1v2-supply = <&ldo_6>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
+
+	twsi-index = <1>;
+
+	status = "disabled";
+};
+/* MIPI CSI3 data line0,1 clk lane3, Fixme: backsensor gc5035 */
+&frontsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	clocks = <&ccu CLK_CAMM1>;
+	clock-names = "cam_mclk1";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_camera1>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
+
+	twsi-index = <1>;
+
+	//pwm-enable;
+	//pwms = <&pwm16 10000>;
+
+	status = "okay";
+};
+&csiphy0 {
+
+	status = "okay";
+};
+&csiphy1 {
+
+	status = "disabled";
+};
+&csiphy2 {
+
+	status = "okay";
+};
+
+&ccic0 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+&ccic1 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+&ccic2 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+&isp {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+&cpp {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+&vi {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 };
 
 &rcpu {
