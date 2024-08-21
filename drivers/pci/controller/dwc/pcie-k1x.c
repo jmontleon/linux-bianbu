@@ -1624,7 +1624,12 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 	}
 
 	k1x->pwr_on_gpio = of_get_named_gpio(np, "k1x,pwr_on", 0);
-	if (k1x->pwr_on_gpio <= 0) {
+	if (k1x->pwr_on_gpio > 0) {
+		if (gpio_request(k1x->pwr_on_gpio, "pcie-pwron")) {
+			dev_warn(dev, "request power on gpio failed.\n");
+			k1x->pwr_on_gpio = -1;
+		}
+	} else {
 		dev_info(dev, "has no power on gpio.\n");
 	}
 
