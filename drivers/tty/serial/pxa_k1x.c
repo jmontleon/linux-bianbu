@@ -45,6 +45,7 @@
 #include <linux/pm_qos.h>
 #include <linux/pm_wakeup.h>
 #include <linux/timer.h>
+#include <linux/pm.h>
 
 #define	DMA_BLOCK		UART_XMIT_SIZE
 #define	DMA_BURST_SIZE		(8)
@@ -2009,10 +2010,7 @@ static int serial_pxa_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops serial_pxa_pm_ops = {
-	.suspend = serial_pxa_suspend,
-	.resume = serial_pxa_resume,
-};
+static SIMPLE_DEV_PM_OPS(serial_pxa_pm_ops, serial_pxa_suspend, serial_pxa_resume);
 #endif
 
 #ifdef CONFIG_PM
