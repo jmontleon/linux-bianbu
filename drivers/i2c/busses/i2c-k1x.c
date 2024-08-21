@@ -1228,16 +1228,25 @@ out:
 }
 
 static bool spacemit_i2c_restart_notify = false;
+static bool spacemit_i2c_poweroff_notify = false;
+struct sys_off_handler *i2c_poweroff_handler;
 
 static int
-spacemit_i2c_notifier_call(struct notifier_block *nb, unsigned long action, void *data)
+spacemit_i2c_notifier_reboot_call(struct notifier_block *nb, unsigned long action, void *data)
 {
 	spacemit_i2c_restart_notify = true;
 	return 0;
 }
 
+static int spacemit_i2c_notifier_poweroff_call(struct sys_off_data *data)
+{
+	spacemit_i2c_poweroff_notify = true;
+
+	return NOTIFY_DONE;
+}
+
 static struct notifier_block spacemit_i2c_sys_nb = {
-	.notifier_call  = spacemit_i2c_notifier_call,
+	.notifier_call  = spacemit_i2c_notifier_reboot_call,
 	.priority   = 0,
 };
 
@@ -1261,7 +1270,8 @@ spacemit_i2c_xfer(struct i2c_adapter *adapt, struct i2c_msg msgs[], int num)
 	 * software power down command to pmic via i2c interface
 	 * with local irq disabled, so just enter PIO mode at once
 	*/
-	if (unlikely(spacemit_i2c_restart_notify == true
+	if (unlikely(spacemit_i2c_restart_notify == true ||
+			spacemit_i2c_poweroff_notify == true
 #ifdef CONFIG_DEBUG_FS
 		|| spacemit_i2c->dbgfs_mode == SPACEMIT_I2C_MODE_PIO
 #endif
@@ -2074,6 +2084,11 @@ static struct platform_driver spacemit_i2c_driver = {
 static int __init spacemit_i2c_init(void)
 {
 	register_restart_handler(&spacemit_i2c_sys_nb);
+	i2c_poweroff_handler = register_sys_off_handler(SYS_OFF_MODE_POWER_OFF,
+			SYS_OFF_PRIO_HIGH,
+			spacemit_i2c_notifier_poweroff_call,
+			NULL);
+
 	return platform_driver_register(&spacemit_i2c_driver);
 }
 
@@ -2081,6 +2096,7 @@ static void __exit spacemit_i2c_exit(void)
 {
 	platform_driver_unregister(&spacemit_i2c_driver);
 	unregister_restart_handler(&spacemit_i2c_sys_nb);
+	unregister_sys_off_handler(i2c_poweroff_handler);
 }
 
 subsys_initcall(spacemit_i2c_init);
@@ -2127,7 +2143,6 @@ static int rpmsg_i2c_client_probe(struct rpmsg_device *rpdev)
 
 	((unsigned long long *)(r_spacemit_i2c_dt_match[0].data))[0] = (unsigned long long)idata;
 
-	register_restart_handler(&spacemit_i2c_sys_nb);
 	return platform_driver_register(&r_spacemit_i2c_driver);
 }
 
@@ -2154,7 +2169,6 @@ static void rpmsg_i2c_client_remove(struct rpmsg_device *rpdev)
 	dev_info(&rpdev->dev, "rpmsg i2c client driver is removed\n");
 
 	platform_driver_unregister(&r_spacemit_i2c_driver);
-	unregister_restart_handler(&spacemit_i2c_sys_nb);
 }
 
 static struct rpmsg_driver rpmsg_i2c_client = {
