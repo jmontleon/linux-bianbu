@@ -625,7 +625,7 @@
 
 		pinctrl: pinctrl@d401e000 {
 			compatible = "pinconf-single-aib";
-			reg = <0x0 0xd401e000 0x0 0x400>,
+			reg = <0x0 0xd401e000 0x0 0x250>,
 				<0x0 0xd4019800 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
