@@ -44,6 +44,8 @@
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 #define EDGE_CLEAR			6
+#define EDGE_FALL_EN			5
+#define EDGE_RISE_EN			4
 #endif
 
 /**
@@ -1826,7 +1828,10 @@ static int pcs_probe(struct platform_device *pdev)
 	struct pcs_device *pcs;
 	const struct pcs_soc_data *soc;
 	int ret;
-
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	u32 regval, i;
+	void __iomem *base;
+#endif
 	soc = of_device_get_match_data(&pdev->dev);
 	if (WARN_ON(!soc))
 		return -EINVAL;
@@ -1975,6 +1980,16 @@ static int pcs_probe(struct platform_device *pdev)
 	if (PCS_HAS_PINCONF)
 		pcs->desc.confops = &pcs_pinconf_ops;
 	pcs->desc.owner = THIS_MODULE;
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	for (i = 4, base = pcs->base + 4; i < pcs->size; i += 4, base += 4) {
+		regval = pcs->read((void __iomem *)base);
+		regval |= (1 << EDGE_CLEAR);
+		regval &= ~(1 << EDGE_FALL_EN);
+		regval &= ~(1 << EDGE_RISE_EN);
+		pcs->write(regval, (void __iomem *)base);
+	}
+#endif
 
 	ret = pcs_allocate_pin_table(pcs);
 	if (ret < 0)
