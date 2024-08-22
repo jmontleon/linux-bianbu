@@ -229,7 +229,6 @@ static int mv_otg_enable_internal(struct mv_otg *mvotg)
 		"otg enabled, will enable clk, release rst\n");
 
 	otg_clock_enable(mvotg);
-	otg_reset_assert(mvotg);
 	otg_reset_deassert(mvotg);
 	retval = usb_phy_init(mvotg->outer_phy);
 	if (retval) {
