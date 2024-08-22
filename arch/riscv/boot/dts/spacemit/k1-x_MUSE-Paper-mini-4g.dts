@@ -319,7 +319,7 @@
 		interrupts = <126 1>;
 		spk-ctl-gpio = <&gpio 127 0>;
 		everest,jack-detect-inverted;
-		everest,mic1-src = [44];
+		everest,mic1-src = [66];
 		everest,mic2-src = [66];
 		status = "okay";
 	};
@@ -1009,11 +1009,11 @@
 &i2s0 {
         pinctrl-names = "default";
         pinctrl-0 = <&pinctrl_sspa0_0>;
-        status = "disabled";
+        status = "okay";
 };
 
 &sound_codec {
-	status = "disabled";
+	status = "okay";
 	simple-audio-card,name = "snd-es8326";
 	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
