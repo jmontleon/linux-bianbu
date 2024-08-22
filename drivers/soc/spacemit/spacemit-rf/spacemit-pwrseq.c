@@ -24,11 +24,13 @@
 #include <linux/platform_device.h>
 #include "spacemit-pwrseq.h"
 
-struct spacemit_pwrseq *pwrseq_data;
 
-struct spacemit_pwrseq *spacemit_get_pwrseq(void)
+struct spacemit_pwrseq *spacemit_get_pwrseq_from_dev(struct device *dev)
 {
-	return pwrseq_data;
+	if (dev && dev->parent && dev->parent->of_node &&
+	    of_device_is_compatible(dev->parent->of_node, "spacemit,rf-pwrseq"))
+		return platform_get_drvdata(to_platform_device(dev->parent));
+	return NULL;
 }
 
 static void spacemit_set_gpios_value(struct spacemit_pwrseq *pwrseq,
@@ -251,8 +253,6 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	pwrseq_data = pwrseq;
-
 	mutex_init(&pwrseq->pwrseq_mutex);
 	atomic_set(&pwrseq->pwrseq_count, 0);
 
@@ -272,7 +272,6 @@ static int spacemit_pwrseq_remove(struct platform_device *pdev)
 	mutex_destroy(&pwrseq->pwrseq_mutex);
 	of_platform_depopulate(&pdev->dev);
 
-	pwrseq_data = NULL;
 	return 0;
 }
 
