@@ -1100,6 +1100,10 @@ static enum rtw_phl_status _stop_datapath(struct cmd_ps *ps)
 		ps->stop_datapath = true;
 		return RTW_PHL_STATUS_SUCCESS;
 	}
+	/*to avoid stop_datapath not sync with phl_sw_tx_sts*/
+	ctl.id = PHL_MDL_POWER_MGNT;
+	ctl.cmd = PHL_DATA_CTL_SW_TX_RESUME;
+	phl_data_ctrler(ps->phl_info, &ctl, NULL);
 
 	return RTW_PHL_STATUS_FAILURE;
 }
@@ -1203,6 +1207,21 @@ static bool _chk_ips_enter(struct cmd_ps *ps, u16 *macid)
 		return false;
 	}
 
+	if (!_is_datapath_active(ps)) {
+		if (!ps->stop_datapath) {
+			PHL_TRACE(COMP_PHL_PS, _PHL_WARNING_,
+				  "[PS_CMD], %s(): PHL_TX_STATUS_SW_PAUSE is inconsistent with stop_datapath(%d);pause_tx id(0x%x)!!\n",
+				  __func__,
+				  ps->stop_datapath,
+				  ps->phl_info->pause_tx_id);
+		}
+
+		return true;
+	}
+
+	if (_stop_datapath(ps) != RTW_PHL_STATUS_SUCCESS)
+		return false;
+
 	return true;
 }
 
@@ -1275,6 +1294,14 @@ static bool _chk_lps_enter(struct cmd_ps *ps, u16 *macid)
 		/* check data path stop or not */
 		if (ps_cap->lps_pause_tx) {
 			if (!_is_datapath_active(ps)) {
+				if (!ps->stop_datapath) {
+					PHL_TRACE(COMP_PHL_PS, _PHL_WARNING_,
+						  "[PS_CMD], %s(): PHL_TX_STATUS_SW_PAUSE is inconsistent with stop_datapath(%d);pause_tx id(0x%x)!!\n",
+						  __func__,
+						  ps->stop_datapath,
+						  ps->phl_info->pause_tx_id);
+				}
+
 				return true;
 			} else {
 				if (_stop_datapath(ps) == RTW_PHL_STATUS_SUCCESS)

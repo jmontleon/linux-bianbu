@@ -273,7 +273,7 @@ u8 rtw_mi_dump_mac_addr(_adapter *adapter);
 #endif
 
 u8 rtw_mi_disconnect(_adapter *adapter);
-u8 rtw_mi_buddy_disconnect(_adapter *adapter, Disconnect_type disc_code);
+u8 rtw_mi_buddy_disconnect(_adapter *adapter, struct disconnect_data *disc_data);
 
 bool rtw_iface_is_operate_at_hwband(_adapter *adapter, u8 band_idx);
 bool rtw_iface_at_same_hwband(_adapter *adapter, _adapter *iface);

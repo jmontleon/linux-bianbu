@@ -300,6 +300,9 @@ static u32 cdma_imr_enable(struct mac_ax_adapter *adapter, u8 band)
 
 static u32 phy_intf_imr_enable(struct mac_ax_adapter *adapter, u8 band)
 {
+	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
+	u32 val32 = 0, reg = R_AX_RMAC_ERR_ISR;
+
 #if MAC_AX_8852A_SUPPORT || MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT
 	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852A) ||
 	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
@@ -330,6 +333,19 @@ static u32 phy_intf_imr_enable(struct mac_ax_adapter *adapter, u8 band)
 			   PHYINTF_STS_ON_TIMEOUT_ERR_SER_EN) |
 			  (B_AX_CSI_ON_TIMEOUT_INT_EN &
 			   PHYINTF_CSI_ON_TIMEOUT_ERR_SER_EN));
+		MAC_REG_W32(reg, val32);
+	}
+#endif
+
+#if (MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT)
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
+		reg = band == MAC_AX_BAND_0 ?
+		      R_AX_PHYINFO_ERR_IMR : R_AX_PHYINFO_ERR_IMR_C1;
+		val32 = MAC_REG_R32(reg);
+		val32 |= B_AX_PHY_TXON_TIMEOUT_INT_EN;
+		val32 = SET_CLR_WORD(val32, 0x7, B_AX_PHYINTF_TIMEOUT_THR);
 		MAC_REG_W32(reg, val32);
 	}
 #endif

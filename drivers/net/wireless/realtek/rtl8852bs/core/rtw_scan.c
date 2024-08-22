@@ -1475,7 +1475,7 @@ void rtw_surveydone_event_callback(_adapter *adapter, u8 *pbuf)
 	} else {
 		if (rtw_chk_roam_flags(adapter, RTW_ROAM_ACTIVE)
                 #if (defined(CONFIG_RTW_WNM) && defined(CONFIG_RTW_80211R))
-                        || rtw_wnm_btm_roam_triggered(adapter)
+                        || rtw_ft_chk_flags((adapter), RTW_FT_BTM_ROAM)
                 #endif
 		) {
 			if (MLME_IS_STA(adapter)
@@ -2160,7 +2160,7 @@ static int scan_complete_cb(void *priv, struct rtw_phl_scan_param *param)
 		if (pwdev_priv->random_mac_enabled
 		    && (MLME_IS_STA(padapter))
 		    && (check_fwstate(&padapter->mlmepriv, WIFI_ASOC_STATE) == _FALSE))
-			rtw_set_mac_addr_hw(padapter, adapter_mac_addr(padapter));
+			rtw_set_mac_addr_hw(padapter, (u8 *)(wdev_to_ndev(pwdev_priv->rtw_wdev)->dev_addr));
 
 		pwdev_priv->random_mac_enabled = false;
 	}
@@ -2190,6 +2190,10 @@ static int scan_complete_cb(void *priv, struct rtw_phl_scan_param *param)
 
 	mlmeext_set_scan_state(pmlmeext, SCAN_DISABLE);
 	report_surveydone_event(padapter, acs, RTW_CMDF_DIRECTLY);
+
+	issue_action_BSSCoexistPacket(padapter);
+	issue_action_BSSCoexistPacket(padapter);
+	issue_action_BSSCoexistPacket(padapter);
 
 	ret = _SUCCESS;
 
@@ -2467,7 +2471,7 @@ static void scan_channel_list_filled(_adapter *padapter,
 u8 rtw_sitesurvey_cmd(_adapter *padapter, struct sitesurvey_parm *pparm)
 {
 	u8 res = _FAIL;
-	u8 i;
+	u8 i, has_ssid = 0;
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 	struct rtw_phl_scan_param *phl_param = NULL;
@@ -2521,7 +2525,12 @@ u8 rtw_sitesurvey_cmd(_adapter *padapter, struct sitesurvey_parm *pparm)
 	}
 
 	/* STEP_2.1 set EXT_ACT_SCAN_ENABLE for hidden AP scan */
-	if (phl_param->ssid[0].ssid_len) {
+	for (i = 0; i < phl_param->ssid_num; i++) {
+		if (phl_param->ssid[i].ssid_len)
+			has_ssid++;
+	}
+
+	if (has_ssid) {
 		phl_param->ext_act_scan_period = RTW_EXTEND_ACTIVE_SCAN_PERIOD;
 		for (i = 0; i < phl_param->ch_num; i++) {
 			int chset_idx;

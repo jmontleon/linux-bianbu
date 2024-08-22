@@ -115,6 +115,10 @@ u8 rtw_wmn_btm_rsp_reason_decision(_adapter *padapter, u8* req_mode)
 	if (!rtw_wnm_btm_diff_bss(padapter)) {
 		/* Reject - No suitable BSS transition candidates */
 		reason = 7;
+		RTW_INFO("WNM : Reject - No suitable BSS transition candidates,"
+			"roam_target_addr:" MAC_FMT ", cur_network_mac:" MAC_FMT "\n",
+			MAC_ARG(padapter->mlmepriv.nb_info.roam_target_addr),
+			MAC_ARG(padapter->mlmepriv.dev_cur_network.network.MacAddress));
 		goto candidate_remove;
 	}
 
@@ -135,8 +139,8 @@ u8 rtw_wmn_btm_rsp_reason_decision(_adapter *padapter, u8* req_mode)
 	if (recvinfo->signal_strength_data.avg_val >=
 		pmlmepriv->roam_rssi_threshold) {
 		reason = 1;
-		RTW_WNM_INFO("%s : Reject - under high roam rssi(%u, %u) \n",
-			__func__, recvinfo->signal_strength_data.avg_val,
+		RTW_INFO("WNM : Reject - under high roam rssi(%u, %u) \n",
+			recvinfo->signal_strength_data.avg_val,			
 			pmlmepriv->roam_rssi_threshold);
 		goto candidate_remove;
 	}
@@ -293,12 +297,6 @@ u8 rtw_wnm_try_btm_roam_imnt(_adapter *padapter)
 	struct btm_rpt_cache *pcache = &(pnb->btm_cache);
 	u8 reason = 0, flag = 0;
 
-	if (!rtw_wnm_btm_preference_cap(padapter)) {
-		RTW_WNM_INFO("%s : no btm candidate can be used!\n",
-				__func__);
-		return 1;
-	}
-
 	flag = BIT(0) | BIT(1);
 	if (!rtw_wnm_btm_candidate_validity(pcache, flag))
 		return 1;
@@ -338,9 +336,9 @@ void rtw_wnm_process_btm_req(_adapter *padapter, u8* pframe, u32 frame_len)
 	if (offset == 0)
 		return;
 
-	if ((frame_len - offset) <= 15) {
-		RTW_INFO("WNM : Reject - "
-			"no suitable BSS transition candidates!\n");
+	if (req_hdr.req_mode & PREFERRED_CANDIDATE_LIST_INCLUDED && (frame_len - offset) < 15) {
+		RTW_INFO("WNM : Reject - Candidate list included bit is set,"
+			"but no BSS transition candidates found in BTM req!\n");
 		rtw_wnm_issue_action(padapter,
 			RTW_WLAN_ACTION_WNM_BTM_RSP, 7, req_hdr.dialog_token);
 		return;

@@ -1597,7 +1597,7 @@ static bool _phl_datapath_chk_pwr(struct phl_info_t *phl_info, u8 type)
 	}
 
 	if (pause_id & ~(DATA_CTRL_MDL_PS)) {
-		PHL_TRACE(COMP_PHL_DBG, _PHL_WARNING_,
+		PHL_TRACE(COMP_PHL_DBG, _PHL_DEBUG_,
 		          "%s(): [DATA_CTRL] SW datapath paused by module(0x%x)\n",
 		          __func__,
 		          pause_id);

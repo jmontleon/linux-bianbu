@@ -36,7 +36,7 @@ rtw_hal_efuse_shadow_write(struct hal_info_t *hal_info, u8 byte_count,
 enum rtw_hal_status
 rtw_hal_efuse_shadow_update(struct hal_info_t *hal_info, bool is_limit);
 enum rtw_hal_status rtw_hal_efuse_shadow2buf(struct hal_info_t *hal_info,
-	u8 *pbuf, u16 buflen);
+	u8 *pbuf, u16 buflen,u8 is_limit);
 enum rtw_hal_status rtw_hal_efuse_file_map_load(struct hal_info_t *hal_info,
 	char *file_path, u8 is_limit);
 enum rtw_hal_status rtw_hal_efuse_file_mask_load(struct hal_info_t *hal_info,

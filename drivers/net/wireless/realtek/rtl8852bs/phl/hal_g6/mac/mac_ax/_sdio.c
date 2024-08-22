@@ -121,15 +121,6 @@ u8 reg_read8_sdio(struct mac_ax_adapter *adapter, u32 adr)
 	u8 val8;
 	u8 pwr_state, reg_domain;
 	enum mac_ax_sdio_4byte_mode cmd53_4byte = adapter->sdio_info.sdio_4byte;
-	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
-
-	if (adapter->mac_pwr_info.pwr_in_lps == 1) {
-		PLTFM_MSG_ERR("[DBG]pwr_in_lps r8 %x\n", adr);
-		if (mops->io_chk_access(adapter, adr) != MACSUCCESS) {
-			PLTFM_MSG_ERR("[DBG]block pwr_in_lps r8 %x\n", adr);
-			return PWR_IN_LPS_R8;
-		}
-	}
 
 	pwr_state = pwr_state_chk_sdio(adapter);
 	reg_domain = reg_chk_sdio(adapter, adr);
@@ -153,15 +144,6 @@ u8 reg_read8_sdio(struct mac_ax_adapter *adapter, u32 adr)
 void reg_write8_sdio(struct mac_ax_adapter *adapter, u32 adr, u8 val)
 {
 	u8 reg_domain;
-	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
-
-	if (adapter->mac_pwr_info.pwr_in_lps == 1) {
-		PLTFM_MSG_ERR("[DBG]pwr_in_lps w8 %x, %x\n", adr, val);
-		if (mops->io_chk_access(adapter, adr) != MACSUCCESS) {
-			PLTFM_MSG_ERR("[DBG]block pwr_in_lps w8 %x, %x\n", adr, val);
-			return;
-		}
-	}
 
 	reg_domain = reg_chk_sdio(adapter, adr);
 
@@ -179,15 +161,6 @@ u16 reg_read16_sdio(struct mac_ax_adapter *adapter, u32 adr)
 		__le16 word;
 		u8 byte[2];
 	} value16 = { 0x0000 };
-	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
-
-	if (adapter->mac_pwr_info.pwr_in_lps == 1) {
-		PLTFM_MSG_ERR("[DBG]pwr_in_lps r16 %x\n", adr);
-		if (mops->io_chk_access(adapter, adr) != MACSUCCESS) {
-			PLTFM_MSG_ERR("[DBG]block pwr_in_lps r16 %x\n", adr);
-			return PWR_IN_LPS_R16;
-		}
-	}
 
 	pwr_state = pwr_state_chk_sdio(adapter);
 	reg_domain = reg_chk_sdio(adapter, adr);
@@ -221,15 +194,6 @@ void reg_write16_sdio(struct mac_ax_adapter *adapter, u32 adr, u16 val)
 {
 	u8 pwr_state, reg_domain;
 	enum mac_ax_sdio_4byte_mode sdio_4byte = adapter->sdio_info.sdio_4byte;
-	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
-
-	if (adapter->mac_pwr_info.pwr_in_lps == 1) {
-		PLTFM_MSG_ERR("[DBG]pwr_in_lps w16 %x, %x\n", adr, val);
-		if (mops->io_chk_access(adapter, adr) != MACSUCCESS) {
-			PLTFM_MSG_ERR("[DBG]block pwr_in_lps w16 %x, %x\n", adr, val);
-			return;
-		}
-	}
 
 	pwr_state = pwr_state_chk_sdio(adapter);
 	reg_domain = reg_chk_sdio(adapter, adr);
@@ -267,15 +231,6 @@ u32 reg_read32_sdio(struct mac_ax_adapter *adapter, u32 adr)
 		__le32 dword;
 		u8 byte[4];
 	} value32 = { 0x00000000 };
-	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
-
-	if (adapter->mac_pwr_info.pwr_in_lps == 1) {
-		PLTFM_MSG_ERR("[DBG]pwr_in_lps r32 %x\n", adr);
-		if (mops->io_chk_access(adapter, adr) != MACSUCCESS) {
-			PLTFM_MSG_ERR("[DBG]block pwr_in_lps r32 %x\n", adr);
-			return PWR_IN_LPS_R32;
-		}
-	}
 
 	pwr_state = pwr_state_chk_sdio(adapter);
 	reg_domain = reg_chk_sdio(adapter, adr);
@@ -312,15 +267,6 @@ u32 reg_read32_sdio(struct mac_ax_adapter *adapter, u32 adr)
 void reg_write32_sdio(struct mac_ax_adapter *adapter, u32 adr, u32 val)
 {
 	u8 pwr_state, reg_domain;
-	struct mac_ax_ops *mops = adapter_to_mac_ops(adapter);
-
-	if (adapter->mac_pwr_info.pwr_in_lps == 1) {
-		PLTFM_MSG_ERR("[DBG]pwr_in_lps w32 %x, %x\n", adr, val);
-		if (mops->io_chk_access(adapter, adr) != MACSUCCESS) {
-			PLTFM_MSG_ERR("[DBG]block pwr_in_lps w32 %x, %x\n", adr, val);
-			return;
-		}
-	}
 
 	pwr_state = pwr_state_chk_sdio(adapter);
 	reg_domain = reg_chk_sdio(adapter, adr);

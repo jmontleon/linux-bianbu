@@ -2094,6 +2094,7 @@ struct dev_cap_t {
 	u8 sgi_160_sup;
 	u8 rpq_agg_num; /* 0: no adjust, use mac default size: 121 */
 	bool quota_turbo;
+	bool logo_test;
 	u8 band_sup;
 	u8 bw_sup;
 

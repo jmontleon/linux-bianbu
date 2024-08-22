@@ -3317,6 +3317,51 @@ ssize_t proc_set_tx_amsdu_rate(struct file *file, const char __user *buffer, siz
 	return count;
 }
 #endif /* CONFIG_TX_AMSDU */
+
+int proc_get_tx_max_agg_time(struct seq_file *m, void *v)
+{
+	struct net_device *dev = m->private;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
+
+	if (padapter)
+	{
+		RTW_PRINT_SEL(m, "max agg time = 0x%x\n", pxmitpriv->max_agg_time);
+	}
+
+	return 0;
+}
+
+ssize_t proc_set_tx_max_agg_time(struct file *file, const char __user *buffer, size_t count, loff_t *pos, void *data)
+{
+	struct net_device *dev = data;
+	_adapter *padapter = (_adapter *)rtw_netdev_priv(dev);
+	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
+	char tmp[32];
+	u16 agg_t;
+
+	if (count < 1)
+		return -EFAULT;
+
+	if (count > sizeof(tmp)) {
+		rtw_warn_on(1);
+		return -EFAULT;
+	}
+
+	if (buffer && !copy_from_user(tmp, buffer, count)) {
+
+		int num = sscanf(tmp, "%hx ", &agg_t);
+
+		if (padapter && (num == 1)) {
+			RTW_INFO("max_agg_time = 0x%x\n", agg_t);
+
+			pxmitpriv->max_agg_time = agg_t;
+		}
+	}
+
+	return count;
+}
+
 #endif /* CONFIG_80211N_HT */
 
 #ifdef CONFIG_80211AC_VHT

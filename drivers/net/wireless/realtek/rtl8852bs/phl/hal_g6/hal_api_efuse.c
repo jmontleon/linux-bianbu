@@ -61,11 +61,11 @@ rtw_hal_efuse_shadow_write(struct hal_info_t *hal_info, u8 byte_count,
 }
 
 enum rtw_hal_status
-rtw_hal_efuse_shadow2buf(struct hal_info_t *hal_info, u8 *pbuf, u16 buflen)
+rtw_hal_efuse_shadow2buf(struct hal_info_t *hal_info, u8 *pbuf, u16 buflen, u8 is_limit)
 {
 	enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
 
-	status = rtw_efuse_shadow2buf(hal_info->efuse, pbuf, buflen);
+	status = rtw_efuse_shadow2buf(hal_info->efuse, pbuf, buflen, is_limit);
 
 	return status;
 }
@@ -434,7 +434,8 @@ void hal_efuse_dump_wifi_map(
 				 _out_len - _used_len, "Allocate buffer fail!\n");
 		goto exit;
 	}
-	rtw_efuse_shadow2buf(hal_info->efuse, buf, (u16)map_len);
+	rtw_efuse_shadow2buf(hal_info->efuse, buf, (u16)map_len, true);
+
 
 	PHL_DBG_OUTBUF(_out_len, _used_len, output + _used_len, _out_len - _used_len,
 			 "EFUSE Wifi shadow map from %s\n\n",

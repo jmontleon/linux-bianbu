@@ -69,7 +69,6 @@ _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_reg.o
 _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_rx.o
 _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_tx.o
 _HAL_FILES += $(phl_path)$(HAL)/test/mp/hal_test_mp_txpwr.o
-_HAL_FILES += $(phl_path)$(HAL)/test/fpga/hal_test_fpga.o
 endif
 
 _HAL_FILES += $(phl_path)$(HAL)/efuse/hal_efuse.o

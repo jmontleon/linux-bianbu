@@ -60,7 +60,7 @@ enum rtw_hal_status
 rtw_efuse_shadow_update(void *efuse, bool is_limit);
 
 enum rtw_hal_status
-rtw_efuse_shadow2buf(void *efuse, u8 *destbuf, u16 buflen);
+rtw_efuse_shadow2buf(void *efuse, u8 *destbuf, u16 buflen, u8 is_limit);
 
 enum rtw_hal_status
 rtw_efuse_file_map_load(void *efuse, char *file_path, u8 is_limit);

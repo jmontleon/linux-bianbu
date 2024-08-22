@@ -1363,8 +1363,8 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 
 	phl_com->dev_sw_cap.hw_hdr_conv = rtw_hw_hdr_conv;
 
-	phl_com->proto_sw_cap[0].max_amsdu_len = rtw_max_amsdu_len;
-	phl_com->proto_sw_cap[1].max_amsdu_len = rtw_max_amsdu_len;
+	phl_com->proto_sw_cap[0].max_amsdu_len = rtw_wifi_spec ? 0 : rtw_max_amsdu_len;
+	phl_com->proto_sw_cap[1].max_amsdu_len = rtw_wifi_spec ? 0 : rtw_max_amsdu_len;
 
 #if defined(CONFIG_PCI_HCI)
 	#if defined(CONFIG_PCI_ASPM)
@@ -1489,6 +1489,14 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 	phl_com->proto_sw_cap[1].stbc_rx_greater_80mhz = (rtw_stbc_cap & BIT9) ? 1 : 0;
 
 #ifdef CONFIG_BEAMFORMING
+	if (rtw_wifi_spec == 1) {
+		if ((rtw_beamform_cap & BIT(3)) == 0)
+			RTW_INFO("%s: enable VHT MU-MIMO Beamformee for Logo Test!\n", __func__);
+
+		rtw_beamform_cap |= BIT(3);
+		rtw_sw_proto_bf_cap_phy0 |= BIT(3);
+		rtw_sw_proto_bf_cap_phy1 |= BIT(3);
+	}
 	phl_com->role_sw_cap.bf_cap = 0;
 	phl_com->role_sw_cap.bf_cap |= (rtw_beamform_cap & BIT0) ? HW_CAP_BFER_VHT_SU : 0;
 	phl_com->role_sw_cap.bf_cap |= (rtw_beamform_cap & BIT1) ? HW_CAP_BFEE_VHT_SU: 0;
@@ -1584,6 +1592,7 @@ void rtw_core_update_default_setting (struct dvobj_priv *dvobj)
 #endif
 
 	phl_com->dev_sw_cap.quota_turbo = rtw_quota_turbo_en;
+	phl_com->dev_sw_cap.logo_test  = rtw_wifi_spec ? true : false;
 
 #ifdef CONFIG_HW_FORM_SEC_HEADER
 	dvobj->phl_com->dev_sw_cap.sec_cap.hw_form_hdr = true;

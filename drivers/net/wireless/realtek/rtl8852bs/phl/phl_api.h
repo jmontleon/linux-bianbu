@@ -1126,6 +1126,18 @@ rtw_phl_cmd_get_txinfo_pwr(void *phl, s16 *pwr_dbm,
 u32 rtw_phl_get_phy_stat_info(void *phl, enum phl_band_idx hw_band,
 			      enum phl_stat_info_query phy_stat);
 
+u32 rtw_phl_efuse_get_logical_size(void *phl, u32 *size);
+
+u32 rtw_phl_efuse_get_bt_logical_size(void *phl, u32 *size);
+
+u32 rtw_phl_efuse_shadow_load(void *phl, bool is_limit);
+
+u32 rtw_phl_efuse_bt_shadow_load(void *phl);
+
+u32 rtw_phl_efuse_shadow2buf(void *phl, u8 *pbuf, u16 buflen, bool is_limit);
+
+u32 rtw_phl_efuse_bt_shadow2buf(void *phl, u8 *pbuf, u16 buflen);
+
 enum rtw_phl_status
 rtw_phl_cmd_get_rx_cnt_by_idx(void *phl,
 			      enum phl_band_idx hw_band,

@@ -114,8 +114,6 @@ _PHL_FILES += $(phl_path)test/mp/phl_test_mp_cal.o
 _PHL_FILES += $(phl_path)test/mp/phl_test_mp_watchdog.o
 _PHL_FILES += $(phl_path)test/verify/phl_test_verify.o
 _PHL_FILES += $(phl_path)test/verify/dbcc/phl_test_dbcc.o
-_PHL_FILES += $(phl_path)test/fpga/phl_test_fpga.o
-_PHL_FILES += $(phl_path)test/fpga/phl_test_fpga_config.o
 endif
 
 OBJS += $(_PHL_FILES)

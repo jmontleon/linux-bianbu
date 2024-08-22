@@ -212,10 +212,28 @@ void halbb_ic_hw_setting_init_8852b(struct bb_info *bb)
 void halbb_ic_hw_setting_8852b(struct bb_info *bb)
 {
 	bool btg_en;
+	struct bb_link_info *link = &bb->bb_link_i;
+	struct rtw_phl_stainfo_t *sta = NULL;
+	struct rtw_rssi_info *sta_rssi = NULL;
+	u16 rssi_a = 0;
+	u16 rssi_b = 0;
+	u16 rssi_path_diff = 0;
 	u32 id = bb->phl_com->id.id & 0xFFFF;
 	
 	BB_DBG(bb, DBG_PHY_CONFIG, "<====== %s ======>\n", __func__);
+
+	if (!link->is_linked)
+		return;
 	
+	if (!link->is_one_entry_only)
+		return;
+
+	sta = bb->phl_sta_info[link->one_entry_macid];
+	sta_rssi = &sta->hal_sta->rssi_stat;
+	rssi_a = sta_rssi->rssi_ma_path[0];
+	rssi_b = sta_rssi->rssi_ma_path[1];
+	rssi_path_diff = DIFF_2(rssi_a, rssi_b) >> 5;
+
 	btg_en = (bb->hal_com->band[0].cur_chandef.band == BAND_ON_24G) &&
 		((bb->rx_path == RF_PATH_B) || (bb->rx_path == RF_PATH_AB)) ? true : false;
 	
@@ -235,6 +253,18 @@ void halbb_ic_hw_setting_8852b(struct bb_info *bb)
 	else
 		halbb_set_reg(bb, 0x4408, BIT(25), 0x0);
 
+	if (rssi_path_diff > 15) {
+		halbb_set_reg(bb, 0x4964, BIT(31), 0);
+		BB_DBG(bb, DBG_PHY_CONFIG,
+			"rssi(a,b)=(%d,%d),rssi_diff=(%d),ant_wgt_normalize_mode_OFF\n",
+			rssi_a, rssi_b, rssi_path_diff);
+	} else {
+		halbb_set_reg(bb, 0x4964, BIT(31), 1);
+		BB_DBG(bb, DBG_PHY_CONFIG,
+			"rssi(a,b)=(%d,%d),rssi_diff=(%d),ant_wgt_normalize_mode_ON\n",
+			rssi_a, rssi_b, rssi_path_diff);
+	}
+	
 }
 
 bool halbb_set_pd_lower_bound_8852b(struct bb_info *bb, u8 bound,

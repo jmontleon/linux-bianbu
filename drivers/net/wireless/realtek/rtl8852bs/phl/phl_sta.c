@@ -1992,18 +1992,12 @@ static void
 _phl_set_dfs_tb_ctrl(struct phl_info_t *phl_info,
 		     struct rtw_wifi_role_link_t *rlink)
 {
-	struct rtw_regulation_channel reg_ch = {0};
-	enum band_type band = rlink->chandef.band;
-	u8 channel = rlink->chandef.chan;
-	bool is_dfs = false;
+	struct dvobj_priv *dvobj = phl_to_drvpriv(phl_info);
+	struct rf_ctl_t *rfctl = dvobj_to_rfctl(dvobj);
+	struct rtw_chset *chset = &rfctl->chset;
+	bool is_dfs = rtw_chset_is_dfs_bch(chset, rlink->chandef.band, rlink->chandef.chan);
 
-
-	if (rtw_phl_regulation_query_ch(phl_info, band, channel, &reg_ch)) {
-		if (reg_ch.property & CH_DFS)
-			is_dfs = true;
-
-		rtw_hal_set_dfs_tb_ctrl(phl_info->hal, is_dfs);
-	}
+	rtw_hal_set_dfs_tb_ctrl(phl_info->hal, is_dfs);
 }
 
 static void

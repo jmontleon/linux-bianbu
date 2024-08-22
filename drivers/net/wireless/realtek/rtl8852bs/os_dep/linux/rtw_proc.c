@@ -1590,8 +1590,8 @@ static int proc_get_turboedca_ctrl(struct seq_file *m, void *v)
 	else if (padapter->dis_turboedca == DIS_TURBO)
 		RTW_PRINT_SEL(m, "Turbo-EDCA : %s\n", "Disable");
 	else
-		RTW_PRINT_SEL(m, "Turbo-EDCA : %s, mode=%d, edca_param_mode=0x%x\n",
-			"Disable", padapter->dis_turboedca, padapter->edca_param_mode);
+		RTW_PRINT_SEL(m, "Turbo-EDCA mode=%d, edca_param_mode=0x%x\n",
+			      padapter->dis_turboedca, padapter->edca_param_mode);
 
 	_RTW_PRINT_SEL(m, "PARAM_BE:0x%x\n", padapter->edca_param_mode);
 
@@ -4954,6 +4954,7 @@ const struct rtw_proc_hdl adapter_proc_hdls[] = {
 	RTW_PROC_HDL_SSEQ("tx_amsdu", proc_get_tx_amsdu, proc_set_tx_amsdu),
 	RTW_PROC_HDL_SSEQ("tx_amsdu_rate", proc_get_tx_amsdu_rate, proc_set_tx_amsdu_rate),
 #endif
+	RTW_PROC_HDL_SSEQ("tx_max_agg_time", proc_get_tx_max_agg_time, proc_set_tx_max_agg_time),
 #endif /* CONFIG_80211N_HT */
 
 #ifdef CONFIG_80211AC_VHT

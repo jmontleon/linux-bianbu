@@ -70,10 +70,6 @@
 #define CMAC_CLK_ALLEN 0xFFFFFFFF
 #define SDIO_DEFAULT_AGG_NUM	0x40
 
-#define PWR_IN_LPS_R8	0xAA
-#define PWR_IN_LPS_R16	0xAAAA
-#define PWR_IN_LPS_R32	0xAAAAAAAA
-
 /**
  * @struct mac_sdio_tbl
  * @brief mac_sdio_tbl
