@@ -20,5 +20,5 @@ struct spacemit_pwrseq {
 };
 
 void spacemit_power_on(struct spacemit_pwrseq *pwrseq, bool on_off);
-struct spacemit_pwrseq *spacemit_get_pwrseq(void);
+struct spacemit_pwrseq *spacemit_get_pwrseq_from_dev(struct device*);
 #endif
