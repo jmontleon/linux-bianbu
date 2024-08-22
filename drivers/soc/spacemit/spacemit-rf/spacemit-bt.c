@@ -27,6 +27,7 @@
 
 struct bt_pwrseq {
 	struct device		*dev;
+	struct spacemit_pwrseq *parent;
 	bool power_state;
 	u32 power_on_delay_ms;
 
@@ -37,21 +38,19 @@ struct bt_pwrseq {
 
 static int spacemit_bt_on(struct bt_pwrseq *pwrseq, bool on_off)
 {
-	struct spacemit_pwrseq *parent_pwrseq = spacemit_get_pwrseq();
-
 	if (!pwrseq || IS_ERR(pwrseq->reset_n))
 		return 0;
 
 	if (on_off){
-		if(parent_pwrseq)
-			spacemit_power_on(parent_pwrseq, 1);
+		if(pwrseq->parent)
+			spacemit_power_on(pwrseq->parent, 1);
 		gpiod_set_value(pwrseq->reset_n, 1);
 		if (pwrseq->power_on_delay_ms)
 			msleep(pwrseq->power_on_delay_ms);
 	}else{
 		gpiod_set_value(pwrseq->reset_n, 0);
-		if(parent_pwrseq)
-			spacemit_power_on(parent_pwrseq, 0);
+		if(pwrseq->parent)
+			spacemit_power_on(pwrseq->parent, 0);
 	}
 
 	pwrseq->power_state = on_off;
@@ -93,6 +92,7 @@ static int spacemit_bt_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	pwrseq->dev = dev;
+	pwrseq->parent = spacemit_get_pwrseq_from_dev(pwrseq->dev);
 	platform_set_drvdata(pdev, pwrseq);
 
 	pwrseq->reset_n = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
