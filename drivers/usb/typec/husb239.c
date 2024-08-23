@@ -301,6 +301,9 @@ static int husb239_get_cc_orientation(struct husb239 *husb239)
 	enum typec_orientation orientation;
 	int ret, status;
 
+	if (IS_ERR_OR_NULL(sw_dev))
+		return 0;
+
 	ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
 	if (ret)
 		return ret;
