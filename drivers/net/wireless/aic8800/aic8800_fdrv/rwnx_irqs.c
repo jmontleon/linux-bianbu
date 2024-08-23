@@ -20,10 +20,10 @@
  */
 irqreturn_t rwnx_irq_hdlr(int irq, void *dev_id)
 {
-    struct rwnx_hw *rwnx_hw = (struct rwnx_hw *)dev_id;
-    disable_irq_nosync(irq);
-    tasklet_schedule(&rwnx_hw->task);
-    return IRQ_HANDLED;
+	struct rwnx_hw *rwnx_hw = (struct rwnx_hw *)dev_id;
+	disable_irq_nosync(irq);
+	tasklet_schedule(&rwnx_hw->task);
+	return IRQ_HANDLED;
 }
 
 /**
@@ -33,35 +33,33 @@ irqreturn_t rwnx_irq_hdlr(int irq, void *dev_id)
  */
 void rwnx_task(unsigned long data)
 {
-    struct rwnx_hw *rwnx_hw = (struct rwnx_hw *)data;
-    REG_SW_SET_PROFILING(rwnx_hw, SW_PROF_RWNX_IPC_IRQ_HDLR);
+	struct rwnx_hw *rwnx_hw = (struct rwnx_hw *)data;
 
 #if 0
-    struct rwnx_plat *rwnx_plat = rwnx_hw->plat;
-    u32 status, statuses = 0;
+	struct rwnx_plat *rwnx_plat = rwnx_hw->plat;
+	u32 status, statuses = 0;
 
-    /* Ack unconditionnally in case ipc_host_get_status does not see the irq */
-    rwnx_plat->ack_irq(rwnx_plat);
+	/* Ack unconditionnally in case ipc_host_get_status does not see the irq */
+	rwnx_plat->ack_irq(rwnx_plat);
 
-    while ((status = ipc_host_get_status(rwnx_hw->ipc_env))) {
-        statuses |= status;
-        /* All kinds of IRQs will be handled in one shot (RX, MSG, DBG, ...)
-         * this will ack IPC irqs not the cfpga irqs */
-        ipc_host_irq(rwnx_hw->ipc_env, status);
+	while ((status = ipc_host_get_status(rwnx_hw->ipc_env))) {
+		statuses |= status;
+		/* All kinds of IRQs will be handled in one shot (RX, MSG, DBG, ...)
+		 * this will ack IPC irqs not the cfpga irqs */
+		ipc_host_irq(rwnx_hw->ipc_env, status);
 
-        rwnx_plat->ack_irq(rwnx_plat);
-    }
+		rwnx_plat->ack_irq(rwnx_plat);
+	}
 #endif
-    //if (statuses & IPC_IRQ_E2A_RXDESC)
-    //    rwnx_hw->stats.last_rx = now;
-    //if (statuses & IPC_IRQ_E2A_TXCFM)
-    //    rwnx_hw->stats.last_tx = now;
-	AICWFDBG(LOGTRACE, "rwnx_task\n");
-    spin_lock_bh(&rwnx_hw->tx_lock);
-    rwnx_hwq_process_all(rwnx_hw);
-    spin_unlock_bh(&rwnx_hw->tx_lock);
+	//if (statuses & IPC_IRQ_E2A_RXDESC)
+	//    rwnx_hw->stats.last_rx = now;
+	//if (statuses & IPC_IRQ_E2A_TXCFM)
+	//    rwnx_hw->stats.last_tx = now;
+
+	spin_lock_bh(&rwnx_hw->tx_lock);
+	rwnx_hwq_process_all(rwnx_hw);
+	spin_unlock_bh(&rwnx_hw->tx_lock);
 #if 0
-    enable_irq(rwnx_platform_get_irq(rwnx_plat));
+	enable_irq(rwnx_platform_get_irq(rwnx_plat));
 #endif
-    REG_SW_CLEAR_PROFILING(rwnx_hw, SW_PROF_RWNX_IPC_IRQ_HDLR);
 }

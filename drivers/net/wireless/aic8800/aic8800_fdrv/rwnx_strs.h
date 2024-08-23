@@ -21,9 +21,9 @@
 #include "lmac_msg.h"
 
 #define RWNX_ID2STR(tag) (((MSG_T(tag) < ARRAY_SIZE(rwnx_id2str)) &&        \
-                           (rwnx_id2str[MSG_T(tag)]) &&          \
-                           ((rwnx_id2str[MSG_T(tag)])[MSG_I(tag)])) ?   \
-                          (rwnx_id2str[MSG_T(tag)])[MSG_I(tag)] : "unknown")
+						   (rwnx_id2str[MSG_T(tag)]) &&          \
+						   ((rwnx_id2str[MSG_T(tag)])[MSG_I(tag)])) ?   \
+						  (rwnx_id2str[MSG_T(tag)])[MSG_I(tag)] : "unknown")
 
 extern const char *const *rwnx_id2str[TASK_LAST_EMB + 1];
 #endif /* CONFIG_RWNX_FHOST */

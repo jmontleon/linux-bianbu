@@ -1,5 +1,15 @@
-#define RWNX_VERS_REV "1a4b0054d2M (master)"
-#define RWNX_VERS_MOD "6.4.3.0"
-#define RWNX_VERS_BANNER "rwnx v6.4.3.0 - 1a4b0054d2M (master)"
-#define RELEASE_DATE "2023_0207_1052"
+#define RWNX_VERS_REV    "241c091M (master)"
+#define DRV_RELEASE_DATE "20240730"
+#define DRV_PATCH_LEVEL  "004"
+#define RWNX_VERS_MOD    DRV_RELEASE_DATE "-" DRV_PATCH_LEVEL "-6.4.3.0"
+#define RWNX_VERS_BANNER "rwnx " RWNX_VERS_MOD " - - " RWNX_VERS_REV
 
+#if defined(AICWF_SDIO_SUPPORT)
+#define DRV_TYPE_NAME   "compatible(sdio)"
+#elif defined(AICWF_USB_SUPPORT)
+#define DRV_TYPE_NAME   "compatible(usb)"
+#else
+#define DRV_TYPE_NAME   "compatible(unknow)"
+#endif
+
+#define DRV_RELEASE_TAG "aic-rwnx-" DRV_TYPE_NAME "-" DRV_RELEASE_DATE "-" DRV_PATCH_LEVEL
