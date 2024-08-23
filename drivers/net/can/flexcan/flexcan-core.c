@@ -2263,6 +2263,21 @@ static int flexcan_probe(struct platform_device *pdev)
 			return PTR_ERR(clk_per);
 		}
 		clock_freq = clk_get_rate(clk_per);
+	} else {
+		clk_per = devm_clk_get(&pdev->dev, "per");
+		if (IS_ERR(clk_per)) {
+			dev_err(&pdev->dev, "no per clock defined\n");
+			return PTR_ERR(clk_per);
+		}
+		clk_set_rate(clk_per, clock_freq);
+	}
+
+	if (!clk_ipg) {
+		clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+		if (IS_ERR(clk_ipg)) {
+			dev_err(&pdev->dev, "no ipg clock defined\n");
+			return PTR_ERR(clk_ipg);
+		}
 	}
 
 	reset = devm_reset_control_get_optional(&pdev->dev,NULL);
