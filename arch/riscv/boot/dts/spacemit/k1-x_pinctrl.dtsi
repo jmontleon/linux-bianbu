@@ -391,6 +391,18 @@
 		>;
 	};
 
+	pinctrl_r_ir_rx_0: r_ir_rx_0_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_48, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_ir_rx */
+		>;
+	};
+
+	pinctrl_r_ir_rx_1: r_ir_rx_1_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_44, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* r_ir_rx */
+		>;
+	};
+
 	pinctrl_pwm0_0: pwm0_0_grp {
 		pinctrl-single,pins = <
 			K1X_PADCONF(MMC1_DAT3, MUX_MODE5, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* pwm0 */
