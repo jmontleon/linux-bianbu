@@ -180,6 +180,7 @@ struct husb239 {
 	struct gpio_desc *en_gpiod; /* chip enable gpio */
 	struct gpio_desc *chg_gpiod;/* stop charge while set vbus */
 	struct gpio_desc *aud_gpiod;/* audio switch gpio */
+	struct gpio_desc *mic_gpiod;/* mic switch gpio */
 
 	struct gpio_desc *sel_gpiod;/* sel gpio, for orient switch */
 	struct gpio_desc *oe_gpiod; /* oe gpio, for orient switch */
@@ -407,6 +408,8 @@ static int husb239_attach(struct husb239 *husb239)
 			(husb239_get_accessory(husb239) == TYPEC_ACCESSORY_AUDIO)) {
 		/* sel = 0 audp/audn, sel = 1 hdp/hdn */
 		gpiod_set_value(husb239->aud_gpiod, 1);
+		/* sel = 0 micp = sleeve, sel = 1 micp = ring2 */
+		gpiod_set_value(husb239->mic_gpiod, 1);
 		husb239->audio_on = true;
 		dev_info(husb239->dev, "audo accessory attach\n");
 		ret = husb239_register_partner(husb239, 0, TYPEC_ACCESSORY_AUDIO);
@@ -453,6 +456,7 @@ static int husb239_attach(struct husb239 *husb239)
 vbus_disable:
 	if (husb239->audio_on) {
 		gpiod_set_value(husb239->aud_gpiod, 0);
+		gpiod_set_value(husb239->mic_gpiod, 0);
 		husb239->audio_on = false;
 	}
 	if (husb239->vbus_on) {
@@ -486,6 +490,7 @@ static void husb239_detach(struct husb239 *husb239)
 
 	if (husb239->audio_on) {
 		gpiod_set_value(husb239->aud_gpiod, 0);
+		gpiod_set_value(husb239->mic_gpiod, 0);
 		husb239->audio_on = false;
 		dev_info(husb239->dev, "audo accessory detach\n");
 	}
@@ -718,6 +723,11 @@ static int husb239_typec_port_probe(struct husb239 *husb239)
 	husb239->aud_gpiod = devm_gpiod_get_optional(dev, "aud", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->aud_gpiod)) {
 		return PTR_ERR(husb239->aud_gpiod);
+	}
+
+	husb239->mic_gpiod = devm_gpiod_get_optional(dev, "mic", GPIOD_OUT_LOW);
+	if (IS_ERR(husb239->mic_gpiod)) {
+		return PTR_ERR(husb239->mic_gpiod);
 	}
 
 	connector = device_get_named_child_node(dev, "connector");
