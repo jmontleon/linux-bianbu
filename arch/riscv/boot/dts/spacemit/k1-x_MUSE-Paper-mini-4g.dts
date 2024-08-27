@@ -18,7 +18,7 @@
 
 / {
 	model = "MUSE-PAPER-MINI-4G";
-	modules_usrload = "8852bs";
+	modules_usrload = "aic8800_bsp,aic8800_fdrv,aic8800_btlpm";
 
 	cpus: cpus {
 		#address-cells = <1>;
