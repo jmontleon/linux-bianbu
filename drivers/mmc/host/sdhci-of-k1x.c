@@ -1754,7 +1754,7 @@ err_clk_get:
 	return ret;
 }
 
-static int spacemit_sdhci_remove(struct platform_device *pdev)
+static void spacemit_sdhci_remove(struct platform_device *pdev)
 {
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -1781,8 +1781,6 @@ static int spacemit_sdhci_remove(struct platform_device *pdev)
 	}
 
 	sdhci_pltfm_free(pdev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -1896,7 +1894,7 @@ static struct platform_driver spacemit_sdhci_driver = {
 		.pm	= SDHCI_SPACEMIT_PMOPS,
 	},
 	.probe		= spacemit_sdhci_probe,
-	.remove		= spacemit_sdhci_remove,
+	.remove_new	= spacemit_sdhci_remove,
 };
 
 module_platform_driver(spacemit_sdhci_driver);
