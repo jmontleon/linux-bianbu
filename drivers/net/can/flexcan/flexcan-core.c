@@ -2254,6 +2254,10 @@ static int flexcan_probe(struct platform_device *pdev)
 	of_id = of_match_device(flexcan_of_match, &pdev->dev);
 	if (of_id)
 		devtype_data = of_id->data;
+	else if (of_match_device(r_flexcan_of_match, &pdev->dev)) {
+		of_id = of_match_device(r_flexcan_of_match, &pdev->dev);
+		devtype_data = of_id->data;
+	}
 	else if (platform_get_device_id(pdev)->driver_data)
 		devtype_data = (struct flexcan_devtype_data *)
 			platform_get_device_id(pdev)->driver_data;
