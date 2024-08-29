@@ -154,6 +154,8 @@ else
 fi
 sourcename=${KDEB_SOURCENAME:-linux-upstream}
 
+kernelgitver=$(git rev-parse --short HEAD)
+
 if [ "$ARCH" = "um" ] ; then
 	packagename=user-mode-linux
 else
@@ -217,12 +219,14 @@ Maintainer: $maintainer
 Rules-Requires-Root: no
 Build-Depends: bc, debhelper, rsync, kmod, cpio, bison, flex $extra_build_depends
 Homepage: https://www.kernel.org/
+XBS-Commit-Id: $kernelgitver
 
 Package: $packagename-$version
 Architecture: $debarch
 Description: Linux kernel, version $version
  This package contains the Linux kernel, modules and corresponding other
  files, version: $version.
+Depends: spacemit-flash-dtbs
 EOF
 
 if [ "${SRCARCH}" != um ]; then
@@ -236,6 +240,26 @@ Description: Linux support headers for userspace development
  This package provides userspaces headers from the Linux kernel.  These headers
  are used by the installed headers for GNU glibc and other system libraries.
 Multi-Arch: same
+
+Package: linux-tools-$version
+Architecture: $debarch
+Section: devel
+Depends: linux-tools-common
+Description: Linux kernel version specific tools for version -$version
+ This package provides the architecture dependant parts for kernel
+ version locked tools (such as perf) for
+ version -$version on
+ .
+
+Package: linux-tools-common
+Architecture: all
+Multi-Arch: foreign
+Section: kernel
+Depends: lsb-release
+Description: Linux kernel version specific tools for version $version
+ This package provides the architecture independent parts for kernel
+ version locked tools (such as perf) for
+ version $version.
 EOF
 
 if is_enabled CONFIG_MODULES; then

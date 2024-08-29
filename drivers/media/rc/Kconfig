@@ -393,6 +393,15 @@ config IR_SUNXI
 	   To compile this driver as a module, choose M here: the module will
 	   be called sunxi-ir.
 
+config IR_SPACEMIT
+	tristate "SPACEMIT IR remote Recriver control"
+	depends on SOC_SPACEMIT
+	help
+	   Say Y if you want to use spacemit IR Controller
+
+	   To compile this driver as a module, choose M here: the module will be
+	   called spacemit-ir
+
 config IR_TOY
 	tristate "Infrared Toy and IR Droid"
 	depends on USB

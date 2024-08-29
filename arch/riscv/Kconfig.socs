@@ -111,4 +111,64 @@ config SOC_CANAAN_K210_DTB_SOURCE
 
 endif # ARCH_CANAAN
 
+config SOC_SPACEMIT
+	bool "Spacemit SoCs"
+	select SIFIVE_PLIC
+	help
+	  This enables support for Spacemit SoCs platform hardware.
+
+if SOC_SPACEMIT
+
+choice
+	prompt "Spacemit SOCs platform"
+	help
+	  choice Spacemit soc platform
+
+	config SOC_SPACEMIT_K1
+		bool "k1"
+		help
+		  select Spacemit k1 Platform SOCs.
+
+	config SOC_SPACEMIT_K2
+		bool "k2"
+		help
+		  select Spacemit k2 Platform SOCs.
+
+endchoice
+
+if SOC_SPACEMIT_K1
+
+choice
+	prompt "Spacemit K1 serial SOCs"
+	help
+	  choice Spacemit K1 soc platform
+
+	config SOC_SPACEMIT_K1PRO
+		bool "k1-pro"
+		select DW_APB_TIMER_OF
+		help
+		  This enables support for Spacemit k1-pro Platform Hardware.
+
+	config SOC_SPACEMIT_K1X
+		bool "k1-x"
+		help
+		  This enables support for Spacemit k1-x Platform Hardware.
+endchoice
+
+config SOC_SPACEMIT_K1_FPGA
+	bool "Spacemit K1 serial SoC FPGA platform"
+	default n
+	help
+	  This enable FPGA platform for K1 SoCs.
+
+endif
+
+config BIND_THREAD_TO_AICORES
+	bool "enable bind ai cores when use AI instruction"
+	default y
+	help
+	  This enable bind ai cores when use AI instruction.
+
+endif
+
 endmenu # "SoC selection"

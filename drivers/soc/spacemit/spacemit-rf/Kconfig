@@ -1,0 +1,9 @@
+#
+# Spacemit rfkill driver.
+#
+config SPACEMIT_RFKILL
+  tristate "Spacemit rfkill driver"
+  depends on WIRELESS || RFKILL
+  help
+    Spacemit rfkill driver
+

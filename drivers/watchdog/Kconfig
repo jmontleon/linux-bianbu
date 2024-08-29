@@ -2257,4 +2257,18 @@ config KEEMBAY_WATCHDOG
 	  To compile this driver as a module, choose M here: the
 	  module will be called keembay_wdt.
 
+config SPACEMIT_WATCHDOG
+	tristate "Spacemit-k1x SoC Watchdog"
+	depends on SOC_SPACEMIT_K1X
+	select WATCHDOG_CORE
+	help
+	  spacemit k1x plat SoC Watchdog timer. This will reboot your system when
+	  the timeout is reached.
+
+config K1X_WDT_TEST
+	bool "Support K1X watchdog test"
+	depends on SOC_SPACEMIT_K1X && SPACEMIT_WATCHDOG
+	help
+	  This will enable K1X watchdog timer test
+
 endif # WATCHDOG

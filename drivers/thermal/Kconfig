@@ -201,6 +201,13 @@ config CPU_IDLE_THERMAL
 	  This implements the CPU cooling mechanism through
 	  idle injection. This will throttle the CPU by injecting
 	  idle cycle.
+
+config CPU_HOTPLUG_THERMAL
+	bool "CPU hotplug cooling device"
+	depends on HOTPLUG_CPU && SOC_SPACEMIT
+	help
+	  This implements the CPU cooling mechanism through
+	  cpu hotplug.
 endif
 
 config DEVFREQ_THERMAL
@@ -439,6 +446,13 @@ config AMLOGIC_THERMAL
 
 	  This driver can also be built as a module. If so, the module will
 	  be called amlogic_thermal.
+
+config K1X_THERMAL
+	tristate "Spacemit K1X Thermal Support"
+	depends on OF && SOC_SPACEMIT
+	help
+	  Enable this option if you want to have support for thermal management
+	  controller present in Spacemit SoCs
 
 menu "Intel thermal drivers"
 depends on X86 || X86_INTEL_QUARK || COMPILE_TEST
