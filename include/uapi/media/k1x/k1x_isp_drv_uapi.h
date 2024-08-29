@@ -6,8 +6,8 @@
 #include <linux/types.h>
 
 #define IOC_K1X_ISP_TYPE       'D'
-//#define K1X_ISP_DEV_NAME         "k1xisp"
-//#define K1X_ISP_PIPE_DEV_NAME    "k1xisp-pipe"
+/*#define K1X_ISP_DEV_NAME         "k1xisp"*/
+/*#define K1X_ISP_PIPE_DEV_NAME    "k1xisp-pipe"*/
 #define K1X_ISP_DEV_NAME         "mars11isp"
 #define K1X_ISP_PIPE_DEV_NAME    "mars11isp-pipe"
 
@@ -39,14 +39,14 @@ enum isp_stat_id {
 	ISP_STAT_ID_LTM,
 	ISP_STAT_ID_AF,
 	ISP_STAT_ID_PDC,
-	ISP_STAT_ID_EIS, //5
+	ISP_STAT_ID_EIS, /*5*/
 	ISP_STAT_ID_MAX,
 };
 
 enum isp_pipe_task_type {
-	ISP_PIPE_TASK_TYPE_SOF, //firmware calc task at sof
-	ISP_PIPE_TASK_TYPE_EOF, //firmware calc task at eof
-	ISP_PIPE_TASK_TYPE_AF, //firmware calc AF stat task
+	ISP_PIPE_TASK_TYPE_SOF, /*firmware calc task at sof*/
+	ISP_PIPE_TASK_TYPE_EOF, /*firmware calc task at eof*/
+	ISP_PIPE_TASK_TYPE_AF, /*firmware calc AF stat task*/
 	ISP_PIPE_TASK_TYPE_MAX,
 };
 
@@ -139,8 +139,8 @@ enum isp_work_status {
 	ISP_WORK_STATUS_INIT,
 	ISP_WORK_STATUS_START,
 	ISP_WORK_STATUS_STOP,
-	ISP_WORK_STATUS_DONE, //for once work, licke capture
-	ISP_WORK_STATUS_RESTART,//isp hardware error happen, need to reset
+	ISP_WORK_STATUS_DONE, /*for once work, licke capture*/
+	ISP_WORK_STATUS_RESTART,/*isp hardware error happen, need to reset*/
 };
 
 enum isp_job_action {
@@ -198,7 +198,7 @@ struct isp_user_task_info {
 			struct isp_ubuf_uint awb_result;
 			struct isp_ubuf_uint eis_result;
 			struct isp_ubuf_uint ae_result;
-			// __u32 rgbir_avg[2]; /* AVG0 and AVG1 */
+			/* __u32 rgbir_avg[2]; AVG0 and AVG1 */
 		} sof_task;
 		struct {
 			struct isp_ubuf_uint ae_result;

@@ -51,12 +51,12 @@ struct regval_tab {
 enum sensor_i2c_len {
 	I2C_8BIT = 1,
 	I2C_16BIT = 2,
-	//I2C_24BIT = 3,
-	//I2C_32BIT = 4,
+	/*I2C_24BIT = 3,*/
+	/*I2C_32BIT = 4,*/
 };
 
 struct cam_i2c_data {
-	//uint8_t twsi_no;
+	/*uint8_t twsi_no;*/
 	enum sensor_i2c_len reg_len;
 	enum sensor_i2c_len val_len;
 	uint8_t addr; /* 7 bit i2c address*/
@@ -64,7 +64,7 @@ struct cam_i2c_data {
 };
 
 struct cam_burst_i2c_data {
-	//uint8_t twsi_no;
+	/*uint8_t twsi_no;*/
 	enum sensor_i2c_len reg_len;
 	enum sensor_i2c_len val_len;
 	uint8_t addr; /* 7 bit i2c address*/

@@ -7,7 +7,7 @@
 
 #ifndef _UAPI_LINUX_K1X_CCIC_H_
 #define _UAPI_LINUX_K1X_CCIC_H_
-//#include <linux/videodev2.h>
+/*#include <linux/videodev2.h>*/
 
 enum {
 	CCIC_MODE_NM = 0,
