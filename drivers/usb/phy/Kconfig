@@ -138,6 +138,23 @@ config USB_MV_OTG
 
 	  To compile this driver as a module, choose M here.
 
+config USB_K1XCI_OTG
+	tristate "Spacemit K1-x USB OTG support"
+	depends on USB_EHCI_K1X && USB_K1X_UDC && USB_OTG
+	depends on USB_GADGET || !USB_GADGET # if USB_GADGET=m, this can't be 'y'
+	select USB_PHY
+	help
+	  Say Y here if you want to build Spacemit K1-x USB OTG transciever driver.
+	  This driver implements role switch between EHCI host driver and gadget driver.
+
+config K1XCI_USB2_PHY
+	tristate "K1x ci USB 2.0 PHY Driver"
+	depends on USB || USB_GADGET
+	select USB_PHY
+	help
+	  Enable this to support USB 2.0 PHY driver. This driver will do the PHY
+	  initialization and shutdown. The PHY driver will be used by K1x udc/ehci/otg driver.
+
 config USB_MXS_PHY
 	tristate "Freescale MXS USB PHY support"
 	depends on ARCH_MXC || ARCH_MXS

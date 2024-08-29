@@ -2160,14 +2160,28 @@ static int mmc_suspend(struct mmc_host *host)
 static int _mmc_resume(struct mmc_host *host)
 {
 	int err = 0;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	int retry = 3;
+#endif
 
 	mmc_claim_host(host);
 
 	if (!mmc_card_suspended(host->card))
 		goto out;
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+retry_resume:
+#endif
 	mmc_power_up(host, host->card->ocr);
 	err = mmc_init_card(host, host->card->ocr, host->card);
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (err && retry--) {
+		pr_err("%s: try to retry resume, err:%d\n",
+			mmc_hostname(host), err);
+		mmc_power_off(host);
+		goto retry_resume;
+	}
+#endif
 	mmc_card_clr_suspended(host->card);
 
 out:

@@ -95,6 +95,8 @@ static const struct of_device_id allowlist[] __initconst = {
 	{ .compatible = "xlnx,zynq-7000", },
 	{ .compatible = "xlnx,zynqmp", },
 
+	{ .compatible = "spacemit,k1-x", },
+
 	{ }
 };
 
@@ -181,6 +183,8 @@ static const struct of_device_id blocklist[] __initconst = {
 	{ .compatible = "qcom,apq8064", },
 	{ .compatible = "qcom,msm8974", },
 	{ .compatible = "qcom,msm8960", },
+
+	{ .compatible = "spacemit,k1-x", },
 
 	{ }
 };

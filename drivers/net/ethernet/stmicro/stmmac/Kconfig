@@ -255,6 +255,25 @@ config DWMAC_VISCONTI
 	help
 	  Support for ethernet controller on Visconti SoCs.
 
+config DWMAC_SPACEMIT
+	tristate "Spacemit DWMAC support"
+	help
+	  Support for ethernet controller on Spacemit SOCs.
+
+	  This selects Spacemit SoC glue layer support for the stmmac
+	  device driver. This driver is used for the Spacemit series
+	  SOCs GMAC ethernet controller.
+
+config DWMAC_SPACEMIT_ETHQOS
+	tristate "Spacemit ETHQOS support"
+	default CONFIG_SOC_SPACEMIT
+	depends on OF && (CONFIG_SOC_SPACEMIT || COMPILE_TEST)
+	help
+	  Support for the Spacemit ETHQOS core.
+
+	  This selects the Spacemit ETHQOS glue layer support for the
+	  stmmac device driver.
+
 endif
 
 config DWMAC_INTEL

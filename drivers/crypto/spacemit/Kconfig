@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SPACEMIT_REE_ENGINE
+	tristate "SPACEMIT REE Crypto Engine"
+	depends on SOC_SPACEMIT_K1X
+	default n
+	help
+	  Support SPACEMIT REE Crypto Engine.
+
+config SPACEMIT_REE_AES
+        tristate "Enable AES in SPACEMIT REE Crytpo Engine"
+        depends on SPACEMIT_REE_ENGINE
+        default n
+        help
+          Support AES using SPACEMIT REE Crypto Engine.
+
+config SPACEMIT_CRYPTO_DEBUG
+	tristate "Enable SPACEMIT REE Crytpo Engine Debug Interface"
+        depends on SPACEMIT_REE_ENGINE
+        default n
+        help
+	  Enable spacemit crypto engine debug interface in userspace
+
+config SPACEMIT_CRYPTO_SELF_TEST
+	tristate "Enable SPACEMIT REE Crytpo Engine Selftest"
+	depends on SPACEMIT_REE_ENGINE
+	default n
+	help
+	  SPACEMIT REE Crypto Engine support selftest when probe

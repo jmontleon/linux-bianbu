@@ -54,6 +54,10 @@ endif
 endif
 endif
 
+ifeq ($(CONFIG_SHADOW_CALL_STACK),y)
+	KBUILD_LDFLAGS += --no-relax-gp
+endif
+
 # ISA string setting
 riscv-march-$(CONFIG_ARCH_RV32I)	:= rv32ima
 riscv-march-$(CONFIG_ARCH_RV64I)	:= rv64ima
@@ -104,7 +108,9 @@ KBUILD_AFLAGS_MODULE += $(call as-option,-Wa$(comma)-mno-relax)
 # unaligned accesses.  While unaligned accesses are explicitly allowed in the
 # RISC-V ISA, they're emulated by machine mode traps on all extant
 # architectures.  It's faster to have GCC emit only aligned accesses.
+ifneq ($(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS),y)
 KBUILD_CFLAGS += $(call cc-option,-mstrict-align)
+endif
 
 ifeq ($(CONFIG_STACKPROTECTOR_PER_TASK),y)
 prepare: stack_protector_prepare
@@ -149,7 +155,7 @@ ifeq ($(CONFIG_RISCV_M_MODE)$(CONFIG_ARCH_CANAAN),yy)
 KBUILD_IMAGE := $(boot)/loader.bin
 else
 ifeq ($(CONFIG_EFI_ZBOOT),)
-KBUILD_IMAGE := $(boot)/Image.gz
+KBUILD_IMAGE := $(boot)/Image.gz.itb
 else
 KBUILD_IMAGE := $(boot)/vmlinuz.efi
 endif
@@ -157,14 +163,20 @@ endif
 endif
 BOOT_TARGETS := Image Image.gz loader loader.bin xipImage vmlinuz.efi
 
-all:	$(notdir $(KBUILD_IMAGE))
+#
+# extra files
+#
+include $(srctree)/arch/riscv/generic/Platform
+bootvars-y	= ITS_INPUTS="$(its-y)"
+
+all:	$(notdir $(KBUILD_IMAGE)) Image.itb Image.gz.itb
 
 $(BOOT_TARGETS): vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 	@$(kecho) '  Kernel: $(boot)/$@ is ready'
 
-Image.%: Image
-	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
+Image.%: Image Image.gz
+	$(Q)$(MAKE) $(build)=$(boot) $(bootvars-y) $(boot)/$@
 
 install: KBUILD_IMAGE := $(boot)/Image
 zinstall: KBUILD_IMAGE := $(boot)/Image.gz

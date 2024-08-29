@@ -14,6 +14,7 @@
 #include <asm/auxvec.h>
 #include <asm/byteorder.h>
 #include <asm/cacheinfo.h>
+#include <asm/cpufeature.h>
 #include <asm/hwcap.h>
 
 /*

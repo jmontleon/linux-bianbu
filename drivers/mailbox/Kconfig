@@ -295,4 +295,31 @@ config QCOM_IPCC
 	  acts as an interrupt controller for receiving interrupts from clients.
 	  Say Y here if you want to build this driver.
 
+config SPACEMIT_MAILBOX
+	tristate "Spacemit Message Box"
+	depends on SOC_SPACEMIT
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+
+if SPACEMIT_MAILBOX
+
+config K1PRO_MAILBOX
+	tristate "Spacemit K1pro Message Box"
+	depends on SOC_SPACEMIT
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+
+config K1X_MAILBOX
+	tristate "Spacemit K1x Message Box"
+	depends on SOC_SPACEMIT
+	help
+	  Mailbox implementation for the hardware message box present in
+	  various Spacemit SoCs. This mailbox is used for communication
+	  between the application CPUs and the power management coprocessor.
+endif
+
 endif

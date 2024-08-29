@@ -629,7 +629,11 @@ struct scatterlist *sgl_alloc_order(unsigned long long length,
 		nalloc++;
 	}
 	sgl = kmalloc_array(nalloc, sizeof(struct scatterlist),
+#if defined(CONFIG_SOC_SPACEMIT_K1X)
+			    gfp & ~(GFP_DMA | GFP_DMA32));
+#else
 			    gfp & ~GFP_DMA);
+#endif
 	if (!sgl)
 		return NULL;
 
