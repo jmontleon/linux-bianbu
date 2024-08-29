@@ -839,10 +839,6 @@ mv_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 		goto err_unmap_dma;
 	}
 
-	/* Update ep0 state */
-	if (ep->ep_num == 0)
-		udc->ep0_state = DATA_STATE_XMIT;
-
 	/* irq handler advances the queue */
 	list_add_tail(&req->queue, &ep->queue);
 	spin_unlock_irqrestore(&udc->lock, flags);
