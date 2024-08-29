@@ -484,6 +484,7 @@ void rtw_hal_final_cap_decision(struct rtw_phl_com_t *phl_com, void *hal)
 
 	/* MAC_AX_QTA_SCC_TURBO, decide by sw, need to be refined after we have hw cap */
 	dev_cap->quota_turbo = dev_sw_cap->quota_turbo;
+	dev_cap->logo_test = dev_sw_cap->logo_test;
 
 	dev_cap->sgi_160_sup = dev_hw_cap->sgi_160_sup;
 

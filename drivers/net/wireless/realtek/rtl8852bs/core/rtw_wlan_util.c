@@ -1620,8 +1620,8 @@ void rtw_debug_rx_bcn(_adapter *adapter, u8 *pframe, u32 packet_len)
  *	WLAN_EID_CHANNEL_SWITCH
  *	WLAN_EID_PWR_CONSTRAINT
  */
-int _rtw_get_bcn_keys(u8 *cap_info, u32 buf_len, u8 def_ch
-	, struct _ADAPTER_LINK *adapter_link
+static int _rtw_get_bcn_keys(u8 *cap_info, u32 buf_len, u8 def_ch
+	, struct _ADAPTER_LINK *adapter_link, u8 mbssid_idx
 	, struct beacon_keys *recv_beacon)
 {
 	int left;
@@ -1660,15 +1660,29 @@ int _rtw_get_bcn_keys(u8 *cap_info, u32 buf_len, u8 def_ch
 			return _FALSE;
 	}
 
-	if (rtw_ies_get_supported_rate(pos, left, recv_beacon->rate_set, &recv_beacon->rate_num) == _FAIL)
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+	if (elems.mbssid && mbssid_idx) {
+		if (rtw_ieee802_11_override_elems_by_mbssid(elems.mbssid - 2, elems.mbssid_len + 2, mbssid_idx, &elems, 1) == ParseFailed)
+			return _FALSE;
+		if (elems.non_tx_bssid_cap) {
+			if (elems.non_tx_bssid_cap_len != 2)
+				return _FALSE;
+			capability = le16_to_cpu(*(unsigned short *)(elems.non_tx_bssid_cap));
+		}
+	}
+#endif
+
+	if (rtw_elems_get_supported_rate(&elems, recv_beacon->rate_set, &recv_beacon->rate_num) == _FAIL)
 		return _FALSE;
 
-	if (cckratesonly_included(recv_beacon->rate_set, recv_beacon->rate_num) == _TRUE)
-		recv_beacon->proto_cap |= PROTO_CAP_11B;
-	else if (cckrates_included(recv_beacon->rate_set, recv_beacon->rate_num) == _TRUE)
-		recv_beacon->proto_cap |= PROTO_CAP_11B | PROTO_CAP_11G;
-	else
-		recv_beacon->proto_cap |= PROTO_CAP_11G;
+	if (recv_beacon->rate_num) {
+		if (cckratesonly_included(recv_beacon->rate_set, recv_beacon->rate_num) == _TRUE)
+			recv_beacon->proto_cap |= PROTO_CAP_11B;
+		else if (cckrates_included(recv_beacon->rate_set, recv_beacon->rate_num) == _TRUE)
+			recv_beacon->proto_cap |= PROTO_CAP_11B | PROTO_CAP_11G;
+		else
+			recv_beacon->proto_cap |= PROTO_CAP_11G;
+	}
 
 	if (elems.ht_capabilities && elems.ht_operation)
 		recv_beacon->proto_cap |= PROTO_CAP_11N;
@@ -1740,6 +1754,7 @@ int rtw_get_bcn_keys(_adapter *adapter, struct _ADAPTER_LINK *adapter_link
 		whdr + WLAN_HDR_A3_LEN + 10
 		, flen - WLAN_HDR_A3_LEN - 10
 		, adapter_link->mlmeextpriv.chandef.chan, adapter_link
+		, BSS_EX_MBSSID_IDX(&adapter_link->mlmeextpriv.mlmext_info.network)
 		, bcn_keys);
 }
 
@@ -1749,6 +1764,7 @@ int rtw_get_bcn_keys_from_bss(WLAN_BSSID_EX *bss, struct beacon_keys *bcn_keys)
 		bss->IEs + 10
 		, bss->IELength - 10
 		, bss->Configuration.DSConfig, NULL
+		, 0
 		, bcn_keys);
 }
 
@@ -1904,81 +1920,92 @@ int rtw_check_bcn_info(_adapter *adapter, struct _ADAPTER_LINK *adapter_link,
 
 #ifdef CONFIG_ECSA_PHL
 	if (check_fwstate(pmlmepriv, WIFI_CSA_UPDATE_BEACON)) {
-		u8 u_ch, u_offset, u_bw;
+		u8 c_ch, c_offset, c_bw;
 		u8 bcn_ch, bcn_bw, bcn_offset;
 		struct sta_info *psta = NULL;
-		struct rtw_chan_def mr_chdef = {0};
-		struct rtw_chan_def new_chdef = {0};
-
-		/* get union ch/bw/offset from chan_ctx */
-		rtw_phl_mr_get_chandef(d->phl, adapter->phl_role, adapter_link->wrlink, &mr_chdef);
-		u_ch = mr_chdef.chan;
-		u_offset = (u8)mr_chdef.offset;
-		u_bw = (u8)mr_chdef.bw;
+		struct rtw_chan_def ori_u_chdef = {0};
+		struct rtw_chan_def new_u_chdef = {0};
+		bool bw_offset_changed = false;
+		c_ch = plmlmeext->chandef.chan;
+		c_bw = plmlmeext->chandef.bw;
+		c_offset = plmlmeext->chandef.offset;
 
 		#ifdef DBG_CSA
-		RTW_INFO("CSA : Wait AP for updating its beacon, wait %u beacon, union.ch = %u, recv_beacon.ch = %u\n",
-			pmlmepriv->bcn_cnts_after_csa + 1, u_ch, recv_beacon.ch);
+		RTW_INFO("CSA : Wait AP for updating its beacon, wait %u beacon, current.ch = %u, recv_beacon.ch = %u\n",
+			pmlmepriv->bcn_cnts_after_csa + 1, c_ch, recv_beacon.ch);
 		#endif
 
-		/* always wait for AP to update its beacon WAIT_BCN_TIMES beacon */
-		if (pmlmepriv->bcn_cnts_after_csa < WAIT_BCN_TIMES) {
-			if (u_ch == recv_beacon.ch)
-				pmlmepriv->bcn_cnts_after_csa += 1;
+		/*
+		* Case 1 : channel is different
+		* 	AP doesn't udpate its beacon.
+		* Case 2 : channel is same
+		*	AP may not update its beacon yet, so we wait 5 beacon.
+		* Case 3 : we already wait 5 beacon
+		*	We assume that AP update its beacon.
+		*/
+		if (c_ch != recv_beacon.ch) {
 			goto exit_success;
-		} else
+		} else if (pmlmepriv->bcn_cnts_after_csa < WAIT_BCN_TIMES) {
+			pmlmepriv->bcn_cnts_after_csa += 1;
+			goto exit_success;
+		} else {
 			pmlmepriv->bcn_cnts_after_csa = 0;
+		}
+
 
 		_rtw_memcpy(cur_beacon, &recv_beacon, sizeof(recv_beacon));
 		clr_fwstate(pmlmepriv, WIFI_CSA_UPDATE_BEACON);
+		_cancel_timer_nowait(&adapter->mlmeextpriv.csa_wait_bcn_timer);
 
 		bcn_ch = recv_beacon.ch;
 		bcn_bw = recv_beacon.bw;
 		bcn_offset = recv_beacon.offset;
 
 		#ifdef DBG_CSA
-		RTW_INFO("CSA : copy new beacon, recv_beacon.ch = %u, recv_beacon.bw = %u, recv_beacon.offset = %u\n",
+		RTW_INFO("CSA : copy new beacon, recv_beacon ch/bw/offset = %u,%u,%u\n",
 			bcn_ch, bcn_bw, bcn_offset);
-		rtw_dump_bcn_keys(RTW_DBGDUMP, &recv_beacon);
+		RTW_INFO("CSA : before update STA mode bw/offset, current bw/offset = %u,%u\n",
+			c_bw, c_offset);
 		#endif
 
-		_cancel_timer_nowait(&adapter->mlmeextpriv.csa_wait_bcn_timer);
 
-		/* beacon bw/offset is different from CSA IE */
-		if ((bcn_bw > u_bw) ||
-			(bcn_offset != u_offset &&
-			u_offset != CHAN_OFFSET_NO_EXT &&
-			bcn_offset != CHAN_OFFSET_NO_EXT)) {
-
+		/* STA role bw/offset is different from associated AP */
+		if (c_bw != bcn_bw || c_offset != bcn_offset) {
+			RTW_INFO("CSA : STA needs to sync bw/offset with AP\n");
+			bw_offset_changed = true;
 			plmlmeext->chandef.bw = bcn_bw;
 			plmlmeext->chandef.offset = bcn_offset;
-			/* updaet STA mode DSConfig , ap mode will update in rtw_change_bss_bchbw_cmd */
-			cur_network->network.Configuration.DSConfig = bcn_ch;
+		}
+
+		if (rtw_adjust_bchbw(adapter, plmlmeext->chandef.band,
+		    plmlmeext->chandef.chan, (u8*)&(plmlmeext->chandef.bw),
+		    (u8*)&(plmlmeext->chandef.offset))) {
+			RTW_INFO("csa : limit bandwith by SW capability\n");
+			bw_offset_changed = true;
+		}
+
+		if (bw_offset_changed) {
+			rtw_phl_mr_get_chandef(d->phl, adapter->phl_role, adapter_link->wrlink, &ori_u_chdef);
 
 			/* update wifi role chandef */
 			rtw_hw_update_chan_def(adapter, adapter_link);
+
 			/* update chanctx */
 			if (rtw_phl_mr_upt_chandef(d->phl, adapter_link->wrlink) == RTW_PHL_STATUS_FAILURE)
-				RTW_ERR("CSA : update chanctx fail\n");
+				rtw_warn_on(1);
 
-			rtw_phl_mr_get_chandef(d->phl, adapter->phl_role, adapter_link->wrlink, &new_chdef);
+			rtw_phl_mr_get_chandef(d->phl, adapter->phl_role, adapter_link->wrlink, &new_u_chdef);
 
-			#ifdef CONFIG_AP_MODE
-			if (ifbmp_m) {
-				rtw_change_bss_bchbw_cmd(dvobj_get_primary_adapter(d), 0
-					, ifbmp_m, 0, new_chdef.band, new_chdef.chan, REQ_BW_ORI, REQ_OFFSET_NONE);
-			} else
+			#if (CONFIG_DFS && CONFIG_IEEE80211_BAND_5GHZ)
+			rtw_dfs_rd_en_dec_on_mlme_act(adapter, adapter_link, MLME_OPCH_SWITCH, ifbmp_s);
 			#endif
-			{
-				#if CONFIG_DFS && CONFIG_IEEE80211_BAND_5GHZ
-				rtw_dfs_rd_en_dec_on_mlme_act(adapter, adapter_link, MLME_OPCH_SWITCH, ifbmp_s);
-				#endif
-				rtw_set_chbw_cmd(adapter, adapter_link, &new_chdef, 0);
-			}
-			RTW_INFO("CSA : after update bw/offset, new_bw=%d, new_offset=%d \n", \
-				(u8)new_chdef.bw, (u8)new_chdef.offset);
+
+			if (ori_u_chdef.bw != new_u_chdef.bw || ori_u_chdef.offset != new_u_chdef.offset)
+					rtw_set_chbw_cmd(adapter, adapter_link, &new_u_chdef, 0);
+			RTW_INFO("CSA : after update bw/offset, STA mode new bw/offset = %u,%u\n", \
+				(u8)new_u_chdef.bw, (u8)new_u_chdef.offset);
 		} else {
-			RTW_INFO("CSA : Our bw/offset is same as AP\n");
+			RTW_INFO("CSA : STA mode bw/offset is same as AP\n");
 		}
 
 		/* update RA mask */
@@ -2137,12 +2164,14 @@ void process_csa_ie(_adapter *padapter, u8 *ies, uint ies_len)
 			break;
 		case WLAN_EID_CHANNEL_SWITCH_WRAPPER:
 			wide_bw_ie = rtw_get_ie(ie->data, WLAN_EID_VHT_WIDE_BW_CHSWITCH, &wide_bw_ie_len, ie->len);
-			csa_ch_width = *(wide_bw_ie + 2);
-			seg_0 = *(wide_bw_ie + 3);
-			seg_1 = *(wide_bw_ie + 4);
+			if (wide_bw_ie) {
+				csa_ch_width = *(wide_bw_ie + 2);
+				seg_0 = *(wide_bw_ie + 3);
+				seg_1 = *(wide_bw_ie + 4);
 
-			RTW_INFO("CSA : WIDE_BW_CHSWITCH IE, channel width = %u, segment_0 = %u, segment_1 = %u\n",
-				csa_ch_width, seg_0, seg_1);
+				RTW_INFO("CSA : WIDE_BW_CHSWITCH IE, channel width = %u, segment_0 = %u, segment_1 = %u\n",
+					csa_ch_width, seg_0, seg_1);
+			}
 			break;
 		case WLAN_EID_ECSA:
 			ecsa_mode = *(ie->data);
@@ -2271,6 +2300,7 @@ unsigned int is_ap_in_tkip(struct _ADAPTER_LINK *padapter_link)
 			case _RSN_IE_2_:
 				if (_rtw_memcmp((pIE->data + 8), RSN_TKIP_CIPHER, 4))
 					return _TRUE;
+				break;
 
 			default:
 				break;
@@ -2308,6 +2338,7 @@ unsigned int should_forbid_n_rate(_adapter *padapter)
 				if ((_rtw_memcmp((pIE->data + 8), RSN_CIPHER_SUITE_CCMP, 4))  ||
 				    (_rtw_memcmp((pIE->data + 12), RSN_CIPHER_SUITE_CCMP, 4)))
 					return _FALSE;
+				break;
 
 			default:
 				break;
@@ -2841,10 +2872,11 @@ void update_sta_basic_rate(struct sta_info *psta, u8 wireless_mode)
 	}
 }
 
-int rtw_ies_get_supported_rate(u8 *ies, uint ies_len, u8 *rate_set, u8 *rate_num)
+static int _rtw_get_supported_rate(u8 *sup_r_ie, sint sup_r_ie_len
+	, u8 *ext_sup_r_ie, sint ext_sup_r_ie_len
+	, u8 *rate_set, u8 *rate_num)
 {
-	u8 *ie, *p;
-	unsigned int ie_len;
+	u8 *p;
 	int i, j;
 
 	struct support_rate_handler support_rate_tbl[] = {
@@ -2861,19 +2893,15 @@ int rtw_ies_get_supported_rate(u8 *ies, uint ies_len, u8 *rate_set, u8 *rate_num
 		{IEEE80211_OFDM_RATE_48MB,		_FALSE,		_FALSE},
 		{IEEE80211_OFDM_RATE_54MB,		_FALSE,		_FALSE},
 	};
-		
-	if (!rate_set || !rate_num)
-		return _FALSE;
 
 	*rate_num = 0;
-	ie = rtw_get_ie(ies, _SUPPORTEDRATES_IE_, &ie_len, ies_len);
-	if (ie == NULL)
+	if (sup_r_ie == NULL)
 		goto ext_rate;
 
 	/* get valid supported rates */
 	for (i = 0; i < 12; i++) {
-		p = ie + 2;
-		for (j = 0; j < ie_len; j++) {
+		p = sup_r_ie + 2;
+		for (j = 0; j < sup_r_ie_len; j++) {
 			if ((*p & ~BIT(7)) == support_rate_tbl[i].rate){
 				support_rate_tbl[i].existence = _TRUE;
 				if ((*p) & BIT(7))
@@ -2884,12 +2912,11 @@ int rtw_ies_get_supported_rate(u8 *ies, uint ies_len, u8 *rate_set, u8 *rate_num
 	}
 
 ext_rate:
-	ie = rtw_get_ie(ies, _EXT_SUPPORTEDRATES_IE_, &ie_len, ies_len);
-	if (ie) {
+	if (ext_sup_r_ie) {
 		/* get valid extended supported rates */
 		for (i = 0; i < 12; i++) {
-			p = ie + 2;
-			for (j = 0; j < ie_len; j++) {
+			p = ext_sup_r_ie + 2;
+			for (j = 0; j < ext_sup_r_ie_len; j++) {
 				if ((*p & ~BIT(7)) == support_rate_tbl[i].rate){
 					support_rate_tbl[i].existence = _TRUE;
 					if ((*p) & BIT(7))
@@ -2910,17 +2937,50 @@ ext_rate:
 		}
 	}
 
-	if (*rate_num == 0)
-		return _FAIL;
-
 	if (0) {
-		int i;
+		int k;
 
-		for (i = 0; i < *rate_num; i++)
-			RTW_INFO("rate:0x%02x\n", *(rate_set + i));
+		for (k = 0; k < *rate_num; k++)
+			RTW_INFO("rate:0x%02x\n", *(rate_set + k));
 	}
 
 	return _SUCCESS;
+}
+
+int rtw_ies_get_supported_rate(u8 *ies, uint ies_len, u8 *rate_set, u8 *rate_num)
+{
+	u8 *sup_r_ie;
+	sint sup_r_ie_len;
+	u8 *ext_sup_r_ie;
+	sint ext_sup_r_ie_len;
+
+	if (!rate_set || !rate_num)
+		return _FALSE;
+
+	sup_r_ie = rtw_get_ie(ies, _SUPPORTEDRATES_IE_, &sup_r_ie_len, ies_len);
+	ext_sup_r_ie = rtw_get_ie(ies, _EXT_SUPPORTEDRATES_IE_, &ext_sup_r_ie_len, ies_len);
+
+	return _rtw_get_supported_rate(sup_r_ie, sup_r_ie_len
+		, ext_sup_r_ie, ext_sup_r_ie_len, rate_set, rate_num);
+}
+
+int rtw_elems_get_supported_rate(struct rtw_ieee802_11_elems *elems, u8 *rate_set, u8 *rate_num)
+{
+	u8 *sup_r_ie;
+	sint sup_r_ie_len;
+	u8 *ext_sup_r_ie;
+	sint ext_sup_r_ie_len;
+
+	if (!rate_set || !rate_num)
+		return _FALSE;
+
+	sup_r_ie = elems->supp_rates ? elems->supp_rates - 2 : NULL;
+	sup_r_ie_len = elems->supp_rates_len;
+	ext_sup_r_ie = elems->ext_supp_rates ? elems->ext_supp_rates - 2 : NULL;
+	ext_sup_r_ie_len = elems->ext_supp_rates_len;
+
+	return _rtw_get_supported_rate(sup_r_ie, sup_r_ie_len
+		, ext_sup_r_ie, ext_sup_r_ie_len, rate_set, rate_num);
 }
 
 void process_addba_req(_adapter *padapter, u8 *paddba_req, u8 *addr)
@@ -3605,6 +3665,8 @@ void rtw_set_mac_addr_hw(_adapter *padapter, u8 *mac_addr)
 	u32 index, new_index;
 	/* ToDo CONFIG_RTW_MLD: [currently primary link only] */
 	struct _ADAPTER_LINK *padapter_link = GET_PRIMARY_LINK(padapter);
+	struct _ADAPTER_LINK *adapter_link;
+	u8 lidx;
 
 	/* sta_hash */
 	phl_sta_self = rtw_phl_get_stainfo_self(phl, padapter_link->wrlink);
@@ -3638,9 +3700,25 @@ void rtw_set_mac_addr_hw(_adapter *padapter, u8 *mac_addr)
 		_rtw_spinunlock_bh(&pstapriv->sta_hash_lock);
 	}
 
+	_rtw_memcpy(phl_role->mac_addr, mac_addr, MAC_ALEN);
+	_rtw_memcpy(adapter_mac_addr(padapter), mac_addr, ETH_ALEN);
+
+
+	 /* sync mac addr to adapter link */
+	for (lidx = 0; lidx < padapter->adapter_link_num; lidx++) {
+		adapter_link = GET_LINK(padapter, lidx);
+		_rtw_memcpy(adapter_link->mac_addr, mac_addr, ETH_ALEN);
+
+		/* offset for adapter_link mac-addr */
+		adapter_link->mac_addr[ETH_ALEN - 1] += lidx;
+
+		RTW_INFO(FUNC_ADPT_FMT": Set adapter link(id=%d) Mac Addr to "MAC_FMT" Successfully\n"
+		 , FUNC_ADPT_ARG(padapter), lidx, MAC_ARG(adapter_link->mac_addr));
+	}
+
 	rtw_phl_cmd_wrole_change(phl,
 				 padapter->phl_role,
-				 NULL,
+				 padapter_link->wrlink,
 				 WR_CHG_MADDR,
 				 mac_addr,
 				 ETH_ALEN,

@@ -131,6 +131,11 @@
 #define RCPU_HDMI_CLK_RST		0x2044
 #define RCPU_CAN_CLK_RST		0x4c
 #define RCPU_I2C0_CLK_RST		0x30
+
+#define RCPU_SSP0_CLK_RST		0x28
+#define RCPU_IR_CLK_RST 		0x48
+#define RCPU_UART0_CLK_RST		0xd8
+#define RCPU_UART1_CLK_RST		0x3c
 /* end of RCPU register offset */
 
 /* RCPU2 register offset */
@@ -294,7 +299,12 @@ static const struct spacemit_reset_signal
 	[RESET_RCPU_CAN] 	= { RCPU_CAN_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 	//RCPU2
 	[RESET_RCPU2_PWM] 	= { RCPU2_PWM_CLK_RST, BIT(2)|BIT(0), BIT(0), BIT(2), RST_BASE_TYPE_RCPU2 },
+	//RCPU
 	[RESET_RCPU_I2C0] 	= { RCPU_I2C0_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
+	[RESET_RCPU_SSP0] 	= { RCPU_SSP0_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
+	[RESET_RCPU_IR] 	= { RCPU_IR_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
+	[RESET_RCPU_UART0] 	= { RCPU_UART0_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
+	[RESET_RCPU_UART1] 	= { RCPU_UART1_CLK_RST, BIT(0), BIT(0), 0, RST_BASE_TYPE_RCPU },
 };
 
 static struct spacemit_reset *to_spacemit_reset(
@@ -524,6 +534,9 @@ static void spacemit_reset_init(struct device_node *np)
 			pr_err("failed to map rcpu2 registers\n");
 			goto out;
 		}
+	} else {
+		pr_err("not spacemit,k1x-reset\n");
+		goto out;
 	}
 
 	reset->lock = &g_cru_lock;

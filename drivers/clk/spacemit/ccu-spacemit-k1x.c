@@ -170,6 +170,11 @@ DEFINE_SPINLOCK(g_cru_lock);
 #define RCPU_HDMI_CLK_RST		0x2044
 #define RCPU_CAN_CLK_RST		0x4c
 #define RCPU_I2C0_CLK_RST		0x30
+
+#define RCPU_SSP0_CLK_RST		0x28
+#define RCPU_IR_CLK_RST 		0x48
+#define RCPU_UART0_CLK_RST		0xd8
+#define RCPU_UART1_CLK_RST		0x3c
 /* end of RCPU register offset */
 
 /* RCPU2 register offset */
@@ -1137,7 +1142,7 @@ static SPACEMIT_CCU_DIV_MUX_GATE(rpwm_clk, "rpwm_clk", rpwm_parent_names,
 	0);
 
 static const char *ri2c_parent_names[] = {
-	"pll1_d40_61p44", "pll1_d96_25p6", "pll1_d192_12p8", "pll1_d768_3p2"
+	"pll1_d40_61p44", "pll1_d96_25p6", "pll1_d192_12p8", "vctcxo_3"
 };
 static SPACEMIT_CCU_DIV_MUX_GATE(ri2c0_clk, "ri2c0_clk", ri2c_parent_names,
 	BASE_TYPE_RCPU, RCPU_I2C0_CLK_RST,
@@ -1145,6 +1150,34 @@ static SPACEMIT_CCU_DIV_MUX_GATE(ri2c0_clk, "ri2c0_clk", ri2c_parent_names,
 	0x6, 0x6, 0x0,
 	0);
 
+static const char *rssp0_parent_names[] = {
+	"pll1_d40_61p44", "pll1_d96_25p6", "pll1_d192_12p8", "vctcxo_3"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(rssp0_clk, "rssp0_clk", rssp0_parent_names,
+	BASE_TYPE_RCPU, RCPU_SSP0_CLK_RST,
+	8, 11, 4, 2,
+	0x6, 0x6, 0x0,
+	0);
+static SPACEMIT_CCU_GATE_NO_PARENT(rir_clk, "rir_clk", NULL,
+	BASE_TYPE_RCPU, RCPU_IR_CLK_RST,
+	BIT(2), BIT(2), 0x0,
+	0);
+static const char *ruart0_parent_names[] = {
+	"pll1_aud_24p5", "pll1_aud_245p7", "vctcxo_24", "vctcxo_3"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(ruart0_clk, "ruart0_clk", ruart0_parent_names,
+	BASE_TYPE_RCPU, RCPU_UART0_CLK_RST,
+	8, 11, 4, 2,
+	0x6, 0x6, 0x0,
+	0);
+static const char *ruart1_parent_names[] = {
+	"pll1_aud_24p5", "pll1_aud_245p7", "vctcxo_24", "vctcxo_3"
+};
+static SPACEMIT_CCU_DIV_MUX_GATE(ruart1_clk, "ruart1_clk", ruart1_parent_names,
+	BASE_TYPE_RCPU, RCPU_UART1_CLK_RST,
+	8, 11, 4, 2,
+	0x6, 0x6, 0x0,
+	0);
 static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 	.hws	= {
 		[CLK_PLL2]		= &pll2.common.hw,
@@ -1335,6 +1368,10 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_RCPU_CAN_BUS]	= &rcan_bus_clk.common.hw,
 		[CLK_RCPU2_PWM] 	= &rpwm_clk.common.hw,
 		[CLK_RCPU_I2C0] 	= &ri2c0_clk.common.hw,
+		[CLK_RCPU_SSP0] 	= &rssp0_clk.common.hw,
+		[CLK_RCPU_IR] 		= &rir_clk.common.hw,
+		[CLK_RCPU_UART0] 	= &ruart0_clk.common.hw,
+		[CLK_RCPU_UART1] 	= &ruart1_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
@@ -1538,6 +1575,9 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 			pr_err("failed to map rcpu2 registers\n");
 			goto out;
 		}
+	} else {
+		pr_err("not spacemit,k1x-clock\n");
+		goto out;
 	}
 	ret = spacemit_ccu_probe(np, clk_info, hw_clks);
 	//LOG_INFO("init clock finish");

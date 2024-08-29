@@ -211,6 +211,11 @@ typedef enum {
 	DISCONNECTION_BY_DRIVER_DUE_TO_SA_QUERY_TIMEOUT,
 } Disconnect_type;
 
+struct disconnect_data {
+	struct rtw_chan_def *buddy_chdef;
+	Disconnect_type disc_code;
+};
+
 #define SSID_CHANGED BIT0
 #define SSID_LENGTH_CHANGED BIT1
 #define BEACON_CHANNEL_CHANGED BIT2
@@ -610,6 +615,7 @@ void update_wireless_mode(_adapter *padapter, struct _ADAPTER_LINK *padapter_lin
 void update_tx_basic_rate(_adapter *padapter, struct _ADAPTER_LINK *padapter_link, u8 modulation);
 void update_sta_basic_rate(struct sta_info *psta, u8 wireless_mode);
 int rtw_ies_get_supported_rate(u8 *ies, uint ies_len, u8 *rate_set, u8 *rate_num);
+int rtw_elems_get_supported_rate(struct rtw_ieee802_11_elems *elems, u8 *rate_set, u8 *rate_num);
 
 /* for sta/adhoc mode */
 void update_sta_info(_adapter *padapter, struct sta_info *psta);

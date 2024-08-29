@@ -2949,15 +2949,16 @@ int rtw_mp_tx_plcp_tx_data(struct net_device *dev,
 						PPDU_TYPE_STR(pmp_priv->rtw_mp_pmact_ppdu_type), PPDU_TYPE_STR(ppdu_type));
 				pmp_priv->rtw_mp_pmact_ppdu_type = ppdu_type;
 
-				rtw_update_giltf(padapter);
 				rtw_mp_update_coding(padapter);
+
+				rtw_update_giltf(padapter);
 
 				if (ppdu_type >= RTW_MP_TYPE_HE_MU_OFDMA) {
 					u8 ru_num = 0 , rualloc_num = 0 ,i = 0;
 
 					ru_num = rtw_mp_update_ru_tone(padapter);
 					rualloc_num = rtw_mp_update_ru_alloc(padapter);
-					pextra += sprintf(pextra, "\nCurrent [%s] RU Alloc index:%d\n",
+					pextra += sprintf(pextra, "\nCurrent [%s] RU Alloc:%d\n",
 												RU_TONE_STR(pmp_priv->rtw_mp_ru_tone),
 												pmp_priv->mp_plcp_user[user_idx].ru_alloc);
 
@@ -3193,10 +3194,10 @@ int rtw_mp_tx_plcp_tx_user(struct net_device *dev,
 
 				RTW_INFO("%s: coding=%d\n", __func__, coding);
 				_rtw_memset(extra, 0, wrqu->data.length);
-				mpprv->mp_plcp_user[user_idx].coding = coding;
+				mpprv->rtw_coding = coding;
 				rtw_mp_update_coding(padapter);
 				sprintf(extra, "Config coding to %s",
-								(mpprv->mp_plcp_user[user_idx].coding?"LDPC":"BCC"));
+								(mpprv->rtw_coding?"LDPC":"BCC"));
 		} else {
 			_rtw_memset(extra, 0, wrqu->data.length);
 			sprintf(extra, "Error !!!\n0:BCC 1:LDPC \t input Number [coding=0/1]");

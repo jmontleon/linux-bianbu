@@ -53,7 +53,6 @@ CONFIG_PCI_HCI = n
 CONFIG_SDIO_HCI = y
 CONFIG_GSPI_HCI = n
 ########################## Features ###########################
-CONFIG_FPGA_INCLUDED = n
 CONFIG_MP_INCLUDED = y
 CONFIG_CONCURRENT_MODE = n
 CONFIG_POWER_SAVE = y
@@ -324,11 +323,6 @@ $(shell cp $(DRV_PATH)/autoconf_$(IC_NAME)_$(HCI_NAME)_linux.h $(DRV_PATH)/inclu
 endif
 
 ########### END OF PATH  #################################
-ifeq ($(CONFIG_FPGA_INCLUDED), y)
-EXTRA_CFLAGS += -DCONFIG_FPGA_INCLUDED
-CONFIG_PHL_TEST_SUITE = y
-endif
-
 ifeq ($(CONFIG_MP_INCLUDED), y)
 #MODULE_NAME := $(MODULE_NAME)_mp
 EXTRA_CFLAGS += -DCONFIG_MP_INCLUDED

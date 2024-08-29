@@ -265,7 +265,7 @@ typedef struct ieee_param {
 		struct {
 			u32 len;
 			u8 reserved[32];
-			u8 data[0];
+			DECLARE_FLEX_ARRAY(u8, data);
 		} wpa_ie;
 		struct {
 			int command;
@@ -278,7 +278,7 @@ typedef struct ieee_param {
 			u8 idx;
 			u8 seq[8]; /* sequence counter (set: RX, get: TX) */
 			u16 key_len;
-			u8 key[0];
+			DECLARE_FLEX_ARRAY(u8, key);
 		} crypt;
 #ifdef CONFIG_AP_MODE
 		struct {
@@ -290,7 +290,7 @@ typedef struct ieee_param {
 		} add_sta;
 		struct {
 			u8	reserved[2];/* for set max_num_sta */
-			u8	buf[0];
+			DECLARE_FLEX_ARRAY(u8, buf);
 		} bcn_ie;
 #endif
 
@@ -301,7 +301,7 @@ typedef struct ieee_param {
 typedef struct ieee_param_ex {
 	u32 cmd;
 	u8 sta_addr[ETH_ALEN];
-	u8 data[0];
+	DECLARE_FLEX_ARRAY(u8, data);
 } ieee_param_ex;
 
 struct sta_data {
@@ -1254,7 +1254,7 @@ struct ieee80211_info_element_hdr {
 struct ieee80211_info_element {
 	u8 id;
 	u8 len;
-	u8 data[0];
+	DECLARE_FLEX_ARRAY(u8, data);
 } __attribute__((packed));
 #endif
 
@@ -1326,7 +1326,7 @@ struct ieee80211_txb {
 	u16 reserved;
 	u16 frag_size;
 	u16 payload_size;
-	struct sk_buff *fragments[0];
+	DECLARE_FLEX_ARRAY(struct sk_buff *, fragments);
 };
 
 

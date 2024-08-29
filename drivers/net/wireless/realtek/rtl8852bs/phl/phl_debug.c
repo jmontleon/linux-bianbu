@@ -41,6 +41,10 @@ struct phl_dbg_comp_list _phl_dbg_comp_list[] = {
 	{"COMP_PHL_GROUP",  _PHL_GROUP,	BIT13},
 };
 
+#ifdef CONFIG_RTW_DISABLE_PHL_LOG
+u32 phl_log_components = 0;
+u8 phl_log_level = _PHL_NONE_;
+#else
 u32 phl_log_components = COMP_PHL_XMIT |
 			 COMP_PHL_WOW |
 			 COMP_PHL_PKTOFLD |
@@ -52,6 +56,8 @@ u32 phl_log_components = COMP_PHL_XMIT |
 			 #endif
 			 COMP_PHL_DBG | 0;
 u8 phl_log_level = _PHL_INFO_;
+#endif /*CONFIG_RTW_DISABLE_PHL_LOG*/
+
 struct dbg_mem_ctx debug_memory_ctx;
 
 void rtw_phl_log_level_cfg(u8 dbg_level)

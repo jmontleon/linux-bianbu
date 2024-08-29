@@ -196,7 +196,13 @@
 #define CLK_RCPU_CAN_BUS    185
 
 #define CLK_RCPU2_PWM       186
-#define CLK_RCPU_I2C0       187
 
-#define CLK_MAX_NO      188
+#define CLK_RCPU_I2C0       187
+#define CLK_RCPU_SSP0       188
+#define CLK_RCPU_IR         189
+#define CLK_RCPU_UART0      190
+#define CLK_RCPU_UART1      191
+
+
+#define CLK_MAX_NO      192
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */

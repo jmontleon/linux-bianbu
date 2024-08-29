@@ -582,6 +582,7 @@ u32 halbb_c2h_dm_parsing(struct bb_info *bb, u8 cmdid, u16 len, u8 *c2h)
 	#endif
 	case DM_C2H_DBG:
 		val = halbb_c2h_fw_dbg(bb, len, c2h);
+		break;
 	default:
 		break;
 	}

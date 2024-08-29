@@ -88,7 +88,7 @@ void halbb_ul_tb_ctrl(struct bb_info *bb)
 		return;
 	}
 
-	if (phl->fw_info.fw_type != RTW_FW_NIC) {
+	if ((phl->fw_info.fw_type != RTW_FW_NIC) && (phl->fw_info.fw_type != RTW_FW_NIC_CE)) {
 		BB_DBG(bb, DBG_UL_TB_CTRL, "Not STA mode, fw_type = %d\n", phl->fw_info.fw_type);
 		return;
 	}

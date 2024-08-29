@@ -109,6 +109,7 @@ u8 verify_bp_handler(void *ctx, struct test_bp_info *bp_info)
 			_os_sema_up(ver_ctx->phl_com->drv_priv, &(ver_ctx->cmd_sema));
 			phl_status = RTW_PHL_STATUS_SUCCESS;
 		}
+		break;
 	default:
 		break;
 	}

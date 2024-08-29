@@ -162,20 +162,27 @@ DO_ERROR_INFO(do_trap_insn_fault,
 asmlinkage __visible __trap_section void do_trap_insn_illegal(struct pt_regs *regs)
 {
 	bool handled;
-
 #ifdef CONFIG_BIND_THREAD_TO_AICORES
-        if ((regs->epc & AI_OPCODE_MASK0) == AI_OPCODE_MATCH0 ||
-            (regs->epc & AI_OPCODE_MASK1) == AI_OPCODE_MATCH1) {
-                struct cpumask mask;
-                pid_t pid = current->pid;
-				mask = ai_core_mask_get();
-                sched_setaffinity(pid, &mask);
-		return;
-        }
+	u32 epc;
 #endif
 
 	if (user_mode(regs)) {
 		irqentry_enter_from_user_mode(regs);
+
+#ifdef CONFIG_BIND_THREAD_TO_AICORES
+		/* check if trapped by ai instruction */
+		__get_user(epc, (u32 __user *)regs->epc);
+		if ((epc & AI_OPCODE_MASK0) == AI_OPCODE_MATCH0 ||
+			(epc & AI_OPCODE_MASK1) == AI_OPCODE_MATCH1) {
+			struct cpumask mask;
+			mask = ai_core_mask_get();
+			local_irq_enable();
+			sched_setaffinity(current->pid, &mask);
+			local_irq_disable();
+			irqentry_exit_to_user_mode(regs);
+			return;
+		}
+#endif
 
 		local_irq_enable();
 

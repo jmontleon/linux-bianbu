@@ -7,7 +7,7 @@
  *
  * Contains the definition and structures used by HW
  *
- * Copyright (C) RivieraWaves 2011-2019
+ * Copyright (C) RivieraWaves 2011-2021
  *
  ******************************************************************************
  */
@@ -25,24 +25,13 @@
 #define N_VHT  (10 * 4 * 2 * 8)
 #define N_HE_SU (12 * 4 * 3 * 8)
 #define N_HE_MU (12 * 6 * 3 * 8)
+#define N_HE_ER (3 * 3 + 3) //RU242 + RU106
 
 /* conversion table from NL80211 to MACHW enum */
 extern const int chnl2bw[];
 
 /* conversion table from MACHW to NL80211 enum */
 extern const int bw2chnl[];
-
-/* Rate cntrl info */
-#define MCS_INDEX_TX_RCX_OFT    0
-#define MCS_INDEX_TX_RCX_MASK   (0x7F << MCS_INDEX_TX_RCX_OFT)
-#define BW_TX_RCX_OFT           7
-#define BW_TX_RCX_MASK          (0x3 << BW_TX_RCX_OFT)
-#define SHORT_GI_TX_RCX_OFT     9
-#define SHORT_GI_TX_RCX_MASK    (0x1 << SHORT_GI_TX_RCX_OFT)
-#define PRE_TYPE_TX_RCX_OFT     10
-#define PRE_TYPE_TX_RCX_MASK    (0x1 << PRE_TYPE_TX_RCX_OFT)
-#define FORMAT_MOD_TX_RCX_OFT   11
-#define FORMAT_MOD_TX_RCX_MASK  (0x7 << FORMAT_MOD_TX_RCX_OFT)
 
 /* Values for formatModTx */
 #define FORMATMOD_NON_HT          0
@@ -53,6 +42,7 @@ extern const int bw2chnl[];
 #define FORMATMOD_HE_SU           5
 #define FORMATMOD_HE_MU           6
 #define FORMATMOD_HE_ER           7
+#define FORMATMOD_HE_TB           8
 
 /* Values for navProtFrmEx */
 #define NAV_PROT_NO_PROT_BIT                 0
@@ -89,121 +79,105 @@ extern const int bw2chnl[];
 /// aMPDU bit
 #define AMPDU_BIT                         CO_BIT(AMPDU_OFT)
 
-enum {
-    HW_RATE_1MBPS   = 0,
-    HW_RATE_2MBPS   = 1,
-    HW_RATE_5_5MBPS = 2,
-    HW_RATE_11MBPS  = 3,
-    HW_RATE_6MBPS   = 4,
-    HW_RATE_9MBPS   = 5,
-    HW_RATE_12MBPS  = 6,
-    HW_RATE_18MBPS  = 7,
-    HW_RATE_24MBPS  = 8,
-    HW_RATE_36MBPS  = 9,
-    HW_RATE_48MBPS  = 10,
-    HW_RATE_54MBPS  = 11,
-    HW_RATE_MAX
-};
-
 union rwnx_mcs_index {
-    struct {
-        u32 mcs : 3;
-        u32 nss : 2;
-    } ht;
-    struct {
-        u32 mcs : 4;
-        u32 nss : 3;
-    } vht;
-    struct {
-        u32 mcs : 4;
-        u32 nss : 3;
-    } he;
-    u32 legacy : 7;
+	struct {
+		u32 mcs : 3;
+		u32 nss : 2;
+	} ht;
+	struct {
+		u32 mcs : 4;
+		u32 nss : 3;
+	} vht;
+	struct {
+		u32 mcs : 4;
+		u32 nss : 3;
+	} he;
+	u32 legacy : 7;
 };
 
 /* c.f RW-WLAN-nX-MAC-HW-UM */
 union rwnx_rate_ctrl_info {
-    struct {
-        u32 mcsIndexTx      : 7;
-        u32 bwTx            : 2;
-        u32 giAndPreTypeTx  : 2;
-        u32 formatModTx     : 3;
-        u32 navProtFrmEx    : 3;
-        u32 mcsIndexProtTx  : 7;
-        u32 bwProtTx        : 2;
-        u32 formatModProtTx : 3;
-        u32 nRetry          : 3;
-    };
-    u32 value;
+	struct {
+		u32 mcsIndexTx      : 7;
+		u32 bwTx            : 2;
+		u32 giAndPreTypeTx  : 2;
+		u32 formatModTx     : 3;
+		u32 navProtFrmEx    : 3;
+		u32 mcsIndexProtTx  : 7;
+		u32 bwProtTx        : 2;
+		u32 formatModProtTx : 3;
+		u32 nRetry          : 3;
+	};
+	u32 value;
 };
 
 /* c.f RW-WLAN-nX-MAC-HW-UM */
 struct rwnx_power_ctrl_info {
-    u32 txPwrLevelPT          : 8;
-    u32 txPwrLevelProtPT      : 8;
-    u32 reserved              :16;
+	u32 txPwrLevelPT          : 8;
+	u32 txPwrLevelProtPT      : 8;
+	u32 reserved              :16;
 };
 
 /* c.f RW-WLAN-nX-MAC-HW-UM */
 union rwnx_pol_phy_ctrl_info_1 {
-    struct {
-        u32 rsvd1     : 3;
-        u32 bfFrmEx   : 1;
-        u32 numExtnSS : 2;
-        u32 fecCoding : 1;
-        u32 stbc      : 2;
-        u32 rsvd2     : 5;
-        u32 nTx       : 3;
-        u32 nTxProt   : 3;
-    };
-    u32 value;
+	struct {
+		u32 rsvd1     : 3;
+		u32 bfFrmEx   : 1;
+		u32 numExtnSS : 2;
+		u32 fecCoding : 1;
+		u32 stbc      : 2;
+		u32 rsvd2     : 5;
+		u32 nTx       : 3;
+		u32 nTxProt   : 3;
+	};
+	u32 value;
 };
 
 /* c.f RW-WLAN-nX-MAC-HW-UM */
 union rwnx_pol_phy_ctrl_info_2 {
-    struct {
-        u32 antennaSet : 8;
-        u32 smmIndex   : 8;
-        u32 beamFormed : 1;
-    };
-    u32 value;
+	struct {
+		u32 antennaSet : 8;
+		u32 smmIndex   : 8;
+		u32 beamFormed : 1;
+	};
+	u32 value;
 };
 
 /* c.f RW-WLAN-nX-MAC-HW-UM */
 union rwnx_pol_mac_ctrl_info_1 {
-    struct {
-        u32 keySRamIndex   : 10;
-        u32 keySRamIndexRA : 10;
-    };
-    u32 value;
+	struct {
+		u32 keySRamIndex   : 10;
+		u32 keySRamIndexRA : 10;
+	};
+	u32 value;
 };
 
 /* c.f RW-WLAN-nX-MAC-HW-UM */
 union rwnx_pol_mac_ctrl_info_2 {
-    struct {
-        u32 longRetryLimit  : 8;
-        u32 shortRetryLimit : 8;
-        u32 rtsThreshold    : 12;
-    };
-    u32 value;
+	struct {
+		u32 longRetryLimit  : 8;
+		u32 shortRetryLimit : 8;
+		u32 rtsThreshold    : 12;
+	};
+	u32 value;
 };
 
 #define POLICY_TABLE_PATTERN    0xBADCAB1E
 
 struct tx_policy_tbl {
-    /* Unique Pattern at the start of Policy Table */
-    u32 upatterntx;
-    /* PHY Control 1 Information used by MAC HW */
-    union rwnx_pol_phy_ctrl_info_1 phyctrlinfo_1;
-    /* PHY Control 2 Information used by MAC HW */
-    union rwnx_pol_phy_ctrl_info_2 phyctrlinfo_2;
-    /* MAC Control 1 Information used by MAC HW */
-    union rwnx_pol_mac_ctrl_info_1 macctrlinfo_1;
-    /* MAC Control 2 Information used by MAC HW */
-    union rwnx_pol_mac_ctrl_info_2 macctrlinfo_2;
+	/* Unique Pattern at the start of Policy Table */
+	u32 upatterntx;
+	/* PHY Control 1 Information used by MAC HW */
+	union rwnx_pol_phy_ctrl_info_1 phyctrlinfo_1;
+	/* PHY Control 2 Information used by MAC HW */
+	union rwnx_pol_phy_ctrl_info_2 phyctrlinfo_2;
+	/* MAC Control 1 Information used by MAC HW */
+	union rwnx_pol_mac_ctrl_info_1 macctrlinfo_1;
+	/* MAC Control 2 Information used by MAC HW */
+	union rwnx_pol_mac_ctrl_info_2 macctrlinfo_2;
 
-    union rwnx_rate_ctrl_info  ratectrlinfos[NX_TX_MAX_RATES];
-    struct rwnx_power_ctrl_info powerctrlinfos[NX_TX_MAX_RATES];
+	union rwnx_rate_ctrl_info  ratectrlinfos[NX_TX_MAX_RATES];
+	struct rwnx_power_ctrl_info powerctrlinfos[NX_TX_MAX_RATES];
 };
 
 #ifdef CONFIG_RWNX_FULLMAC
@@ -219,14 +193,14 @@ struct tx_policy_tbl {
  * @acknowledged: packet has been acknowledged by peer
  */
 union rwnx_hw_txstatus {
-    struct {
-        u32 tx_done            : 1;
-        u32 retry_required     : 1;
-        u32 sw_retry_required  : 1;
-        u32 acknowledged       : 1;
-        u32 reserved           :28;
-    };
-    u32 value;
+	struct {
+		u32 tx_done            : 1;
+		u32 retry_required     : 1;
+		u32 sw_retry_required  : 1;
+		u32 acknowledged       : 1;
+		u32 reserved           :28;
+	};
+	u32 value;
 };
 
 /**
@@ -245,17 +219,19 @@ union rwnx_hw_txstatus {
  * @amsdu_size: Size, in bytes, allowed to create a-msdu.
  * @status: transmission status
  */
-struct tx_cfm_tag
-{
-    u16_l pn[4];
-    u16_l sn;
-    u16_l timestamp;
-    s8_l credits;
-    u8_l ampdu_size;
+struct tx_cfm_tag {
+/*
+	u16_l pn[4];
+	u16_l sn;
+	u16_l timestamp;
+*/
+	s8_l credits;
+	u8_l ampdu_size;
 #ifdef CONFIG_RWNX_SPLIT_TX_BUF
-    u16_l amsdu_size;
+	u16_l amsdu_size;
 #endif
-    union rwnx_hw_txstatus status;
+	union rwnx_hw_txstatus status;
+	u32_l hostid;
 };
 
 /**
@@ -264,7 +240,7 @@ struct tx_cfm_tag
  * @cfm: Information updated by fw/hardware after sending a frame
  */
 struct rwnx_hw_txhdr {
-    struct tx_cfm_tag cfm;
+	struct tx_cfm_tag cfm;
 };
 
 #endif /* CONFIG_RWNX_FULLMAC */
@@ -371,6 +347,7 @@ struct rwnx_hw_txhdr {
 
 #define __MDM_MAJOR_VERSION(v)     (((v) & 0xFF000000) >> 24)
 #define __MDM_MINOR_VERSION(v)     (((v) & 0x00FF0000) >> 16)
+#define __MDM_VERSION(v)            ((__MDM_MAJOR_VERSION(v) + 2) * 10 + __MDM_MINOR_VERSION(v))
 
 
 #endif // _HAL_DESC_H_

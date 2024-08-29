@@ -37,13 +37,12 @@
 #include <linux/rpmsg.h>
 #define STARTUP_MSG			"startup"
 #define IRQUP_MSG			"irqon"
+static unsigned long long private_data[1];
+#define R_DRV_NAME			"r_flexcan"
 #endif
 
 #define DRV_NAME			"flexcan"
 
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-static unsigned long long private_data[1];
-#endif
 /* 8 for RX fifo and 2 error handling */
 #define FLEXCAN_NAPI_WEIGHT		(8 + 2)
 
@@ -306,7 +305,9 @@ struct instance_data {
 };
 #endif
 
+#ifndef CONFIG_SOC_SPACEMIT_K1X
 static_assert(sizeof(struct flexcan_regs) ==  0x4 * 18 + 0xfb8);
+#endif
 
 static const struct flexcan_devtype_data fsl_mcf5441x_devtype_data = {
 	.quirks = FLEXCAN_QUIRK_BROKEN_PERR_STATE |
@@ -1356,6 +1357,49 @@ static void flexcan_set_bittiming(struct net_device *dev)
 		return flexcan_set_bittiming_ctrl(dev);
 }
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static void flexcan_ram_init(struct net_device *dev)
+{
+	struct flexcan_priv *priv = netdev_priv(dev);
+	struct flexcan_regs __iomem *regs = priv->regs;
+	u32 reg_ctrl2;
+	void __iomem *mb_addr;
+	u32 count;
+	u32 i;
+
+	/* 11.8.3.13 Detection and correction of memory errors:
+	 * CTRL2[WRMFRZ] grants write access to all memory positions
+	 * that require initialization, ranging from 0x080 to 0xADF
+	 * and from 0xF28 to 0xFFF when the CAN FD feature is enabled.
+	 * The RXMGMASK, RX14MASK, RX15MASK, and RXFGMASK registers
+	 * need to be initialized as well. MCR[RFEN] must not be set
+	 * during memory initialization.
+	 */
+	reg_ctrl2 = priv->read(&regs->ctrl2);
+	reg_ctrl2 |= FLEXCAN_CTRL2_WRMFRZ;
+	priv->write(reg_ctrl2, &regs->ctrl2);
+
+	/* use iowrite32 instead of memset_io on riscv */
+	mb_addr = &regs->mb[0][0];
+	count = offsetof(struct flexcan_regs, rx_smb1[3]) -
+		offsetof(struct flexcan_regs, mb[0][0]) + 0x4;
+	for (i = 0; i< count / 4; i++) {
+		priv->write(0, mb_addr + i * 4);
+	}
+
+	if (priv->can.ctrlmode & CAN_CTRLMODE_FD) {
+		mb_addr = &regs->tx_smb_fd[0];
+		count = offsetof(struct flexcan_regs, rx_smb1_fd[17]) -
+			offsetof(struct flexcan_regs, tx_smb_fd[0]) + 0x4;
+		for (i = 0; i< count / 4; i++) {
+			priv->write(0, mb_addr + i * 4);
+		}
+	}
+
+	reg_ctrl2 &= ~FLEXCAN_CTRL2_WRMFRZ;
+	priv->write(reg_ctrl2, &regs->ctrl2);
+}
+#else
 static void flexcan_ram_init(struct net_device *dev)
 {
 	struct flexcan_priv *priv = netdev_priv(dev);
@@ -1382,6 +1426,7 @@ static void flexcan_ram_init(struct net_device *dev)
 	reg_ctrl2 &= ~FLEXCAN_CTRL2_WRMFRZ;
 	priv->write(reg_ctrl2, &regs->ctrl2);
 }
+#endif
 
 static int flexcan_rx_offload_setup(struct net_device *dev)
 {
@@ -2093,6 +2138,14 @@ static const struct of_device_id flexcan_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, flexcan_of_match);
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static const struct of_device_id r_flexcan_of_match[] = {
+	{ .compatible = "spacemit,k1x-r-flexcan", .data = &spacemit_k1x_devtype_data, },
+	{ },
+};
+MODULE_DEVICE_TABLE(of, r_flexcan_of_match);
+#endif
+
 static const struct platform_device_id flexcan_id_table[] = {
 	{
 		.name = "flexcan-mcf5441x",
@@ -2152,6 +2205,21 @@ static int flexcan_probe(struct platform_device *pdev)
 			return PTR_ERR(clk_per);
 		}
 		clock_freq = clk_get_rate(clk_per);
+	} else {
+		clk_per = devm_clk_get(&pdev->dev, "per");
+		if (IS_ERR(clk_per)) {
+			dev_err(&pdev->dev, "no per clock defined\n");
+			return PTR_ERR(clk_per);
+		}
+		clk_set_rate(clk_per, clock_freq);
+	}
+
+	if (!clk_ipg) {
+		clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+		if (IS_ERR(clk_ipg)) {
+			dev_err(&pdev->dev, "no ipg clock defined\n");
+			return PTR_ERR(clk_ipg);
+		}
 	}
 
 	reset = devm_reset_control_get_optional(&pdev->dev,NULL);
@@ -2165,8 +2233,14 @@ static int flexcan_probe(struct platform_device *pdev)
 		irq = platform_get_irq(pdev, 0);
 		if (irq <= 0)
 			return -ENODEV;
-	} else
+	} else {
 		irq = -1;
+		of_id = of_match_device(r_flexcan_of_match, &pdev->dev);
+		if (of_id)
+			devtype_data = of_id->data;
+		else
+			return -ENODEV;
+	}
 #else
  	irq = platform_get_irq(pdev, 0);
  	if (irq <= 0)
@@ -2448,8 +2522,20 @@ static struct platform_driver flexcan_driver = {
 	.remove_new = flexcan_remove,
 	.id_table = flexcan_id_table,
 };
+module_platform_driver(flexcan_driver);
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
+static struct platform_driver r_flexcan_driver = {
+	.driver = {
+		.name = R_DRV_NAME,
+		.pm = &flexcan_pm_ops,
+		.of_match_table = r_flexcan_of_match,
+	},
+	.probe = flexcan_probe,
+	.remove_new = flexcan_remove,
+	.id_table = flexcan_id_table,
+};
+
 static struct rpmsg_device_id rpmsg_driver_rcan_id_table[] = {
 	{ .name	= "can-service", .driver_data = 0 },
 	{ },
@@ -2473,7 +2559,6 @@ static int rpmsg_rcan_client_cb(struct rpmsg_device *rpdev, void *data,
 	return 0;
 }
 
-
 static int rpmsg_rcan_client_probe(struct rpmsg_device *rpdev)
 {
 	struct instance_data *idata;
@@ -2490,7 +2575,7 @@ static int rpmsg_rcan_client_probe(struct rpmsg_device *rpdev)
 
 	private_data[0] = (unsigned long long)idata;
 
-	platform_driver_register(&flexcan_driver);
+	platform_driver_register(&r_flexcan_driver);
 
 	return 0;
 }
@@ -2509,8 +2594,6 @@ static struct rpmsg_driver rpmsg_rcan_client = {
 	.remove		= rpmsg_rcan_client_remove,
 };
 module_rpmsg_driver(rpmsg_rcan_client);
-#else
-module_platform_driver(flexcan_driver);
 #endif
 
 MODULE_AUTHOR("Sascha Hauer <kernel@pengutronix.de>, "

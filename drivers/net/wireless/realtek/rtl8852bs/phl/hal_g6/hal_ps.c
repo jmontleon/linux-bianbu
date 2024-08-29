@@ -33,9 +33,21 @@ const char *hal_ps_pwr_state_to_str(u8 pwr_state)
 	}
 }
 
+#ifndef PS_PROTOCAL_LEAVE_TOLERANCE
 #define PS_PROTOCAL_LEAVE_TOLERANCE 50 /* ms */
+#endif
+#ifndef PS_PROTOCAL_LEAVE_MIN_POLLING_CNT
+#define PS_PROTOCAL_LEAVE_MIN_POLLING_CNT 3
+#endif
+#ifndef PWR_LVL_CHANGE_TOLERANCE
 #define PWR_LVL_CHANGE_TOLERANCE 50 /* ms */
+#endif
+#ifndef PWR_LVL_CHANGE_MIN_POLLING_CNT
+#define PWR_LVL_CHANGE_MIN_POLLING_CNT 3
+#endif
+#ifndef MAX_CHK_PWR_STATE_CHANGE_CNT
 #define MAX_CHK_PWR_STATE_CHANGE_CNT 5
+#endif
 
 static enum rtw_hal_status
 _hal_ps_lps_chk_leave(struct hal_info_t *hal_info, u16 macid)
@@ -45,36 +57,40 @@ _hal_ps_lps_chk_leave(struct hal_info_t *hal_info, u16 macid)
 	u32 priv_mac_sts = 0;
 	u32 start_time = _os_get_cur_time_ms();
 	u32 pass_time = 0;
+	u32 polling_cnt = 1;
 
 	do {
 		status = rtw_hal_mac_lps_chk_leave(hal_info, macid, &mac_sts);
+		pass_time = phl_get_passing_time_ms(start_time);
 		if (status == RTW_HAL_STATUS_SUCCESS) {
 			PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
-				"[HALPS], %s(): pass time = %d ms.\n",
-				__func__, pass_time);
+				"[HALPS], %s(): pass time = %d ms, cnt = %u.\n",
+				__func__, pass_time, polling_cnt);
 			break;
 		}
 
 		if (mac_sts != priv_mac_sts) {
 			PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
-				"[HALPS], %s(): mac status %u.\n",
-				__func__, mac_sts);
+				"[HALPS], %s(): mac status %u, pass time = %d ms, cnt = %u.\n",
+				__func__, mac_sts, pass_time, polling_cnt);
 			priv_mac_sts = mac_sts;
 		}
 
-		pass_time = phl_get_passing_time_ms(start_time);
-		if (pass_time > PS_PROTOCAL_LEAVE_TOLERANCE)
+		if (pass_time > PS_PROTOCAL_LEAVE_TOLERANCE &&
+			polling_cnt >= PS_PROTOCAL_LEAVE_MIN_POLLING_CNT)
 			break;
 
 		_os_sleep_us(hal_to_drvpriv(hal_info), 50);
-
+		polling_cnt++;
 	} while (1);
 
 #ifdef CONFIG_PHL_PS_FW_DBG
 	rtw_hal_fw_dbg_dump(hal_info);
 #endif
 	if (status != RTW_HAL_STATUS_SUCCESS)
-		PHL_TRACE(COMP_PHL_PS, _PHL_ERR_, "[HALPS], %s(): polling timeout!\n", __func__);
+		PHL_TRACE(COMP_PHL_PS, _PHL_ERR_,
+			"[HALPS], %s(): polling timeout! (%u ms, %u cnt)\n",
+			__func__, pass_time, polling_cnt);
 
 	return status;
 }
@@ -100,29 +116,31 @@ _hal_ps_pwr_state_chk(struct hal_info_t *hal_info, u8 req_pwr_state)
 	u32 priv_mac_sts = 0;
 	u32 start_time = _os_get_cur_time_ms();
 	u32 pass_time = 0;
+	u32 polling_cnt = 1;
 
 	do {
 		status = rtw_hal_mac_chk_pwr_state(hal_info, req_pwr_state, &mac_sts);
+		pass_time = phl_get_passing_time_ms(start_time);
 		if (status == RTW_HAL_STATUS_SUCCESS) {
 			PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
-				"[HALPS], %s(): pass time = %d ms.\n",
-				__func__, pass_time);
+				"[HALPS], %s(): pass time = %d ms, cnt = %u.\n",
+				__func__, pass_time, polling_cnt);
 			break;
 		}
 
 		if (mac_sts != priv_mac_sts) {
 			PHL_TRACE(COMP_PHL_PS, _PHL_INFO_,
-				"[HALPS], %s(): mac status %u.\n",
-				__func__, mac_sts);
+				"[HALPS], %s(): mac status %u, pass time = %d ms, cnt = %u.\n",
+				__func__, mac_sts, pass_time, polling_cnt);
 			priv_mac_sts = mac_sts;
 		}
 
-		pass_time = phl_get_passing_time_ms(start_time);
-		if (pass_time > PWR_LVL_CHANGE_TOLERANCE)
+		if (pass_time > PWR_LVL_CHANGE_TOLERANCE
+			&& polling_cnt >= PWR_LVL_CHANGE_MIN_POLLING_CNT)
 			break;
 
 		_os_sleep_us(hal_to_drvpriv(hal_info), 50);
-
+		polling_cnt++;
 	} while (1);
 
 #ifdef CONFIG_PHL_PS_FW_DBG
@@ -130,7 +148,9 @@ _hal_ps_pwr_state_chk(struct hal_info_t *hal_info, u8 req_pwr_state)
 #endif
 
 	if (status != RTW_HAL_STATUS_SUCCESS)
-		PHL_TRACE(COMP_PHL_PS, _PHL_ERR_, "[HALPS], %s(): polling timeout!\n", __func__);
+		PHL_TRACE(COMP_PHL_PS, _PHL_ERR_,
+			"[HALPS], %s(): polling timeout! (%u ms, %u cnt)\n",
+			__func__, pass_time, polling_cnt);
 
 	return status;
 }

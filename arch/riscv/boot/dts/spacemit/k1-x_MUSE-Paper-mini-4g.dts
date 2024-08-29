@@ -4,16 +4,17 @@
 /dts-v1/;
 
 #include "k1-x.dtsi"
-//#include "k1-x-efuse.dtsi"
+#include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
-#include "lcd/lcd_icnl9951r_mipi.dtsi"
+#include "lcd/lcd_jd9365dah3_mipi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
-//#include "k1-x_opp_table.dtsi"
-//#include "k1-x_thermal_cooling.dtsi"
+#include "k1-x_opp_table.dtsi"
+#include "k1-x_thermal_cooling.dtsi"
 #include "k1-x-camera-sdk.dtsi"
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/usb/pd.h>
 
 / {
 	model = "MUSE-PAPER-MINI-4G";
@@ -147,13 +148,12 @@
 		//vdd_voltage = <3300000>;
 		io-supply = <&dcdc_3>;
 		io_voltage = <1800000>;
-		pwr-gpios  = <&gpio 67 0>,
-			     <&gpio 03 0>;
-		status = "disabled";
+		pwr-gpios  = <&gpio 03 0>;
+		status = "okay";
 
 		wlan_pwrseq: wlan-pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios = <&gpio 116 0>;
+			regon-gpios = <&gpio 67 0>;
 			interrupt-parent = <&pinctrl>;
 			interrupts = <268>;
 			pinctrl-names = "default";
@@ -163,6 +163,36 @@
 		bt_pwrseq: bt-pwrseq {
 			compatible = "spacemit,bt-pwrseq";
 			reset-gpios     = <&gpio 63 0>;
+		};
+	};
+
+	typec_0: connector@0 {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+		sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)
+				PDO_VAR(5000, 9000, 2000)>;
+		op-sink-microwatt = <10000000>;
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				otg_con_ep: endpoint {
+					remote-endpoint = <&con_u2_ep>;
+				};
+			};
+			port@1 {
+				reg = <0x1>;
+				otg_ep: endpoint {
+					remote-endpoint = <&otg_role_switch>;
+				};
+			};
 		};
 	};
 
@@ -206,6 +236,57 @@
 	status = "okay";
 };
 
+&pwm14 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm14_1>;
+	status = "okay";
+};
+
+&dpu_online2_dsi {
+	memory-region = <&dpu_resv>;
+	spacemit-dpu-bitclk = <614400000>;
+	dsi_1v2-supply = <&ldo_5>;
+	dsi_1v8-supply = <&ldo_11>;
+	vin-supply-names = "dsi_1v2", "dsi_1v8";
+	status = "okay";
+};
+
+&dsi2 {
+	status = "okay";
+
+	panel2: panel2@0 {
+		status = "okay";
+		compatible = "spacemit,mipi-panel2";
+		reg = <0>;
+
+		gpios-reset = <30>;
+		gpios-dc = <34 42>;
+		gpios-avdd = <35 36>;
+		gpios-bl = <31>;
+		id = <2>;
+		delay-after-reset = <10>;
+		force-attached = "lcd_jd9365dah3_mipi";
+	};
+};
+
+&lcds {
+	status = "okay";
+};
+
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
+	spacemit,i2c-fast-mode;
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	spacemit,i2c-fast-mode;
+	status = "okay";
+};
+
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
@@ -238,7 +319,7 @@
 		interrupts = <126 1>;
 		spk-ctl-gpio = <&gpio 127 0>;
 		everest,jack-detect-inverted;
-		everest,mic1-src = [44];
+		everest,mic1-src = [66];
 		everest,mic2-src = [66];
 		status = "okay";
 	};
@@ -247,7 +328,27 @@
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
-	status = "disabled";
+	status = "okay";
+
+	husb239_u2: tcpc@42 {
+		compatible = "hynetek,husb239";
+		reg = <0x42>;
+		vbus-gpios = <&gpio 124 0>;
+		int-gpio = <&gpio 78 0>;
+		status = "okay";
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				con_u2_ep: endpoint {
+					remote-endpoint = <&otg_con_ep>;
+				};
+			};
+		};
+	};
 };
 
 &i2c5 {
@@ -654,6 +755,7 @@
 			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
 	spacemit,rx_dline_reg = <0x0>;
+	spacemit,tx_delaycode = <0x30>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <375000000>;
 	status = "okay";
@@ -679,19 +781,39 @@
 };
 
 &usbphy {
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci {
 	spacemit,reset-on-resume;
-	status = "disabled";
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "okay";
 };
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
-	spacemit,udc-mode = <MV_USB_MODE_UDC>;
-	status = "disabled";
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "okay";
+};
+
+&otg {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	status = "okay";
+
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0x0>;
+			otg_role_switch: endpoint {
+				remote-endpoint = <&otg_ep>;
+			};
+		};
+	};
 };
 
 &usbphy1 {
@@ -752,6 +874,129 @@
 	};
 };
 
+/* MIPI CSI1, clk lane1, Fixme: frontsensor gc2375h */
+&backsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	pwdn-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio 111 0>;
+
+	twsi-index = <0>;
+
+	status = "okay";
+};
+
+/* MIPI CSI3 data line2,3 clk lane2 */
+&backsensor_aux {
+	//af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	//dvdd_1v2-supply = <&ldo_6>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
+
+	twsi-index = <1>;
+
+	status = "disabled";
+};
+
+/* MIPI CSI3 data line0,1 clk lane3, Fixme: backsensor gc5035 */
+&frontsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	clocks = <&ccu CLK_CAMM1>;
+	clock-names = "cam_mclk1";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_camera1>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
+
+	twsi-index = <1>;
+
+	//pwm-enable;
+	//pwms = <&pwm16 10000>;
+
+	status = "okay";
+};
+
+&csiphy0 {
+
+	status = "okay";
+};
+
+&csiphy1 {
+
+	status = "disabled";
+};
+
+&csiphy2 {
+
+	status = "okay";
+};
+
+&ccic0 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+
+&ccic1 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+
+&ccic2 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+
+&isp {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+&cpp {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+&vi {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+
+&pwm_bl {
+	pwms = <&pwm14 2000>;
+	brightness-levels = <
+		0   20  20  20  21  21  21  22  22  22  23  23  23  24  24  24
+		25  25  25  26  26  26  27  27  27  28  28  29  29  30  30  31
+		32  33  34  35  36  37  38  39  40  41  42  43  44  45  46  47
+		48  49  50  51  52  53  54  55  56  57  58  59  60  61  62  63
+		64  65  66  67  68  69  70  71  72  73  74  75  76  77  78  79
+		80  81  82  83  84  85  86  87  88  89  90  91  92  93  94  95
+		96  97  98  99  100 101 102 103 104 105 106 107 108 109 110 111
+		112 113 114 115 116 117 118 119 120 121 122 123 124 125 126 127
+		128 129 130 131 132 133 134 135 136 137 138 139 140 141 142 143
+		144 145 146 147 148 149 150 151 152 153 154 155 156 157 158 159
+		160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175
+		176 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191
+		192 193 194 195 196 197 198 199 200 201 202 203 204 205 206 207
+		208 209 210 211 212 213 214 215 216 217 218 219 220 221 222 223
+		224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239
+		240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255
+	>;
+	default-brightness-level = <50>;
+	status = "okay";
+};
+
 &rcpu {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_rcpu>;
@@ -764,11 +1009,11 @@
 &i2s0 {
         pinctrl-names = "default";
         pinctrl-0 = <&pinctrl_sspa0_0>;
-        status = "disabled";
+        status = "okay";
 };
 
 &sound_codec {
-	status = "disabled";
+	status = "okay";
 	simple-audio-card,name = "snd-es8326";
 	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {

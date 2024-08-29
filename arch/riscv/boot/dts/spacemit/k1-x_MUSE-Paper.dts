@@ -11,6 +11,7 @@
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
 #include "k1-x_thermal_cooling.dtsi"
+#include <dt-bindings/usb/pd.h>
 
 / {
 	model = "M1-MUSE-PAPER";
@@ -163,6 +164,66 @@
 		};
 	};
 
+	typec_0: connector@0 {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+		sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)
+				PDO_VAR(5000, 9000, 2000)>;
+		op-sink-microwatt = <10000000>;
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				otg_con_ep: endpoint {
+					remote-endpoint = <&con_u2_ep>;
+				};
+			};
+			port@1 {
+				reg = <0x1>;
+				otg_ep: endpoint {
+					remote-endpoint = <&otg_role_switch>;
+				};
+			};
+		};
+	};
+
+	typec_1: connector@1 {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+		sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)
+				PDO_VAR(5000, 9000, 2000)>;
+		op-sink-microwatt = <10000000>;
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				dwc3_con_ep: endpoint {
+					remote-endpoint = <&con_u3_ep>;
+				};
+			};
+			port@1 {
+				reg = <0x1>;
+				dwc3_ep: endpoint {
+					remote-endpoint = <&dwc3_role_switch>;
+				};
+			};
+		};
+	};
+
 	usb2hub: usb2hub {
 		compatible = "spacemit,usb3-hub";
 		vbus-gpios = <&gpio 91 0>;	/* for usb2 hub output vbus */
@@ -266,9 +327,72 @@
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
-	status = "disabled";
-};
+	status = "okay";
 
+	cw2015: cw2015@62 {
+		compatible = "cellwise,cw2015";
+		reg = <0x62>;
+		cellwise,battery-profile = /bits/ 8 <
+			0x17 0x67 0x66 0x6C 0x6A 0x69 0x64 0x5E
+			0x65 0x6B 0x4E 0x52 0x4F 0x4F 0x46 0x3C
+			0x35 0x2B 0x24 0x20 0x21 0x2F 0x42 0x4C
+			0x24 0x4A 0x0B 0x85 0x31 0x51 0x57 0x6D
+			0x77 0x6B 0x6A 0x6F 0x40 0x1C 0x7C 0x42
+			0x0F 0x31 0x1E 0x50 0x86 0x95 0x97 0x27
+			0x57 0x73 0x95 0xC3 0x80 0xD8 0xFF 0xCB
+			0x2F 0x7D 0x72 0xA5 0xB5 0xC1 0x73 0x09
+		>;
+		status = "okay";
+	};
+
+	husb239_u2: tcpc@62 {
+		compatible = "hynetek,husb239";
+		reg = <0x62>;
+		vbus-gpios = <&gpio 14 0>,
+				<&gpio 92 0>;
+		chg-gpio = <&gpio 13 0>;
+		int-gpio = <&gpio 06 0>;
+		status = "disabled";
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				con_u2_ep: endpoint {
+					remote-endpoint = <&otg_con_ep>;
+				};
+			};
+		};
+	};
+
+	husb239_u3: tcpc@42 {
+		compatible = "hynetek,husb239";
+		reg = <0x42>;
+		vbus-gpios = <&gpio 89 0>,
+				<&gpio 124 0>;
+		chg-gpio = <&gpio 04 0>;
+		int-gpio = <&gpio 01 0>;
+		aud-gpio = <&gpio 86 0>;
+		orient-oe-gpio  = <&gpio 48 0>;
+		orient-sel-gpio = <&gpio 78 0>;
+		orientation;
+		status = "okay";
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				con_u3_ep: endpoint {
+					remote-endpoint = <&dwc3_con_ep>;
+				};
+			};
+		};
+	};
+};
 
 &i2c5 {
         pinctrl-names = "default";
@@ -510,7 +634,10 @@
 
 &pinctrl {
 	pinctrl-single,gpio-range = <
-		&range GPIO_03  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_01  4 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_06  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_13  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_48  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_3V_DS4)
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -524,6 +651,7 @@
 		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_86  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_89  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_91  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -552,8 +680,10 @@
 
 &gpio{
 	gpio-ranges = <
-		&pinctrl 03  GPIO_03  1
-		&pinctrl 49  GPIO_49  2
+		&pinctrl 01  GPIO_01  4
+		&pinctrl 06  GPIO_06  1
+		&pinctrl 13  GPIO_13  2
+		&pinctrl 48  GPIO_48  3
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  5
 		&pinctrl 70  PRI_TDI  4
@@ -561,6 +691,7 @@
 		&pinctrl 76  GPIO_76  1
 		&pinctrl 78  GPIO_78  1
 		&pinctrl 80  GPIO_80  4
+		&pinctrl 86  GPIO_86  1
 		&pinctrl 89  GPIO_89  4
 		&pinctrl 96  DVL0     2
 		&pinctrl 110 GPIO_110 1
@@ -660,14 +791,34 @@
 
 &ehci {
 	spacemit,reset-on-resume;
-	status = "disabled";
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "okay";
 };
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
-	spacemit,udc-mode = <MV_USB_MODE_UDC>;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
+};
+
+&otg {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	status = "okay";
+
+	usb-role-switch;
+	role-switch-default-mode = "peripheral";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0x0>;
+			otg_role_switch: endpoint {
+				remote-endpoint = <&otg_ep>;
+			};
+		};
+	};
 };
 
 &usbphy1 {
@@ -688,17 +839,16 @@
 };
 
 &usb3hub {
-	hub-gpios = <&gpio 123 0>;	/* usb3 hub en */
 	vbus-gpios = <&gpio 89 0>,
-	     <&gpio 124 0>;
-	status = "okay";
+		     <&gpio 124 0>;
+	status = "disabled";
 };
 
 &usbdrd3 {
 	status = "okay";
 	reset-on-resume;
 	dwc3@c0a00000 {
-		dr_mode = "host";
+		dr_mode = "otg";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
@@ -707,6 +857,19 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
+
+		usb-role-switch;
+		role-switch-default-mode = "peripheral";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0x0>;
+				dwc3_role_switch: endpoint {
+					remote-endpoint = <&dwc3_ep>;
+				};
+			};
+		};
 	};
 };
 

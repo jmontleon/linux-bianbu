@@ -958,7 +958,18 @@ defined(MAC_8851E_SUPPORT) || defined(MAC_8852D_SUPPORT)
 	if (adapter->hw_info->dbg_port_cnt != 1) {
 		PLTFM_MSG_ERR("[ERR]fwdl fail dump lock cnt %d\n",
 			      adapter->hw_info->dbg_port_cnt);
-		goto end;
+		adapter->hw_info->dbg_port_cnt--;
+		PLTFM_MUTEX_UNLOCK(&adapter->hw_info->dbg_port_lock);
+#if MAC_AX_FEATURE_DBGPKG
+		dbg_en.ss_dbg = 0;
+		dbg_en.dle_dbg = 0;
+		dbg_en.dmac_dbg = 0;
+		dbg_en.cmac_dbg = 0;
+		dbg_en.mac_dbg_port = 0;
+		dbg_en.plersvd_dbg = 0;
+		mac_ops->dbg_status_dump(adapter, &dbg_val, &dbg_en);
+#endif
+		return;
 	}
 
 	MAC_REG_W32(R_AX_DBG_CTRL, 0xf200f2);
@@ -992,12 +1003,14 @@ defined(MAC_8851E_SUPPORT) || defined(MAC_8852D_SUPPORT)
 		PLTFM_MSG_ERR("[ERR]fw PC = 0x%x\n", val32);
 		PLTFM_DELAY_US(10);
 	}
+	adapter->hw_info->dbg_port_cnt--;
+	PLTFM_MUTEX_UNLOCK(&adapter->hw_info->dbg_port_lock);
 
 	//unknown purpose dump, disable
 	//mac_dump_ple_dbg_page(adapter, 0);
 
 	pltfm_dbg_dump(adapter);
-end:
+
 #if MAC_AX_FEATURE_DBGPKG
 	dbg_en.ss_dbg = 0;
 	dbg_en.dle_dbg = 0;
@@ -1007,8 +1020,6 @@ end:
 	dbg_en.plersvd_dbg = 0;
 	mac_ops->dbg_status_dump(adapter, &dbg_val, &dbg_en);
 #endif
-	adapter->hw_info->dbg_port_cnt--;
-	PLTFM_MUTEX_UNLOCK(&adapter->hw_info->dbg_port_lock);
 }
 
 u32 mac_fwredl(struct mac_ax_adapter *adapter, u8 *fw, u32 len)

@@ -31,7 +31,7 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 #define __bf_shf(x) (__builtin_ffsll(x) - 1)
 #define FIELD_PREP(_mask, _val) \
-    (((typeof(_mask))(_val) << __bf_shf(_mask)) & (_mask))
+	(((typeof(_mask))(_val) << __bf_shf(_mask)) & (_mask))
 #else
 #include <linux/bitfield.h>
 #endif
@@ -39,12 +39,6 @@
 /* CFG80211 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0)
 #define IEEE80211_HE_MAC_CAP3_MAX_AMPDU_LEN_EXP_MASK IEEE80211_HE_MAC_CAP3_MAX_A_AMPDU_LEN_EXP_MASK
-#endif
-
-#if LINUX_VERSION_CODE > KERNEL_VERSION(5, 15, 60)
-#ifndef IEEE80211_MAX_AMPDU_BUF
-#define IEEE80211_MAX_AMPDU_BUF IEEE80211_MAX_AMPDU_BUF_HE
-#endif
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
@@ -159,15 +153,15 @@ enum ieee80211_radiotap_he_mu_bits {
 	IEEE80211_RADIOTAP_HE_MU_FLAGS1_SIG_B_SYMS_USERS_KNOWN	= 0x8000,
 
 	IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW	= 0x0003,
-		IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_20MHZ	= 0x0000,
-		IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_40MHZ	= 0x0001,
-		IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_80MHZ	= 0x0002,
-		IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_160MHZ	= 0x0003,
+	IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_20MHZ	= 0x0000,
+	IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_40MHZ	= 0x0001,
+	IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_80MHZ	= 0x0002,
+	IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_160MHZ	= 0x0003,
 	IEEE80211_RADIOTAP_HE_MU_FLAGS2_BW_FROM_SIG_A_BW_KNOWN	= 0x0004,
 	IEEE80211_RADIOTAP_HE_MU_FLAGS2_SIG_B_COMP		= 0x0008,
 	IEEE80211_RADIOTAP_HE_MU_FLAGS2_SIG_B_SYMS_USERS	= 0x00f0,
 	IEEE80211_RADIOTAP_HE_MU_FLAGS2_PUNC_FROM_SIG_A_BW	= 0x0300,
-	IEEE80211_RADIOTAP_HE_MU_FLAGS2_PUNC_FROM_SIG_A_BW_KNOWN= 0x0400,
+	IEEE80211_RADIOTAP_HE_MU_FLAGS2_PUNC_FROM_SIG_A_BW_KNOWN = 0x0400,
 	IEEE80211_RADIOTAP_HE_MU_FLAGS2_CH2_CTR_26T_RU		= 0x0800,
 };
 #endif
@@ -175,14 +169,14 @@ enum ieee80211_radiotap_he_mu_bits {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
 #define rwnx_cfg80211_add_iface(wiphy, name, name_assign_type, type, params) \
-    rwnx_cfg80211_add_iface(wiphy, name, type, u32 *flags, params)
+	rwnx_cfg80211_add_iface(wiphy, name, type, u32 *flags, params)
 #else
 #define rwnx_cfg80211_add_iface(wiphy, name, name_assign_type, type, params) \
-    rwnx_cfg80211_add_iface(wiphy, name, name_assign_type, type, u32 *flags, params)
+	rwnx_cfg80211_add_iface(wiphy, name, name_assign_type, type, u32 *flags, params)
 #endif
 
 #define rwnx_cfg80211_change_iface(wiphy, dev, type, params) \
-    rwnx_cfg80211_change_iface(wiphy, dev, type, u32 *flags, params)
+	rwnx_cfg80211_change_iface(wiphy, dev, type, u32 *flags, params)
 
 #define CCFS0(vht) vht->center_freq_seg1_idx
 #define CCFS1(vht) vht->center_freq_seg2_idx
@@ -195,12 +189,12 @@ enum ieee80211_radiotap_he_mu_bits {
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
 #define cfg80211_cqm_rssi_notify(dev, event, level, gfp) \
-    cfg80211_cqm_rssi_notify(dev, event, gfp)
+	cfg80211_cqm_rssi_notify(dev, event, gfp)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0)
 #define ieee80211_amsdu_to_8023s(skb, list, addr, iftype, extra_headroom, check_da, check_sa) \
-    ieee80211_amsdu_to_8023s(skb, list, addr, iftype, extra_headroom, false)
+	ieee80211_amsdu_to_8023s(skb, list, addr, iftype, extra_headroom, false)
 #endif
 
 #if LINUX_VERSION_CODE  < KERNEL_VERSION(4, 7, 0)
@@ -209,7 +203,7 @@ enum ieee80211_radiotap_he_mu_bits {
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
 #define cfg80211_disconnected(dev, reason, ie, len, local, gfp) \
-    cfg80211_disconnected(dev, reason, ie, len, gfp)
+	cfg80211_disconnected(dev, reason, ie, len, gfp)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)) && !(defined CONFIG_VENDOR_RWNX)
@@ -243,35 +237,29 @@ enum ieee80211_radiotap_he_mu_bits {
 
 #define STA_TDLS_INITIATOR(sta) 0
 
-#define REGULATORY_IGNORE_STALE_KICKOFF 0
 #else
 #define STA_TDLS_INITIATOR(sta) sta->tdls_initiator
+#endif
 
 #ifndef REGULATORY_IGNORE_STALE_KICKOFF
 #define REGULATORY_IGNORE_STALE_KICKOFF 0
 #endif
 
-#endif
-
-
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0)) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0))
 #define cfg80211_rx_mgmt(wdev, freq, rssi, buf, len, flags)             \
-    cfg80211_rx_mgmt(wdev, freq, rssi, buf, len, flags, GFP_ATOMIC)
+	cfg80211_rx_mgmt(wdev, freq, rssi, buf, len, flags, GFP_ATOMIC)
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(3, 11, 0)
 #define cfg80211_rx_mgmt(wdev, freq, rssi, buf, len, flags)             \
-    cfg80211_rx_mgmt(wdev, freq, rssi, buf, len, GFP_ATOMIC)
+	cfg80211_rx_mgmt(wdev, freq, rssi, buf, len, GFP_ATOMIC)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
-
-#if 0
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 15, 0)
 #define rwnx_cfg80211_tdls_mgmt(wiphy, dev, peer, act, tok, status, peer_capability, initiator, buf, len) \
-    rwnx_cfg80211_tdls_mgmt(wiphy, dev, peer, act, tok, status, peer_capability, buf, len)
+	rwnx_cfg80211_tdls_mgmt(wiphy, dev, peer, act, tok, status, peer_capability, buf, len)
 #else
 #define rwnx_cfg80211_tdls_mgmt(wiphy, dev, peer, act, tok, status, peer_capability, initiator, buf, len) \
-    rwnx_cfg80211_tdls_mgmt(wiphy, dev, peer, act, tok, status, buf, len)
-#endif
+	rwnx_cfg80211_tdls_mgmt(wiphy, dev, peer, act, tok, status, buf, len)
 #endif
 
 #include <linux/types.h>
@@ -299,102 +287,102 @@ struct ieee80211_wmm_param_ie {
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 enum {
-    IEEE80211_HE_MCS_SUPPORT_0_7    = 0,
-    IEEE80211_HE_MCS_SUPPORT_0_9    = 1,
-    IEEE80211_HE_MCS_SUPPORT_0_11   = 2,
-    IEEE80211_HE_MCS_NOT_SUPPORTED  = 3,
+	IEEE80211_HE_MCS_SUPPORT_0_7    = 0,
+	IEEE80211_HE_MCS_SUPPORT_0_9    = 1,
+	IEEE80211_HE_MCS_SUPPORT_0_11   = 2,
+	IEEE80211_HE_MCS_NOT_SUPPORTED  = 3,
 };
 #endif
 
 /* MAC80211 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
 #define rwnx_ops_mgd_prepare_tx(hw, vif, duration) \
-    rwnx_ops_mgd_prepare_tx(hw, vif)
+	rwnx_ops_mgd_prepare_tx(hw, vif)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)
 
-#define RX_ENC_HT(s) s->flag |= RX_FLAG_HT
-#define RX_ENC_HT_GF(s) s->flag |= (RX_FLAG_HT | RX_FLAG_HT_GF)
-#define RX_ENC_VHT(s) s->flag |= RX_FLAG_HT
-#define RX_ENC_HE(s) s->flag |= RX_FLAG_HT
-#define RX_ENC_FLAG_SHORT_GI(s) s->flag |= RX_FLAG_SHORT_GI
-#define RX_ENC_FLAG_SHORT_PRE(s) s->flag |= RX_FLAG_SHORTPRE
-#define RX_ENC_FLAG_LDPC(s) s->flag |= RX_FLAG_LDPC
-#define RX_BW_40MHZ(s) s->flag |= RX_FLAG_40MHZ
-#define RX_BW_80MHZ(s) s->vht_flag |= RX_VHT_FLAG_80MHZ
-#define RX_BW_160MHZ(s) s->vht_flag |= RX_VHT_FLAG_160MHZ
+#define RX_ENC_HT(s) (s->flag |= RX_FLAG_HT)
+#define RX_ENC_HT_GF(s) (s->flag |= (RX_FLAG_HT | RX_FLAG_HT_GF))
+#define RX_ENC_VHT(s) (s->flag |= RX_FLAG_HT)
+#define RX_ENC_HE(s) (s->flag |= RX_FLAG_HT)
+#define RX_ENC_FLAG_SHORT_GI(s) (s->flag |= RX_FLAG_SHORT_GI)
+#define RX_ENC_FLAG_SHORT_PRE(s) (s->flag |= RX_FLAG_SHORTPRE)
+#define RX_ENC_FLAG_LDPC(s) (s->flag |= RX_FLAG_LDPC)
+#define RX_BW_40MHZ(s) (s->flag |= RX_FLAG_40MHZ)
+#define RX_BW_80MHZ(s) (s->vht_flag |= RX_VHT_FLAG_80MHZ)
+#define RX_BW_160MHZ(s) (s->vht_flag |= RX_VHT_FLAG_160MHZ)
 #define RX_NSS(s) s->vht_nss
 
 #else
-#define RX_ENC_HT(s) s->encoding = RX_ENC_HT
+#define RX_ENC_HT(s) (s->encoding = RX_ENC_HT)
 #define RX_ENC_HT_GF(s) { s->encoding = RX_ENC_HT;      \
-        s->enc_flags |= RX_ENC_FLAG_HT_GF; }
-#define RX_ENC_VHT(s) s->encoding = RX_ENC_VHT
+		s->enc_flags |= RX_ENC_FLAG_HT_GF; }
+#define RX_ENC_VHT(s) (s->encoding = RX_ENC_VHT)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
-#define RX_ENC_HE(s) s->encoding = RX_ENC_VHT
+#define RX_ENC_HE(s) (s->encoding = RX_ENC_VHT)
 #else
-#define RX_ENC_HE(s) s->encoding = RX_ENC_HE
+#define RX_ENC_HE(s) (s->encoding = RX_ENC_HE)
 #endif
-#define RX_ENC_FLAG_SHORT_GI(s) s->enc_flags |= RX_ENC_FLAG_SHORT_GI
-#define RX_ENC_FLAG_SHORT_PRE(s) s->enc_flags |= RX_ENC_FLAG_SHORTPRE
-#define RX_ENC_FLAG_LDPC(s) s->enc_flags |= RX_ENC_FLAG_LDPC
-#define RX_BW_40MHZ(s) s->bw = RATE_INFO_BW_40
-#define RX_BW_80MHZ(s) s->bw = RATE_INFO_BW_80
-#define RX_BW_160MHZ(s) s->bw = RATE_INFO_BW_160
+#define RX_ENC_FLAG_SHORT_GI(s) (s->enc_flags |= RX_ENC_FLAG_SHORT_GI)
+#define RX_ENC_FLAG_SHORT_PRE(s) (s->enc_flags |= RX_ENC_FLAG_SHORTPRE)
+#define RX_ENC_FLAG_LDPC(s) (s->enc_flags |= RX_ENC_FLAG_LDPC)
+#define RX_BW_40MHZ(s) (s->bw = RATE_INFO_BW_40)
+#define RX_BW_80MHZ(s) (s->bw = RATE_INFO_BW_80)
+#define RX_BW_160MHZ(s) (s->bw = RATE_INFO_BW_160)
 #define RX_NSS(s) s->nss
 
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
 #define ieee80211_cqm_rssi_notify(vif, event, level, gfp) \
-    ieee80211_cqm_rssi_notify(vif, event, gfp)
+	ieee80211_cqm_rssi_notify(vif, event, gfp)
 #endif
 
 #ifndef CONFIG_VENDOR_RWNX_AMSDUS_TX
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0))
 #define rwnx_ops_ampdu_action(hw, vif, params) \
-    rwnx_ops_ampdu_action(hw, vif, enum ieee80211_ampdu_mlme_action action, \
-                          struct ieee80211_sta *sta, u16 tid, u16 *ssn, u8 buf_size)
-#elif  (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
+	rwnx_ops_ampdu_action(hw, vif, enum ieee80211_ampdu_mlme_action action, \
+						  struct ieee80211_sta *sta, u16 tid, u16 *ssn, u8 buf_size)
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
 #define rwnx_ops_ampdu_action(hw, vif, params) \
-    rwnx_ops_ampdu_action(hw, vif, enum ieee80211_ampdu_mlme_action action, \
-                          struct ieee80211_sta *sta, u16 tid, u16 *ssn, u8 buf_size, \
-                          bool amsdu)
+	rwnx_ops_ampdu_action(hw, vif, enum ieee80211_ampdu_mlme_action action, \
+						  struct ieee80211_sta *sta, u16 tid, u16 *ssn, u8 buf_size, \
+						  bool amsdu)
 #endif
 #endif /* CONFIG_VENDOR_RWNX_AMSDUS_TX */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
 #define IEEE80211_HW_SUPPORT_FAST_XMIT 0
 #define ieee80211_hw_check(hw, feat) (hw->flags & IEEE80211_HW_##feat)
-#define ieee80211_hw_set(hw, feat) {hw->flags |= IEEE80211_HW_##feat;}
+#define ieee80211_hw_set(hw, feat) {hw->flags |= IEEE80211_HW_##feat; }
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0)
 #define rwnx_ops_sw_scan_start(hw, vif, mac_addr) \
-    rwnx_ops_sw_scan_start(hw)
+	rwnx_ops_sw_scan_start(hw)
 #define rwnx_ops_sw_scan_complete(hw, vif) \
-    rwnx_ops_sw_scan_complete(hw)
+	rwnx_ops_sw_scan_complete(hw)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 #define rwnx_ops_hw_scan(hw, vif, hw_req) \
-    rwnx_ops_hw_scan(hw, vif, struct cfg80211_scan_request *req)
+	rwnx_ops_hw_scan(hw, vif, struct cfg80211_scan_request *req)
 #endif
 
 /* NET */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
 #define rwnx_select_queue(dev, skb, sb_dev) \
-    rwnx_select_queue(dev, skb)
+	rwnx_select_queue(dev, skb)
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 #define rwnx_select_queue(dev, skb, sb_dev) \
-    rwnx_select_queue(dev, skb, void *accel_priv, select_queue_fallback_t fallback)
+	rwnx_select_queue(dev, skb, void *accel_priv, select_queue_fallback_t fallback)
 #elif LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
 #define rwnx_select_queue(dev, skb, sb_dev) \
-    rwnx_select_queue(dev, skb, sb_dev, select_queue_fallback_t fallback)
+	rwnx_select_queue(dev, skb, sb_dev, select_queue_fallback_t fallback)
 #else
 #define rwnx_select_queue(dev, skb, sb_dev) \
-    rwnx_select_queue(dev, skb, sb_dev)
+	rwnx_select_queue(dev, skb, sb_dev)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)) && !(defined CONFIG_VENDOR_RWNX)
@@ -403,7 +391,7 @@ enum {
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
 #define alloc_netdev_mqs(size, name, assign, setup, txqs, rxqs) \
-    alloc_netdev_mqs(size, name, setup, txqs, rxqs)
+	alloc_netdev_mqs(size, name, setup, txqs, rxqs)
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
@@ -416,7 +404,7 @@ enum {
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
-#define trace_seq_buffer_ptr(p) p->buffer + p->len
+#define trace_seq_buffer_ptr(p) (p->buffer + p->len)
 #endif
 
 /* TIME */

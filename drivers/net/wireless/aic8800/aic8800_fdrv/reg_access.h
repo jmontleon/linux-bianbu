@@ -16,13 +16,8 @@
 /*****************************************************************************
  * Addresses within RWNX_ADDR_CPU
  *****************************************************************************/
-#define RAM_LMAC_FW_ADDR               0x00150000
-
 #define ROM_FMAC_FW_ADDR               0x00010000
 #define RAM_FMAC_FW_ADDR               0x00120000
-#define ROM_FMAC_PATCH_ADDR            0x00180000
-
-
 
 /*****************************************************************************
  * Addresses within RWNX_ADDR_SYSTEM
@@ -151,9 +146,9 @@
  *****************************************************************************/
 /* Macros for IPC registers access (used in reg_ipc_app.h) */
 #define REG_IPC_APP_RD(env, INDEX)                                      \
-    (*(volatile u32*)((u8*)env + IPC_REG_BASE_ADDR + 4*(INDEX)))
+	(*(volatile u32 *)((u8 *)env + IPC_REG_BASE_ADDR + 4 * (INDEX)))
 
 #define REG_IPC_APP_WR(env, INDEX, value)                               \
-    (*(volatile u32*)((u8*)env + IPC_REG_BASE_ADDR + 4*(INDEX)) = value)
+	(*(volatile u32 *)((u8 *)env + IPC_REG_BASE_ADDR + 4 * (INDEX)) = value)
 
 #endif /* REG_ACCESS_H_ */

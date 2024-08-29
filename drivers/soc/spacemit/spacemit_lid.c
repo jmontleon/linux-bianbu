@@ -9,94 +9,77 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/interrupt.h>
+#include <linux/pm_wakeirq.h>
 #include <linux/gpio/consumer.h>
 #include <linux/property.h>
 #include <linux/of.h>
 
-/**
- * struct gpio_lid
- *
- * This struct must be added to the platform_device in the board code.
- * It is used by the gpio_lid driver to setup GPIO lines and to
- * calculate mouse movement.
- */
-struct gpio_lid {
-	u32 scan_ms;
-	struct gpio_desc *blid;
-	int old_state;
+struct _hall {
+	int irq;
+	struct input_dev *input;
+	struct gpio_desc *gpio;
 };
 
-/*
- * Timer function which is run every scan_ms ms when the device is opened.
- * The dev input variable is set to the input_dev pointer.
- */
-static void spacemit_lid_scan(struct input_dev *input)
+static irqreturn_t hall_wakeup_detect(int irq, void *arg)
 {
-	struct gpio_lid *gpio = input_get_drvdata(input);
-	int state = 0;
+	unsigned char state = 0;
+	struct _hall *hall = (struct _hall *)arg;
 
-	if (gpio->blid)
-		state = gpiod_get_value(gpio->blid);
+	state = gpiod_get_value(hall->gpio);
+	input_report_switch(hall->input, SW_LID, !state);
+ 	input_sync(hall->input);
 
-	if (gpio->old_state != state) {
-		dev_warn(&input->dev, "spacemit_lid: state = %d\n", state);
-		gpio->old_state = state;
- 		input_report_switch(input, SW_LID, !state);
- 		input_sync(input);
-	}
+	return IRQ_HANDLED;
 }
 
 static int spacemit_lid_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
-	struct gpio_lid *glid;
+	struct _hall *hall;
 	struct input_dev *input;
 	int error;
 
-	glid = devm_kzalloc(dev, sizeof(*glid), GFP_KERNEL);
-	if (!glid)
+	hall = devm_kzalloc(&pdev->dev, sizeof(*hall), GFP_KERNEL);
+	if (!hall)
 		return -ENOMEM;
 
-	/* Assign some default scanning time */
-	error = device_property_read_u32(dev, "scan-interval-ms", &glid->scan_ms);
-	if (error || glid->scan_ms == 0) {
-		dev_warn(dev, "invalid scan time, set to 1000 ms\n");
-		glid->scan_ms = 1000;
+	hall->gpio = devm_gpiod_get(&pdev->dev, "lid", GPIOD_IN);
+	if (IS_ERR_OR_NULL(hall->gpio)) {
+		pr_err("get gpio error\n");
+		return PTR_ERR(hall->gpio);
 	}
 
-	glid->blid = devm_gpiod_get(dev, "lid", GPIOD_IN);
-	if (IS_ERR(glid->blid))
-		return PTR_ERR(glid->blid);
+	hall->irq = platform_get_irq(pdev, 0);
+	if (hall->irq < 0)
+		return -EINVAL;
 
-	glid->old_state = 0;
+	error = devm_request_any_context_irq(&pdev->dev, hall->irq,
+			hall_wakeup_detect,
+			IRQF_ONESHOT | IRQF_TRIGGER_NONE,
+			"hall-detect", (void *)hall);
+	if (error) {
+		pr_err("request hall pinctrl dectect failed\n");
+		return -EINVAL;
+	}
 
-	input = devm_input_allocate_device(dev);
+
+	input = devm_input_allocate_device(&pdev->dev);
 	if (!input)
 		return -ENOMEM;
 
 	input->name = pdev->name;
 	input->id.bustype = BUS_HOST;
+	input_set_capability(input, EV_SW, SW_LID);
 
-	input_set_drvdata(input, glid);
+	input_set_drvdata(input, hall);
 
-	if (glid->blid)
-		input_set_capability(input, EV_SW, SW_LID);
-
-	error = input_setup_polling(input, spacemit_lid_scan);
-	if (error)
-		return error;
-
-	input_set_poll_interval(input, glid->scan_ms);
+	hall->input = input;
 
 	error = input_register_device(input);
 	if (error) {
-		dev_err(dev, "could not register input device\n");
+		dev_err(&pdev->dev, "could not register input device\n");
 		return error;
 	}
-
-	dev_dbg(dev, "%d ms scan time, buttons: %s\n",
-		glid->scan_ms,
-		glid->blid ? "" : "lid");
 
 	return 0;
 }

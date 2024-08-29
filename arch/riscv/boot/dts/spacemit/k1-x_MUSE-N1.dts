@@ -678,7 +678,7 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		usb-role-switch;
-		role-switch-default-mode = "peripheral";
+		role-switch-default-mode = "host";
 	};
 };
 

@@ -982,6 +982,8 @@ struct	xmit_priv	{
 	u32 txsc_phl_err_cnt1;
 	u32 txsc_phl_err_cnt2;
 #endif /* CONFIG_CORE_TXSC */
+
+	u16 max_agg_time;
 };
 
 #if 0 /*CONFIG_CORE_XMITBUF*/
@@ -1080,7 +1082,7 @@ u8 tos_to_up(u8 tos);
 #endif
 #endif
 
-void core_tx_amsdu_tasklet(_adapter *padapter);
+void core_tx_amsdu_tasklet(unsigned long priv);
 
 u8 rtw_get_tx_bw_mode(_adapter *adapter, struct sta_info *sta);
 

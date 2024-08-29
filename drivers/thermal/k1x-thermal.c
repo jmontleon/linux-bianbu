@@ -9,6 +9,7 @@
 #include <linux/of_device.h>
 #include <linux/thermal.h>
 #include <linux/reset.h>
+#include "thermal_hwmon.h"
 #include "k1x-thermal.h"
 
 #define MAX_SENSOR_NUMBER		5
@@ -302,6 +303,10 @@ static int k1x_thermal_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to request irq: %d\n", ret);
 			return ret;
 		}
+
+		/* register the thermal sensor to hwmon */
+		if (devm_thermal_add_hwmon_sysfs(dev, s->sdesc[i].tzd))
+			dev_warn(dev, "Failed to add hwmon sysfs attributes\n");
 
 		/* enable sensor low & higth threshold interrupt */
 		enable_sensor_irq(s->sdesc + i);

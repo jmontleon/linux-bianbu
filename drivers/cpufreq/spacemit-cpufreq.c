@@ -414,7 +414,7 @@ static int spacemit_dt_cpufreq_pre_probe(struct platform_device *pdev)
 	struct device_node *cpus;
 	struct device_node *product_id, *wafer_id;
 	u32 prop = 0;
-	u32 product_prop, wafer_prop;
+	u32 product_prop = 0, wafer_prop = 0;
 
 	if (strncmp(pdev->name, "cpufreq-dt", 10) != 0)
 		return 0;

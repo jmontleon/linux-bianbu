@@ -1660,6 +1660,7 @@ u32 hfc_reset_param(struct mac_ax_adapter *adapter)
 			switch (adapter->dle_info.qta_mode) {
 			case MAC_AX_QTA_SCC:
 			case MAC_AX_QTA_SCC_TURBO:
+			case MAC_AX_QTA_SCC_LOGO:
 				ch_cfg_ini = hfc_chcfg_sdio_8852b;
 				pub_cfg_ini = &hfc_pubcfg_sdio_8852b;
 				break;

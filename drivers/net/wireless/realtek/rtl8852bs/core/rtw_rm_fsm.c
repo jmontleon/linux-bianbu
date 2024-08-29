@@ -742,7 +742,6 @@ static int rm_state_do_meas(struct rm_obj *prm, enum RM_EV_ID evid)
 		break;
 	case RM_EV_cancel:
 		rm_set_rep_mode(prm, MEAS_REP_MOD_REFUSE);
-		issue_null_reply(prm);
 		rm_state_goto(prm, RM_ST_END);
 		break;
 	case RM_EV_state_out:

@@ -40,7 +40,7 @@
 #define MAC_AX_MAJOR_VER	0	/*Software Architcture Modify*/
 #define MAC_AX_PROTOTYPE_VER	29	/*New Feature;Regular Release*/
 #define MAC_AX_SUB_VER		43	/*for bug fix*/
-#define MAC_AX_SUB_INDEX	2	/*for special used*/
+#define MAC_AX_SUB_INDEX	4	/*for special used*/
 
 #define MAC_AX_SRC_VER(a, b, c, d)                                             \
 				(((a) << 24) + ((b) << 16) + ((c) << 8) + (d))

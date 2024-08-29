@@ -265,7 +265,7 @@ typedef struct ieee_param {
 		struct {
 			u32 len;
 			u8 reserved[32];
-			u8 data[0];
+			DECLARE_FLEX_ARRAY(u8, data);
 		} wpa_ie;
 		struct {
 			int command;
@@ -278,7 +278,7 @@ typedef struct ieee_param {
 			u8 idx;
 			u8 seq[8]; /* sequence counter (set: RX, get: TX) */
 			u16 key_len;
-			u8 key[0];
+			DECLARE_FLEX_ARRAY(u8, key);
 		} crypt;
 #ifdef CONFIG_AP_MODE
 		struct {
@@ -290,7 +290,7 @@ typedef struct ieee_param {
 		} add_sta;
 		struct {
 			u8	reserved[2];/* for set max_num_sta */
-			u8	buf[0];
+			DECLARE_FLEX_ARRAY(u8, buf);
 		} bcn_ie;
 #endif
 
@@ -301,7 +301,7 @@ typedef struct ieee_param {
 typedef struct ieee_param_ex {
 	u32 cmd;
 	u8 sta_addr[ETH_ALEN];
-	u8 data[0];
+	DECLARE_FLEX_ARRAY(u8, data);
 } ieee_param_ex;
 
 struct sta_data {
@@ -1252,7 +1252,7 @@ struct ieee80211_info_element_hdr {
 struct ieee80211_info_element {
 	u8 id;
 	u8 len;
-	u8 data[0];
+	DECLARE_FLEX_ARRAY(u8, data);
 } __attribute__((packed));
 #endif
 
@@ -1324,7 +1324,7 @@ struct ieee80211_txb {
 	u16 reserved;
 	u16 frag_size;
 	u16 payload_size;
-	struct sk_buff *fragments[0];
+	DECLARE_FLEX_ARRAY(struct sk_buff *, fragments);
 };
 
 
@@ -1820,6 +1820,14 @@ struct rtw_ieee802_11_elems {
 	u8 *tbtx_cap;
 	u8 tbtx_cap_len;
 #endif
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+	u8 *mbssid;
+	u8 mbssid_len;
+
+	/* exist in nontransmitted bssid profile */
+	u8 *non_tx_bssid_cap;
+	u8 non_tx_bssid_cap_len;
+#endif
 };
 
 typedef enum { ParseOK = 0, ParseUnknown = 1, ParseFailed = -1 } ParseRes;
@@ -1827,6 +1835,12 @@ typedef enum { ParseOK = 0, ParseUnknown = 1, ParseFailed = -1 } ParseRes;
 ParseRes rtw_ieee802_11_parse_elems(u8 *start, uint len,
 				struct rtw_ieee802_11_elems *elems,
 				int show_errors);
+
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+ParseRes rtw_ieee802_11_override_elems_by_mbssid(
+	u8 *mbssid_ie, uint mbssid_ie_len, u8 mbssid_idx, struct rtw_ieee802_11_elems *elems
+	, int show_errors);
+#endif
 
 u8 *rtw_set_fixed_ie(unsigned char *pbuf, unsigned int len, unsigned char *source, unsigned int *frlen);
 u8 *rtw_set_ie(u8 *pbuf, sint index, uint len, const u8 *source, uint *frlen);
