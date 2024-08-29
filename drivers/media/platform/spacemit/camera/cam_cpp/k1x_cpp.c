@@ -1450,3 +1450,4 @@ module_platform_driver(cpp_driver);
 
 MODULE_DESCRIPTION("SPACEMIT Camera Post Process Driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(DMA_BUF);
