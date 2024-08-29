@@ -39,6 +39,7 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("ARMChina");
 MODULE_DESCRIPTION("Tiube VPU Driver.");
+MODULE_IMPORT_NS(DMA_BUF);
 
 static int __init mvx_init(void)
 {
