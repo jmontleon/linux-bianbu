@@ -18,10 +18,6 @@
 #include "rwnx_txq.h"
 #include "hal_desc.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 8, 0)
-#define IEEE80211_NUM_TIDS              16
-#endif
-
 #define RWNX_HWQ_BK                     0
 #define RWNX_HWQ_BE                     1
 #define RWNX_HWQ_VI                     2
@@ -29,8 +25,8 @@
 #define RWNX_HWQ_BCMC                   4
 #define RWNX_HWQ_NB                     NX_TXQ_CNT
 #define RWNX_HWQ_ALL_ACS (RWNX_HWQ_BK | RWNX_HWQ_BE | RWNX_HWQ_VI | RWNX_HWQ_VO)
-#define RWNX_HWQ_ALL_ACS_BIT ( BIT(RWNX_HWQ_BK) | BIT(RWNX_HWQ_BE) |    \
-                               BIT(RWNX_HWQ_VI) | BIT(RWNX_HWQ_VO) )
+#define RWNX_HWQ_ALL_ACS_BIT (BIT(RWNX_HWQ_BK) | BIT(RWNX_HWQ_BE) |    \
+							  BIT(RWNX_HWQ_VI) | BIT(RWNX_HWQ_VO))
 
 #define RWNX_TX_LIFETIME_MS             1000
 #define RWNX_TX_MAX_RATES               NX_TX_MAX_RATES
@@ -38,8 +34,8 @@
 #define RWNX_SWTXHDR_ALIGN_SZ           4
 #define RWNX_SWTXHDR_ALIGN_MSK (RWNX_SWTXHDR_ALIGN_SZ - 1)
 #define RWNX_SWTXHDR_ALIGN_PADS(x) \
-                    ((RWNX_SWTXHDR_ALIGN_SZ - ((x) & RWNX_SWTXHDR_ALIGN_MSK)) \
-                     & RWNX_SWTXHDR_ALIGN_MSK)
+					((RWNX_SWTXHDR_ALIGN_SZ - ((x) & RWNX_SWTXHDR_ALIGN_MSK)) \
+					 & RWNX_SWTXHDR_ALIGN_MSK)
 #if RWNX_SWTXHDR_ALIGN_SZ & RWNX_SWTXHDR_ALIGN_MSK
 #error bad RWNX_SWTXHDR_ALIGN_SZ
 #endif
@@ -73,12 +69,12 @@ extern const int rwnx_tid2hwq[IEEE80211_NUM_TIDS];
  * @msdu_len Size, in bytes, of the MSDU (without padding nor amsdu header)
  */
 struct rwnx_amsdu_txhdr {
-    struct list_head list;
-    size_t map_len;
-    dma_addr_t dma_addr;
-    struct sk_buff *skb;
-    u16 pad;
-    u16 msdu_len;
+	struct list_head list;
+	size_t map_len;
+	dma_addr_t dma_addr;
+	struct sk_buff *skb;
+	u16 pad;
+	u16 msdu_len;
 };
 
 /**
@@ -92,10 +88,10 @@ struct rwnx_amsdu_txhdr {
  * @pad  Padding to add before adding a new subframe
  */
 struct rwnx_amsdu {
-    struct list_head hdrs;
-    u16 len;
-    u8 nb;
-    u8 pad;
+	struct list_head hdrs;
+	u16 len;
+	u8 nb;
+	u8 pad;
 };
 
 /**
@@ -118,24 +114,24 @@ struct rwnx_amsdu {
  * @desc Buffer description that will be copied in shared mem for FW
  */
 struct rwnx_sw_txhdr {
-    struct rwnx_sta *rwnx_sta;
-    struct rwnx_vif *rwnx_vif;
-    struct rwnx_txq *txq;
-    u8 hw_queue;
-    u16 frame_len;
-    u16 headroom;
+	struct rwnx_sta *rwnx_sta;
+	struct rwnx_vif *rwnx_vif;
+	struct rwnx_txq *txq;
+	u8 hw_queue;
+	u16 frame_len;
+	u16 headroom;
 #ifdef CONFIG_RWNX_AMSDUS_TX
-    struct rwnx_amsdu amsdu;
+	struct rwnx_amsdu amsdu;
 #endif
 	u32 need_cfm;
-    struct sk_buff *skb;
+	struct sk_buff *skb;
 
-    size_t map_len;
-    dma_addr_t dma_addr;
-    struct txdesc_api desc;
-    u8 raw_frame;
-    u8 fixed_rate;
-    u16 rate_config;
+	size_t map_len;
+	dma_addr_t dma_addr;
+	struct txdesc_api desc;
+	u8 raw_frame;
+	u8 fixed_rate;
+	u16 rate_config;
 };
 
 /**
@@ -147,52 +143,49 @@ struct rwnx_sw_txhdr {
  * @hw_hdr: Information for/from hardware
  */
 struct rwnx_txhdr {
-    struct rwnx_sw_txhdr *sw_hdr;
-    char cache_guard[L1_CACHE_BYTES];
-    struct rwnx_hw_txhdr hw_hdr;
+	struct rwnx_sw_txhdr *sw_hdr;
+	char cache_guard[L1_CACHE_BYTES];
+	struct rwnx_hw_txhdr hw_hdr;
 };
 
 u16 rwnx_select_txq(struct rwnx_vif *rwnx_vif, struct sk_buff *skb);
 netdev_tx_t rwnx_start_xmit(struct sk_buff *skb, struct net_device *dev);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
 int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
-                         struct cfg80211_mgmt_tx_params *params, bool offchan,
-                         u64 *cookie);
+						 struct cfg80211_mgmt_tx_params *params, bool offchan,
+						 u64 *cookie);
 #else
 int rwnx_start_mgmt_xmit(struct rwnx_vif *vif, struct rwnx_sta *sta,
-                         struct ieee80211_channel *channel, bool offchan,
-                         unsigned int wait, const u8* buf, size_t len,
-                    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
-                         bool no_cck,
-                    #endif
-                    #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
-                         bool dont_wait_for_ack,
-                    #endif
-                         u64 *cookie);
+						 struct ieee80211_channel *channel, bool offchan,
+						 unsigned int wait, const u8 *buf, size_t len,
+					#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
+						 bool no_cck,
+					#endif
+					#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0))
+						 bool dont_wait_for_ack,
+					#endif
+						 u64 *cookie);
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
-#ifdef CONFIG_RWNX_MON_XMIT
-int rwnx_start_monitor_if_xmit(struct sk_buff *skb, struct net_device *dev);
-#endif
 int rwnx_txdatacfm(void *pthis, void *host_id);
 
 struct rwnx_hw;
 struct rwnx_sta;
 void rwnx_set_traffic_status(struct rwnx_hw *rwnx_hw,
-                             struct rwnx_sta *sta,
-                             bool available,
-                             u8 ps_id);
+							 struct rwnx_sta *sta,
+							 bool available,
+							 u8 ps_id);
 void rwnx_ps_bh_enable(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
-                       bool enable);
+					   bool enable);
 void rwnx_ps_bh_traffic_req(struct rwnx_hw *rwnx_hw, struct rwnx_sta *sta,
-                            u16 pkt_req, u8 ps_id);
+							u16 pkt_req, u8 ps_id);
 
 void rwnx_switch_vif_sta_txq(struct rwnx_sta *sta, struct rwnx_vif *old_vif,
-                             struct rwnx_vif *new_vif);
+							 struct rwnx_vif *new_vif);
 
 int rwnx_dbgfs_print_sta(char *buf, size_t size, struct rwnx_sta *sta,
-                         struct rwnx_hw *rwnx_hw);
+						 struct rwnx_hw *rwnx_hw);
 void rwnx_txq_credit_update(struct rwnx_hw *rwnx_hw, int sta_idx, u8 tid,
-                            s8 update);
+							s8 update);
 void rwnx_tx_push(struct rwnx_hw *rwnx_hw, struct rwnx_txhdr *txhdr, int flags);
 
 #endif /* _RWNX_TX_H_ */

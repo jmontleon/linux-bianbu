@@ -369,7 +369,7 @@ rtw_efuse_shadow_write(void *efuse, u8 byte_count, u16 offset, u32 value,
 
 	if (efuse_info->efuse_a_die_size != 0 &&
 		offset >= efuse_info->a_die_start_offset &&
-		!is_limit)
+		is_limit)
 		offset += (u16)efuse_info->hci_to_a_die_offset;
 
 	if (byte_count == 1)
@@ -410,10 +410,18 @@ enum rtw_hal_status rtw_efuse_get_usage(void *efuse, u32 *usage)
 	return status;
 }
 
-enum rtw_hal_status rtw_efuse_shadow2buf(void *efuse, u8 *destbuf, u16 buflen)
+enum rtw_hal_status rtw_efuse_shadow2buf(void *efuse, u8 *destbuf, u16 buflen, u8 is_limit)
 {
 	enum rtw_hal_status status = RTW_HAL_STATUS_SUCCESS;
 	struct efuse_t *efuse_info = efuse;
+	u16 offset;
+
+	if (efuse_info->efuse_a_die_size != 0 && is_limit) {
+		for (offset = efuse_info->a_die_start_offset;
+			offset < (efuse_info->a_die_start_offset + (u32)efuse_info->efuse_a_die_size); offset++)
+			efuse_info->shadow_map[offset] =
+						efuse_info->shadow_map[offset + efuse_info->hci_to_a_die_offset];
+	}
 
 	_os_mem_cpy(efuse_info->hal_com->drv_priv, (void *)destbuf,
 				(void *)efuse_info->shadow_map , buflen);

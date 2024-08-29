@@ -18,22 +18,20 @@
 
 
 /// Definition of the IPC Host environment structure.
-struct usb_host_env_tag
-{
-    // Index used that points to the first free TX desc
-    uint32_t txdesc_free_idx[USB_TXQUEUE_CNT];
-    // Index used that points to the first used TX desc
-    uint32_t txdesc_used_idx[USB_TXQUEUE_CNT];
-    // Array storing the currently pushed host ids, per IPC queue
-    //uint64_t tx_host_id[USB_TXQUEUE_CNT][USB_TXDESC_CNT];
-    unsigned long tx_host_id[USB_TXQUEUE_CNT][USB_TXDESC_CNT];
+struct usb_host_env_tag {
+	// Index used that points to the first free TX desc
+	uint32_t txdesc_free_idx[USB_TXQUEUE_CNT];
+	// Index used that points to the first used TX desc
+	uint32_t txdesc_used_idx[USB_TXQUEUE_CNT];
+	// Array storing the currently pushed host ids, per IPC queue
+	uint64_t tx_host_id[USB_TXQUEUE_CNT][USB_TXDESC_CNT];
 
-    /// Pointer to the attached object (used in callbacks and register accesses)
-    void *pthis;
+	/// Pointer to the attached object (used in callbacks and register accesses)
+	void *pthis;
 };
 
 extern void aicwf_usb_host_init(struct usb_host_env_tag *env,
-                  void *cb, void *shared_env_ptr, void *pthis);
+				  void *cb, void *shared_env_ptr, void *pthis);
 
 extern void aicwf_usb_host_txdesc_push(struct usb_host_env_tag *env, const int queue_idx, const uint64_t host_id);
 

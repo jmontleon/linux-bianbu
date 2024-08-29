@@ -176,11 +176,6 @@ size_t rtw_sdio_cmd53_align_size(struct dvobj_priv *d, size_t len)
 
 static s32 sdio_init_xmit_priv(struct _ADAPTER *a)
 {
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-	rtw_tasklet_init(&a->xmitpriv.xmit_tasklet,
-			(void *)core_tx_amsdu_tasklet,
-			(unsigned long)a);
-#endif
 	return _SUCCESS;
 }
 

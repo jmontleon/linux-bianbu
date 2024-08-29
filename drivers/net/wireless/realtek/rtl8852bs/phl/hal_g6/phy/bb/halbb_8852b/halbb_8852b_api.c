@@ -263,6 +263,7 @@ void halbb_tx_dfir_shap_cck_8852b(struct bb_info *bb, u8 ch, u8 shape_idx,
 
 void halbb_bb_reset_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx)
 {
+	u8 val = 0;
 	BB_DBG(bb, DBG_DBG_API, "%s\n", __func__);
 
 	// === [TSSI protect on] === //
@@ -270,10 +271,32 @@ void halbb_bb_reset_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx)
 	halbb_set_reg(bb, 0x5818, BIT(30), 0x1);
 	halbb_set_reg(bb, 0x78dc, BIT(30) | BIT(31), 0x1);
 	halbb_set_reg(bb, 0x7818, BIT(30), 0x1);
+
+	// === [PD Disable] === //
+	halbb_set_reg(bb,0x2344, BIT(31), 0x1);
+	halbb_set_reg(bb,0xc3c, BIT(9), 0x1);
+
+	// === [stop phy-sts update] === //
+	val = hal_read8(bb->hal_com,  0xce40);
+	val = val & ~(0x1);
+	hal_write8(bb->hal_com, 0xce40, val);
+	halbb_delay_us(bb, 2);
+	
 	// === [BB reset] === //
 	halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
 	halbb_set_reg_cmn(bb, 0x704, BIT(1), 0, phy_idx);
 	halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
+
+	// === [start phy-sts update] === //
+	val = hal_read8(bb->hal_com,  0xce40);
+	val = val | 0x1;
+	hal_write8(bb->hal_com, 0xce40, val);
+
+	// === [PD Enable] === //
+	if(bb->hal_com->band[0].cur_chandef.band == BAND_ON_24G)
+		halbb_set_reg(bb,0x2344, BIT(31), 0x0);
+	halbb_set_reg(bb,0xc3c, BIT(9), 0x0);
+	
 	// === [TSSI protect off] === //
 	halbb_set_reg(bb, 0x58dc, BIT(30) | BIT(31), 0x3);
 	halbb_set_reg(bb, 0x5818, BIT(30), 0x0);
@@ -314,12 +337,24 @@ void halbb_tssi_cont_en_8852b(struct bb_info *bb, bool en, enum rf_path path)
 }
 void halbb_bb_reset_all_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx)
 {
+	u8 val = 0;
 	BB_DBG(bb, DBG_DBG_API, "%s\n", __func__);
+
+	//PD Disable
+	halbb_set_reg(bb,0x2344, BIT(31), 0x1);
+	halbb_set_reg(bb,0xc3c, BIT(9), 0x1);
 
 	//Protest SW-SI 
 	halbb_set_reg_cmn(bb, 0x1200, BIT(28) | BIT(29) | BIT(30), 0x7, phy_idx);
 	halbb_set_reg_cmn(bb, 0x3200, BIT(28) | BIT(29) | BIT(30), 0x7, phy_idx);
 	halbb_delay_us(bb, 1);
+
+	// === [stop phy-sts update] === //
+	val = hal_read8(bb->hal_com,  0xce40);
+	val = val & ~(0x1);
+	hal_write8(bb->hal_com, 0xce40, val);
+	halbb_delay_us(bb, 2);
+	
 	// === [BB reset] === //
 	halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
 	halbb_set_reg_cmn(bb, 0x704, BIT(1), 0, phy_idx);
@@ -327,16 +362,46 @@ void halbb_bb_reset_all_8852b(struct bb_info *bb, enum phl_phy_idx phy_idx)
 	halbb_set_reg_cmn(bb, 0x1200, BIT(28) | BIT(29) | BIT(30), 0x0, phy_idx);
 	halbb_set_reg_cmn(bb, 0x3200, BIT(28) | BIT(29) | BIT(30), 0x0, phy_idx);
 	halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
+
+	// === [start phy-sts update] === //
+	val = hal_read8(bb->hal_com,  0xce40);
+	val = val | 0x1;
+	hal_write8(bb->hal_com, 0xce40, val);
+
+	//PD Enable
+	if(bb->hal_com->band[0].cur_chandef.band == BAND_ON_24G)
+		halbb_set_reg(bb,0x2344, BIT(31), 0x0);
+	halbb_set_reg(bb,0xc3c, BIT(9), 0x0);
+	
 }
 
 void halbb_bb_reset_en_8852b(struct bb_info *bb, bool en, enum phl_phy_idx phy_idx)
 {
+	u8 val = 0, protect = 0;
 	BB_DBG(bb, DBG_DBG_API, "%s\n", __func__);
+
+	if (0x1 & hal_read8(bb->hal_com, 0xce40))
+		protect = 1;
 
 	if (en) {
 		halbb_set_reg_cmn(bb, 0x1200, BIT(28) | BIT(29) | BIT(30), 0x0, phy_idx);
 		halbb_set_reg_cmn(bb, 0x3200, BIT(28) | BIT(29) | BIT(30), 0x0, phy_idx);
-		halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
+
+		if (protect) {
+			// === [stop phy-sts update] === //
+			val = hal_read8(bb->hal_com,  0xce40);
+			val = val & ~(0x1);
+			hal_write8(bb->hal_com, 0xce40, val);
+			halbb_delay_us(bb, 2);
+			halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
+			// === [start phy-sts update] === //
+			val = hal_read8(bb->hal_com,  0xce40);
+			val = val | 0x1;
+			hal_write8(bb->hal_com, 0xce40, val);
+		} else {
+			halbb_set_reg_cmn(bb, 0x704, BIT(1), 1, phy_idx);
+		}
+		
 		//PD Enable
 		if(bb->hal_com->band[0].cur_chandef.band == BAND_ON_24G)
 			halbb_set_reg(bb,0x2344, BIT(31), 0x0);
@@ -349,7 +414,21 @@ void halbb_bb_reset_en_8852b(struct bb_info *bb, bool en, enum phl_phy_idx phy_i
 		halbb_set_reg_cmn(bb, 0x1200, BIT(28) | BIT(29) | BIT(30), 0x7, phy_idx);
 		halbb_set_reg_cmn(bb, 0x3200, BIT(28) | BIT(29) | BIT(30), 0x7, phy_idx);
 		halbb_delay_us(bb, 1);
-		halbb_set_reg_cmn(bb, 0x704, BIT(1), 0, phy_idx);
+
+		if (protect) {
+			// === [stop phy-sts update] === //
+			val = hal_read8(bb->hal_com,  0xce40);
+			val = val & ~(0x1);
+			hal_write8(bb->hal_com, 0xce40, val);
+			halbb_delay_us(bb, 2);
+			halbb_set_reg_cmn(bb, 0x704, BIT(1), 0, phy_idx);
+			// === [start phy-sts update] === //
+			val = hal_read8(bb->hal_com,  0xce40);
+			val = val | 0x1;
+			hal_write8(bb->hal_com, 0xce40, val);
+		} else {
+			halbb_set_reg_cmn(bb, 0x704, BIT(1), 0, phy_idx);
+		}
 	}
 }
 

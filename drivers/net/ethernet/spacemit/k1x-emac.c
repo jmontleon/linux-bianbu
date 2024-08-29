@@ -2242,6 +2242,8 @@ static int emac_phy_connect(struct net_device *dev)
 			" Link = %d\n", __func__,
 			dev->name, phydev->phy_id, phydev->link);
 
+	/* Indicate that the MAC is responsible for PHY PM */
+	phydev->mac_managed_pm = true;
 	dev->phydev = phydev;
 
 	clk_phase_set(priv, TX_PHASE);
@@ -2560,7 +2562,7 @@ static int emac_config_dt(struct platform_device *pdev, struct emac_priv *priv)
 		dev_dbg(&pdev->dev, "%s dma_burst_len using default value:%d \n",
 			__func__, priv->dma_burst_len);
 	} else {
-		if (priv->dma_burst_len <= 0 && priv->dma_burst_len > 7) {
+		if (priv->dma_burst_len <= 0 || priv->dma_burst_len > 7) {
 			dev_err(&pdev->dev, "%s burst len illegal, use default vallue:%d\n",
 				__func__, DEFAULT_DMA_BURST_LEN);
 			priv->dma_burst_len = DEFAULT_DMA_BURST_LEN;

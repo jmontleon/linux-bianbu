@@ -17,6 +17,8 @@
 
 #include <drv_types.h>
 
+#define RTW_DIRECT_HAL_API 1
+
 #define RTWPRIV_VER_INFO	1
 
 #define MAX_MP_XMITBUF_SZ	2048
@@ -467,6 +469,7 @@ struct mp_priv {
 	u32 rtw_mp_ru_tone;
 	u8 ru_tone_sel_list[6];
 	u8 ru_alloc_list[68];
+	u8 rtw_coding;
 
 	struct rtw_mp_giltf_data st_giltf[5];
 	struct rtw_plcp_user mp_plcp_user[4];
@@ -1290,17 +1293,28 @@ enum rtw_mp_nss
 	(idx == MP_RU_TONE_106) ? "106-Tone" :\
 	(idx == MP_RU_TONE_242) ? "242-Tone" :\
 	(idx == MP_RU_TONE_484) ? "484-Tone" :\
-	(idx == MP_RU_TONE_966) ? "966-Tone" :\
+	(idx == MP_RU_TONE_996) ? "996-Tone" :\
 	"UNknow"
 
 enum rtw_mp_resourceUnit
 {
-	MP_RU_TONE_26 = 0,
+	MP_RU_TONE_26,
 	MP_RU_TONE_52,
 	MP_RU_TONE_106,
 	MP_RU_TONE_242,
 	MP_RU_TONE_484,
-	MP_RU_TONE_966
+	MP_RU_TONE_996,
+	MP_RU_TONE_996X2,
+	MP_RU_TONE_HESIGB,
+	MP_RU_TONE_996X4,
+	MP_RU_TONE_52_26,
+	MP_RU_TONE_106_26,
+	MP_RU_TONE_484_242,
+	MP_RU_TONE_996_484,
+	MP_RU_TONE_996_484_242,
+	MP_RU_TONE_996X2_484,
+	MP_RU_TONE_996X3,
+	MP_RU_TONE_996X3_484
 };
 /* SYNC to PHL MP define END */
 

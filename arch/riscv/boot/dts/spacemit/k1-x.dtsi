@@ -28,6 +28,7 @@
 		serial6 = &uart7;
 		serial7 = &uart8;
 		serial8 = &uart9;
+		serial9 = &r_uart1;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
 		mmc2 = &sdhci2;
@@ -624,7 +625,7 @@
 
 		pinctrl: pinctrl@d401e000 {
 			compatible = "pinconf-single-aib";
-			reg = <0x0 0xd401e000 0x0 0x400>,
+			reg = <0x0 0xd401e000 0x0 0x250>,
 				<0x0 0xd4019800 0x0 0x10>;
 			#address-cells = <1>;
 			#size-cells = <1>;
@@ -939,6 +940,23 @@
 			interconnects = <&dram_range4>;
 			interconnect-names = "dma-mem";
 			status = "disabled";
+		};
+
+		r_uart1: r_uart1@c088d000 {
+			compatible = "spacemit,rcpu-pxa-uart";
+			reg = <0x0 0xc088d000 0x0 0x100>;
+			clocks = <&ccu CLK_RCPU_UART1>, <&ccu CLK_SLOW_UART>;
+			clock-names = "func", "gate";
+			resets = <&reset RESET_RCPU_UART1>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
+			rcpu-uart;
+			interconnects = <&dram_range4>;
+			interconnect-names = "dma-mem";
+			reg-shift = <2>;
+			reg-io-width = <4>;
+			status = "ok";
 		};
 
 		mailbox: mailbox@d4013400 {
@@ -1363,6 +1381,38 @@
 			status = "disabled";
 		};
 
+
+		ri2c0: ri2c@c0887000 {
+			compatible = "spacemit,k1x-i2c-rcpu";
+			spacemit,adapter-id = <9>;
+			reg = <0x0 0xc0887000 0x0 0x38>;
+			/* usually i2c client has only 1 reg field */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&ccu CLK_RCPU_I2C0>;
+			resets = <&reset RESET_RCPU_I2C0>;
+			/*
+			dmas = <&pdma0 DMA_I2C0_RX 1
+				&pdma0 DMA_I2C0_TX 1>;
+			dma-names = "rx", "tx";
+			*/
+			rcpu-i2c;
+			spacemit,dma-disable;
+			/* spacemit,i2c-fast-mode; */
+			/* spacemit,i2c-high-mode; */
+			spacemit,i2c-master-code = /bits/ 8 <0x0e>;
+			spacemit,i2c-clk-rate = <32000000>;
+			spacemit,i2c-lcr = <0x82c469f>;
+			spacemit,i2c-wcr = <0x142a>;
+			/* apb clock: 26MHz or 52MHz */
+			spacemit,apb_clock = <52000000>;
+                        power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+                        cpuidle,pm-runtime,sleep;
+			interconnects = <&dram_range4>;
+			interconnect-names = "dma-mem";
+			status = "okay";
+		};
+
 		pwm0: pwm@d401a000 {
 			compatible = "spacemit,k1x-pwm";
 			reg = <0x0 0xd401a000 0x0 0x10>;
@@ -1656,11 +1706,10 @@
 			status = "disabled";
 		};
 
-		flexcan1: fdcan@c0870000 {
-			compatible = "spacemit,k1x-flexcan";
+		r_flexcan: fdcan@c0870000 {
+			compatible = "spacemit,k1x-r-flexcan";
 			reg = <0x0 0xc0870000 0x0 0x4000>;
 			interrupt-parent = <&intc>;
-			clock-frequency = <20000000>;
 			fsl,clk-source = <0>;
 			clocks = <&ccu CLK_RCPU_CAN>,<&ccu CLK_RCPU_CAN_BUS>;
 			clock-names = "per","ipg";
@@ -1774,6 +1823,9 @@
 			spacemit,otg-force-a-bus-req;
 			clocks = <&ccu CLK_USB_AXI>;
 			resets = <&reset RESET_USB_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy>;
 			status = "disabled";
 		};
@@ -1806,7 +1858,6 @@
 			clocks = <&ccu CLK_USB_AXI>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
-			regulator,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy>;
 			usb-otg = <&otg>;
@@ -1832,6 +1883,9 @@
 			spacemit,otg-force-a-bus-req;
 			clocks = <&ccu CLK_USB_P1>;
 			resets = <&reset RESET_USBP1_AXI>;
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy1>;
 			status = "disabled";
 		};
@@ -1864,7 +1918,6 @@
 			clocks = <&ccu CLK_USB_P1>;
 			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
 			clk,pm-runtime,no-sleep;
-			regulator,pm-runtime,no-sleep;
 			cpuidle,pm-runtime,sleep;
 			usb-phy = <&usbphy1>;
 			usb-otg = <&otg1>;
@@ -1894,6 +1947,9 @@
 
 		usb3hub: usb3hub@0 {
 			compatible = "spacemit,usb3-hub";
+			power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			status = "disabled";
 		};
 
@@ -1906,6 +1962,9 @@
 			reset-names = "ctl_rst";
 			clocks = <&ccu CLK_USB30>;
 			clock-names = "usbdrd30";
+			power-domains = <&power K1X_PMU_BUS_PWR_DOMAIN>;
+			clk,pm-runtime,no-sleep;
+			cpuidle,pm-runtime,sleep;
 			phys = <&combphy PHY_TYPE_USB3>;
 			phy-names = "usb3-phy";
 			usb-phy = <&usb2phy>;

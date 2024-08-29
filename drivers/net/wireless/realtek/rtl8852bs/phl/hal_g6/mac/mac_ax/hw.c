@@ -2363,6 +2363,7 @@ u32 mac_get_hw_value(struct mac_ax_adapter *adapter,
 u32 cfg_mac_bw(struct mac_ax_adapter *adapter, struct mac_ax_cfg_bw *cfg)
 {
 	u32 value32 = 0;
+	u32 reg = 0;
 	u8 value8 = 0;
 	u8 chk_val8 = 0;
 	struct mac_ax_intf_ops *ops = adapter_to_intf_ops(adapter);
@@ -2370,6 +2371,28 @@ u32 cfg_mac_bw(struct mac_ax_adapter *adapter, struct mac_ax_cfg_bw *cfg)
 		(struct rtw_hal_com_t *)adapter->drv_adapter;
 
 	u8 txsc20 = 0, txsc40 = 0, txsc80 = 0;
+
+#if (MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT)
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
+		reg = cfg->band == MAC_AX_BAND_0 ?
+		      R_AX_PHYINFO_ERR_IMR : R_AX_PHYINFO_ERR_IMR_C1;
+		value32 = MAC_REG_R32(reg);
+		value32 = SET_CLR_WORD(value32, 0x7, B_AX_PHYINTF_TIMEOUT_THR);
+		MAC_REG_W32(reg, value32);
+	}
+#endif
+#if (MAC_AX_8852C_SUPPORT || MAC_AX_8852D_SUPPORT)
+	if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+	    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+		reg = cfg->band == MAC_AX_BAND_0 ?
+		      R_AX_PHYINFO_ERR_IMR_V1 : R_AX_PHYINFO_ERR_IMR_V1_C1;
+		value32 = MAC_REG_R32(reg);
+		value32 = SET_CLR_WORD(value32, 0x7, B_AX_PHYINTF_TIMEOUT_THR_V1);
+		MAC_REG_W32(reg, value32);
+	}
+#endif
 
 	switch (cfg->cbw) {
 	case CHANNEL_WIDTH_160:
@@ -2408,6 +2431,23 @@ u32 cfg_mac_bw(struct mac_ax_adapter *adapter, struct mac_ax_cfg_bw *cfg)
 			MAC_REG_W8(R_AX_TSF_32K_SEL_V1, US_TIME_10M);
 		}
 #endif
+#if (MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
+			value32 = MAC_REG_R32(reg);
+			value32 = SET_CLR_WORD(value32, 0x20, B_AX_PHYINTF_TIMEOUT_THR);
+			MAC_REG_W32(reg, value32);
+		}
+#endif
+#if (MAC_AX_8852C_SUPPORT || MAC_AX_8852D_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			value32 = MAC_REG_R32(reg);
+			value32 = SET_CLR_WORD(value32, 0x20, B_AX_PHYINTF_TIMEOUT_THR_V1);
+			MAC_REG_W32(reg, value32);
+		}
+#endif
 		break;
 	case CHANNEL_WIDTH_5:
 		value32 = MAC_REG_R32(R_AX_AFE_CTRL1);
@@ -2428,6 +2468,23 @@ u32 cfg_mac_bw(struct mac_ax_adapter *adapter, struct mac_ax_cfg_bw *cfg)
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851E) ||
 		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
 			MAC_REG_W8(R_AX_TSF_32K_SEL_V1, US_TIME_5M);
+		}
+#endif
+#if (MAC_AX_8852B_SUPPORT || MAC_AX_8851B_SUPPORT || MAC_AX_8852BT_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8851B) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852BT)) {
+			value32 = MAC_REG_R32(reg);
+			value32 = SET_CLR_WORD(value32, 0x20, B_AX_PHYINTF_TIMEOUT_THR);
+			MAC_REG_W32(reg, value32);
+		}
+#endif
+#if (MAC_AX_8852C_SUPPORT || MAC_AX_8852D_SUPPORT)
+		if (is_chip_id(adapter, MAC_AX_CHIP_ID_8852C) ||
+		    is_chip_id(adapter, MAC_AX_CHIP_ID_8852D)) {
+			value32 = MAC_REG_R32(reg);
+			value32 = SET_CLR_WORD(value32, 0x20, B_AX_PHYINTF_TIMEOUT_THR_V1);
+			MAC_REG_W32(reg, value32);
 		}
 #endif
 		break;

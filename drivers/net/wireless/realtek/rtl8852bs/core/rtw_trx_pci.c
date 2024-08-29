@@ -30,14 +30,6 @@ static void rtw_mi_pci_tasklets_kill(_adapter *padapter)
 }
 
 /********************************xmit section*****************************/
-static void pci_xmit_tasklet(unsigned long data)
-{
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-	_adapter *padapter = (_adapter *) data;
-	core_tx_amsdu_tasklet(padapter);
-#endif
-}
-
 s32 pci_init_xmit_priv(_adapter *adapter)
 {
 	s32 ret = _SUCCESS;
@@ -46,11 +38,6 @@ s32 pci_init_xmit_priv(_adapter *adapter)
 
 	_rtw_spinlock_init(&dvobj_to_pci(dvobj)->irq_th_lock);
 
-#ifdef CONFIG_TX_AMSDU_SW_MODE
-	rtw_tasklet_init(&pxmitpriv->xmit_tasklet,
-		     pci_xmit_tasklet,
-		     (unsigned long) adapter);
-#endif
 	return ret;
 }
 

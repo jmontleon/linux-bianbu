@@ -116,8 +116,13 @@
 #define	RESET_RCPU_CAN       102
 
 #define	RESET_RCPU2_PWM      103
-#define	RESET_RCPU_I2C0      104
 
-#define	RESET_NUMBER         105
+#define	RESET_RCPU_I2C0      104
+#define	RESET_RCPU_SSP0      105
+#define	RESET_RCPU_IR        106
+#define	RESET_RCPU_UART0     107
+#define	RESET_RCPU_UART1     108
+
+#define	RESET_NUMBER         109
 
 #endif /* __DT_BINDINGS_RESET_SAPCEMIT_K1X_H__ */

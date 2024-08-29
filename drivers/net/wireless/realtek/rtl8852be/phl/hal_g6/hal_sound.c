@@ -127,6 +127,7 @@ u8 _get_bw_ru_end_idx(enum channel_width bw) {
 	case CHANNEL_WIDTH_160:
 	case CHANNEL_WIDTH_80_80:
 		ru_end_idx = HAL_NPDA_RU_IDX_END_160MHZ;
+	break;
 	default:
 	break;
 	}

@@ -137,6 +137,11 @@ int rtw_hw_connected(struct _ADAPTER *a);
 int rtw_hw_connected_apmode(struct _ADAPTER *a, struct sta_info *sta);
 int rtw_hw_disconnect(struct _ADAPTER *a, struct sta_info *sta);
 
+void rtw_update_roch_chan_def(struct _ADAPTER_LINK *adapter_link,
+				u8 remain_ch, enum channel_width remain_bw,
+				enum chan_offset offset,
+				enum band_type band);
+
 void rtw_hw_update_chan_def(_adapter *adapter, struct _ADAPTER_LINK *adapter_link);
 
 #ifdef RTW_DETECT_HANG

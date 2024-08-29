@@ -1239,6 +1239,25 @@ int rtw_hw_set_ch_bw(struct _ADAPTER *a, struct _ADAPTER_LINK *alink,
 	return err;
 }
 
+void rtw_update_roch_chan_def(struct _ADAPTER_LINK *adapter_link,
+				u8 remain_ch, enum channel_width remain_bw,
+				enum chan_offset offset,
+				enum band_type band)
+{
+	struct link_mlme_ext_priv *mlmeext = &(adapter_link->mlmeextpriv);
+	/*update chan_def*/
+	mlmeext->chandef.chan = remain_ch;
+	mlmeext->chandef.bw = remain_bw;
+	mlmeext->chandef.band = band;
+	mlmeext->chandef.offset = offset;
+	RTW_DBG("%s: ch(%u) bw(%u) band(%u)\n",
+			__func__,
+			mlmeext->chandef.chan,
+			mlmeext->chandef.bw,
+			mlmeext->chandef.band);
+}
+
+
 void rtw_hw_update_chan_def(_adapter *adapter, struct _ADAPTER_LINK *adapter_link)
 {
 	struct link_mlme_ext_priv *mlmeext = &(adapter_link->mlmeextpriv);
@@ -1366,6 +1385,12 @@ u8 rtw_hw_iface_init(_adapter *adapter)
 #if defined(CONFIG_RTW_IPS) || defined(CONFIG_RTW_LPS)
 	ps_allow = _TRUE;
 	rtw_phl_ps_set_rt_cap(GET_PHL_INFO(dvobj), HW_BAND_0, ps_allow, PS_RT_CORE_INIT);
+#endif
+
+#ifdef CONFIG_RTW_LPS_DEFAULT_OFF
+	/* Default LPS off, it can be turn on by proc cmd */
+	ps_allow = _FALSE;
+	rtw_phl_ps_set_rt_cap(GET_PHL_INFO(dvobj), HW_BAND_0, ps_allow, PS_RT_DEBUG);
 #endif
 
 #ifdef CONFIG_HW_RTS

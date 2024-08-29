@@ -1563,6 +1563,10 @@ static u8 auth_null_update_cur_network(struct _ADAPTER_LINK *alink, union recv_f
 		}
 		if (!rtw_bcn_key_compare(&scanned->bcn_keys, &recv_bcn_keys)) {
 			RTW_WARN(FUNC_ADPT_FMT" recv beacon keys conflict with scanned\n", FUNC_ADPT_ARG(adapter));
+			RTW_INFO(FUNC_ADPT_FMT" scanned beacon key:\n", FUNC_ADPT_ARG(adapter));
+			rtw_dump_bcn_keys(RTW_DBGDUMP, &scanned->bcn_keys);
+			RTW_INFO(FUNC_ADPT_FMT" recv beacon key:\n", FUNC_ADPT_ARG(adapter));
+			rtw_dump_bcn_keys(RTW_DBGDUMP, &recv_bcn_keys);
 			ret = RTW_ABORT_LINKING;
 			goto free_bss;
 		}
@@ -3709,10 +3713,12 @@ unsigned int OnAction_back(_adapter *padapter, union recv_frame *precv_frame)
 	unsigned short	tid, status, reason_code = 0;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct xmit_priv	*pxmitpriv = &padapter->xmitpriv;
 	struct registry_priv *pregpriv = &padapter->registrypriv;
 	u8 *pframe = precv_frame->u.hdr.rx_data;
 	struct sta_priv *pstapriv = &padapter->stapriv;
 	struct _ADAPTER_LINK *padapter_link = NULL;
+	int i = 0;
 
 #ifdef CONFIG_80211N_HT
 
@@ -3783,8 +3789,14 @@ unsigned int OnAction_back(_adapter *padapter, union recv_frame *precv_frame)
 			status = RTW_GET_LE16(&frame_body[3]);
 			tid = ((frame_body[5] >> 2) & 0x7);
 			if (status == 0) {
+				enum rtw_phl_status psts;
+				u16 ba_param = RTW_GET_LE16(&frame_body[5]);
+				u16 buf_num = ba_param >> 6;
+				struct protocol_cap_t *asoc_cap = &psta->phl_sta->asoc_cap;
+
 				/* successful					 */
-				RTW_INFO("agg_enable for TID=%d\n", tid);
+				RTW_INFO("[ADDBA_RESP] agg_enable for TID=%d ampdu_num %u\n", tid, buf_num);
+
 				psta->ampdu_priv.agg_enable_bitmap |= 1 << tid;
 				psta->ampdu_priv.candidate_tid_bitmap &= ~BIT(tid);
 				/* amsdu in ampdu */
@@ -3793,11 +3805,32 @@ unsigned int OnAction_back(_adapter *padapter, union recv_frame *precv_frame)
 				else if (pregpriv->tx_ampdu_amsdu == 1)
 					psta->ampdu_priv.tx_amsdu_enable = _TRUE;
 				else {
-					if (frame_body[5] & 1)
+					if (ba_param & 1)
 						psta->ampdu_priv.tx_amsdu_enable = _TRUE;
 				}
-			} else
+				asoc_cap->num_ampdu = asoc_cap->num_ampdu > buf_num ?
+					buf_num : asoc_cap->num_ampdu;
+
+				if (pxmitpriv->max_agg_time != 0) {
+					for (i=0; i < 4; i++) {
+						asoc_cap->edca[i].param =
+							(asoc_cap->edca[i].param & 0xFFFF) |
+								(pxmitpriv->max_agg_time << 16);
+						RTW_DBG("edca[%d]: 0x%x\n", i, asoc_cap->edca[i].param);
+					}
+				}
+
+				psts = rtw_phl_cmd_cfg_ampdu(GET_PHL_INFO(adapter_to_dvobj(padapter)),
+						padapter->phl_role, psta->phl_sta, PHL_CMD_DIRECTLY, 0);
+				if (psts != RTW_PHL_STATUS_SUCCESS)
+					RTW_ERR("%s: config ampdu for "MAC_FMT" fail",
+						__func__, MAC_ARG(psta->phl_sta->mac_addr));
+				else
+					RTW_INFO("%s: config ampdu_num to %u for "MAC_FMT" success",
+						__func__, asoc_cap->num_ampdu, MAC_ARG(psta->phl_sta->mac_addr));
+			} else {
 				psta->ampdu_priv.agg_enable_bitmap &= ~BIT(tid);
+			}
 
 			if (psta->state & WIFI_STA_ALIVE_CHK_STATE) {
 				RTW_INFO("%s alive check - rx ADDBA response\n", __func__);
@@ -9282,7 +9315,7 @@ void report_survey_event(_adapter *padapter, union recv_frame *precv_frame)
 				break;
 
 			op_info.op_code = FG_REQ_OP_NOTIFY_BCN_RCV;
-			op_info.inbuf = &ch;
+			op_info.inbuf = (u8*)&ch;
 			op_info.inlen = 1;
 			rtw_phl_set_cur_cmd_info(GET_PHL_INFO(adapter_to_dvobj(padapter)),
 						padapter_link->wrlink->hw_band,
@@ -11490,6 +11523,8 @@ void rtw_join_done_chk_ch(_adapter *adapter, int join_res)
 					) {
 						u8 ori_band, ori_ch, ori_bw, ori_offset;
 
+						rtw_phl_chanctx_del(dvobj->phl, iface->phl_role, iface_link->wrlink, NULL);
+
 						/* handle AP which need to switch ch setting */
 						ori_band = lmlmeext->chandef.band;
 						ori_ch = lmlmeext->chandef.chan;
@@ -11602,6 +11637,7 @@ void rtw_join_done_chk_ch(_adapter *adapter, int join_res)
 						&& check_fwstate(mlme, WIFI_ASOC_STATE)
 						&& check_fwstate(mlme, WIFI_OP_CH_SWITCHING)
 					) {
+						rtw_phl_chanctx_del(dvobj->phl, iface->phl_role, iface_link->wrlink, NULL);
 						_rtw_memcpy(&new_chdef, &lmlmeext->chandef, sizeof(struct rtw_chan_def));
 						is_chctx_add = rtw_phl_chanctx_add(dvobj->phl, iface->phl_role,
 											iface_link->wrlink,

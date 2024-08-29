@@ -193,7 +193,7 @@ enum rtw_hal_status rtw_hal_mp_efuse_shadow2buf(
 
 	PHL_INFO("%s\n", __FUNCTION__);
 	if (arg != NULL && arg->buf_len != 0)
-		hal_status = rtw_hal_efuse_shadow2buf(mp->hal, arg->poutbuf, arg->buf_len);
+		hal_status = rtw_hal_efuse_shadow2buf(mp->hal, arg->poutbuf, arg->buf_len, true);
 	else
 		PHL_INFO("%s: buf null, buf len = %d\n", __FUNCTION__, arg->buf_len);
 

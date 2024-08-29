@@ -2250,6 +2250,40 @@ static struct ple_quota_t ple_qt84 = {
 	0, /* h2d */
 };
 
+/* SDIO LOGO */
+static struct ple_quota_t ple_qt85 = {
+	1220, /* cmac0_tx */
+	0, /* cmac1_tx */
+	16, /* c2h */
+	16, /* h2c */
+	26, /* wcpu */
+	0, /* mpdu_proc */
+	128, /* cmac0_dma */
+	0, /* cma1_dma */
+	16, /* bb_rpt */
+	1, /* wd_rel */
+	8, /* cpu_io */
+	0, /* tx_rpt */
+	0, /* h2d */
+};
+
+/* SDIO LOGO */
+static struct ple_quota_t ple_qt86 = {
+	1220, /* cmac0_tx */
+	0, /* cmac1_tx */
+	41, /* c2h */
+	16, /* h2c */
+	51, /* wcpu */
+	0, /* mpdu_proc */
+	153, /* cmac0_dma */
+	0, /* cma1_dma */
+	41, /* bb_rpt */
+	1, /* wd_rel */
+	24, /* cpu_io */
+	0, /* tx_rpt */
+	0, /* h2d */
+};
+
 #if MAC_AX_PCIE_SUPPORT
 static struct dle_mem_t dle_mem_pcie_8852a[] = {
 	{MAC_AX_QTA_SCC, /* qta_mode */
@@ -2744,6 +2778,10 @@ static struct dle_mem_t dle_mem_sdio_8852b[] = {
 	 &wde_size13, &ple_size29, /* wde_size, ple_size */
 	 &wde_qt12, &wde_qt12, /* wde_min_qt, wde_max_qt */
 	 &ple_qt66, &ple_qt67}, /* ple_min_qt, ple_max_qt */
+	 {MAC_AX_QTA_SCC_LOGO, /* qta_mode */
+	 &wde_size13, &ple_size29, /* wde_size, ple_size */
+	 &wde_qt12, &wde_qt12, /* wde_min_qt, wde_max_qt */
+	 &ple_qt85, &ple_qt86}, /* ple_min_qt, ple_max_qt */
 	 {MAC_AX_QTA_LAMODE, /* qta_mode */
 	 &wde_size14, &ple_size14, /* wde_size, ple_size */
 	 &wde_qt13, &wde_qt13, /* wde_min_qt, wde_max_qt */

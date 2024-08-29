@@ -45,6 +45,7 @@
 #include <linux/pm_qos.h>
 #include <linux/pm_wakeup.h>
 #include <linux/timer.h>
+#include <linux/pm.h>
 
 #define	DMA_BLOCK		UART_XMIT_SIZE
 #define	DMA_BURST_SIZE		(8)
@@ -74,6 +75,20 @@
 #define PXA_TIMER_TIMEOUT	(3*HZ)
 #define BLOCK_SUSPEND_TIMEOUT	(3000)
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#include <linux/rpmsg.h>
+#define STARTUP_MSG			"startup"
+#define IRQUP_MSG			"irqon"
+
+static unsigned long long private_data[1];
+
+struct instance_data {
+	struct rpmsg_device *rpdev;
+	struct uart_pxa_port *dev;
+};
+
+#define RUART_IRQ_MASK 0xa55a
+#endif
 
 /*
  * DMA related data is stored in this struct,
@@ -1995,10 +2010,7 @@ static int serial_pxa_resume(struct device *dev)
 	return 0;
 }
 
-static const struct dev_pm_ops serial_pxa_pm_ops = {
-	.suspend = serial_pxa_suspend,
-	.resume = serial_pxa_resume,
-};
+static SIMPLE_DEV_PM_OPS(serial_pxa_pm_ops, serial_pxa_suspend, serial_pxa_resume);
 #endif
 
 #ifdef CONFIG_PM
@@ -2053,6 +2065,11 @@ static const struct of_device_id serial_pxa_dt_ids[] = {
 	{}
 };
 
+static const struct of_device_id r_serial_pxa_dt_ids[] = {
+	{ .compatible = "spacemit,rcpu-pxa-uart", },
+	{}
+};
+
 static int serial_pxa_probe_dt(struct platform_device *pdev, struct uart_pxa_port *sport)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -2098,11 +2115,20 @@ static int serial_pxa_probe(struct platform_device *dev)
 	if (!mmres) {
 		return -ENODEV;
 	}
-
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (!of_get_property(dev->dev.of_node, "rcpu-uart", NULL)) {
+		irq = platform_get_irq(dev, 0);
+		if (irq < 0) {
+			return irq;
+		}
+	} else
+		irq = RUART_IRQ_MASK;
+#else
 	irq = platform_get_irq(dev, 0);
 	if (irq < 0) {
 		return irq;
 	}
+#endif
 
 	sport = kzalloc(sizeof(struct uart_pxa_port), GFP_KERNEL);
 	if (!sport) {
@@ -2128,16 +2154,20 @@ static int serial_pxa_probe(struct platform_device *dev)
 		goto err_free;
 	}
 
-	ret = clk_prepare(sport->gclk);
-	if (ret) {
-		clk_put(sport->gclk);
-		goto err_free;
+	if(sport->gclk) {
+		ret = clk_prepare(sport->gclk);
+		if (ret) {
+			clk_put(sport->gclk);
+			goto err_free;
+		}
 	}
 
-	ret = clk_prepare(sport->fclk);
-	if (ret) {
-		clk_put(sport->fclk);
-		goto err_free;
+	if(sport->fclk) {
+		ret = clk_prepare(sport->fclk);
+		if (ret) {
+			clk_put(sport->fclk);
+			goto err_free;
+		}
 	}
 
 	sport->port.type = PORT_PXA;
@@ -2211,11 +2241,33 @@ static int serial_pxa_probe(struct platform_device *dev)
 	 * Allocate the IRQ in probe, otherwise if move suspend/resume to
 	 * noirq stage will cause a unbalance irq enable warning.
 	 */
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if(sport->port.irq != RUART_IRQ_MASK) {
+		ret = request_irq(sport->port.irq, serial_pxa_irq, 0, sport->name, sport);
+		if (ret) {
+			goto err_rst;
+		}
+		disable_irq(sport->port.irq);
+	} else {
+		struct instance_data *idata = (struct instance_data*)private_data[0];
+		struct rpmsg_device *rpdev;
+		int ret;
+
+		rpdev = idata->rpdev;
+		idata->dev = sport;
+		ret = rpmsg_send(rpdev->ept, STARTUP_MSG, strlen(STARTUP_MSG));
+		if (ret) {
+			dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+			return ret;
+		}
+	}
+#else
 	ret = request_irq(sport->port.irq, serial_pxa_irq, 0, sport->name, sport);
 	if (ret) {
 		goto err_rst;
 	}
 	disable_irq(sport->port.irq);
+#endif
 
 #ifdef CONFIG_PM
 #if SUPPORT_POWER_QOS
@@ -2309,7 +2361,6 @@ static int serial_pxa_remove(struct platform_device *dev)
 	return 0;
 }
 
-
 static struct platform_driver serial_pxa_driver = {
 	.probe = serial_pxa_probe,
 	.remove = serial_pxa_remove,
@@ -2349,3 +2400,76 @@ static void __exit serial_pxa_exit(void)
 }
 module_init(serial_pxa_init);
 module_exit(serial_pxa_exit);
+
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static struct platform_driver r_serial_pxa_driver = {
+	.probe = serial_pxa_probe,
+	.remove = serial_pxa_remove,
+	.driver = {
+		.name = "pxa2xx-ruart",
+#ifdef CONFIG_PM
+		.pm = &serial_pxa_pm_ops,
+#endif
+		.suppress_bind_attrs = true,
+		.of_match_table = r_serial_pxa_dt_ids,
+	},
+};
+
+static struct rpmsg_device_id rpmsg_driver_ruart_id_table[] = {
+	{ .name	= "ruart-service1", .driver_data = 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(rpmsg, rpmsg_driver_ruart_id_table);
+
+static int rpmsg_ruart_client_cb(struct rpmsg_device *rpdev, void *data,
+		int len, void *priv, u32 src)
+{
+	struct instance_data *idata = dev_get_drvdata(&rpdev->dev);
+	int ret;
+
+	serial_pxa_irq(0, (void*)(idata->dev));
+	ret = rpmsg_send(rpdev->ept, IRQUP_MSG, strlen(IRQUP_MSG));
+	if (ret) {
+		dev_err(&rpdev->dev, "rpmsg_send failed: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int rpmsg_ruart_client_probe(struct rpmsg_device *rpdev)
+{
+	struct instance_data *idata;
+
+	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
+					rpdev->src, rpdev->dst);
+
+	idata = devm_kzalloc(&rpdev->dev, sizeof(*idata), GFP_KERNEL);
+	if (!idata)
+		return -ENOMEM;
+
+	dev_set_drvdata(&rpdev->dev, idata);
+	idata->rpdev = rpdev;
+
+	private_data[0] = (unsigned long long)idata;
+
+	platform_driver_register(&r_serial_pxa_driver);
+
+	return 0;
+}
+
+static void rpmsg_ruart_client_remove(struct rpmsg_device *rpdev)
+{
+	dev_info(&rpdev->dev, "rpmsg uart client driver is removed\n");
+	platform_driver_unregister(&r_serial_pxa_driver);
+}
+
+static struct rpmsg_driver rpmsg_ruart_client = {
+	.drv.name	= KBUILD_MODNAME,
+	.id_table	= rpmsg_driver_ruart_id_table,
+	.probe		= rpmsg_ruart_client_probe,
+	.callback	= rpmsg_ruart_client_cb,
+	.remove		= rpmsg_ruart_client_remove,
+};
+module_rpmsg_driver(rpmsg_ruart_client);
+#endif

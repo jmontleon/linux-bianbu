@@ -204,7 +204,7 @@
 /*#define RTW_RECV_THREAD_HIGH_PRIORITY*/
 
 #ifdef CONFIG_RTW_NAPI
-#define CONFIG_RTW_NAPI_DYNAMIC
+/*#define CONFIG_RTW_NAPI_DYNAMIC*/
 #define CONFIG_RTW_NAPI_V2
 #ifdef CONFIG_RTW_NAPI_V2
 #define CONFIG_RX_BATCH_IND
@@ -275,13 +275,16 @@
 #endif /* !CONFIG_MP_INCLUDED */
 
 #ifdef CONFIG_POWER_SAVE
-	#define CONFIG_RTW_IPS
+	/*#define CONFIG_RTW_IPS*/
 	#define CONFIG_RTW_LPS
 	#ifdef CONFIG_RTW_IPS
 		#define CONFIG_FWIPS
 	#endif
 	#if defined(CONFIG_RTW_IPS) || defined(CONFIG_RTW_LPS)
 		#define CONFIG_PS_FW_DBG
+	#endif
+	#ifdef CONFIG_RTW_LPS
+	#define CONFIG_RTW_LPS_DEFAULT_OFF
 	#endif
 #endif /* CONFIG_POWER_SAVE */
 

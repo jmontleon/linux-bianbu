@@ -143,6 +143,7 @@ s32 init_mp_priv(_adapter *padapter)
 	else
 		pmppriv->mp_dm = 0;
 
+	pmppriv->preamble =1 ;
 	pmppriv->tx.stop = 1;
 	pmppriv->bSetTxPower = 0;		/*for  manually set tx power*/
 	pmppriv->bTxBufCkFail = _FALSE;
@@ -172,11 +173,11 @@ s32 init_mp_priv(_adapter *padapter)
 	pmppriv->rtw_mp_plcp_tx_user = 1;
 	pmppriv->rtw_mp_he_er_su_ru_106_en = 0;
 	pmppriv->rtw_mp_ru_tone = MP_RU_TONE_26;
-
+	pmppriv->rtw_coding = 1;  /* 1 LDPC, 0 BCC */
 	pmppriv->mp_plcp_useridx = 0;
 	pmppriv->mp_plcp_user[0].plcp_mcs = 0;
 	pmppriv->mp_plcp_user[0].aid = 0;
-	pmppriv->mp_plcp_user[0].coding = 0;
+	pmppriv->mp_plcp_user[0].coding = 12;/*(Global_Var.RU_user_coding[Global_Var.RU_current_user] == (int)Coding.BCC) ? 10 : 12;*/
 	pmppriv->mp_plcp_user[0].dcm = 0;
 	pmppriv->mp_plcp_user[0].plcp_txlen = 1000;
 	pmppriv->mp_plcp_user[0].ru_alloc = 0;
@@ -1296,6 +1297,7 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 	tx_arg.stbc = pmppriv->rtw_mp_stbc;
 	tx_arg.tx_state = 0;
 	tx_arg.apep = pattrib->pktlen;
+	pmppriv->mp_plcp_user[user_idx].coding = pmppriv->rtw_coding == 0 ? 10 : 12;  /* 1 LDPC, 0 BCC */
 
 	switch (cmdid) {
 		case RTW_MP_TX_PACKETS:
@@ -1349,6 +1351,7 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 			tx_arg.cbw = pmppriv->bandwidth;
 			tx_arg.txsc = pmppriv->rtw_mp_trxsc;
 			tx_arg.n_user = pmppriv->rtw_mp_plcp_tx_user; 
+			tx_arg.ru_alloc = pmppriv->mp_plcp_user[user_idx].ru_alloc *2;
 
 			RTW_INFO("%s,SET TX_CONFIG_PLCP_COMMON_INFO\n", __func__);
 			RTW_INFO("%s=============================\n", __func__);
@@ -1377,16 +1380,15 @@ u8 rtw_phl_mp_tx_cmd(_adapter *padapter, enum rtw_mp_tx_cmd cmdid,
 		case RTW_MP_TX_CONFIG_PLCP_USER_INFO:
 			tx_arg.plcp_usr_idx = user_idx;
 			tx_arg.mcs = pmppriv->mp_plcp_user[user_idx].plcp_mcs;
-			tx_arg.fec = pmppriv->mp_plcp_user[user_idx].coding;
+			tx_arg.fec = pmppriv->rtw_coding;
 			tx_arg.dcm = pmppriv->mp_plcp_user[user_idx].dcm;
 			tx_arg.aid = pmppriv->mp_plcp_user[user_idx].aid;
 			tx_arg.scrambler_seed = (rtw_random32() % 127) + 1;
 			tx_arg.random_init_seed = (rtw_random32() % 127) + 1;
 			tx_arg.apep = pmppriv->mp_plcp_user[user_idx].plcp_txlen;
-			tx_arg.ru_alloc = pmppriv->mp_plcp_user[user_idx].ru_alloc;
+			tx_arg.ru_alloc = pmppriv->mp_plcp_user[user_idx].ru_alloc *2;
 			tx_arg.nss = pmppriv->mp_plcp_user[user_idx].plcp_nss + 1;
 			tx_arg.pwr_boost_db = pmppriv->mp_plcp_user[user_idx].pwr_boost_db;
-			tx_arg.fec = pmppriv->mp_plcp_user[user_idx].coding;
 
 			RTW_INFO("%s,SET MP_TX_CONFIG_PLCP_USER_INFO\n", __func__);
 			RTW_INFO("%s plcp_usr_idx = %d\n", __func__, tx_arg.plcp_usr_idx);
@@ -3684,15 +3686,13 @@ void rtw_mp_update_coding(_adapter *padapter)
 	u8 ppdu_type = pmp_priv->rtw_mp_pmact_ppdu_type;
 	u8 user_idx = pmp_priv->mp_plcp_useridx;
 
-	if (ppdu_type == RTW_MP_TYPE_HE_SU || pmp_priv->bandwidth >= CHANNEL_WIDTH_40 ||
+	if (ppdu_type == RTW_MP_TYPE_HE_SU || (ppdu_type == RTW_MP_TYPE_HE_TB && pmp_priv->bandwidth >= CHANNEL_WIDTH_40) ||
 		pmp_priv->rtw_mp_ru_tone >= MP_RU_TONE_484) {
 
 		RTW_INFO("%s, PPDU HE SU , over 40M, RU Tone over 484\n", __func__);
-		pmp_priv->mp_plcp_user[user_idx].coding = 1;/* 1 LDPC, 0 BCC */
+		pmp_priv->rtw_coding = 1;/* 1 LDPC, 0 BCC */
 	} else if (ppdu_type == RTW_MP_TYPE_HE_MU_OFDMA) {
-
-		RTW_INFO("%s, PPDU HE MU\n", __func__);
-		pmp_priv->mp_plcp_user[user_idx].coding = 0;/* 1 LDPC, 0 BCC */
+		RTW_INFO("%s, PPDU HE MU not support seeting\n", __func__);
 	}
 
 	RTW_INFO("%s, coding: %s\n", __func__, (pmp_priv->mp_plcp_user[user_idx].coding?"LDPC":"BCC"));
@@ -3716,7 +3716,7 @@ u8 rtw_mp_update_ru_tone(_adapter *padapter)
 
 	for (i = 0; i <= 5; i++) {
 		pmp_priv->ru_tone_sel_list[i] = ruidx++;
-		if (ruidx > MP_RU_TONE_966)
+		if (ruidx > MP_RU_TONE_996)
 			break;
 	}
 	return i;
@@ -3775,7 +3775,7 @@ u8 rtw_mp_update_ru_alloc(_adapter *padapter)
 					alloc_start = 65;
 					alloc_end = 66;
 					break;
-	case MP_RU_TONE_966:
+	case MP_RU_TONE_996:
 					alloc_start = 67;
 					alloc_end = 67;
 					break;

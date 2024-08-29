@@ -29,10 +29,14 @@ static void _hal_pre_init_8852bs(struct rtw_phl_com_t *phl_com,
 	else
 		trx_info->trx_mode = MAC_AX_TRX_HW_MODE;
 
-	if (phl_com->dev_cap.quota_turbo == true)
-		trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
-	else
-		trx_info->qta_mode = MAC_AX_QTA_SCC;
+	if (phl_com->dev_cap.logo_test == true) {
+		trx_info->qta_mode = MAC_AX_QTA_SCC_LOGO;
+	} else {
+		if (phl_com->dev_cap.quota_turbo == true)
+			trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+		else
+			trx_info->qta_mode = MAC_AX_QTA_SCC;
+	}
 
 	#ifdef RTW_WKARD_LAMODE
 	PHL_INFO("%s : la_mode %d\n", __func__, phl_com->dev_cap.la_mode);
@@ -162,10 +166,14 @@ hal_wow_init_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info,
 	else
 		trx_info->trx_mode = MAC_AX_TRX_HW_MODE;
 
-	if (phl_com->dev_cap.quota_turbo == true)
-		trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
-	else
-		trx_info->qta_mode = MAC_AX_QTA_SCC;
+	if (phl_com->dev_cap.logo_test == true) {
+		trx_info->qta_mode = MAC_AX_QTA_SCC_LOGO;
+	} else {
+		if (phl_com->dev_cap.quota_turbo == true)
+			trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+		else
+			trx_info->qta_mode = MAC_AX_QTA_SCC;
+	}
 
 	init_52bs.ic_name = "rtl8852bs";
 
@@ -185,11 +193,14 @@ hal_wow_deinit_8852bs(struct rtw_phl_com_t *phl_com, struct hal_info_t *hal_info
 	else
 		trx_info->trx_mode = MAC_AX_TRX_HW_MODE;
 
-	if (phl_com->dev_cap.quota_turbo == true)
-		trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
-	else
-		trx_info->qta_mode = MAC_AX_QTA_SCC;
-
+	if (phl_com->dev_cap.logo_test == true) {
+		trx_info->qta_mode = MAC_AX_QTA_SCC_LOGO;
+	} else {
+		if (phl_com->dev_cap.quota_turbo == true)
+			trx_info->qta_mode = MAC_AX_QTA_SCC_TURBO;
+		else
+			trx_info->qta_mode = MAC_AX_QTA_SCC;
+	}
 	init_52bs.ic_name = "rtl8852bs";
 
 	return hal_wow_deinit_8852b(phl_com, hal_info, sta, &init_52bs);

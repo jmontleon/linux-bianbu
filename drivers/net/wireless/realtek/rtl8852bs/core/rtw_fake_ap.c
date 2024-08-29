@@ -432,7 +432,7 @@ static union recv_frame* fakeap_dispatcher(struct _ADAPTER *a,
 	return rframe;
 }
 
-extern sint validate_recv_frame(struct _ADAPTER*, union recv_frame*);
+extern sint validate_recv_frame(struct _ADAPTER*, union recv_frame**);
 void rtw_fakeap_work(struct work_struct *work)
 {
 	struct dvobj_priv *d;
@@ -460,7 +460,7 @@ void rtw_fakeap_work(struct work_struct *work)
 				if (a) {
 					rframe = fakeap_dispatcher(a, skb);
 					if (rframe) {
-						validate_recv_frame(a, rframe);
+						validate_recv_frame(a, &rframe);
 						rframe = NULL;
 					}
 				}
@@ -473,7 +473,7 @@ void rtw_fakeap_work(struct work_struct *work)
 		}
 		rtw_skb_free(skb);
 		if (rframe) {
-			validate_recv_frame(a, rframe);
+			validate_recv_frame(a, &rframe);
 			rframe = NULL;
 		}
 	}

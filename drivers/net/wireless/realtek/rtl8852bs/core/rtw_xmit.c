@@ -501,6 +501,10 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter)
 	pxmitpriv->dump_txbd_desc = 0;
 #endif
 	rtw_init_xmit_block(padapter);
+#ifdef CONFIG_TX_AMSDU_SW_MODE
+	rtw_tasklet_init(&padapter->xmitpriv.xmit_tasklet,
+		         core_tx_amsdu_tasklet, (unsigned long)padapter);
+#endif
 	rtw_intf_init_xmit_priv(padapter);
 
 #ifdef RTW_PHL_TX //alloc xmit resource
@@ -5771,10 +5775,10 @@ int rtw_br_client_tx(_adapter *padapter, struct sk_buff **pskb)
 		_rtw_spinlock_bh(&padapter->br_ext_lock);
 		if (!(skb->data[0] & 1) &&
 		    br_port &&
-		    _rtw_memcmp(skb->data + MACADDRLEN, padapter->br_mac, MACADDRLEN) &&
+		    !_rtw_memcmp(skb->data + MACADDRLEN, padapter->br_mac, MACADDRLEN) &&
 		    *((unsigned short *)(skb->data + MACADDRLEN * 2)) != __constant_htons(ETH_P_8021Q) &&
 		    *((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP) &&
-		    !_rtw_memcmp(padapter->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN) && padapter->scdb_entry) {
+		    _rtw_memcmp(padapter->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN) && padapter->scdb_entry) {
 			_rtw_memcpy(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN);
 			padapter->scdb_entry->ageing_timer = jiffies;
 			_rtw_spinunlock_bh(&padapter->br_ext_lock);
@@ -5782,7 +5786,7 @@ int rtw_br_client_tx(_adapter *padapter, struct sk_buff **pskb)
 			/* if (!priv->pmib->ethBrExtInfo.nat25_disable)		 */
 		{
 			/*			if (priv->dev->br_port &&
-			 *				 !_rtw_memcmp(skb->data+MACADDRLEN, priv->br_mac, MACADDRLEN)) { */
+			 *				 _rtw_memcmp(skb->data+MACADDRLEN, priv->br_mac, MACADDRLEN)) { */
 #if 1
 			if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_8021Q)) {
 				is_vlan_tag = 1;
@@ -5792,12 +5796,12 @@ int rtw_br_client_tx(_adapter *padapter, struct sk_buff **pskb)
 				skb_pull(skb, 4);
 			}
 			/* if SA == br_mac && skb== IP  => copy SIP to br_ip ?? why */
-			if (!_rtw_memcmp(skb->data + MACADDRLEN, padapter->br_mac, MACADDRLEN) &&
+			if (_rtw_memcmp(skb->data + MACADDRLEN, padapter->br_mac, MACADDRLEN) &&
 			    (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP)))
 				_rtw_memcpy(padapter->br_ip, skb->data + WLAN_ETHHDR_LEN + 12, 4);
 
 			if (*((unsigned short *)(skb->data + MACADDRLEN * 2)) == __constant_htons(ETH_P_IP)) {
-				if (_rtw_memcmp(padapter->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN)) {
+				if (!_rtw_memcmp(padapter->scdb_mac, skb->data + MACADDRLEN, MACADDRLEN)) {
 					void *scdb_findEntry(_adapter *priv, unsigned char *macAddr, unsigned char *ipAddr);
 
 					padapter->scdb_entry = (struct nat25_network_db_entry *)scdb_findEntry(padapter,
@@ -5910,7 +5914,7 @@ int rtw_br_client_tx(_adapter *padapter, struct sk_buff **pskb)
 #endif /* 0 */
 
 		/* check if SA is equal to our MAC */
-		if (_rtw_memcmp(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN)) {
+		if (!_rtw_memcmp(skb->data + MACADDRLEN, GET_MY_HWADDR(padapter), MACADDRLEN)) {
 			/* priv->ext_stats.tx_drops++; */
 			DEBUG_ERR("TX DROP: untransformed frame SA:%02X%02X%02X%02X%02X%02X!\n",
 				skb->data[6], skb->data[7], skb->data[8], skb->data[9], skb->data[10], skb->data[11]);
@@ -7949,8 +7953,9 @@ abort_core_tx:
 	return true;
 }
 
-void core_tx_amsdu_tasklet(_adapter *padapter)
+void core_tx_amsdu_tasklet(unsigned long priv)
 {
+	_adapter *padapter = (_adapter *)priv;
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
 	struct xmit_frame *pxframes[5];
 	int xf_nr;

@@ -66,7 +66,7 @@ typedef struct _NDIS_802_11_FIXED_IEs {
 typedef struct _NDIS_802_11_VARIABLE_IEs {
 	u8  ElementID;
 	u8  Length;
-	u8  data[1];
+	DECLARE_FLEX_ARRAY(u8, data);
 } NDIS_802_11_VARIABLE_IEs, *PNDIS_802_11_VARIABLE_IEs;
 
 typedef enum _NDIS_802_11_AUTHENTICATION_MODE {
@@ -151,7 +151,7 @@ typedef struct _NDIS_802_11_FIXED_IEs {
 typedef struct _NDIS_802_11_VARIABLE_IEs {
 	u8  ElementID;
 	u8  Length;
-	u8  data[1];
+	DECLARE_FLEX_ARRAY(u8, data);
 } NDIS_802_11_VARIABLE_IEs, *PNDIS_802_11_VARIABLE_IEs;
 
 typedef enum _NDIS_802_11_AUTHENTICATION_MODE {
@@ -270,6 +270,11 @@ __attribute__((packed)) WLAN_BSSID_EX, *PWLAN_BSSID_EX;
 
 #define BSS_EX_OP_CH(bss_ex) ((bss_ex)->Configuration.DSConfig)
 #define BSS_EX_OP_BAND(bss_ex) ((bss_ex)->Configuration.Band)
+#ifdef CONFIG_STA_MULTIPLE_BSSID
+#define BSS_EX_MBSSID_IDX(bss_ex) ((bss_ex)->mbssid_index)
+#else
+#define BSS_EX_MBSSID_IDX(bss_ex) 0
+#endif
 #define BSS_EX_IES(bss_ex) ((bss_ex)->IEs)
 #define BSS_EX_IES_LEN(bss_ex) ((bss_ex)->IELength)
 #define BSS_EX_FIXED_IE_OFFSET(bss_ex) ((bss_ex)->Reserved[0] == BSS_TYPE_PROB_REQ ? 0 : 12)

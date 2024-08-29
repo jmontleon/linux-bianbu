@@ -107,7 +107,14 @@ void _halrf_tssi_hw_tx_8852b(struct rf_info *rf,
 	tx_info.period = period;
 	tx_info.length = 0;
 
+	/*== [stop phy-sts update] === */
+	halrf_wreg(rf, 0xce40, 0x00000001, 0x0);
+	halrf_delay_us(rf, 2);
+
 	halrf_set_pmac_tx(rf, phy, path, &tx_info, enable, false);
+
+	/* === [start phy-sts update] === */
+	halrf_wreg(rf, 0xce40, 0x00000001, 0x1);
 }
 
 void _halrf_tssi_rf_setting_8852b(struct rf_info *rf,

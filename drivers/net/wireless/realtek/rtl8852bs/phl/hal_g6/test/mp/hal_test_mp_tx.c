@@ -178,7 +178,7 @@ _mp_get_plcp_user_info(struct mp_context *mp,
 		plcp_user_struct[i].aid = (u16)mp->usr[i].aid;
 		plcp_user_struct[i].scrambler_seed = (u8)mp->usr[i].scrambler_seed;
 		plcp_user_struct[i].random_init_seed = (u8)mp->usr[i].random_init_seed;
-		plcp_user_struct[i].apep = (u8)mp->usr[i].apep;
+		plcp_user_struct[i].apep = (u32)mp->usr[i].apep;
 		plcp_user_struct[i].ru_alloc = (u8)mp->usr[i].ru_alloc;
 		plcp_user_struct[i].nss = (u8)mp->usr[i].nss;
 		plcp_user_struct[i].txbf = (u8)mp->usr[i].txbf;

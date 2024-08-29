@@ -6068,8 +6068,14 @@ static enum phl_mdl_ret_code _connect_msg_hdlr(void* dispr, void* priv,
 			 FUNC_ADPT_ARG(a), msg->msg_id,
 			 MSG_MDL_ID_FIELD(msg->msg_id),
 			 MSG_EVT_ID_FIELD(msg->msg_id));
-		if (MSG_EVT_ID_FIELD(msg->msg_id) != MSG_EVT_DISCONNECT)
+		switch (MSG_EVT_ID_FIELD(msg->msg_id)) {
+		case MSG_EVT_DISCONNECT_PREPARE:
+		case MSG_EVT_DISCONNECT:
+		case MSG_EVT_DISCONNECT_END:
+			break;
+		default:
 			goto send_disconnect;
+		}
 	}
 
 	role = a->phl_role;
@@ -6436,6 +6442,8 @@ enum rtw_phl_status rtw_connect_cmd(struct _ADAPTER *a,
 		#endif
 		{
 			/* ref: not group case in rtw_chk_start_clnt_join() */
+			struct disconnect_data disc_data = {0};
+
 			rtw_mi_status_no_self(a, &mstate);
 			RTW_WARN(FUNC_ADPT_FMT ": channel group fail! ld_sta_num:%u, "
 				 "ap_num:%u, mesh_num:%u\n",
@@ -6446,7 +6454,10 @@ enum rtw_phl_status rtw_connect_cmd(struct _ADAPTER *a,
 				status = RTW_PHL_STATUS_RESOURCE;
 				goto exit;
 			}
-			rtw_mi_buddy_disconnect(a, DISCONNECTION_BY_DRIVER_DUE_TO_EACH_IFACE_CHBW_NOT_SYNC);
+			disc_data.disc_code = DISCONNECTION_BY_DRIVER_DUE_TO_EACH_IFACE_CHBW_NOT_SYNC;
+			disc_data.buddy_chdef = chdef;
+
+			rtw_mi_buddy_disconnect(a, &disc_data);
 		}
 	}
 

@@ -1990,8 +1990,9 @@ fail:
 
 s32 recvframe_chk_defrag(_adapter *padapter, union recv_frame **pprecv_frame);
 
-sint validate_recv_mgnt_frame(_adapter *padapter, union recv_frame *precv_frame)
+sint validate_recv_mgnt_frame(_adapter *padapter, union recv_frame **pprecv_frame)
 {
+	union recv_frame *precv_frame = *pprecv_frame;
 	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
 	struct sta_info *psta;
 	if (pattrib->addr_cam_vld)
@@ -2008,9 +2009,10 @@ sint validate_recv_mgnt_frame(_adapter *padapter, union recv_frame *precv_frame)
 	}
 #endif
 
-	if (recvframe_chk_defrag(padapter, &precv_frame) != CORE_RX_CONTINUE)
+	if (recvframe_chk_defrag(padapter, pprecv_frame) != CORE_RX_CONTINUE)
 		return _SUCCESS;
 
+	precv_frame = *pprecv_frame;
 	/* for rx pkt statistics */
 	if (psta) {
 		psta->sta_stats.last_rx_time = rtw_get_current_time();
@@ -2409,7 +2411,7 @@ static void rx_process_snr_info(union recv_frame *precvframe)
 
 }
 #endif /* CONFIG_SNR_RPT */
-sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame)
+sint validate_recv_frame(_adapter *adapter, union recv_frame **pprecv_frame)
 {
 	/* shall check frame subtype, to / from ds, da, bssid */
 
@@ -2418,6 +2420,7 @@ sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame)
 	u8 type;
 	u8 subtype;
 	sint retval = _SUCCESS;
+	union recv_frame *precv_frame = *pprecv_frame;
 
 	struct rx_pkt_attrib *pattrib = &precv_frame->u.hdr.attrib;
 	struct recv_info *precvinfo = &adapter->recvinfo;
@@ -2527,7 +2530,7 @@ sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame)
 	switch (type) {
 	case WIFI_MGT_TYPE: /* mgnt */
 		DBG_COUNTER(adapter->rx_logs.core_rx_pre_mgmt);
-		retval = validate_recv_mgnt_frame(adapter, precv_frame);
+		retval = validate_recv_mgnt_frame(adapter, pprecv_frame);
 		if (retval == _FAIL) {
 			DBG_COUNTER(adapter->rx_logs.core_rx_pre_mgmt_err);
 		}
@@ -3304,8 +3307,9 @@ static u8 validate_amsdu_content(_adapter *padapter, union recv_frame *prframe,
 
 }
 
-int amsdu_to_msdu(_adapter *padapter, union recv_frame *prframe)
+int amsdu_to_msdu(_adapter *padapter, union recv_frame **pprframe)
 {
+	union recv_frame *prframe = *pprframe;
 	struct rx_pkt_attrib *rattrib = &prframe->u.hdr.attrib;
 	int	a_len, padding_len;
 	u16	nSubframe_Length;
@@ -3467,6 +3471,7 @@ move_to_next:
 
 	prframe->u.hdr.len = 0;
 	rtw_free_recvframe(prframe);/* free this recv_frame */
+	*pprframe = NULL;
 
 	return ret;
 }
@@ -3477,7 +3482,7 @@ static int recv_process_mpdu(_adapter *padapter, union recv_frame *prframe)
 	int ret;
 
 	if (pattrib->amsdu) {
-		ret = amsdu_to_msdu(padapter, prframe);
+		ret = amsdu_to_msdu(padapter, &prframe);
 		if (ret != _SUCCESS) {
 			#ifdef DBG_RX_DROP_FRAME
 			RTW_INFO("DBG_RX_DROP_FRAME "FUNC_ADPT_FMT" amsdu_to_msdu fail\n"
@@ -5404,16 +5409,17 @@ void core_update_recvframe_phyinfo(union recv_frame *prframe, struct rtw_recv_pk
 }
 #endif /*RTW_WKARD_CORE_RSSI_V1*/
 
-s32 core_rx_process_amsdu(_adapter *adapter, union recv_frame *prframe)
+s32 core_rx_process_amsdu(_adapter *adapter, union recv_frame **pprframe)
 {
-	if(amsdu_to_msdu(adapter, prframe) != _SUCCESS)
+	if (amsdu_to_msdu(adapter, pprframe) != _SUCCESS)
 		return CORE_RX_DROP;
 
 	return CORE_RX_DONE;
 }
 
-s32 core_rx_process_msdu(_adapter *adapter, union recv_frame *prframe)
+s32 core_rx_process_msdu(_adapter *adapter, union recv_frame **pprframe)
 {
+	union recv_frame *prframe = *pprframe;
 	struct rx_pkt_attrib *pattrib = &prframe->u.hdr.attrib;
 	u8 *msdu = get_recvframe_data(prframe)
 		+ pattrib->hdrlen + pattrib->iv_len + RATTRIB_GET_MCTRL_LEN(pattrib);
@@ -5459,24 +5465,28 @@ s32 core_rx_process_msdu(_adapter *adapter, union recv_frame *prframe)
 		if (!(act & RTW_RX_MSDU_ACT_INDICATE)) {
 			prframe->u.hdr.pkt = NULL;
 			rtw_free_recvframe(prframe);
+			*pprframe = NULL;
 			return CORE_RX_DONE;
 		}
 	}
 	#endif
 
-	if(rtw_recv_indicatepkt_check(prframe, 
+	if (rtw_recv_indicatepkt_check(prframe,
 		get_recvframe_data(prframe), get_recvframe_len(prframe)) != _SUCCESS)
 		return CORE_RX_DROP;
 
-	if(rtw_recv_indicatepkt(adapter, prframe) != _SUCCESS)
+	if (rtw_recv_indicatepkt(adapter, prframe) != _SUCCESS) {
+		*pprframe = NULL;
 		return CORE_RX_DROP;
+	}
 
 	return CORE_RX_DONE;
 }
 
 
-s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame *prframe)
+s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame **pprframe)
 {
+	union recv_frame *prframe = *pprframe;
 	//amsdu
 	//make eth hdr
 	//forward
@@ -5490,9 +5500,9 @@ s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame *prframe)
 
 //todo hw amsdu
 	if (prframe->u.hdr.attrib.amsdu) 
-		return core_rx_process_amsdu(adapter, prframe);
+		return core_rx_process_amsdu(adapter, pprframe);
 	else
-		return core_rx_process_msdu(adapter, prframe);
+		return core_rx_process_msdu(adapter, pprframe);
 	
 }
 
@@ -5694,6 +5704,7 @@ enum rtw_phl_status rtw_core_rx_process(void *drv_priv)
 	u16 rx_pkt_num = 0;
 	struct recv_priv *precvpriv = &dvobj->recvpriv;
 	s32 pre_process_ret = CORE_RX_CONTINUE;
+	s32 process_ret = CORE_RX_CONTINUE;
 
 	rx_pkt_num = rtw_phl_query_new_rx_num(GET_PHL_INFO(dvobj));
 
@@ -5743,7 +5754,7 @@ enum rtw_phl_status rtw_core_rx_process(void *drv_priv)
 		} else
 #endif
 		{
-		if(validate_recv_frame(adapter, prframe) != CORE_RX_CONTINUE)
+		if(validate_recv_frame(adapter, &prframe) != CORE_RX_CONTINUE)
 			goto rx_next;
 		}
 		pre_process_ret = rtw_core_rx_data_pre_process(adapter, &prframe);
@@ -5752,9 +5763,17 @@ enum rtw_phl_status rtw_core_rx_process(void *drv_priv)
 		if (pre_process_ret != CORE_RX_CONTINUE)
 			goto rx_next;
 
-		if(rtw_core_rx_data_post_process(adapter, prframe) == CORE_RX_DONE) {
+		process_ret = rtw_core_rx_data_post_process(adapter, &prframe);
+		if (process_ret == CORE_RX_DONE) {
 			adapter->recvinfo.rx_pkts++;
 			continue;
+		} else if (process_ret == CORE_RX_DROP) {
+			/*
+			alread free prframe in rtw_core_rx_data_post_process
+			no need free again
+			*/
+			if (prframe == NULL)
+				continue;
 		}
 
 rx_next:

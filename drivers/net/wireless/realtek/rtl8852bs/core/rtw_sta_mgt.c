@@ -1335,8 +1335,7 @@ u32 rtw_init_self_stainfo(_adapter *padapter, enum phl_cmd_type cmd_type)
 				goto exit;
 			}
 		}
-		if (psta->phl_sta)
-			main_id = psta->phl_sta->macid;
+		main_id = psta->phl_sta->macid;
 	}
 	/* self mld and self stainfo, no need to link again */
 exit:

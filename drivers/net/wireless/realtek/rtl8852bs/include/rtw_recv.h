@@ -455,9 +455,9 @@ struct recv_priv {
 bool rtw_rframe_del_wfd_ie(union recv_frame *rframe, u8 ies_offset);
 #ifdef RTW_PHL_RX
 extern void dump_recv_frame(_adapter *adapter, union recv_frame *prframe);
-extern sint validate_recv_frame(_adapter *adapter, union recv_frame *precv_frame);
+extern sint validate_recv_frame(_adapter *adapter, union recv_frame **pprecv_frame);
 extern s32 rtw_core_rx_data_pre_process(_adapter *adapter, union recv_frame **prframe);
-extern s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame *prframe);
+extern s32 rtw_core_rx_data_post_process(_adapter *adapter, union recv_frame **pprframe);
 
 enum rtw_phl_status rtw_core_rx_process(void *drv_priv);
 void process_pwrbit_data(_adapter *padapter, union recv_frame *precv_frame, struct sta_info *psta);

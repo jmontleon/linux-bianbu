@@ -3733,70 +3733,6 @@ exit:
 
 }
 
-extern int rtw_change_ifname(_adapter *padapter, const char *ifname);
-static int rtw_rereg_nd_name(struct net_device *dev,
-			     struct iw_request_info *info,
-			     union iwreq_data *wrqu, char *extra)
-{
-	int ret = 0;
-	_adapter *padapter = rtw_netdev_priv(dev);
-	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
-	struct rereg_nd_name_data *rereg_priv = &padapter->rereg_nd_name_priv;
-	char new_ifname[IFNAMSIZ];
-
-	if (rereg_priv->old_ifname[0] == 0) {
-		char *reg_ifname;
-#ifdef CONFIG_CONCURRENT_MODE
-		if (padapter->isprimary)
-			reg_ifname = padapter->registrypriv.ifname;
-		else
-#endif
-			reg_ifname = padapter->registrypriv.if2name;
-
-		strncpy(rereg_priv->old_ifname, reg_ifname, IFNAMSIZ);
-		rereg_priv->old_ifname[IFNAMSIZ - 1] = 0;
-	}
-
-	/* RTW_INFO("%s wrqu->data.length:%d\n", __FUNCTION__, wrqu->data.length); */
-	if (wrqu->data.length > IFNAMSIZ)
-		return -EFAULT;
-
-	if (copy_from_user(new_ifname, wrqu->data.pointer, IFNAMSIZ))
-		return -EFAULT;
-
-	if (0 == strcmp(rereg_priv->old_ifname, new_ifname))
-		return ret;
-
-	RTW_INFO("%s new_ifname:%s\n", __FUNCTION__, new_ifname);
-	rtw_set_rtnl_lock_holder(dvobj, current);
-	ret = rtw_change_ifname(padapter, new_ifname);
-	rtw_set_rtnl_lock_holder(dvobj, NULL);
-	if (0 != ret)
-		goto exit;
-
-	if (_rtw_memcmp(rereg_priv->old_ifname, "disable%d", 9) == _TRUE) {
-		/* rtw_ips_mode_req(&padapter->pwrctrlpriv, rereg_priv->old_ips_mode); */
-	}
-
-	strncpy(rereg_priv->old_ifname, new_ifname, IFNAMSIZ);
-	rereg_priv->old_ifname[IFNAMSIZ - 1] = 0;
-
-	if (_rtw_memcmp(new_ifname, "disable%d", 9) == _TRUE) {
-
-		RTW_INFO("%s disable\n", __FUNCTION__);
-		/* free network queue for Android's timming issue */
-		rtw_free_network_queue(padapter, _TRUE);
-		rtw_free_mld_network_queue(padapter, _TRUE);
-
-		/* the interface is being "disabled", we can do deeper IPS */
-		/* rereg_priv->old_ips_mode = rtw_get_ips_mode_req(&padapter->pwrctrlpriv); */
-		/* rtw_ips_mode_req(&padapter->pwrctrlpriv, IPS_NORMAL); */
-	}
-exit:
-	return ret;
-
-}
-
 #ifdef DBG_CMD_QUEUE
 u8 dump_cmd_id = 0;
 #endif
@@ -8220,7 +8156,7 @@ static const struct iw_priv_args rtw_private_args[] = {
 #else
 	{SIOCIWFIRSTPRIV + 0x17, IW_PRIV_TYPE_CHAR | 1024 , 0 , "NULL"},
 #endif
-	{SIOCIWFIRSTPRIV + 0x18, IW_PRIV_TYPE_CHAR | IFNAMSIZ , 0 , "rereg_nd_name"},
+	{SIOCIWFIRSTPRIV + 0x18, IW_PRIV_TYPE_CHAR | 1024 , 0 , "NULL"},
 #ifdef CONFIG_MP_INCLUDED
 	{SIOCIWFIRSTPRIV + 0x1A, IW_PRIV_TYPE_CHAR | 1024, 0,  "NULL"},
 	{SIOCIWFIRSTPRIV + 0x1B, IW_PRIV_TYPE_CHAR | 128, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "NULL"},
@@ -8447,7 +8383,7 @@ static iw_handler rtw_private_handler[] = {
 #else
 	rtw_wx_priv_null,				/* 0x17 */
 #endif
-	rtw_rereg_nd_name,				/* 0x18 */
+	NULL,						/* 0x18 */
 	rtw_wx_priv_null,				/* 0x19 */
 #ifdef CONFIG_MP_INCLUDED
 	rtw_wx_priv_null,				/* 0x1A */
