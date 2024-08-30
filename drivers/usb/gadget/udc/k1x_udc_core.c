@@ -407,18 +407,43 @@ static struct mv_dtd *build_dtd(struct mv_req *req, unsigned *length,
 	struct mv_dtd *dtd;
 	struct mv_udc *udc;
 	struct mv_dqh *dqh;
-	u32 temp, mult = 0;
+	u32 temp, mult = 0, max = 0;
 
 	/* how big will this transfer be? */
 	if (usb_endpoint_xfer_isoc(req->ep->ep.desc)) {
 		dqh = req->ep->dqh;
+		max = req->ep->ep.maxpacket;
 		mult = (dqh->max_packet_length >> EP_QUEUE_HEAD_MULT_POS)
 				& 0x3;
 		*length = min(req->req.length - req->req.actual,
-				(unsigned)(mult * req->ep->ep.maxpacket));
-	} else
+				(unsigned)(mult * max));
+		/*
+		* USB Specification 2.0 Section 5.9.2 states that: "If
+		* there is only a single transaction in the microframe,
+		* only a DATA0 data packet PID is used.  If there are
+		* two transactions per microframe, DATA1 is used for
+		* the first transaction data packet and DATA0 is used
+		* for the second transaction data packet.  If there are
+		* three transactions per microframe, DATA2 is used for
+		* the first transaction data packet, DATA1 is used for
+		* the second, and DATA0 is used for the third."
+		*
+		* IOW, we should satisfy the following cases:
+		*
+		* 1) length <= maxpacket
+		*	- DATA0
+		*
+		* 2) maxpacket < length <= (2 * maxpacket)
+		*	- DATA1, DATA0
+		*
+		* 3) (2 * maxpacket) < length <= (3 * maxpacket)
+		*	- DATA2, DATA1, DATA0
+		*/
+		mult = DIV_ROUND_UP(*length, max);
+	} else {
 		*length = min(req->req.length - req->req.actual,
 				(unsigned)EP_MAX_LENGTH_TRANSFER);
+	}
 
 	udc = req->ep->udc;
 
@@ -564,8 +589,7 @@ static int mv_ep_enable(struct usb_ep *_ep,
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 		/* Calculate transactions needed for high bandwidth iso */
-		mult = (unsigned char)(1 + ((max >> 11) & 0x03));
-		max = max & 0x7ff;	/* bit 0~10 */
+		mult = usb_endpoint_maxp_mult(desc);
 		/* 3 transactions at most */
 		if (mult > 3)
 			goto en_done;
