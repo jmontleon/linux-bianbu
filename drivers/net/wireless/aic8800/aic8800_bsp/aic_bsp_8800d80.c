@@ -120,54 +120,54 @@ u32 gpio_cfg_tbl_8800d40d80[][2] = {
 static const struct aicbsp_firmware fw_u01[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u01)",
-		.bt_adid       = "aic8800d80/fw_adid_8800d80.bin",
-		.bt_patch      = "aic8800d80/fw_patch_8800d80.bin",
-		.bt_table      = "aic8800d80/fw_patch_table_8800d80.bin",
-		.wl_fw         = "aic8800d80/fmacfw_8800d80.bin"
+		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80.bin",
+		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80.bin",
+		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80.bin",
+		.wl_fw         = "aic/aic8800d80/fmacfw_8800d80.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u01)",
-		.bt_adid       = "aic8800d80/fw_adid_8800d80.bin",
-		.bt_patch      = "aic8800d80/fw_patch_8800d80.bin",
-		.bt_table      = "aic8800d80/fw_patch_table_8800d80.bin",
-		.wl_fw         = "aic8800d80/lmacfw_rf_8800d80.bin"
+		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80.bin",
+		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80.bin",
+		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80.bin",
+		.wl_fw         = "aic/aic8800d80/lmacfw_rf_8800d80.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic8800d80/fmacfw_8800d80_u02.bin"
+		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/aic8800d80/fmacfw_8800d80_u02.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic8800d80/lmacfw_rf_8800d80_u02.bin"
+		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/aic8800d80/lmacfw_rf_8800d80_u02.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_h_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic8800d80/fmacfw_8800d80_h_u02.bin"
+		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/aic8800d80/fmacfw_8800d80_h_u02.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic8800d80/lmacfw_rf_8800d80_u02.bin"
+		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/aic8800d80/lmacfw_rf_8800d80_u02.bin"
 	},
 };
 
@@ -176,36 +176,36 @@ static const struct aicbsp_firmware fw_h_u02[] = {
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u02)",
-		.bt_adid       = "fw_adid.bin",
-		.bt_patch      = "fw_patch.bin",
-		.bt_table      = "fw_patch_table.bin",
-		.wl_fw         = "fmacfw_usb.bin"
+		.bt_adid       = "aic/fw_adid.bin",
+		.bt_patch      = "aic/fw_patch.bin",
+		.bt_table      = "aic/fw_patch_table.bin",
+		.wl_fw         = "aic/fmacfw_usb.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u02)",
-		.bt_adid       = "fw_adid.bin",
-		.bt_patch      = "fw_patch.bin",
-		.bt_table      = "fw_patch_table.bin",
-		.wl_fw         = "fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/fw_adid.bin",
+		.bt_patch      = "aic/fw_patch.bin",
+		.bt_table      = "aic/fw_patch_table.bin",
+		.wl_fw         = "aic/fmacfw_rf_usb.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u03[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u03/u04)",
-		.bt_adid       = "fw_adid_u03.bin",
-		.bt_patch      = "fw_patch_u03.bin",
-		.bt_table      = "fw_patch_table_u03.bin",
-		.wl_fw         = "fmacfw_usb.bin"
+		.bt_adid       = "aic/fw_adid_u03.bin",
+		.bt_patch      = "aic/fw_patch_u03.bin",
+		.bt_table      = "aic/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/fmacfw_usb.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u03/u04)",
-		.bt_adid       = "fw_adid_u03.bin",
-		.bt_patch      = "fw_patch_u03.bin",
-		.bt_table      = "fw_patch_table_u03.bin",
-		.wl_fw         = "fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/fw_adid_u03.bin",
+		.bt_patch      = "aic/fw_patch_u03.bin",
+		.bt_table      = "aic/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/fmacfw_rf_usb.bin"
 	},
 };
 #endif
