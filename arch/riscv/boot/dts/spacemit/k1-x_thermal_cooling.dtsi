@@ -30,26 +30,26 @@
 		cooling-maps {
 			map0 {
 				trip = <&cls0_trip0>;
-				cooling-device = <&cpu_0 1 2>,
-						 <&cpu_1 1 2>,
-						 <&cpu_2 1 2>,
-						 <&cpu_3 1 2>,
-						 <&cpu_4 1 2>,
-						 <&cpu_5 1 2>,
-						 <&cpu_6 1 2>,
-						 <&cpu_7 1 2>;
+				cooling-device = <&cpu_0 2 3>,
+						 <&cpu_1 2 3>,
+						 <&cpu_2 2 3>,
+						 <&cpu_3 2 3>,
+						 <&cpu_4 2 3>,
+						 <&cpu_5 2 3>,
+						 <&cpu_6 2 3>,
+						 <&cpu_7 2 3>;
 			};
 
 			map1 {
 				trip = <&cls0_trip1>;
-				cooling-device = <&cpu_0 3 3>,
-						 <&cpu_1 3 3>,
-						 <&cpu_2 3 3>,
-						 <&cpu_3 3 3>,
-						 <&cpu_4 3 3>,
-						 <&cpu_5 3 3>,
-						 <&cpu_6 3 3>,
-						 <&cpu_7 3 3>;
+				cooling-device = <&cpu_0 4 4>,
+						 <&cpu_1 4 4>,
+						 <&cpu_2 4 4>,
+						 <&cpu_3 4 4>,
+						 <&cpu_4 4 4>,
+						 <&cpu_5 4 4>,
+						 <&cpu_6 4 4>,
+						 <&cpu_7 4 4>;
 			};
 		};
 	};
