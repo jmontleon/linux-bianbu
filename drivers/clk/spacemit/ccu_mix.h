@@ -323,6 +323,24 @@ struct ccu_mix {
 		},							\
 	}
 
+#define SPACEMIT_CCU_DIV_MUX(_struct, _name, _parents, _base_type, _reg_ctrl,		\
+					  _mshift, _mwidth, _muxshift, _muxwidth, _flags)					\
+	struct ccu_mix _struct = {					\
+		.div	= CCU_DIV_INIT(_mshift, _mwidth, NULL, 0),		\
+		.mux	= CCU_MUX_INIT(_muxshift, _muxwidth, NULL, 0), \
+		.common = { 					\
+			.reg_ctrl		= _reg_ctrl,		\
+			.base_type		= _base_type,		\
+			.name			= _name,		\
+			.parent_names		= _parents,		\
+			.num_parents		= ARRAY_SIZE(_parents),		\
+			.hw.init		= CLK_HW_INIT_PARENTS(_name,	\
+							  _parents,		\
+							  &ccu_mix_ops,		\
+							  _flags|CLK_GET_RATE_NOCACHE),	\
+		},							\
+	}
+
 #define SPACEMIT_CCU_DIV_FC_MUX(_struct, _name, _parents, _base_type, _reg_ctrl,		\
 					  _mshift, _mwidth, _fc, _muxshift, _muxwidth, _flags)					\
 	struct ccu_mix _struct = {					\
