@@ -626,6 +626,8 @@ en_done:
 	return -EINVAL;
 }
 
+static void mv_ep_fifo_flush(struct usb_ep *_ep);
+
 static int  mv_ep_disable(struct usb_ep *_ep)
 {
 	struct mv_udc *udc;
@@ -674,6 +676,11 @@ static int  mv_ep_disable(struct usb_ep *_ep)
 
 	/* nuke all pending requests (does flush) */
 	nuke(ep, -ESHUTDOWN);
+
+	/* prevent done in nuke initiate prime again,
+	 * which will cause next ep_enable fail.
+	 */
+	mv_ep_fifo_flush(_ep);
 
 	ep->ep.desc = NULL;
 	ep->stopped = 1;
