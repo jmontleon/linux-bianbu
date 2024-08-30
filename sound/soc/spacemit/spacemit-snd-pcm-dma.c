@@ -17,6 +17,53 @@
 #include <sound/dmaengine_pcm.h>
 #include <linux/genalloc.h>
 
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+#include <linux/time.h>
+#include <linux/timex.h>
+#include <linux/ktime.h>
+#include <linux/rtc.h>
+#include <linux/vmalloc.h>
+#include <linux/kthread.h>
+#include <linux/syscalls.h>
+#include <linux/uaccess.h>
+#include <linux/fs.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <asm/processor.h>
+#include <asm/page.h>
+#include <linux/wait.h>
+#include <linux/debugfs.h>
+#include <linux/namei.h>
+
+#define SPACEMIT_DBG_BUFF_SIZE (128*1024)
+struct spacemit_dbg_buf {
+	char *pStart;
+	char *pEnd;
+	char *pRdPtr;
+	char *pWrPtr;
+	int uBufSize;
+	int uDataSize;
+	int type;
+	int mode;
+	int malloc_flag;
+	wait_queue_head_t data;
+	struct mutex lock;
+	struct task_struct *daemon;
+	struct snd_pcm_runtime *runtime;
+};
+struct dentry *g_debug_file;
+static char dump_file_dir[64] = "/tmp";
+static unsigned int dump_id = 0;
+
+#define SPACEMIT_CODEC_TYPE 0
+#define SPACEMIT_HDMI_TYPE  1
+
+#define SPACEMIT_PLAY_MODE  0
+#define SPACEMIT_CAPT_MODE  1
+
+#define OUTPUT_BUFFER_SIZE 256
+#endif
+
 #define DRV_NAME "spacemit-snd-dma"
 
 #define I2S_PERIOD_SIZE          1024
@@ -62,6 +109,14 @@ struct spacemit_snd_dmadata {
 	struct snd_pcm_substream *substream;
 	unsigned long pos;
 	bool playback_data;
+
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+	int play_flag;
+	int capt_flag;
+	int debug_flag;
+	struct spacemit_dbg_buf play_buf;
+	struct spacemit_dbg_buf capt_buf;
+#endif
 };
 
 struct spacemit_snd_soc_device {
@@ -79,15 +134,15 @@ struct hdmi_priv {
 
 /* HDMI initalization data */
 struct hdmi_codec_priv {
-    uint32_t srate;
-    uint32_t channels;
-    uint8_t iec_offset;
+	uint32_t srate;
+	uint32_t channels;
+	uint8_t iec_offset;
 };
 
 static struct hdmi_codec_priv hdmi_ptr = {0};
 static const bool ParityTable256[256] =
 {
-    P6(0), P6(1), P6(1), P6(0)
+	P6(0), P6(1), P6(1), P6(0)
 };
 static struct hdmi_priv priv;
 static dma_addr_t hdmiraw_dma_addr;
@@ -96,7 +151,248 @@ static unsigned char *hdmiraw_dma_area;	/* DMA area */
 #ifdef HDMI_REFORMAT_ENABLE
 static unsigned char *hdmiraw_dma_area_tmp;
 #endif
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+#ifdef CONFIG_ADD_WAV_HEADER
+typedef struct {
+	char riffType[4];
+	char wavType[4];
+	char formatType[4];
+	char dataType[4];
+	unsigned short audioFormat;
+	unsigned short numChannels;
+	unsigned short blockAlign;
+	unsigned short bitsPerSample;
+	unsigned int formatSize;
+	unsigned int sampleRate;
+	unsigned int bytesPerSecond;
+	unsigned int riffSize;
+	unsigned int dataSize;
+} head_data_t;
+#endif
 
+#if defined CONFIG_SPACEMIT_PLAY_DEBUG || defined CONFIG_SPACEMIT_CAPT_DEBUG
+static struct file *try_to_create_pcm_file(char *type, int dma_id)
+{
+	char fname[128];
+	struct timespec64 ts;
+	struct rtc_time tm;
+	struct file *filep = NULL;
+
+	ktime_get_real_ts64(&ts);
+	if (ts.tv_nsec)
+		ts.tv_sec++;
+	ts.tv_sec+=8*60*60;
+	rtc_time64_to_tm(ts.tv_sec, &tm);
+
+	//create file
+	memset(fname, 0, sizeof(fname));
+	strcat(fname, dump_file_dir);
+	if(dma_id < DMA_HDMI) {
+		sprintf(fname+strlen(fname), "/dump-i2s%d-%s-%d-%02d-%02d-%02d-%02d-%02d.pcm", dma_id, type,
+			tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	} else {
+		sprintf(fname+strlen(fname), "/dump-hdmi-%s-%d-%02d-%02d-%02d-%02d-%02d.pcm", type,
+			tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+	}
+	filep = filp_open(fname, O_RDWR|O_CREAT, 0666);
+	if (IS_ERR(filep)) {
+			pr_err("filp_open %s error\n", fname);
+			return NULL;
+	}
+	return filep;
+}
+
+#ifdef CONFIG_ADD_WAV_HEADER
+static int pcm_add_wave_header(struct file *fp, unsigned int channels,
+					unsigned int bits, unsigned int sample_rate,
+					unsigned int len)
+{
+	loff_t wav_pos = 0;
+	ssize_t ret;
+	head_data_t wav_header;
+	if (NULL == fp) {
+		pr_err("Input file ptr is null:%s\n", __func__);
+		return -1;
+	}
+	memcpy(wav_header.riffType, "RIFF", strlen("RIFF"));
+	wav_header.riffSize = len - 8;
+	memcpy(wav_header.wavType, "WAVE", strlen("WAVE"));
+	memcpy(wav_header.formatType, "fmt ", strlen("fmt "));
+	wav_header.formatSize = 16;
+	wav_header.audioFormat = 1;
+	wav_header.numChannels = channels;
+	wav_header.sampleRate = sample_rate;
+	wav_header.blockAlign = channels * bits / 8;
+	wav_header.bitsPerSample = bits;
+	wav_header.bytesPerSecond = wav_header.sampleRate * wav_header.blockAlign;
+	memcpy(wav_header.dataType, "data", strlen("data"));
+	wav_header.dataSize = len - 44;
+	ret = kernel_write(fp, &wav_header, 44, &wav_pos);
+	if (ret > 0) {
+		printk("add wav header size:%ld", ret);
+	} else {
+		pr_err("kernel_write error:%s,line: %d\n", __func__, __LINE__);
+		return -1;
+	}
+	return 0;
+}
+#endif
+
+static int spacemit_debug_data_daemon(void *data)
+{
+	loff_t pos = 0;
+	int ret;
+	char *wr_ptr;
+	struct file *dump_filep = NULL;
+	struct spacemit_dbg_buf *dbgPara = (struct spacemit_dbg_buf *)data;
+	struct spacemit_snd_dmadata *dmadata = dbgPara->runtime->private_data;
+
+	dump_filep = try_to_create_pcm_file(dbgPara->mode == 0 ? "play":"capt", dmadata->dma_id);
+	if (IS_ERR(dump_filep)) {
+		pr_err("ERR: %s try to create pcm file failed!\n", __func__);
+		goto thread_out;
+	}
+
+	/* init the buffer parameter */
+	mutex_lock(&dbgPara->lock);
+	dbgPara->uBufSize = SPACEMIT_DBG_BUFF_SIZE;
+	dbgPara->pRdPtr = dbgPara->pStart;
+	dbgPara->pWrPtr = dbgPara->pStart;
+	printk("dbgPara->pStart :%p", dbgPara->pStart);
+	dbgPara ->uDataSize = 0;
+	dbgPara->pEnd = dbgPara->pStart + SPACEMIT_DBG_BUFF_SIZE;
+	mutex_unlock(&dbgPara->lock);
+
+	#ifdef CONFIG_ADD_WAV_HEADER
+	pos = 44;	//wave header offset
+	#endif
+
+	for(;;){
+		if (kthread_should_stop()) break;
+		while(dbgPara->uDataSize) {
+			wr_ptr = dbgPara->pWrPtr;
+			if (dbgPara->pRdPtr > wr_ptr) {
+				/* write the tail */
+				kernel_write(dump_filep, dbgPara->pRdPtr, dbgPara->pEnd - dbgPara->pRdPtr, &pos);
+				mutex_lock(&dbgPara->lock);
+				dbgPara->uDataSize -= dbgPara->pEnd - dbgPara->pRdPtr;
+				if (dbgPara->uDataSize<0)
+					dbgPara->uDataSize = 0;
+				dbgPara->pRdPtr = dbgPara->pStart;
+				mutex_unlock(&dbgPara->lock);
+			} else {
+				/* write the head */
+				kernel_write(dump_filep, dbgPara->pRdPtr, wr_ptr - dbgPara->pRdPtr, &pos);
+				mutex_lock(&dbgPara->lock);
+				dbgPara->uDataSize -= wr_ptr - dbgPara->pRdPtr;
+				if (dbgPara->uDataSize<0)
+					dbgPara->uDataSize = 0;
+				dbgPara->pRdPtr = (wr_ptr>=dbgPara->pEnd)? dbgPara->pStart : wr_ptr;
+				mutex_unlock(&dbgPara->lock);
+			}
+		}
+
+		ret = wait_event_interruptible(dbgPara->data, (dbgPara->uDataSize > 0) || kthread_should_stop());
+		if (ret < 0) break;
+	}
+
+thread_out:
+	pr_info("thread_out\n");
+	pr_info("dump file size:%llu", pos);
+
+#ifdef CONFIG_ADD_WAV_HEADER
+	pcm_add_wave_header(dump_filep, dbgPara->runtime->channels,
+				dbgPara->runtime->sample_bits,
+				dbgPara->runtime->rate, pos);
+#endif
+
+	if (dump_filep) {
+		filp_close(dump_filep, NULL);
+	}
+	if (dbgPara->pStart) {
+		vfree(dbgPara->pStart);
+		dbgPara->pStart = 0;
+	}
+	while (!kthread_should_stop()) {
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
+
+	return 0;
+}
+
+static void spacemit_debug_data(char *hwbuf, struct spacemit_dbg_buf *debug_buf,
+				int *debug_flag, int *mode_flag,
+				struct snd_pcm_runtime *runtime,
+				unsigned long bytes, int type, int mode,
+				int malloc_flag)
+{
+	char thread_name[24];
+	struct spacemit_snd_dmadata *dmadata = runtime->private_data;
+
+	if (*debug_flag && !(*mode_flag)) {
+		/* start task */
+		memset(debug_buf, 0, sizeof(*debug_buf));
+		debug_buf->type = type;
+		debug_buf->mode = mode;
+		debug_buf->runtime = runtime;
+		debug_buf->malloc_flag = malloc_flag;
+		init_waitqueue_head(&debug_buf->data);
+		mutex_init(&debug_buf->lock);
+		if ((type == SPACEMIT_CODEC_TYPE) && (mode == SPACEMIT_PLAY_MODE)) {
+			snprintf(thread_name, sizeof(thread_name), "i2s%d-play-dbg", dmadata->dma_id);
+		} else if ((type == SPACEMIT_CODEC_TYPE) && (mode == SPACEMIT_CAPT_MODE)) {
+			snprintf(thread_name, sizeof(thread_name), "i2s%d-capt-dbg", dmadata->dma_id);
+		} else if ((type == SPACEMIT_HDMI_TYPE) && (mode == SPACEMIT_PLAY_MODE)) {
+			snprintf(thread_name, sizeof(thread_name), "hdmi-play-dbg");
+		}
+		if (thread_name[0] != '\0') {
+			debug_buf->daemon = kthread_run(spacemit_debug_data_daemon, debug_buf, thread_name);
+		}
+		*mode_flag = 1;
+	} else if (!(*debug_flag) && *mode_flag) {
+		/* stop task */
+		kthread_stop(debug_buf->daemon);
+		memset(debug_buf, 0, sizeof(*debug_buf));
+		*mode_flag = 0;
+	}
+	if (!debug_buf->malloc_flag) {
+		debug_buf->pStart = vmalloc(SPACEMIT_DBG_BUFF_SIZE);
+		if (!debug_buf->pStart) {
+			pr_err("ERR: %s try to vmalloc %d bytes failed!\n", __func__, SPACEMIT_DBG_BUFF_SIZE);
+		} else {
+			pr_info("try to vmalloc buffer success\n");
+		}
+		debug_buf->malloc_flag = 1;
+	}
+	if (*debug_flag && *mode_flag && debug_buf->pStart && debug_buf->uBufSize) {
+		size_t size = bytes;
+		if (size > (debug_buf->uBufSize - debug_buf->uDataSize)) {
+			size = debug_buf->uBufSize - debug_buf->uDataSize;
+		}
+
+		if (size <= (debug_buf->pEnd - debug_buf->pWrPtr)) {
+			memcpy(debug_buf->pWrPtr, hwbuf, size);
+			mutex_lock(&debug_buf->lock);
+			debug_buf->pWrPtr += size;
+			debug_buf->uDataSize += size;
+			if (debug_buf->pWrPtr == debug_buf->pEnd)
+				debug_buf->pWrPtr = debug_buf->pStart;
+			mutex_unlock(&debug_buf->lock);
+		} else {
+			memcpy(debug_buf->pWrPtr, hwbuf, debug_buf->pEnd - debug_buf->pWrPtr);
+			memcpy(debug_buf->pStart, hwbuf+(debug_buf->pEnd - debug_buf->pWrPtr), size-(debug_buf->pEnd - debug_buf->pWrPtr));
+			mutex_lock(&debug_buf->lock);
+			debug_buf->pWrPtr = debug_buf->pStart + size - (debug_buf->pEnd - debug_buf->pWrPtr);
+			debug_buf->uDataSize += size;
+			mutex_unlock(&debug_buf->lock);
+		}
+		/* wakeup the daemon */
+		wake_up(&debug_buf->data);
+	}
+}
+#endif
+#endif
 static int spacemit_snd_dma_init(struct device *paraent, struct spacemit_snd_soc_device *dev,
 			     struct spacemit_snd_dmadata *dmadata);
 
@@ -637,6 +933,20 @@ static int spacemit_snd_pcm_open(struct snd_soc_component *component, struct snd
 	spin_lock_irqsave(&dev->lock, flags);
 
 	dmadata = &dev->dmadata[substream->stream];
+
+	#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+	dmadata->debug_flag = 1;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		#ifdef CONFIG_SPACEMIT_PLAY_DEBUG
+		dmadata->play_flag = 0;
+		#endif
+	} else {
+		#ifdef CONFIG_SPACEMIT_CAPT_DEBUG
+		dmadata->capt_flag = 0;
+		#endif
+	}
+	#endif
+
 	if (dmadata->dma_id == DMA_HDMI) {
 		ret = snd_soc_set_runtime_hwparams(substream, &spacemit_snd_pcm_hardware_hdmi);
 	} else {
@@ -685,11 +995,35 @@ static int spacemit_snd_pcm_close(struct snd_soc_component *component, struct sn
 	}
 unlock:
 	spin_unlock_irqrestore(&dev->lock, flags);
+
+	#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+	dmadata->debug_flag = 0;
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		#ifdef CONFIG_SPACEMIT_PLAY_DEBUG
+		if (dmadata->play_flag) {
+			/* stop task */
+			kthread_stop(dmadata->play_buf.daemon);
+			vfree(dmadata->play_buf.pStart);
+			memset(&dmadata->play_buf, 0, sizeof(dmadata->play_buf));
+			dmadata->play_flag = 0;
+		}
+		#endif
+	} else {
+		#ifdef CONFIG_SPACEMIT_CAPT_DEBUG
+		if (dmadata->capt_flag) {
+			kthread_stop(dmadata->capt_buf.daemon);
+			memset(&dmadata->capt_buf, 0, sizeof(dmadata->capt_buf));
+			dmadata->capt_flag = 0;
+		}
+		#endif
+	}
+	#endif
+
 	return 0;
 }
 
 static int spacemit_snd_pcm_lib_ioctl(struct snd_soc_component *component, struct snd_pcm_substream *substream,
-		      unsigned int cmd, void *arg)
+				unsigned int cmd, void *arg)
 {
 	return snd_pcm_lib_ioctl(substream, cmd, arg);
 }
@@ -752,7 +1086,7 @@ exit:
 }
 
 static int spacemit_snd_dma_init(struct device *paraent, struct spacemit_snd_soc_device *dev,
-			     struct spacemit_snd_dmadata *dmadata)
+					struct spacemit_snd_dmadata *dmadata)
 {
 	dma_cap_mask_t mask;
 	spin_lock_init(&dmadata->dma_lock);
@@ -868,21 +1202,64 @@ static void hdmi_reformat(void *dst, void *src, int len)
 	}
 }
 
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
 static int spacemit_snd_pcm_copy(struct snd_soc_component *component,
-                          struct snd_pcm_substream *substream,
-                          int channel, unsigned long hwoff,
-                          struct iov_iter *iter, unsigned long bytes)
+							struct snd_pcm_substream *substream,
+							int channel, unsigned long hwoff,
+							struct iov_iter *iter, unsigned long bytes)
+{
+	int ret = 0;
+	char *hwbuf;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+	struct spacemit_snd_dmadata *dmadata = runtime->private_data;
+#endif
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		hwbuf = runtime->dma_area + hwoff;
+		if (copy_from_iter(hwbuf, bytes, iter) != bytes)
+						return -EFAULT;
+#ifdef CONFIG_SPACEMIT_PLAY_DEBUG
+		if (dump_id & (1 << (2 * dmadata->dma_id))) {
+			spacemit_debug_data(hwbuf, &dmadata->play_buf, &dmadata->debug_flag, &dmadata->play_flag, runtime,
+				bytes, SPACEMIT_CODEC_TYPE, SPACEMIT_PLAY_MODE, 0);
+		}
+#endif
+
+	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+		hwbuf = runtime->dma_area + hwoff;
+		if (copy_to_iter(hwbuf, bytes, iter) != bytes)
+						return -EFAULT;
+#ifdef CONFIG_SPACEMIT_CAPT_DEBUG
+		if ((dump_id & (1 << (2 * dmadata->dma_id + 1)))) {
+			spacemit_debug_data(hwbuf, &dmadata->capt_buf, &dmadata->debug_flag, &dmadata->capt_flag, runtime,
+				bytes, SPACEMIT_CODEC_TYPE, SPACEMIT_CAPT_MODE,0);
+		}
+#endif
+
+	}
+
+	return ret;
+}
+#endif
+
+static int spacemit_snd_pcm_hdmi_copy(struct snd_soc_component *component,
+							struct snd_pcm_substream *substream,
+							int channel, unsigned long hwoff,
+							struct iov_iter *iter, unsigned long bytes)
 {
 	int ret = 0;
 	char *hwbuf;
 	char *hdmihw_area;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+	struct spacemit_snd_dmadata *dmadata = runtime->private_data;
+#endif
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 #ifdef HDMI_REFORMAT_ENABLE
 		hwbuf = runtime->dma_area + hwoff;
 		if (copy_from_iter(hwbuf, bytes, iter) != bytes)
-                        return -EFAULT;
+						return -EFAULT;
 		hdmihw_area = hdmiraw_dma_area_tmp + 2 * hwoff;
 		hdmi_reformat((int *)hdmihw_area, (short *)hwbuf, bytes_to_frames(substream->runtime, bytes));
 		memcpy((void *)(hdmiraw_dma_area + 2 * hwoff), (void *)hdmihw_area, bytes * 2);
@@ -891,18 +1268,27 @@ static int spacemit_snd_pcm_copy(struct snd_soc_component *component,
 		if (hwbuf == NULL)
 			pr_err("%s addr null !!!!!!!!!!!!\n", __func__);
 		if (copy_from_iter(hwbuf, bytes, iter) != bytes)
-                        return -EFAULT;
-
+						return -EFAULT;
+#endif
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+#ifdef CONFIG_SPACEMIT_PLAY_DEBUG
+		if (dump_id & (1 << (2 * dmadata->dma_id))) {
+			spacemit_debug_data(hwbuf, &dmadata->play_buf, &dmadata->debug_flag, &dmadata->play_flag, runtime,
+				bytes, SPACEMIT_HDMI_TYPE,SPACEMIT_PLAY_MODE, 0);
+		}
+#endif
 #endif
 
 	} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		hwbuf = runtime->dma_area + hwoff;
 		if (copy_to_iter(hwbuf, bytes, iter) != bytes)
-                        return -EFAULT;
+						return -EFAULT;
 	}
 
 	return ret;
 }
+
+
 static const struct snd_soc_component_driver spacemit_snd_dma_component = {
 	.name          = DRV_NAME,
 	.probe		   = spacemit_snd_pcm_probe,
@@ -915,6 +1301,9 @@ static const struct snd_soc_component_driver spacemit_snd_dma_component = {
 	.trigger	   = spacemit_snd_pcm_trigger,
 	.pointer	   = spacemit_snd_pcm_pointer,
 	.pcm_construct = spacemit_snd_pcm_new,
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+	.copy		   = spacemit_snd_pcm_copy,
+#endif
 };
 
 static const struct snd_soc_component_driver spacemit_snd_dma_component_hdmi = {
@@ -929,7 +1318,7 @@ static const struct snd_soc_component_driver spacemit_snd_dma_component_hdmi = {
 	.trigger	   = spacemit_snd_pcm_trigger,
 	.pointer	   = spacemit_snd_pcm_hdmi_pointer,
 	.pcm_construct = spacemit_snd_pcm_new,
-	.copy		= spacemit_snd_pcm_copy,
+	.copy		   = spacemit_snd_pcm_hdmi_copy,
 };
 
 static int spacemit_snd_dma_pdev_probe(struct platform_device *pdev)
@@ -941,7 +1330,7 @@ static int spacemit_snd_dma_pdev_probe(struct platform_device *pdev)
 
 	device = devm_kzalloc(&pdev->dev, sizeof(*device), GFP_KERNEL);
 	if (!device) {
-		pr_err("%s: alloc memoery failed\n", __FUNCTION__);
+		pr_err("%s: alloc memory failed\n", __FUNCTION__);
 		return -ENOMEM;
 	}
 
@@ -1018,6 +1407,200 @@ static int spacemit_snd_pcm_init(void)
 	return platform_driver_register(&spacemit_snd_dma_pdrv);
 }
 late_initcall_sync(spacemit_snd_pcm_init);
+#endif
+
+#ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
+
+static int check_path_exists(const char *path)
+{
+	struct path kp;
+	if (kern_path(path, LOOKUP_PARENT, &kp) == 0) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static void print_dump_config(char *buffer, int size)
+{
+	int i;
+	unsigned int mask = 0x1;
+	const char *dma_chans[] = {"I2S0", "I2S1", "HDMI"};
+	int remaining_size;
+	int playback_enabled, capture_enabled, line_length;
+	snprintf(buffer, size,
+				"Dump Configuration:\n"
+				"Dmahan  Playback  Capture\n"
+				"------- --------  -------\n");
+	remaining_size = size - strlen(buffer);
+	if (remaining_size <= 0) {
+		return;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(dma_chans); i++) {
+		playback_enabled = (dump_id & (mask << (2 * i))) ? 1 : 0;
+		capture_enabled = (dump_id & (mask << (2 * i + 1))) ? 1 : 0;
+
+		line_length = snprintf(NULL, 0, "%6s %5d %10d\n", dma_chans[i], playback_enabled, capture_enabled);
+		if (remaining_size < line_length + 1) {
+			break;
+		}
+		snprintf(buffer + strlen(buffer), remaining_size, "%6s %5d %10d\n",
+			dma_chans[i], playback_enabled, capture_enabled);
+		remaining_size -= line_length;
+	}
+}
+
+static int config_open(struct inode *inode, struct file *filp)
+{
+	filp->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t config_read(struct file *file, char __user *buffer, size_t count, loff_t *pos)
+{
+	char *output = NULL;
+	int len, retval;
+	size_t alloc_size = OUTPUT_BUFFER_SIZE;
+
+	output = vmalloc(alloc_size);
+	if (!output) {
+		return -ENOMEM;
+	}
+
+	memset(output, 0, alloc_size);
+
+	print_dump_config(output, alloc_size);
+	len = strlen(output);
+
+	if (*pos >= len) {
+		retval = 0;
+		goto out_free;
+	}
+
+	if (count > len - *pos)
+		count = len - *pos;
+
+	if (copy_to_user(buffer, output + *pos, count)) {
+		retval = -EFAULT;
+		goto out_free;
+	}
+
+	*pos += count;
+	retval = count;
+
+out_free:
+	vfree(output);
+	return retval;
+}
+
+static ssize_t config_write(struct file *file, const char __user *buffer, size_t count, loff_t *pos)
+{
+	char input[32];
+	char *p_input = input;
+	char *param[4];
+	char *token;
+	char *endptr;
+	int param_count = 0;
+	unsigned int dma_chan;
+	const char *usage_info=
+		"Usage: [dma_chan:%%d] [mode:c/p] [enable:1/0] [/path/to/file]\n"
+		"dma_chan: 0: I2S0, 1: I2S1, 2: HDMI\n"
+		"mode:     c: capture, p: playback\n"
+		"enable:   1: enable, 0: disable\n"
+		"example: echo 0 p 1 /tmp/dump > /sys/kernel/debug/asoc/dump\n"
+		"echo help/h > /sys/kernel/debug/asoc/dump\n";
+
+	if (count > sizeof(input) - 1)
+		count = sizeof(input) - 1;
+
+	if (copy_from_user(input, buffer, count))
+		return -EFAULT;
+
+	input[count-1] = '\0';
+	if (strcmp(input, "help") == 0 || strcmp(input, "h") == 0) {
+		pr_info("%s", usage_info);
+		return count;
+	}
+
+	while ((token = strsep(&p_input, " ")) != NULL) {
+		if (param_count >= 4) {
+			pr_err("Too many parameters.\n");
+			return -EINVAL;
+		}
+		param[param_count++] = token;
+	}
+
+	if (param_count > 4 || param_count < 3) {
+		pr_info("%s", usage_info);
+		return -EINVAL;
+	}
+
+	dma_chan = (unsigned int)simple_strtol(param[0], &endptr, 10);
+	if (endptr == param[0] || *endptr != '\0') {
+		pr_err("Invalid dma_chan, please input a number\n");
+		return -EINVAL;
+	}
+	if (dma_chan < DMA_I2S0 || dma_chan > DMA_HDMI) {
+		pr_err("Invalid dma_chan, please input a number between %d and %d\n", DMA_I2S0, DMA_HDMI);
+		return -EINVAL;
+	}
+
+	if (strcmp(param[1], "p") != 0 && strcmp(param[1], "c") != 0) {
+		pr_err("Invalid mode: please input 'c' for capture or 'p' for playback\n");
+		return -EINVAL;
+	} else if (strcmp(param[2], "1") != 0 && strcmp(param[2], "0") != 0) {
+		pr_err("Invalid status: please input '1' to enable or '0' to disable\n");
+		return -EINVAL;
+	}
+
+	if (strcmp(param[1], "p") == 0 && strcmp(param[2], "0") == 0)
+		dump_id &= ~(1 << (2 * dma_chan));
+	else if (strcmp(param[1], "p") == 0 && strcmp(param[2], "1") == 0)
+		dump_id |= (1 << (2 * dma_chan));
+	else if (strcmp(param[1], "c") == 0 && strcmp(param[2], "0") == 0)
+		dump_id &= ~(1 << (2 * dma_chan + 1));
+	else if (strcmp(param[1], "c") == 0 && strcmp(param[2], "1") == 0)
+		dump_id |= (1 << (2 * dma_chan + 1));
+	else
+		return -EINVAL;
+
+	if (param_count == 4) {
+		if (check_path_exists(param[3]) == 0) {
+			pr_err("Path does not exist\n");
+			return -EINVAL;
+		} else {
+			strncpy(dump_file_dir, param[3], sizeof(dump_file_dir) - 1);
+		}
+	}
+	return count;
+}
+
+static const struct file_operations fops = {
+	.owner = THIS_MODULE,
+	.read  = config_read,
+	.write = config_write,
+	.open = config_open,
+};
+
+static int __init dump_debugfs_init(void)
+{
+	g_debug_file = debugfs_create_file("dump", 0666, snd_soc_debugfs_root, NULL, &fops);
+	if (!g_debug_file) {
+		pr_err("Failed to create debugfs file\n");
+		return -ENOMEM;
+	}
+	pr_info("Dump debugfs initialized\n");
+	return 0;
+}
+
+static void __exit dump_debugfs_exit(void)
+{
+	debugfs_remove(g_debug_file);
+	pr_info("Debugfs removed\n");
+}
+module_init(dump_debugfs_init);
+module_exit(dump_debugfs_exit);
 #endif
 
 MODULE_DESCRIPTION("SPACEMIT ASoC PCM Platform Driver");
