@@ -426,12 +426,12 @@ int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy)
 
 	if (!policy->freq_table)
 		return -ENODEV;
+
 	if ((wafer_prop << 16 | product_prop) == PRODUCT_ID_M1) {
 		/* M1 */
 		/* can update to 1.8G */
-		policy->max = policy->max > M1_MAX_FREQ_LIMITATION ? M1_MAX_FREQ_LIMITATION : policy->max;
 		cpufreq_verify_within_limits(policy, policy->cpuinfo.min_freq,
-					M1_MAX_FREQ_LIMITATION);
+					policy->cpuinfo.max_freq);
 	} else {
 		/* K1 */
 		/* only 1.6G allowed max */
@@ -461,6 +461,21 @@ int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy)
 				policy->min, policy->max, policy->cpu);
 	return 0;
 }
+
+extern void remove_boost_sysfs_file(void);
+extern void remove_policy_boost_sysfs_file(struct cpufreq_policy *policy);
+
+void spacemit_cpufreq_ready(struct cpufreq_policy *policy)
+{
+	if ((wafer_prop << 16 | product_prop) == PRODUCT_ID_M1) {
+		/* M1 */
+	} else {
+		/* K1 or other */
+		remove_policy_boost_sysfs_file(policy);
+		remove_boost_sysfs_file();
+	}
+}
+
 #endif
 
 static int spacemit_dt_cpufreq_pre_probe(struct platform_device *pdev)
