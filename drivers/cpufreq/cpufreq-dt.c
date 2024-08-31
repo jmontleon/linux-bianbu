@@ -158,6 +158,7 @@ static void cpufreq_exit(struct cpufreq_policy *policy)
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 extern int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy);
+extern void spacemit_cpufreq_ready(struct cpufreq_policy *policy);
 #endif
 
 static struct cpufreq_driver dt_cpufreq_driver = {
@@ -167,6 +168,7 @@ static struct cpufreq_driver dt_cpufreq_driver = {
  	.verify = cpufreq_generic_frequency_table_verify,
 #else
 	.verify = spacmeit_cpufreq_veritfy,
+	.ready = spacemit_cpufreq_ready,
 #endif
 	.target_index = set_target,
 	.get = cpufreq_generic_get,
