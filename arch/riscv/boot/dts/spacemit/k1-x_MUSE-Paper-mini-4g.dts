@@ -18,7 +18,7 @@
 
 / {
 	model = "MUSE-PAPER-MINI-4G";
-	modules_usrload = "8852bs";
+	modules_usrload = "aic8800_bsp,aic8800_fdrv,aic8800_btlpm";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -164,6 +164,22 @@
 			compatible = "spacemit,bt-pwrseq";
 			reset-gpios     = <&gpio 63 0>;
 		};
+	};
+
+	wwan_pwrseq: wwan-pwrseq {
+		compatible = "spacemit,wwan-pwrseq";
+		rfkill-name = "spacemit-wwan4g";
+
+		power-gpios = <&gpio 48 0>;
+		power-use-pulse;
+		power-pulse-delay-ms = <100>;
+		power-off-pulse-delay-ms = <3000>;
+
+		reset-gpios = <&gpio 2 0>;
+		reset-use-pulse;
+		reset-pulse-delay-ms = <700>;
+
+		status = "okay";
 	};
 
 	typec_0: connector@0 {
@@ -635,7 +651,9 @@
 
 &pinctrl {
 	pinctrl-single,gpio-range = <
+		&range GPIO_02  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_03  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_48  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS2)
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -661,13 +679,6 @@
 		&range GPIO_125 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 	>;
 
-	pinctrl_rcpu: pinctrl_rcpu_grp {
-		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
-			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
-		>;
-	};
-
 	pinctrl_wlan_wakeup: wlan_wakeup_grp {
 		pinctrl-single,pins =<
 			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_FALL | PULL_DOWN | PAD_3V_DS2))   /* wifi edge detect */
@@ -677,7 +688,9 @@
 
 &gpio{
 	gpio-ranges = <
+		&pinctrl 02  GPIO_02  1
 		&pinctrl 03  GPIO_03  1
+		&pinctrl 48  GPIO_48  1
 		&pinctrl 49  GPIO_49  2
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  5
@@ -817,12 +830,12 @@
 };
 
 &usbphy1 {
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci1 {
 	spacemit,reset-on-resume;
-	status = "disabled";
+	status = "okay";
 };
 
 &usb2phy {
@@ -830,12 +843,6 @@
 };
 
 &combphy {
-	status = "disabled";
-};
-
-&usb3hub {
-	vbus-gpios = <&gpio 89 0>,
-		     <&gpio 124 0>;
 	status = "disabled";
 };
 
@@ -998,8 +1005,6 @@
 };
 
 &rcpu {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_rcpu>;
 	mboxes = <&mailbox 0>, <&mailbox 1>;
 	mbox-names = "vq0", "vq1";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;

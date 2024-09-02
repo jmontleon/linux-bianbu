@@ -9,18 +9,24 @@
 
 		thermal0_trips: trips {
 			cls0_trip0: cls0-trip-point0 {
+				temperature = <90000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			cls0_trip1: cls0-trip-point1 {
 				temperature = <95000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
 
-			cls0_trip1: cls0-trip-point1 {
+			cls0_trip2: cls0-trip-point2 {
 				temperature = <105000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
 
-			cls0_trip2: cls0-trip-point2 {
+			cls0_trip3: cls0-trip-point3 {
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "critical";
@@ -30,26 +36,38 @@
 		cooling-maps {
 			map0 {
 				trip = <&cls0_trip0>;
-				cooling-device = <&cpu_0 1 2>,
-						 <&cpu_1 1 2>,
-						 <&cpu_2 1 2>,
-						 <&cpu_3 1 2>,
-						 <&cpu_4 1 2>,
-						 <&cpu_5 1 2>,
-						 <&cpu_6 1 2>,
-						 <&cpu_7 1 2>;
+				cooling-device = <&cpu_0 1 1>,
+						 <&cpu_1 1 1>,
+						 <&cpu_2 1 1>,
+						 <&cpu_3 1 1>,
+						 <&cpu_4 1 1>,
+						 <&cpu_5 1 1>,
+						 <&cpu_6 1 1>,
+						 <&cpu_7 1 1>;
 			};
 
 			map1 {
 				trip = <&cls0_trip1>;
-				cooling-device = <&cpu_0 3 3>,
-						 <&cpu_1 3 3>,
-						 <&cpu_2 3 3>,
-						 <&cpu_3 3 3>,
-						 <&cpu_4 3 3>,
-						 <&cpu_5 3 3>,
-						 <&cpu_6 3 3>,
-						 <&cpu_7 3 3>;
+				cooling-device = <&cpu_0 2 3>,
+						 <&cpu_1 2 3>,
+						 <&cpu_2 2 3>,
+						 <&cpu_3 2 3>,
+						 <&cpu_4 2 3>,
+						 <&cpu_5 2 3>,
+						 <&cpu_6 2 3>,
+						 <&cpu_7 2 3>;
+			};
+
+			map2 {
+				trip = <&cls0_trip2>;
+				cooling-device = <&cpu_0 4 5>,
+						 <&cpu_1 4 5>,
+						 <&cpu_2 4 5>,
+						 <&cpu_3 4 5>,
+						 <&cpu_4 4 5>,
+						 <&cpu_5 4 5>,
+						 <&cpu_6 4 5>,
+						 <&cpu_7 4 5>;
 			};
 		};
 	};
@@ -61,18 +79,24 @@
 
 		thermal1_trips: trips {
 			cls1_trip0: cls1-trip-point0 {
+				temperature = <90000>;
+				hysteresis = <4000>;
+				type = "passive";
+			};
+
+			cls1_trip1: cls1-trip-point1 {
 				temperature = <95000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
 
-			cls1_trip1: cls1-trip-point1 {
+			cls1_trip2: cls1-trip-point2 {
 				temperature = <105000>;
 				hysteresis = <5000>;
 				type = "passive";
 			};
 
-			cls1_trip2: cls1-trip-point2 {
+			cls1_trip3: cls1-trip-point3 {
 				temperature = <115000>;
 				hysteresis = <5000>;
 				type = "critical";

@@ -1624,6 +1624,27 @@
 			status = "disabled";
 		};
 
+		ircrx: irc-rx@d4017f00 {
+			compatible = "spacemit,k1x-irc";
+			reg = <0x0 0xd4017f00 0x0 0x100>;
+			interrupts = <69>;
+			interrupt-parent = <&intc>;
+			clocks = <&ccu CLK_IR>;
+			resets = <&reset RESET_IR>;
+			clock-frequency = <102400000>;
+			status = "disabled";
+		};
+
+		r_ircrx: irc-rx@c088e000 {
+			compatible = "spacemit,k1x-rirc";
+			reg = <0x0 0xc088e000 0x0 0x100>;
+			clocks = <&ccu CLK_RCPU_IR>;
+			resets = <&reset RESET_RCPU_IR>;
+			clock-frequency = <30720000>;
+			rcpu-ir;
+			status = "disabled";
+		};
+
 		timer0: timer@d4014000 {
 			compatible = "spacemit,soc-timer";
 			reg = <0x0 0xd4014000 0x0 0xc8>;

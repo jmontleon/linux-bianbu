@@ -10,8 +10,8 @@
 #include "k1-x-hdmi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-camera-sdk.dtsi"
-#include "m1-x_opp_table.dtsi"
-#include "m1-x_thermal_cooling.dtsi"
+#include "k1-x_opp_table.dtsi"
+#include "k1-x_thermal_cooling.dtsi"
 
 / {
 	model = "Milk-V(M1) Jupiter";
