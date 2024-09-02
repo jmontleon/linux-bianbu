@@ -321,8 +321,8 @@ config USB_ONBOARD_HUB
 
 config SPACEMIT_ONBOARD_USB_HUB
 	tristate "Spacemit onboard USB hub support"
-	depends on ARCH_SPACEMIT || COMPILE_TEST
-	default SOC_SPACEMIT_K1X && USB_DWC3_SPACEMIT
+	depends on OF || COMPILE_TEST
+	default SOC_SPACEMIT_K1X
 	help
 	  Say Y here if you want to support onboard usb hubs on Spacemit
 	  platform. If unsure, say Y when compile for Spacemit platform.
