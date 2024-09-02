@@ -1459,8 +1459,7 @@ typedef struct _FAULT_INFO_LOG_
 static FAULT_INFO_LOG gsFaultInfoLog = { 0 };
 
 static void _FillAppForFWFaults(PVRSRV_RGXDEV_INFO *psDevInfo,
-							FAULT_INFO *psInfo,
-							RGXMEM_PROCESS_INFO *psProcInfo)
+							FAULT_INFO *psInfo)
 {
 	IMG_UINT32 i, j;
 
@@ -1471,14 +1470,17 @@ static void _FillAppForFWFaults(PVRSRV_RGXDEV_INFO *psDevInfo,
 			IMG_BOOL bFound;
 
 			RGXMEM_PROCESS_INFO *psProcInfo = &psInfo->asQueryOut[i].sResults[j].sProcessInfo;
-			bFound = RGXPCPIDToProcessInfo(psDevInfo,
-								psProcInfo->uiPID,
-								psProcInfo);
-			if (!bFound)
+			if (!psProcInfo)
 			{
-				OSStringLCopy(psProcInfo->szProcessName,
-								"(unknown)",
-								sizeof(psProcInfo->szProcessName));
+				bFound = RGXPCPIDToProcessInfo(psDevInfo,
+									psProcInfo->uiPID,
+									psProcInfo);
+				if (!bFound)
+				{
+					OSStringLCopy(psProcInfo->szProcessName,
+									"(unknown)",
+									sizeof(psProcInfo->szProcessName));
+				}
 			}
 		}
 	}
@@ -1641,7 +1643,7 @@ static void _RecordFaultInfo(PVRSRV_RGXDEV_INFO *psDevInfo,
 
 					if (sProcessInfo.uiPID == RGXMEM_SERVER_PID_FIRMWARE)
 					{
-						_FillAppForFWFaults(psDevInfo, psInfo, &sProcessInfo);
+						_FillAppForFWFaults(psDevInfo, psInfo);
 					}
 				}
 			}
