@@ -2095,11 +2095,16 @@ static int ax_get_mac_address(struct ax_device *axdev)
 {
 	struct net_device *netdev = axdev->netdev;
 
+	char addr_buf[ETH_ALEN];
+	memset(addr_buf, 0, ETH_ALEN);
+
 	if (ax_read_cmd(axdev, AX_ACCESS_MAC, AX_NODE_ID, ETH_ALEN,
-			ETH_ALEN, (void *)netdev->dev_addr, 0) < 0) {
+			ETH_ALEN, (void *)addr_buf, 0) < 0) {
 		dev_err(&axdev->intf->dev, "Failed to read MAC address");
 		return -ENODEV;
 	}
+
+	eth_hw_addr_set(netdev, addr_buf);
 
 	if (ax_check_ether_addr(axdev))
 		dev_warn(&axdev->intf->dev, "Found invalid MAC address value");

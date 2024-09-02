@@ -1216,6 +1216,25 @@ static bool k1x_qspi_supports_op(struct spi_mem *mem,
 	return true;
 }
 
+static const char *k1x_qspi_get_name(struct spi_mem *mem)
+{
+
+	struct k1x_qspi *qspi = spi_master_get_devdata(mem->spi->master);
+	struct device *dev = qspi->dev;
+	const char *name;
+
+	name = devm_kasprintf(dev, GFP_KERNEL,
+			      "%s-%d", dev_name(dev),
+			      mem->spi->chip_select);
+
+	if (!name) {
+		dev_err(dev, "failed to get memory for custom flash name\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	return name;
+}
+
 static int k1x_qspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
 	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->master);
@@ -1385,6 +1404,7 @@ static const struct spi_controller_mem_ops k1x_qspi_mem_ops = {
 	.adjust_op_size = k1x_qspi_adjust_op_size,
 	.supports_op = k1x_qspi_supports_op,
 	.exec_op = k1x_qspi_exec_op,
+	.get_name = k1x_qspi_get_name,
 };
 
 static int k1x_qspi_probe(struct platform_device *pdev)

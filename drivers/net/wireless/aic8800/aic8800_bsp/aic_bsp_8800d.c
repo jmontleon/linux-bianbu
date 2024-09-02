@@ -178,38 +178,38 @@ static u32 sys_reboot_tbl[][2] = {
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "fw_adid.bin",
-		.bt_patch      = "fw_patch.bin",
-		.bt_table      = "fw_patch_table.bin",
-		.wl_fw         = "fmacfw.bin",
-		.wl_table      = "fmacfw_patch.bin"
+		.bt_adid       = "aic/fw_adid.bin",
+		.bt_patch      = "aic/fw_patch.bin",
+		.bt_table      = "aic/fw_patch_table.bin",
+		.wl_fw         = "aic/fmacfw.bin",
+		.wl_table      = "aic/fmacfw_patch.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "fw_adid.bin",
-		.bt_patch      = "fw_patch.bin",
-		.bt_table      = "fw_patch_table.bin",
-		.wl_fw         = "fmacfw_rf.bin"
+		.bt_adid       = "aic/fw_adid.bin",
+		.bt_patch      = "aic/fw_patch.bin",
+		.bt_table      = "aic/fw_patch_table.bin",
+		.wl_fw         = "aic/fmacfw_rf.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u03[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u03/u04)",
-		.bt_adid       = "fw_adid_u03.bin",
-		.bt_patch      = "fw_patch_u03.bin",
-		.bt_table      = "fw_patch_table_u03.bin",
-		.wl_fw         = "fmacfw.bin",
-		.wl_table      = "fmacfw_patch.bin"
+		.bt_adid       = "aic/fw_adid_u03.bin",
+		.bt_patch      = "aic/fw_patch_u03.bin",
+		.bt_table      = "aic/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/fmacfw.bin",
+		.wl_table      = "aic/fmacfw_patch.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u03/u04)",
-		.bt_adid       = "fw_adid_u03.bin",
-		.bt_patch      = "fw_patch_u03.bin",
-		.bt_table      = "fw_patch_table_u03.bin",
-		.wl_fw         = "fmacfw_rf.bin"
+		.bt_adid       = "aic/fw_adid_u03.bin",
+		.bt_patch      = "aic/fw_patch_u03.bin",
+		.bt_table      = "aic/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/fmacfw_rf.bin"
 	},
 };
 
@@ -218,36 +218,36 @@ static const struct aicbsp_firmware fw_u03[] = {
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u02)",
-		.bt_adid       = "fw_adid.bin",
-		.bt_patch      = "fw_patch.bin",
-		.bt_table      = "fw_patch_table.bin",
-		.wl_fw         = "fmacfw_usb.bin"
+		.bt_adid       = "aic/fw_adid.bin",
+		.bt_patch      = "aic/fw_patch.bin",
+		.bt_table      = "aic/fw_patch_table.bin",
+		.wl_fw         = "aic/fmacfw_usb.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u02)",
-		.bt_adid       = "fw_adid.bin",
-		.bt_patch      = "fw_patch.bin",
-		.bt_table      = "fw_patch_table.bin",
-		.wl_fw         = "fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/fw_adid.bin",
+		.bt_patch      = "aic/fw_patch.bin",
+		.bt_table      = "aic/fw_patch_table.bin",
+		.wl_fw         = "aic/fmacfw_rf_usb.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u03[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u03/u04)",
-		.bt_adid       = "fw_adid_u03.bin",
-		.bt_patch      = "fw_patch_u03.bin",
-		.bt_table      = "fw_patch_table_u03.bin",
-		.wl_fw         = "fmacfw_usb.bin"
+		.bt_adid       = "aic/fw_adid_u03.bin",
+		.bt_patch      = "aic/fw_patch_u03.bin",
+		.bt_table      = "aic/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/fmacfw_usb.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u03/u04)",
-		.bt_adid       = "fw_adid_u03.bin",
-		.bt_patch      = "fw_patch_u03.bin",
-		.bt_table      = "fw_patch_table_u03.bin",
-		.wl_fw         = "fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/fw_adid_u03.bin",
+		.bt_patch      = "aic/fw_patch_u03.bin",
+		.bt_table      = "aic/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/fmacfw_rf_usb.bin"
 	},
 };
 #endif

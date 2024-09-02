@@ -402,7 +402,7 @@ enum aicdev_hw_feature {
 #endif
 #define AICBT_UART_BAUD_DEFAULT     AICBT_UART_BAUD_1_5M
 #define AICBT_UART_FC_DEFAULT       AICBT_UART_FLOWCTRL_ENABLE
-#define AICBT_LPM_ENABLE_DEFAULT    1
+#define AICBT_LPM_ENABLE_DEFAULT    0
 #define AICBT_TXPWR_LVL_DEFAULT     AICBT_TXPWR_LVL
 
 #define AIC_SDIO_V2_CLOCK           70000000U  // 0: default, other: target clock rate

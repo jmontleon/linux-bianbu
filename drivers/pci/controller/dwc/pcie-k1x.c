@@ -30,6 +30,11 @@
 #include "../../pci.h"
 #include "pcie-designware.h"
 
+#define PCIE_VENDORID_MASK	0xffff
+#define PCIE_DEVICEID_SHIFT	16
+#define K1X_PCIE_VENDOR_ID	0x201F
+#define k1X_PCIE_DEVICE_ID	0x0001
+
 /* PCIe controller wrapper k1x configuration registers */
 
 #define	K1X_PHY_AHB_IRQ_EN              0x0000
@@ -1012,6 +1017,17 @@ int k1x_pcie_wait_for_speed_change(struct dw_pcie *pci)
 	return -ETIMEDOUT;
 }
 
+static int __init k1x_pcie_init_id(struct k1x_pcie *k1x)
+{
+	struct dw_pcie *pci = k1x->pci;
+
+	dw_pcie_dbi_ro_wr_en(pci);
+	dw_pcie_writew_dbi(pci, PCI_VENDOR_ID, K1X_PCIE_VENDOR_ID);
+	dw_pcie_writew_dbi(pci, PCI_DEVICE_ID, k1X_PCIE_DEVICE_ID);
+	dw_pcie_dbi_ro_wr_dis(pci);
+
+	return 0;
+}
 
 static int k1x_pcie_host_init(struct dw_pcie_rp *pp)
 {
@@ -1374,6 +1390,8 @@ static int __init k1x_add_pcie_port(struct k1x_pcie *k1x,
 		return -ENOMEM;
 
 	pp->ops = &k1x_pcie_host_ops;
+
+	k1x_pcie_init_id(k1x);
 
 	pp->num_vectors = MAX_MSI_IRQS;
 	ret = dw_pcie_host_init(pp);
