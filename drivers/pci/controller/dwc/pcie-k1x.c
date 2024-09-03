@@ -741,7 +741,7 @@ irqreturn_t k1x_handle_msi_irq(struct dw_pcie_rp *pp)
 
 	val = k1x_pcie_phy_ahb_readl(k1x, ADDR_MSI_RECV_CTRL);
 	if(val & MSIX_AFIFO_FULL)
-		pr_err("AXI monitor FIFO FULL.\n");
+		dev_warn_once(pci->dev, "AXI monitor FIFO FULL.\n");
 
 	for (i = 0; i < FIFO_LEN; i++) {
 
