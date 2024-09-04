@@ -190,7 +190,7 @@ static int process_ep_req(struct mv_udc *udc, int index,
 					break;
 			}
 		} else {
-			dev_info(&udc->dev->dev,
+			dev_err(&udc->dev->dev,
 				"complete_tr error: ep=%d %s: error = 0x%x\n",
 				index >> 1, direction ? "SEND" : "RECV",
 				errors);
@@ -1113,7 +1113,7 @@ static void udc_stop(struct mv_udc *udc)
 {
 	u32 tmp;
 
-	pr_info("udc_stop ...\n");
+	pr_debug("udc_stop ...\n");
 	/* Disable interrupts */
 	tmp = readl(&udc->op_regs->usbintr);
 	tmp &= ~(USBINTR_INT_EN | USBINTR_ERR_INT_EN |
@@ -1133,7 +1133,7 @@ static void udc_start(struct mv_udc *udc)
 {
 	u32 usbintr;
 
-	pr_info("udc_start ...\n");
+	pr_debug("udc_start ...\n");
 	usbintr = USBINTR_INT_EN | USBINTR_ERR_INT_EN | USBINTR_SYS_ERR
 		| USBINTR_PORT_CHANGE_DETECT_EN
 		| USBINTR_RESET_EN | USBINTR_DEVICE_SUSPEND;
@@ -1152,7 +1152,7 @@ static int udc_reset(struct mv_udc *udc)
 	unsigned int loops;
 	u32 tmp;
 
-	pr_info("udc_reset ...\n");
+	pr_debug("udc_reset ...\n");
 
 	/* Stop the controller */
 	tmp = readl(&udc->op_regs->usbcmd);
@@ -1506,7 +1506,7 @@ static int mv_udc_start(struct usb_gadget *gadget,
 	int retval = 0;
 	unsigned long flags;
 
-	pr_info("mv_udc_start ... \n");
+	pr_debug("mv_udc_start ... \n");
 	udc = container_of(gadget, struct mv_udc, gadget);
 
 	if (udc->driver)
@@ -1547,7 +1547,7 @@ static int mv_udc_stop(struct usb_gadget *gadget)
 	struct mv_udc *udc;
 	unsigned long flags;
 
-	pr_info("mv_udc_stop ... \n");
+	pr_debug("mv_udc_stop ... \n");
 	udc = container_of(gadget, struct mv_udc, gadget);
 
 	spin_lock_irqsave(&udc->lock, flags);
@@ -2217,27 +2217,27 @@ static irqreturn_t mv_udc_irq(int irq, void *dev)
 	}
 
 	if (status & USBSTS_ERR) {
-		pr_info("usb ctrl error ... \n");
+		pr_err("usb ctrl error ... \n");
 		irq_process_error(udc);
 	}
 
 	if (status & USBSTS_RESET) {
-		pr_info("usb reset ... \n");
+		pr_debug("usb reset ... \n");
 		irq_process_reset(udc);
 	}
 
 	if (status & USBSTS_PORT_CHANGE) {
-		pr_info("usb port change ... \n");
+		pr_debug("usb port change ... \n");
 		irq_process_port_change(udc);
 	}
 
 	if (status & USBSTS_SUSPEND) {
-		pr_info("usb suspend ... \n");
+		pr_debug("usb suspend ... \n");
 		irq_process_suspend(udc);
 	}
 
 	if (status & USBSTS_SYS_ERR)
-		pr_info("system error ... \n");
+		pr_err("system error ... \n");
 
 	spin_unlock(&udc->lock);
 
@@ -2249,7 +2249,7 @@ static int mv_udc_vbus_notifier_call(struct notifier_block *nb,
 {
 	struct mv_udc *udc = container_of(nb, struct mv_udc, notifier);
 
-	pr_info("mv_udc_vbus_notifier_call : udc->vbus_work\n");
+	pr_debug("mv_udc_vbus_notifier_call : udc->vbus_work\n");
 	/* polling VBUS and init phy may cause too much time*/
 	if (udc->qwork)
 		queue_work(udc->qwork, &udc->vbus_work);
@@ -2452,7 +2452,7 @@ static int mv_udc_probe(struct platform_device *pdev)
 		goto err_disable_internal;
 	}
 	udc->ep_dqh_size = size;
-	pr_err("mv_udc: dqh size = 0x%zx  udc->ep_dqh_dma = 0x%llx\n", size, udc->ep_dqh_dma);
+	pr_info("mv_udc: dqh size = 0x%zx  udc->ep_dqh_dma = 0x%llx\n", size, udc->ep_dqh_dma);
 
 	/* create dTD dma_pool resource */
 	udc->dtd_pool = dma_pool_create("mv_dtd",
