@@ -399,10 +399,26 @@
         pinctrl-0 = <&pinctrl_i2c5_0>;
         status = "okay";
 
+	accelerometer: accel@15 {
+		compatible = "memsic,mxc4005";
+		reg = <0x15>;
+		status = "okay";
+	};
+
         icm42607@68 {
                 compatible = "invn,icm42607";
                 reg = <0x68>;
         };
+
+	light: light-sensor@48 {
+		compatible = "sensortek,stk3311";
+		reg = <0x48>;
+		proximity-near-level = <25>;
+		interrupt-parent = <&gpio>;
+		interrupts = <72 2>; /* PB0 */
+		pwr-gpios = <&gpio 73 0>;
+		status = "okay";
+	};
 };
 
 &i2c6 {
