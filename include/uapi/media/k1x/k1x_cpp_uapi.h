@@ -10,6 +10,12 @@
 
 #include <linux/videodev2.h>
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <stdint.h>
+#endif
+
 /*
  * hw version info:
  * 31:16  Version bits
