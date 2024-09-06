@@ -2440,7 +2440,7 @@ static int fe_isp_pipeline_notifier_handler(struct notifier_block *nb,
 							     pipe_ctx->cc_slice_info.slice_width,
 							     format.format.height,
 							     0, bit_depth);
-			cam_not("slice width=%d idi_fifo_depth=%u", pipe_ctx->cc_slice_info.slice_width, idi_fifo_depth);
+			//cam_not("slice width=%d idi_fifo_depth=%u", pipe_ctx->cc_slice_info.slice_width, idi_fifo_depth);
 		}
 		break;
 	default:
@@ -5348,12 +5348,14 @@ static int notify_caputre_until_done(int slice_index,
 	struct isp_pipeline_context *pipe_ctx = NULL;
 	long l_ret = 0;
 
+	/*
 	cam_not("slice(%d/%d) slice_width:%d raw_read_offset:%d yuv_out_offset:%d dwt[1]_offset:%d dwt[2]_offset:%d dwt[3]_offset:%d dwt[4]_offset:%d notify",
 		slice_index, slice_info->total_slice_cnt,
 		slice_info->slice_width, slice_info->raw_read_offset,
 		slice_info->yuv_out_offset,
 		slice_info->dwt_offset[0], slice_info->dwt_offset[1],
 		slice_info->dwt_offset[2], slice_info->dwt_offset[3]);
+	*/
 	if (!pdev) {
 		cam_err("%s pdev is null", __func__);
 		return -1;
@@ -5406,7 +5408,7 @@ static int notify_caputre_until_done(int slice_index,
 		hw_dma_dump_regs(isp_ctx->dma_block);
 		return -1;
 	} else if (l_ret < 0) {
-		cam_err("%s wait for slice doen interrupted by user app", __func__);
+		cam_err("%s wait for slice doen interrupted by user app(%lu)", __func__, l_ret);
 		return -1;
 	}
 	return sc_pipeline->slice_result;
