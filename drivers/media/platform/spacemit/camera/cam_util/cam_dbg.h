@@ -87,7 +87,6 @@ void cam_debug(int module_tag, const char *cam_level, const char *func, int line
 #define cam_dbg(format, ...)                                      \
 	cam_debug(CAM_MODULE_TAG, "cam_dbg", __func__, __LINE__, format, ##__VA_ARGS__)
 
-#define CAM_DBG_TRACE
 #ifdef CAM_DBG_TRACE
 #define cam_trace(f, args...)	trace_printk(f, ##args)
 #else

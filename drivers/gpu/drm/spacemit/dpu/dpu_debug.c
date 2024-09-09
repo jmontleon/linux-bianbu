@@ -309,8 +309,6 @@ void dpu_dump_fps(struct spacemit_dpu *dpu)
 	tmp_tm = timespec64_sub(cur_tm, dpu->last_tm);
 	dpu->last_tm.tv_sec = cur_tm.tv_sec;
 	dpu->last_tm.tv_nsec = cur_tm.tv_nsec;
-	if (tmp_tm.tv_sec == 0)
-		trace_printk("fps: %ld\n", 1000000000 / (tmp_tm.tv_nsec / 1000));
 }
 
 void dpu_underrun_wq_stop_trace(struct work_struct *work)
