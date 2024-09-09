@@ -819,13 +819,11 @@ static void drain_ftrace_data(struct mvx_log_drain *drain,
 {
 	size_t i;
 
-	trace_printk("count=%zu\n", count);
 
 	for (i = 0; i < count; ++i) {
 		const char *p = vec[i].iov_base;
 		size_t length = vec[i].iov_len;
 
-		trace_printk("  length=%zu\n", length);
 
 		while (length > 0) {
 			size_t j = min_t(size_t, length, 32);
@@ -840,7 +838,6 @@ static void drain_ftrace_data(struct mvx_log_drain *drain,
 				n += scnprintf(&buf[n], sizeof(buf) - n,
 					       " %02x", *p++);
 
-			trace_printk("%s\n", buf);
 		}
 	}
 }
