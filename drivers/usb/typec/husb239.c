@@ -41,6 +41,9 @@
 #define HUSB239_REG_STATUS			0x63
 #define HUSB239_REG_STATUS1			0x64
 #define HUSB239_REG_TYPE			0x65
+#define HUSB239_REG_DPDM_STATUS		0x66
+#define HUSB239_REG_CONTRACT_STATUS0	0x67
+#define HUSB239_REG_CONTRACT_STATUS1	0x68
 
 #define HUSB239_REG_SRC_PDO_5V		0x6A
 #define HUSB239_REG_SRC_PDO_9V		0x6B
@@ -140,19 +143,25 @@
 #define HUSB239_REG_TYPE_AUDIOVBUS				BIT(1)
 #define HUSB239_REG_TYPE_AUDIO					BIT(0)
 
+#define HUSB239_PD_CONTRACT_MASK				GENMASK(7, 4)
+#define HUSB239_PD_CONTRACT_SHIFT				4
+
 #define HUSB239_REG_SRC_DETECT					(0x1 << 7)
 
 #define HUSB239_DATA_ROLE(s)					(!!((s) & BIT(0)))
 #define HUSB239_PD_COMM(s)						(!!((s) & BIT(4)))
 #define HUSB239_POWER_ROLE(s)					(!!((s) & BIT(6)))
 
+enum husb239_snkcap {
+	SNKCAP_5V = 1,
+	SNKCAP_9V,
+	SNKCAP_12V,
+	SNKCAP_15V,
+	SNKCAP_20V,
+	MAX_SNKCAP
+};
+
 struct typec_info {
-	int request_current; /* ma */
-	int request_voltage; /* mv */
-
-	int data_role;
-	int power_role;
-
 	struct typec_port *port;
 	struct typec_partner *partner;
 	struct typec_switch_dev *sw;
@@ -167,8 +176,9 @@ struct typec_info {
 
 	u8 src_pdo_nr;
 	u8 sink_pdo_nr;
-	u8 sink_watt;
-	u8 sink_voltage;
+	u32 sink_watt;
+	u32 sink_voltage;/* uv */
+	u32 sink_current;/* ua */
 };
 
 struct husb239 {
@@ -180,6 +190,7 @@ struct husb239 {
 	struct gpio_desc *en_gpiod; /* chip enable gpio */
 	struct gpio_desc *chg_gpiod;/* stop charge while set vbus */
 	struct gpio_desc *aud_gpiod;/* audio switch gpio */
+	struct gpio_desc *mic_gpiod;/* mic switch gpio */
 
 	struct gpio_desc *sel_gpiod;/* sel gpio, for orient switch */
 	struct gpio_desc *oe_gpiod; /* oe gpio, for orient switch */
@@ -191,14 +202,13 @@ struct husb239 {
 
 	struct typec_info info;
 
-	bool vbus_on;
-	bool audio_on;
-	bool attached;
+	bool vbus_online;
+	bool audio_online;
+	bool psy_online;
 
-	u32 voltage;
-	u32 req_voltage;
-	u32 max_current;
-	u32 op_current;
+	u32 voltage;/* uv */
+	u32 req_voltage;/* mv */
+	u32 op_current;/* ua */
 
 	enum power_supply_usb_type usb_type;
 	struct power_supply *psy;
@@ -261,6 +271,83 @@ static enum typec_accessory husb239_get_accessory(struct husb239 *husb239)
 	default:
 		return TYPEC_ACCESSORY_NONE;
 	}
+}
+
+#define STEP_BOUNDARY 0x7d
+static void husb239_update_operating_status(struct husb239 *husb239)
+{
+	unsigned int status, status0, status1, type, pd_contract;
+	u32 voltage, op_current;
+	int ret;
+
+	ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status) ||
+		  regmap_read(husb239->regmap, HUSB239_REG_TYPE, &type);
+	if (ret < 0)
+		return;
+
+	dev_dbg(husb239->dev, "update operating status: %x type: %x\n", status, type);
+
+	if (!(status & HUSB239_REG_STATUS_ATTACH)) {
+		husb239->voltage = 0;
+		husb239->op_current = 0;
+		husb239->psy_online = false;
+		goto out;
+	}
+
+	ret = regmap_read(husb239->regmap, HUSB239_REG_CONTRACT_STATUS0, &status0);
+	if (ret < 0)
+		return;
+
+	dev_dbg(husb239->dev, "contract status0: %x\n", status0);
+	pd_contract = (status0 & HUSB239_PD_CONTRACT_MASK) >> HUSB239_PD_CONTRACT_SHIFT;
+
+	if (!(type & HUSB239_REG_TYPE_SINK))
+		return;
+
+	if (!pd_contract) {
+		husb239->voltage = 5000 * 1000;
+		husb239->op_current = 500 * 1000;
+		husb239->psy_online = true;
+		goto out;
+	}
+
+	switch (pd_contract) {
+	case SNKCAP_5V:
+		voltage = 5000;
+		break;
+	case SNKCAP_9V:
+		voltage = 9000;
+		break;
+	case SNKCAP_12V:
+		voltage = 12000;
+		break;
+	case SNKCAP_15V:
+		voltage = 15000;
+		break;
+	case SNKCAP_20V:
+		voltage = 20000;
+		break;
+	default:
+		return;
+	}
+
+	ret = regmap_read(husb239->regmap, HUSB239_REG_CONTRACT_STATUS1, &status1);
+	if (ret < 0)
+		return;
+
+	if (status1 < STEP_BOUNDARY)
+		op_current = 500 + status1 * 20;
+	else
+		op_current = 3000 + (status1 - STEP_BOUNDARY) * 40;
+
+	/* covert mV/mA to uV/uA */
+	husb239->voltage = voltage * 1000;
+	husb239->op_current = op_current * 1000;
+	husb239->psy_online = true;
+
+out:
+	dev_info(husb239->dev, "update sink voltage: %d current: %d\n", husb239->voltage, husb239->op_current);
+	power_supply_changed(husb239->psy);
 }
 
 static void husb239_set_data_role(struct husb239 *husb239,
@@ -353,12 +440,41 @@ static int husb239_register_partner(struct husb239 *husb239,
 
 static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 {
+	struct typec_info *info = &husb239->info;
 	unsigned int src_pdo;
-	int ret;
+	int ret, snk_sel;
 	int count = 10;
 
+	if (!husb239->psy_online || !info->pd_supported)
+		return -EINVAL;
+
+	if (husb239->voltage == husb239->req_voltage)
+		return 0;
+
+	switch (husb239->req_voltage) {
+	case 5000:
+		snk_sel = SNKCAP_5V;
+		break;
+	case 9000:
+		snk_sel = SNKCAP_9V;
+		break;
+	case 12000:
+		snk_sel = SNKCAP_12V;
+		break;
+	case 15000:
+		snk_sel = SNKCAP_15V;
+		break;
+	case 20000:
+		snk_sel = SNKCAP_20V;
+		break;
+	default:
+		dev_err(husb239->dev, "voltage %d is not support, use default 9v\n", husb239->req_voltage);
+		snk_sel = SNKCAP_9V;
+		break;
+	}
+
 	while(--count) {
-		ret = regmap_read(husb239->regmap, HUSB239_REG_SRC_PDO_9V, &src_pdo);
+		ret = regmap_read(husb239->regmap, HUSB239_REG_SRC_PDO_5V + snk_sel - 1, &src_pdo);
 		if (ret)
 			return ret;
 
@@ -374,7 +490,7 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 
 	dev_info(husb239->dev, "pd detect \n");
 	ret = regmap_update_bits(husb239->regmap, HUSB239_REG_SRC_PDO,
-				HUSB239_REG_SRC_PDO_SEL_MASK, HUSB239_REG_SRC_PDO_SEL_9V);
+				HUSB239_REG_SRC_PDO_SEL_MASK, (snk_sel << 3));
 	if (ret)
 		return ret;
 
@@ -391,10 +507,11 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 static int husb239_attach(struct husb239 *husb239)
 {
 	struct typec_info *info = &husb239->info;
-	int ret, status, status1;
+	int ret, status, status1, type;
 
 	if (regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status) ||
-		regmap_read(husb239->regmap, HUSB239_REG_STATUS1, &status1))
+		regmap_read(husb239->regmap, HUSB239_REG_STATUS1, &status1) ||
+		regmap_read(husb239->regmap, HUSB239_REG_TYPE, &type))
 		return -EINVAL;
 
 	dev_info(husb239->dev, "husb239_attach status: %x status1: %x\n", status, status1);
@@ -403,66 +520,43 @@ static int husb239_attach(struct husb239 *husb239)
 	if (ret)
 		return ret;
 
-	if (husb239->aud_gpiod &&
-			(husb239_get_accessory(husb239) == TYPEC_ACCESSORY_AUDIO)) {
+	if (husb239_get_accessory(husb239) == TYPEC_ACCESSORY_AUDIO) {
 		/* sel = 0 audp/audn, sel = 1 hdp/hdn */
-		gpiod_set_value(husb239->aud_gpiod, 1);
-		husb239->audio_on = true;
-		dev_info(husb239->dev, "audo accessory attach\n");
-		ret = husb239_register_partner(husb239, 0, TYPEC_ACCESSORY_AUDIO);
-		if (ret) {
-			dev_info(husb239->dev, "register partner failed: %d\n", ret);
-			goto vbus_disable;
+		if (husb239->aud_gpiod) {
+			gpiod_set_value(husb239->aud_gpiod, 1);
+			/* sel = 0 micp = sleeve, sel = 1 micp = ring2 */
+			gpiod_set_value(husb239->mic_gpiod, 1);
+			husb239->audio_online = true;
 		}
-		return ret;
+		dev_info(husb239->dev, "audio accessory attach\n");
+		ret = husb239_register_partner(husb239, 0, TYPEC_ACCESSORY_AUDIO);
+		if (ret)
+			dev_err(husb239->dev, "register partner failed: %d\n", ret);
 	}
 
 	if (HUSB239_POWER_ROLE(status1) == TYPEC_SOURCE) {
 		if (husb239->vbus_supply) {
 			ret = regulator_enable(husb239->vbus_supply);
-			if (ret) {
-				dev_err(husb239->dev,
-					"Failed to enable vbus supply: %d\n", ret);
-				return ret;
-			}
+			if (ret)
+				dev_err(husb239->dev, "failed to enable vbus supply: %d\n", ret);
 		}
 		gpiod_set_value(husb239->chg_gpiod, 1);
 		husb239_set_gpios_value(husb239->vbus_gpiod, 1);
-		husb239->vbus_on = true;
+		husb239->vbus_online = true;
 		dev_info(husb239->dev, "enable vbus supply\n");
-	} else {
-		if (!husb239_usbpd_request_voltage(husb239)) {
-			husb239->voltage     = 9000;
-			husb239->op_current  = 2000;
-			husb239->max_current = 2000;
-		} else {
-			husb239->voltage     = 5000;
-			husb239->op_current  = 500;
-			husb239->max_current = 500;
-		}
-		power_supply_changed(husb239->psy);
 	}
 
 	typec_set_pwr_role(info->port, HUSB239_POWER_ROLE(status1));
 	typec_set_pwr_opmode(info->port, husb239_get_pwr_opmode(husb239));
 	husb239_set_data_role(husb239, HUSB239_DATA_ROLE(status1), true);
 
-	husb239->attached = true;
-	return 0;
+	/* pd contract,  try max voltage */
+	if (type & HUSB239_REG_TYPE_SINK) {
+		husb239_update_operating_status(husb239);
+		husb239->req_voltage = info->sink_voltage / 1000;/* mv */
+		husb239_usbpd_request_voltage(husb239);
+	}
 
-vbus_disable:
-	if (husb239->audio_on) {
-		gpiod_set_value(husb239->aud_gpiod, 0);
-		husb239->audio_on = false;
-	}
-	if (husb239->vbus_on) {
-		husb239_set_gpios_value(husb239->vbus_gpiod, 0);
-		gpiod_set_value(husb239->chg_gpiod, 0);
-		if (husb239->vbus_supply)
-			regulator_disable(husb239->vbus_supply);
-		husb239->vbus_on = false;
-		dev_info(husb239->dev, "disable vbus supply\n");
-	}
 	return ret;
 }
 
@@ -484,35 +578,29 @@ static void husb239_detach(struct husb239 *husb239)
 	typec_set_pwr_opmode(info->port, TYPEC_PWR_MODE_USB);
 	husb239_set_data_role(husb239, HUSB239_DATA_ROLE(status1), false);
 
-	if (husb239->audio_on) {
+	if (husb239->audio_online) {
 		gpiod_set_value(husb239->aud_gpiod, 0);
-		husb239->audio_on = false;
-		dev_info(husb239->dev, "audo accessory detach\n");
+		gpiod_set_value(husb239->mic_gpiod, 0);
+		husb239->audio_online = false;
+		dev_info(husb239->dev, "audio accessory detach\n");
 	}
 
-	if (husb239->vbus_on) {
+	if (husb239->vbus_online) {
 		husb239_set_gpios_value(husb239->vbus_gpiod, 0);
 		gpiod_set_value(husb239->chg_gpiod, 0);
 		if (husb239->vbus_supply)
 			regulator_disable(husb239->vbus_supply);
-		husb239->vbus_on = false;
+		husb239->vbus_online = false;
 		dev_info(husb239->dev, "disable vbus supply\n");
 	}
 
-	husb239->attached = false;
-	husb239->voltage  = 0;
-	husb239->max_current = husb239->op_current = 0;
-	power_supply_changed(husb239->psy);
+	husb239_update_operating_status(husb239);
 }
 
 static void husb239_pd_contract(struct husb239 *husb239)
 {
-	int status, status1;
-
-	if (regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status) ||
-		regmap_read(husb239->regmap, HUSB239_REG_STATUS1, &status1))
-		return;
-	dev_info(husb239->dev, "husb239_pd_contract status: %x status1: %x\n", status, status1);
+	husb239_update_operating_status(husb239);
+	husb239_register_partner(husb239, 1, TYPEC_ACCESSORY_NONE);
 }
 
 static void husb239_get_gpio_irq(struct husb239 *husb239)
@@ -547,10 +635,14 @@ static int husb239_chip_init(struct husb239 *husb239)
 
 	husb239->en_gpiod = devm_gpiod_get_optional(husb239->dev, "en", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->en_gpiod)) {
+		dev_err(husb239->dev, "get enable gpio failed, ignore it.\n");
 		return PTR_ERR(husb239->en_gpiod);
 	}
-	gpiod_set_value(husb239->en_gpiod, 0);
-	msleep(10);
+
+	if (!IS_ERR_OR_NULL(husb239->en_gpiod)) {
+		gpiod_set_value(husb239->en_gpiod, 0);
+		msleep(10);
+	}
 
 	/* PORTROLE init */
 	ret = regmap_write(husb239->regmap, HUSB239_REG_PORTROLE,
@@ -590,16 +682,6 @@ static int husb239_chip_init(struct husb239 *husb239)
 	if (ret)
 		return ret;
 
-	/* Clear all interruption */
-	ret = (regmap_update_bits(husb239->regmap, HUSB239_REG_INT,
-				HUSB239_REG_MASK_ALL, HUSB239_REG_MASK_ALL) ||
-			regmap_update_bits(husb239->regmap, HUSB239_REG_INT1,
-				HUSB239_REG_MASK_ALL, HUSB239_REG_MASK_ALL) ||
-			regmap_update_bits(husb239->regmap, HUSB239_REG_INT2,
-				HUSB239_REG_MASK_ALL, HUSB239_REG_MASK_ALL));
-	if (ret)
-		return ret;
-
 	return 0;
 }
 
@@ -617,20 +699,15 @@ static void husb239_work_func(struct work_struct *work)
 	regmap_write(husb239->regmap, HUSB239_REG_INT1, int1);
 
 	if (int1 & HUSB239_REG_MASK_ATTACH) {
-		ret = husb239_attach(husb239);
-		if (ret) {
+		if (husb239_attach(husb239))
 			dev_err(husb239->dev, "husb239_attach error, ret: %x\n", ret);
-			goto err;
-		}
 	}
 
-	if (int1 & HUSB239_REG_MASK_DETACH) {
+	if (int1 & HUSB239_REG_MASK_DETACH)
 		husb239_detach(husb239);
-	}
 
-	if (int0 & HUSB239_REG_MASK2_PD_HV) {
+	if (int0 & HUSB239_REG_MASK2_PD_HV)
 		husb239_pd_contract(husb239);
-	}
 
 err:
 	enable_irq(husb239->gpio_irq);
@@ -649,7 +726,7 @@ static irqreturn_t husb239_irq_handler(int irq, void *data)
 
 static int husb239_irq_init(struct husb239 *husb239)
 {
-	int ret;
+	int ret, status;
 
 	INIT_WORK(&husb239->work, husb239_work_func);
 	husb239->workqueue = alloc_workqueue("husb239_work",
@@ -661,6 +738,13 @@ static int husb239_irq_init(struct husb239 *husb239)
 		ret = -ENOMEM;
 		return ret;
 	}
+
+	if (regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status)) {
+		goto free_wq;
+	}
+
+	if (status & HUSB239_REG_STATUS_ATTACH)
+		husb239_attach(husb239);
 
 	ret = devm_request_threaded_irq(husb239->dev, husb239->gpio_irq, NULL,
 				husb239_irq_handler,
@@ -695,7 +779,7 @@ static int husb239_typec_port_probe(struct husb239 *husb239)
 	struct typec_capability *cap = &info->cap;
 	struct fwnode_handle *connector, *ep;
 	struct device *dev = husb239->dev;
-	int ret, i;
+	int ret, i, vol, cur;
 
 	husb239->vbus_supply = devm_regulator_get_optional(dev, "vbus");
 	if (IS_ERR(husb239->vbus_supply)) {
@@ -707,17 +791,26 @@ static int husb239_typec_port_probe(struct husb239 *husb239)
 
 	husb239->vbus_gpiod = devm_gpiod_get_array_optional(dev, "vbus", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->vbus_gpiod)) {
+		dev_err(husb239->dev, "get vbus gpio failed, ignore it.\n");
 		return PTR_ERR(husb239->vbus_gpiod);
 	}
 
 	husb239->chg_gpiod = devm_gpiod_get_optional(dev, "chg", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->chg_gpiod)) {
+		dev_err(husb239->dev, "get charge gpio failed, ignore it.\n");
 		return PTR_ERR(husb239->chg_gpiod);
 	}
 
 	husb239->aud_gpiod = devm_gpiod_get_optional(dev, "aud", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->aud_gpiod)) {
+		dev_err(husb239->dev, "get audio gpio failed, ignore it.\n");
 		return PTR_ERR(husb239->aud_gpiod);
+	}
+
+	husb239->mic_gpiod = devm_gpiod_get_optional(dev, "mic", GPIOD_OUT_LOW);
+	if (IS_ERR(husb239->mic_gpiod)) {
+		dev_err(husb239->dev, "get mic gpio failed, ignore it.\n");
+		return PTR_ERR(husb239->mic_gpiod);
 	}
 
 	connector = device_get_named_child_node(dev, "connector");
@@ -771,28 +864,28 @@ static int husb239_typec_port_probe(struct husb239 *husb239)
 		}
 
 		for (i = 0; i < info->sink_pdo_nr; i++) {
-			ret = 0;
 			switch (pdo_type(info->sink_pdo[i])) {
 			case PDO_TYPE_FIXED:
-				ret = pdo_fixed_voltage(info->sink_pdo[i]);
+				vol = pdo_fixed_voltage(info->sink_pdo[i]);
 				break;
 			case PDO_TYPE_BATT:
 			case PDO_TYPE_VAR:
-				ret = pdo_max_voltage(info->sink_pdo[i]);
+				vol = pdo_max_voltage(info->sink_pdo[i]);
+				cur = pdo_max_current(info->sink_pdo[i]);
 				break;
 			case PDO_TYPE_APDO:
 			default:
 				ret = 0;
 				break;
 			}
-
-			/* 100mv per unit */
-			info->sink_voltage = max(5000, ret) / 100;
+			/* max sink voltage/current */
+			info->sink_voltage = max(5000, vol) * 1000;/* uv */
+			info->sink_current = max(500, cur) * 1000;/* ua */
 		}
 	}
 
 	if (!fwnode_property_read_u32(connector, "op-sink-microwatt", &ret)) {
-		info->sink_watt = ret / 500000; /* 500mw per unit */
+		info->sink_watt = ret;
 	}
 
 	cap->revision = USB_TYPEC_REV_1_2;
@@ -829,11 +922,13 @@ static int husb239_typec_switch_probe(struct husb239 *husb239)
 
 	husb239->oe_gpiod = devm_gpiod_get_optional(husb239->dev, "orient-oe", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->oe_gpiod)) {
+		dev_err(husb239->dev, "get orient-oe gpio failed, ignore it.\n");
 		return PTR_ERR(husb239->oe_gpiod);
 	}
 
 	husb239->sel_gpiod = devm_gpiod_get_optional(husb239->dev, "orient-sel", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->sel_gpiod)) {
+		dev_err(husb239->dev, "get orient-sel gpio failed, ignore it.\n");
 		return PTR_ERR(husb239->sel_gpiod);
 	}
 
@@ -860,6 +955,7 @@ static enum power_supply_usb_type husb239_psy_usb_types[] = {
 static const enum power_supply_property husb239_psy_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CURRENT_NOW
@@ -870,10 +966,14 @@ static int husb239_psy_set_prop(struct power_supply *psy,
 				const union power_supply_propval *val)
 {
 	struct husb239 *husb239 = power_supply_get_drvdata(psy);
+	int ret = 0;
 
 	if (psp == POWER_SUPPLY_PROP_VOLTAGE_NOW) {
-		husb239->req_voltage = val->intval / 1000;
-		return husb239_usbpd_request_voltage(husb239);
+		husb239->req_voltage = val->intval / 1000; /* mv */
+		ret =  husb239_usbpd_request_voltage(husb239);
+		if (!ret)
+			husb239_update_operating_status(husb239);
+		return ret;
 	}
 
 	return -EINVAL;
@@ -884,20 +984,24 @@ static int husb239_psy_get_prop(struct power_supply *psy,
 				union power_supply_propval *val)
 {
 	struct husb239 *husb239 = power_supply_get_drvdata(psy);
+	struct typec_info *info = &husb239->info;
 	int ret = 0;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = husb239->attached;
+		val->intval = husb239->psy_online;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = husb239->usb_type;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = info->sink_voltage;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = husb239->voltage;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		val->intval = husb239->max_current;
+		val->intval = info->sink_current;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = husb239->op_current;
@@ -970,13 +1074,17 @@ static int husb239_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, husb239);
 
 	husb239->regmap = devm_regmap_init_i2c(client, &config);
-	if (IS_ERR(husb239->regmap))
+	if (IS_ERR(husb239->regmap)) {
+		dev_err(husb239->dev, "fail to init i2c regmap.\n");
 		return PTR_ERR(husb239->regmap);
+	}
 
 	/* Initialize the hardware */
 	ret = husb239_chip_init(husb239);
-	if (ret)
+	if (ret) {
+		dev_err(husb239->dev, "fail to init chip ret: %d\n", ret);
 		return ret;
+	}
 
 	ret = husb239_typec_port_probe(husb239);
 	if (ret) {
@@ -1007,8 +1115,10 @@ static int husb239_probe(struct i2c_client *client)
 	}
 
 	ret = husb239_irq_init(husb239);
-	if (ret)
+	if (ret) {
+		dev_err(husb239->dev, "fail to init irq ret: %d\n", ret);
 		goto err_unreg_switch;
+	}
 
 	return 0;
 

@@ -190,7 +190,7 @@ static int process_ep_req(struct mv_udc *udc, int index,
 					break;
 			}
 		} else {
-			dev_info(&udc->dev->dev,
+			dev_err(&udc->dev->dev,
 				"complete_tr error: ep=%d %s: error = 0x%x\n",
 				index >> 1, direction ? "SEND" : "RECV",
 				errors);
@@ -407,18 +407,43 @@ static struct mv_dtd *build_dtd(struct mv_req *req, unsigned *length,
 	struct mv_dtd *dtd;
 	struct mv_udc *udc;
 	struct mv_dqh *dqh;
-	u32 temp, mult = 0;
+	u32 temp, mult = 0, max = 0;
 
 	/* how big will this transfer be? */
 	if (usb_endpoint_xfer_isoc(req->ep->ep.desc)) {
 		dqh = req->ep->dqh;
+		max = req->ep->ep.maxpacket;
 		mult = (dqh->max_packet_length >> EP_QUEUE_HEAD_MULT_POS)
 				& 0x3;
 		*length = min(req->req.length - req->req.actual,
-				(unsigned)(mult * req->ep->ep.maxpacket));
-	} else
+				(unsigned)(mult * max));
+		/*
+		* USB Specification 2.0 Section 5.9.2 states that: "If
+		* there is only a single transaction in the microframe,
+		* only a DATA0 data packet PID is used.  If there are
+		* two transactions per microframe, DATA1 is used for
+		* the first transaction data packet and DATA0 is used
+		* for the second transaction data packet.  If there are
+		* three transactions per microframe, DATA2 is used for
+		* the first transaction data packet, DATA1 is used for
+		* the second, and DATA0 is used for the third."
+		*
+		* IOW, we should satisfy the following cases:
+		*
+		* 1) length <= maxpacket
+		*	- DATA0
+		*
+		* 2) maxpacket < length <= (2 * maxpacket)
+		*	- DATA1, DATA0
+		*
+		* 3) (2 * maxpacket) < length <= (3 * maxpacket)
+		*	- DATA2, DATA1, DATA0
+		*/
+		mult = DIV_ROUND_UP(*length, max);
+	} else {
 		*length = min(req->req.length - req->req.actual,
 				(unsigned)EP_MAX_LENGTH_TRANSFER);
+	}
 
 	udc = req->ep->udc;
 
@@ -564,8 +589,7 @@ static int mv_ep_enable(struct usb_ep *_ep,
 		break;
 	case USB_ENDPOINT_XFER_ISOC:
 		/* Calculate transactions needed for high bandwidth iso */
-		mult = (unsigned char)(1 + ((max >> 11) & 0x03));
-		max = max & 0x7ff;	/* bit 0~10 */
+		mult = usb_endpoint_maxp_mult(desc);
 		/* 3 transactions at most */
 		if (mult > 3)
 			goto en_done;
@@ -626,6 +650,8 @@ en_done:
 	return -EINVAL;
 }
 
+static void mv_ep_fifo_flush(struct usb_ep *_ep);
+
 static int  mv_ep_disable(struct usb_ep *_ep)
 {
 	struct mv_udc *udc;
@@ -674,6 +700,11 @@ static int  mv_ep_disable(struct usb_ep *_ep)
 
 	/* nuke all pending requests (does flush) */
 	nuke(ep, -ESHUTDOWN);
+
+	/* prevent done in nuke initiate prime again,
+	 * which will cause next ep_enable fail.
+	 */
+	mv_ep_fifo_flush(_ep);
 
 	ep->ep.desc = NULL;
 	ep->stopped = 1;
@@ -838,10 +869,6 @@ mv_ep_queue(struct usb_ep *_ep, struct usb_request *_req, gfp_t gfp_flags)
 		retval = -ENOMEM;
 		goto err_unmap_dma;
 	}
-
-	/* Update ep0 state */
-	if (ep->ep_num == 0)
-		udc->ep0_state = DATA_STATE_XMIT;
 
 	/* irq handler advances the queue */
 	list_add_tail(&req->queue, &ep->queue);
@@ -1086,7 +1113,7 @@ static void udc_stop(struct mv_udc *udc)
 {
 	u32 tmp;
 
-	pr_info("udc_stop ...\n");
+	pr_debug("udc_stop ...\n");
 	/* Disable interrupts */
 	tmp = readl(&udc->op_regs->usbintr);
 	tmp &= ~(USBINTR_INT_EN | USBINTR_ERR_INT_EN |
@@ -1106,7 +1133,7 @@ static void udc_start(struct mv_udc *udc)
 {
 	u32 usbintr;
 
-	pr_info("udc_start ...\n");
+	pr_debug("udc_start ...\n");
 	usbintr = USBINTR_INT_EN | USBINTR_ERR_INT_EN | USBINTR_SYS_ERR
 		| USBINTR_PORT_CHANGE_DETECT_EN
 		| USBINTR_RESET_EN | USBINTR_DEVICE_SUSPEND;
@@ -1125,7 +1152,7 @@ static int udc_reset(struct mv_udc *udc)
 	unsigned int loops;
 	u32 tmp;
 
-	pr_info("udc_reset ...\n");
+	pr_debug("udc_reset ...\n");
 
 	/* Stop the controller */
 	tmp = readl(&udc->op_regs->usbcmd);
@@ -1479,7 +1506,7 @@ static int mv_udc_start(struct usb_gadget *gadget,
 	int retval = 0;
 	unsigned long flags;
 
-	pr_info("mv_udc_start ... \n");
+	pr_debug("mv_udc_start ... \n");
 	udc = container_of(gadget, struct mv_udc, gadget);
 
 	if (udc->driver)
@@ -1520,7 +1547,7 @@ static int mv_udc_stop(struct usb_gadget *gadget)
 	struct mv_udc *udc;
 	unsigned long flags;
 
-	pr_info("mv_udc_stop ... \n");
+	pr_debug("mv_udc_stop ... \n");
 	udc = container_of(gadget, struct mv_udc, gadget);
 
 	spin_lock_irqsave(&udc->lock, flags);
@@ -2190,27 +2217,27 @@ static irqreturn_t mv_udc_irq(int irq, void *dev)
 	}
 
 	if (status & USBSTS_ERR) {
-		pr_info("usb ctrl error ... \n");
+		pr_err("usb ctrl error ... \n");
 		irq_process_error(udc);
 	}
 
 	if (status & USBSTS_RESET) {
-		pr_info("usb reset ... \n");
+		pr_debug("usb reset ... \n");
 		irq_process_reset(udc);
 	}
 
 	if (status & USBSTS_PORT_CHANGE) {
-		pr_info("usb port change ... \n");
+		pr_debug("usb port change ... \n");
 		irq_process_port_change(udc);
 	}
 
 	if (status & USBSTS_SUSPEND) {
-		pr_info("usb suspend ... \n");
+		pr_debug("usb suspend ... \n");
 		irq_process_suspend(udc);
 	}
 
 	if (status & USBSTS_SYS_ERR)
-		pr_info("system error ... \n");
+		pr_err("system error ... \n");
 
 	spin_unlock(&udc->lock);
 
@@ -2222,7 +2249,7 @@ static int mv_udc_vbus_notifier_call(struct notifier_block *nb,
 {
 	struct mv_udc *udc = container_of(nb, struct mv_udc, notifier);
 
-	pr_info("mv_udc_vbus_notifier_call : udc->vbus_work\n");
+	pr_debug("mv_udc_vbus_notifier_call : udc->vbus_work\n");
 	/* polling VBUS and init phy may cause too much time*/
 	if (udc->qwork)
 		queue_work(udc->qwork, &udc->vbus_work);
@@ -2425,7 +2452,7 @@ static int mv_udc_probe(struct platform_device *pdev)
 		goto err_disable_internal;
 	}
 	udc->ep_dqh_size = size;
-	pr_err("mv_udc: dqh size = 0x%zx  udc->ep_dqh_dma = 0x%llx\n", size, udc->ep_dqh_dma);
+	pr_info("mv_udc: dqh size = 0x%zx  udc->ep_dqh_dma = 0x%llx\n", size, udc->ep_dqh_dma);
 
 	/* create dTD dma_pool resource */
 	udc->dtd_pool = dma_pool_create("mv_dtd",
