@@ -380,7 +380,7 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x2b, 0x00 ); //data lenth
 	regmap_write(lt8911exb->regmap, 0x2c, 0x00 ); //start Aux read edid
 
-	mdelay(20);                         //more than 10ms
+	mdelay(15);                         //more than 10ms
 	regmap_read(lt8911exb->regmap, 0x25, &reg);
 	DRM_INFO("lt8911exb_read_edid 0x25 0x%x\n", reg);
 
@@ -673,7 +673,7 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0xff, 0x87);
 
 	for (i = 0; i < 5; i++) {//Check Tx PLL
-		mdelay(5);
+		mdelay(2);
 		regmap_read(lt8911exb->regmap, 0x37, &chip_read);
 		if (chip_read & 0x02) {
 			DRM_DEBUG("\r\n LT8911 tx pll locked");
@@ -766,7 +766,7 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x09, 0x7d);
 	regmap_write(lt8911exb->regmap, 0x09, 0xfd);
 	regmap_write(lt8911exb->regmap, 0xff, 0x85);
-	mdelay(200);
+	mdelay(30);
 
 	regmap_read(lt8911exb->regmap, 0x50, &temp2);
 	if (temp2 == 0x03) {
@@ -896,7 +896,7 @@ unsigned int DpcdRead( struct lt8911exb *lt8911exb, u32 Address )
 	regmap_write(lt8911exb->regmap, 0x2b, 0x00);	//data lenth
 	regmap_write(lt8911exb->regmap, 0x2c, 0x00);	//start Aux read edid
 
-	mdelay(50);	//more than 10ms
+	mdelay(20);	//more than 10ms
 	regmap_read(lt8911exb->regmap, 0x25, &reg);
 	if ((reg & 0x0f) == 0x0c) {
 		regmap_read(lt8911exb->regmap, 0x39, &temp);
@@ -942,7 +942,7 @@ void lt8911exb_link_train(struct lt8911exb *lt8911exb)
 		mdelay(10);
 		DpcdWrite(lt8911exb, 0x010a, 0x01);
 
-		mdelay(200);
+		mdelay(20);
 		//*/
 	} else {
 		regmap_write(lt8911exb->regmap, 0xa1, 0x02); // DP scramble mode;
@@ -976,9 +976,9 @@ void lt8911exb_link_train(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x01, 0x0a);
 	regmap_write(lt8911exb->regmap, 0x14, 0x80);
 	regmap_write(lt8911exb->regmap, 0x14, 0x81);
-	mdelay(50);
+	mdelay(10);
 	regmap_write(lt8911exb->regmap, 0x14, 0x84);
-	mdelay(50);
+	mdelay(10);
 	regmap_write(lt8911exb->regmap, 0x14, 0xc0);
 #endif
 }
@@ -991,11 +991,11 @@ void lt8911exb_reset(struct lt8911exb *lt8911exb)
 	}
 
 	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-	usleep_range(50*1000, 100*1000); //100ms
+	usleep_range(5*1000, 10*1000); //10ms
 	gpiod_direction_output(lt8911exb->reset_gpio, 0);
-	usleep_range(50*1000, 100*1000); //100ms
+	usleep_range(5*1000, 10*1000); //10ms
 	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-	usleep_range(100*1000, 150*1000); //150ms
+	usleep_range(5*1000, 10*1000); //10ms
 }
 
 void LT8911EX_TxSwingPreSet(struct lt8911exb *lt8911exb)
@@ -1039,9 +1039,9 @@ void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 				regmap_write(lt8911exb->regmap, 0x01, 0x0a);
 				regmap_write(lt8911exb->regmap, 0x14, 0x80);
 				regmap_write(lt8911exb->regmap, 0x14, 0x81);
-				mdelay(50);
+				mdelay(10);
 				regmap_write(lt8911exb->regmap, 0x14, 0x84);
-				mdelay(50);
+				mdelay(10);
 				regmap_write(lt8911exb->regmap, 0x14, 0xc0);
 			}
 
@@ -1054,10 +1054,10 @@ void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 			//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: panel link count: 0x%bx",val);
 			DRM_INFO( "\r\npanel link count:0x%x ", val);
 #endif
-			mdelay(100); // return;
+			mdelay(10); // return;
 		} else {
 			//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: link trian on going...");
-			mdelay(100);
+			mdelay(10);
 		}
 	}
 #endif
@@ -1088,7 +1088,7 @@ void LT8911EX_link_train_result(struct lt8911exb *lt8911exb)
 		} else {
 			DRM_DEBUG("\r\nlink trian on going...");
 		}
-		mdelay(100);
+		mdelay(10);
 	}
 }
 
@@ -1154,7 +1154,7 @@ static int lt8911exb_panel_enable(struct drm_panel *panel)
 	DRM_INFO("%s()\n", __func__);
 
 	schedule_delayed_work(&lt8911exb->init_work,
-				msecs_to_jiffies(500));
+				msecs_to_jiffies(100));
 	lt8911exb->init_work_pending = true;
 
 	return 0;
@@ -1244,7 +1244,7 @@ static void init_work_func(struct work_struct *work)
 	DRM_DEBUG(" %s() \n", __func__);
 
 	gpiod_direction_output(lt8911exb->standby_gpio, 1);
-	usleep_range(50*1000, 100*1000); //100ms
+	// usleep_range(5*1000,10*1000); //10ms
 
 	lt8911exb_reset(lt8911exb);
 	lt8911exb_chip_id(lt8911exb);
@@ -1262,7 +1262,7 @@ static void init_work_func(struct work_struct *work)
 	lt8911exb_video_check(lt8911exb); //just for Check MIPI Input
 
 	DRM_DEBUG("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
-
+	mdelay(50);
 	PCR_Status(lt8911exb);
 
 	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {

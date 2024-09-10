@@ -375,6 +375,7 @@
 		chg-gpio = <&gpio 04 0>;
 		int-gpio = <&gpio 01 0>;
 		aud-gpio = <&gpio 86 0>;
+		mic-gpio = <&gpio 79 0>;
 		orient-oe-gpio  = <&gpio 48 0>;
 		orient-sel-gpio = <&gpio 78 0>;
 		orientation;
@@ -399,10 +400,26 @@
         pinctrl-0 = <&pinctrl_i2c5_0>;
         status = "okay";
 
+	accelerometer: accel@15 {
+		compatible = "memsic,mxc4005";
+		reg = <0x15>;
+		status = "okay";
+	};
+
         icm42607@68 {
                 compatible = "invn,icm42607";
                 reg = <0x68>;
         };
+
+	light: light-sensor@48 {
+		compatible = "sensortek,stk3311";
+		reg = <0x48>;
+		proximity-near-level = <25>;
+		interrupt-parent = <&gpio>;
+		interrupts = <72 2>; /* PB0 */
+		pwr-gpios = <&gpio 73 0>;
+		status = "okay";
+	};
 };
 
 &i2c6 {
@@ -648,8 +665,7 @@
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_76  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
+		&range GPIO_78  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_86  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_89  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -689,8 +705,7 @@
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
 		&pinctrl 76  GPIO_76  1
-		&pinctrl 78  GPIO_78  1
-		&pinctrl 80  GPIO_80  4
+		&pinctrl 78  GPIO_78  6
 		&pinctrl 86  GPIO_86  1
 		&pinctrl 89  GPIO_89  4
 		&pinctrl 96  DVL0     2

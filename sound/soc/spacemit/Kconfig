@@ -5,3 +5,27 @@ config SND_SOC_SPACEMIT
 	help
 	  Say Y or M here if you want support for audio on SPACEMIT SoC.
 
+config SPACEMIT_AUDIO_DATA_DEBUG
+        bool "Audio Data Dump"
+        depends on SND_SOC_SPACEMIT
+        help
+          Say Y or N here if you want to enable audio data dump function
+
+config SPACEMIT_PLAY_DEBUG
+        bool "Audio Playback Debug"
+        depends on SPACEMIT_AUDIO_DATA_DEBUG
+        help
+          Say Y or N here if you want to open playback debug
+
+config SPACEMIT_CAPT_DEBUG
+        bool "Audio Capture Debug"
+        depends on SPACEMIT_AUDIO_DATA_DEBUG
+        help
+          Say Y or N here if you want to open capture debug
+
+config  ADD_WAV_HEADER
+        bool "Dump File Adds Wave Header"
+        depends on SPACEMIT_AUDIO_DATA_DEBUG
+        help
+          Say Y or N here if you want to add wave header to dump file
+
