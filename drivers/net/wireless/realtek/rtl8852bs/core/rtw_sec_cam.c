@@ -991,6 +991,15 @@ static void dump_valid_key(void* sel, u8* addr_map, u8* sec_map, u8* bssid_map\
 
 	_rtw_memcpy(SMA, &addr_map[8], ETH_ALEN);
 	_rtw_memcpy(TMA,&addr_map[14], ETH_ALEN);
+
+	if (nettype >= ARRAY_SIZE(nettype_to_string) ||
+		GET_AX_SEC_CAM_TYPE(sec_map) >= ARRAY_SIZE(enc_algo_to_string) ||
+		key_type >= ARRAY_SIZE(type_to_string)) {
+		RTW_WARN("out of range, nettype: %d enc_algor: %d key_type: %d\n",
+			nettype, GET_AX_SEC_CAM_TYPE(sec_map), key_type);
+		return;
+	}
+
 	RTW_PRINT_SEL(sel, "%-5u %s "MAC_FMT"  " MAC_FMT" " MAC_FMT\
 		" %-5u %-5u %s %-7u %-3u %s "KEY_FMT"\n", macid\
 		, nettype_to_string[nettype], MAC_ARG(SMA), MAC_ARG(TMA)\
