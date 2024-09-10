@@ -7,3 +7,4 @@ obj-$(CONFIG_PM) += pm/
 obj-$(CONFIG_SPACEMIT_PM_DOMAINS) += pm_domain/
 obj-$(CONFIG_SPACEMIT_RFKILL)   += spacemit-rf/
 obj-$(CONFIG_SPACEMIT_V2D)    += v2d/
+obj-$(CONFIG_SPACEMIT_DDRBW) += ddr-bw/

@@ -43,6 +43,12 @@ config SPACEMI_SOCINFO
 	  Spacemit SoCs information driver, which get information from efuse and
 	  report to userspace.
 
+config SPACEMIT_DDRBW
+	tristate "ddr_bw driver for spacemit k1x soc"
+	depends on SOC_SPACEMIT_K1X
+	help
+	  Spacemit k1x soc ddrbw driver.
+
 source "drivers/soc/spacemit/jpu/Kconfig"
 source "drivers/soc/spacemit/v2d/Kconfig"
 source "drivers/soc/spacemit/spacemit-rf/Kconfig"
