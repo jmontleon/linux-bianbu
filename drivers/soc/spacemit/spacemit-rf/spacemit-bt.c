@@ -44,11 +44,11 @@ static int spacemit_bt_on(struct bt_pwrseq *pwrseq, bool on_off)
 	if (on_off){
 		if(pwrseq->parent)
 			spacemit_power_on(pwrseq->parent, 1);
-		gpiod_set_value(pwrseq->reset_n, 1);
+		gpiod_set_value_cansleep(pwrseq->reset_n, 1);
 		if (pwrseq->power_on_delay_ms)
 			msleep(pwrseq->power_on_delay_ms);
 	}else{
-		gpiod_set_value(pwrseq->reset_n, 0);
+		gpiod_set_value_cansleep(pwrseq->reset_n, 0);
 		if(pwrseq->parent)
 			spacemit_power_on(pwrseq->parent, 0);
 	}
