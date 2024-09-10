@@ -54,12 +54,12 @@ static void spacemit_rfkill_set_pin(struct gpio_desc *gpio, int value,
 		return;
 	if (use_pulse) {
 		value = 1;
-		gpiod_set_value(gpio, value);
+		gpiod_set_value_cansleep(gpio, value);
 		msleep(pulse_delay);
 		/* Pulse power key should restore to original level after pulse */
 		value = !value;
 	}
-	gpiod_set_value(gpio, value);
+	gpiod_set_value_cansleep(gpio, value);
 }
 
 static int spacemit_rfkill_on(struct rfkill_pwrseq *pwrseq, bool on_off)
