@@ -1647,6 +1647,12 @@
 			status = "disabled";
 		};
 
+		ddraxi_mon: ddraxi_mon@c0058500 {
+			compatible = "spacemit,ddraxi-mon";
+			reg = <0 0xc0058500 0 0x80>;
+			status = "ok";
+		};
+
 		timer0: timer@d4014000 {
 			compatible = "spacemit,soc-timer";
 			reg = <0x0 0xd4014000 0x0 0xc8>;
