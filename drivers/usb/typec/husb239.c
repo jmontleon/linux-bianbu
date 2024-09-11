@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/power_supply.h>
 #include "mux.h"
+#include <soc/spacemit/spacemit_panel.h>
 
 #define HUSB239_REG_PORTROLE		0x00
 #define HUSB239_REG_CONTROL			0x01
@@ -521,6 +522,7 @@ static int husb239_attach(struct husb239 *husb239)
 		return ret;
 
 	if (husb239_get_accessory(husb239) == TYPEC_ACCESSORY_AUDIO) {
+		spacemit_headphone_notifier_call_chain(HEADSET_EVENT_CONNECTED, "typec");
 		/* sel = 0 audp/audn, sel = 1 hdp/hdn */
 		if (husb239->aud_gpiod) {
 			gpiod_set_value(husb239->aud_gpiod, 1);
@@ -579,6 +581,7 @@ static void husb239_detach(struct husb239 *husb239)
 	husb239_set_data_role(husb239, HUSB239_DATA_ROLE(status1), false);
 
 	if (husb239->audio_online) {
+		spacemit_headphone_notifier_call_chain(HEADSET_EVENT_DISCONNECTED, "typec");
 		gpiod_set_value(husb239->aud_gpiod, 0);
 		gpiod_set_value(husb239->mic_gpiod, 0);
 		husb239->audio_online = false;
