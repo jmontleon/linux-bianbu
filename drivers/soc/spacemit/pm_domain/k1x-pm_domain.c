@@ -262,6 +262,9 @@ static int spacemit_pd_power_on(struct generic_pm_domain *domain)
 
 	regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], APMU_POWER_STATUS_REG, &val);
 	if (val & (1 << spd->param.bit_pwr_stat)) {
+		if (spd->pm_index == K1X_PMU_LCD_PWR_DOMAIN)
+			return 0;
+
 		if (!spd->param.use_hw) {
 			/* this is the sw type */
 			regmap_read(gpmu->regmap[APMU_REGMAP_INDEX], spd->param.reg_pwr_ctrl, &val);
