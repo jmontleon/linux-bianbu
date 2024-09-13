@@ -36,6 +36,7 @@ struct cam_sensor_device {
 	struct clk *mclk;
 	const char *mclk_name;
 	bool is_pinmulti;
+	bool req_pinmulti;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_state;
 
