@@ -33,8 +33,9 @@ static inline void spacemit_dmmu_fill_pgtable(uint32_t *ttbr, struct sg_table *s
 		*ttbr++ = temp;
 }
 
-int spacemit_dmmu_map(struct drm_framebuffer *fb, struct dpu_mmu_tbl *mmu_tbl, u8 tbu_id, bool wb)
+int spacemit_dmmu_map(struct drm_plane *plane, struct dpu_mmu_tbl *mmu_tbl, u8 tbu_id, bool wb)
 {
+	struct drm_framebuffer *fb = plane->state->fb;
 	struct spacemit_drm_private *priv = fb->dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
 	const struct drm_format_info *format = NULL;
