@@ -229,6 +229,17 @@ struct spacemit_plane_state {
 	u32 fbcmem_size;
 	uint64_t mclk;	//DPU MCLK = MAX(Mclk, Aclk) of all planes
 	uint64_t bw;	//BandWidth = SUM(BW_single) * 1.08
+	bool is_crop;
+	u32 src_crop_x;
+	u32 src_crop_y;
+	u32 src_crop_w;
+	u32 src_crop_h;
+	u32 dst_crop_x;
+	u32 dst_crop_y;
+	u32 dst_crop_w;
+	u32 dst_crop_h;
+	u32 screen_width;
+	u32 screen_height;
 	struct dpu_mmu_tbl mmu_tbl;
 	struct cmdlist cl;
 	uint64_t afbc_effc;
