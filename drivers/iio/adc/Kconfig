@@ -1740,4 +1740,10 @@ config XILINX_AMS
 	  The driver can also be built as a module. If so, the module will be called
 	  xilinx-ams.
 
+config SPACEMIT_P1_ADC
+	tristate "Spacemit P1 adc driver"
+	depends on MFD_SPACEMIT_PMIC
+	help
+	  Say yes here to support for Spacemit P1 analog-to-digital converter.
+
 endmenu
