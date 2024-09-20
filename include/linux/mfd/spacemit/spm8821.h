@@ -24,6 +24,8 @@ enum SPM8821_reg {
 
 #define SPACEMIT_SPM8821_MAX_REG	0xB0
 
+#define SPM8821_VERSION_ID_REG		0xa1
+
 #define SPM8821_BUCK_VSEL_MASK		0xff
 #define SMP8821_BUCK_EN_MASK		0x1
 
@@ -84,6 +86,37 @@ enum SPM8821_reg {
 #define SPM8821_RESTART_CFG_BIT_MSK	0x3
 
 #define SPM8821_SLEEP_REG_OFFSET	0x1
+
+#define SPM8821_ADC_AUTO_REG		0x22
+#define SPM8821_ADC_AUTO_BIT_MSK	0x7f
+
+#define SPM8821_ADC_CTRL_REG		0x1e
+#define SPM8821_ADC_CTRL_BIT_MSK	0x3
+#define SPM8821_ADC_CTRL_EN_BIT_OFFSET	0x0
+#define SPM8821_ADC_CTRL_GO_BIT_OFFSET	0x1
+
+#define SPM8821_ADC_CFG1_REG		0x20
+
+#define SPM8821_ADC_CFG1_ADC_CHOP_EN_BIT_OFFSET		0x6
+#define SPM8821_ADC_CFG1_ADC_CHOP_EN_BIT_MSK		0x40
+
+#define SPM8821_ADC_CFG1_ADC_CHNNL_SEL_BIT_OFFSET	0x3
+#define SPM8821_ADC_CFG1_ADC_CHNNL_SEL_BIT_MSK		0x38
+
+#define SPM8821_ADC_CFG2_REG				0x21
+#define SPM8821_ADC_CFG2_REF_SEL_BIT_OFFSET		0x0
+#define SPM8821_ADC_CFG2_REF_SEL_BIT_MSK		0x3
+#define SPM8821_ADC_CFG2_3V3_REF			0x2
+
+#define SPM8821_ADC_CFG2_7_DEB_NUM			0x7
+#define SPM8821_ADC_CFG2_DEB_NUM_BIT_MSK		0x70
+#define SPM8821_ADC_CFG2_DEB_NUM_BIT_OFFSET		0x4
+
+#define SPM8821_ADC_EXTERNAL_CHANNEL_OFFSET		2
+
+#define SPM8821_ADCIN0_RES_H_REG			0x2a
+#define SPM8821_ADCIN0_RES_L_REG			0x2b
+#define SPM8821_ADCIN0_REG_L_BIT_MSK			0xf0
 
 #define SPM8821_REGMAP_CONFIG	\
 	static const struct regmap_config spm8821_regmap_config = {	\
@@ -195,6 +228,46 @@ static const struct regulator_desc spm8821_reg[] = {	\
 	\
 	/* PWR SWITCH */	\
 	SPM8821_DESC_SWITCH(SPM8821_ID_SWITCH1, "SWITCH_REG1", "vcc_sys", SPM8821_SWITCH_CTRL_REG, SPM8821_SWTICH_EN_MASK),		\
+};
+
+#define SPM8821_ADC_IIO_DESC						\
+static struct iio_chan_spec spm8821_iio_desc[] = {		\
+	{								\
+		.indexed = 1,						\
+		.type = IIO_VOLTAGE,					\
+		.channel = 0,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),		\
+	},								\
+	{								\
+		.indexed = 1,						\
+		.type = IIO_VOLTAGE,					\
+		.channel = 1,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),		\
+	},								\
+	{								\
+		.indexed = 1,						\
+		.type = IIO_VOLTAGE,					\
+		.channel = 2,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),		\
+	},								\
+	{								\
+		.indexed = 1,						\
+		.type = IIO_VOLTAGE,					\
+		.channel = 3,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),		\
+	},								\
+	{								\
+		.indexed = 1,						\
+		.type = IIO_VOLTAGE,					\
+		.channel = 4,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),		\
+	},								\
+	{								\
+		.indexed = 1,						\
+		.type = IIO_VOLTAGE,					\
+		.channel = 5,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | BIT(IIO_CHAN_INFO_SCALE),		\
+	},								\
 };
 
 /* gpio set */
@@ -664,6 +737,12 @@ static const struct resource spm8821_rtc_resources[] = {	\
 	DEFINE_RES_IRQ(SPM8821_E_ALARM),			\
 };
 
+/* adc desc */
+#define SPM8821_ADC_RESOURCES_DESC				\
+static const struct resource spm8821_adc_resources[] = {	\
+	DEFINE_RES_IRQ(SPM8821_E_ADC_EOC),			\
+};
+
 #define SPM8821_RTC_REG_DESC					\
 static const struct rtc_regdesc spm8821_regdesc = {		\
 	.cnt_s = {						\
@@ -754,6 +833,12 @@ static const struct rtc_regdesc spm8821_regdesc = {		\
 			.num_resources = ARRAY_SIZE(spm8821_rtc_resources),	\
 			.resources = &spm8821_rtc_resources[0],			\
 		},								\
+		{								\
+			.name = "spacemit-adc@spm8821",				\
+			.of_compatible = "pmic,adc,spm8821",			\
+			.num_resources = ARRAY_SIZE(spm8821_adc_resources),	\
+			.resources = &spm8821_adc_resources[0],			\
+		},								\
 	};
 
 #define SPM8821_MFD_MATCH_DATA					\
@@ -778,7 +863,7 @@ static struct mfd_match_data spm8821_mfd_match_data = {		\
 };
 
 #define SPM8821_PINCTRL_MATCH_DATA				\
-static struct pinctrl_match_data spm8821_pinctrl_match_data = {				\
+static struct pinctrl_match_data spm8821_pinctrl_match_data = {	\
 	.nr_pin_mux = ARRAY_SIZE(spm8821_pinmux_functions),	\
 	.pinmux_funcs = spm8821_pinmux_functions,		\
 	.nr_pin_fuc_desc = ARRAY_SIZE(spm8821_pinfunc_desc),	\
@@ -794,6 +879,13 @@ static struct regulator_match_data spm8821_regulator_match_data = {	\
 	.desc = spm8821_reg,						\
 	.name = "spm8821",						\
 	.sleep_reg_offset = SPM8821_SLEEP_REG_OFFSET,			\
+};
+
+#define SPM8821_ADC_MATCH_DATA						\
+static struct adc_match_data spm8821_adc_match_data = {			\
+	.iio_desc = spm8821_iio_desc,					\
+	.nr_desc = ARRAY_SIZE(spm8821_iio_desc),			\
+	.name = "spm8821",						\
 };
 
 #endif /* __SPM8821_H__ */
