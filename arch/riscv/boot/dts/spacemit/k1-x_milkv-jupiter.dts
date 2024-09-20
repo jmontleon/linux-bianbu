@@ -554,6 +554,10 @@
 		ext_rtc: rtc {
 			compatible = "pmic,rtc,spm8821";
 		};
+
+		ext_adc: adc {
+			compatible = "pmic,adc,spm8821";
+		};
 	};
 };
 
