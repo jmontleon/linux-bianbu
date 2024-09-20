@@ -671,7 +671,7 @@
 	spacemit,apbc_assar_reg = <0xD4015054>;
 	spacemit,rx_dline_reg = <0x0>;
 	spacemit,tx_dline_reg = <0x0>;
-	spacemit,tx_delaycode = <0x7f>;
+	spacemit,tx_delaycode = <0x5f>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <204800000>;
 	status = "okay";
@@ -702,6 +702,7 @@
 			SDHCI_QUIRK2_BROKEN_PHY_MODULE
 			)>;
 	spacemit,rx_dline_reg = <0x0>;
+	spacemit,tx_delaycode = <0x8f>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <375000000>;
 	status = "okay";
