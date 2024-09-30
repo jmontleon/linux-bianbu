@@ -1084,6 +1084,7 @@
 			reg = <0x0 0xd401c000 0x0 0x30>;
 			k1x,ssp-id = <3>;
 			k1x,ssp-clock-rate = <26000000>;
+			k1x,ssp-disable-dma;
 			dmas = <&pdma0 17 1
 				&pdma0 16 1>;
 			dma-names = "rx", "tx";
