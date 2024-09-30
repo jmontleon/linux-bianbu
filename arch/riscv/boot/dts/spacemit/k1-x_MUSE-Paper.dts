@@ -433,6 +433,47 @@
 		reg = <0x3e>;
 		status = "okay";
 	};
+
+	sec_sgm4154x: sec-sgm4154x@1a {
+		status = "okay";
+		compatible = "sgm,sgm41515";
+		secondary-charger;
+		reg = <0x1a>;
+		interrupt-parent = <&gpio>;
+		interrupts = <123 0>;            //irq num base on hardware design
+		sgm,irq-gpio = <&gpio 123 0>;     //irq num base on hardware design
+		sgm,chg-en-gpio = <&gpio 46 0>;   //charger enable gpio num base on hardware design
+		nqon-gpios = <&gpio 43 0>;
+		/* sw jeita  parameter customer defined*/
+		enable_sw_jeita;
+		jeita_temp_above_t4_cv = <0>;
+		jeita_temp_t3_to_t4_cv = <4100000>;
+		jeita_temp_t2_to_t3_cv = <4350000>;
+		jeita_temp_t1_to_t2_cv = <4350000>;
+		jeita_temp_t0_to_t1_cv = <0>;
+		jeita_temp_below_t0_cv = <0>;
+
+		jeita_temp_above_t4_cc_current = <0>;
+		jeita_temp_t3_to_t4_cc_current = <1000000>;
+		jeita_temp_t2_to_t3_cc_current = <1250000>;
+		jeita_temp_t1_to_t2_cc_current = <1000000>;
+		jeita_temp_below_t0_cc_current = <0>;
+
+		temp_t4_thres = <50>;
+		temp_t4_thres_minus_x_degree = <48>;
+		temp_t3_thres = <45>;
+		temp_t3_thres_minus_x_degree = <45>;
+		temp_t2_thres = <20>;
+		temp_t2_thres_plus_x_degree = <15>;
+		temp_t1_thres = <0>;
+		temp_t1_thres_plus_x_degree = <0>;
+		temp_t0_thres = <0>;
+		temp_t0_thres_plus_x_degree = <2>;
+		temp_neg_10_thres = <0>;
+
+		sgm415xx-ichrg-uA = <1000000>;
+		sgm415xx-vchrg-uV = <4350000>;
+	};
 };
 
 &i2c8 {
@@ -650,6 +691,47 @@
 		ext_adc: adc {
 			compatible = "pmic,adc,spm8821";
 		};
+	};
+
+	pri_sgm4154x: pri-sgm4154x@1a {
+		status = "okay";
+		compatible = "sgm,sgm41515";
+		reg = <0x1a>;
+		primary-charger;
+		interrupt-parent = <&gpio>;
+		interrupts = <5 0>;            //irq num base on hardware design
+		sgm,irq-gpio = <&gpio 5 0>;     //irq num base on hardware design
+		sgm,chg-en-gpio = <&gpio 117 0>;   //charger enable gpio num base on hardware design
+		nqon-gpios = <&gpio 115 0>;
+		/* sw jeita  parameter customer defined*/
+		enable_sw_jeita;
+		jeita_temp_above_t4_cv = <0>;
+		jeita_temp_t3_to_t4_cv = <4100000>;
+		jeita_temp_t2_to_t3_cv = <4350000>;
+		jeita_temp_t1_to_t2_cv = <4350000>;
+		jeita_temp_t0_to_t1_cv = <0>;
+		jeita_temp_below_t0_cv = <0>;
+
+		jeita_temp_above_t4_cc_current = <0>;
+		jeita_temp_t3_to_t4_cc_current = <1000000>;
+		jeita_temp_t2_to_t3_cc_current = <1250000>;
+		jeita_temp_t1_to_t2_cc_current = <1000000>;
+		jeita_temp_below_t0_cc_current = <0>;
+
+		temp_t4_thres = <50>;
+		temp_t4_thres_minus_x_degree = <48>;
+		temp_t3_thres = <45>;
+		temp_t3_thres_minus_x_degree = <45>;
+		temp_t2_thres = <20>;
+		temp_t2_thres_plus_x_degree = <15>;
+		temp_t1_thres = <0>;
+		temp_t1_thres_plus_x_degree = <0>;
+		temp_t0_thres = <0>;
+		temp_t0_thres_plus_x_degree = <2>;
+		temp_neg_10_thres = <0>;
+
+		sgm415xx-ichrg-uA = <1000000>;
+		sgm415xx-vchrg-uV = <4350000>;
 	};
 };
 
