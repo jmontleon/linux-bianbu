@@ -12,6 +12,8 @@
 #include "k1-x_opp_table.dtsi"
 #include "k1-x_thermal_cooling.dtsi"
 #include <dt-bindings/usb/pd.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "M1-MUSE-PAPER";
@@ -233,6 +235,22 @@
 	hall_sensor: hall-sensor {
 		compatible = "spacemit,hall-sensor-as1911";
 		detect-gpio = <&gpio 74 0>;
+	};
+
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+
+		key0: volumeup {
+			label = "KEY0";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio 70 GPIO_ACTIVE_LOW>;
+		};
+
+		key1: volumedown {
+			label = "KEY1";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio 71 GPIO_ACTIVE_LOW>;
+		};
 	};
 };
 
