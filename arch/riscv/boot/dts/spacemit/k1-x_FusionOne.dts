@@ -163,18 +163,6 @@
 		};
 	};
 
-	/* led-controller { */
-	/* 	compatible = "pwm-leds"; */
-
-	/* 	led-2 { */
-	/* 		pwms = <&pwm3 0 7812500>; */
-	/* 		active-low; */
-	/* 		color = <LED_COLOR_ID_GREEN>; */
-	/* 		max-brightness = <255>; */
-	/* 		label = "d12"; */
-	/* 	}; */
-	/* }; */
-
 	leds {
 		compatible = "gpio-leds";
 
@@ -340,6 +328,13 @@
 				regulator-name = "ldo2";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <3400000>;
+				regulator-boot-on;
+				regulator-always-on;
+
+				regulator-state-mem {
+					regulator-off-in-suspend;
+					regulator-suspend-microvolt = <500000>;
+				};
 			};
 
 			ldo_3: LDO_REG3 {
@@ -410,6 +405,10 @@
 			gpio-controller;
 			#gpio-cells = <2>;
 			spacemit,npins = <6>;
+			gpadc2_pins: gpadc2-pins {
+				pins = "PIN2";
+				function = "adcin";
+			};
 		};
 
 		pwr_key: key {
@@ -418,6 +417,9 @@
 
 		ext_rtc: rtc {
 			compatible = "pmic,rtc,spm8821";
+		};
+		ext_adc: adc {
+			compatible = "pmic,adc,spm8821";
 		};
 	};
 };
@@ -444,6 +446,14 @@
 		pinctrl-single,pins = <
 			K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
 			K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
+		>;
+	};
+
+	pinctrl_sspa0_2: sspa0_2_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(GPIO_118, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))	/* sspa0_clk */
+			K1X_PADCONF(GPIO_119, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))	/* sspa0_frm */
+			K1X_PADCONF(GPIO_121, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))	/* sspa0_rxd */
 		>;
 	};
 
@@ -767,14 +777,6 @@
 	};
 };
 
-/* &rcpu { */
-/* 	mboxes = <&mailbox 0>, <&mailbox 1>; */
-/* 	mbox-names = "vq0", "vq1"; */
-/* 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>; */
-/* 	status = "okay"; */
-/* }; */
-
-
 &cpp {
 	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
 };
@@ -790,7 +792,7 @@
 
 &i2s0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_sspa0_0>;
+	pinctrl-0 = <&pinctrl_sspa0_2>;
 	status = "okay";
 };
 
