@@ -1049,4 +1049,13 @@ config FUEL_GAUGE_MM8013
 	  the state of charge, temperature, cycle count, actual and design
 	  capacity, etc.
 
+config CHARGER_SGM415XX
+	tristate "Charger Driver for SGM415XX Charger IC"
+	default n
+	help
+	  Say Yes to enable SGM415XX driver.
+	  It is mainly used as cap divider charger
+	  for Mediatek Pump Express 5.0.
+	  It depends on config MTK_CHARGER
+
 endif # POWER_SUPPLY
