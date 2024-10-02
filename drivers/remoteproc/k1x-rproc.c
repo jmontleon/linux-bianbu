@@ -12,7 +12,6 @@
 #include <linux/reset.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
-#include <linux/kthread.h>
 #include <linux/clk-provider.h>
 #include <linux/mailbox_client.h>
 #include <linux/completion.h>
@@ -57,8 +56,6 @@ struct spacemit_mbox {
 	const char name[10];
 	struct mbox_chan *chan;
 	struct mbox_client client;
-	struct task_struct *mb_thread;
-	bool kthread_running;
 	struct completion mb_comp;
 	int vq_id;
 };
@@ -269,27 +266,6 @@ static struct rproc_ops spacemit_rproc_ops = {
 	.get_boot_addr	= spacemit_get_boot_addr,
 };
 
-static int __process_theread(void *arg)
-{
-	int ret;
-	struct mbox_client *cl = arg;
-	struct rproc *rproc = dev_get_drvdata(cl->dev);
-	struct spacemit_mbox *mb = container_of(cl, struct spacemit_mbox, client);
-	struct sched_param param = {.sched_priority = 0 };
-
-	mb->kthread_running = true;
-	ret = sched_setscheduler(current, SCHED_FIFO, &param);
-
-	do {
-		wait_for_completion_timeout(&mb->mb_comp, 10);
-		if (rproc_vq_interrupt(rproc, mb->vq_id) == IRQ_NONE)
-			dev_dbg(&rproc->dev, "no message found in vq%d\n", mb->vq_id);
-	} while (!kthread_should_stop());
-
-	mb->kthread_running = false;
-
-	return 0;
-}
 static void k1x_rproc_mb_callback(struct mbox_client *cl, void *data)
 {
 	struct spacemit_mbox *mb = container_of(cl, struct spacemit_mbox, client);
@@ -304,6 +280,9 @@ static struct spacemit_mbox k1x_rpoc_mbox[] = {
 		.client = {
 			.rx_callback = k1x_rproc_mb_callback,
 			.tx_block = true,
+			.tx_done = NULL,
+			.tx_tout = 500,
+			.knows_txdone = false,
 		},
 	},
 	{
@@ -312,6 +291,9 @@ static struct spacemit_mbox k1x_rpoc_mbox[] = {
 		.client = {
 			.rx_callback = k1x_rproc_mb_callback,
 			.tx_block = true,
+			.tx_done = NULL,
+			.tx_tout = 500,
+			.knows_txdone = false,
 		},
 	},
 };
@@ -586,12 +568,6 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 			dev_err(dev, "failed to request mbox channel\n");
 			return -EINVAL;
 		}
-
-		if (priv->mb[i].vq_id >= 0) {
-			priv->mb[i].mb_thread = kthread_run(__process_theread, (void *)cl, name);
-			if (IS_ERR(priv->mb[i].mb_thread))
-				return PTR_ERR(priv->mb[i].mb_thread);
-		}
 	}
 
 #ifdef CONFIG_PM_SLEEP
@@ -627,13 +603,7 @@ static void k1x_rproc_free_mbox(struct rproc *rproc)
 
 static int spacemit_rproc_remove(struct platform_device *pdev)
 {
-	int i = 0;
 	struct rproc *rproc = platform_get_drvdata(pdev);
-	struct spacemit_rproc *ddata = rproc->priv;
-
-	for (i = 0; i < MAX_MBOX; ++i)
-		if (ddata->mb[i].kthread_running)
-			kthread_stop(ddata->mb[i].mb_thread);
 
 	rproc_del(rproc);
 	k1x_rproc_free_mbox(rproc);
@@ -655,18 +625,11 @@ MODULE_DEVICE_TABLE(of, spacemit_rproc_of_match);
 
 static void spacemit_rproc_shutdown(struct platform_device *pdev)
 {
-	int i;
 	struct rproc *rproc;
 	struct spacemit_rproc *priv;
 
 	rproc = dev_get_drvdata(&pdev->dev);
 	priv = rproc->priv;
-
-	for (i = 0; i < MAX_MBOX; ++i) {
-		/* release the resource of rt thread */
-		kthread_stop(priv->mb[i].mb_thread);
-		/* mbox_free_channel(priv->mb[i].chan); */
-	}
 }
 
 static struct platform_driver spacemit_rproc_driver = {
