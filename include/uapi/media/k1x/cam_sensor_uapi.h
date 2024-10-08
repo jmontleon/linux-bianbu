@@ -12,6 +12,12 @@
 extern "C" {
 #endif
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <stdint.h>
+#endif
+
 #define CAM_SNS_MAX_DEV_NUM    3
 
 #define CAM_SENSOR_DEV_NAME "/dev/cam_sensor"

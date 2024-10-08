@@ -213,6 +213,12 @@ struct pinctrl_match_data {
 	const char *name;
 };
 
+struct adc_match_data {
+	int nr_desc;
+	const char *name;
+	struct iio_chan_spec *iio_desc;
+};
+
 /* common regulator defination */
 #define SPM8XX_DESC_COMMON(_id, _match, _supply, _nv, _vr, _vm, _er, _em, _lr, _ops)       \
 	{								\

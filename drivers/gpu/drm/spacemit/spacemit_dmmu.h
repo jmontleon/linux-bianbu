@@ -87,7 +87,7 @@ struct tbu_instance {
 	uint32_t ttb_size[3];
 };
 
-int spacemit_dmmu_map(struct drm_framebuffer *fb, struct dpu_mmu_tbl *mmu_tbl, u8 tbu_id, bool wb);
+int spacemit_dmmu_map(struct drm_plane *plane, struct dpu_mmu_tbl *mmu_tbl, u8 tbu_id, bool wb);
 void spacemit_dmmu_unmap(struct drm_plane *plane);
 
 #endif /* _SPACEMIT_DMMU_H_ */

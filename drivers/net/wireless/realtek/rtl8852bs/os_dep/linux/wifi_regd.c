@@ -98,7 +98,7 @@ static struct wireless_dev *rtw_regd_alloc_du_wdev(struct wiphy *wiphy)
 	wdev->iftype = NL80211_IFTYPE_AP;
 	ndev->ieee80211_ptr = wdev;
 
-	ret = register_netdevice(ndev);
+	ret = cfg80211_register_netdevice(ndev);
 
 out:
 	if (ret && wdev) {
@@ -125,7 +125,7 @@ void rtw_regd_free_du_wdev(struct wiphy *wiphy)
 	if (rtnl_lock_needed)
 		rtnl_lock();
 
-	unregister_netdevice(wiphy_data->du_wdev->netdev);
+	cfg80211_unregister_netdevice(wiphy_data->du_wdev->netdev);
 
 	if (rtnl_lock_needed)
 		rtnl_unlock();
