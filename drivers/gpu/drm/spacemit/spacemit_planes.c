@@ -257,8 +257,82 @@ static void spacemit_plane_atomic_update(struct drm_plane *plane,
 	struct spacemit_hw_device *hwdev = priv->hwdev;
 	u32 rdma_id = spacemit_pstate->rdma_id;
 
+	struct drm_crtc *dpu_crtc = &dpu->crtc;
+	struct drm_display_mode *mode = NULL;
+	u32 hdisplay;
+	u32 vdisplay;
+	u32 src_x, src_y, src_w, src_h;
+	u32 crtc_x, crtc_y, crtc_w, crtc_h;
+
 	DRM_DEBUG("%s()\n", __func__);
 	trace_spacemit_plane_atomic_update(dpu->dev_id);
+
+	mode = &dpu_crtc->mode;
+	hdisplay = mode->hdisplay;
+	vdisplay = mode->vdisplay;
+
+	src_w = plane->state->src_w >> 16;
+	src_h = plane->state->src_h >> 16;
+	src_x = plane->state->src_x >> 16;
+	src_y = plane->state->src_y >> 16;
+
+	crtc_w = plane->state->crtc_w;
+	crtc_h = plane->state->crtc_h;
+	crtc_x = plane->state->crtc_x;
+	crtc_y = plane->state->crtc_y;
+
+	spacemit_pstate->screen_width = hdisplay;
+	spacemit_pstate->screen_height = vdisplay;
+
+	if ((plane->type == DRM_PLANE_TYPE_CURSOR) && ((crtc_x + crtc_w) > hdisplay)) {
+
+		if ((crtc_x > (hdisplay - crtc_w)) && (crtc_x <= (hdisplay - ((crtc_w * 3) / 4)))) {
+			spacemit_pstate->src_crop_x = src_x;
+			spacemit_pstate->src_crop_y = src_y;
+			spacemit_pstate->src_crop_w = ((src_w * 3) / 4);
+			spacemit_pstate->src_crop_h = src_h;
+			spacemit_pstate->dst_crop_x = crtc_x;
+			spacemit_pstate->dst_crop_y = crtc_y;
+			spacemit_pstate->dst_crop_w = ((crtc_w * 3) / 4);
+			spacemit_pstate->dst_crop_h = crtc_h;
+			spacemit_pstate->is_crop = true;
+		} else if ((crtc_x > (hdisplay - ((crtc_w * 3) / 4))) && (crtc_x <= (hdisplay - (crtc_w  / 2)))) {
+			spacemit_pstate->src_crop_x = src_x;
+			spacemit_pstate->src_crop_y = src_y;
+			spacemit_pstate->src_crop_w = (src_w / 2);
+			spacemit_pstate->src_crop_h = src_h;
+			spacemit_pstate->dst_crop_x = crtc_x;
+			spacemit_pstate->dst_crop_y = crtc_y;
+			spacemit_pstate->dst_crop_w = (crtc_w / 2);
+			spacemit_pstate->dst_crop_h = crtc_h;
+			spacemit_pstate->is_crop = true;
+		} else if ((crtc_x > (hdisplay - (crtc_w / 2))) && (crtc_x <= (hdisplay - (crtc_w / 4)))){
+			spacemit_pstate->src_crop_x = src_x;
+			spacemit_pstate->src_crop_y = src_y;
+			spacemit_pstate->src_crop_w = (src_w / 4);
+			spacemit_pstate->src_crop_h = src_h;
+			spacemit_pstate->dst_crop_x = crtc_x;
+			spacemit_pstate->dst_crop_y = crtc_y;
+			spacemit_pstate->dst_crop_w = (crtc_w / 4);
+			spacemit_pstate->dst_crop_h = crtc_h;
+			spacemit_pstate->is_crop = true;
+		} else if ((crtc_x > (hdisplay - (crtc_w / 4))) && (crtc_x <= hdisplay)) {
+			spacemit_pstate->src_crop_x = src_x;
+			spacemit_pstate->src_crop_y = src_y;
+			spacemit_pstate->src_crop_w = (src_w / 4);
+			spacemit_pstate->src_crop_h = src_h;
+			spacemit_pstate->dst_crop_x = hdisplay - (crtc_w / 4);
+			spacemit_pstate->dst_crop_y = crtc_y;
+			spacemit_pstate->dst_crop_w = (crtc_w / 4);
+			spacemit_pstate->dst_crop_h = crtc_h;
+			spacemit_pstate->is_crop = true;
+		} else {
+			spacemit_pstate->is_crop = false;
+		}
+
+	} else {
+		spacemit_pstate->is_crop = false;
+	}
 
 	spacemit_plane_update_hw_channel(plane);
 
@@ -279,7 +353,7 @@ static void spacemit_plane_atomic_update(struct drm_plane *plane,
 			return;
 		}
 		tbu_id = !spacemit_pstate->right_image ? (rdma_id * 2) : (rdma_id * 2 + 1);
-		ret = spacemit_dmmu_map(plane->state->fb, &spacemit_pstate->mmu_tbl, tbu_id, false);
+		ret = spacemit_dmmu_map(plane, &spacemit_pstate->mmu_tbl, tbu_id, false);
 		if (!ret)
 			cmdlist_regs_packing(plane);
 		else
@@ -328,6 +402,7 @@ static void spacemit_plane_reset(struct drm_plane *plane)
 		s->state.zpos = hwdev->plane_nums - p->hw_pid - 1;
 		s->rdma_id = RDMA_INVALID_ID;
 		s->is_offline = 1;
+		s->is_crop = false;
 		s->scaler_id = SCALER_INVALID_ID;
 	}
 }
@@ -360,6 +435,19 @@ spacemit_plane_atomic_duplicate_state(struct drm_plane *plane)
 	s->scaler_id = SCALER_INVALID_ID;
 	s->use_scl = false;
 	s->fbcmem_size = 0;
+
+	s->is_crop = old_state->is_crop;
+	s->src_crop_x = old_state->src_crop_x;
+	s->src_crop_y = old_state->src_crop_y;
+	s->src_crop_w = old_state->src_crop_w;
+	s->src_crop_h = old_state->src_crop_h;
+	s->dst_crop_x = old_state->dst_crop_x;
+	s->dst_crop_y = old_state->dst_crop_y;
+	s->dst_crop_w = old_state->dst_crop_w;
+	s->dst_crop_h = old_state->dst_crop_h;
+	s->screen_width = old_state->screen_width;
+	s->screen_height = old_state->screen_height;
+
 	if (s->hdr_coefs_blob_prop)
 		drm_property_blob_get(s->hdr_coefs_blob_prop);
 	if (s->scale_coefs_blob_prop)
@@ -670,9 +758,13 @@ struct drm_plane *spacemit_plane_init(struct drm_device *drm,
 		for (j = 0; j < n_formats; j++)
 			formats[j] = hwdev->formats[j].format;
 
-		plane_type = (i < priv->num_pipes)
-			   ? DRM_PLANE_TYPE_PRIMARY
-			   : DRM_PLANE_TYPE_OVERLAY;
+		// plane_type = (i < priv->num_pipes)
+		// 	   ? DRM_PLANE_TYPE_PRIMARY
+		// 	   : DRM_PLANE_TYPE_OVERLAY;
+
+		plane_type = (i < priv->num_pipes) ? DRM_PLANE_TYPE_PRIMARY :
+			   (i == priv->num_pipes) ? DRM_PLANE_TYPE_CURSOR :
+			   DRM_PLANE_TYPE_OVERLAY;
 
 		err = drm_universal_plane_init(drm, &p->plane, plane_crtc_mask,
 					       &spacemit_plane_funcs, formats,

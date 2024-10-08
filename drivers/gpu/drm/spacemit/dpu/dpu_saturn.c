@@ -1006,6 +1006,26 @@ void spacemit_plane_update_hw_channel(struct drm_plane *plane)
 	crtc_x = state->crtc_x;
 	crtc_y = state->crtc_y;
 
+	if (spacemit_plane_state->is_crop) {
+
+		// src_w = state->src_w >> 16;
+		src_h = state->src_h >> 16;
+		src_x = state->src_x >> 16;
+		src_y = state->src_y >> 16;
+
+		// crtc_w = state->crtc_w;
+		crtc_h = state->crtc_h;
+		// crtc_x = state->crtc_x;
+		// crtc_y = state->crtc_y;
+
+		src_w = spacemit_plane_state->src_crop_w;
+		crtc_w = spacemit_plane_state->dst_crop_w;
+
+		crtc_x = spacemit_plane_state->dst_crop_x;
+		crtc_y = spacemit_plane_state->dst_crop_y;
+
+	}
+
 	if (rdma_id == RDMA_INVALID_ID)
 		solid_en = true;
 

@@ -670,9 +670,9 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
 	vfree(data);
 }
 
-#define FW_USERCONFIG_NAME_8800D    "aic_userconfig.txt"
-#define FW_USERCONFIG_NAME_8800DC   "aic8800dc/aic_userconfig_8800dc.txt"
-#define FW_USERCONFIG_NAME_8800D80  "aic8800d80/aic_userconfig_8800d80.txt"
+#define FW_USERCONFIG_NAME_8800D    "aic/aic_userconfig.txt"
+#define FW_USERCONFIG_NAME_8800DC   "aic/aic8800dc/aic_userconfig_8800dc.txt"
+#define FW_USERCONFIG_NAME_8800D80  "aic/aic8800d80/aic_userconfig_8800d80.txt"
 
 int rwnx_plat_userconfig_upload_android(struct rwnx_hw *rwnx_hw, char *filename)
 {

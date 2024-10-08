@@ -14,8 +14,7 @@
 #include "k1-x_thermal_cooling.dtsi"
 
 / {
-	model = "spacemit k1-x MUSE-Pi board";
-	modules_usrload = "8852bs";
+	model = "spacemit k1-x baton-camera board";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -139,30 +138,6 @@
 		vin-supply = <&dc_12v>;
 	};
 
-	rf_pwrseq: rf-pwrseq {
-		compatible = "spacemit,rf-pwrseq";
-		//vdd-supply = <&ldo_7>;
-		//vdd_voltage = <3300000>;
-		io-supply = <&dcdc_3>;
-		io_voltage = <1800000>;
-		pwr-gpios  = <&gpio 67 0>;
-		status = "okay";
-
-		wlan_pwrseq: wlan-pwrseq {
-			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios = <&gpio 116 0>;
-			interrupt-parent = <&pinctrl>;
-			interrupts = <268>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_wlan_wakeup>;
-		};
-
-		bt_pwrseq: bt-pwrseq {
-			compatible = "spacemit,bt-pwrseq";
-			reset-gpios     = <&gpio 63 0>;
-		};
-	};
-
 	leds {
 		compatible = "gpio-leds";
 
@@ -174,6 +149,12 @@
 			status = "okay";
 		};
 	};
+
+	usb2hub: usb2hub {
+		compatible = "spacemit,usb3-hub";
+		vbus-gpios = <&gpio 123 0>;	/* for usb2 hub output vbus */
+		status = "okay";
+	};
 };
 
 &uart0 {
@@ -182,9 +163,16 @@
 	status = "okay";
 };
 
-&uart2 {
+&uart5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart2>;
+	pinctrl-0 = <&pinctrl_uart5_0>;
+	status = "okay";
+};
+
+
+&uart8 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart8_2>;
 	status = "okay";
 };
 
@@ -211,8 +199,8 @@
 		compatible = "spacemit,mipi-panel2";
 		reg = <0>;
 
-		gpios-reset = <81>;
-		gpios-dc = <82 83>;
+		gpios-reset = <41>;
+		gpios-dc = <40 83>;
 		id = <2>;
 		delay-after-reset = <10>;
 		force-attached = "lcd_gx09inx101_mipi";
@@ -225,13 +213,13 @@
 
 &dpu_online2_hdmi {
 	memory-region = <&dpu_resv>;
-	status = "okay";
+	status = "disabled";
 };
 
 &hdmi{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hdmi_0>;
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c0 {
@@ -240,7 +228,6 @@
 	spacemit,i2c-fast-mode;
 	status = "okay";
 };
-
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1>;
@@ -271,18 +258,6 @@
 			reg = <0x6 6>;
 		};
 	};
-
-	es8326: es8326@19{
-		compatible = "everest,es8326";
-		reg = <0x19>;
-		#sound-dai-cells = <0>;
-		interrupt-parent = <&gpio>;
-		interrupts = <126 1>;
-		spk-ctl-gpio = <&gpio 127 0>;
-		everest,mic1-src = [44];
-		everest,mic2-src = [66];
-		status = "okay";
-	};
 };
 
 &i2c3 {
@@ -297,17 +272,17 @@
 	status = "disabled";
 };
 
-&i2c6 {
+&i2c5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c6_2>;
-	status = "disabled";
+	pinctrl-0 = <&pinctrl_i2c5_0>;
+	status = "okay";
 
 	gt9xx@5d {
 		compatible = "goodix,gt9xx";
 		reg = <0x5d>;
 
-		reset-gpios = <&gpio 114 GPIO_ACTIVE_HIGH>;
-		irq-gpios = <&gpio 58 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio 97 GPIO_ACTIVE_HIGH>;
+		irq-gpios = <&gpio 124 GPIO_ACTIVE_HIGH>;
 		irq-flags = <2>;
 
 		touchscreen-max-id = <11>;
@@ -317,15 +292,20 @@
 		touchscreen-max-p = <512>;
 
 		goodix,int-sync = <1>;
-		status = "disabled";
+		status = "okay";
 	};
+};
 
+&i2c6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c6_2>;
+	status = "disabled";
 };
 
 &i2c7 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c7>;
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c8 {
@@ -540,10 +520,6 @@
 		ext_rtc: rtc {
 			compatible = "pmic,rtc,spm8821";
 		};
-
-		ext_adc: adc {
-			compatible = "pmic,adc,spm8821";
-		};
 	};
 };
 
@@ -580,56 +556,29 @@
 
 	pinctrl_rcpu: pinctrl_rcpu_grp {
 		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
-			K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
+			K1X_PADCONF(GPIO_47,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
+			K1X_PADCONF(GPIO_48,   MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
 		>;
 	};
 
 	pinctrl_gmac0: gmac0_grp {
 		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_00, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rxdv */
-			K1X_PADCONF(GPIO_01, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d0 */
-			K1X_PADCONF(GPIO_02, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d1 */
-			K1X_PADCONF(GPIO_03, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_clk */
-			K1X_PADCONF(GPIO_04, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d2 */
-			K1X_PADCONF(GPIO_05, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_rx_d3 */
-			K1X_PADCONF(GPIO_06, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d0 */
-			K1X_PADCONF(GPIO_07, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d1 */
-			K1X_PADCONF(GPIO_08, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx */
-			K1X_PADCONF(GPIO_09, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d2 */
-			K1X_PADCONF(GPIO_10, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_d3 */
-			K1X_PADCONF(GPIO_11, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_tx_en */
-			K1X_PADCONF(GPIO_12, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdc */
-			K1X_PADCONF(GPIO_13, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdio */
-			K1X_PADCONF(GPIO_14, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_int_n */
-			K1X_PADCONF(GPIO_45, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_clk_ref */
-		>;
-	};
-
-	pinctrl_gmac1: gmac1_grp {
-		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_29, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rxdv */
-			K1X_PADCONF(GPIO_30, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d0 */
-			K1X_PADCONF(GPIO_31, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d1 */
-			K1X_PADCONF(GPIO_32, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_clk */
-			K1X_PADCONF(GPIO_33, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d2 */
-			K1X_PADCONF(GPIO_34, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_rx_d3 */
-			K1X_PADCONF(GPIO_35, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d0 */
-			K1X_PADCONF(GPIO_36, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d1 */
-			K1X_PADCONF(GPIO_37, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_tx */
-			K1X_PADCONF(GPIO_38, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d2 */
-			K1X_PADCONF(GPIO_39, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_d3 */
-			K1X_PADCONF(GPIO_40, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_tx_en */
-			K1X_PADCONF(GPIO_41, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdc */
-			K1X_PADCONF(GPIO_42, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdio */
-			K1X_PADCONF(GPIO_43, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_int_n */
-			K1X_PADCONF(GPIO_46, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_clk_ref */
-		>;
-	};
-
-	pinctrl_wlan_wakeup: wlan_wakeup_grp {
-		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_FALL | PULL_DOWN | PAD_3V_DS2))   /* wifi edge detect */
+			K1X_PADCONF(GPIO_00,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rxdv */
+			K1X_PADCONF(GPIO_01,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d0 */
+			K1X_PADCONF(GPIO_02,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d1 */
+			K1X_PADCONF(GPIO_03,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_clk */
+			K1X_PADCONF(GPIO_04,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d2 */
+			K1X_PADCONF(GPIO_05,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rx_d3 */
+			K1X_PADCONF(GPIO_06,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d0 */
+			K1X_PADCONF(GPIO_07,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d1 */
+			K1X_PADCONF(GPIO_08,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx */
+			K1X_PADCONF(GPIO_09,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d2 */
+			K1X_PADCONF(GPIO_10,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_d3 */
+			K1X_PADCONF(GPIO_11,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_tx_en */
+			K1X_PADCONF(GPIO_12,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac0_mdc */
+			K1X_PADCONF(GPIO_13,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))   /* gmac0_mdio */
+			K1X_PADCONF(GPIO_14,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_int_n */
+			K1X_PADCONF(GPIO_45,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_clk_ref */
 		>;
 	};
 };
@@ -686,60 +635,10 @@
 	spacemit,apbc_assar_reg = <0xD4015054>;
 	spacemit,rx_dline_reg = <0x0>;
 	spacemit,tx_dline_reg = <0x0>;
-	spacemit,tx_delaycode = <0x9f>;
+	spacemit,tx_delaycode = <0x7f>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <204800000>;
-	status = "okay";
-};
-
-/* SDIO */
-&sdhci1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_mmc2>;
-	bus-width = <4>;
-	non-removable;
-	vqmmc-supply = <&dcdc_3>;
-	no-mmc;
-	no-sd;
-	keep-power-in-suspend;
-	/* bcmdhd use private oob solution rather than dat1/standard wakeup */
-	/delete-property/ enable-sdio-wakeup;
-	spacemit,sdh-host-caps-disable = <(
-			MMC_CAP_UHS_DDR50 |
-			MMC_CAP_NEEDS_POLL
-			)>;
-	spacemit,sdh-quirks = <(
-			SDHCI_QUIRK_BROKEN_CARD_DETECTION |
-			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
-			)>;
-	spacemit,sdh-quirks2 = <(
-			SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
-			SDHCI_QUIRK2_BROKEN_PHY_MODULE
-			)>;
-	spacemit,rx_dline_reg = <0x0>;
-	spacemit,tx_delaycode = <0x9f>;
-	spacemit,rx_tuning_limit = <50>;
-	spacemit,sdh-freq = <375000000>;
-	status = "okay";
-};
-
-/* eMMC */
-&sdhci2 {
-	bus-width = <8>;
-	non-removable;
-	mmc-hs400-1_8v;
-	mmc-hs400-enhanced-strobe;
-	no-sd;
-	no-sdio;
-	spacemit,sdh-quirks = <(
-			SDHCI_QUIRK_BROKEN_CARD_DETECTION |
-			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
-			)>;
-	spacemit,sdh-quirks2 = <(
-			SDHCI_QUIRK2_PRESET_VALUE_BROKEN
-			)>;
-	spacemit,sdh-freq = <375000000>;
-	status = "okay";
+	status = "disabled";
 };
 
 &eth0 {
@@ -783,51 +682,33 @@
 	};
 };
 
-&eth1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gmac1>;
-
-	emac,reset-gpio = <&gpio 115 0>;
-	emac,reset-active-low;
-	emac,reset-delays-us = <0 10000 100000>;
-
-        /* store forward mode */
-	tx-threshold = <1518>;
-	rx-threshold = <12>;
-	tx-ring-num = <1024>;
-	rx-ring-num = <1024>;
-	dma-burst-len = <5>;
-
-	ref-clock-from-phy;
-
-	clk-tuning-enable;
-	clk-tuning-by-delayline;
-	tx-phase = <90>;
-	rx-phase = <73>;
-	nvmem-cells = <&mac_address1>;
-	nvmem-cell-names = "mac-address";
-
-	phy-handle = <&rgmii1>;
-
+/* eMMC */
+&sdhci2 {
+	bus-width = <8>;
+	non-removable;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	no-sd;
+	no-sdio;
+	spacemit,sdh-quirks = <(
+			SDHCI_QUIRK_BROKEN_CARD_DETECTION |
+			SDHCI_QUIRK_BROKEN_TIMEOUT_VAL
+			)>;
+	spacemit,sdh-quirks2 = <(
+			SDHCI_QUIRK2_PRESET_VALUE_BROKEN
+			)>;
+	spacemit,sdh-freq = <375000000>;
 	status = "okay";
-
-	mdio-bus {
-		#address-cells = <0x1>;
-		#size-cells = <0x0>;
-		rgmii1: phy@1 {
-			compatible = "ethernet-phy-id001c.c916";
-			device_type = "ethernet-phy";
-			reg = <0x1>;
-			phy-mode = "rgmii";
-		};
-	};
 };
+
 
 &usbphy {
 	status = "okay";
 };
 
 &udc {
+	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
 	spacemit,udc-mode = <MV_USB_MODE_UDC>;
 	status = "okay";
 };
@@ -836,22 +717,7 @@
 	status = "okay";
 };
 
-&otg1 {
-	usb-role-switch;
-	role-switch-user-control;
-	spacemit,reset-on-resume;
-	role-switch-default-mode = "host";
-	vbus-gpios = <&gpio 123 0>;
-	status = "okay";
-};
-
-&udc1 {
-	spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	status = "okay";
-};
-
 &ehci1 {
-	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	spacemit,reset-on-resume;
 	status = "okay";
 };
@@ -873,7 +739,7 @@
 	status = "okay";
 	reset-on-resume;
 	dwc3@c0a00000 {
-		dr_mode = "otg";
+		dr_mode = "host";
 		phy_type = "utmi";
 		snps,hsphy_interface = "utmi";
 		snps,dis_enblslpm_quirk;
@@ -882,21 +748,19 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
-		usb-role-switch;
-		role-switch-default-mode = "host";
 	};
 };
 
 &pcie1_rc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie1_3>;
-	status = "okay";
+	status = "disabled";
 };
 
 &pcie2_rc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie2_4>;
-	status = "okay";
+	status = "disabled";
 };
 
 &imggpu {
@@ -906,7 +770,7 @@
 &qspi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_qspi>;
-	status = "okay";
+	status = "disabled";
 
 	flash@0 {
 		compatible = "jedec,spi-nor";
@@ -914,7 +778,7 @@
 		spi-max-frequency = <26500000>;
 		m25p,fast-read;
 		broken-flash-reset;
-		status = "okay";
+		status = "disabled";
 	};
 };
 
@@ -956,52 +820,40 @@
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
-	pinmulti-enable;
 	pwdn-gpios = <&gpio 113 0>;
-	reset-gpios = <&gpio 111 0>;
+	//reset-gpios = <&gpio 111 0>;
 
-	pinctrl-names = "mclk_multi";
-	pinctrl-0 = <&pinctrl_camera0>;
+	twsi-index = <0>;
 
 	status = "okay";
 };
 
 /* MIPI CSI3 data line2,3 clk lane2 */
 &backsensor_aux {
-	af_2v8-supply = <&ldo_3>;
+	//af_2v8-supply = <&ldo_3>;
 	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
-	dvdd_1v2-supply = <&ldo_6>;
+	//dvdd_1v2-supply = <&ldo_6>;
 
-	pwdn-gpios = <&gpio 124 0>;
-	reset-gpios = <&gpio 97 0>;
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
 
-	pinmulti-enable;
-	twsi-index = <0>;
-	clocks = <&ccu CLK_CAMM0>;
-	clock-names = "cam_mclk0";
-	pinctrl-names = "mclk_multi";
-	pinctrl-0 = <&pinctrl_camera0>;
+	twsi-index = <1>;
 
 	status = "okay";
 };
 
 /* MIPI CSI3 data line0,1 clk lane3 */
 &frontsensor {
-	af_2v8-supply = <&ldo_3>;
+	//af_2v8-supply = <&ldo_3>;
 	avdd_2v8-supply = <&ldo_2>;
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
-	pinmulti-enable;
-	pwdn-gpios = <&gpio 124 0>;
-	reset-gpios = <&gpio 97 0>;
+	pwdn-gpios = <&gpio 122 0>;
+	reset-gpios = <&gpio 121 0>;
 
-	twsi-index = <0>;
-	clocks = <&ccu CLK_CAMM0>;
-	clock-names = "cam_mclk0";
-	pinctrl-names = "mclk_multi";
-	pinctrl-0 = <&pinctrl_camera0>;
+	twsi-index = <7>;
 
 	status = "okay";
 };
@@ -1014,7 +866,7 @@
 	status = "disabled";
 };
 &csiphy2 {
-	spacemit,bifmode-enable;
+
 	status = "okay";
 };
 
@@ -1054,21 +906,6 @@
 	status = "okay";
 };
 
-&i2s0 {
-        pinctrl-names = "default";
-        pinctrl-0 = <&pinctrl_sspa0_0>;
-        status = "okay";
-};
-
 &sound_hdmi {
-	status = "okay";
-};
-
-&sound_codec {
-	status = "okay";
-	simple-audio-card,name = "snd-es8326";
-	spacemit,mclk-fs = <64>;
-	simple-audio-card,codec {
-		sound-dai = <&es8326>;
-	};
+	status = "disabled";
 };
