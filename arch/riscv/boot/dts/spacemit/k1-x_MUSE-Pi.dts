@@ -832,16 +832,22 @@
 	status = "okay";
 };
 
-&usbphy1 {
-	status = "okay";
+&ehci {
+	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
 };
 
-&otg1 {
+&otg {
 	usb-role-switch;
 	role-switch-user-control;
 	spacemit,reset-on-resume;
-	role-switch-default-mode = "host";
+	role-switch-default-mode = "peripheral";
 	vbus-gpios = <&gpio 123 0>;
+	status = "disabled";
+};
+
+&usbphy1 {
 	status = "okay";
 };
 
@@ -853,6 +859,15 @@
 &ehci1 {
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	spacemit,reset-on-resume;
+	status = "okay";
+};
+
+&otg1 {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "host";
+	vbus-gpios = <&gpio 123 0>;
 	status = "okay";
 };
 
