@@ -735,22 +735,52 @@
 };
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
+	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;*/
 	spacemit,udc-mode = <MV_USB_MODE_UDC>;
 	status = "okay";
 };
 
-&usb2phy {
-	status = "okay";
+&ehci {
+	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
+};
+
+&otg {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "peripheral";
+	vbus-gpios = <&gpio 123 0>;
+	status = "disabled";
 };
 
 &usbphy1 {
 	status = "okay";
 };
 
+&udc1 {
+	/*spacemit,udc-mode = <MV_USB_MODE_UDC>;*/
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
+};
+
 &ehci1 {
+	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;*/
 	spacemit,reset-on-resume;
+	status = "okay";
+};
+
+&otg1 {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "host";
+	vbus-gpios = <&gpio 123 0>;
+	status = "disabled";
+};
+
+&usb2phy {
 	status = "okay";
 };
 
