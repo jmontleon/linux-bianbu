@@ -185,6 +185,7 @@ struct typec_info {
 struct husb239 {
 	struct device *dev;
 	struct regmap *regmap;
+	struct regulator *vdd_supply;
 	struct regulator *vbus_supply;
 	struct gpio_descs *vbus_gpiod;
 
@@ -193,6 +194,7 @@ struct husb239 {
 	struct gpio_desc *aud_gpiod;/* audio switch gpio */
 	struct gpio_desc *mic_gpiod;/* mic switch gpio */
 
+	struct gpio_desc *u2sel_gpiod;/* usb2 gpio, for u2 dpdm switch */
 	struct gpio_desc *sel_gpiod;/* sel gpio, for orient switch */
 	struct gpio_desc *oe_gpiod; /* oe gpio, for orient switch */
 
@@ -219,7 +221,7 @@ struct husb239 {
 static void husb239_set_gpios_value(struct gpio_descs *gpios,
 						int value)
 {
-	if (!IS_ERR(gpios)) {
+	if (!IS_ERR_OR_NULL(gpios)) {
 		unsigned long *values;
 		int nvalues = gpios->ndescs;
 
@@ -636,6 +638,25 @@ static int husb239_chip_init(struct husb239 *husb239)
 {
 	int ret;
 
+	husb239->vdd_supply = devm_regulator_get_optional(husb239->dev, "vdd");
+	if (IS_ERR(husb239->vdd_supply)) {
+		ret = PTR_ERR(husb239->vdd_supply);
+		if (ret != -ENODEV)
+			return ret;
+		husb239->vdd_supply = NULL;
+	}
+
+	if (!IS_ERR_OR_NULL(husb239->vdd_supply)) {
+		ret = regulator_set_voltage(husb239->vdd_supply, 3000000, 3300000);
+		if (ret)
+			dev_err(husb239->dev, "failed to set voltage: %d\n", ret);
+
+		ret = regulator_enable(husb239->vdd_supply);
+		if (ret)
+			dev_err(husb239->dev, "failed to enable pwr supply: %d\n", ret);
+		msleep(10);
+	}
+
 	husb239->en_gpiod = devm_gpiod_get_optional(husb239->dev, "en", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->en_gpiod)) {
 		dev_err(husb239->dev, "get enable gpio failed, ignore it.\n");
@@ -753,8 +774,10 @@ static int husb239_irq_init(struct husb239 *husb239)
 				husb239_irq_handler,
 				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 				"husb239", husb239);
-	if (ret)
+	if (ret){
+		dev_err(husb239->dev, "failed to request threaded irq\n");
 		goto free_wq;
+	}
 
 	/* Unmask ATTACH and DETACH interruption */
 	ret = regmap_write_bits(husb239->regmap, HUSB239_REG_MASK,
@@ -922,6 +945,16 @@ static int husb239_typec_switch_probe(struct husb239 *husb239)
 	info->switch_supported = fwnode_property_read_bool(fwnode, "orientation");
 	if (!info->switch_supported)
 		return 0;
+
+	husb239->u2sel_gpiod = devm_gpiod_get_optional(husb239->dev, "usb2-sel", GPIOD_OUT_LOW);
+	if (IS_ERR(husb239->u2sel_gpiod)) {
+		dev_err(husb239->dev, "get usb2 sel gpio failed, ignore it.\n");
+		return PTR_ERR(husb239->u2sel_gpiod);
+	}
+
+	if (!IS_ERR_OR_NULL(husb239->u2sel_gpiod)) {
+		gpiod_set_value(husb239->u2sel_gpiod, 1);
+	}
 
 	husb239->oe_gpiod = devm_gpiod_get_optional(husb239->dev, "orient-oe", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->oe_gpiod)) {
@@ -1144,6 +1177,12 @@ static void husb239_remove(struct i2c_client *client)
 	typec_switch_unregister(info->sw);
 	typec_unregister_port(info->port);
 	usb_role_switch_put(info->role_sw);
+
+	if (!IS_ERR_OR_NULL(husb239->en_gpiod))
+		gpiod_set_value(husb239->en_gpiod, 1);
+
+	if (!IS_ERR_OR_NULL(husb239->vdd_supply))
+		regulator_disable(husb239->vdd_supply);
 }
 
 static const struct of_device_id dev_ids[] = {
