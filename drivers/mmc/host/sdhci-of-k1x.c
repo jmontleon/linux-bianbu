@@ -568,20 +568,20 @@ static int spacemit_sdhci_card_busy(struct mmc_host *mmc)
 
 static void spacemit_init_card_quriks(struct mmc_host *mmc, struct mmc_card *card)
 {
+	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
+	struct rx_tuning *rxtuning = &pdata->rxtuning;
+
 	if (mmc->caps2 & MMC_CAP2_NO_MMC) {
 		/* break sdr104 */
 		if (mmc->caps2 & MMC_CAP2_QUIRK_BREAK_SDR104) {
 			mmc->caps &= ~MMC_CAP_UHS_SDR104;
 			mmc->caps2 &= ~MMC_CAP2_QUIRK_BREAK_SDR104;
 		 } else {
-			struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
-			struct rx_tuning *rxtuning = &pdata->rxtuning;
-
 			if (rxtuning->tuning_fail) {
 				/* fallback bus speed */
 				mmc->caps &= ~MMC_CAP_UHS_SDR104;
 				rxtuning->tuning_fail = 0;
-			} else {
+			} else if (!(pdata->host_caps_disable & MMC_CAP_UHS_SDR104)) {
 				/* recovery sdr104 capability */
 				mmc->caps |= MMC_CAP_UHS_SDR104;
 			}
