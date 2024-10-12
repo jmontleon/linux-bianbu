@@ -12,6 +12,7 @@
 #include "k1-x_thermal_cooling.dtsi"
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pwm/pwm.h>
+#include <dt-bindings/usb/pd.h>
 
 / {
 	model = "spacemit k1-x FusionOne board";
@@ -163,6 +164,36 @@
 		};
 	};
 
+	typec_1: connector@1 {
+		compatible = "usb-c-connector";
+		label = "USB-C";
+		data-role = "dual";
+		power-role = "dual";
+		try-power-role = "sink";
+		source-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)>;
+		sink-pdos = <PDO_FIXED(5000, 500, PDO_FIXED_USB_COMM)
+				PDO_VAR(5000, 9000, 2000)>;
+		op-sink-microwatt = <10000000>;
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				dwc3_con_ep: endpoint {
+					remote-endpoint = <&con_u3_ep>;
+				};
+			};
+			port@1 {
+				reg = <0x1>;
+				dwc3_ep: endpoint {
+					remote-endpoint = <&dwc3_role_switch>;
+				};
+			};
+		};
+	};
+
 	leds {
 		compatible = "gpio-leds";
 
@@ -239,6 +270,37 @@
 &i2c4 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c4_2>;
+
+	clock-frequency = <400000>;
+	status = "okay";
+
+	husb239_u3: tcpc@42 {
+		compatible = "hynetek,husb239";
+		reg = <0x42>;
+		vdd-supply = <&ldo_2>;
+		int-gpio = <&gpio 50 0>;
+		usb2-sel-gpio = <&gpio 80 0>;
+		orient-sel-gpio = <&gpio 79 0>;
+		orientation;
+		status = "okay";
+
+		ports {
+			#address-cells = <0x1>;
+			#size-cells = <0x0>;
+
+			port@0 {
+				reg = <0x0>;
+				con_u3_ep: endpoint {
+					remote-endpoint = <&dwc3_con_ep>;
+				};
+			};
+		};
+	};
+};
+
+&i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c5_1>;
 
 	clock-frequency = <400000>;
 	status = "okay";
@@ -432,6 +494,7 @@
 		&range GPIO_65  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_67  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_75  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_79  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_90  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_110 1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range GPIO_115 2 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
@@ -513,7 +576,7 @@
 		&pinctrl 63 GPIO_63 3
 		&pinctrl 67 GPIO_67 1
 		&pinctrl 75 GPIO_75 1
-		&pinctrl 79 GPIO_79 1
+		&pinctrl 79 GPIO_79 2
 		&pinctrl 90 GPIO_90 1
 		&pinctrl 110 GPIO_110 1
 		&pinctrl 115 GPIO_115 2
@@ -559,7 +622,7 @@
 	spacemit,tx_delaycode = <0x7f>;
 	spacemit,rx_tuning_limit = <50>;
 	spacemit,sdh-freq = <204800000>;
-	status = "okay";
+	status = "disabled";
 };
 
 /* SDIO */
@@ -697,25 +760,23 @@
 };
 
 &ehci {
-	spacemit,ude-mode = <MV_USB_MODE_HOST>;
 	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
 };
-
 
 &udc {
-	/*spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	spacemit,extern-attr = <MV_USB_HAS_VBUS_IDPIN_DETECTION>;*/
-	spacemit,udc-mode = <MV_USB_MODE_UDC>;
-	status = "disabled";
-};
-
-&usbphy1 {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
 };
 
-&ehci1 {
+&otg {
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	usb-role-switch;
+	role-switch-user-control;
 	spacemit,reset-on-resume;
+	role-switch-default-mode = "host";
+	vbus-gpios = <&gpio 127 0>;
 	status = "okay";
 };
 
@@ -729,7 +790,7 @@
 
 &usb3hub {
 	vbus-gpios = <&gpio 127 0>;	/* gpio_127 for usb1 vbus on */
-	status = "okay";
+	status = "disabled";
 };
 
 &usbdrd3 {
@@ -744,8 +805,20 @@
 		snps,dis_u3_susphy_quirk;
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
+		snps,parkmode-disable-ss-quirk;
+
 		usb-role-switch;
-		role-switch-default-mode = "host";
+		role-switch-default-mode = "peripheral";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0x0>;
+				dwc3_role_switch: endpoint {
+					remote-endpoint = <&dwc3_ep>;
+				};
+			};
+		};
 	};
 };
 
