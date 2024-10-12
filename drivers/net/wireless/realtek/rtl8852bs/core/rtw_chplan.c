@@ -3301,7 +3301,7 @@ u8 rtw_get_chplan_hdl(_adapter *adapter, u8 *pbuf)
 
 	chplan->chs_len = chset->chs_len;
 	_rtw_memcpy(chplan->chs, chset->chs, sizeof(RT_CHANNEL_INFO) * chset->chs_len);
-	*param->chplan = chplan;
+	param->chplan = chplan;
 
 	return	H2C_SUCCESS;
 }
@@ -3321,12 +3321,13 @@ u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chp
 	parm = rtw_zmalloc(sizeof(*parm));
 	if (parm == NULL)
 		goto exit;
-	parm->chplan = chplan;
 
 	if (flags & RTW_CMDF_DIRECTLY) {
 		/* no need to enqueue, do the cmd hdl directly and free cmd parameter */
-		if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm))
+		if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm)) {
+			*chplan = parm->chplan;
 			res = _SUCCESS;
+		}
 		rtw_mfree((u8 *)parm, sizeof(*parm));
 	} else {
 		/* need enqueue, prepare cmd_obj and enqueue */
@@ -3363,10 +3364,11 @@ u8 rtw_get_chplan_cmd(_adapter *adapter, int flags, struct get_chplan_resp **chp
 			parm = rtw_zmalloc(sizeof(*parm));
 			if (parm == NULL)
 				goto exit;
-			parm->chplan = chplan;
 
-			if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm))
+			if (H2C_SUCCESS == rtw_get_chplan_hdl(adapter, (u8 *)parm)) {
+				*chplan = parm->chplan;
 				res = _SUCCESS;
+			}
 
 			rtw_mfree((u8 *)parm, sizeof(*parm));
 		}
