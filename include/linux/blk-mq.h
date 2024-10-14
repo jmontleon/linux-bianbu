@@ -206,6 +206,7 @@ struct request {
 	 */
 	rq_end_io_fn *end_io;
 	void *end_io_data;
+	int request_debug_flags;
 };
 
 static inline enum req_op req_op(const struct request *req)
