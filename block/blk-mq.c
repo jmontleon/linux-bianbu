@@ -1270,6 +1270,7 @@ static void blk_mq_complete_send_ipi(struct request *rq)
 	cpu = rq->mq_ctx->cpu;
 	if (llist_add(&rq->ipi_list, &per_cpu(blk_cpu_done, cpu)))
 		smp_call_function_single_async(cpu, &per_cpu(blk_cpu_csd, cpu));
+	WRITE_ONCE(rq->request_debug_flags, 1);
 }
 
 static void blk_mq_raise_softirq(struct request *rq)
@@ -3520,6 +3521,7 @@ static int blk_mq_init_request(struct blk_mq_tag_set *set, struct request *rq,
 	}
 
 	WRITE_ONCE(rq->state, MQ_RQ_IDLE);
+	WRITE_ONCE(rq->request_debug_flags, 0);
 	return 0;
 }
 
