@@ -169,47 +169,42 @@ static u32 rf_tbl_masked[][3] = {
 	{0x40344058, 0x00800000, 0x00000000},// pll trx
 };
 
-static u32 sys_reboot_tbl[][2] = {
-	{0x50017000, 0x0001ffff},
-	{0x50017008, 0x00000002},
-};
-
 #if defined(AICWF_SDIO_SUPPORT)
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "aic/fw_adid.bin",
-		.bt_patch      = "aic/fw_patch.bin",
-		.bt_table      = "aic/fw_patch_table.bin",
-		.wl_fw         = "aic/fmacfw.bin",
-		.wl_table      = "aic/fmacfw_patch.bin"
+		.bt_adid       = "aic/sdio/fw_adid.bin",
+		.bt_patch      = "aic/sdio/fw_patch.bin",
+		.bt_table      = "aic/sdio/fw_patch_table.bin",
+		.wl_fw         = "aic/sdio/fmacfw.bin",
+		.wl_table      = "aic/sdio/fmacfw_patch.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "aic/fw_adid.bin",
-		.bt_patch      = "aic/fw_patch.bin",
-		.bt_table      = "aic/fw_patch_table.bin",
-		.wl_fw         = "aic/fmacfw_rf.bin"
+		.bt_adid       = "aic/sdio/fw_adid.bin",
+		.bt_patch      = "aic/sdio/fw_patch.bin",
+		.bt_table      = "aic/sdio/fw_patch_table.bin",
+		.wl_fw         = "aic/sdio/fmacfw_rf.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u03[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u03/u04)",
-		.bt_adid       = "aic/fw_adid_u03.bin",
-		.bt_patch      = "aic/fw_patch_u03.bin",
-		.bt_table      = "aic/fw_patch_table_u03.bin",
-		.wl_fw         = "aic/fmacfw.bin",
-		.wl_table      = "aic/fmacfw_patch.bin"
+		.bt_adid       = "aic/sdio/fw_adid_u03.bin",
+		.bt_patch      = "aic/sdio/fw_patch_u03.bin",
+		.bt_table      = "aic/sdio/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/sdio/fmacfw.bin",
+		.wl_table      = "aic/sdio/fmacfw_patch.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u03/u04)",
-		.bt_adid       = "aic/fw_adid_u03.bin",
-		.bt_patch      = "aic/fw_patch_u03.bin",
-		.bt_table      = "aic/fw_patch_table_u03.bin",
-		.wl_fw         = "aic/fmacfw_rf.bin"
+		.bt_adid       = "aic/sdio/fw_adid_u03.bin",
+		.bt_patch      = "aic/sdio/fw_patch_u03.bin",
+		.bt_table      = "aic/sdio/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/sdio/fmacfw_rf.bin"
 	},
 };
 
@@ -218,36 +213,36 @@ static const struct aicbsp_firmware fw_u03[] = {
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u02)",
-		.bt_adid       = "aic/fw_adid.bin",
-		.bt_patch      = "aic/fw_patch.bin",
-		.bt_table      = "aic/fw_patch_table.bin",
-		.wl_fw         = "aic/fmacfw_usb.bin"
+		.bt_adid       = "aic/usb/fw_adid.bin",
+		.bt_patch      = "aic/usb/fw_patch.bin",
+		.bt_table      = "aic/usb/fw_patch_table.bin",
+		.wl_fw         = "aic/usb/fmacfw.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u02)",
-		.bt_adid       = "aic/fw_adid.bin",
-		.bt_patch      = "aic/fw_patch.bin",
-		.bt_table      = "aic/fw_patch_table.bin",
-		.wl_fw         = "aic/fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/usb/fw_adid.bin",
+		.bt_patch      = "aic/usb/fw_patch.bin",
+		.bt_table      = "aic/usb/fw_patch_table.bin",
+		.wl_fw         = "aic/usb/fmacfw_rf.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u03[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u03/u04)",
-		.bt_adid       = "aic/fw_adid_u03.bin",
-		.bt_patch      = "aic/fw_patch_u03.bin",
-		.bt_table      = "aic/fw_patch_table_u03.bin",
-		.wl_fw         = "aic/fmacfw_usb.bin"
+		.bt_adid       = "aic/usb/fw_adid_u03.bin",
+		.bt_patch      = "aic/usb/fw_patch_u03.bin",
+		.bt_table      = "aic/usb/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/usb/fmacfw.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u03/u04)",
-		.bt_adid       = "aic/fw_adid_u03.bin",
-		.bt_patch      = "aic/fw_patch_u03.bin",
-		.bt_table      = "aic/fw_patch_table_u03.bin",
-		.wl_fw         = "aic/fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/usb/fw_adid_u03.bin",
+		.bt_patch      = "aic/usb/fw_patch_u03.bin",
+		.bt_table      = "aic/usb/fw_patch_table_u03.bin",
+		.wl_fw         = "aic/usb/fmacfw_rf.bin"
 	},
 };
 #endif
@@ -443,12 +438,14 @@ static int aicwifi_init(struct priv_dev *aicdev)
 		return -1;
 	}
 
+#if defined(AICWF_SDIO_SUPPORT)
 	if (aicbsp_info.cpmode == AICBSP_CPMODE_WORK) {
 		if (rwnx_plat_bin_fw_upload_android(aicdev, RAM_FMAC_FW_PATCH_ADDR, aicbsp_firmware_list[aicbsp_info.cpmode].wl_table)) {
 			printk("download wifi fw patch fail\n");
 			return -1;
 		}
 	}
+#endif
 
 	if (aicwifi_patch_config(aicdev)) {
 		printk("aicwifi_patch_config fail\n");
@@ -494,22 +491,6 @@ static int aicbsp_system_config(struct priv_dev *aicdev)
 		ret = rwnx_send_dbg_mem_write_req(aicdev, cfg_tbl[cnt][0], cfg_tbl[cnt][1]);
 		if (ret) {
 			bsp_err("%x write fail: %d\n", cfg_tbl[cnt][0], ret);
-			return ret;
-		}
-	}
-	return 0;
-}
-
-int aicbsp_8800d_system_reboot(struct priv_dev *aicdev)
-{
-	int syscfg_num;
-	int ret, cnt;
-
-	syscfg_num = sizeof(sys_reboot_tbl) / sizeof(u32) / 2;
-	for (cnt = 0; cnt < syscfg_num; cnt++) {
-		ret = rwnx_send_dbg_mem_write_req(aicdev, sys_reboot_tbl[cnt][0], sys_reboot_tbl[cnt][1]);
-		if (ret) {
-			printk("%x write fail: %d\n", sys_reboot_tbl[cnt][0], ret);
 			return ret;
 		}
 	}

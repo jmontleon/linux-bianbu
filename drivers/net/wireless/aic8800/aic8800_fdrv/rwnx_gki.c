@@ -231,14 +231,14 @@ void rwnx_cfg80211_ch_switch_notify(struct cfg80211_registered_device *rdev,
 
 void rwnx_cfg80211_ch_switch_started_notify(struct net_device *dev
 				, struct cfg80211_chan_def *chandef
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 41) && defined(KERNEL_AOSP)) || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 				, unsigned int link_id
 #endif
 				, u8 count
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 11, 0)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0))
 				, bool quiet
 #endif
-#if ((LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0) && defined(KERNEL_AOSP)) || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 94))
 				, u16 punct_bitmap
 #endif
 				)

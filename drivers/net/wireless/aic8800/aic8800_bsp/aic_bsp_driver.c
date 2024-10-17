@@ -16,6 +16,13 @@
 #include "aicusb.h"
 #include "aic_bsp_driver.h"
 
+#ifdef AICWF_USB_SUPPORT
+static u32 sys_reboot_tbl[][2] = {
+	{0x50017000, 0x0001ffff},
+	{0x50017008, 0x00000002},
+};
+#endif
+
 static void rwnx_set_cmd_tx(void *dev, struct lmac_msg *msg, uint len);
 u8 binding_enc_data[16];
 bool need_binding_verify;
@@ -697,13 +704,34 @@ int aicbt_patch_table_load(struct priv_dev *aicdev, struct aicbt_info_t *aicbt_i
 	return 0;
 }
 
+#ifdef AICWF_USB_SUPPORT
 int aicbsp_system_reboot(struct priv_dev *aicdev)
 {
-	if (aicbsp_info.chipinfo->chipid == PRODUCT_ID_AIC8800D)
-		return aicbsp_8800d_system_reboot(aicdev);
+	int syscfg_num;
+	int ret, cnt;
 
+	syscfg_num = sizeof(sys_reboot_tbl) / sizeof(u32) / 2;
+	for (cnt = 0; cnt < syscfg_num; cnt++) {
+		ret = rwnx_send_dbg_mem_write_req(aicdev, sys_reboot_tbl[cnt][0], sys_reboot_tbl[cnt][1]);
+		if (ret) {
+			printk("%x write fail: %d\n", sys_reboot_tbl[cnt][0], ret);
+			return ret;
+		}
+	}
 	return 0;
 }
+
+int rwnx_send_reboot(struct priv_dev *aicdev)
+{
+	int ret = 0;
+	u32 delay = 2 *1000; //1s
+
+	printk("%s enter \r\n", __func__);
+
+	ret = rwnx_send_dbg_start_app_req(aicdev, delay, HOST_START_APP_REBOOT, NULL);
+	return ret;
+}
+#endif
 
 int aicbsp_platform_init(struct priv_dev *aicdev)
 {

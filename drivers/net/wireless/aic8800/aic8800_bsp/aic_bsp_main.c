@@ -21,7 +21,7 @@
 #define DRV_TYPE_NAME   "compatible(unknow)"
 #endif
 
-#define DRV_RELEASE_DATE "20240730"
+#define DRV_RELEASE_DATE "20240919"
 #define DRV_PATCH_LEVEL  "001"
 #define DRV_RELEASE_TAG  "aic-bsp-" DRV_TYPE_NAME "-" DRV_RELEASE_DATE "-" DRV_PATCH_LEVEL
 

@@ -894,10 +894,10 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 	he_cap->he_cap_elem.phy_cap_info[9] |= IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_COMP_SIGB |
 										   IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB;
 
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 		mcs_map = rwnx_hw->mod_params->he_mcs_map;
-	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8800DC ||
-		rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
+	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8800D ||
+			rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
 		mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
 	}
 
@@ -1028,10 +1028,10 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 										   IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB;
 	#endif
 
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 		mcs_map = rwnx_hw->mod_params->he_mcs_map;
-	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8800DC ||
-		rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
+	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8801 ||
+		rwnx_hw->chipid == PRODUCT_ID_AIC8800DC ||rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
 		mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
 	}
 
@@ -1143,10 +1143,10 @@ static void rwnx_set_he_capa(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 											   IEEE80211_HE_PHY_CAP9_RX_FULL_BW_SU_USING_MU_WITH_NON_COMP_SIGB;
 		#endif
 
-		if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+		if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 			mcs_map = rwnx_hw->mod_params->he_mcs_map;
-		} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8800DC ||
-			rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
+		} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8801 ||
+			rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
 			mcs_map = min_t(int, rwnx_hw->mod_params->he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9);
 		}
 
@@ -1324,12 +1324,8 @@ int rwnx_handle_dynparams(struct rwnx_hw *rwnx_hw, struct wiphy *wiphy)
 	}
 #endif
 
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 		rwnx_hw->mod_params->sgi80 = true;
-		rwnx_hw->mod_params->use_80 = true;
-	}
-
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
 		rwnx_hw->mod_params->use_80 = true;
 	}
 
