@@ -6118,6 +6118,7 @@ static int proc_get_self_diag_info(struct seq_file *m, void *v)
 		RTW_PRINT_SEL(m, "\n==================================[MAC info]==================================\n");
 		cmd_string = "wdt_log 3E";
 		cmd_len = strlen(cmd_string);
+		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
 		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_MAC, out, out_len);
 		proc_get_phydm_cmd(m, v, out, out_len);
@@ -6163,6 +6164,7 @@ static int proc_get_self_diag_info(struct seq_file *m, void *v)
 
 		cmd_string = "wdt_log 0";
 		cmd_len = strlen(cmd_string);
+		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
 		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_MAC, phydm_msg, PHYDM_MSG_LEN);
 	}
