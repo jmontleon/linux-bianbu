@@ -1142,6 +1142,7 @@ static int es8326_init(struct snd_soc_component *component)
 	regmap_write(es8326->regmap, ES8326_ADC_MUTE, 0x0f);
 	regmap_write(es8326->regmap, ES8326_ADC1_SRC, es8326->mic1_src);
 	regmap_write(es8326->regmap, ES8326_ADC2_SRC, es8326->mic2_src);
+	regmap_write(es8326->regmap, ES8326_FMT, 0x0c);
 
 	es8326->jack_remove_retry = 0;
 	es8326->hp = 0;
