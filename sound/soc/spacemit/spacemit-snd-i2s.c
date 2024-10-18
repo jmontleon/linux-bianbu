@@ -160,7 +160,7 @@ static int i2s_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 
 	if ((i2s_sspa_read_reg(sspa, TOP_CTRL) & TOP_SSE)) {
 		pr_debug("no need to change hardware dai format: stream is in use\n");
-		return -EINVAL;
+		return 0;
 	}
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
@@ -462,6 +462,12 @@ static int asoc_i2s_sspa_probe(struct platform_device *pdev)
 
 static int asoc_i2s_sspa_remove(struct platform_device *pdev)
 {
+	struct sspa_priv *priv = platform_get_drvdata(pdev);
+
+	pm_runtime_disable(&pdev->dev);
+	reset_control_assert(priv->sspa_rst);
+	snd_soc_unregister_component(&pdev->dev);
+
 	return 0;
 }
 
@@ -482,26 +488,7 @@ static struct platform_driver asoc_i2s_sspa_driver = {
 	.remove = asoc_i2s_sspa_remove,
 };
 
-#if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
-int spacemit_snd_register_i2s_pdrv(void)
-{
-	pr_debug("%s\n", __FUNCTION__);
-	return platform_driver_register(&asoc_i2s_sspa_driver);
-}
-
-EXPORT_SYMBOL(spacemit_snd_register_i2s_pdrv);
-
-void spacemit_snd_unregister_i2s_pdrv(void)
-{
-	platform_driver_unregister(&asoc_i2s_sspa_driver);
-}
-EXPORT_SYMBOL(spacemit_snd_unregister_i2s_pdrv);
-
-#else
-
 module_platform_driver(asoc_i2s_sspa_driver);
-
-#endif
 
 MODULE_DESCRIPTION("I2S SSPA SoC driver");
 MODULE_LICENSE("GPL");

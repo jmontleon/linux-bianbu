@@ -422,6 +422,12 @@ static struct platform_driver asoc_simple_card = {
 	.remove = asoc_simple_card_remove,
 };
 
+static void __exit spacemit_snd_card_exit(void)
+{
+	platform_driver_unregister(&asoc_simple_card);
+}
+module_exit(spacemit_snd_card_exit);
+
 static int spacemit_snd_card_init(void)
 {
 	return platform_driver_register(&asoc_simple_card);
