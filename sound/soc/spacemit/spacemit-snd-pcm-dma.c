@@ -1058,7 +1058,7 @@ static int spacemit_snd_pcm_new(struct snd_soc_component *component, struct snd_
 	if (dev->dmadata->dma_id == DMA_HDMI) {
 		chan_num = 1;
 		pr_debug("%s playback_only, dev=%s\n", __FUNCTION__, dev_name(rtd->dev));
-	}else{
+	} else {
 		chan_num = 2;
 	}
 	dev->dmadata[0].stream = SNDRV_PCM_STREAM_PLAYBACK;
@@ -1126,7 +1126,7 @@ static void spacemit_snd_pcm_remove(struct snd_soc_component *component)
 
 	if (dev->dmadata->dma_id == DMA_HDMI) {
 		chan_num = 1;
-	}else{
+	} else {
 		chan_num = 2;
 	}
 	for (i = 0; i < chan_num; i++) {
@@ -1134,7 +1134,6 @@ static void spacemit_snd_pcm_remove(struct snd_soc_component *component)
 		struct dma_chan *chan = dmadata->dma_chan;
 
 		if (chan) {
-			dmaengine_terminate_all(chan);
 			dma_release_channel(chan);
 		}
 		dev->dmadata[i].dma_chan = NULL;
@@ -1388,26 +1387,17 @@ static struct platform_driver spacemit_snd_dma_pdrv = {
 	.remove = spacemit_snd_dma_pdev_remove,
 };
 
-#if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
-int spacemit_snd_register_dmaclient_pdrv(void)
-{
-	pr_debug("%s enter\n", __FUNCTION__);
-	return platform_driver_register(&spacemit_snd_dma_pdrv);
-}
-EXPORT_SYMBOL(spacemit_snd_register_dmaclient_pdrv);
-
-void spacemit_snd_unregister_dmaclient_pdrv(void)
+static void __exit spacemit_snd_pcm_exit(void)
 {
 	platform_driver_unregister(&spacemit_snd_dma_pdrv);
 }
-EXPORT_SYMBOL(spacemit_snd_unregister_dmaclient_pdrv);
-#else
+module_exit(spacemit_snd_pcm_exit);
+
 static int spacemit_snd_pcm_init(void)
 {
 	return platform_driver_register(&spacemit_snd_dma_pdrv);
 }
 late_initcall_sync(spacemit_snd_pcm_init);
-#endif
 
 #ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
 
