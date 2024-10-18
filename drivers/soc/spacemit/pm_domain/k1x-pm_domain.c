@@ -483,7 +483,8 @@ static void spacemit_pd_detach_dev(struct generic_pm_domain *genpd, struct devic
 	}
 
 	if (pos->handle_pm_domain) {
-		atomic_freq_qos_remove_request(&pos->qos);
+		if (pos->qos.qos)
+			atomic_freq_qos_remove_request(&pos->qos);
 	}
 
 	dev_pm_qos_remove_request(&pos->req);
