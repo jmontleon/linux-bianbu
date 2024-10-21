@@ -30,7 +30,7 @@
 
 
 
-#define RFDBG_TRACE_EN
+//#define RFDBG_TRACE_EN
 #ifdef RFDBG_TRACE_EN
 	#define RF_DBG(rf, comp, fmt, ...)     \
 		do {\
