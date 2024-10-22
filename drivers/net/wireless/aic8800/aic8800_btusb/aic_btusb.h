@@ -49,6 +49,19 @@
 #include <net/bluetooth/hci.h>
 #endif
 
+#define USB_VENDOR_ID_AIC               0xA69C
+#define USB_VENDOR_ID_AIC_V2            0x368B
+
+#define USB_DEVICE_ID_AIC_8800          0x8800
+#define USB_DEVICE_ID_AIC_8801          0x8801
+
+#define USB_DEVICE_ID_AIC_8800D80       0x8D80
+#define USB_DEVICE_ID_AIC_8800D81       0x8D81
+#define USB_DEVICE_ID_AIC_8800D40       0x8D40
+#define USB_DEVICE_ID_AIC_8800D41       0x8D41
+
+#define USB_DEVICE_ID_AIC_8800D80X2     0x8D90
+#define USB_DEVICE_ID_AIC_8800D81X2     0x8D91
 
 /***********************************
 ** AicSemi - For aic_btusb driver **

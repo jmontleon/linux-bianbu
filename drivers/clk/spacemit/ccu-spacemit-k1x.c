@@ -17,6 +17,8 @@
 #include "ccu_mix.h"
 #include "ccu_pll.h"
 #include "ccu_ddn.h"
+#include "ccu_dpll.h"
+#include "ccu_ddr.h"
 
 #define LOG_INFO(fmt, arg...)    pr_info("[K1X-CLK][%s][%d]:" fmt "\n", __func__, __LINE__, ##arg)
 
@@ -154,6 +156,23 @@ DEFINE_SPINLOCK(g_cru_lock);
 
 #define APMU_EMAC0_CLK_RES_CTRL     0x3e4
 #define APMU_EMAC1_CLK_RES_CTRL     0x3ec
+
+#define APMU_DFC_AP                 0x180
+#define APMU_DFC_STATUS             0x188
+
+#define APMU_DFC_LEVEL0             0x190
+#define APMU_DFC_LEVEL1             0x194
+#define APMU_DFC_LEVEL2             0x198
+#define APMU_DFC_LEVEL3             0x19c
+#define APMU_DFC_LEVEL4             0x1a0
+#define APMU_DFC_LEVEL5             0x1a4
+#define APMU_DFC_LEVEL6             0x1a8
+#define APMU_DFC_LEVEL7             0x1ac
+
+#define APMU_DPLL1_CLK_CTRL1        0x39c
+#define APMU_DPLL1_CLK_CTRL2        0x3a0
+#define APMU_DPLL2_CLK_CTRL1        0x3a8
+#define APMU_DPLL2_CLK_CTRL2        0x3ac
 /* end of APMU register offset */
 
 /* APBC2 register offset */
@@ -433,6 +452,59 @@ static SPACEMIT_CCU_GATE(pll1_d2_1228p8, "pll1_d2_1228p8", "pll1_d2",
 	BASE_TYPE_MPMU, MPMU_ACGR,
 	BIT(16), BIT(16), 0x0,
 	CLK_IGNORE_UNUSED);
+
+//dpll
+static const struct ccu_dpll_rate_tbl dpll1_rate_tbl[] = {
+	DPLL_RATE(2400000000UL, 0x00, 0x00, 0x20, 0x2a, 0x32, 0x64, 0xdd, 0x50), //5000ppm
+	DPLL_RATE(2400000000UL, 0x00, 0x3b, 0x20, 0x2a, 0x32, 0x64, 0xdd, 0x50), //5000ppm + pre-setting
+};
+
+static const struct ccu_dpll_rate_tbl dpll2_rate_tbl[] = {
+	DPLL_RATE(3200000000UL, 0x55, 0x55, 0x3d, 0x2a, 0x43, 0x67, 0xdd, 0x50), //5000ppm
+};
+
+static SPACEMIT_CCU_DPLL(dpll1, "dpll1", &dpll1_rate_tbl, ARRAY_SIZE(dpll1_rate_tbl),
+	BASE_TYPE_APMU, APMU_DPLL1_CLK_CTRL1, APMU_DPLL1_CLK_CTRL2,
+	0, CLK_IGNORE_UNUSED);
+
+static SPACEMIT_CCU_DPLL(dpll2, "dpll2", &dpll2_rate_tbl, ARRAY_SIZE(dpll2_rate_tbl),
+	BASE_TYPE_APMU, APMU_DPLL2_CLK_CTRL1, APMU_DPLL2_CLK_CTRL2,
+	0, CLK_IGNORE_UNUSED);
+
+static const char * const dfc_lvl_parents[] = {
+	"dpll2", "dpll1"
+};
+
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl0, "dfc_lvl0", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL0,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl1, "dfc_lvl1", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL1,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl2, "dfc_lvl2", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL2,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl3, "dfc_lvl3", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL3,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl4, "dfc_lvl4", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL4,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl5, "dfc_lvl5", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL5,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl6, "dfc_lvl6", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL6,
+	14, 2, 8, 1, 0);
+static SPACEMIT_CCU_DIV_MUX(dfc_lvl7, "dfc_lvl7", dfc_lvl_parents,
+	BASE_TYPE_APMU, APMU_DFC_LEVEL7,
+	14, 2, 8, 1, 0);
+static const char * const ddr_clk_parents[] = {
+	"dfc_lvl0", "dfc_lvl1", "dfc_lvl2", "dfc_lvl3", "dfc_lvl4", "dfc_lvl5", "dfc_lvl6", "dfc_lvl7"
+};
+static SPACEMIT_CCU_DDR_FC(ddr, "ddr", ddr_clk_parents,
+	BASE_TYPE_APMU, APMU_DFC_AP, BIT(0),
+	1, 3, 0);
 
 //mpmu
 static struct ccu_ddn_info uart_ddn_mask_info = {
@@ -1372,6 +1444,17 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_RCPU_IR] 		= &rir_clk.common.hw,
 		[CLK_RCPU_UART0] 	= &ruart0_clk.common.hw,
 		[CLK_RCPU_UART1] 	= &ruart1_clk.common.hw,
+		[CLK_DPLL1] 	= &dpll1.common.hw,
+		[CLK_DPLL2] 	= &dpll2.common.hw,
+		[CLK_DFC_LVL0] 	= &dfc_lvl0.common.hw,
+		[CLK_DFC_LVL1] 	= &dfc_lvl1.common.hw,
+		[CLK_DFC_LVL2] 	= &dfc_lvl2.common.hw,
+		[CLK_DFC_LVL3] 	= &dfc_lvl3.common.hw,
+		[CLK_DFC_LVL4] 	= &dfc_lvl4.common.hw,
+		[CLK_DFC_LVL5] 	= &dfc_lvl5.common.hw,
+		[CLK_DFC_LVL6] 	= &dfc_lvl6.common.hw,
+		[CLK_DFC_LVL7] 	= &dfc_lvl7.common.hw,
+		[CLK_DDR] 	= &ddr.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
@@ -1406,6 +1489,22 @@ void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
 			clk_prepare_enable(clk);
 		else
 			pr_err("%s : can't find clk %s\n", __func__, tbl[i].name);
+	}
+}
+
+unsigned long spacemit_k1x_ddr_freq_tbl[MAX_FREQ_LV + 1] = {0};
+void spacemit_fill_ddr_freq_tbl(void)
+{
+	int i;
+	struct clk *clk;
+
+	for (i = 0; i < ARRAY_SIZE(spacemit_k1x_ddr_freq_tbl); i++) {
+		clk = clk_hw_get_clk(spacemit_k1x_hw_clks.hws[CLK_DFC_LVL0 + i], ddr_clk_parents[i]);
+
+		if (!IS_ERR_OR_NULL(clk))
+			spacemit_k1x_ddr_freq_tbl[i] = clk_get_rate(clk);
+		else
+			pr_err("%s : can't find clk %s\n", __func__, ddr_clk_parents[i]);
 	}
 }
 
@@ -1492,6 +1591,8 @@ int spacemit_ccu_probe(struct device_node *node, struct spacemit_k1x_clk *clk_in
 
 	//enable some clocks
 	spacemit_clocks_enable(bootup_enable_clk_table, ARRAY_SIZE(bootup_enable_clk_table));
+	//fill ddr frequency table
+	spacemit_fill_ddr_freq_tbl();
 
 	return 0;
 
@@ -1586,6 +1687,39 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 out:
 	return;
 }
+
+void * spacemit_get_ddr_freq_tbl(void)
+{
+	return spacemit_k1x_ddr_freq_tbl;
+}
+EXPORT_SYMBOL_GPL(spacemit_get_ddr_freq_tbl);
+
+u32 spacemit_get_ddr_freq_level(void)
+{
+	u32 ddr_freq_lvl = 0;
+
+	struct clk_hw *hw = spacemit_k1x_hw_clks.hws[CLK_DDR];
+	ddr_freq_lvl = clk_hw_get_parent_index(hw);
+
+	return ddr_freq_lvl;
+}
+EXPORT_SYMBOL_GPL(spacemit_get_ddr_freq_level);
+
+int spacemit_set_ddr_freq_level(u32 level)
+{
+	int ret = 0;
+	struct clk_hw *hw = spacemit_k1x_hw_clks.hws[CLK_DDR];
+
+	if (level < 0 || level > MAX_FREQ_LV)
+		return -EINVAL;
+
+	ret = clk_hw_set_parent(hw, clk_hw_get_parent_by_index(hw, level));
+	if (ret)
+		pr_err("%s : set ddr freq fail\n", __func__);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(spacemit_set_ddr_freq_level);
 
 CLK_OF_DECLARE(k1x_clock, "spacemit,k1x-clock", spacemit_k1x_ccu_probe);
 

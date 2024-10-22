@@ -620,9 +620,10 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
 	}
 
 	efuse_idx = rwnx_hw->vendor_info;
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800DC ||
-		rwnx_hw->chipid == PRODUCT_ID_AIC8800DW ||
-		rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800DC  ||
+		rwnx_hw->chipid == PRODUCT_ID_AIC8800DW  ||
+		rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 ||
+		rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 		efuse_idx = 0xFF;
 	} else  if (rwnx_hw->vendor_info == 0x00) {
 		printk("Empty efuse, using module0 config\n");
@@ -664,15 +665,21 @@ void rwnx_plat_userconfig_parsing(struct rwnx_hw *rwnx_hw, char *buffer, int siz
 		}
 	}
 
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 		memcpy(&(nvram_info.txpwr_lvl_v3), &(nvram_info.txpwr_lvl_v2), sizeof(txpwr_lvl_conf_v2_t));
 	}
 	vfree(data);
 }
 
-#define FW_USERCONFIG_NAME_8800D    "aic/aic_userconfig.txt"
-#define FW_USERCONFIG_NAME_8800DC   "aic/aic8800dc/aic_userconfig_8800dc.txt"
-#define FW_USERCONFIG_NAME_8800D80  "aic/aic8800d80/aic_userconfig_8800d80.txt"
+#ifdef AICWF_SDIO_SUPPORT
+#define FW_USERCONFIG_NAME_8800D    "aic/sdio/aic_userconfig.txt"
+#define FW_USERCONFIG_NAME_8800DC   "aic/sdio/aic8800dc/aic_userconfig_8800dc.txt"
+#define FW_USERCONFIG_NAME_8800D80  "aic/sdio/aic8800d80/aic_userconfig_8800d80.txt"
+#elif AICWF_USB_SUPPORT
+#define FW_USERCONFIG_NAME_8800D    "aic/usb/aic_userconfig.txt"
+#define FW_USERCONFIG_NAME_8800DC   "aic/usb/aic8800dc/aic_userconfig_8800dc.txt"
+#define FW_USERCONFIG_NAME_8800D80  "aic/usb/aic8800d80/aic_userconfig_8800d80.txt"
+#endif
 
 int rwnx_plat_userconfig_upload_android(struct rwnx_hw *rwnx_hw, char *filename)
 {
@@ -715,11 +722,11 @@ static int rwnx_plat_fmac_load(struct rwnx_hw *rwnx_hw)
 	int ret = 0;
 
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
-	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D)
+	if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D || rwnx_hw->chipid == PRODUCT_ID_AIC8801)
 		ret = rwnx_plat_userconfig_upload_android(rwnx_hw, FW_USERCONFIG_NAME_8800D);
 	else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800DC)
 		ret = rwnx_plat_userconfig_upload_android(rwnx_hw, FW_USERCONFIG_NAME_8800DC);
-	else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80)
+	else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81)
 		ret = rwnx_plat_userconfig_upload_android(rwnx_hw, FW_USERCONFIG_NAME_8800D80);
 
 	return ret;
@@ -1025,6 +1032,9 @@ int rwnx_platform_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
 
 	rwnx_plat->enabled = false;
+#ifdef AICWF_USB_SUPPORT
+	rwnx_plat->wait_disconnect_cb = false;
+#endif
 	g_rwnx_plat = rwnx_plat;
 
 #if defined CONFIG_RWNX_FULLMAC

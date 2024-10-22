@@ -19,6 +19,7 @@
 #include <linux/skbuff.h>
 #include <net/cfg80211.h>
 #include <linux/slab.h>
+#include <linux/semaphore.h>
 
 #include "rwnx_mod_params.h"
 #include "rwnx_debugfs.h"
@@ -457,6 +458,15 @@ enum rwnx_drv_connect_status {
 	RWNX_DRV_STATUS_DISCONNECTING,
 	RWNX_DRV_STATUS_CONNECTING,
 	RWNX_DRV_STATUS_CONNECTED,
+	RWNX_DRV_STATUS_ROAMING,
+};
+
+static const char *const s_conn_state[] = {
+	"RWNX_DRV_STATUS_DISCONNECTED",
+	"RWNX_DRV_STATUS_DISCONNECTING",
+	"RWNX_DRV_STATUS_CONNECTING",
+	"RWNX_DRV_STATUS_CONNECTED",
+	"RWNX_DRV_STATUS_ROAMING",
 };
 
 struct rwnx_hw {
@@ -614,5 +624,7 @@ static inline uint8_t master_vif_idx(struct rwnx_vif *vif)
 
 void rwnx_external_auth_enable(struct rwnx_vif *vif);
 void rwnx_external_auth_disable(struct rwnx_vif *vif);
+
+void rwnx_set_conn_state(atomic_t *drv_conn_state, int state);
 
 #endif /* _RWNX_DEFS_H_ */

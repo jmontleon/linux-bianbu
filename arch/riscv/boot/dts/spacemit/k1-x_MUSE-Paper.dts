@@ -11,7 +11,10 @@
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
 #include "k1-x_thermal_cooling.dtsi"
+#include "k1-x-camera-sdk.dtsi"
 #include <dt-bindings/usb/pd.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 
 / {
 	model = "M1-MUSE-PAPER";
@@ -234,6 +237,22 @@
 		compatible = "spacemit,hall-sensor-as1911";
 		detect-gpio = <&gpio 74 0>;
 	};
+
+	gpio_keys: gpio_keys {
+		compatible = "gpio-keys";
+
+		key0: volumeup {
+			label = "KEY0";
+			linux,code = <KEY_VOLUMEUP>;
+			gpios = <&gpio 70 GPIO_ACTIVE_LOW>;
+		};
+
+		key1: volumedown {
+			label = "KEY1";
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpios = <&gpio 71 GPIO_ACTIVE_LOW>;
+		};
+	};
 };
 
 &uart0 {
@@ -285,7 +304,18 @@
 &lcds {
 	status = "okay";
 };
-
+&i2c0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c0>;
+	spacemit,i2c-fast-mode;
+	status = "okay";
+};
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	spacemit,i2c-fast-mode;
+	status = "okay";
+};
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
@@ -432,6 +462,47 @@
 		compatible = "spacemit,lcd_bias_ocp2138";
 		reg = <0x3e>;
 		status = "okay";
+	};
+
+	sec_sgm4154x: sec-sgm4154x@1a {
+		status = "okay";
+		compatible = "sgm,sgm41515";
+		secondary-charger;
+		reg = <0x1a>;
+		interrupt-parent = <&gpio>;
+		interrupts = <123 0>;            //irq num base on hardware design
+		sgm,irq-gpio = <&gpio 123 0>;     //irq num base on hardware design
+		sgm,chg-en-gpio = <&gpio 46 0>;   //charger enable gpio num base on hardware design
+		nqon-gpios = <&gpio 43 0>;
+		/* sw jeita  parameter customer defined*/
+		enable_sw_jeita;
+		jeita_temp_above_t4_cv = <0>;
+		jeita_temp_t3_to_t4_cv = <4100000>;
+		jeita_temp_t2_to_t3_cv = <4350000>;
+		jeita_temp_t1_to_t2_cv = <4350000>;
+		jeita_temp_t0_to_t1_cv = <0>;
+		jeita_temp_below_t0_cv = <0>;
+
+		jeita_temp_above_t4_cc_current = <0>;
+		jeita_temp_t3_to_t4_cc_current = <1000000>;
+		jeita_temp_t2_to_t3_cc_current = <1250000>;
+		jeita_temp_t1_to_t2_cc_current = <1000000>;
+		jeita_temp_below_t0_cc_current = <0>;
+
+		temp_t4_thres = <50>;
+		temp_t4_thres_minus_x_degree = <48>;
+		temp_t3_thres = <45>;
+		temp_t3_thres_minus_x_degree = <45>;
+		temp_t2_thres = <20>;
+		temp_t2_thres_plus_x_degree = <15>;
+		temp_t1_thres = <0>;
+		temp_t1_thres_plus_x_degree = <0>;
+		temp_t0_thres = <0>;
+		temp_t0_thres_plus_x_degree = <2>;
+		temp_neg_10_thres = <0>;
+
+		sgm415xx-ichrg-uA = <1000000>;
+		sgm415xx-vchrg-uV = <4350000>;
 	};
 };
 
@@ -651,6 +722,47 @@
 			compatible = "pmic,adc,spm8821";
 		};
 	};
+
+	pri_sgm4154x: pri-sgm4154x@1a {
+		status = "okay";
+		compatible = "sgm,sgm41515";
+		reg = <0x1a>;
+		primary-charger;
+		interrupt-parent = <&gpio>;
+		interrupts = <5 0>;            //irq num base on hardware design
+		sgm,irq-gpio = <&gpio 5 0>;     //irq num base on hardware design
+		sgm,chg-en-gpio = <&gpio 117 0>;   //charger enable gpio num base on hardware design
+		nqon-gpios = <&gpio 115 0>;
+		/* sw jeita  parameter customer defined*/
+		enable_sw_jeita;
+		jeita_temp_above_t4_cv = <0>;
+		jeita_temp_t3_to_t4_cv = <4100000>;
+		jeita_temp_t2_to_t3_cv = <4350000>;
+		jeita_temp_t1_to_t2_cv = <4350000>;
+		jeita_temp_t0_to_t1_cv = <0>;
+		jeita_temp_below_t0_cv = <0>;
+
+		jeita_temp_above_t4_cc_current = <0>;
+		jeita_temp_t3_to_t4_cc_current = <1000000>;
+		jeita_temp_t2_to_t3_cc_current = <1250000>;
+		jeita_temp_t1_to_t2_cc_current = <1000000>;
+		jeita_temp_below_t0_cc_current = <0>;
+
+		temp_t4_thres = <50>;
+		temp_t4_thres_minus_x_degree = <48>;
+		temp_t3_thres = <45>;
+		temp_t3_thres_minus_x_degree = <45>;
+		temp_t2_thres = <20>;
+		temp_t2_thres_plus_x_degree = <15>;
+		temp_t1_thres = <0>;
+		temp_t1_thres_plus_x_degree = <0>;
+		temp_t0_thres = <0>;
+		temp_t0_thres_plus_x_degree = <2>;
+		temp_neg_10_thres = <0>;
+
+		sgm415xx-ichrg-uA = <1000000>;
+		sgm415xx-vchrg-uV = <4350000>;
+	};
 };
 
 &pinctrl {
@@ -819,6 +931,12 @@
 	status = "okay";
 };
 
+&ehci {
+	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
+};
+
 &otg {
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	usb-role-switch;
@@ -844,9 +962,24 @@
 	status = "okay";
 };
 
+&udc1 {
+	/*spacemit,udc-mode = <MV_USB_MODE_UDC>;*/
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
+	status = "disabled";
+};
+
 &ehci1 {
 	spacemit,reset-on-resume;
 	status = "okay";
+};
+
+&otg1 {
+	usb-role-switch;
+	role-switch-user-control;
+	spacemit,reset-on-resume;
+	role-switch-default-mode = "host";
+	vbus-gpios = <&gpio 123 0>;
+	status = "disabled";
 };
 
 &usb2phy {
@@ -911,6 +1044,79 @@
 	};
 };
 
+&spi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ssp3_1>;
+	status = "okay";
+
+	chipone_tddi@0 {
+		compatible = "chipone-tddi";
+		reg = <0>;
+		spi-max-frequency = <9600000>;
+		//interrupt-parent = <&gpio>;
+		//interrupts = <29 0x2008>;
+		chipone,rst-gpio = <&gpio 32 0x00>;
+		chipone,irq-gpio = <&gpio 29 0x00>;
+		pwron-gpios = <&gpio 33 0>;
+		//chipone,cs-gpio = <&gpio 8 0>;
+		chipone,x-res = <1200>;
+		chipone,y-res = <1920>;
+
+		/* Charger detect */
+		chipone,touch-charger-detect-enable;
+		chipone,touch-charger-detect-type = "notify"; /* notify, poll */
+		chipone,touch-charger-detect-psy-name = "charger";
+		chipone,touch-charger-detect-psp = "POWER_SUPPLY_PROP_ONLINE";
+		chipone,touch-charger-detect-psp-poll-interval = <1000>;
+
+		/* Earjack detect */
+		chipone,touch-earjack-detect-enable;
+		/* MTK:  /sys/bus/platform/drivers/Accdet_Driver/state,
+			Sprd: /sys/kernel/headset/state
+			QCOM: None, and disable it */
+		chipone,touch-earjack-state-filepath = "/sys/bus/platform/drivers/Accdet_Driver/state";
+		chipone,touch-earjack-poll-interval = <1000>;
+
+		/* For tp selftest */
+		chipone,test-reset-pin;
+		chipone,test-int-pin;
+		chipone,test-rawdata;
+		chipone,test-rawdata-frames      = <1>;
+		chipone,rawdata-min              = <100>;
+		chipone,rawdata-max              = <10000>;
+		chipone,test-noise;
+		chipone,test-noise-frames        = <50>;
+		chipone,noise-max                = <1000>;
+		chipone,test-open;
+		chipone,open-min                 = <200>;
+		chipone,test-short;
+		chipone,short-min                = <200>;
+		chipone,test-compensate-cap;
+		chipone,compensate-cap-min       = <1>;
+		chipone,compensate-cap-max       = <127>;
+
+		/* gesture data test */
+		chipone,test-gesture-rawdata;
+		chipone,test-gesture-rawdata-frames = <1>;
+		chipone,gesture-rawdata-min = <100>;
+		chipone,gesture-rawdata-max = <10000>;
+
+		chipone,test-gesture-lp-rawdata;
+		chipone,test-gesture-lp-rawdata-frames = <1>;
+		chipone,gesture-lp-rawdata-min = <100>;
+		chipone,gesture-lp-rawdata-max = <10000>;
+
+		chipone,test-gesture-noise;
+		chipone,test-gesture-noise-frames = <50>;
+		chipone,gesture-noise-max = <1000>;
+
+		chipone,test-gesture-lp-noise;
+		chipone,test-gesture-lp-noise-frames = <50>;
+		chipone,gesture-lp-noise-max = <1000>;
+		chipone,panel = <&panel2>;
+	};
+};
+
 &pwm_bl {
 	pwms = <&pwm14 2000>;
 	brightness-levels = <
@@ -936,6 +1142,94 @@
 	status = "okay";
 };
 
+/* MIPI CSI1, clk lane1, Fixme: frontsensor gc08a8 */
+&backsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	pwdn-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio 111 0>;
+
+	twsi-index = <0>;
+
+	status = "okay";
+};
+
+/* MIPI CSI3 data line2,3 clk lane2 */
+&backsensor_aux {
+	//af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	//dvdd_1v2-supply = <&ldo_6>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
+
+	twsi-index = <1>;
+
+	status = "disabled";
+};
+
+/* MIPI CSI3 data line0,1 clk lane3, Fixme: backsensor gc13a0 */
+&frontsensor {
+	af_2v8-supply = <&ldo_3>;
+	avdd_2v8-supply = <&ldo_2>;
+	dovdd_1v8-supply = <&ldo_7>;
+	dvdd_1v2-supply = <&ldo_6>;
+
+	clocks = <&ccu CLK_CAMM1>;
+	clock-names = "cam_mclk1";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_camera1>;
+
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
+
+	twsi-index = <1>;
+
+	status = "okay";
+};
+&csiphy0 {
+
+	status = "okay";
+};
+&csiphy1 {
+
+	status = "disabled";
+};
+&csiphy2 {
+
+	status = "okay";
+};
+
+&ccic0 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+&ccic1 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+&ccic2 {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+
+	status = "okay";
+};
+&isp {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+&cpp {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
+
+&vi {
+	power-domains = <&power K1X_PMU_ISP_PWR_DOMAIN>;
+};
 &rcpu {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_rcpu>;

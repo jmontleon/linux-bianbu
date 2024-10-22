@@ -460,7 +460,7 @@ struct get_chplan_resp {
 };
 
 struct get_channel_plan_param {
-	struct get_chplan_resp **chplan;
+	struct get_chplan_resp *chplan;
 };
 
 u8 rtw_get_chplan_hdl(_adapter *adapter, u8 *pbuf);

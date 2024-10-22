@@ -16,11 +16,7 @@
 #include "aic_bsp_driver.h"
 #include <linux/mmc/sdio_func.h>
 
-#ifdef CONFIG_AIC_INTF_SDIO
 #define RAM_FMAC_FW_ADDR                    0x00120000
-#else
-#define RAM_FMAC_FW_ADDR                    0x00110000
-#endif
 #define FW_RAM_ADID_BASE_ADDR_8800D80       0x002017E0
 #define FW_RAM_PATCH_BASE_ADDR_8800D80      0x0020B2B0
 #define FW_RAM_ADID_BASE_ADDR_8800D80_U02   0x00201940
@@ -62,45 +58,62 @@ static u32 adaptivity_patch_tbl_8800d80[][2] = {
 	{0x0168, 0x00010000}, //tx_adaptivity_en
 };
 
+static u32 rf_tbl_masked[][3] = {
+/*
+	{0x40344058, 0x00800000, 0x00000000},// pll trx
+*/
+};
 #elif defined(AICWF_USB_SUPPORT)
+#define USER_PWROFST_COVER_CALIB_FLAG	0x01U
+#define USER_CHAN_MAX_TXPWR_EN_FLAG     (0x01U << 1)
+#define USER_TX_USE_ANA_F_FLAG          (0x01U << 2)
+
+#define CFG_PWROFST_COVER_CALIB     1
+#define CFG_USER_CHAN_MAX_TXPWR_EN  0
+#define CFG_USER_TX_USE_ANA_F       0
+
+#define CFG_USER_EXT_FLAGS_EN   (CFG_PWROFST_COVER_CALIB || CFG_USER_CHAN_MAX_TXPWR_EN || CFG_USER_TX_USE_ANA_F)
 
 static u32 patch_tbl[][2] = {
+	{0x00b4, 0xf3010001},
+	{0x0170, 0x00010001},//rx aggr counter
+
+	#if CFG_USER_EXT_FLAGS_EN
+	{0x0188, 0x00000000
+	#if CFG_PWROFST_COVER_CALIB
+	| USER_PWROFST_COVER_CALIB_FLAG
+	#endif
+		#if CFG_USER_CHAN_MAX_TXPWR_EN
+		| USER_CHAN_MAX_TXPWR_EN_FLAG
+		#endif
+		#if CFG_USER_TX_USE_ANA_F
+		| USER_TX_USE_ANA_F_FLAG
+		#endif
+	}, // user_ext_flags
+	#endif
 };
 
 static u32 aicbsp_syscfg_tbl[][2] = {
-	// Common Settings
-	{0x40500014, 0x00000101}, // 1)
-	{0x40500018, 0x0000010d}, // 2)
-	{0x40500004, 0x00000010}, // 3) the order should not be changed
-	// CONFIG_PMIC_SETTING
-	{0x50000000, 0x03220204}, // 2) pmic interface init
-	{0x50019150, 0x00000002},
-	{0x50017008, 0x00000000}, // 4) stop wdg
-
-	// U02 bootrom only
-	{0x40040000, 0x00001AC8}, // 1) fix panic
-	{0x40040084, 0x00011580},
-	{0x40040080, 0x00000001},
-	{0x40100058, 0x00000000},
+//#ifdef CONFIG_PMIC_SETTING
+//	{0x70001408, 0x00000000}, // stop wdg
+//#endif /* CONFIG_PMIC_SETTING */
 };
 
 //adap test
 static u32 adaptivity_patch_tbl_8800d80[][2] = {
 	{0x000C, 0x0000320A}, //linkloss_thd
 	{0x009C, 0x00000000}, //ac_param_conf
-	{0x0154, 0x00010000}, //tx_adaptivity_en
+	{0x0168, 0x00010000}, //tx_adaptivity_en
+};
+
+static u32 rf_tbl_masked[][3] = {
+	{0x40344058, 0x00800000, 0x00000000},// pll trx
 };
 #endif
 
 static __attribute__((unused)) u32 syscfg_tbl_masked[][3] = {
 /*
 	{0x40506024, 0x000000FF, 0x000000DF}, // for clk gate lp_level
-*/
-};
-
-static u32 rf_tbl_masked[][3] = {
-/*
-	{0x40344058, 0x00800000, 0x00000000},// pll trx
 */
 };
 
@@ -120,92 +133,110 @@ u32 gpio_cfg_tbl_8800d40d80[][2] = {
 static const struct aicbsp_firmware fw_u01[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u01)",
-		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80.bin",
-		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80.bin",
-		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80.bin",
-		.wl_fw         = "aic/aic8800d80/fmacfw_8800d80.bin"
+		.bt_adid       = "aic/sdio/aic8800d80/fw_adid_8800d80.bin",
+		.bt_patch      = "aic/sdio/aic8800d80/fw_patch_8800d80.bin",
+		.bt_table      = "aic/sdio/aic8800d80/fw_patch_table_8800d80.bin",
+		.wl_fw         = "aic/sdio/aic8800d80/fmacfw_8800d80.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u01)",
-		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80.bin",
-		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80.bin",
-		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80.bin",
-		.wl_fw         = "aic/aic8800d80/lmacfw_rf_8800d80.bin"
+		.bt_adid       = "aic/sdio/aic8800d80/fw_adid_8800d80.bin",
+		.bt_patch      = "aic/sdio/aic8800d80/fw_patch_8800d80.bin",
+		.bt_table      = "aic/sdio/aic8800d80/fw_patch_table_8800d80.bin",
+		.wl_fw         = "aic/sdio/aic8800d80/lmacfw_rf_8800d80.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic/aic8800d80/fmacfw_8800d80_u02.bin"
+		.bt_adid       = "aic/sdio/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/sdio/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/sdio/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/sdio/aic8800d80/fmacfw_8800d80_u02.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic/aic8800d80/lmacfw_rf_8800d80_u02.bin"
+		.bt_adid       = "aic/sdio/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/sdio/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/sdio/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/sdio/aic8800d80/lmacfw_rf_8800d80_u02.bin"
 	},
 };
 
 static const struct aicbsp_firmware fw_h_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic/aic8800d80/fmacfw_8800d80_h_u02.bin"
+		.bt_adid       = "aic/sdio/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/sdio/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/sdio/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/sdio/aic8800d80/fmacfw_8800d80_h_u02.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "aic/aic8800d80/fw_adid_8800d80_u02.bin",
-		.bt_patch      = "aic/aic8800d80/fw_patch_8800d80_u02.bin",
-		.bt_table      = "aic/aic8800d80/fw_patch_table_8800d80_u02.bin",
-		.wl_fw         = "aic/aic8800d80/lmacfw_rf_8800d80_u02.bin"
+		.bt_adid       = "aic/sdio/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/sdio/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/sdio/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/sdio/aic8800d80/lmacfw_rf_8800d80_u02.bin"
 	},
 };
 
 #elif defined(AICWF_USB_SUPPORT)
 
+static const struct aicbsp_firmware fw_u01[] = {
+	[AICBSP_CPMODE_WORK] = {
+		.desc          = "normal work mode(usb u01)",
+		.bt_adid       = "aic/usb/aic8800d80/fw_adid_8800d80.bin",
+		.bt_patch      = "aic/usb/aic8800d80/fw_patch_8800d80.bin",
+		.bt_table      = "aic/usb/aic8800d80/fw_patch_table_8800d80.bin",
+		.wl_fw         = "aic/usb/aic8800d80/fmacfw_8800d80.bin"
+	},
+
+	[AICBSP_CPMODE_TEST] = {
+		.desc          = "rf test mode(usb u01)",
+		.bt_adid       = "aic/usb/aic8800d80/fw_adid_8800d80.bin",
+		.bt_patch      = "aic/usb/aic8800d80/fw_patch_8800d80.bin",
+		.bt_table      = "aic/usb/aic8800d80/fw_patch_table_8800d80.bin",
+		.wl_fw         = "aic/usb/aic8800d80/lmacfw_rf_8800d80.bin"
+	},
+};
+
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(usb u02)",
-		.bt_adid       = "aic/fw_adid.bin",
-		.bt_patch      = "aic/fw_patch.bin",
-		.bt_table      = "aic/fw_patch_table.bin",
-		.wl_fw         = "aic/fmacfw_usb.bin"
+		.bt_adid       = "aic/usb/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/usb/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/usb/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/usb/aic8800d80/fmacfw_8800d80_u02.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(usb u02)",
-		.bt_adid       = "aic/fw_adid.bin",
-		.bt_patch      = "aic/fw_patch.bin",
-		.bt_table      = "aic/fw_patch_table.bin",
-		.wl_fw         = "aic/fmacfw_rf_usb.bin"
+		.bt_adid       = "aic/usb/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/usb/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/usb/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/usb/aic8800d80/lmacfw_rf_8800d80_u02.bin"
 	},
 };
 
-static const struct aicbsp_firmware fw_u03[] = {
+static const struct aicbsp_firmware fw_h_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
-		.desc          = "normal work mode(usb u03/u04)",
-		.bt_adid       = "aic/fw_adid_u03.bin",
-		.bt_patch      = "aic/fw_patch_u03.bin",
-		.bt_table      = "aic/fw_patch_table_u03.bin",
-		.wl_fw         = "aic/fmacfw_usb.bin"
+		.desc          = "normal work mode(usb u02)",
+		.bt_adid       = "aic/usb/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/usb/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/usb/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/usb/aic8800d80/fmacfw_8800d80_h_u02.bin"
 	},
 
 	[AICBSP_CPMODE_TEST] = {
-		.desc          = "rf test mode(usb u03/u04)",
-		.bt_adid       = "aic/fw_adid_u03.bin",
-		.bt_patch      = "aic/fw_patch_u03.bin",
-		.bt_table      = "aic/fw_patch_table_u03.bin",
-		.wl_fw         = "aic/fmacfw_rf_usb.bin"
+		.desc          = "rf test mode(usb u02)",
+		.bt_adid       = "aic/usb/aic8800d80/fw_adid_8800d80_u02.bin",
+		.bt_patch      = "aic/usb/aic8800d80/fw_patch_8800d80_u02.bin",
+		.bt_table      = "aic/usb/aic8800d80/fw_patch_table_8800d80_u02.bin",
+		.wl_fw         = "aic/usb/aic8800d80/lmacfw_rf_8800d80_u02.bin"
 	},
 };
 #endif
@@ -303,7 +334,6 @@ static int aicwifi_sys_config(struct priv_dev *aicdev)
 	}
 #endif
 
-#ifdef AICWF_SDIO_SUPPORT
 	syscfg_num = sizeof(syscfg_tbl_masked) / sizeof(u32) / 3;
 	for (cnt = 0; cnt < syscfg_num; cnt++) {
 		ret = rwnx_send_dbg_mem_mask_write_req(aicdev,
@@ -313,7 +343,6 @@ static int aicwifi_sys_config(struct priv_dev *aicdev)
 			return ret;
 		}
 	}
-#endif
 
 	syscfg_num = sizeof(rf_tbl_masked) / sizeof(u32) / 3;
 	for (cnt = 0; cnt < syscfg_num; cnt++) {
@@ -524,14 +553,8 @@ int aicbsp_8800d80_fw_init(struct priv_dev *aicdev)
 	const u32 mem_addr = 0x40500000;
 	struct dbg_mem_read_cfm rd_mem_addr_cfm;
 
-	uint8_t binding_status;
-	uint8_t dout[16];
 #ifdef AICWF_SDIO_SUPPORT
 	int ret = 0;
-#endif
-	need_binding_verify = false;
-
-#ifdef AICWF_SDIO_SUPPORT
 	if (rwnx_send_dbg_mem_write_req(aicdev, 0x40500058, 0x40))
 		return -1;
 	sdio_claim_host(aicdev->func[0]);
@@ -565,7 +588,6 @@ int aicbsp_8800d80_fw_init(struct priv_dev *aicdev)
 
 	printk("aicbsp: %s, rev id: 0x%x, subrev id: 0x%x, is_chip_id_h: %d\n", __func__, aicbsp_info.chipinfo->rev, aicbsp_info.chipinfo->subrev, aicbsp_info.chipinfo->is_chip_id_h);
 
-#if defined(AICWF_SDIO_SUPPORT)
 	if (aicbsp_info.chipinfo->is_chip_id_h) {
 		aicbsp_firmware_list = fw_h_u02;
 	} else {
@@ -574,12 +596,6 @@ int aicbsp_8800d80_fw_init(struct priv_dev *aicdev)
 		else if (aicbsp_info.chipinfo->rev == CHIP_REV_ID_U02 || aicbsp_info.chipinfo->rev == CHIP_REV_ID_U03)
 			aicbsp_firmware_list = fw_u02;
 	}
-#elif defined(AICWF_USB_SUPPORT)
-	if (aicbsp_info.chipinfo->rev == CHIP_REV_ID_U02)
-		 aicbsp_firmware_list = fw_u02;
-	else if (aicbsp_info.chipinfo->rev == CHIP_REV_ID_U03)
-		aicbsp_firmware_list = fw_u03;
-#endif
 
 	if (aicbsp_system_config(aicdev))
 		return -1;
@@ -589,36 +605,6 @@ int aicbsp_8800d80_fw_init(struct priv_dev *aicdev)
 
 	if (aicwifi_init(aicdev))
 		return -1;
-
-	if (need_binding_verify) {
-		printk("aicbsp: crypto data %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n",
-						binding_enc_data[0],  binding_enc_data[1],  binding_enc_data[2],  binding_enc_data[3],
-						binding_enc_data[4],  binding_enc_data[5],  binding_enc_data[6],  binding_enc_data[7],
-						binding_enc_data[8],  binding_enc_data[9],  binding_enc_data[10], binding_enc_data[11],
-						binding_enc_data[12], binding_enc_data[13], binding_enc_data[14], binding_enc_data[15]);
-
-		/* calculate verify data from crypto data */
-		if (wcn_bind_verify_calculate_verify_data(binding_enc_data, dout)) {
-			pr_err("aicbsp: %s, binding encrypt data incorrect\n", __func__);
-			return -1;
-		}
-
-		printk("aicbsp: verify data %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\n",
-						dout[0],  dout[1],  dout[2],  dout[3],
-						dout[4],  dout[5],  dout[6],  dout[7],
-						dout[8],  dout[9],  dout[10], dout[11],
-						dout[12], dout[13], dout[14], dout[15]);
-
-		if (rwnx_send_dbg_binding_req(aicdev, dout, &binding_status)) {
-			pr_err("aicbsp: %s, send binding request failn", __func__);
-			return -1;
-		}
-
-		if (binding_status) {
-			pr_err("aicbsp: %s, binding verify fail\n", __func__);
-			return -1;
-		}
-	}
 
 #ifdef AICWF_SDIO_SUPPORT
 #if defined(CONFIG_SDIO_PWRCTRL)

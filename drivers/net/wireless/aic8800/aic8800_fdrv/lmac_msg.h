@@ -2626,6 +2626,8 @@ enum {
 #ifdef CONFIG_USB_BT
 	HOST_START_APP_REBOOT,
 #endif // (CONFIG_USB_BT)
+	HOST_START_APP_FNCALL = 4,
+	HOST_START_APP_DUMMY  = 5,
 };
 
 ///////////////////////////////////////////////////////////////////////////////

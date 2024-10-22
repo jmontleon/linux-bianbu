@@ -3,7 +3,37 @@ config SND_SOC_SPACEMIT
 	select SND_SOC_COMPRESS
 	select SND_SOC_GENERIC_DMAENGINE_PCM if (SND_SOC && SND)
 	help
-	  Say Y or M here if you want support for audio on SPACEMIT SoC.
+	  Say Y or N here if you want support for audio on SPACEMIT SoC.
+
+config SPACEMIT_CARD
+        tristate "Audio Simple Card"
+        depends on SND_SOC_SPACEMIT
+        help
+          Say Y or M here if you want to enable audio data dump function
+
+config SPACEMIT_PCM
+        tristate "Audio Platform Pcm"
+        depends on SND_SOC_SPACEMIT
+        help
+          Say Y or M here if you want to enable audio data dump function
+
+config SPACEMIT_I2S
+        tristate "Audio Cpudai I2S"
+        depends on SND_SOC_SPACEMIT
+        help
+          Say Y or M here if you want to enable audio data dump function
+
+config SPACEMIT_HDMIAUDIO
+        tristate "Audio Cpudai HDMI Audio"
+        depends on SND_SOC_SPACEMIT
+        help
+          Say Y or M here if you want to enable audio data dump function
+
+config SPACEMIT_DUMMYCODEC
+        tristate "Audio CodecDai Dummy Codec"
+        depends on SND_SOC_SPACEMIT
+        help
+          Say Y or M here if you want to enable audio data dump function
 
 config SPACEMIT_AUDIO_DATA_DEBUG
         bool "Audio Data Dump"

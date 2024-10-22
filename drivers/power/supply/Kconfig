@@ -973,4 +973,13 @@ config CHARGER_QCOM_SMB2
 	  adds support for the SMB2 switch mode battery charger found
 	  in PMI8998 and related PMICs.
 
+config CHARGER_SGM415XX
+	tristate "Charger Driver for SGM415XX Charger IC"
+	default n
+	help
+	  Say Yes to enable SGM415XX driver.
+	  It is mainly used as cap divider charger
+	  for Mediatek Pump Express 5.0.
+	  It depends on config MTK_CHARGER
+
 endif # POWER_SUPPLY

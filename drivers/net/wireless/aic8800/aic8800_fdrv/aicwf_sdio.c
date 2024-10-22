@@ -1764,8 +1764,8 @@ void aicwf_sdio_func_deinit(struct aic_sdio_dev *sdiodev)
 	sdio_disable_func(sdiodev->func);
 	sdio_release_host(sdiodev->func);
 
-	if (sdiodev->rwnx_hw->chipid == PRODUCT_ID_AIC8800D || sdiodev->rwnx_hw->chipid == PRODUCT_ID_AIC8800DC ||
-			sdiodev->rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
+	if (aicwf_chipid == PRODUCT_ID_AIC8800D || aicwf_chipid == PRODUCT_ID_AIC8800DC ||
+			aicwf_chipid == PRODUCT_ID_AIC8800DW) {
 		sdio_claim_host(sdiodev->func2);
 		sdio_disable_func(sdiodev->func2);
 		sdio_release_host(sdiodev->func2);

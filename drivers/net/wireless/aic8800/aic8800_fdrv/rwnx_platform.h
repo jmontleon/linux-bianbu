@@ -77,6 +77,7 @@ struct rwnx_plat {
 
 #ifdef AICWF_USB_SUPPORT
 	struct aic_usb_dev *usbdev;
+	bool wait_disconnect_cb;
 #endif
 	bool enabled;
 
