@@ -5736,42 +5736,32 @@ static int proc_get_phy_adaptivity(struct seq_file *m, void *v)
 	return 0;
 }
 
-static char *phydm_msg = NULL;
 #define PHYDM_MSG_LEN	80*24*4
+static char phydm_msg[PHYDM_MSG_LEN];
 
-static int proc_get_phydm_cmd(struct seq_file *m, void *v)
+static int proc_get_phydm_cmd(struct seq_file *m, void *v, char *buf, size_t buf_len)
 {
 	struct net_device *netdev = m->private;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(netdev);
 
-	if (NULL == phydm_msg) {
+	if (!buf || strlen(buf) == 0) {
 		_RTW_PRINT_SEL(m, "(Nothing to output)\n");
 		return 0;
-#if 0
-		phydm_msg = rtw_zmalloc(PHYDM_MSG_LEN);
-		if (NULL == phydm_msg)
-			return -ENOMEM;
-
-		phydm_cmd(phydm, NULL, 0, 0, phydm_msg, PHYDM_MSG_LEN);
-#endif
 	}
 
-	_RTW_PRINT_SEL(m, "%s\n", phydm_msg);
-
-	rtw_mfree(phydm_msg, PHYDM_MSG_LEN);
-	phydm_msg = NULL;
-
+	_RTW_PRINT_SEL(m, "%s\n", buf);
 	return 0;
 }
 
 static int proc_get_phl_cmd(struct seq_file *m, void *v)
 {
-	return proc_get_phydm_cmd(m, v);
+	return proc_get_phydm_cmd(m, v, phydm_msg, PHYDM_MSG_LEN);
 }
 
 static ssize_t proc_set_phydm_cmd(struct file *file, char *buffer, size_t count,
 				  loff_t *pos, void *data,
-				  enum rtw_proc_cmd_type type)
+				  enum rtw_proc_cmd_type type,
+				  char *out_buf, size_t out_len)
 {
 	struct net_device *netdev = (struct net_device *)data;
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(netdev);
@@ -5781,24 +5771,14 @@ static ssize_t proc_set_phydm_cmd(struct file *file, char *buffer, size_t count,
 	if (count < 1)
 		return -EFAULT;
 
-	if (buffer) {
-		if (NULL == phydm_msg) {
-			phydm_msg = rtw_zmalloc(PHYDM_MSG_LEN);
-			if (NULL == phydm_msg)
-				return -ENOMEM;
-		} else
-			_rtw_memset(phydm_msg, 0, PHYDM_MSG_LEN);
+	if (buffer && out_buf) {
+		_rtw_memset(out_buf, 0, out_len);
 
 		cmd.in_type = RTW_ARG_TYPE_BUF;
 		cmd.in_cnt_len = count;
 		cmd.in.buf = buffer;
 
-		rtw_phl_proc_cmd(GET_PHL_INFO(dvobj), type, &cmd, phydm_msg, PHYDM_MSG_LEN);
-
-		if (strlen(phydm_msg) == 0) {
-			rtw_mfree(phydm_msg, PHYDM_MSG_LEN);
-			phydm_msg = NULL;
-		}
+		rtw_phl_proc_cmd(GET_PHL_INFO(dvobj), type, &cmd, out_buf, out_len);
 	}
 
 	return count;
@@ -5860,7 +5840,7 @@ static ssize_t proc_set_phl_cmd(struct file *file, const char __user *buffer, si
 		len--;
 	p[len++] = '\0';
 
-	ret = proc_set_phydm_cmd(file, p, len, pos, data, type);
+	ret = proc_set_phydm_cmd(file, p, len, pos, data, type, phydm_msg, PHYDM_MSG_LEN);
 
 err:
 	_rtw_mfree(buf, count + 1);
@@ -6020,11 +6000,6 @@ void rtw_odm_proc_deinit(_adapter  *adapter)
 	remove_proc_entry("odm", adapter->dir_dev);
 
 	adapter->dir_odm = NULL;
-
-	if (phydm_msg) {
-		rtw_mfree(phydm_msg, PHYDM_MSG_LEN);
-		phydm_msg = NULL;
-	}
 }
 
 struct proc_dir_entry *rtw_adapter_proc_init(struct net_device *dev)
@@ -6125,9 +6100,14 @@ void rtw_adapter_proc_replace(struct net_device *dev)
 
 static int proc_get_self_diag_info(struct seq_file *m, void *v)
 {
-	char *buf = NULL;
-	u32 cmd_len = 0;
+	char *buf = NULL, *out = NULL;
+	u32 cmd_len = 0, out_len = 0;
 	char* cmd_string;
+
+	out_len = PHYDM_MSG_LEN;
+	out = rtw_zmalloc(out_len);
+	if (out == NULL)
+		return -ENOMEM;
 
 	buf = _rtw_malloc(25);
 	if (buf) {
@@ -6138,9 +6118,10 @@ static int proc_get_self_diag_info(struct seq_file *m, void *v)
 		RTW_PRINT_SEL(m, "\n==================================[MAC info]==================================\n");
 		cmd_string = "wdt_log 3E";
 		cmd_len = strlen(cmd_string);
+		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_MAC);
-		proc_get_phl_cmd(m, v);
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_MAC, out, out_len);
+		proc_get_phydm_cmd(m, v, out, out_len);
 
 		/* BB */
 		RTW_PRINT_SEL(m, "=================================[BB info]==================================\n");
@@ -6148,22 +6129,22 @@ static int proc_get_self_diag_info(struct seq_file *m, void *v)
 		cmd_len = strlen(cmd_string);
 		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_BB);
-		proc_get_phl_cmd(m, v);
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_BB, out, out_len);
+		proc_get_phydm_cmd(m, v, out, out_len);
 
 		cmd_string = "auto_dbg query 2";
 		cmd_len = strlen(cmd_string);
 		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_BB);
-		proc_get_phl_cmd(m, v);
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_BB, out, out_len);
+		proc_get_phydm_cmd(m, v, out, out_len);
 
 		cmd_string = "auto_dbg query 3";
 		cmd_len = strlen(cmd_string);
 		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_BB);
-		proc_get_phl_cmd(m, v);
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_BB, out, out_len);
+		proc_get_phydm_cmd(m, v, out, out_len);
 
 		/* RF */
 		RTW_PRINT_SEL(m, "==================================[RF info]==================================\n");
@@ -6171,25 +6152,27 @@ static int proc_get_self_diag_info(struct seq_file *m, void *v)
 		cmd_len = strlen(cmd_string);
 		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_RF);
-		proc_get_phl_cmd(m, v);
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_RF, out, out_len);
+		proc_get_phydm_cmd(m, v, out, out_len);
 
 		cmd_string = "dz_dbg rtinfo";
 		cmd_len = strlen(cmd_string);
 		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_RF);
-		proc_get_phl_cmd(m, v);
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_RF, out, out_len);
+		proc_get_phydm_cmd(m, v, out, out_len);
 
 		cmd_string = "wdt_log 0";
 		cmd_len = strlen(cmd_string);
+		_rtw_memset(buf, 0, 25);
 		_rtw_memcpy(buf, cmd_string,  cmd_len);
-		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_MAC);
-
+		proc_set_phydm_cmd(NULL, buf, cmd_len, NULL, dev, RTW_PROC_CMD_MAC, phydm_msg, PHYDM_MSG_LEN);
 	}
 
 	_rtw_mfree(buf, 25);
 	buf = NULL;
+	rtw_mfree(out, out_len);
+	out = NULL;
 
 	RTW_PRINT_SEL(m,"==================================[driver info]==================================\n");
 	RTW_PRINT_SEL(m, "driver warn on count = %d \n\n", rtw_warn_on_cnt);
@@ -6213,6 +6196,7 @@ static ssize_t proc_set_self_diag_info(struct file *file, const char __user *buf
 	in_buf = _rtw_malloc(count + 1);
 	if (!in_buf)
 		return -ENOMEM;
+
 	if (copy_from_user(in_buf, buffer, count)){
 		_rtw_mfree(in_buf, count + 1);
 		return -EFAULT;
@@ -6225,14 +6209,14 @@ static ssize_t proc_set_self_diag_info(struct file *file, const char __user *buf
 	_rtw_mfree(in_buf, count + 1);
 
 	RTW_INFO("type : %s\n", type);
-
 	if (strcmp(type, "bb") == 0) {
-		char *buf = NULL;
+		char *buf = NULL, *out_buf = NULL;
 		u32 cmd_len = 0;
 		char* cmd_string;
 
 		buf = _rtw_malloc(25);
-		if (buf) {
+		out_buf = rtw_zmalloc(PHYDM_MSG_LEN);
+		if (buf && out_buf) {
 
 			struct net_device *dev = data;
 
@@ -6241,19 +6225,24 @@ static ssize_t proc_set_self_diag_info(struct file *file, const char __user *buf
 			cmd_len = strlen(cmd_string);
 			_rtw_memcpy(buf, cmd_string,  cmd_len);
 			_rtw_memcpy(buf+cmd_len-1, &val, 1);
-			proc_set_phydm_cmd(file, buf, cmd_len, pos, dev, RTW_PROC_CMD_BB);
+			proc_set_phydm_cmd(file, buf, cmd_len, pos, dev, RTW_PROC_CMD_BB, out_buf, PHYDM_MSG_LEN);
 
 			cmd_string = "auto_dbg type 3 0";
 			cmd_len = strlen(cmd_string);
 			_rtw_memset(buf, 0, 25);
 			_rtw_memcpy(buf, cmd_string,  cmd_len);
 			_rtw_memcpy(buf+cmd_len-1, &val, 1);
-			proc_set_phydm_cmd(file, buf, cmd_len, pos, dev, RTW_PROC_CMD_BB);
-
+			proc_set_phydm_cmd(file, buf, cmd_len, pos, dev, RTW_PROC_CMD_BB, out_buf, PHYDM_MSG_LEN);
 		}
 
-		_rtw_mfree(buf, 25);
-		buf = NULL;
+		if (out_buf != NULL) {
+			rtw_mfree(out_buf, PHYDM_MSG_LEN);
+			out_buf = NULL;
+		}
+		if (buf != NULL) {
+			_rtw_mfree(buf, 25);
+			buf = NULL;
+		}
 
 	}
 	else if (strcmp(type, "reset_drv_counter") == 0) {

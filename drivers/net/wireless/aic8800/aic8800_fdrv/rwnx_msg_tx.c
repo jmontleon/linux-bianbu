@@ -887,8 +887,8 @@ int rwnx_send_coex_req(struct rwnx_hw *rwnx_hw, u8_l disable_coexnull, u8_l enab
 	struct mm_set_coex_req *coex_req;
 	int error;
 
-	if ((rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800D80)
-		&& rwnx_hw->cpmode == AICBSP_CPMODE_TEST)
+	if ((rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 ||
+		rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) && rwnx_hw->cpmode == AICBSP_CPMODE_TEST)
 		return 0;
 
 	RWNX_DBG(RWNX_FN_ENTRY_STR);
@@ -964,7 +964,7 @@ int rwnx_send_rf_calib_req(struct rwnx_hw *rwnx_hw, struct mm_set_rf_calib_cfm *
 	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800DW) {
 		rf_calib_req->cal_cfg_24g = 0x0f8f;
 		rf_calib_req->cal_cfg_5g = 0;
-	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80) {
+	} else if (rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81) {
 		rf_calib_req->cal_cfg_24g = 0x0f8f;
 		rf_calib_req->cal_cfg_5g = 0x0f0f;
 	}
@@ -1375,7 +1375,7 @@ int rwnx_send_me_config_req(struct rwnx_hw *rwnx_hw)
 #endif
 	uint8_t *ht_mcs;
 	int i;
-	if ((rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800D80)
+	if ((rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81)
 		&& rwnx_hw->cpmode == AICBSP_CPMODE_TEST)
 		return 0;
 
@@ -1473,7 +1473,7 @@ int rwnx_send_me_chan_config_req(struct rwnx_hw *rwnx_hw)
 	struct wiphy *wiphy = rwnx_hw->wiphy;
 	int i;
 
-	if ((rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800D80)
+	if ((rwnx_hw->chipid == PRODUCT_ID_AIC8800DC || rwnx_hw->chipid == PRODUCT_ID_AIC8800D80 || rwnx_hw->chipid == PRODUCT_ID_AIC8800D81)
 		&& rwnx_hw->cpmode == AICBSP_CPMODE_TEST)
 		return 0;
 

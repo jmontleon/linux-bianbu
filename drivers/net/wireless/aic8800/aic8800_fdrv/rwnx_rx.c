@@ -362,6 +362,10 @@ static void rwnx_rx_data_skb_forward(struct rwnx_hw *rwnx_hw, struct rwnx_vif *r
 
 	//printk("forward\n");
 
+#ifdef CONFIG_ALIGN_8BYTES
+	rwnx_skb_align_8bytes(rx_skb);
+#endif
+
 	rx_skb->protocol = eth_type_trans(rx_skb, rwnx_vif->ndev);
 	memset(rx_skb->cb, 0, sizeof(rx_skb->cb));
 	REG_SW_SET_PROFILING(rwnx_hw, SW_PROF_IEEE80211RX);
@@ -506,6 +510,10 @@ static bool rwnx_rx_data_skb(struct rwnx_hw *rwnx_hw, struct rwnx_vif *rwnx_vif,
 			/* Update statistics */
 			rwnx_vif->net_stats.rx_packets++;
 			rwnx_vif->net_stats.rx_bytes += rx_skb->len;
+
+#ifdef CONFIG_ALIGN_8BYTES
+			rwnx_skb_align_8bytes(rx_skb);
+#endif
 
 			rx_skb->protocol = eth_type_trans(rx_skb, rwnx_vif->ndev);
 #ifdef AICWF_ARP_OFFLOAD
@@ -1335,6 +1343,10 @@ int reord_single_frame_ind(struct aicwf_rx_priv *rx_priv, struct recv_msdu *prfr
 		//printk("netif sn=%d, len=%d\n", precv_frame->attrib.seq_num, skb->len);
 
 		rx_skb->dev = rwnx_vif->ndev;
+
+#ifdef CONFIG_ALIGN_8BYTES
+		rwnx_skb_align_8bytes(rx_skb);
+#endif
 		rx_skb->protocol = eth_type_trans(rx_skb, rwnx_vif->ndev);
 
 #ifdef AICWF_ARP_OFFLOAD

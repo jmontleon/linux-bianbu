@@ -261,6 +261,16 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static int spacemit_snd_sspa_pdev_remove(struct platform_device *pdev)
+{
+	struct sspa_priv *priv = platform_get_drvdata(pdev);
+
+	pm_runtime_disable(&pdev->dev);
+	reset_control_assert(priv->rst);
+	snd_soc_unregister_component(&pdev->dev);
+	return 0;
+}
+
 #ifdef CONFIG_OF
 static const struct of_device_id spacemit_snd_sspa_ids[] = {
 	{ .compatible = "spacemit,spacemit-snd-sspa", },
@@ -274,27 +284,21 @@ static struct platform_driver spacemit_snd_sspa_pdrv = {
 		.of_match_table = of_match_ptr(spacemit_snd_sspa_ids),
 	},
 	.probe = spacemit_snd_sspa_pdev_probe,
+	.remove = spacemit_snd_sspa_pdev_remove,
 };
 
-#if IS_MODULE(CONFIG_SND_SOC_SPACEMIT)
-int spacemit_snd_register_sspa_pdrv(void)
-{
-	return platform_driver_register(&spacemit_snd_sspa_pdrv);
-}
-EXPORT_SYMBOL(spacemit_snd_register_sspa_pdrv);
-
-void spacemit_snd_unregister_sspa_pdrv(void)
+static void __exit spacemit_snd_sspa_exit(void)
 {
 	platform_driver_unregister(&spacemit_snd_sspa_pdrv);
 }
-EXPORT_SYMBOL(spacemit_snd_unregister_sspa_pdrv);
-#else
+module_exit(spacemit_snd_sspa_exit);
+
 static int spacemit_snd_sspa_init(void)
 {
 	return platform_driver_register(&spacemit_snd_sspa_pdrv);
 }
 late_initcall_sync(spacemit_snd_sspa_init);
-#endif
+
 
 MODULE_DESCRIPTION("SPACEMIT ASoC SSPA Driver");
 MODULE_LICENSE("GPL");

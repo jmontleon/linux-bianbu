@@ -348,6 +348,9 @@ struct DHCPInfo {
 
 u8 rwnx_rxdataind_aicwf(struct rwnx_hw *rwnx_hw, void *hostid, void *rx_priv);
 int aicwf_process_rxframes(struct aicwf_rx_priv *rx_priv);
+#ifdef CONFIG_USB_MSG_IN_EP
+int aicwf_process_msg_rxframes(struct aicwf_rx_priv *rx_priv);
+#endif
 
 #ifdef AICWF_ARP_OFFLOAD
 void arpoffload_proc(struct sk_buff *skb, struct rwnx_vif *rwnx_vif);

@@ -19,8 +19,18 @@
 
 /* USB Device ID */
 #define USB_VENDOR_ID_AIC               0xA69C
-#define USB_DEVICE_ID_AIC               0x8800
+#define USB_VENDOR_ID_AIC_V2            0x368B
+
+#define USB_DEVICE_ID_AIC_8800          0x8800
 #define USB_DEVICE_ID_AIC_8801          0x8801
+
+#define USB_DEVICE_ID_AIC_8800D80       0x8D80
+#define USB_DEVICE_ID_AIC_8800D81       0x8D81
+#define USB_DEVICE_ID_AIC_8800D40       0x8D40
+#define USB_DEVICE_ID_AIC_8800D41       0x8D41
+
+#define USB_DEVICE_ID_AIC_8800D80X2     0x8D90
+#define USB_DEVICE_ID_AIC_8800D81X2     0x8D91
 
 #define AICWF_USB_RX_URBS               (20)
 #define AICWF_USB_TX_URBS               (100)
@@ -33,7 +43,8 @@ typedef enum {
 	PRIV_TYPE_DATA         = 0X00,
 	PRIV_TYPE_CFG          = 0X10,
 	PRIV_TYPE_CFG_CMD_RSP  = 0X11,
-	PRIV_TYPE_CFG_DATA_CFM = 0X12
+	PRIV_TYPE_CFG_DATA_CFM = 0X12,
+	PRIV_TYPE_CFG_PRINT    = 0X13
 } priv_type;
 
 enum aicwf_usb_state {
@@ -91,6 +102,7 @@ struct priv_dev {
 
 	bool tbusy;
 	bool app_cmp;
+	u32 fw_version_uint;
 };
 
 void *aicbsp_get_drvdata(void *args);

@@ -481,23 +481,24 @@ static u32 patch_tbl_rf_func[][2] = {
 	{0x00110bf0, 0x00180001},
 };
 
+#if defined(AICWF_SDIO_SUPPORT)
 static const struct aicbsp_firmware fw_u01[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u01)",
-		.bt_adid       = "aic/aic8800dc/fw_adid_8800dc.bin",
-		.bt_patch      = "aic/aic8800dc/fw_patch_8800dc.bin",
-		.bt_table      = "aic/aic8800dc/fw_patch_table_8800dc.bin",
-		.wl_fw         = "aic/aic8800dc/fmacfw_patch_8800dc.bin",
-		.wl_table      = "aic/aic8800dc/fmacfw_patch_tbl_8800dc.bin",
+		.bt_adid       = "aic/sdio/aic8800dc/fw_adid_8800dc.bin",
+		.bt_patch      = "aic/sdio/aic8800dc/fw_patch_8800dc.bin",
+		.bt_table      = "aic/sdio/aic8800dc/fw_patch_table_8800dc.bin",
+		.wl_fw         = "aic/sdio/aic8800dc/fmacfw_patch_8800dc.bin",
+		.wl_table      = "aic/sdio/aic8800dc/fmacfw_patch_tbl_8800dc.bin",
 		.wl_calib      = NULL,
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u01)",
-		.bt_adid       = "aic/aic8800dc/fw_adid_8800dc.bin",
-		.bt_patch      = "aic/aic8800dc/fw_patch_8800dc.bin",
-		.bt_table      = "aic/aic8800dc/fw_patch_table_8800dc.bin",
-		.wl_fw         = "aic/aic8800dc/fmacfw_rf_8800dc.bin",
+		.bt_adid       = "aic/sdio/aic8800dc/fw_adid_8800dc.bin",
+		.bt_patch      = "aic/sdio/aic8800dc/fw_patch_8800dc.bin",
+		.bt_table      = "aic/sdio/aic8800dc/fw_patch_table_8800dc.bin",
+		.wl_fw         = "aic/sdio/aic8800dc/fmacfw_rf_8800dc.bin",
 		.wl_table      = NULL,
 		.wl_calib      = NULL,
 	},
@@ -506,46 +507,115 @@ static const struct aicbsp_firmware fw_u01[] = {
 static const struct aicbsp_firmware fw_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio u02)",
-		.bt_adid       = "aic/aic8800dc/fw_adid_8800dc_u02.bin",
-		.bt_patch      = "aic/aic8800dc/fw_patch_8800dc_u02.bin",
-		.bt_table      = "aic/aic8800dc/fw_patch_table_8800dc_u02.bin",
-		.wl_fw         = "aic/aic8800dc/fmacfw_patch_8800dc_u02.bin",
-		.wl_table      = "aic/aic8800dc/fmacfw_patch_tbl_8800dc_u02.bin",
-		.wl_calib      = "aic/aic8800dc/fmacfw_calib_8800dc_u02.bin",
+		.bt_adid       = "aic/sdio/aic8800dc/fw_adid_8800dc_u02.bin",
+		.bt_patch      = "aic/sdio/aic8800dc/fw_patch_8800dc_u02.bin",
+		.bt_table      = "aic/sdio/aic8800dc/fw_patch_table_8800dc_u02.bin",
+		.wl_fw         = "aic/sdio/aic8800dc/fmacfw_patch_8800dc_u02.bin",
+		.wl_table      = "aic/sdio/aic8800dc/fmacfw_patch_tbl_8800dc_u02.bin",
+		.wl_calib      = "aic/sdio/aic8800dc/fmacfw_calib_8800dc_u02.bin",
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio u02)",
-		.bt_adid       = "aic/aic8800dc/fw_adid_8800dc_u02.bin",
-		.bt_patch      = "aic/aic8800dc/fw_patch_8800dc_u02.bin",
-		.bt_table      = "aic/aic8800dc/fw_patch_table_8800dc_u02.bin",
-		.wl_fw         = "aic/aic8800dc/lmacfw_rf_8800dc.bin",
+		.bt_adid       = "aic/sdio/aic8800dc/fw_adid_8800dc_u02.bin",
+		.bt_patch      = "aic/sdio/aic8800dc/fw_patch_8800dc_u02.bin",
+		.bt_table      = "aic/sdio/aic8800dc/fw_patch_table_8800dc_u02.bin",
+		.wl_fw         = "aic/sdio/aic8800dc/lmacfw_rf_8800dc.bin",
 		.wl_table      = NULL,
-		.wl_calib      = "aic/aic8800dc/fmacfw_calib_8800dc_u02.bin",
+		.wl_calib      = "aic/sdio/aic8800dc/fmacfw_calib_8800dc_u02.bin",
 	},
 };
 
 static const struct aicbsp_firmware fw_h_u02[] = {
 	[AICBSP_CPMODE_WORK] = {
 		.desc          = "normal work mode(sdio h u02)",
-		.bt_adid       = "aic/aic8800dc/fw_adid_8800dc_u02h.bin",
-		.bt_patch      = "aic/aic8800dc/fw_patch_8800dc_u02h.bin",
-		.bt_table      = "aic/aic8800dc/fw_patch_table_8800dc_u02h.bin",
-		.wl_fw         = "aic/aic8800dc/fmacfw_patch_8800dc_h_u02.bin",
-		.wl_table      = "aic/aic8800dc/fmacfw_patch_tbl_8800dc_h_u02.bin",
-		.wl_calib      = "aic/aic8800dc/fmacfw_calib_8800dc_h_u02.bin",
+		.bt_adid       = "aic/sdio/aic8800dc/fw_adid_8800dc_u02h.bin",
+		.bt_patch      = "aic/sdio/aic8800dc/fw_patch_8800dc_u02h.bin",
+		.bt_table      = "aic/sdio/aic8800dc/fw_patch_table_8800dc_u02h.bin",
+		.wl_fw         = "aic/sdio/aic8800dc/fmacfw_patch_8800dc_h_u02.bin",
+		.wl_table      = "aic/sdio/aic8800dc/fmacfw_patch_tbl_8800dc_h_u02.bin",
+		.wl_calib      = "aic/sdio/aic8800dc/fmacfw_calib_8800dc_h_u02.bin",
 	},
 
 	[AICBSP_CPMODE_TEST] = {
 		.desc          = "rf test mode(sdio h u02)",
-		.bt_adid       = "aic/aic8800dc/fw_adid_8800dc_u02h.bin",
-		.bt_patch      = "aic/aic8800dc/fw_patch_8800dc_u02h.bin",
-		.bt_table      = "aic/aic8800dc/fw_patch_table_8800dc_u02h.bin",
-		.wl_fw         = "aic/aic8800dc/lmacfw_rf_8800dc.bin",
+		.bt_adid       = "aic/sdio/aic8800dc/fw_adid_8800dc_u02h.bin",
+		.bt_patch      = "aic/sdio/aic8800dc/fw_patch_8800dc_u02h.bin",
+		.bt_table      = "aic/sdio/aic8800dc/fw_patch_table_8800dc_u02h.bin",
+		.wl_fw         = "aic/sdio/aic8800dc/lmacfw_rf_8800dc.bin",
 		.wl_table      = NULL,
-		.wl_calib      = "aic/aic8800dc/fmacfw_calib_8800dc_h_u02.bin",
+		.wl_calib      = "aic/sdio/aic8800dc/fmacfw_calib_8800dc_h_u02.bin",
 	},
 };
+
+#elif defined(AICWF_USB_SUPPORT)
+static const struct aicbsp_firmware fw_u01[] = {
+	[AICBSP_CPMODE_WORK] = {
+		.desc          = "normal work mode(usb u01)",
+		.bt_adid       = "aic/usb/aic8800dc/fw_adid_8800dc.bin",
+		.bt_patch      = "aic/usb/aic8800dc/fw_patch_8800dc.bin",
+		.bt_table      = "aic/usb/aic8800dc/fw_patch_table_8800dc.bin",
+		.wl_fw         = "aic/usb/aic8800dc/fmacfw_patch_8800dc.bin",
+		.wl_table      = "aic/usb/aic8800dc/fmacfw_patch_tbl_8800dc.bin",
+		.wl_calib      = NULL,
+	},
+
+	[AICBSP_CPMODE_TEST] = {
+		.desc          = "rf test mode(usb u01)",
+		.bt_adid       = "aic/usb/aic8800dc/fw_adid_8800dc.bin",
+		.bt_patch      = "aic/usb/aic8800dc/fw_patch_8800dc.bin",
+		.bt_table      = "aic/usb/aic8800dc/fw_patch_table_8800dc.bin",
+		.wl_fw         = "aic/usb/aic8800dc/fmacfw_rf_8800dc.bin",
+		.wl_table      = NULL,
+		.wl_calib      = NULL,
+	},
+};
+
+static const struct aicbsp_firmware fw_u02[] = {
+	[AICBSP_CPMODE_WORK] = {
+		.desc          = "normal work mode(usb u02)",
+		.bt_adid       = "aic/usb/aic8800dc/fw_adid_8800dc_u02.bin",
+		.bt_patch      = "aic/usb/aic8800dc/fw_patch_8800dc_u02.bin",
+		.bt_table      = "aic/usb/aic8800dc/fw_patch_table_8800dc_u02.bin",
+		.wl_fw         = "aic/usb/aic8800dc/fmacfw_patch_8800dc_u02.bin",
+		.wl_table      = "aic/usb/aic8800dc/fmacfw_patch_tbl_8800dc_u02.bin",
+		.wl_calib      = "aic/usb/aic8800dc/fmacfw_calib_8800dc_u02.bin",
+	},
+
+	[AICBSP_CPMODE_TEST] = {
+		.desc          = "rf test mode(usb u02)",
+		.bt_adid       = "aic/usb/aic8800dc/fw_adid_8800dc_u02.bin",
+		.bt_patch      = "aic/usb/aic8800dc/fw_patch_8800dc_u02.bin",
+		.bt_table      = "aic/usb/aic8800dc/fw_patch_table_8800dc_u02.bin",
+		.wl_fw         = "aic/usb/aic8800dc/lmacfw_rf_8800dc.bin",
+		.wl_table      = NULL,
+		.wl_calib      = "aic/usb/aic8800dc/fmacfw_calib_8800dc_u02.bin",
+	},
+};
+
+static const struct aicbsp_firmware fw_h_u02[] = {
+	[AICBSP_CPMODE_WORK] = {
+		.desc          = "normal work mode(usb h u02)",
+		.bt_adid       = "usb/aic8800dc/fw_adid_8800dc_u02h.bin",
+		.bt_patch      = "usb/aic8800dc/fw_patch_8800dc_u02h.bin",
+		.bt_table      = "usb/aic8800dc/fw_patch_table_8800dc_u02h.bin",
+		.wl_fw         = "usb/aic8800dc/fmacfw_patch_8800dc_h_u02.bin",
+		.wl_table      = "usb/aic8800dc/fmacfw_patch_tbl_8800dc_h_u02.bin",
+		.wl_calib      = "usb/aic8800dc/fmacfw_calib_8800dc_h_u02.bin",
+	},
+
+	[AICBSP_CPMODE_TEST] = {
+		.desc          = "rf test mode(usb h u02)",
+		.bt_adid       = "usb/aic8800dc/fw_adid_8800dc_u02h.bin",
+		.bt_patch      = "usb/aic8800dc/fw_patch_8800dc_u02h.bin",
+		.bt_table      = "usb/aic8800dc/fw_patch_table_8800dc_u02h.bin",
+		.wl_fw         = "usb/aic8800dc/lmacfw_rf_8800dc.bin",
+		.wl_table      = NULL,
+		.wl_calib      = "usb/aic8800dc/fmacfw_calib_8800dc_h_u02.bin",
+	},
+};
+
+#endif
 
 static int aic8800dc_wifi_patch_table_load(struct priv_dev *aicdev, const char *filename)
 {

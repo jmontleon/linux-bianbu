@@ -203,6 +203,18 @@
 #define CLK_RCPU_UART0      190
 #define CLK_RCPU_UART1      191
 
+#define CLK_DPLL1           192
+#define CLK_DPLL2           193
 
-#define CLK_MAX_NO      192
+#define CLK_DFC_LVL0        194
+#define CLK_DFC_LVL1        195
+#define CLK_DFC_LVL2        196
+#define CLK_DFC_LVL3        197
+#define CLK_DFC_LVL4        198
+#define CLK_DFC_LVL5        199
+#define CLK_DFC_LVL6        200
+#define CLK_DFC_LVL7        201
+#define CLK_DDR             202
+
+#define CLK_MAX_NO      203
 #endif /* _DT_BINDINGS_CLK_SPACEMIT_K1X_H_ */

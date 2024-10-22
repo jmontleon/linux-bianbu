@@ -390,7 +390,9 @@ static void spacemit_plane_reset(struct drm_plane *plane)
 	if (plane->state) {
 		s = to_spacemit_plane_state(plane->state);
 		dpu = crtc_to_dpu(plane->crtc);
-		trace_spacemit_plane_reset(dpu->dev_id);
+		if (dpu)
+			trace_spacemit_plane_reset(dpu->dev_id);
+
 		__drm_atomic_helper_plane_destroy_state(plane->state);
 		kfree(s);
 		plane->state = NULL;
@@ -416,7 +418,8 @@ spacemit_plane_atomic_duplicate_state(struct drm_plane *plane)
 
 	if (plane->crtc) {
 		dpu = crtc_to_dpu(plane->crtc);
-		trace_spacemit_plane_atomic_duplicate_state(dpu->dev_id);
+		if (dpu)
+			trace_spacemit_plane_atomic_duplicate_state(dpu->dev_id);
 	}
 	DRM_DEBUG("%s()\n", __func__);
 
@@ -472,7 +475,8 @@ static void spacemit_plane_atomic_destroy_state(struct drm_plane *plane,
 		if (spacemit_pstate->cl.va)
 			dma_free_coherent(dpu->dev, spacemit_pstate->cl.size, \
 					  spacemit_pstate->cl.va, spacemit_pstate->cl.pa);
-		trace_spacemit_plane_atomic_destroy_state(dpu->dev_id);
+		if (dpu)
+			trace_spacemit_plane_atomic_destroy_state(dpu->dev_id);
 	}
 	__drm_atomic_helper_plane_destroy_state(state);
 

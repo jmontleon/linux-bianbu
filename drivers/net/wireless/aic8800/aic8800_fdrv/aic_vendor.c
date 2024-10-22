@@ -380,7 +380,7 @@ static int aicwf_vendor_subcmd_get_feature_set(struct wiphy *wiphy, struct wirel
 	/*bit 21:WiFi mkeep_alive*/
 	feature |= WIFI_FEATURE_MKEEP_ALIVE;
 
-#ifdef AICWF_LATENCY_MODE
+#if defined(AICWF_LATENCY_MODE) && defined(AICWF_SDIO_SUPPORT)
 	feature |= WIFI_FEATURE_SET_LATENCY_MODE;
 #endif
 	if (nla_put_u32(reply, ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET, feature)) {
@@ -616,7 +616,7 @@ static int aicwf_vendor_sub_cmd_set_mac(struct wiphy *wiphy, struct wireless_dev
 	return ret;
 }
 
-#ifdef AICWF_LATENCY_MODE
+#if defined(AICWF_LATENCY_MODE) && defined(AICWF_SDIO_SUPPORT)
 static int aicwf_vendor_subcmd_set_latency_mode(struct wiphy *wiphy,
 	struct wireless_dev *wdev, const void *data, int len)
 {
@@ -897,7 +897,7 @@ const struct wiphy_vendor_command aicwf_vendor_cmd[] = {
 		.maxattr = WIFI_VENDOR_ATTR_DRIVER_MAX,
 #endif
 	},
-#ifdef AICWF_LATENCY_MODE
+#if defined(AICWF_LATENCY_MODE) && defined(AICWF_SDIO_SUPPORT)
 	{
 		{
 			.vendor_id = GOOGLE_OUI,

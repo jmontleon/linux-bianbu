@@ -323,6 +323,7 @@ int  aicbsp_platform_init(struct priv_dev *aicdev);
 void aicbsp_platform_deinit(struct priv_dev *aicdev);
 int  aicbsp_driver_fw_init(struct priv_dev *aicdev);
 int  aicbsp_system_reboot(struct priv_dev *aicdev);
+int  rwnx_send_reboot(struct priv_dev *aicdev);
 int  aicbsp_device_init(void);
 void aicbsp_device_exit(void);
 
@@ -468,7 +469,6 @@ struct aicbsp_info_t {
 };
 
 int aicbsp_8800d_fw_init(struct priv_dev *aicdev);
-int aicbsp_8800d_system_reboot(struct priv_dev *aicdev);
 int aicbsp_8800dc_fw_init(struct priv_dev *aicdev);
 int aicbsp_8800d80_fw_init(struct priv_dev *aicdev);
 
