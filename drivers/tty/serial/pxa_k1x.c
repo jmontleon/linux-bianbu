@@ -514,6 +514,7 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 	if ((status & UART_MSR_ANY_DELTA) == 0)
 		return;
 
+	spin_lock(&up->port.lock);
 	if (status & UART_MSR_TERI)
 		up->port.icount.rng++;
 	if (status & UART_MSR_DDSR)
@@ -522,6 +523,7 @@ static inline void check_modem_status(struct uart_pxa_port *up)
 		uart_handle_dcd_change(&up->port, status & UART_MSR_DCD);
 	if (status & UART_MSR_DCTS)
 		uart_handle_cts_change(&up->port, status & UART_MSR_CTS);
+	spin_unlock(&up->port.lock);
 
 	wake_up_interruptible(&up->port.state->port.delta_msr_wait);
 }
