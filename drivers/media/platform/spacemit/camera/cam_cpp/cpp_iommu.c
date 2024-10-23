@@ -266,7 +266,7 @@ cpp_iommu_map_buffer_and_add_to_list(struct cpp_iommu_device *mmu_dev, int fd,
 	//      dba->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	/* get the associated scatterlist for this buffer */
-	sgt = dma_buf_map_attachment(dba, dma_dir);
+	sgt = dma_buf_map_attachment_unlocked(dba, dma_dir);
 	if (IS_ERR(sgt)) {
 		pr_err("Error getting dmabuf scatterlist, %ld\n", PTR_ERR(sgt));
 		dma_buf_detach(dbuf, dba);
@@ -309,7 +309,7 @@ cpp_iommu_map_buffer_and_add_to_list(struct cpp_iommu_device *mmu_dev, int fd,
 	return 0;
 
 err_alloc:
-	dma_buf_unmap_attachment(dba, sgt, dma_dir);
+	dma_buf_unmap_attachment_unlocked(dba, sgt, dma_dir);
 	dma_buf_detach(dbuf, dba);
 	dma_buf_put(dbuf);
 
@@ -390,7 +390,7 @@ static int cpp_iommu_unmap_buffer_and_remove_from_list(struct cam_dmabuf_info
 		return -EINVAL;
 	}
 
-	dma_buf_unmap_attachment(mapping_info->attach, mapping_info->table,
+	dma_buf_unmap_attachment_unlocked(mapping_info->attach, mapping_info->table,
 				 mapping_info->dir);
 	dma_buf_detach(mapping_info->buf, mapping_info->attach);
 	dma_buf_put(mapping_info->buf);
