@@ -393,7 +393,9 @@ void rtw_update_wiphy_regd(struct wiphy *wiphy, struct get_chplan_resp *chplan, 
 		rtnl_lock();
 
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 12, 0))
+	wiphy_lock(wiphy);
 	ret = regulatory_set_wiphy_regd_sync(wiphy, regd);
+	wiphy_unlock(wiphy);
 	#else
 	ret = regulatory_set_wiphy_regd_sync_rtnl(wiphy, regd);
 	#endif
