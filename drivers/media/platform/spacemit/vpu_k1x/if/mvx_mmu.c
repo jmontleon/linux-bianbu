@@ -866,7 +866,7 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages_dma_buf(struct device *dev,
 		return (struct mvx_mmu_pages *)attach;
 	}
 
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
 			      "Failed to get SG table from DMA buffer.");
@@ -890,7 +890,7 @@ struct mvx_mmu_pages *mvx_mmu_alloc_pages_dma_buf(struct device *dev,
 	list_add_tail(&mbuf->head, &pages->dmabuf);
 
 unmap:
-	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment_unlocked(attach, sgt, DMA_BIDIRECTIONAL);
 
 detach:
 	dma_buf_detach(dmabuf, attach);
@@ -920,7 +920,7 @@ int mvx_mmu_pages_append_dma_buf(struct mvx_mmu_pages *pages,
 		return PTR_ERR(attach);
 	}
 
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		MVX_LOG_PRINT(&mvx_log_if, MVX_LOG_WARNING,
 			      "Failed to get SG table from DMA buffer.");
@@ -947,7 +947,7 @@ int mvx_mmu_pages_append_dma_buf(struct mvx_mmu_pages *pages,
 	list_add_tail(&mbuf->head, &pages->dmabuf);
 
 unmap:
-	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment_unlocked(attach, sgt, DMA_BIDIRECTIONAL);
 
 detach:
 	dma_buf_detach(dmabuf, attach);
