@@ -658,7 +658,7 @@ static dma_addr_t get_addr_from_fd(struct jpu_device *jpu_dev, int fd,
 		pr_err("jpu get dma buf attach fail\n");
 		goto err_dmabuf_put;
 	}
-	pInfo->sgtable = dma_buf_map_attachment(pInfo->attach, DMA_BIDIRECTIONAL);
+	pInfo->sgtable = dma_buf_map_attachment_unlocked(pInfo->attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(pInfo->sgtable)) {
 		pr_err("jpu get dma buf map attachment fail\n");
 		goto err_dmabuf_detach;
@@ -683,7 +683,7 @@ static dma_addr_t get_addr_from_fd(struct jpu_device *jpu_dev, int fd,
 	}
 	return addr + offset;
 err_dmabuf_unmap:
-	dma_buf_unmap_attachment(pInfo->attach, pInfo->sgtable, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment_unlocked(pInfo->attach, pInfo->sgtable, DMA_BIDIRECTIONAL);
 err_dmabuf_detach:
 	dma_buf_detach(pInfo->dmabuf, pInfo->attach);
 err_dmabuf_put:
@@ -1040,7 +1040,7 @@ static long jpu_ioctl(struct file *filp, u_int cmd, u_long arg)
 			sg_table = pInfo.sgtable;
 
 			if (dmabuf && attach && sg_table) {
-				dma_buf_unmap_attachment(attach, sg_table, DMA_BIDIRECTIONAL);
+				dma_buf_unmap_attachment_unlocked(attach, sg_table, DMA_BIDIRECTIONAL);
 				dma_buf_detach(dmabuf, attach);
 				dma_buf_put(dmabuf);
 			}
