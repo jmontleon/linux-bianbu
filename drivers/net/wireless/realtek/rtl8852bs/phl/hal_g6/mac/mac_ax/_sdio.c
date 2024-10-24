@@ -593,6 +593,11 @@ u32 r_indir_cmd53_sdio(struct mac_ax_adapter *adapter, u32 adr)
 		PLTFM_MSG_ERR("[ERR]addr 0x%x = 0xdeadbeef\n", dw_adr);
 		PLTFM_SDIO_CMD53_W32(R_AX_CK_EN, CMAC_CLK_ALLEN);
 		count++;
+		if (num_online_cpus() == 1)
+			rtw_msleep_os(5);
+		else {
+			rtw_usleep_os(200);
+		}
 	}
 
 	return (dw >> dw_sh);
@@ -792,6 +797,11 @@ u32 tx_allow_data_ch(struct mac_ax_adapter *adapter,
 			pub_info->wp_aval -= info->ple_rqd_num;
 			break;
 		}
+		if (num_online_cpus() == 1)
+			rtw_msleep_os(5);
+		else {
+			rtw_usleep_os(200);
+		}
 		p_ops->ud_fs(adapter);
 		cnt--;
 	} while (cnt);
@@ -816,6 +826,11 @@ u32 tx_allow_fwcmd_ch(struct mac_ax_adapter *adapter,
 		if (ch_info[MAC_AX_DMA_H2C].aval >= info->ple_rqd_num) {
 			ch_info[MAC_AX_DMA_H2C].aval -= info->ple_rqd_num;
 			break;
+		}
+		if (num_online_cpus() == 1)
+			rtw_msleep_os(5);
+		else {
+			rtw_usleep_os(200);
 		}
 		p_ops->ud_fs(adapter);
 		cnt--;
