@@ -1490,6 +1490,57 @@ static int pcs_irq_set_wake(struct irq_data *d, unsigned int state)
 	return 0;
 }
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static inline void _pcs_irq_set_type(struct pcs_soc_data *pcs_soc,
+			       int irq, int flow_type)
+{
+	struct pcs_device *pcs;
+	struct list_head *pos;
+	unsigned mask;
+
+	pcs = container_of(pcs_soc, struct pcs_device, socdata);
+	list_for_each(pos, &pcs->irqs) {
+		struct pcs_interrupt *pcswi;
+		unsigned soc_mask;
+
+		pcswi = list_entry(pos, struct pcs_interrupt, node);
+		if (irq != pcswi->irq)
+			continue;
+
+		soc_mask = pcs_soc->irq_enable_mask;
+		raw_spin_lock(&pcs->lock);
+		mask = pcs->read(pcswi->reg);
+
+		if (flow_type == IRQ_TYPE_EDGE_RISING) {
+			mask |= (1 << EDGE_RISE_EN);
+		} else {
+			mask &= ~(1 << EDGE_RISE_EN);
+		}
+
+		if (flow_type == IRQ_TYPE_EDGE_FALLING) {
+			mask |= (1 << EDGE_FALL_EN);
+		} else {
+			mask &= ~(1 << EDGE_FALL_EN);
+		}
+
+		pcs->write(mask, pcswi->reg);
+
+		/* flush posted write */
+		mask = pcs->read(pcswi->reg);
+		raw_spin_unlock(&pcs->lock);
+	}
+}
+
+static int pcs_irq_set_type(struct irq_data *d, unsigned int flow_type)
+{
+	struct pcs_soc_data *pcs_soc = irq_data_get_irq_chip_data(d);
+
+	_pcs_irq_set_type(pcs_soc, d->irq, flow_type);
+
+	return 0;
+}
+#endif
+
 /**
  * pcs_irq_handle() - common interrupt handler
  * @pcs_soc: SoC specific settings
@@ -1632,6 +1683,10 @@ static int pcs_irq_init_chained_handler(struct pcs_device *pcs,
 	pcs->chip.irq_mask = pcs_irq_mask;
 	pcs->chip.irq_unmask = pcs_irq_unmask;
 	pcs->chip.irq_set_wake = pcs_irq_set_wake;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	pcs->chip.flags = IRQCHIP_SKIP_SET_WAKE;
+	pcs->chip.irq_set_type = pcs_irq_set_type;
+#endif
 
 	if (PCS_QUIRK_HAS_SHARED_IRQ) {
 		int res;
@@ -2025,7 +2080,7 @@ static int pcs_probe(struct platform_device *pdev)
 	dev_info(pcs->dev, "%i pins, size %u\n", pcs->desc.npins, pcs->size);
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-	dev_pm_set_wake_irq(&pdev->dev, pcs->socdata.irq );
+	dev_pm_set_wake_irq(&pdev->dev, pcs->socdata.irq);
 	device_init_wakeup(&pdev->dev, true);
 #endif
 
