@@ -22,7 +22,7 @@
                 work-mode = <0>;
                 rgb-mode = <3>;
                 lane-number = <4>;
-                phy-bit-clock = <614400000>;
+                phy-bit-clock = <500000000>;
                 split-enable = <0>;
                 eotp-enable = <0>;
                 burst-mode = <2>;
@@ -260,7 +260,7 @@
 
                 display-timings {
                         timing0 {
-                                clock-frequency = <76800000>;
+                                clock-frequency = <70000000>;
                                 hactive = <800>;
                                 hfront-porch = <40>;
                                 hback-porch = <20>;
