@@ -38,7 +38,10 @@
 	};
 
 	hdmi: hdmi@C0400500 {
-		compatible = "spacemit,hdmi";
+		compatible = "spacemit,hdmi", "simple-bus";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
 		reg = <0 0xC0400500 0 0x200>;
 		interrupt-parent = <&intc>;
 		interrupts = <136>;
@@ -57,6 +60,19 @@
 				reg = <0>;
 				remote-endpoint = <&dpu_online2_hdmi_out>;
 			};
+		};
+
+		hdmiaudio: spacemit_snd_sspa@C0883900 {
+			compatible = "spacemit,spacemit-snd-sspa";
+			reg = <0 0xc0883900 0 0x300>,
+				<0 0xc0882000 0 0x50>;
+			clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
+			resets = <&reset RESET_RCPU_HDMIAUDIO>;
+			assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
+			assigned-clock-rates = <48000>;
+			power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
+			#sound-dai-cells = <0>;
+			status = "disabled";
 		};
 	};
 };
