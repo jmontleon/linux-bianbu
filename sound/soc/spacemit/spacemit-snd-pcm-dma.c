@@ -1397,7 +1397,7 @@ static int spacemit_snd_pcm_init(void)
 {
 	return platform_driver_register(&spacemit_snd_dma_pdrv);
 }
-late_initcall_sync(spacemit_snd_pcm_init);
+late_initcall(spacemit_snd_pcm_init);
 
 #ifdef CONFIG_SPACEMIT_AUDIO_DATA_DEBUG
 
