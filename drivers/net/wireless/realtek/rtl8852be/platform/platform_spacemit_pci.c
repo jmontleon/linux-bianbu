@@ -23,7 +23,7 @@ extern int spacemit_wlan_set_power(int on);
 void pci_cache_wback(struct pci_dev *hwdev,
 			dma_addr_t *bus_addr, size_t size, int direction)
 {
-	if (NULL != hwdev && NULL != bus_addr) {
+	if (NULL != hwdev && NULL != bus_addr && *bus_addr != DMA_MAPPING_ERROR) {
 	  	dma_sync_single_for_device(&hwdev->dev, *bus_addr, size,
 					direction);
 	} else
@@ -32,7 +32,7 @@ void pci_cache_wback(struct pci_dev *hwdev,
 void pci_cache_inv(struct pci_dev *hwdev,
 			dma_addr_t *bus_addr, size_t size, int direction)
 {
-	if (NULL != hwdev && NULL != bus_addr) {
+	if (NULL != hwdev && NULL != bus_addr && *bus_addr != DMA_MAPPING_ERROR) {
 		dma_sync_single_for_cpu(&hwdev->dev, *bus_addr, size, direction);
 	} else
 		RTW_ERR("pcie hwdev handle or bus addr is NULL!\n");
@@ -43,6 +43,10 @@ void pci_get_bus_addr(struct pci_dev *hwdev,
 {
 	if (NULL != hwdev) {
 		*bus_addr = dma_map_single(&hwdev->dev, vir_addr, size, direction);
+		if (dma_mapping_error(&hwdev->dev, *bus_addr)) {
+			RTW_ERR("dma_map_single error, bus addr is invalid!\n");
+			*bus_addr = DMA_MAPPING_ERROR;
+		}
 	} else {
 		RTW_ERR("pcie hwdev handle is NULL!\n");
 		*bus_addr = (dma_addr_t)virt_to_phys(vir_addr);
@@ -52,7 +56,7 @@ void pci_get_bus_addr(struct pci_dev *hwdev,
 void pci_unmap_bus_addr(struct pci_dev *hwdev,
 			dma_addr_t *bus_addr, size_t size, int direction)
 {
-	if (NULL != hwdev && NULL != bus_addr) {
+	if (NULL != hwdev && NULL != bus_addr && *bus_addr != DMA_MAPPING_ERROR) {
 		dma_unmap_single(&hwdev->dev, *bus_addr, size, direction);
 	} else
 		RTW_ERR("pcie hwdev handle or bus addr is NULL!\n");
@@ -64,8 +68,8 @@ void *pci_alloc_cache_mem(struct pci_dev *pdev,
 
 	vir_addr = rtw_zmalloc(size);
 
-	if (!vir_addr)
-		bus_addr = NULL;
+	if (!vir_addr && bus_addr)
+		*bus_addr = DMA_MAPPING_ERROR;
 	else
 		pci_get_bus_addr(pdev, vir_addr, bus_addr, size, direction);
 
