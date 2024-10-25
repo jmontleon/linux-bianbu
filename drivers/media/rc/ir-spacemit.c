@@ -320,6 +320,7 @@ static const struct of_device_id spacemit_ir_match[] = {
 		.compatible = "spacemit,k1x-irc",
 		.data = &spacemit_k1x_ir_data,
 	},
+	{ /* end of list */ }
 };
 
 static struct platform_driver spacemit_ir_driver = {
@@ -345,6 +346,7 @@ static const struct of_device_id spacemit_rir_match[] = {
 		.compatible = "spacemit,k1x-rirc",
 		.data = &spacemit_k1x_rir_data,
 	},
+	{ /* end of list */ }
 };
 
 static struct platform_driver spacemit_rir_driver = {
