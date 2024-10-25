@@ -203,6 +203,8 @@
 	adapter->pltfm_cb->msg_print(adapter->drv_adapter, _PHL_ALWAYS_,  __VA_ARGS__)
 #endif
 
+#undef MAC_AX_DBG_MSG_EN
+#define MAC_AX_DBG_MSG_EN 0
 #if MAC_AX_DBG_MSG_EN
 
 #undef PLTFM_MSG_ALWAYS
@@ -309,6 +311,10 @@ do {									\
 #endif /*CONFIG_NEW_HALMAC_INTERFACE*/
 
 #else
+
+#undef PLTFM_MSG_ALWAYS
+
+#define	MAC_DBG_MSG(...)	do {} while (0)
 
 /* Disable debug msg  */
 #define PLTFM_MSG_ALWAYS(...)	do {} while (0)
