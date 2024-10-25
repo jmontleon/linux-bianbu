@@ -813,8 +813,15 @@
 	status = "okay";
 };
 
+&hdmiaudio {
+	status = "disabled";
+};
+
 &sound_hdmi {
-	status = "okay";
+	status = "disabled";
+	simple-audio-card,cpu {
+		sound-dai = <&hdmiaudio>;
+	};
 };
 
 &sound_codec {
