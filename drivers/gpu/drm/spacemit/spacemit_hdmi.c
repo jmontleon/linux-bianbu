@@ -1104,7 +1104,7 @@ static int spacemit_hdmi_driver_init(void)
 {
        return platform_driver_register(&spacemit_hdmi_driver);
 }
-late_initcall_sync(spacemit_hdmi_driver_init);
+late_initcall(spacemit_hdmi_driver_init);
 
 MODULE_DESCRIPTION("Spacemit HDMI Driver");
 MODULE_LICENSE("GPL v2");
