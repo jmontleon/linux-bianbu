@@ -22,6 +22,7 @@
 #ifdef SPACEMIT_CONFIG_CODEC_ES8326
 #include <linux/notifier.h>
 #include <soc/spacemit/spacemit_panel.h>
+#include <linux/pm.h>
 #endif
 
 struct es8326_priv {
@@ -1256,7 +1257,7 @@ static void es8326_init(struct snd_soc_component *component)
 
 static int es8326_resume(struct snd_soc_component *component)
 {
-	struct es8326_priv *es8326 = snd_soc_component_get_drvdata(component);
+	struct es8326_priv *es8326 = dev_get_drvdata(dev);
 	unsigned int reg;
 
 	regcache_cache_only(es8326->regmap, false);
@@ -1276,15 +1277,15 @@ static int es8326_resume(struct snd_soc_component *component)
 	regmap_write(es8326->regmap, ES8326_ADC2_SRC, es8326->mic2_src);
 #endif
 
-	es8326_init(component);
-	es8326_reset_clk(component);
+	es8326_init(es8326->component);
+	es8326_reset_clk(es8326->component);
 	if (es8326->jack) {
 		snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
 		if (es8326->jd_inverted) {
 			snd_soc_component_update_bits(component, ES8326_HPDET_TYPE,
 					      ES8326_HP_DET_JACK_POL, ~es8326->jack_pol);
 		}
-		es8326_disable_micbias(component);
+		es8326_disable_micbias(es8326->component);
 		if (es8326->irq > 0)
 			es8326_irq(es8326->irq, es8326);
 		else
@@ -1294,9 +1295,9 @@ static int es8326_resume(struct snd_soc_component *component)
 	return 0;
 }
 
-static int es8326_suspend(struct snd_soc_component *component)
+static int es8326_suspend(struct device *dev)
 {
-	struct es8326_priv *es8326 = snd_soc_component_get_drvdata(component);
+	struct es8326_priv *es8326 = dev_get_drvdata(dev);
 
 	cancel_delayed_work_sync(&es8326->jack_detect_work);
 	es8326_disable_micbias(component);
@@ -1546,8 +1547,10 @@ static void es8326_remove(struct snd_soc_component *component)
 static const struct snd_soc_component_driver soc_component_dev_es8326 = {
 	.probe		= es8326_probe,
 	.remove		= es8326_remove,
+	#ifndef SPACEMIT_CONFIG_CODEC_ES8326
 	.resume		= es8326_resume,
 	.suspend	= es8326_suspend,
+	#endif
 	.set_bias_level = es8326_set_bias_level,
 	.set_jack	= es8326_set_jack,
 	.dapm_widgets	= es8326_dapm_widgets,
@@ -1712,11 +1715,20 @@ static const struct acpi_device_id es8326_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, es8326_acpi_match);
 #endif
 
+
+static const struct dev_pm_ops es8326_pm_ops = {
+	.suspend = es8326_suspend,
+	.resume = es8326_resume,
+};
+
 static struct i2c_driver es8326_i2c_driver = {
 	.driver = {
 		.name = "es8326",
 		.acpi_match_table = ACPI_PTR(es8326_acpi_match),
 		.of_match_table = of_match_ptr(es8326_of_match),
+		#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+		.pm = &es8326_pm_ops,
+		#endif
 	},
 	.probe = es8326_i2c_probe,
 	.shutdown = es8326_i2c_shutdown,
