@@ -906,6 +906,13 @@
 	status = "okay";
 };
 
+&hdmiaudio {
+	status = "okay";
+};
+
 &sound_hdmi {
 	status = "okay";
+	simple-audio-card,cpu {
+		sound-dai = <&hdmiaudio>;
+	};
 };
