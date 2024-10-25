@@ -140,11 +140,11 @@
 
 	spacemit_lid:spacemit_lid {
 		compatible = "spacemit,k1x-lid";
-		lid-gpios = <&gpio 74 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_hall_wakeup>;
-		interrupt-parent = <&pinctrl>;
-		interrupts = <300>;
+		lid-gpios = <&gpio 74 0>;
+		interrupts-extended = <&gpio 74 1
+				&pinctrl 300>;
 	};
 
 	rf_pwrseq: rf-pwrseq {
