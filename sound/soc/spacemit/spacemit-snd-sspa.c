@@ -297,7 +297,7 @@ static int spacemit_snd_sspa_init(void)
 {
 	return platform_driver_register(&spacemit_snd_sspa_pdrv);
 }
-late_initcall_sync(spacemit_snd_sspa_init);
+late_initcall(spacemit_snd_sspa_init);
 
 
 MODULE_DESCRIPTION("SPACEMIT ASoC SSPA Driver");
