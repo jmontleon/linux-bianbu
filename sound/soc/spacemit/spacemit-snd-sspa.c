@@ -23,6 +23,23 @@
 #include <sound/dmaengine_pcm.h>
 #include "spacemit-snd-sspa.h"
 
+#include <linux/notifier.h>
+#include <soc/spacemit/spacemit_panel.h>
+
+
+#define SPACEMIT_HDMI_BASE_ADDR        0xC0400500
+#define SPACEMIT_HDMI_REG_SIZE         0x200
+
+
+#define SPACEMIT_HDMI_PHY_STATUS       0xC
+#define SPACEMIT_HDMI_HPD_STATUS       BIT(12)
+#define SPACEMIT_HDMI_AUDIO_EN         0x30
+
+#define HDMI_HPD_CONNECTED             0
+#define HDMI_HPD_DISCONNECTED          1
+
+extern int spacemit_hdmi_register_client(struct notifier_block *nb);
+
 struct sspa_priv {
 	struct ssp_device *sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
@@ -33,6 +50,7 @@ struct sspa_priv {
 	void __iomem	*base;
 	void __iomem	*base_clk;
 	void __iomem	*base_hdmi;
+	struct delayed_work hdmi_detect_work;
 };
 
 struct platform_device *sspa_platdev;
@@ -43,9 +61,9 @@ static int mmp_sspa_startup(struct snd_pcm_substream *substream,
 	u32 value = 0;
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 
-	value = readl_relaxed(sspa_priv->base_hdmi);
+	value = readl_relaxed(sspa_priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 	value |= BIT(0);
-	writel(value, sspa_priv->base_hdmi);
+	writel(value, sspa_priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 
 	pm_runtime_get_sync(&sspa_platdev->dev);
 	return 0;
@@ -57,9 +75,9 @@ static void mmp_sspa_shutdown(struct snd_pcm_substream *substream,
 	u32 value = 0;
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 
-	value = readl_relaxed(sspa_priv->base_hdmi);
+	value = readl_relaxed(sspa_priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 	value &= ~BIT(0);
-	writel(value, sspa_priv->base_hdmi);
+	writel(value, sspa_priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 
 	pm_runtime_put_sync(&sspa_platdev->dev);
 }
@@ -140,6 +158,10 @@ static int mmp_sspa_probe(struct snd_soc_dai *dai)
 	pr_debug("%s\n", __FUNCTION__);
 
 	snd_soc_dai_set_drvdata(dai, sspa_priv);
+
+	queue_delayed_work(system_wq, &sspa_priv->hdmi_detect_work,
+				   msecs_to_jiffies(100));
+
 	return 0;
 }
 
@@ -178,27 +200,94 @@ static void spacemit_dma_params_init(struct resource *res, struct snd_dmaengine_
 	dma_params->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 }
 
-static int spacemit_sspa_suspend(struct snd_soc_component *component)
+static const struct snd_soc_component_driver spacemit_snd_sspa_component = {
+	.name		= "spacemit-snd-sspa",
+};
+
+static int spacemit_sspa_get_hdmi_status(void)
 {
-	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	struct sspa_priv *priv = dev_get_drvdata(&sspa_platdev->dev);
+	u32 value = 0;
+
+	value = readl_relaxed(priv->base_hdmi + SPACEMIT_HDMI_PHY_STATUS) & SPACEMIT_HDMI_HPD_STATUS;
+	pr_debug("%s status:%d\n", __func__, !!value);
+	return !!value;
+}
+
+int spacemit_hdmi_connect_event(struct notifier_block *nb, unsigned long event,
+	void *v)
+{
+	int ret;
+
+	switch(event) {
+	case HDMI_HPD_CONNECTED:
+		pr_debug("sspa got the chain event: HDMI_HPD_CONNECTED\n");
+		ret = devm_snd_soc_register_component(&sspa_platdev->dev, &spacemit_snd_sspa_component,
+			spacemit_snd_sspa_dai, ARRAY_SIZE(spacemit_snd_sspa_dai));
+		if (ret != 0) {
+			dev_err(&sspa_platdev->dev, "failed to register DAI\n");
+		}
+		break;
+	case HDMI_HPD_DISCONNECTED:
+		pr_debug("sspa got the chain event: HDMI_HPD_DISCONNECTED\n");
+		snd_soc_unregister_component(&sspa_platdev->dev);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block hdmi_connect_notifier = {
+	.notifier_call = spacemit_hdmi_connect_event,
+};
+
+static void spacemit_sspa_hdmi_detect_handler(struct work_struct *work)
+{
+	if (!spacemit_sspa_get_hdmi_status()) {
+		udelay(100);
+		pr_debug("%s, hdmi disconnected \n", __func__);
+		snd_soc_unregister_component(&sspa_platdev->dev);
+	}
+}
+
+static int spacemit_sspa_suspend(struct device *dev)
+{
+	struct sspa_priv *priv = dev_get_drvdata(dev);
+
+	spacemit_hdmi_unregister_client(&hdmi_connect_notifier);
 	reset_control_assert(priv->rst);
 	return 0;
 }
 
-static int spacemit_sspa_resume(struct snd_soc_component *component)
+static int spacemit_sspa_resume(struct device *dev)
 {
-	struct sspa_priv *priv = snd_soc_component_get_drvdata(component);
+	struct sspa_priv *priv = dev_get_drvdata(dev);
 	u32 value = 0;
-	value = readl_relaxed(priv->base_hdmi);
+	int ret = 0;
+
+	value = readl_relaxed(priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 	value |= BIT(0);
-	writel(value, priv->base_hdmi);
+	writel(value, priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 	reset_control_deassert(priv->rst);
+	spacemit_hdmi_register_client(&hdmi_connect_notifier);
+
+	if (spacemit_sspa_get_hdmi_status()) {
+		ret = devm_snd_soc_register_component(dev, &spacemit_snd_sspa_component,
+			spacemit_snd_sspa_dai, ARRAY_SIZE(spacemit_snd_sspa_dai));
+		if (ret != 0) {
+			dev_err(dev, "failed to register DAI\n");
+		}
+	} else {
+		snd_soc_unregister_component(dev);
+	}
+
 	return 0;
 }
-static const struct snd_soc_component_driver spacemit_snd_sspa_component = {
-	.name		= "spacemit-snd-sspa",
-	.suspend	= spacemit_sspa_suspend,
-	.resume		= spacemit_sspa_resume,
+
+const struct dev_pm_ops spacemit_snd_sspa_pm_ops = {
+	.suspend = spacemit_sspa_suspend,
+	.resume = spacemit_sspa_resume,
 };
 
 static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
@@ -227,7 +316,7 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 		pr_err("%s reg clk base alloc failed\n", __FUNCTION__);
 		return PTR_ERR(priv->base_clk);
 	}
-	priv->base_hdmi = (void __iomem *)ioremap(0xC0400530, 1);
+	priv->base_hdmi = (void __iomem *)ioremap(SPACEMIT_HDMI_BASE_ADDR, SPACEMIT_HDMI_REG_SIZE);
 	if (IS_ERR(priv->base_hdmi)) {
 		pr_err("%s reg hdmi base alloc failed\n", __FUNCTION__);
 		return PTR_ERR(priv->base_hdmi);
@@ -250,14 +339,19 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	sspa_platdev = pdev;
-
+	INIT_DELAYED_WORK(&priv->hdmi_detect_work,
+			  spacemit_sspa_hdmi_detect_handler);
 	platform_set_drvdata(pdev, priv);
+
 	ret = devm_snd_soc_register_component(&pdev->dev, &spacemit_snd_sspa_component,
 						   spacemit_snd_sspa_dai, ARRAY_SIZE(spacemit_snd_sspa_dai));
 	if (ret != 0) {
 		dev_err(&pdev->dev, "failed to register DAI\n");
 		return ret;
 	}
+
+	spacemit_hdmi_register_client(&hdmi_connect_notifier);
+
 	return 0;
 }
 
@@ -281,6 +375,7 @@ static const struct of_device_id spacemit_snd_sspa_ids[] = {
 static struct platform_driver spacemit_snd_sspa_pdrv = {
 	.driver = {
 		.name = "spacemit-snd-sspa",
+		.pm = &spacemit_snd_sspa_pm_ops,
 		.of_match_table = of_match_ptr(spacemit_snd_sspa_ids),
 	},
 	.probe = spacemit_snd_sspa_pdev_probe,
