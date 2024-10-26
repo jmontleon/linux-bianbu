@@ -1326,33 +1326,33 @@ static int cts_init_fwdata(struct cts_device *cts_dev)
         }
     }
 
-    cts_info("fwver: %04x", fwdata->version);
-    cts_info("libver: %04x", fwdata->lib_version);
-    cts_info("ddi_version: %02x", fwdata->ddi_version);
-    cts_info("res_x: %d", fwdata->res_x);
-    cts_info("res_y: %d", fwdata->res_y);
-    cts_info("rows: %d", fwdata->rows);
-    cts_info("cols: %d", fwdata->cols);
-    cts_info("flip_x: %d", fwdata->flip_x);
-    cts_info("flip_y: %d", fwdata->flip_y);
-    cts_info("swap_axes: %d", fwdata->swap_axes);
-    cts_info("int_mode: %d", fwdata->int_mode);
-    cts_info("int_keep_time: %d", fwdata->int_keep_time);
-    cts_info("rawdata_target: %d", fwdata->rawdata_target);
-    cts_info("esd_method: %d", fwdata->esd_method);
-    cts_info("has_int_data: %d", fwdata->has_int_data);
-    cts_info("int_data_method: %d", fwdata->int_data_method);
-    cts_info("int_data_types: %d", fwdata->int_data_types);
-    cts_info("int_data_size: %ld", fwdata->int_data_size);
+    cts_dbg("fwver: %04x", fwdata->version);
+    cts_dbg("libver: %04x", fwdata->lib_version);
+    cts_dbg("ddi_version: %02x", fwdata->ddi_version);
+    cts_dbg("res_x: %d", fwdata->res_x);
+    cts_dbg("res_y: %d", fwdata->res_y);
+    cts_dbg("rows: %d", fwdata->rows);
+    cts_dbg("cols: %d", fwdata->cols);
+    cts_dbg("flip_x: %d", fwdata->flip_x);
+    cts_dbg("flip_y: %d", fwdata->flip_y);
+    cts_dbg("swap_axes: %d", fwdata->swap_axes);
+    cts_dbg("int_mode: %d", fwdata->int_mode);
+    cts_dbg("int_keep_time: %d", fwdata->int_keep_time);
+    cts_dbg("rawdata_target: %d", fwdata->rawdata_target);
+    cts_dbg("esd_method: %d", fwdata->esd_method);
+    cts_dbg("has_int_data: %d", fwdata->has_int_data);
+    cts_dbg("int_data_method: %d", fwdata->int_data_method);
+    cts_dbg("int_data_types: %d", fwdata->int_data_types);
+    cts_dbg("int_data_size: %ld", fwdata->int_data_size);
 
-    cts_info("pc_cols: %ld", fwdata->pc_cols);
-    cts_info("pc_rows: %ld", fwdata->pc_rows);
-    cts_info("pr_cols: %ld", fwdata->pr_cols);
-    cts_info("pr_rows: %ld", fwdata->pr_rows);
-    cts_info("pc_cols_used: %ld", fwdata->pc_cols_used);
-    cts_info("pc_rows_used: %ld", fwdata->pc_rows_used);
-    cts_info("pr_cols_used: %ld", fwdata->pr_cols_used);
-    cts_info("pr_rows_used: %ld", fwdata->pr_rows_used);
+    cts_dbg("pc_cols: %ld", fwdata->pc_cols);
+    cts_dbg("pc_rows: %ld", fwdata->pc_rows);
+    cts_dbg("pr_cols: %ld", fwdata->pr_cols);
+    cts_dbg("pr_rows: %ld", fwdata->pr_rows);
+    cts_dbg("pc_cols_used: %ld", fwdata->pc_cols_used);
+    cts_dbg("pc_rows_used: %ld", fwdata->pc_rows_used);
+    cts_dbg("pr_cols_used: %ld", fwdata->pr_cols_used);
+    cts_dbg("pr_rows_used: %ld", fwdata->pr_rows_used);
 
     return 0;
 }
