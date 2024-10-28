@@ -14,7 +14,7 @@
 #include "k1-x_thermal_cooling.dtsi"
 
 / {
-	model = "spacemit k1-x MUSE-Pi board";
+	model = "spacemit k1-x orangepi-rv2 board";
 	modules_usrload = "8852bs";
 
 	cpus: cpus {
