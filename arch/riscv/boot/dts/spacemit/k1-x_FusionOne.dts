@@ -185,12 +185,6 @@
 					remote-endpoint = <&con_u3_ep>;
 				};
 			};
-			port@1 {
-				reg = <0x1>;
-				dwc3_ep: endpoint {
-					remote-endpoint = <&dwc3_role_switch>;
-				};
-			};
 		};
 	};
 
@@ -809,16 +803,6 @@
 
 		usb-role-switch;
 		role-switch-default-mode = "peripheral";
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				reg = <0x0>;
-				dwc3_role_switch: endpoint {
-					remote-endpoint = <&dwc3_ep>;
-				};
-			};
-		};
 	};
 };
 
