@@ -1629,8 +1629,7 @@ static int mmp_pdma_resume_noirq(struct device *dev)
 }
 
 static const struct dev_pm_ops k1x_mmp_pdma_pm_qos = {
-	.suspend_noirq = mmp_pdma_suspend_noirq,
-	.resume_noirq = mmp_pdma_resume_noirq,
+	NOIRQ_SYSTEM_SLEEP_PM_OPS(mmp_pdma_suspend_noirq, mmp_pdma_resume_noirq)
 };
 #endif
 
