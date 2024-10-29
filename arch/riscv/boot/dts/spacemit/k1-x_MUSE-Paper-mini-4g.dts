@@ -704,6 +704,18 @@
 			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_FALL | PULL_DOWN | PAD_3V_DS2))   /* wifi edge detect */
 		>;
 	};
+
+	pinctrl_mmc1_debug: mmc1_debug_grp {
+		pinctrl-single,pins = <
+			K1X_PADCONF(MMC1_DAT3, MUX_MODE3, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* uart0_txd */
+			K1X_PADCONF(MMC1_DAT2, MUX_MODE3, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* uart0_rxd */
+			K1X_PADCONF(MMC1_DAT1, MUX_MODE0, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* mmc1_d1 */
+			K1X_PADCONF(MMC1_DAT0, MUX_MODE0, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* mmc1_d0 */
+			K1X_PADCONF(MMC1_CMD,  MUX_MODE0, (EDGE_NONE | PULL_UP   | PAD_3V_DS4))	/* mmc1_cmd */
+			K1X_PADCONF(MMC1_CLK,  MUX_MODE0, (EDGE_NONE | PULL_DOWN | PAD_3V_DS4))	/* mmc1_clk */
+		>;
+	};
+
 };
 
 &gpio{
@@ -729,9 +741,10 @@
 
 /* SD */
 &sdhci0 {
-	pinctrl-names = "default","fast";
+	pinctrl-names = "default","fast","debug";
 	pinctrl-0 = <&pinctrl_mmc1>;
 	pinctrl-1 = <&pinctrl_mmc1_fast>;
+	pinctrl-2 = <&pinctrl_mmc1_debug>;
 	bus-width = <4>;
 	cd-gpios = <&gpio 80 0>;
 	vmmc-supply = <&dcdc_4>;
