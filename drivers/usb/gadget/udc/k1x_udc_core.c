@@ -2641,8 +2641,7 @@ static int mv_udc_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops mv_udc_pm_ops = {
-	.suspend	= mv_udc_suspend,
-	.resume		= mv_udc_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(mv_udc_suspend, mv_udc_resume)
 };
 #endif
 

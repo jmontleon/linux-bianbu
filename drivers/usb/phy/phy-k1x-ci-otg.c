@@ -843,8 +843,7 @@ static int mv_otg_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops mv_otg_pm_ops = {
-	.suspend	= mv_otg_suspend,
-	.resume		= mv_otg_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(mv_otg_suspend, mv_otg_resume)
 };
 
 #endif

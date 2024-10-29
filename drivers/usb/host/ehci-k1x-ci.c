@@ -619,8 +619,7 @@ enable_done:
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops mv_ehci_pm_ops = {
-	.suspend	= mv_ehci_suspend,
-	.resume		= mv_ehci_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(mv_ehci_suspend, mv_ehci_resume)
 };
 
 static struct platform_driver ehci_k1x_driver = {
