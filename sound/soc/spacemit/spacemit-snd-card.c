@@ -432,7 +432,7 @@ static int spacemit_snd_card_init(void)
 {
 	return platform_driver_register(&asoc_simple_card);
 }
-late_initcall_sync(spacemit_snd_card_init);
+late_initcall(spacemit_snd_card_init);
 
 MODULE_DESCRIPTION("SPACEMIT ASoC Machine Driver");
 MODULE_LICENSE("GPL");

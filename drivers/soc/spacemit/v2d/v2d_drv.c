@@ -332,7 +332,7 @@ static int get_addr_from_dmabuf(struct v2d_info *v2dinfo, struct v2d_dma_buf_inf
 		pr_err("v2d get dma buf attach fail\n");
 		goto err_dmabuf_put;
 	}
-	pInfo->sgtable = dma_buf_map_attachment(pInfo->attach, DMA_BIDIRECTIONAL);
+	pInfo->sgtable = dma_buf_map_attachment_unlocked(pInfo->attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(pInfo->sgtable)) {
 		pr_err("v2d get dma buf map attachment fail\n");
 		goto err_dmabuf_detach;
@@ -354,7 +354,7 @@ static int get_addr_from_dmabuf(struct v2d_info *v2dinfo, struct v2d_dma_buf_inf
 	return ret;
 
 err_dmabuf_unmap:
-	dma_buf_unmap_attachment(pInfo->attach, pInfo->sgtable, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment_unlocked(pInfo->attach, pInfo->sgtable, DMA_BIDIRECTIONAL);
 err_dmabuf_detach:
 	dma_buf_detach(pInfo->dmabuf, pInfo->attach);
 err_dmabuf_put:
@@ -447,7 +447,7 @@ static void v2d_put_dmabuf(struct v2d_info *v2dinfo, struct v2d_pending_post_tas
 		sg_table = pInfo->sgtable;
 
 		if (dmabuf && attach && sg_table) {
-			dma_buf_unmap_attachment(attach, sg_table, DMA_BIDIRECTIONAL);
+			dma_buf_unmap_attachment_unlocked(attach, sg_table, DMA_BIDIRECTIONAL);
 			dma_buf_detach(dmabuf, attach);
 			dma_buf_put(dmabuf);
 		}

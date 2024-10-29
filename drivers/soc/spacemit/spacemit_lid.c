@@ -12,13 +12,11 @@
 #include <linux/interrupt.h>
 #include <linux/pm_wakeirq.h>
 #include <linux/gpio/consumer.h>
-#include <linux/pm_wakeirq.h>
 #include <linux/property.h>
 #include <linux/of.h>
 
 struct _hall {
 	int irq;
-	struct device *dev;
 	struct input_dev *input;
 	struct gpio_desc *gpio;
 };
@@ -29,12 +27,6 @@ static irqreturn_t hall_wakeup_detect(int irq, void *arg)
 	struct _hall *hall = (struct _hall *)arg;
 
 	state = gpiod_get_value(hall->gpio);
-
-	if (!state)
-		pm_relax(hall->dev);
-	else
-		pm_stay_awake(hall->dev);
-
 	input_report_switch(hall->input, SW_LID, !state);
  	input_sync(hall->input);
 
@@ -82,16 +74,12 @@ static int spacemit_lid_probe(struct platform_device *pdev)
 	input_set_drvdata(input, hall);
 
 	hall->input = input;
-	hall->dev = &pdev->dev;
 
 	error = input_register_device(input);
 	if (error) {
 		dev_err(&pdev->dev, "could not register input device\n");
 		return error;
 	}
-
-	dev_pm_set_wake_irq(&pdev->dev, hall->irq);
-	device_init_wakeup(&pdev->dev, true);
 
 	return 0;
 }
