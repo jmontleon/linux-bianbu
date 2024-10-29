@@ -37,6 +37,7 @@
 #include "spacemit_engine.h"
 #include <linux/pm_runtime.h>
 #include <linux/pm_qos.h>
+#include <linux/pm.h>
 
 struct device *dev;
 unsigned char *in_buffer, *out_buffer;
@@ -1893,8 +1894,8 @@ static int spacemit_aes_resume_noirq(struct device *dev)
 }
 
 static const struct dev_pm_ops spacemit_aes_pm_qos = {
-	.suspend_noirq = spacemit_aes_suspend_noirq,
-	.resume_noirq = spacemit_aes_resume_noirq,
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(spacemit_aes_suspend_noirq,
+			spacemit_aes_resume_noirq)
 };
 #endif
 
