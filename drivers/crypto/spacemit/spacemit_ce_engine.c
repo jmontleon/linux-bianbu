@@ -1082,6 +1082,11 @@ static int ce_aes_process_nblocks(int index, const unsigned char *buf_in, unsign
 				dev_err_once(dev, "%s : %d : crypto_aes_set_key2 failed!\n",__func__,__LINE__);
 				goto error;
 			}
+			ret = crypto_aes_set_iv(index, inv);
+			if (ret != 0) {
+				dev_err_once(dev, "%s : %d : crypto_aes_set_iv failed!\n",__func__,__LINE__);
+				goto error;
+			}
 			break;
 		case E_AES_CBC:
 		case E_AES_CTR:
