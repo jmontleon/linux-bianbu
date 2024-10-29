@@ -2857,8 +2857,7 @@ static int emac_suspend(struct device *dev)
 #endif
 
 static const struct dev_pm_ops k1x_emac_pm_qos = {
-        .suspend = emac_suspend,
-        .resume = emac_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(emac_suspend, emac_resume)
 };
 
 static const struct of_device_id emac_of_match[] = {
