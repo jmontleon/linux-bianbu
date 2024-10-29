@@ -648,8 +648,7 @@ static int mvx_pm_runtime_idle(struct device *dev)
 }
 
 static const struct dev_pm_ops mvx_dev_pm_ops = {
-	.suspend         = mvx_pm_suspend,
-	.resume          = mvx_pm_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(mvx_pm_suspend, mvx_pm_resume)
 	.runtime_suspend = mvx_pm_runtime_suspend,
 	.runtime_resume  = mvx_pm_runtime_resume,
 	.runtime_idle    = mvx_pm_runtime_idle,
