@@ -665,14 +665,19 @@ static void spacemit_sdhci_set_clock(struct sdhci_host *host, unsigned int clock
 		if (clock >= 200000000) {
 			spacemit->pin = pinctrl_lookup_state(spacemit->pinctrl, "fast");
 			if (IS_ERR(spacemit->pin))
-				pr_warn("could not get sdhci pinctrl state.\n");
+				pr_warn("could not get sdhci fast pinctrl state.\n");
 			else
 				pinctrl_select_state(spacemit->pinctrl, spacemit->pin);
-
+		} else if (clock == 0) {
+			spacemit->pin = pinctrl_lookup_state(spacemit->pinctrl, "debug");
+			if (IS_ERR(spacemit->pin))
+				pr_debug("could not get sdhci debug pinctrl state. ignore it\n");
+			else
+				pinctrl_select_state(spacemit->pinctrl, spacemit->pin);
 		} else {
 			spacemit->pin = pinctrl_lookup_state(spacemit->pinctrl, "default");
 			if (IS_ERR(spacemit->pin))
-				pr_warn("could not get sdhci pinctrl state.\n");
+				pr_warn("could not get sdhci default pinctrl state.\n");
 			else
 				pinctrl_select_state(spacemit->pinctrl, spacemit->pin);
 		}
