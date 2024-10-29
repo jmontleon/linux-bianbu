@@ -125,8 +125,7 @@ static int v2d_runtime_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops v2d_pm_ops = {
-	.suspend = v2d_suspend,
-	.resume = v2d_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(v2d_suspend, v2d_resume)
 	.runtime_suspend = v2d_runtime_suspend,
 	.runtime_resume = v2d_runtime_resume,
 };
