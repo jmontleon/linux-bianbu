@@ -771,14 +771,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie1_3>;
 	num-lanes = <1>;
-	suspend_power_on;
 	status = "okay";
 };
 
 &pcie2_rc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcie2_4>;
-	suspend_power_on;
 	status = "okay";
 };
 
@@ -841,8 +839,15 @@
         status = "okay";
 };
 
+&hdmiaudio {
+	status = "okay";
+};
+
 &sound_hdmi {
 	status = "okay";
+	simple-audio-card,cpu {
+		sound-dai = <&hdmiaudio>;
+	};
 };
 
 &sound_codec {

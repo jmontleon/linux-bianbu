@@ -2472,19 +2472,6 @@
 		status = "okay";
 	};
 
-	hdmi_sspa: spacemit_snd_sspa {
-		compatible = "spacemit,spacemit-snd-sspa";
-		reg = <0 0xc0883900 0 0x300>,
-		      <0 0xc0882000 0 0x50>;
-		clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
-		resets = <&reset RESET_RCPU_HDMIAUDIO>;
-		assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
-		assigned-clock-rates = <48000>;
-		power-domains = <&power K1X_PMU_DUMMY_PWR_DOMAIN>;
-		#sound-dai-cells = <0>;
-		status = "okay";
-	};
-
 	dummy_codec: dummy_codec{
 		compatible = "spacemit,dummy-codec";
 		#sound-dai-cells = <0>;
@@ -2545,9 +2532,6 @@
 		status = "disabled";
 		interconnects = <&dram_range4>;
 		interconnect-names = "dma-mem";
-		simple-audio-card,cpu {
-			sound-dai = <&hdmi_sspa>;
-		};
 		simple-audio-card,plat {
 			sound-dai = <&hdmi_dma>;
 		};

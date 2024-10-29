@@ -231,6 +231,11 @@ u8 r_indir_cmd52_sdio_8852b(struct mac_ax_adapter *adapter, u32 adr)
 		PLTFM_SDIO_CMD52_W8(R_AX_CK_EN + 3, (u8)(val >> 24));
 
 		count++;
+		if (num_online_cpus() == 1)
+			rtw_msleep_os(5);
+		else {
+			rtw_usleep_os(200);
+		}
 	}
 
 	return val32.byte[dw_sh];

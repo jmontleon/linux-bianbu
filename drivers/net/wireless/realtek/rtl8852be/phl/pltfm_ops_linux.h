@@ -269,7 +269,8 @@ static inline void _os_pkt_buf_unmap_rx_pci(struct dvobj_priv *pobj, u32 bus_add
 	if (g_pcie_reserved_mem_dev)
 		pdev->dev.dma_mask = NULL;
 #endif
-	dma_unmap_single(&pdev->dev, dma_addr, buf_sz, DMA_FROM_DEVICE);
+	if (dma_addr != DMA_MAPPING_ERROR)
+		dma_unmap_single(&pdev->dev, dma_addr, buf_sz, DMA_FROM_DEVICE);
 
 #ifdef RTW_CORE_RECORD
 	phl_add_record(d, REC_RX_UNMAP, bus_addr_l, buf_sz);
@@ -307,6 +308,9 @@ static inline void _os_pkt_buf_map_rx_pci(struct dvobj_priv *pobj,
 		pdev->dev.dma_mask = NULL;
 #endif
 	dma_addr = dma_map_single(&pdev->dev, skb->data, buf_sz, DMA_FROM_DEVICE);
+	if (dma_mapping_error(&pdev->dev, dma_addr)) {
+		dma_addr = DMA_MAPPING_ERROR;
+	}
 	*bus_addr_l = (u32)dma_addr;
 
 	#ifdef PHL_DMA_ADDR_64
@@ -432,6 +436,9 @@ static inline void *_os_pkt_buf_alloc_rx(void *d, u32 *bus_addr_l,
 	else
 	{
 		dma_addr = dma_map_single(&pdev->dev, skb->data, rxbuf_size, DMA_FROM_DEVICE);
+		if (dma_mapping_error(&pdev->dev, dma_addr)) {
+			dma_addr = DMA_MAPPING_ERROR;
+		}
 		*bus_addr_l = (u32)dma_addr;
 	}
 #endif
@@ -474,7 +481,8 @@ static inline void _os_pkt_buf_free_rx(void *d, u8 *vir_addr, u32 bus_addr_l,
 		_os_free_fake_skb(pdev, skb, buf_sz, cache);
 		return;
 	} else {
-		dma_unmap_single(&pdev->dev, bus_addr, buf_sz, DMA_FROM_DEVICE);
+		if (bus_addr != DMA_MAPPING_ERROR)
+			dma_unmap_single(&pdev->dev, bus_addr, buf_sz, DMA_FROM_DEVICE);
 	}
 #endif
 #endif /*CONFIG_PCI_HCI*/

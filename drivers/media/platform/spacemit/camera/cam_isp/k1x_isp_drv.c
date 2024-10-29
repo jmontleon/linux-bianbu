@@ -244,7 +244,7 @@ int _isp_dev_put_phyaddr_to_dma_buf(struct dma_buf *dma_buffer,
 				    struct dma_buf_attachment *attach,
 				    struct sg_table *sgt)
 {
-	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
+	dma_buf_unmap_attachment_unlocked(attach, sgt, DMA_BIDIRECTIONAL);
 	dma_buf_detach(dma_buffer, attach);
 	dma_buf_put(dma_buffer);
 
@@ -274,7 +274,7 @@ int k1xisp_dev_get_phyaddr_from_dma_buf(int fd, __u64 *phy_addr)
 
 	get_dma_buf(dma_buffer);
 
-	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
 		ret = -EPERM;
 		goto fail_detach;

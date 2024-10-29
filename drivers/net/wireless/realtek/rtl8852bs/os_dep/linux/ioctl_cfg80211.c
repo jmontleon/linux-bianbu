@@ -227,6 +227,7 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 {
 	struct wiphy *wiphy = adapter_to_wiphy(adapter);
 	struct _ADAPTER_LINK *alink = GET_PRIMARY_LINK(adapter);
+	struct wireless_dev *wdev = adapter->pnetdev->ieee80211_ptr;
 	u8 ret = _SUCCESS;
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
@@ -238,6 +239,8 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 	if (started) {
+		mutex_lock(&wdev->mtx);
+		__acquire(&wdev->mtx);
 		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id, 0, false, 0);
 		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
@@ -253,9 +256,11 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 		 */
 
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0, false);
-#else
+		#else
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0);
-#endif
+		#endif
+		__release(&wdev->mtx);
+		mutex_unlock(&wdev->mtx);
 		goto exit;
 	}
 #endif
@@ -263,6 +268,8 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 	if (!rtw_cfg80211_allow_ch_switch_notify(adapter))
 		goto exit;
 
+	mutex_lock(&wdev->mtx);
+	__acquire(&wdev->mtx);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id, 0);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2))
@@ -270,6 +277,8 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 #else
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef);
 #endif
+	__release(&wdev->mtx);
+	mutex_unlock(&wdev->mtx);
 
 #else
 	int freq = rtw_bch2freq(rtw_chdef->band, rtw_chdef->chan);
