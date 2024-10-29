@@ -16,6 +16,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
+#include <linux/pm.h>
 //#include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/pm_runtime.h>
@@ -1736,17 +1737,17 @@ static int jpu_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int jpu_suspend(struct platform_device *pdev, pm_message_t state)
+static int jpu_suspend(struct device *dev)
 {
 #ifndef CONFIG_SOC_SPACEMIT_K1_FPGA
-	struct jpu_device *jdev = platform_get_drvdata(pdev);
+	struct jpu_device *jdev = dev_get_drvdata(dev);
 	jpu_clk_disable(jdev);
 #endif
 
 	return 0;
 }
 
-static int jpu_resume(struct platform_device *pdev)
+static int jpu_resume(struct device *dev)
 {
 	return 0;
 }
@@ -1764,6 +1765,7 @@ static int jpu_runtime_resume(struct device *dev)
 static const struct dev_pm_ops jpu_pm_ops = {
 	.runtime_suspend = jpu_runtime_suspend,
 	.runtime_resume  = jpu_runtime_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(jpu_suspend, jpu_resume)
 };
 #else
 #define jpu_suspend NULL
@@ -1782,8 +1784,6 @@ static struct platform_driver jpu_driver = {
 		    },
 	.probe = jpu_probe,
 	.remove = jpu_remove,
-	.suspend = jpu_suspend,
-	.resume = jpu_resume,
 };
 
 static int __init jpu_init(void)
