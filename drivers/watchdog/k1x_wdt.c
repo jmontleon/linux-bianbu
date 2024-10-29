@@ -26,6 +26,7 @@
 #include <linux/hrtimer.h>
 #include <asm/cacheflush.h>
 
+#include <linux/pm.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
@@ -762,9 +763,9 @@ static void spa_wdt_shutdown(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int spa_wdt_suspend(struct platform_device *pdev, pm_message_t state)
+static int spa_wdt_suspend(struct device *dev)
 {
-	struct spa_wdt_info *info = platform_get_drvdata(pdev);
+	struct spa_wdt_info *info = dev_get_drvdata(dev);
 
 	if (info->ctrl) {
 		/* turn watchdog off */
@@ -782,9 +783,9 @@ exit:
 	return 0;
 }
 
-static int spa_wdt_resume(struct platform_device *pdev)
+static int spa_wdt_resume(struct device *dev)
 {
-	struct spa_wdt_info *info = platform_get_drvdata(pdev);
+	struct spa_wdt_info *info = dev_get_drvdata(dev);
 
 	if (info->ctrl) {
 		spa_wdt_start(&info->wdt_dev);
@@ -801,9 +802,11 @@ exit:
 	return 0;
 }
 
+static const struct dev_pm_ops wdt_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(spa_wdt_suspend, spa_wdt_resume)
+};
 #else
-#define spa_wdt_suspend NULL
-#define spa_wdt_resume  NULL
+#define &wdt_pm_ops NULL
 #endif /* CONFIG_PM */
 
 #ifdef CONFIG_OF_RESERVED_MEM
@@ -836,10 +839,11 @@ static struct platform_driver spa_wdt_driver = {
 	.probe		= spa_wdt_probe,
 	.remove		= spa_wdt_remove,
 	.shutdown	= spa_wdt_shutdown,
-	.suspend	= spa_wdt_suspend,
-	.resume		= spa_wdt_resume,
 	.driver		= {
 		.name	= "spa-wdt",
+#ifdef CONFIG_PM
+		.pm = &wdt_pm_ops,
+#endif
 		.of_match_table	= of_match_ptr(spa_wdt_match),
 	},
 };
