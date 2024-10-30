@@ -284,8 +284,7 @@ static int spacemit_sspa_resume(struct device *dev)
 }
 
 const struct dev_pm_ops spacemit_snd_sspa_pm_ops = {
-	.suspend = spacemit_sspa_suspend,
-	.resume = spacemit_sspa_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(spacemit_sspa_suspend, spacemit_sspa_resume)
 };
 
 static int sspa_pm_suspend_notifier(struct notifier_block *nb,
