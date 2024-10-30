@@ -86,6 +86,7 @@ struct sspa_priv {
 	int running_cnt;
 	struct platform_device *i2splatdev;
 	unsigned int sysclk;
+	unsigned int mclk_fs;
 };
 
 static void i2s_sspa_write_reg(struct ssp_device *sspa, u32 reg, u32 val)
@@ -217,7 +218,7 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 	struct ssp_device *sspa = sspa_priv->sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
-	unsigned int mclk_fs, val, target;
+	unsigned int val, target;
 
 	dma_params = &sspa_priv->dma_params[substream->stream];
 	dma_params->addr = (sspa->phys_base + DATAR);
@@ -228,8 +229,8 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 	if (sspa_priv->running_cnt)
 		return 0;
 
-	mclk_fs = sspa_priv->sysclk / (params_rate(params));
-	switch (mclk_fs) {
+	sspa_priv->mclk_fs = sspa_priv->sysclk / (params_rate(params));
+	switch (sspa_priv->mclk_fs) {
 	case 64:
 		target = SYSCLK_BASE_156M | 0 << 27| 4 << 15 | 200; //64fs
 		break;
@@ -317,7 +318,7 @@ static int i2s_sspa_probe(struct snd_soc_dai *dai)
 		//i2s1
 		sspa_clk = __raw_readl(sspa->apb_clk_base + APB_SSP1_CLK_RST);
 		__raw_writel((1 << 3)|sspa_clk, sspa->apb_clk_base + APB_SSP1_CLK_RST);
-    }
+	}
 	reset_control_deassert(priv->sspa_rst);
 	snd_soc_dai_set_drvdata(dai, priv);
 	return 0;
@@ -378,21 +379,73 @@ static struct snd_soc_dai_driver i2s_sspa_dai[] = {
 	}
 };
 
-static int i2s_sspa_suspend(struct snd_soc_component *component)
+static void i2s_sspa_init(struct sspa_priv *priv)
 {
-	/*to-do */
+	struct ssp_device *sspa = priv->sspa;
+	unsigned int target, val;
+
+	i2s_sspa_write_reg(sspa, TOP_CTRL, TOP_TRAIL_DMA | DW_32BYTE | TOP_SFRMDIR_M | TOP_SCLKDIR_M | TOP_FRF_PSP);
+	i2s_sspa_write_reg(sspa, FIFO_CTRL, FIFO_RSRE | FIFO_TSRE | FIFO_RX_THRES_15 | FIFO_TX_THRES_15);
+	i2s_sspa_write_reg(sspa, INT_EN, 0);
+	i2s_sspa_write_reg(sspa, PSP_CTRL, (0x10 << 12) | (0x1 << 3) | PSP_SFRMP);
+
+	switch (priv->mclk_fs) {
+	case 64:
+		target = SYSCLK_BASE_156M | 0 << 27| 4 << 15 | 200; //64fs
+		break;
+	case 128:
+		target = SYSCLK_BASE_156M | 1 << 27| 8 << 15 | 200; //128fs
+		break;
+	case 256:
+		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		break;
+	default:
+		target = SYSCLK_BASE_156M | 3 << 27| 16 << 15 | 200; //256fs
+		break;
+	}
+	val = __raw_readl(sspa->pmumain + ISCCR1);
+	val = val & ~0x5FFFFFFF;
+	__raw_writel(val | target, sspa->pmumain + ISCCR1);
+
+}
+
+static int i2s_sspa_suspend(struct device *dev)
+{
+	struct sspa_priv *priv = dev_get_drvdata(dev);
+
+	reset_control_assert(priv->sspa_rst);
 	return 0;
 }
 
-static int i2s_sspa_resume(struct snd_soc_component *component)
+static int i2s_sspa_resume(struct device *dev)
 {
-	/*to-do */
+	struct sspa_priv *priv = dev_get_drvdata(dev);
+	struct ssp_device *sspa = priv->sspa;
+	unsigned int sspa_clk = 0;
+
+	if (priv->dai_id_pre == 0)
+	{
+		//i2s0
+		sspa_clk = __raw_readl(sspa->apb_clk_base + APB_SSP0_CLK_RST);
+		__raw_writel((1 << 3)|sspa_clk, sspa->apb_clk_base + APB_SSP0_CLK_RST);
+	} else {
+		//i2s1
+		sspa_clk = __raw_readl(sspa->apb_clk_base + APB_SSP1_CLK_RST);
+		__raw_writel((1 << 3)|sspa_clk, sspa->apb_clk_base + APB_SSP1_CLK_RST);
+	}
+	reset_control_deassert(priv->sspa_rst);
+
+	if (i2s_sspa_read_reg(sspa, TOP_CTRL) == 0) {
+		i2s_sspa_init(priv);
+	}
 	return 0;
 }
+
+static const struct dev_pm_ops spacemit_i2s_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(i2s_sspa_suspend, i2s_sspa_resume)
+};
 static const struct snd_soc_component_driver i2s_sspa_component = {
 	.name 			= "spacemit-dmasspa-dai",
-	.resume 		= i2s_sspa_resume,
-	.suspend 		= i2s_sspa_suspend,
 };
 
 static int asoc_i2s_sspa_probe(struct platform_device *pdev)
@@ -483,6 +536,7 @@ static struct platform_driver asoc_i2s_sspa_driver = {
 	.driver = {
 		.name = "spacemit-snd-i2s",
 		.of_match_table = of_match_ptr(spacemit_i2s_ids),
+		.pm = &spacemit_i2s_pm_ops,
 	},
 	.probe = asoc_i2s_sspa_probe,
 	.remove = asoc_i2s_sspa_remove,
