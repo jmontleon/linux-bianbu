@@ -1186,8 +1186,7 @@ static int es8326_suspend(struct device *dev)
 }
 
 static const struct dev_pm_ops es8326_pm_ops = {
-	.suspend = es8326_suspend,
-	.resume = es8326_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(es8326_suspend, es8326_resume)
 };
 #else
 static int es8326_resume(struct snd_soc_component *component)
