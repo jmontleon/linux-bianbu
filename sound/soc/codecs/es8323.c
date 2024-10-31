@@ -26,6 +26,10 @@
 #include <sound/initval.h>
 #include <linux/proc_fs.h>
 #include "es8323.h"
+#ifdef SPACEMIT_CONFIG_CODEC_ES8323
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#endif
 
 #define NR_SUPPORTED_MCLK_LRCK_RATIOS 5
 static const unsigned int supported_mclk_lrck_ratios[NR_SUPPORTED_MCLK_LRCK_RATIOS] = {
@@ -93,6 +97,9 @@ struct es8323_priv {
 	struct snd_pcm_hw_constraint_list sysclk_constraints;
 	struct snd_soc_component *component;
 	struct regmap *regmap;
+	#ifdef SPACEMIT_CONFIG_CODEC_ES8323
+	int earphone_sw_gpio;
+	#endif
 };
 
 static int es8323_reset(struct snd_soc_component *component)
@@ -429,7 +436,11 @@ static int es8323_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 {
 	struct snd_soc_component *component = codec_dai->component;
 	struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
+#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 	int i, ret;
+#else
+	int i;
+#endif
 	int count = 0;
 
 	es8323->sysclk = freq;
@@ -439,11 +450,11 @@ static int es8323_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 
 		return 0;
 	}
-
+#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 	ret = clk_set_rate(es8323->mclk, freq);
 	if (ret)
 		return ret;
-
+#endif
 	/* Limit supported sample rates to ones that can be autodetected
 	 * by the codec running in slave mode.
 	 */
@@ -622,8 +633,10 @@ static int es8323_mute(struct snd_soc_dai *dai, int mute, int stream)
 static int es8323_set_bias_level(struct snd_soc_component *component,
 				 enum snd_soc_bias_level level)
 {
+	#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 	struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
 	int ret;
+	#endif
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
@@ -631,6 +644,7 @@ static int es8323_set_bias_level(struct snd_soc_component *component,
 		break;
 	case SND_SOC_BIAS_PREPARE:
 		dev_dbg(component->dev, "%s prepare\n", __func__);
+		#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 		if (IS_ERR(es8323->mclk))
 			break;
 		if (snd_soc_component_get_bias_level(component) == SND_SOC_BIAS_ON) {
@@ -640,6 +654,7 @@ static int es8323_set_bias_level(struct snd_soc_component *component,
 			if (ret)
 				return ret;
 		}
+		#endif
 		snd_soc_component_write(component, ES8323_ANAVOLMANAG, 0x7C);
 		snd_soc_component_write(component, ES8323_CHIPLOPOW1, 0x00);
 		snd_soc_component_write(component, ES8323_CHIPLOPOW2, 0x00);
@@ -743,6 +758,7 @@ static int es8323_probe(struct snd_soc_component *component)
 	struct es8323_priv *es8323 = snd_soc_component_get_drvdata(component);
 	int ret = 0;
 
+#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 	es8323->mclk = devm_clk_get(component->dev, "mclk");
 	if (IS_ERR(es8323->mclk)) {
 		dev_err(component->dev, "%s mclk is missing or invalid\n", __func__);
@@ -751,12 +767,15 @@ static int es8323_probe(struct snd_soc_component *component)
 	ret = clk_prepare_enable(es8323->mclk);
 	if (ret)
 		return ret;
+#endif
 	es8323->component = component;
 
 	ret = es8323_reset(component);
 	if (ret < 0) {
 		dev_err(component->dev, "Failed to issue reset\n");
+		#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 		clk_disable_unprepare(es8323->mclk);
+		#endif
 		return ret;
 	}
 
@@ -788,7 +807,9 @@ static int es8323_probe(struct snd_soc_component *component)
 	snd_soc_component_write(component, 0x1B, 0x00);
 	snd_soc_component_write(component, 0x27, 0xB8);
 	snd_soc_component_write(component, 0x2A, 0xB8);
+	#ifndef SPACEMIT_CONFIG_CODEC_ES8323
 	snd_soc_component_write(component, 0x35, 0xA0);
+	#endif
 	usleep_range(18000, 20000);
 	snd_soc_component_write(component, 0x2E, 0x1E);
 	snd_soc_component_write(component, 0x2F, 0x1E);
@@ -863,6 +884,22 @@ static int es8323_i2c_probe(struct i2c_client *i2c)
 		return ret;
 	}
 
+#ifdef SPACEMIT_CONFIG_CODEC_ES8323
+	es8323->earphone_sw_gpio = of_get_named_gpio(i2c->dev.of_node,
+			"earphone-sw-gpio", 0);
+	if (es8323->earphone_sw_gpio < 0) {
+		dev_info(&i2c->dev, "Can not read property earphone_sw_gpio\n");
+		es8323->earphone_sw_gpio = -1;
+	} else {
+		ret = devm_gpio_request_one(&i2c->dev, es8323->earphone_sw_gpio,
+			GPIOF_DIR_OUT, NULL);
+		if (ret) {
+			dev_err(&i2c->dev, "Failed to request earphone_sw_gpio\n");
+			return ret;
+		}
+		gpio_set_value(es8323->earphone_sw_gpio, true);
+	}
+#endif
 	ret = devm_snd_soc_register_component(&i2c->dev,
 					      &soc_codec_dev_es8323,
 					      &es8323_dai, 1);

@@ -148,4 +148,8 @@ struct es8323_setup_data {
 #define ES8323_128FS	128
 #endif
 
+#if IS_ENABLED(CONFIG_SND_SOC_SPACEMIT)
+#define SPACEMIT_CONFIG_CODEC_ES8323 1
+#endif
+
 #endif
