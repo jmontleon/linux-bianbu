@@ -671,6 +671,7 @@ static int husb239_chip_init(struct husb239 *husb239)
 	/* PORTROLE init */
 	ret = regmap_write(husb239->regmap, HUSB239_REG_PORTROLE,
 				HUSB239_REG_PORTROLE_ORIENTDEB |
+				HUSB239_REG_PORTROLE_DRP_TRY_SNK |
 				HUSB239_REG_PORTROLE_AUDIOACC |
 				HUSB239_REG_PORTROLE_DRP);
 	if (ret)
