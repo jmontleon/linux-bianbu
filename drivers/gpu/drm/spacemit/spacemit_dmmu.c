@@ -54,7 +54,7 @@ int spacemit_dmmu_map(struct drm_plane *plane, struct dpu_mmu_tbl *mmu_tbl, u8 t
 		phys_addr_t contig_pa = sg_dma_address(sgt->sgl);
 
 		write_to_cmdlist(priv, MMU_REG, MMU_BASE_ADDR, TBU[tbu_id].TBU_Ctrl, 0x0);
-#if defined (CONFIG_ARM64) || defined (CONFIG_ARM_LPAE)
+#if defined (CONFIG_ARM64) || defined (CONFIG_ARM_LPAE) || defined (CONFIG_ARCH_RV64I)
 		CONFIG_RDMA_ADDR_REG(priv, 0, rdma_id, contig_pa);
 		CONFIG_RDMA_ADDR_REG(priv, 1, rdma_id, (contig_pa + fb->offsets[1]));
 		CONFIG_RDMA_ADDR_REG(priv, 2, rdma_id, (contig_pa + fb->offsets[2]));
@@ -117,7 +117,7 @@ int spacemit_dmmu_map(struct drm_plane *plane, struct dpu_mmu_tbl *mmu_tbl, u8 t
 		dpu_write_reg(hwdev, MMU_REG, MMU_BASE_ADDR, v.TBU[tbu_id].TBU_Ctrl, val);
 	} else {
 		val = val | (DPU_QOS_URGENT << 8);
-#if defined (CONFIG_ARM64) || defined (CONFIG_ARM_LPAE)
+#if defined (CONFIG_ARM64) || defined (CONFIG_ARM_LPAE) || defined (CONFIG_ARCH_RV64I)
 		CONFIG_RDMA_ADDR_REG(priv, 0, rdma_id, tbu.tbu_va[0]);
 		CONFIG_RDMA_ADDR_REG(priv, 1, rdma_id, tbu.tbu_va[1]);
 		CONFIG_RDMA_ADDR_REG(priv, 2, rdma_id, tbu.tbu_va[2]);
