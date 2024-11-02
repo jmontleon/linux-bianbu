@@ -664,7 +664,10 @@ static void spacemit_rproc_shutdown(struct platform_device *pdev)
 
 	for (i = 0; i < MAX_MBOX; ++i) {
 		/* release the resource of rt thread */
-		kthread_stop(priv->mb[i].mb_thread);
+		if (priv->mb[i].kthread_running) {
+			if (!frozen((priv->mb[i].mb_thread)))
+				kthread_stop(priv->mb[i].mb_thread);
+		}
 		/* mbox_free_channel(priv->mb[i].chan); */
 	}
 }
