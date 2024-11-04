@@ -219,7 +219,7 @@ static int cw_init(struct cw_battery *cw_bat)
 			if (ret < 0)
 			return ret;
 
-			printk(KERN_INFO "%X\n", reg_val);
+			cw_printk(KERN_INFO "%X\n", reg_val);
 			if (config_info[i] != reg_val)
 				break;
 		}
