@@ -64,7 +64,7 @@ int ccic_csi2_lanes_enable(struct ccic_dev *ccic_dev, int lanes)
 
 	return 0;
 }
-
+#if 0
 int ccic_csi2_vc_ctrl(struct ccic_dev *ccic_dev, int md, u8 vc0, u8 vc1)
 {
 	int ret = 0;
@@ -94,27 +94,51 @@ int ccic_csi2_vc_ctrl(struct ccic_dev *ccic_dev, int md, u8 vc0, u8 vc1)
 
 	return ret;
 }
-
-int ccic_dma_src_sel(struct ccic_dev *ccic_dev, int sel)
+#endif
+int ccic_dma_src_sel(struct ccic_dev *ccic_dev, int sel, unsigned int main_ccic_id)
 {
 	switch (sel) {
 	case CCIC_DMA_SEL_LOCAL_MAIN:
-		ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
-		ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDC_SEL);
-		/* FIXME: no need */
-		ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
-		break;
 	case CCIC_DMA_SEL_LOCAL_VCDT:
-		ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
-		ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDC_SEL);
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0,
+				   CSI2_C0_EXT_TIM_ENA);
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
 		/* FIXME: no need */
 		ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
 		break;
 	case CCIC_DMA_SEL_REMOTE_VCDT:
-		ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
-		ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDC_SEL);
-		/* When EXT_TIM_ENA is enabled, this field must be enabled too. */
-		ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+		if (ccic_dev->index == 0) {
+			if (main_ccic_id == 2) {
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
+				ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+			} else {
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+			}
+		} else if (ccic_dev->index == 1) {
+			if (main_ccic_id == 2) {
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
+				ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+			} else {
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+			}
+		} else {
+			if (main_ccic_id == 0) {
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
+				ccic_reg_clear_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+			} else {
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_EXT_TIM_ENA);
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_VCDT_SEL);
+				/* When EXT_TIM_ENA is enabled, this field must be enabled too. */
+				ccic_reg_set_bit(ccic_dev, REG_CSI2_CTRL0, CSI2_C0_ENABLE);
+			}
+		}
 		break;
 	case CCIC_DMA_SEL_REMOTE_MAIN:
 	default:
