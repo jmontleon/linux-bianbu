@@ -12,6 +12,7 @@ cam_ccic_v2-objs += cam_ccic/ccic_hwreg.o
 cam_ccic_v2-objs += cam_ccic/csiphy.o
 cam_ccic_v2-objs += cam_ccic/ccic_drv.o
 cam_ccic_v2-objs += cam_ccic/dptc_drv.o
+cam_ccic_v2-objs += cam_ccic/ccic_vdev.o
 
 obj-$(CONFIG_SPACEMIT_K1X_CPP_V2) += cam_cpp_v2.o
 cam_cpp_v2-objs += cam_cpp/k1x_cpp.o

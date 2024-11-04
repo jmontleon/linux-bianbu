@@ -18,11 +18,13 @@
 #include <media/v4l2-dev.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-dma-sg.h>
+#include <linux/media-bus-format.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include "ccic_drv.h"
 #include "ccic_hwreg.h"
 #include "csiphy.h"
+#include "ccic_vdev.h"
 
 #ifdef CONFIG_ARCH_ZYNQMP
 #include "dptc_drv.h"
@@ -31,8 +33,19 @@
 
 #define K1X_CCIC_DRV_NAME "k1xccic"
 
+#define CAM_ALIGN(a, b)		({ \
+								unsigned int ___tmp1 = (a); \
+								unsigned int ___tmp2 = (b); \
+								unsigned int ___tmp3 = ___tmp1 % ___tmp2; \
+								___tmp1 /= ___tmp2; \
+								if (___tmp3) \
+									___tmp1++; \
+								___tmp1 *= ___tmp2; \
+								___tmp1; \
+							})
 static LIST_HEAD(ccic_devices);
 static DEFINE_MUTEX(list_lock);
+static void ccic_dma_bh_handler(struct ccic_dma_work_struct *ccic_dma_work);
 
 static void ccic_irqmask(struct ccic_ctrl *ctrl, int on)
 {
@@ -131,17 +144,23 @@ static int ccic_config_csi2_dphy(struct ccic_ctrl *ctrl,
 	return ret;
 }
 
-static int ccic_config_csi2_vc(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1)
+static int ccic_config_csi2_vc_dt(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, u8 dt0, u8 dt1)
 {
 	int ret = 0;
 	struct ccic_dev *ccic_dev = ctrl->ccic_dev;
 
 	switch (md) {
 	case CCIC_CSI2VC_NM:	/* Normal mode */
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_VCCTRL, CSI2_VCCTRL_DT_ENABLE);
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_DT_FLT, CSI2_DT_FLT0_EN);
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_DT_FLT, CSI2_DT_FLT1_EN);
 		ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL,
 				    CSI2_VCCTRL_MD_NORMAL, CSI2_VCCTRL_MD_MASK);
 		break;
 	case CCIC_CSI2VC_VC:	/* Virtual Channel mode */
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_VCCTRL, CSI2_VCCTRL_DT_ENABLE);
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_DT_FLT, CSI2_DT_FLT0_EN);
+		ccic_reg_clear_bit(ccic_dev, REG_CSI2_DT_FLT, CSI2_DT_FLT1_EN);
 		ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL,
 				    CSI2_VCCTRL_MD_VC, CSI2_VCCTRL_MD_MASK);
 		ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL, vc0 << 14,
@@ -150,9 +169,23 @@ static int ccic_config_csi2_vc(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1)
 				    CSI2_VCCTRL_VC1_MASK);
 		break;
 	case CCIC_CSI2VC_DT:	/* TODO: Data-Type Interleaving */
-		ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL,
-				    CSI2_VCCTRL_MD_DT, CSI2_VCCTRL_MD_MASK);
+		//ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL,
+		//		    CSI2_VCCTRL_MD_DT, CSI2_VCCTRL_MD_MASK);
 		pr_err("csi2 vc mode %d todo\n", md);
+		ret = -EINVAL;
+		break;
+	case CCIC_CSI2VC_VCDT:
+		ccic_reg_set_bit(ccic_dev, REG_CSI2_VCCTRL, CSI2_VCCTRL_DT_ENABLE);
+		ccic_reg_set_bit(ccic_dev, REG_CSI2_DT_FLT, CSI2_DT_FLT0_EN);
+		ccic_reg_set_bit(ccic_dev, REG_CSI2_DT_FLT, CSI2_DT_FLT2_EN);
+		ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL, vc0 << 14,
+				    CSI2_VCCTRL_VC0_MASK);
+		ccic_reg_write_mask(ccic_dev, REG_CSI2_VCCTRL, vc1 << 22,
+				    CSI2_VCCTRL_VC1_MASK);
+		ccic_reg_write_mask(ccic_dev, REG_CSI2_DT_FLT, dt0 << CSI2_DT_FLT0_SHIFT,
+				    CSI2_DT_FLT0_MASK);
+		ccic_reg_write_mask(ccic_dev, REG_CSI2_DT_FLT, dt1 << CSI2_DT_FLT2_SHIFT,
+				    CSI2_DT_FLT2_MASK);
 		break;
 	default:
 		dev_err(ccic_dev->dev, "invalid csi2 vc mode %d\n", md);
@@ -292,10 +325,10 @@ static int axi_set_clock_rates(struct clk *clock)
 	return 0;
 }
 
-int ccic_dma_clk_enable(struct ccic_dma *dma, int on)
+static int ccic_dma_clk_enable(struct ccic_dma *dma, int on)
 {
-	struct ccic_dev *ccic = dma->ccic_dev;
-	struct device *dev = &ccic->pdev->dev;
+	struct ccic_dev *ccic_dev = dma->ccic_dev;
+	struct device *dev = &ccic_dev->pdev->dev;
 	int ret;
 
 	if (on) {
@@ -303,30 +336,198 @@ int ccic_dma_clk_enable(struct ccic_dma *dma, int on)
 		if (ret < 0)
 			return ret;
 
-		ret = clk_prepare_enable(ccic->axi_clk);
+		ret = clk_prepare_enable(ccic_dev->axi_clk);
 		if (ret < 0) {
 			pm_runtime_put_sync(dev);
 			return ret;
 		}
-		reset_control_deassert(ccic->isp_ci_reset);
+		reset_control_deassert(ccic_dev->isp_ci_reset);
 
-		ret = axi_set_clock_rates(ccic->axi_clk);
+		ret = axi_set_clock_rates(ccic_dev->axi_clk);
 		if (ret < 0) {
 			pm_runtime_put_sync(dev);
 			return ret;
 		}
-		reset_control_deassert(ccic->isp_ci_reset);
+		reset_control_deassert(ccic_dev->isp_ci_reset);
 	} else {
-		clk_disable_unprepare(ccic->axi_clk);
-		reset_control_assert(ccic->isp_ci_reset);
+		clk_disable_unprepare(ccic_dev->axi_clk);
+		reset_control_assert(ccic_dev->isp_ci_reset);
 		pm_runtime_put_sync(dev);
 	}
 
 	return 0;
 }
 
+static int ccic_dma_enable(struct ccic_dma *dma_dev, int enable)
+{
+	struct ccic_dev *ccic_dev = dma_dev->ccic_dev;
+
+	if (enable) {
+		//ccic_reg_set_bit(ccic_dev, REG_IRQMASK, FRAMEIRQS);
+		ccic_dma_set_burst(ccic_dev);
+		/* 0x3c: enable ccic dma */
+		ccic_reg_set_bit(ccic_dev, REG_CTRL0, BIT(0));
+		ccic_reg_set_bit(ccic_dev, 0x40, BIT(31) | BIT(26));
+		ccic_reg_clear_bit(ccic_dev, 0x40, BIT(25));
+	} else {
+		//ccic_reg_clear_bit(ccic_dev, REG_IRQMASK, FRAMEIRQS);
+		/* 0x3c: disable ccic dma */
+		ccic_reg_clear_bit(ccic_dev, REG_CTRL0, BIT(0));
+	}
+
+	return 0;
+}
+
+static int ccic_dma_set_fmt(struct ccic_dma *dma_dev,
+							unsigned int width,
+							unsigned int height,
+							unsigned int pix_fmt)
+{
+	struct ccic_dev *ccic_dev = dma_dev->ccic_dev;
+	struct device *dev = ccic_dev->dev;
+	unsigned int data_fmt = C0_DF_BAYER, imgsz_w = 0, imgsz_h = 0;
+	unsigned int stride_y = 0, stride_uv = 0;
+
+	switch (pix_fmt) {
+	case MEDIA_BUS_FMT_UYVY8_2X8:
+		data_fmt = C0_DF_BAYER;
+		imgsz_w = width;
+		stride_y = 0;
+		imgsz_h = height;
+		stride_uv = 0;
+		break;
+	case MEDIA_BUS_FMT_SBGGR8_1X8:
+	case MEDIA_BUS_FMT_SGBRG8_1X8:
+	case MEDIA_BUS_FMT_SGRBG8_1X8:
+	case MEDIA_BUS_FMT_SRGGB8_1X8:
+		data_fmt = C0_DF_BAYER;
+		imgsz_w = width;
+		stride_y = 0;//CAM_ALIGN(imgsz_w, 8);
+		imgsz_h = height;
+		stride_uv = 0;
+		break;
+	case MEDIA_BUS_FMT_SBGGR10_1X10:
+	case MEDIA_BUS_FMT_SGBRG10_1X10:
+	case MEDIA_BUS_FMT_SGRBG10_1X10:
+	case MEDIA_BUS_FMT_SRGGB10_1X10:
+		data_fmt = C0_DF_BAYER;
+		imgsz_w = width * 5 / 4;
+		stride_y = 0;//CAM_ALIGN(imgsz_w, 8);
+		imgsz_h = height;
+		stride_uv = 0;
+		break;
+	case MEDIA_BUS_FMT_SBGGR12_1X12:
+	case MEDIA_BUS_FMT_SGBRG12_1X12:
+	case MEDIA_BUS_FMT_SGRBG12_1X12:
+	case MEDIA_BUS_FMT_SRGGB12_1X12:
+		data_fmt = C0_DF_BAYER;
+		imgsz_w = width * 3 / 2;
+		stride_y = 0;//CAM_ALIGN(imgsz_w, 8);
+		imgsz_h = height;
+		stride_uv = 0;
+		break;
+	default:
+		pr_err("%s failed: invalid pixfmt %d\n", __func__, pix_fmt);
+		return -1;
+	}
+
+	dev_info(dev, "stride_y=0x%x, width=%u\n", stride_y, width);
+	ccic_reg_write(ccic_dev, REG_IMGPITCH, stride_uv << 16 | stride_y);
+	ccic_reg_write(ccic_dev, REG_IMGSIZE, imgsz_h << 16 | imgsz_w);
+	ccic_reg_write(ccic_dev, REG_IMGOFFSET, 0x0);
+	ccic_reg_write_mask(ccic_dev, REG_CTRL0, data_fmt, C0_DF_MASK);
+	/* Make sure it knows we want to use hsync/vsync. */
+	ccic_reg_write_mask(ccic_dev, REG_CTRL0, C0_SIF_HVSYNC, C0_SIFM_MASK);
+	/* Need set following bit for auto-recovery */
+	ccic_reg_set_bit(ccic_dev, REG_CTRL0, C0_EOFFLUSH);
+
+	return 0;
+}
+
+static int ccic_dma_set_addr(struct ccic_dma *dma_dev,
+							unsigned long addr_y,
+							unsigned long addr_u,
+							unsigned long addr_v)
+{
+	struct ccic_dev *ccic_dev = dma_dev->ccic_dev;
+
+	ccic_reg_write(ccic_dev, 0x00, (u32)(addr_y & 0xffffffff));
+	ccic_reg_write(ccic_dev, 0x0c, (u32)(addr_u & 0xffffffff));
+	ccic_reg_write(ccic_dev, 0x18, (u32)(addr_v & 0xffffffff));
+
+	return 0;
+}
+
+static int ccic_dma_shadow_ready(struct ccic_dma *dma_dev)
+{
+	struct ccic_dev *ccic_dev = dma_dev->ccic_dev;
+	ccic_reg_set_bit(ccic_dev, REG_CTRL1, C1_SHADOW_RDY);
+
+	return 0;
+}
+
+static int ccic_dma_src_select(struct ccic_dma *dma_dev, int src, unsigned int main_ccic_id)
+{
+	struct ccic_dev *ccic_dev = dma_dev->ccic_dev;
+	return ccic_dma_src_sel(ccic_dev, src, main_ccic_id);
+}
+
+static void ccic_dma_dump_regs(struct ccic_dma *dma_dev)
+{
+	unsigned int reg_val = 0;
+	struct ccic_dev *ccic_dev = dma_dev->ccic_dev;
+
+	reg_val = ccic_reg_read(ccic_dev, 0x30);
+	printk(KERN_INFO "ccic%d [0x30]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x28);
+	printk(KERN_INFO "ccic%d [0x28]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x2c);
+	printk(KERN_INFO "ccic%d [0x2c]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x24);
+	printk(KERN_INFO "ccic%d [0x24]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x34);
+	printk(KERN_INFO "ccic%d [0x34]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x38);
+	printk(KERN_INFO "ccic%d [0x38]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x3c);
+	printk(KERN_INFO "ccic%d [0x3c]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x40);
+	printk(KERN_INFO "ccic%d [0x40]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x44);
+	printk(KERN_INFO "ccic%d [0x44]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x48);
+	printk(KERN_INFO "ccic%d [0x48]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x310);
+	printk(KERN_INFO "ccic%d [0x310]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x60);
+	printk(KERN_INFO "ccic%d [0x60]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x23c);
+	printk(KERN_INFO "ccic%d [0x23c]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x128);
+	printk(KERN_INFO "ccic%d [0x128]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x12c);
+	printk(KERN_INFO "ccic%d [0x12c]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x134);
+	printk(KERN_INFO "ccic%d [0x134]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x138);
+	printk(KERN_INFO "ccic%d [0x138]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x100);
+	printk(KERN_INFO "ccic%d [0x100]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x140);
+	printk(KERN_INFO "ccic%d [0x140]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x144);
+	printk(KERN_INFO "ccic%d [0x144]=0x%08x\n", ccic_dev->index, reg_val);
+	reg_val = ccic_reg_read(ccic_dev, 0x124);
+	printk(KERN_INFO "ccic%d [0x124]=0x%08x\n", ccic_dev->index, reg_val);
+}
 static struct ccic_dma_ops ccic_dma_ops = {
+	.set_fmt = ccic_dma_set_fmt,
+	.shadow_ready = ccic_dma_shadow_ready,
+	.set_addr = ccic_dma_set_addr,
+	.ccic_enable = ccic_dma_enable,
 	.clk_enable = ccic_dma_clk_enable,
+	.src_sel = ccic_dma_src_select,
+	.dump_regs = ccic_dma_dump_regs,
 };
 
 /*
@@ -372,10 +573,13 @@ int ccic_clk_enable(struct ccic_ctrl *ctrl, int en)
 			pr_err("rpm get failed\n");
 			return ret;
 		}
+		pm_stay_awake(&ccic_dev->pdev->dev);
+
+		clk_prepare_enable(ccic_dev->dpu_clk);
+		reset_control_deassert(ccic_dev->mclk_reset);
 
 		//clk_prepare_enable(ccic_dev->ahb_clk);
 		reset_control_deassert(ccic_dev->ahb_reset);
-
 		clk_prepare_enable(ccic_dev->clk4x);
 		reset_control_deassert(ccic_dev->ccic_4x_reset);
 		clk_prepare_enable(ccic_dev->csi_clk);
@@ -394,9 +598,12 @@ int ccic_clk_enable(struct ccic_ctrl *ctrl, int en)
 		clk_disable_unprepare(ccic_dev->clk4x);
 		reset_control_assert(ccic_dev->ccic_4x_reset);
 
+		clk_disable_unprepare(ccic_dev->dpu_clk);
+		reset_control_assert(ccic_dev->mclk_reset);
+
 		//clk_disable_unprepare(ccic_dev->ahb_clk);
 		reset_control_assert(ccic_dev->ahb_reset);
-
+		pm_relax(&ccic_dev->pdev->dev);
 		pm_runtime_put_sync(&ccic_dev->pdev->dev);
 	}
 
@@ -405,13 +612,14 @@ int ccic_clk_enable(struct ccic_ctrl *ctrl, int en)
 	return ret;
 }
 
-int ccic_config_csi2_mbus(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, int lanes)
+int ccic_config_csi2_mbus(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, u8 dt0, u8 dt1,
+			  int lanes)
 {
 	int ret;
 	struct ccic_dev *ccic_dev = ctrl->ccic_dev;
 	struct mipi_csi2 csi2para;
 
-	ret = ccic_config_csi2_vc(ctrl, md, vc0, vc1);
+	ret = ccic_config_csi2_vc_dt(ctrl, md, vc0, vc1, dt0, dt1);
 	if (ret)
 		return ret;
 
@@ -545,9 +753,16 @@ static int ccic_init_clk(struct ccic_dev *dev)
 	if (IS_ERR_OR_NULL(dev->isp_ci_reset))
 		return PTR_ERR(dev->isp_ci_reset);
 
+	dev->mclk_reset = devm_reset_control_get_optional_shared(&dev->pdev->dev, "mclk_reset");
+	if (IS_ERR_OR_NULL(dev->mclk_reset))
+		return PTR_ERR(dev->mclk_reset);
+
 	dev->csi_clk = devm_clk_get(&dev->pdev->dev, "csi_func");
 	if (IS_ERR(dev->csi_clk))
 		return PTR_ERR(dev->csi_clk);
+	dev->dpu_clk = devm_clk_get(&dev->pdev->dev, "dpu_mclk");
+	if (IS_ERR(dev->dpu_clk))
+		return PTR_ERR(dev->dpu_clk);
 
 	dev->clk4x = devm_clk_get(&dev->pdev->dev, "ccic_func");
 	return PTR_ERR_OR_ZERO(dev->clk4x);
@@ -650,6 +865,31 @@ void ccic_ctrl_put(struct ccic_ctrl *ctrl)
 
 EXPORT_SYMBOL(ccic_ctrl_put);
 
+
+int ccic_dma_get(struct ccic_dma **ccic_dma, int id)
+{
+	struct ccic_dev *ccic_dev = NULL;
+	struct ccic_dev *tmp = NULL;
+	struct ccic_dma *dma = NULL;
+
+	list_for_each_entry(tmp, &ccic_devices, list) {
+		if (tmp->index == id) {
+			ccic_dev = tmp;
+			break;
+		}
+	}
+	if (!ccic_dev) {
+		pr_err("ccic%d not found", id);
+		return -ENODEV;
+	}
+
+	dma = ccic_dev->dma;
+	*ccic_dma = dma;
+	pr_debug("acquire ccic%d dma dev succeed\n", id);
+
+	return 0;
+}
+EXPORT_SYMBOL(ccic_dma_get);
 static void ipe_error_irq_handler(struct ccic_dev *ccic, u32 ipestatus, u32 csi2status)
 {
 	static DEFINE_RATELIMIT_STATE(rs, 5 * HZ, 20);
@@ -664,10 +904,110 @@ static void ipe_error_irq_handler(struct ccic_dev *ccic, u32 ipestatus, u32 csi2
 	}
 }
 
+static int ccic_put_dma_work(struct ccic_dma_context *dma_ctx,
+                            struct ccic_dma_work_struct *ccic_dma_work)
+{
+    unsigned long flags = 0;
+
+    spin_lock_irqsave(&dma_ctx->slock, flags);
+    list_del_init(&ccic_dma_work->busy_list_entry);
+    list_add(&ccic_dma_work->idle_list_entry, &dma_ctx->dma_work_idle_list);
+    spin_unlock_irqrestore(&dma_ctx->slock, flags);
+
+    return 0;
+}
+
+static int ccic_get_dma_work(struct ccic_dma_context *dma_ctx,
+							struct ccic_dma_work_struct **ccic_dma_work)
+{
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&dma_ctx->slock, flags);
+	*ccic_dma_work = list_first_entry_or_null(&dma_ctx->dma_work_idle_list, struct ccic_dma_work_struct, idle_list_entry);
+	if (NULL == *ccic_dma_work) {
+		spin_unlock_irqrestore(&dma_ctx->slock, flags);
+		return -1;
+	}
+	list_del_init(&((*ccic_dma_work)->idle_list_entry));
+	list_add(&((*ccic_dma_work)->busy_list_entry), &dma_ctx->dma_work_busy_list);
+	spin_unlock_irqrestore(&dma_ctx->slock, flags);
+
+	return 0;
+}
+
+static void ccic_dma_bh_handler(struct ccic_dma_work_struct *ccic_dma_work)
+{
+	struct spm_ccic_vnode *ac_vnode = ccic_dma_work->ac_vnode;
+	struct device *dev = ac_vnode->ccic_dev->dev;
+	struct ccic_dma_context *dma_ctx = &ac_vnode->dma_ctx;
+	struct spm_ccic_vbuffer *n = NULL, *pos = NULL;
+	//unsigned int irq_status = ccic_dma_work->irq_status;
+	LIST_HEAD(export_list);
+	unsigned long flags = 0;
+
+	spin_lock(&ac_vnode->waitq_head.lock);
+	ac_vnode->in_tasklet = 1;
+	if (ac_vnode->in_streamoff || !ac_vnode->is_streaming) {
+		wake_up_locked(&ac_vnode->waitq_head);
+		spin_unlock(&ac_vnode->waitq_head.lock);
+		goto dma_tasklet_finish;
+	}
+	wake_up_locked(&ac_vnode->waitq_head);
+	spin_unlock(&ac_vnode->waitq_head.lock);
+	spin_lock_irqsave(&ac_vnode->slock, flags);
+	list_for_each_entry_safe(pos, n, &ac_vnode->busy_list, list_entry) {
+		if (pos->flags & (AC_BUF_FLAG_HW_ERR | AC_BUF_FLAG_SW_ERR | AC_BUF_FLAG_DONE_TOUCH)) {
+			list_del_init(&(pos->list_entry));
+			atomic_dec(&ac_vnode->busy_buf_cnt);
+			list_add_tail(&(pos->list_entry), &export_list);
+		}
+	}
+	spin_unlock_irqrestore(&ac_vnode->slock, flags);
+	list_for_each_entry_safe(pos, n, &export_list, list_entry) {
+		if (!(pos->flags & AC_BUF_FLAG_SOF_TOUCH)) {
+			dev_warn(dev, "%s export buf index=%u frameid=%u without sof touch\n", ac_vnode->name, pos->vb2_v4l2_buf.vb2_buf.index, pos->vb2_v4l2_buf.sequence);
+		}
+		if (pos->flags & AC_BUF_FLAG_HW_ERR) {
+			//pos->vb2_v4l2_buf.flags |= V4L2_BUF_FLAG_ERROR_HW;
+			dev_warn(dev, "%s export buf index=%u frameid=%u with hw error\n", ac_vnode->name, pos->vb2_v4l2_buf.vb2_buf.index, pos->vb2_v4l2_buf.sequence);
+			spm_cvdev_export_ccic_vbuffer(pos, 1);
+			ac_vnode->hw_err_frm++;
+		} else if (pos->flags & AC_BUF_FLAG_SW_ERR) {
+			//pos->vb2_v4l2_buf.flags |= V4L2_BUF_FLAG_ERROR_SW;
+			dev_warn(dev, "%s export buf index=%u frameid=%u with sw error\n", ac_vnode->name, pos->vb2_v4l2_buf.vb2_buf.index, pos->vb2_v4l2_buf.sequence);
+			spm_cvdev_export_ccic_vbuffer(pos, 1);
+			ac_vnode->sw_err_frm++;
+		} else if (pos->flags & AC_BUF_FLAG_DONE_TOUCH) {
+			spm_cvdev_export_ccic_vbuffer(pos, 0);
+			ac_vnode->ok_frm++;
+		}
+	}
+dma_tasklet_finish:
+	if (ac_vnode) {
+		spin_lock(&ac_vnode->waitq_head.lock);
+		ac_vnode->in_tasklet = 0;
+		wake_up_locked(&ac_vnode->waitq_head);
+		spin_unlock(&ac_vnode->waitq_head.lock);
+	}
+	ccic_put_dma_work(dma_ctx, ccic_dma_work);
+}
+
+static void ccic_dma_tasklet_handler(unsigned long param)
+{
+	struct ccic_dma_work_struct *ccic_dma_work = (struct ccic_dma_work_struct*)param;
+	ccic_dma_bh_handler(ccic_dma_work);
+}
 static irqreturn_t k1x_ccic_isr(int irq, void *data)
 {
 	struct ccic_dev *ccic_dev = data;
-	uint32_t irqs, csi2status;
+	struct spm_ccic_vnode *ac_vnode = (struct spm_ccic_vnode*)ccic_dev->vnode;
+	struct ccic_dma_context *dma_ctx = &ac_vnode->dma_ctx;
+	struct spm_ccic_vbuffer *pos = NULL, *ac_vb = NULL;
+	struct ccic_dma_work_struct *ccic_dma_work = NULL;
+	struct ccic_dma *ccic_dma = ac_vnode->ccic_dev->dma;
+	struct device *dev = ac_vnode->ccic_dev->dev;
+	uint32_t irqs = 0, csi2status = 0, tmp = 0;
+	int ret = 0;
 
 	irqs = ccic_reg_read(ccic_dev, REG_IRQSTAT);
 	if (!(irqs & ~IRQ_IDI_PRO_LINE))
@@ -682,8 +1022,8 @@ static irqreturn_t k1x_ccic_isr(int irq, void *data)
 	if (irqs & IRQ_DMA_PRO_LINE)
 		pr_debug("CCIC%d: IRQ_DMA_PRO_LINE\n", ccic_dev->index);
 
-	if (irqs & IRQ_IDI_PRO_LINE)
-		pr_debug("CCIC%d: IRQ_IDI_PRO_LINE\n", ccic_dev->index);
+	//if (irqs & IRQ_IDI_PRO_LINE)
+	//	pr_debug("CCIC%d: IRQ_IDI_PRO_LINE\n", ccic_dev->index);
 
 	if (irqs & IRQ_CSI2IDI_FLUSH)
 		pr_debug("CCIC%d: IRQ_CSI2IDI_FLUSH\n", ccic_dev->index);
@@ -700,6 +1040,84 @@ static irqreturn_t k1x_ccic_isr(int irq, void *data)
 	if (irqs & IRQ_DPHY_LN_ULPS_ACTIVE)
 		pr_debug("CCIC%d: IRQ_DPHY_LN_ULPS_ACTIVE\n", ccic_dev->index);
 
+	//if (irqs & IRQ_DMA_SOF) {
+	//	dev_dbg(dev, "CCIC%d: IRQ_DMA_SOF\n", ccic_dev->index);
+	//}
+	if (irqs & IRQ_DMA_SOF || irqs & IRQ_SHADOW_NOT_RDY) {
+		ac_vnode->frame_id++;
+		ac_vnode->total_frm++;
+	}
+	spin_lock(&ac_vnode->waitq_head.lock);
+	ac_vnode->in_irq = 1;
+	if (ac_vnode->in_streamoff) {
+		ac_vnode->in_irq = 0;
+		wake_up_locked(&ac_vnode->waitq_head);
+		spin_unlock(&ac_vnode->waitq_head.lock);
+		return IRQ_HANDLED;
+	}
+	spin_unlock(&ac_vnode->waitq_head.lock);
+	if (ac_vnode->is_streaming && (irqs & FRAMEIRQS)) {
+		//if (irqs & IRQ_CSI_SOF) {
+		if (irqs & IRQ_DMA_SOF || irqs & IRQ_SHADOW_NOT_RDY) {
+			spm_cvdev_dq_idle_vbuffer(ac_vnode, &ac_vb);
+			if (ac_vb) {
+				spm_cvdev_q_busy_vbuffer(ac_vnode, ac_vb);
+				ccic_update_dma_addr(ac_vnode, ac_vb, 0);
+				ccic_dma->ops->shadow_ready(ccic_dma);
+			}
+		}
+		tmp = irqs;
+		spin_lock(&(ac_vnode->slock));
+		list_for_each_entry(pos, &(ac_vnode->busy_list), list_entry) {
+			if (!tmp)
+				break;
+			if (tmp & (IRQ_DMA_OVERFLOW | IRQ_DMA_NOT_DONE)) {
+				if (!(pos->flags & AC_BUF_FLAG_SOF_TOUCH)) {
+					dev_info(dev, "CCIC%d: dma err(0x%08x) without sof, drop it\n", ccic_dev->index, tmp);
+					tmp &= ~(IRQ_DMA_OVERFLOW | IRQ_DMA_NOT_DONE);
+				} else if (!(pos->flags & AC_BUF_FLAG_HW_ERR)) {
+					pos->flags |= AC_BUF_FLAG_HW_ERR;
+					dev_info(dev, "CCIC%d: dma err(0x%08x)\n", ccic_dev->index, tmp);
+					tmp &= ~(IRQ_DMA_OVERFLOW | IRQ_DMA_NOT_DONE);
+				}
+			}
+			if (tmp & IRQ_DMA_EOF) {
+				if (!(pos->flags & AC_BUF_FLAG_SOF_TOUCH)) {
+					dev_info(dev, "CCIC%d: dma done without sof, drop it\n", ccic_dev->index);
+					tmp &= ~IRQ_DMA_EOF;
+				} else if (!(pos->flags & AC_BUF_FLAG_DONE_TOUCH)) {
+					pos->flags |= AC_BUF_FLAG_DONE_TOUCH;
+					pos->vb2_v4l2_buf.sequence = ac_vnode->frame_id - 1;
+					pos->vb2_v4l2_buf.vb2_buf.timestamp = ktime_get_ns();
+					tmp &= ~IRQ_DMA_EOF;
+					//dev_info(dev, "CCIC%d: dma done\n", ccic_dev->index);
+				}
+			}
+			if (tmp & IRQ_DMA_SOF) {
+				if (pos->flags & AC_BUF_FLAG_SOF_TOUCH) {
+					if (!(pos->flags & (AC_BUF_FLAG_DONE_TOUCH | AC_BUF_FLAG_HW_ERR | AC_BUF_FLAG_SW_ERR))) {
+						dev_warn(dev, "CCIC%d: next sof arrived without dma done or err\n", ccic_dev->index);
+						pos->flags |= AC_BUF_FLAG_SW_ERR;
+					}
+				} else {
+					pos->flags |= (AC_BUF_FLAG_SOF_TOUCH | AC_BUF_FLAG_TIMESTAMPED);
+					tmp &= ~IRQ_DMA_SOF;
+				}
+			}
+		}
+		spin_unlock(&(ac_vnode->slock));
+		ret = ccic_get_dma_work(dma_ctx, &ccic_dma_work);
+		if (ret) {
+			dev_warn(dev, "CCIC%d: dma work idle list was null\n", ccic_dev->index);
+		} else {
+			ccic_dma_work->irq_status = irqs;
+			tasklet_schedule(&(ccic_dma_work->dma_tasklet));
+		}
+	}
+	spin_lock(&ac_vnode->waitq_head.lock);
+	ac_vnode->in_irq = 0;
+	wake_up_locked(&ac_vnode->waitq_head);
+	spin_unlock(&ac_vnode->waitq_head.lock);
 	return IRQ_HANDLED;
 }
 
@@ -710,10 +1128,8 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 	struct ccic_ctrl *ccic_ctrl;
 	struct ccic_dma *ccic_dma;
 	struct device *dev = &pdev->dev;
+	char buf[32];
 	int ret;
-	int irq;
-
-	pr_debug("%s begin to probe\n", dev_name(&pdev->dev));
 
 	ret = of_property_read_u32(np, "cell-index", &pdev->id);
 	if (ret < 0) {
@@ -753,13 +1169,13 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 	}
 
 	/* get irqs */
-	irq = platform_get_irq_byname(pdev, "ipe-irq");
-	if (irq < 0) {
+	ccic_dev->irq = platform_get_irq_byname(pdev, "ipe-irq");
+	if (ccic_dev->irq < 0) {
 		dev_err(&pdev->dev, "no irq resource");
 		return -ENODEV;
 	}
-	dev_dbg(&pdev->dev, "ipe irq: %d\n", irq);
-	ret = devm_request_irq(&pdev->dev, irq, k1x_ccic_isr,
+
+	ret = devm_request_irq(&pdev->dev, ccic_dev->irq, k1x_ccic_isr,
 			       IRQF_SHARED, K1X_CCIC_DRV_NAME, ccic_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "fail to request irq\n");
@@ -786,7 +1202,7 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 	ccic_dev->dev = &pdev->dev;
 	ccic_dev->ctrl = ccic_ctrl;
 	ccic_dev->dma = ccic_dma;
-	ccic_dev->interrupt_mask_value = CSI2PHYERRS;
+	ccic_dev->interrupt_mask_value = CSI2PHYERRS | FRAMEIRQS;
 	dev_set_drvdata(dev, ccic_dev);
 
 	/* enable runtime pm */
@@ -796,7 +1212,24 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 
 	ccic_device_register(ccic_dev);
 
-	pr_debug("%s probed", dev_name(&pdev->dev));
+	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(33));
+	ret = v4l2_device_register(&pdev->dev, &ccic_dev->v4l2_dev);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to register v4l2 dev\n");
+		return ret;
+	}
+	snprintf(buf, 32, "CCIC%d", ccic_ctrl->index);
+	ccic_dev->vnode = spm_cvdev_create_vnode(buf, ccic_dev->index,
+											&ccic_dev->v4l2_dev,
+											&pdev->dev,
+											ccic_dev,
+											ccic_dma_tasklet_handler,
+											0);
+	if (NULL == ccic_dev->vnode) {
+		dev_err(&pdev->dev, "failed to create ccic vnode\n");
+		return -EPROBE_DEFER;
+	}
+	pr_info("%s probed in %s", dev_name(&pdev->dev), __func__);
 
 	return ret;
 }
@@ -809,6 +1242,8 @@ static int k1x_ccic_remove(struct platform_device *pdev)
 	ccic_dev = dev_get_drvdata(&pdev->dev);
 	dma = ccic_dev->dma;
 
+	spm_cvdev_destroy_vnode((struct spm_ccic_vnode*)ccic_dev->vnode);
+	v4l2_device_unregister(&ccic_dev->v4l2_dev);
 	ccic_device_unregister(ccic_dev);
 
 	/* disable runtime pm */
