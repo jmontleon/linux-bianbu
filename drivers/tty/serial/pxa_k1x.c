@@ -1897,6 +1897,12 @@ static int serial_pxa_is_open(struct uart_pxa_port *up)
 }
 
 #ifdef CONFIG_PM
+
+#ifdef CONFIG_HIBERNATION
+unsigned long pxa_clk_freq;
+struct clk *pxa_clk_parent;
+#endif
+
 static int serial_pxa_suspend(struct device *dev)
 {
 	struct uart_pxa_port *sport = dev_get_drvdata(dev);
@@ -1964,7 +1970,14 @@ static int serial_pxa_suspend(struct device *dev)
 	}
 
 	if (sport) {
+#ifdef CONFIG_HIBERNATION
+		pxa_clk_freq = clk_get_rate(sport->fclk);
+		pxa_clk_parent = clk_get_parent(sport->fclk);
+#endif
 		uart_suspend_port(&serial_pxa_reg, &sport->port);
+#ifdef CONFIG_HIBERNATION
+		clk_set_parent(sport->fclk, NULL);
+#endif
 	}
 
 #ifdef CONFIG_PM
@@ -1987,6 +2000,11 @@ static int serial_pxa_resume(struct device *dev)
 	}
 
 	sport->in_resume = true;
+
+#ifdef CONFIG_HIBERNATION
+	clk_set_parent(sport->fclk, pxa_clk_parent);
+	clk_set_rate(sport->fclk, pxa_clk_freq);
+#endif
 	uart_resume_port(&serial_pxa_reg, &sport->port);
 
 	if (serial_pxa_is_open(sport) && sport->dma_enable) {
