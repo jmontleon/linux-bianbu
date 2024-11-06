@@ -197,7 +197,16 @@ DEFINE_SPINLOCK(g_cru_lock);
 /* end of RCPU register offset */
 
 /* RCPU2 register offset */
-#define RCPU2_PWM_CLK_RST		0x08
+#define RCPU2_PWM0_CLK_RST		0x00
+#define RCPU2_PWM1_CLK_RST		0x04
+#define RCPU2_PWM2_CLK_RST		0x08
+#define RCPU2_PWM3_CLK_RST		0x0c
+#define RCPU2_PWM4_CLK_RST		0x10
+#define RCPU2_PWM5_CLK_RST		0x14
+#define RCPU2_PWM6_CLK_RST		0x18
+#define RCPU2_PWM7_CLK_RST		0x1c
+#define RCPU2_PWM8_CLK_RST		0x20
+#define RCPU2_PWM9_CLK_RST		0x24
 /* end of RCPU2 register offset */
 
 struct spacemit_k1x_clk k1x_clock_controller;
@@ -1207,8 +1216,53 @@ static SPACEMIT_CCU_GATE_NO_PARENT(rcan_bus_clk, "rcan_bus_clk", NULL,
 static const char *rpwm_parent_names[] = {
 	"pll1_aud_24p5", "pll1_aud_245p7"
 };
-static SPACEMIT_CCU_DIV_MUX_GATE(rpwm_clk, "rpwm_clk", rpwm_parent_names,
-	BASE_TYPE_RCPU2, RCPU2_PWM_CLK_RST,
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm0_clk, "rpwm0_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM0_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm1_clk, "rpwm1_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM1_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm2_clk, "rpwm2_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM2_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm3_clk, "rpwm3_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM3_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm4_clk, "rpwm4_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM4_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm5_clk, "rpwm5_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM5_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm6_clk, "rpwm6_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM6_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm7_clk, "rpwm7_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM7_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm8_clk, "rpwm8_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM8_CLK_RST,
+	8, 11, 4, 2,
+	BIT(1), BIT(1), 0x0,
+	0);
+static SPACEMIT_CCU_DIV_MUX_GATE(rpwm9_clk, "rpwm9_clk", rpwm_parent_names,
+	BASE_TYPE_RCPU2, RCPU2_PWM9_CLK_RST,
 	8, 11, 4, 2,
 	BIT(1), BIT(1), 0x0,
 	0);
@@ -1438,7 +1492,6 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_RCPU_HDMIAUDIO]	= &rhdmi_audio_clk.common.hw,
 		[CLK_RCPU_CAN] 		= &rcan_clk.common.hw,
 		[CLK_RCPU_CAN_BUS]	= &rcan_bus_clk.common.hw,
-		[CLK_RCPU2_PWM] 	= &rpwm_clk.common.hw,
 		[CLK_RCPU_I2C0] 	= &ri2c0_clk.common.hw,
 		[CLK_RCPU_SSP0] 	= &rssp0_clk.common.hw,
 		[CLK_RCPU_IR] 		= &rir_clk.common.hw,
@@ -1455,6 +1508,16 @@ static struct clk_hw_onecell_data spacemit_k1x_hw_clks = {
 		[CLK_DFC_LVL6] 	= &dfc_lvl6.common.hw,
 		[CLK_DFC_LVL7] 	= &dfc_lvl7.common.hw,
 		[CLK_DDR] 	= &ddr.common.hw,
+		[CLK_RCPU2_PWM0] 	= &rpwm0_clk.common.hw,
+		[CLK_RCPU2_PWM1] 	= &rpwm1_clk.common.hw,
+		[CLK_RCPU2_PWM2] 	= &rpwm2_clk.common.hw,
+		[CLK_RCPU2_PWM3] 	= &rpwm3_clk.common.hw,
+		[CLK_RCPU2_PWM4] 	= &rpwm4_clk.common.hw,
+		[CLK_RCPU2_PWM5] 	= &rpwm5_clk.common.hw,
+		[CLK_RCPU2_PWM6] 	= &rpwm6_clk.common.hw,
+		[CLK_RCPU2_PWM7] 	= &rpwm7_clk.common.hw,
+		[CLK_RCPU2_PWM8] 	= &rpwm8_clk.common.hw,
+		[CLK_RCPU2_PWM9] 	= &rpwm9_clk.common.hw,
 	},
 	.num = CLK_MAX_NO,
 };
