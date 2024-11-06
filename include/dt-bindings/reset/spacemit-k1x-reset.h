@@ -115,14 +115,23 @@
 #define	RESET_RCPU_HDMIAUDIO 101
 #define	RESET_RCPU_CAN       102
 
-#define	RESET_RCPU2_PWM      103
+#define	RESET_RCPU_I2C0      103
+#define	RESET_RCPU_SSP0      104
+#define	RESET_RCPU_IR        105
+#define	RESET_RCPU_UART0     106
+#define	RESET_RCPU_UART1     107
 
-#define	RESET_RCPU_I2C0      104
-#define	RESET_RCPU_SSP0      105
-#define	RESET_RCPU_IR        106
-#define	RESET_RCPU_UART0     107
-#define	RESET_RCPU_UART1     108
+#define	RESET_RCPU2_PWM0     108
+#define	RESET_RCPU2_PWM1     109
+#define	RESET_RCPU2_PWM2     110
+#define	RESET_RCPU2_PWM3     111
+#define	RESET_RCPU2_PWM4     112
+#define	RESET_RCPU2_PWM5     113
+#define	RESET_RCPU2_PWM6     114
+#define	RESET_RCPU2_PWM7     115
+#define	RESET_RCPU2_PWM8     116
+#define	RESET_RCPU2_PWM9     117
 
-#define	RESET_NUMBER         109
+#define	RESET_NUMBER         118
 
 #endif /* __DT_BINDINGS_RESET_SAPCEMIT_K1X_H__ */
