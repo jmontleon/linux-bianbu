@@ -18,6 +18,7 @@
 #include <linux/usb/typec_mux.h>
 #include <linux/delay.h>
 #include <linux/power_supply.h>
+#include <linux/pm_wakeirq.h>
 #include "mux.h"
 #include <soc/spacemit/spacemit_panel.h>
 
@@ -744,6 +745,7 @@ static irqreturn_t husb239_irq_handler(int irq, void *data)
 	struct husb239 *husb239 = (struct husb239 *)data;
 
 	disable_irq_nosync(husb239->gpio_irq);
+	pm_wakeup_event(husb239->dev, 0);
 	queue_work(husb239->workqueue, &husb239->work);
 
 	return IRQ_HANDLED;
@@ -773,7 +775,7 @@ static int husb239_irq_init(struct husb239 *husb239)
 
 	ret = devm_request_threaded_irq(husb239->dev, husb239->gpio_irq, NULL,
 				husb239_irq_handler,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				IRQF_TRIGGER_FALLING | IRQF_ONESHOT | IRQF_NO_SUSPEND,
 				"husb239", husb239);
 	if (ret){
 		dev_err(husb239->dev, "failed to request threaded irq\n");
@@ -1157,6 +1159,11 @@ static int husb239_probe(struct i2c_client *client)
 		goto err_unreg_switch;
 	}
 
+	if (of_property_read_bool(husb239->dev->of_node, "wakeup-source")) {
+		device_init_wakeup(husb239->dev, true);
+		dev_pm_set_wake_irq(husb239->dev, husb239->gpio_irq);
+	}
+
 	return 0;
 
 err_unreg_switch:
@@ -1174,6 +1181,11 @@ static void husb239_remove(struct i2c_client *client)
 
 	if (husb239->workqueue)
 		destroy_workqueue(husb239->workqueue);
+
+	if (device_may_wakeup(husb239->dev)) {
+		dev_pm_clear_wake_irq(husb239->dev);
+		device_init_wakeup(husb239->dev, false);
+	}
 
 	typec_switch_unregister(info->sw);
 	typec_unregister_port(info->port);
