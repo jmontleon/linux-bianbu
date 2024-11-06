@@ -1619,8 +1619,8 @@
 			compatible = "spacemit,k1x-pwm";
 			reg = <0x0 0xc0888300 0x0 0x10>;
 			#pwm-cells = <1>;
-			clocks = <&ccu CLK_RCPU2_PWM>;
-			resets = <&reset RESET_RCPU2_PWM>;
+			clocks = <&ccu CLK_RCPU2_PWM2>;
+			resets = <&reset RESET_RCPU2_PWM2>;
 			k1x,pwm-disable-fd;
 			rcpu-pwm;
 			status = "disabled";
