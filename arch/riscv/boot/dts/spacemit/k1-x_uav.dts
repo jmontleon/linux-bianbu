@@ -1058,8 +1058,8 @@
 	dovdd_1v8-supply = <&ldo_7>;
 	dvdd_1v2-supply = <&ldo_6>;
 
-	pwdn-gpios = <&gpio 114 0>;
-	reset-gpios = <&ioexp1 2 GPIO_ACTIVE_LOW>;
+	pwdn-gpios = <&gpio 113 0>;
+	reset-gpios = <&gpio 111 0>;
 
 	status = "okay";
 };
@@ -1082,10 +1082,10 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_camera1>;
 
-	pwdn-gpios = <&gpio 113 0>;
-	reset-gpios = <&ioexp1 1 GPIO_ACTIVE_LOW>;
+	pwdn-gpios = <&gpio 114 0>;
+	reset-gpios = <&gpio 112 0>;
 
-	status = "okay";
+	status = "disabled";
 };
 &csiphy0 {
 
