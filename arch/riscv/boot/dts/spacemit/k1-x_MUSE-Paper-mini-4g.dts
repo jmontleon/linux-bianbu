@@ -301,6 +301,14 @@
 	pinctrl-0 = <&pinctrl_i2c1>;
 	spacemit,i2c-fast-mode;
 	status = "okay";
+
+	smtouch@2e {
+		compatible = "chipsemi,chsc_cap_touch";
+		reg = <0x2e>;
+		chipsemi,int-gpio = <&gpio 29 0>;
+		chipsemi,rst-gpio = <&gpio 32 0>;
+		pwr-gpios  = <&gpio 33 0>;
+	};
 };
 
 &i2c2 {
