@@ -1408,4 +1408,11 @@ config TOUCHSCREEN_CHIPONE_TDDI
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_CHSC5XXX
+	tristate "Chsc5xxx touchscreen support"
+	depends on I2C
+	help
+	  Say Y here if you have a touchscreen using Chsc5xxx.
+
+source "drivers/input/touchscreen/chsc5xxx/Kconfig"
 endif
