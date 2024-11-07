@@ -218,6 +218,24 @@
 	status = "okay";
 };
 
+&r_uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_r_uart1>;
+	status = "okay";
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5_0>;
+	status = "okay";
+};
+
+&uart8 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart8_2>;
+	status = "okay";
+};
+
 &pwm14 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm14_1>;
