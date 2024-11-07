@@ -640,7 +640,7 @@
 	};
 
 	sgm4154x: sgm4154x@1a {
-		status = "disabled";
+		status = "okay";
 		compatible = "sgm,sgm41515";
 		reg = <0x1a>;
 		interrupt-parent = <&gpio>;
