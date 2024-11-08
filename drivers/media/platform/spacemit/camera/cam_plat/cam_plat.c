@@ -43,6 +43,8 @@ unsigned long phys_cpu2cam(unsigned long phys_addr)
 	return phys_addr;
 }
 
+EXPORT_SYMBOL(phys_cpu2cam);
+
 static void plat_cam_sd_notify(struct v4l2_subdev *sd,
 			       unsigned int notification, void *arg)
 {
