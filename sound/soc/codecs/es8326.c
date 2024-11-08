@@ -1292,6 +1292,7 @@ static int es8326_suspend(struct device *dev)
 	struct es8326_priv *es8326 = dev_get_drvdata(dev);
 
 	cancel_delayed_work_sync(&es8326->jack_detect_work);
+	snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
 	es8326_disable_micbias(component);
 	es8326->calibrated = false;
 
