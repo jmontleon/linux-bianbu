@@ -830,4 +830,5 @@ void cpp_iommu_unregister(struct cpp_device *cpp_dev)
 	pr_debug("%s X\n", __func__);
 }
 
+MODULE_IMPORT_NS(DMA_BUF);
 EXPORT_SYMBOL(cpp_iommu_unregister);
