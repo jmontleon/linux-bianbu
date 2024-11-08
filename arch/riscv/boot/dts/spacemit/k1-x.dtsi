@@ -41,7 +41,7 @@
 		#size-cells = <0>;
 		timebase-frequency = <10000000>;
 		cpu_0: cpu@0 {
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			device_type = "cpu";
 			model = "Spacemit(R) X60";
 			reg = <0>;
@@ -78,7 +78,7 @@
 			device_type = "cpu";
 			reg = <1>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -112,7 +112,7 @@
 			device_type = "cpu";
 			reg = <2>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -146,7 +146,7 @@
 			device_type = "cpu";
 			reg = <3>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -180,7 +180,7 @@
 			device_type = "cpu";
 			reg = <4>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -214,7 +214,7 @@
 			device_type = "cpu";
 			reg = <5>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -248,7 +248,7 @@
 			device_type = "cpu";
 			reg = <6>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -282,7 +282,7 @@
 			device_type = "cpu";
 			reg = <7>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
