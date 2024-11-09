@@ -1187,7 +1187,7 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 	struct mmc_ios ios = mmc->ios;
 	struct k1x_sdhci_platdata *pdata = mmc->parent->platform_data;
 	struct rx_tuning *rxtuning = &pdata->rxtuning;
-	struct cpufreq_policy *policy;
+	struct cpufreq_policy *policy = NULL;
 	unsigned int clk_rate;
 
 	/*
@@ -1239,7 +1239,7 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 
 	/* specify cpu freq during tuning rx windows if current cpufreq exceed 1.6G */
 	if (pdata->rx_tuning_freq) {
-		clk_rate= cpufreq_generic_get(0);
+		clk_rate = cpufreq_generic_get(0);
 		if (clk_rate && (clk_rate != pdata->rx_tuning_freq)) {
 			policy = cpufreq_cpu_get(0);
 			if (policy) {
@@ -1284,11 +1284,10 @@ static int spacemit_sdhci_execute_sw_tuning(struct sdhci_host *host, u32 opcode)
 		mmc_hostname(mmc), rxtuning->select_delay[0]);
 
 restore_freq:
-	if (pdata->rx_tuning_freq) {
+	if (pdata->rx_tuning_freq && policy) {
 		if (clk_rate)
 			cpufreq_driver_target(policy, clk_rate, 0);
-		if (policy)
-			cpufreq_cpu_put(policy);
+		cpufreq_cpu_put(policy);
 	}
 	return ret;
 }
