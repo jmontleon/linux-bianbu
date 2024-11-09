@@ -1207,6 +1207,8 @@
 			#size-cells = <0>;
 			interrupt-parent = <&intc>;
 			interrupts = <39>;
+			clocks = <&ccu CLK_SEC_TWSI3>;
+			resets = <&reset RESET_SEC_TWSI3>;
 			spacemit,dma-disable;
 			/* spacemit,i2c-fast-mode; */
 			/* spacemit,i2c-high-mode; */
