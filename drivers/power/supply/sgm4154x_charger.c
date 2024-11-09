@@ -711,7 +711,7 @@ static int sgm4154x_get_state(struct sgm4154x_device *sgm,
 	state->therm_stat = !!(chrg_stat & SGM4154x_THERM_STAT);
 	state->vsys_stat = !!(chrg_stat & SGM4154x_VSYS_STAT);
 
-	pr_debug("%s chrg_stat =%d,vbus_status =%d online = %d\n",__func__,chrg_stat,state->vbus_status,state->online);
+	pr_debug("%s chrg_stat =%d,vbus_status =%d online = %d\n",__func__,chrg_stat,state->chrg_type,state->online);
 
 
 	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_FAULT, &fault);
@@ -1152,13 +1152,8 @@ static void charger_monitor_work_func(struct work_struct *work)
 	sgm->state = state;
 	mutex_unlock(&sgm->lock);
 
-	if (!sgm->state.vbus_status) {
-		pr_err("%s not present vbus_status \n",__func__);
-		goto OUT;
-	}
 	sgm4154x_dump_register(sgm);
 	pr_debug("%s\n",__func__);
-OUT:
 	schedule_delayed_work(&sgm->charge_monitor_work, 10*HZ);
 }
 

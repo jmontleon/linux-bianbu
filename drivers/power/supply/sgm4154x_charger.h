@@ -251,7 +251,6 @@ struct sgm4154x_state {
 	bool therm_stat;
 	bool online;
 	u8 chrg_stat;
-	u8 vbus_status;
 
 	bool chrg_en;
 	bool hiz_en;
