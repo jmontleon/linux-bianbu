@@ -194,6 +194,12 @@
 	status = "okay";
 };
 
+&rpwm9 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rpwm9_0>;
+	status = "okay";
+};
+
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
 	spacemit-dpu-bitclk = <424000000>;
@@ -284,7 +290,7 @@
 &i2c3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3_2>;
-	status = "disabled";
+	status = "okay";
 };
 
 &i2c4 {
