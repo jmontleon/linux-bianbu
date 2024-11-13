@@ -610,6 +610,9 @@ static struct platform_driver adma_driver = {
 	.driver	= {
 		.name	= "k1x-adma",
 		.of_match_table	= adma_id_table,
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+		.probe_type = PROBE_FORCE_SYNCHRONOUS,
+#endif
 	},
 	.probe	= adma_probe,
 	.remove	= adma_remove,
@@ -688,6 +691,9 @@ static void rpmsg_adma_client_remove(struct rpmsg_device *rpdev)
 
 static struct rpmsg_driver rpmsg_adma_client = {
 	.drv.name	= KBUILD_MODNAME,
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+	.drv.probe_type = PROBE_FORCE_SYNCHRONOUS,
+#endif
 	.id_table	= rpmsg_driver_adma_id_table,
 	.probe		= rpmsg_adma_client_probe,
 	.callback	= rpmsg_adma_client_cb,

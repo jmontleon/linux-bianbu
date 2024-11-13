@@ -22,7 +22,11 @@
 const char raid6_empty_zero_page[PAGE_SIZE] __attribute__((aligned(256)));
 EXPORT_SYMBOL(raid6_empty_zero_page);
 #endif
-
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/async.h>
+#endif
 struct raid6_calls raid6_call;
 EXPORT_SYMBOL_GPL(raid6_call);
 
@@ -289,7 +293,22 @@ static void raid6_exit(void)
 	do { } while (0);
 }
 
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+static void raid6_select_algo_wrapper(void *data, long long unsigned int arg)
+{
+	raid6_select_algo();
+}
+
+static int __init raid6_select_algo_async_init(void)
+{
+	async_schedule(raid6_select_algo_wrapper, NULL);
+	return 0;
+}
+
+subsys_initcall(raid6_select_algo_async_init);
+#else
 subsys_initcall(raid6_select_algo);
+#endif
 module_exit(raid6_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("RAID6 Q-syndrome calculations");

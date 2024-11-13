@@ -2078,6 +2078,9 @@ static struct platform_driver spacemit_i2c_driver = {
 		.name		= "i2c-spacemit-k1x",
 		/* .pm             = &spacemit_i2c_pm_ops, */
 		.of_match_table	= spacemit_i2c_dt_match,
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+#endif
 	},
 };
 
@@ -2118,6 +2121,9 @@ static struct platform_driver r_spacemit_i2c_driver = {
 		.name		= "ri2c-spacemit-k1x",
 		/* .pm             = &spacemit_i2c_pm_ops, */
 		.of_match_table	= r_spacemit_i2c_dt_match,
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+#endif
 	},
 };
 

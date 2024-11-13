@@ -121,6 +121,9 @@
 #include <net/compat.h>
 
 #include <trace/events/sock.h>
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+#include <linux/async.h>
+#endif
 
 /* The inetsw table contains everything that inet_create needs to
  * build a new socket.
@@ -2078,7 +2081,21 @@ out_unregister_tcp_proto:
 	goto out;
 }
 
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+static void __init inet_init_async(void *data, async_cookie_t cookie)
+{
+	inet_init();
+}
+
+static int __init inet_async_init(void)
+{
+	async_schedule(inet_init_async, NULL);
+	return 0;
+}
+subsys_initcall(inet_async_init);
+#else
 fs_initcall(inet_init);
+#endif
 
 /* ------------------------------------------------------------------------ */
 

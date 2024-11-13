@@ -1382,6 +1382,9 @@ static struct platform_driver spacemit_snd_dma_pdrv = {
 	.driver = {
 		.name = "spacemit-snd-dma",
 		.of_match_table = of_match_ptr(spacemit_snd_dma_ids),
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+		.probe_type = PROBE_FORCE_SYNCHRONOUS,
+#endif
 	},
 	.probe = spacemit_snd_dma_pdev_probe,
 	.remove = spacemit_snd_dma_pdev_remove,

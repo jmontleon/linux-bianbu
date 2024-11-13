@@ -1478,6 +1478,13 @@ menuconfig EXPERT
 	  environments which can tolerate a "non-standard" kernel.
 	  Only use this if you really know what you are doing.
 
+config SPACEMIT_PARALLEL_BOOTING
+	bool "Enable SPACEMIT parallel booting of kernel modules" if EXPERT
+	default n
+	help
+	  Enable parallel booting of kernel modules under SPACEMIT to improve boot speed.
+	  Enabling this option may cause boot deadlocks in certain conditions.
+
 config UID16
 	bool "Enable 16-bit UID system calls" if EXPERT
 	depends on HAVE_UID16 && MULTIUSER
