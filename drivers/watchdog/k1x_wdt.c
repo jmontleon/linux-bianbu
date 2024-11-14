@@ -102,6 +102,8 @@ struct spa_wdt_info {
 	int ctrl;
 	bool wdt_clk_open;
 	int enable_restart_handler;
+	unsigned int last_timeout_tick;
+	bool enable_to_suspend;
 	struct notifier_block restart_handler;
 };
 
@@ -178,6 +180,7 @@ static int spa_wdt_set_timeout(struct watchdog_device *wdd, unsigned timeout)
 		tick = timeout << DEFAULT_SHIFT;
 	}
 
+	info->last_timeout_tick = tick;
 	spa_wdt_write(info, WDT_WMR, tick);
 
 	wdd->timeout = timeout;
@@ -600,6 +603,7 @@ static int spa_wdt_probe(struct platform_device *pdev)
 	}
 
 	info->dev = &pdev->dev;
+	info->enable_to_suspend = false;
 
 #ifdef CONFIG_K1X_WDT_TEST
 	irq = platform_get_irq(pdev, 0);
@@ -766,8 +770,15 @@ static int spa_wdt_suspend(struct platform_device *pdev, pm_message_t state)
 		/* turn watchdog off */
 		hrtimer_cancel(&info->feed_timer);
 		spa_wdt_stop(&info->wdt_dev);
+		goto exit;
 	}
 
+	if(spa_wdt_read(info, WDT_WMER)|0x1) {
+		spa_wdt_stop(&info->wdt_dev);
+		info->enable_to_suspend = true;
+	}
+
+exit:
 	return 0;
 }
 
@@ -778,8 +789,15 @@ static int spa_wdt_resume(struct platform_device *pdev)
 	if (info->ctrl) {
 		spa_wdt_start(&info->wdt_dev);
 		hrtimer_start(&info->feed_timer, info->feed_timeout, HRTIMER_MODE_REL);
+		goto exit;
 	}
 
+	if(info->enable_to_suspend == true) {
+		spa_wdt_start(&info->wdt_dev);
+		spa_wdt_write(info, WDT_WMR, info->last_timeout_tick);
+		info->enable_to_suspend = false;
+	}
+exit:
 	return 0;
 }
 

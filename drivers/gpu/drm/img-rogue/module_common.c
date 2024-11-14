@@ -720,7 +720,7 @@ void PVRSRVDeviceRelease(PVRSRV_DEVICE_NODE *psDeviceNode,
 #endif
 #endif
 			psConnection = psConnectionPriv->pvConnectionData;
-			if (psConnection->bSyncConnection == IMG_TRUE)
+			if (psConnection && psConnection->bSyncConnection == IMG_TRUE)
 			{
 				if (psConnection->hOsPrivateData != NULL)
 				{

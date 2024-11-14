@@ -1185,7 +1185,7 @@ static int csi_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 			cam_err("%s(%s) config mux(enable) failed ret=%d", __func__, sc_subdev->name, ret);
 			return ret;
 		}
-		ret = csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, mipi_lane_num);
+		ret = csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, 0, 0, mipi_lane_num);
 		if (ret) {
 			cam_err("%s(%s) config mbus(enable) lane=%d failed ret=%d", __func__, sc_subdev->name, 4, ret);
 			return ret;
@@ -1193,7 +1193,7 @@ static int csi_subdev_video_s_stream(struct v4l2_subdev *sd, int enable)
 		csi_ctrl->ops->irq_mask(csi_ctrl, 1);
 	} else {
 		csi_ctrl->ops->irq_mask(csi_ctrl, 0);
-		csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, 0);
+		csi_ctrl->ops->config_csi2_mbus(csi_ctrl, CCIC_CSI2VC_NM, 0, 0, 0, 0, 0);
 		csi_ctrl->ops->config_csi2idi_mux(csi_ctrl, csi2vc, csi2idi, 0);
 		csi_subdev_core_s_power(sd, 0);
 	}

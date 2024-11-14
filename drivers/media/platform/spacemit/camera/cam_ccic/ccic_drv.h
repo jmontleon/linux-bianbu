@@ -48,8 +48,8 @@ struct mipi_csi2 {
 	int dphy_type;		/* 0: DPHY on chip, 1: DPTC off chip */
 	u32 dphy[5];		/* DPHY:  CSI2_DPHY1, CSI2_DPHY2, CSI2_DPHY3, CSI2_DPHY5, CSI2_DPHY6 */
 	int calc_dphy;
-	int enable_dpcm;
 	struct csi_dphy_desc dphy_desc;
+	int enable_dpcm;
 };
 
 #define HS_SETTLE_POS_MAX (100)
@@ -106,36 +106,27 @@ enum ccic_csi2vc_mode {
 	CCIC_CSI2VC_NM = 0,
 	CCIC_CSI2VC_VC,
 	CCIC_CSI2VC_DT,
+	CCIC_CSI2VC_VCDT,
 };
 
 enum ccic_csi2vc_chnl {
 	CCIC_CSI2VC_MAIN = 0,
-	CCIC_CSI2VC_VCDT,
+	CCIC_CSI2VC_SUB,
 };
 
 struct ccic_ctrl_ops {
 	void (*irq_mask)(struct ccic_ctrl *ctrl, int on);
 	int (*clk_enable)(struct ccic_ctrl *ctrl, int en);
-	int (*config_csi2_mbus)(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1,
-				int lanes);
+	int (*config_csi2_mbus)(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, u8 dt0, u8 dt1, int lanes);
 	int (*config_csi2idi_mux)(struct ccic_ctrl *ctrl, int chnl, int idi, int en);
 	int (*reset_csi2idi)(struct ccic_ctrl *ctrl, int idi, int rst);
 };
 
 struct ccic_dma {
 	int index;
-	struct v4l2_device v4l2_dev;
-	struct video_device vdev;
 	struct ccic_dev *ccic_dev;
-	struct v4l2_pix_format pix_format;
 	struct mutex ops_mutex;
 	spinlock_t dev_lock;
-	struct list_head pending_bq;
-	struct list_head active_bq;
-	struct vb2_queue vb_queue;
-	u32 csi_sof_cnt;
-	u32 dma_sof_cnt;
-	u32 dma_eof_cnt;
 
 	struct ccic_dma_ops *ops;
 };
@@ -148,11 +139,16 @@ enum ccic_dma_sel {
 };
 
 struct ccic_dma_ops {
-	int (*setup_image)(struct ccic_dma *dma_dev);
-	int (*shadow_ready)(struct ccic_dma *dma_dev, int enable);
-	int (*set_addr)(struct ccic_dma *dma_dev, u8 chnl, u32 addr);
-	int (*ccic_enable)(struct ccic_dma *dma_dev, int enable);
-	int (*clk_enable)(struct ccic_dma *dma_dev, int enable);
+    int (*set_fmt)(struct ccic_dma *dma_dev,
+				unsigned int width,
+				unsigned int height,
+				unsigned int pix_fmt);
+    int (*shadow_ready)(struct ccic_dma *dma_dev);
+    int (*set_addr)(struct ccic_dma *dma_dev, unsigned long addr_y, unsigned long addr_u, unsigned long addr_v);
+    int (*ccic_enable)(struct ccic_dma *dma_dev, int enable);
+    int (*clk_enable)(struct ccic_dma *dma_dev, int enable);
+	int (*src_sel)(struct ccic_dma *dma_dev, int src, unsigned int main_ccic_id);
+	void (*dump_regs)(struct ccic_dma *dma_dev);
 };
 
 struct ccic_dev {
@@ -160,17 +156,19 @@ struct ccic_dev {
 	struct device *dev;
 	struct platform_device *pdev;
 	struct list_head list;
-	struct resource *irq;
+	int irq;
 	struct resource *mem;
 	void __iomem *base;
 	struct clk *csi_clk;
 	struct clk *clk4x;
-//	struct clk *ahb_clk;
+	//struct clk *ahb_clk;
 	struct clk *axi_clk;
+	struct clk *dpu_clk;
 	struct reset_control *ahb_reset;
 	struct reset_control *csi_reset;
 	struct reset_control *ccic_4x_reset;
 	struct reset_control *isp_ci_reset;
+	struct reset_control *mclk_reset;
 
 	int dma_burst;
 	spinlock_t ccic_lock;	/* protect the struct members and HW */
@@ -182,6 +180,8 @@ struct ccic_dev {
 	struct ccic_dma *dma;
 	/* object for csiphy part */
 	struct csiphy_device *csiphy;
+	struct v4l2_device	v4l2_dev;
+	void *vnode;
 };
 
 /*
@@ -220,5 +220,6 @@ static inline void ccic_reg_clear_bit(struct ccic_dev *ccic_dev,
 
 int ccic_ctrl_get(struct ccic_ctrl **ctrl_host, int id,
 		  irqreturn_t(*handler) (struct ccic_ctrl *, u32));
+int ccic_dma_get(struct ccic_dma **ccic_dma, int id);
 int ccic_dphy_hssettle_set(unsigned int ccic_id, unsigned int dphy_freg);
 #endif

@@ -789,6 +789,7 @@ struct platform_driver k1xisp_dev_driver = {
 
 module_platform_driver(k1xisp_dev_driver);
 
+MODULE_IMPORT_NS(DMA_BUF);
 MODULE_AUTHOR("SPACEMIT Inc.");
 MODULE_DESCRIPTION("SPACEMIT K1X ISP device driver");
 MODULE_LICENSE("GPL");

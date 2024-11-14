@@ -5642,7 +5642,7 @@ const struct rtw_proc_hdl adapter_proc_hdls[] = {
 #endif
 #endif
 
-	RTW_PROC_HDL_SSEQ("self_diag_info", proc_get_self_diag_info, proc_set_self_diag_info),
+	//RTW_PROC_HDL_SSEQ("self_diag_info", proc_get_self_diag_info, proc_set_self_diag_info),
 #ifdef CONFIG_USB_HCI
 	RTW_PROC_HDL_SSEQ("usb_mode", proc_get_usb_mode, proc_set_usb_mode),
 #endif
