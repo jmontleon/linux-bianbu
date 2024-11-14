@@ -138,6 +138,13 @@ config BIND_THREAD_TO_AICORES
 	help
 	  This enable bind ai cores when use AI instruction.
 
+config SPACEMIT_ERRATA_LOAD_ATOMIC
+	bool "enable issue fix which caused by readforward and writeback"
+	depends on SOC_SPACEMIT_K1X
+	default y
+	help
+	  This enable fix errata caused by readforward and writeback.
+
 endif
 
 endmenu # "SoC selection"
