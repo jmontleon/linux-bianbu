@@ -31,6 +31,7 @@ struct wlan_pwrseq {
 	u32 power_on_delay_ms;
 
 	struct gpio_desc *regon;
+	struct gpio_desc *hostwake;
 	int irq;
 
 	struct mutex wlan_mutex;
@@ -107,6 +108,19 @@ static int spacemit_wlan_on(struct wlan_pwrseq *pwrseq, bool on_off)
 	return 0;
 }
 
+static void spacemit_get_gpio_irq(struct wlan_pwrseq *pwrseq)
+{
+	pwrseq->hostwake = devm_gpiod_get(pwrseq->dev, "hostwake", GPIOD_IN);
+	if (IS_ERR_OR_NULL(pwrseq->hostwake)) {
+		dev_err(pwrseq->dev, "no interrupt gpio property\n");
+		return;
+	}
+
+	pwrseq->irq = gpiod_to_irq(pwrseq->hostwake);
+	if (pwrseq->irq < 0)
+		dev_err(pwrseq->dev, "failed to get GPIO IRQ\n");
+}
+
 static int spacemit_wlan_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -128,9 +142,13 @@ static int spacemit_wlan_probe(struct platform_device *pdev)
 	}
 
 	pwrseq->irq = platform_get_irq(pdev, 0);
-	if (pwrseq->irq < 0){
-		dev_err(pwrseq->dev, "get hostwake irq failed, ignore wow\n");
+	if (pwrseq->irq < 0) {
+		dev_info(pwrseq->dev, "get platform irq failed, try to get gpio irq\n");
+		spacemit_get_gpio_irq(pwrseq);
 	}
+
+	if (pwrseq->irq < 0)
+		dev_err(pwrseq->dev, "get hostwake irq failed, ignore wow\n");
 
 	if(device_property_read_u32(dev, "power-on-delay-ms",
 				 &pwrseq->power_on_delay_ms))
