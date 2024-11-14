@@ -327,7 +327,7 @@ static int xts_encrypt(struct skcipher_request *req)
 		start_srcsg = sg_next(sg);
 
 		spacemit_aes_xts_encrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_enc),
-				(u8 *)(ctx->key_enc + xts_key_len), xts_key_len, (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
+				((u8 *)ctx->key_enc + xts_key_len), xts_key_len, (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
 
 		map_addr = out_buffer;
 		for(sg = start_dstsg,len = 0;len<singal_len;len += sg->length)
@@ -389,7 +389,7 @@ static int xts_decrypt(struct skcipher_request *req)
 			memcpy(map_addr, align, singal_len-page_len);
 
 		spacemit_aes_xts_decrypt(0,in_buffer, out_buffer,(u8 *)(ctx->key_dec),
-				(u8 *)(ctx->key_dec + xts_key_len), xts_key_len, (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
+				((u8 *)ctx->key_dec + xts_key_len), xts_key_len, (u8 *)req->iv,singal_len / AES_BLOCK_SIZE);
 
 		map_addr = out_buffer;
 		for(sg = start_dstsg,len = 0;len<singal_len;len += sg->length)

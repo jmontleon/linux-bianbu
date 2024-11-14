@@ -29,6 +29,9 @@ static irqreturn_t pwrkey_fall_irq(int irq, void *_pwr)
 		input_sync(pwr);
 		fall_triggered = 1;
 	}
+
+	pm_stay_awake(pwr->dev.parent);
+
 	spin_unlock_irqrestore(&pm_lock, flags);
 
 	return IRQ_HANDLED;
@@ -46,6 +49,9 @@ static irqreturn_t pwrkey_rise_irq(int irq, void *_pwr)
 		input_sync(pwr);
 		fall_triggered = 0;
 	}
+
+	pm_relax(pwr->dev.parent);
+
 	spin_unlock_irqrestore(&pm_lock, flags);
 
 	return IRQ_HANDLED;

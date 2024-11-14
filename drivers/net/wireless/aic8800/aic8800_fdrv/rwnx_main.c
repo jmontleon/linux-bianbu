@@ -6432,11 +6432,11 @@ int rwnx_cfg80211_init(struct rwnx_plat *rwnx_plat, void **platform_data)
 	}
 #endif
 	rtnl_lock();
-
+	wiphy_lock(wiphy);
 	/* Add an initial station interface */
 	vif = rwnx_interface_add(rwnx_hw, "wlan%d", NET_NAME_UNKNOWN,
 								NL80211_IFTYPE_STATION, NULL);
-
+	wiphy_unlock(wiphy);
 	rtnl_unlock();
 
 	if (!vif) {

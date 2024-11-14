@@ -8,6 +8,9 @@
 #ifndef __CCIC_HWREG_H__
 #define __CCIC_HWREG_H__
 
+#ifndef BIT
+#define BIT(nr)			(1 << (nr))
+#endif
 #define REG_Y0BAR	0x00
 #define REG_U0BAR	0x0c
 #define REG_V0BAR	0x18
@@ -51,7 +54,7 @@
 #define	IRQ_CSI2PARSE_ERR			(BIT(29))
 #define	IRQ_CSI2GENSHORTPACKVALID	(BIT(30))
 #define	IRQ_CSI2GENSHORTPACK_ERR	(BIT(31))
-// #define              FRAMEIRQS       (IRQ_CSI_SOF | IRQ_CSI_EOF | IRQ_DMA_SOF | IRQ_DMA_EOF)
+// #define              FRAMEIRQS       (IRQ_CSI_SOF | IRQ_CSI_EOF  | IRQ_DMA_SOF | IRQ_DMA_EOF | IRQ_DMA_OVERFLOW | IRQ_DMA_NOT_DONE | IRQ_SHADOW_NOT_RDY)
 #define	FRAMEIRQS		(IRQ_DMA_SOF | IRQ_DMA_EOF | IRQ_DMA_OVERFLOW | IRQ_DMA_NOT_DONE | IRQ_SHADOW_NOT_RDY)
 #define	CSI2PHYERRS		(0xFF0B0000)
 #define	ALLIRQS			(FRAMEIRQS | CSI2PHYERRS | IRQ_CSI2IDI_HBLK2HSYNC)
@@ -151,7 +154,7 @@
 #define	CSI2_C0_EXT_TIM_ENA		(0x1 << 3)
 #define	CSI2_C0_VLEN			(0x4 << 4)
 #define	CSI2_C0_VLEN_MASK		(0xf << 4)
-#define	CSI2_C0_VCDC_SEL		(0x1 << 13)
+#define	CSI2_C0_VCDT_SEL		(0x1 << 13)
 #define	REG_CSI2_VCCTRL	0x114
 #define	CSI2_VCCTRL_MD_MASK		(0x3 << 0)
 #define	CSI2_VCCTRL_MD_NORMAL	(0x0 << 0)
@@ -160,6 +163,17 @@
 #define	CSI2_VCCTRL_VC0_MASK	(0x3 << 14)
 #define	CSI2_VCCTRL_DT1_MASK	(0x3 << 16)
 #define	CSI2_VCCTRL_VC1_MASK	(0x3 << 22)
+#define	CSI2_VCCTRL_DT_ENABLE	(0x1 << 24)
+#define REG_CSI2_DT_FLT			0x11c
+#define	CSI2_DT_FLT0_MASK		(BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5))
+#define CSI2_DT_FLT0_SHIFT		(0)
+#define	CSI2_DT_FLT0_EN			(BIT(6))
+#define	CSI2_DT_FLT1_MASK		(BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13))
+#define CSI2_DT_FLT1_SHIFT		(8)
+#define	CSI2_DT_FLT1_EN			(BIT(14))
+#define	CSI2_DT_FLT2_MASK		(BIT(16)|BIT(17)|BIT(18)|BIT(19)|BIT(20)|BIT(21))
+#define CSI2_DT_FLT2_SHIFT		(16)
+#define	CSI2_DT_FLT2_EN			(BIT(22))
 #define REG_CSI2_DPHY1	0x124
 #define	CSI2_DHPY1_ANA_PU		(0x1 << 0)
 #define	CSI2_DHPY1_BIF_EN		(0x1 << 1)
@@ -225,12 +239,11 @@
 
 int ccic_csi2_config_dphy(struct ccic_dev *ccic_dev, int lanes, int enable);
 int ccic_csi2_lanes_enable(struct ccic_dev *ccic_dev, int lanes);
-int ccic_csi2_vc_ctrl(struct ccic_dev *ccic_dev, int md, u8 vc0, u8 vc1);
-int ccic_dma_src_sel(struct ccic_dev *ccic_dev, int sel);
-int ccic_dma_set_out_format(struct ccic_dev *ccic_dev, u32 pixfmt, u32 width,
-			    u32 height);
+//int ccic_csi2_vc_ctrl(struct ccic_dev *ccic_dev, int md, u8 vc0, u8 vc1);
+int ccic_dma_src_sel(struct ccic_dev *ccic_dev, int sel, unsigned int main_ccic_id);
+int ccic_dma_set_out_format(struct ccic_dev *ccic_dev, u32 pixfmt, u32 width, u32 height);
 int ccic_dma_set_burst(struct ccic_dev *ccic_dev);
-void ccic_dma_enable(struct ccic_dev *ccic_dev, int en);
+//void ccic_dma_enable(struct ccic_dev *ccic_dev, int en);
 int ccic_csi2idi_src_sel(struct ccic_dev *ccic_dev, int sel);
 void ccic_csi2idi_reset(struct ccic_dev *ccic_dev, int reset);
 void ccic_hw_dump_regs(struct ccic_dev *ccic_dev);

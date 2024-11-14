@@ -553,12 +553,6 @@
 		>;
 	};
 
-	pinctrl_pwm9_2: pwm9_2_grp {
-		pinctrl-single,pins =<
-			K1X_PADCONF(GPIO_74, MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* pwm9 */
-		>;
-	};
-
 	pinctrl_pwm10_0: pwm10_0_grp {
 		pinctrl-single,pins =<
 			K1X_PADCONF(GPIO_02, MUX_MODE3, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* pwm10 */
@@ -682,6 +676,12 @@
 	pinctrl_rpwm2_0: rpwm2_0_grp {
 		pinctrl-single,pins = <
 			K1X_PADCONF(GPIO_79, MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* rcpu_pwm2 */
+		>;
+	};
+
+	pinctrl_rpwm9_0: rpwm9_0_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_74, MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* rcpu_pwm9 */
 		>;
 	};
 
