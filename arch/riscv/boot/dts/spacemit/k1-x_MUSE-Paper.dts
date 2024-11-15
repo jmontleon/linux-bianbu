@@ -386,7 +386,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_husb239_u2>;
 		wakeup-source;
-		status = "okay";
+		status = "disabled";
 
 		ports {
 			#address-cells = <0x1>;
