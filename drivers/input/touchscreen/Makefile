@@ -123,3 +123,4 @@ obj-$(CONFIG_TOUCHSCREEN_HIMAX_HX83112B)	+= himax_hx83112b.o
 
 obj-$(CONFIG_TOUCHSCREEN_CHIPONE_TDDI)	+= chipone-tddi/
 obj-y += chsc5xxx/
+obj-y += focaltech_touch/
