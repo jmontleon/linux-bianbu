@@ -48,6 +48,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "img_types.h"
 #include "pvrsrv_error.h"
+#include "pvrsrv_device.h"
 
 typedef enum _VMM_CONF_PARAM_
 {
@@ -197,7 +198,9 @@ typedef struct _VMM_PVZ_CONNECTION_
                 connection to the host.
  @Return        PVRSRV_OK on success. Otherwise, a PVRSRV error code
 ******************************************************************************/
-PVRSRV_ERROR VMMCreatePvzConnection(VMM_PVZ_CONNECTION **psPvzConnection);
-void VMMDestroyPvzConnection(VMM_PVZ_CONNECTION *psPvzConnection);
+PVRSRV_ERROR VMMCreatePvzConnection(VMM_PVZ_CONNECTION **psPvzConnection,
+									PVRSRV_DEVICE_CONFIG *psDevConfig);
+void VMMDestroyPvzConnection(VMM_PVZ_CONNECTION *psPvzConnection,
+							 PVRSRV_DEVICE_CONFIG *psDevConfig);
 
 #endif /* VMM_IMPL_H */

@@ -1084,21 +1084,3 @@ void pdp_crtc_irq_handler(struct drm_crtc *crtc)
 		}
 	}
 }
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
-void pdp_crtc_flip_event_cancel(struct drm_crtc *crtc, struct drm_file *file)
-{
-	struct pdp_crtc *pdp_crtc = to_pdp_crtc(crtc);
-	unsigned long flags;
-
-	spin_lock_irqsave(&crtc->dev->event_lock, flags);
-
-	if (pdp_crtc->flip_event &&
-	    pdp_crtc->flip_event->base.file_priv == file) {
-		pdp_crtc->flip_event->base.destroy(&pdp_crtc->flip_event->base);
-		pdp_crtc->flip_event = NULL;
-	}
-
-	spin_unlock_irqrestore(&crtc->dev->event_lock, flags);
-}
-#endif

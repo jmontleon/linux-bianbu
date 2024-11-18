@@ -126,10 +126,10 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 	gsPhysHeapFuncs.pfnCpuPAddrToDevPAddr = UMAPhysHeapCpuPAddrToDevPAddr;
 	gsPhysHeapFuncs.pfnDevPAddrToCpuPAddr = UMAPhysHeapDevPAddrToCpuPAddr;
 
-	gsPhysHeapConfig[0].pszPDumpMemspaceName = "SYSMEM";
+	gsPhysHeapConfig[0].uConfig.sUMA.pszPDumpMemspaceName = "SYSMEM";
 	gsPhysHeapConfig[0].eType = PHYS_HEAP_TYPE_UMA;
-	gsPhysHeapConfig[0].psMemFuncs = &gsPhysHeapFuncs;
-	gsPhysHeapConfig[0].hPrivData = NULL;
+	gsPhysHeapConfig[0].uConfig.sUMA.psMemFuncs = &gsPhysHeapFuncs;
+	gsPhysHeapConfig[0].uConfig.sUMA.hPrivData = NULL;
 	gsPhysHeapConfig[0].ui32UsageFlags = PHYS_HEAP_USAGE_GPU_LOCAL;
 	ui32NextPhysHeapID += 1;
 
@@ -216,10 +216,10 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 #endif
 
 	/* Virtualization support services needs to know which heap ID corresponds to FW */
-	gsPhysHeapConfig[ui32NextPhysHeapID].pszPDumpMemspaceName = "SYSMEM";
+	gsPhysHeapConfig[ui32NextPhysHeapID].uConfig.sUMA.pszPDumpMemspaceName = "SYSMEM";
 	gsPhysHeapConfig[ui32NextPhysHeapID].eType = PHYS_HEAP_TYPE_UMA;
-	gsPhysHeapConfig[ui32NextPhysHeapID].psMemFuncs = &gsPhysHeapFuncs;
-	gsPhysHeapConfig[ui32NextPhysHeapID].hPrivData = NULL;
+	gsPhysHeapConfig[ui32NextPhysHeapID].uConfig.sUMA.psMemFuncs = &gsPhysHeapFuncs;
+	gsPhysHeapConfig[ui32NextPhysHeapID].uConfig.sUMA.hPrivData = NULL;
 	gsPhysHeapConfig[ui32NextPhysHeapID].ui32UsageFlags = PHYS_HEAP_USAGE_FW_SHARED;
 	gsDevices[0].ui32PhysHeapCount = ++ui32NextPhysHeapID;
 

@@ -54,9 +54,7 @@
 
 #include <drm/drm_crtc.h>
 #include <drm/drm_crtc_helper.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 #include <drm/drm_gem.h>
-#endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0))
 #define drm_gem_fb_create(...) pdp_framebuffer_create(__VA_ARGS__)
@@ -112,7 +110,6 @@ drm_mode_fb_cmd2_validate(const struct drm_mode_fb_cmd2 *mode_cmd)
 		return -EINVAL;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 	switch (mode_cmd->modifier[0]) {
 	case DRM_FORMAT_MOD_PVR_FBCDC_8x8_V12:
 	case DRM_FORMAT_MOD_PVR_FBCDC_16x4_V12:
@@ -123,7 +120,6 @@ drm_mode_fb_cmd2_validate(const struct drm_mode_fb_cmd2 *mode_cmd)
 			  mode_cmd->modifier[0]);
 		return -EINVAL;
 	}
-#endif
 
 	return 0;
 }
@@ -160,11 +156,7 @@ static const struct drm_framebuffer_funcs pdp_framebuffer_funcs = {
 
 static inline int
 pdp_framebuffer_init(struct pdp_drm_private *dev_priv,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) || \
-	(defined(CHROMIUMOS_KERNEL) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)))
-		     const
-#endif
-		     struct drm_mode_fb_cmd2 *mode_cmd,
+		     const struct drm_mode_fb_cmd2 *mode_cmd,
 		     struct pdp_framebuffer *pdp_fb,
 		     struct drm_gem_object *obj)
 {
@@ -199,11 +191,7 @@ int pdp_modeset_validate_init(struct pdp_drm_private *dev_priv,
 static struct drm_framebuffer *
 pdp_framebuffer_create(struct drm_device *dev,
 		       struct drm_file *file,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) || \
-	(defined(CHROMIUMOS_KERNEL) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)))
-		       const
-#endif
-		       struct drm_mode_fb_cmd2 *mode_cmd)
+		       const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct pdp_drm_private *dev_priv = dev->dev_private;
 	struct drm_gem_object *obj;
@@ -251,12 +239,7 @@ err_out:
 static struct drm_framebuffer *
 pdp_fb_create(struct drm_device *dev,
 			struct drm_file *file,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) || \
-	(defined(CHROMIUMOS_KERNEL) && \
-	      (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)))
-			const
-#endif
-			struct drm_mode_fb_cmd2 *mode_cmd)
+			const struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	struct drm_framebuffer *fb;
 	int err;
@@ -328,8 +311,7 @@ int pdp_modeset_early_init(struct pdp_drm_private *dev_priv)
 	DRM_INFO("%s async flip support is %s\n",
 		 dev->driver->name, async_flip_enable ? "enabled" : "disabled");
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0))
 	dev->mode_config.allow_fb_modifiers = true;
 #endif
 
@@ -434,27 +416,11 @@ int pdp_modeset_late_init(struct pdp_drm_private *dev_priv)
 	if (err)
 		DRM_INFO("fbdev init failure is not fatal, continue anyway.\n");
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0))
-	if (dev_priv->connector != NULL) {
-		err = drm_connector_register(dev_priv->connector);
-		if (err) {
-			DRM_ERROR("[CONNECTOR:%d:%s] failed to register (err=%d)\n",
-				  dev_priv->connector->base.id,
-				  dev_priv->connector->name,
-				  err);
-			return err;
-		}
-	}
-#endif
 	return 0;
 }
 
 void pdp_modeset_early_cleanup(struct pdp_drm_private *dev_priv)
 {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0))
-	if (dev_priv->connector != NULL)
-		drm_connector_unregister(dev_priv->connector);
-#endif
 }
 
 void pdp_modeset_late_cleanup(struct pdp_drm_private *dev_priv)
