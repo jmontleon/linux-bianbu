@@ -65,12 +65,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define STREAM_LINE_LENGTH 512
 
 #if defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP)
-#define WRITER_THREAD_SLEEP_TIMEOUT 0ull
+#define WRITER_THREAD_SLEEP_TIMEOUT 0ULL
 #else
-#define WRITER_THREAD_SLEEP_TIMEOUT 28800000000ull
+#define WRITER_THREAD_SLEEP_TIMEOUT 28800000000ULL
 #endif
-#define WRITER_THREAD_DESTROY_TIMEOUT 100000ull
-#define WRITER_THREAD_DESTROY_RETRIES 10u
+#define WRITER_THREAD_DESTROY_TIMEOUT 100000ULL
+#define WRITER_THREAD_DESTROY_RETRIES 10U
 
 #define WRITE_RETRY_COUNT 10      /* retry a write to a TL buffer 10 times */
 #define WRITE_RETRY_WAIT_TIME 100 /* wait 10ms between write retries */
@@ -85,7 +85,7 @@ typedef enum THREAD_STATE
 static struct DIIB_IMPL
 {
 	HASH_TABLE *psEntriesTable;    /*!< Table of entries. */
-	POS_LOCK psEntriesLock;        /*!< Protects psEntriesTable. */
+	POSWR_LOCK psEntriesLock;      /*!< Protects psEntriesTable. */
 	IMG_HANDLE hWriterThread;
 	IMG_HANDLE hWriterEventObject;
 	ATOMIC_T eThreadState;
@@ -318,6 +318,8 @@ static void _WriterThread(void *pvArg)
 	IMG_HANDLE hEvent;
 	DLLIST_NODE *psNode;
 
+	PVR_UNREFERENCED_PARAMETER(pvArg);
+
 	eError = OSEventObjectOpen(_g_psImpl->hWriterEventObject, &hEvent);
 	PVR_LOG_RETURN_VOID_IF_ERROR(eError, "OSEventObjectOpen");
 
@@ -425,10 +427,10 @@ DIIB_ENTRY *DIImplBrgFind(const IMG_CHAR *pszPath)
 {
 	DIIB_ENTRY *psEntry;
 
-	OSLockAcquire(_g_psImpl->psEntriesLock);
+	OSWRLockAcquireRead(_g_psImpl->psEntriesLock);
 	psEntry = (void *) HASH_Retrieve_Extended(_g_psImpl->psEntriesTable,
 	                                          (IMG_CHAR *) pszPath);
-	OSLockRelease(_g_psImpl->psEntriesLock);
+	OSWRLockReleaseRead(_g_psImpl->psEntriesLock);
 
 	return psEntry;
 }
@@ -455,7 +457,8 @@ static PVRSRV_ERROR _CreateStream(IMG_CHAR *pszStreamName, IMG_HANDLE *phStream)
 	}
 
 	eError = TLStreamCreate(&hStream, pszStreamName, STREAM_BUFFER_SIZE,
-	                        TL_OPMODE_DROP_NEWER, NULL, NULL, NULL, NULL);
+	                        TL_OPMODE_DROP_NEWER, NULL, NULL, NULL, NULL,
+	                        NULL, NULL);
 	PVR_RETURN_IF_ERROR(eError);
 
 	*phStream = hStream;
@@ -545,7 +548,11 @@ PVRSRV_ERROR DIReadEntryKM(DI_CONTEXT *psContext, const IMG_CHAR *pszEntryPath,
 
 	/* increment ref count on the context so that it doesn't get freed
 	 * before it gets processed by the writer thread. */
-	OSAtomicIncrement(&psContext->iRefCnt);
+	if (OSAtomicAddUnless(&psContext->iRefCnt, 1, IMG_INT32_MAX) == IMG_INT32_MAX)
+	{
+		/* Job is not scheduled to the writer queue; there are too many waiting. */
+		PVR_LOG_GOTO_WITH_ERROR("OSAtomicAddUnless", eError, PVRSRV_ERROR_REFCOUNT_OVERFLOW, overflow_);
+	}
 
 	OSLockAcquire(_g_psImpl->psWriterLock);
 	dllist_add_to_head(&_g_psImpl->sWriterQueue, &psItem->sQueueElement);
@@ -558,6 +565,7 @@ PVRSRV_ERROR DIReadEntryKM(DI_CONTEXT *psContext, const IMG_CHAR *pszEntryPath,
 
 free_item_:
 	eError = PVRSRV_ERROR_NOT_FOUND;
+overflow_:
 	OSFreeMemNoStats(psItem);
 return_:
 	return eError;
@@ -621,7 +629,9 @@ PVRSRV_ERROR DIListAllEntriesKM(DI_CONTEXT *psContext)
 
 	PVR_LOG_RETURN_IF_INVALID_PARAM(psContext != NULL, "psContext");
 
+	OSWRLockAcquireRead(_g_psImpl->psEntriesLock);
 	eError = HASH_Iterate(_g_psImpl->psEntriesTable, _listName, psContext->hStream);
+	OSWRLockReleaseRead(_g_psImpl->psEntriesLock);
 	PVR_LOG_IF_ERROR(eError, "HASH_Iterate_Extended");
 
 	eError = TLStreamMarkEOS(psContext->hStream, IMG_FALSE);
@@ -642,7 +652,7 @@ static PVRSRV_ERROR _Init(void)
 	                                                 _Hash, _Compare);
 	PVR_LOG_GOTO_IF_NOMEM(_g_psImpl->psEntriesTable, eError, free_impl_);
 
-	eError = OSLockCreate(&_g_psImpl->psEntriesLock);
+	eError = OSWRLockCreate(&_g_psImpl->psEntriesLock);
 	PVR_LOG_GOTO_IF_ERROR(eError, "OSCreateLock", free_table_);
 
 	eError = OSLockCreate(&_g_psImpl->psWriterLock);
@@ -662,7 +672,7 @@ static PVRSRV_ERROR _Init(void)
 free_writer_lock_:
 	OSLockDestroy(_g_psImpl->psWriterLock);
 free_entries_lock_:
-	OSLockDestroy(_g_psImpl->psEntriesLock);
+	OSWRLockDestroy(_g_psImpl->psEntriesLock);
 free_table_:
 	HASH_Delete_Extended(_g_psImpl->psEntriesTable, IMG_FALSE);
 free_impl_:
@@ -689,7 +699,7 @@ static void _DeInit(void)
 			PVR_LOG_IF_ERROR(eError, "OSEventObjectSignal");
 		}
 
-		LOOP_UNTIL_TIMEOUT(WRITER_THREAD_DESTROY_TIMEOUT)
+		LOOP_UNTIL_TIMEOUT_US(WRITER_THREAD_DESTROY_TIMEOUT)
 		{
 			eError = OSThreadDestroy(_g_psImpl->hWriterThread);
 			if (eError == PVRSRV_OK)
@@ -697,7 +707,7 @@ static void _DeInit(void)
 				break;
 			}
 			OSWaitus(WRITER_THREAD_DESTROY_TIMEOUT/WRITER_THREAD_DESTROY_RETRIES);
-		} END_LOOP_UNTIL_TIMEOUT();
+		} END_LOOP_UNTIL_TIMEOUT_US();
 
 		PVR_LOG_IF_ERROR(eError, "OSThreadDestroy");
 	}
@@ -710,7 +720,7 @@ static void _DeInit(void)
 
 	HASH_Delete_Extended(_g_psImpl->psEntriesTable, IMG_FALSE);
 	OSLockDestroy(_g_psImpl->psWriterLock);
-	OSLockDestroy(_g_psImpl->psEntriesLock);
+	OSWRLockDestroy(_g_psImpl->psEntriesLock);
 	OSFreeMem(_g_psImpl);
 	_g_psImpl = NULL;
 }
@@ -721,27 +731,28 @@ static void _DeInit(void)
  * Returns current offset in the path (the current path length without the
  * NUL character). If there is no more space in the path returns -1
  * to indicate an error (the path is too long to fit into the buffer). */
-static IMG_INT _BuildGroupPath(IMG_CHAR *pszPath, const DIIB_GROUP *psGroup)
+static ssize_t _BuildGroupPath(IMG_CHAR *pszPath, const DIIB_GROUP *psGroup)
 {
-	IMG_INT iOff;
+	ssize_t iOff;
+	ssize_t iCopiedCnt;
+	size_t  uFreeCnt;
 
-	if (psGroup == NULL)
-	{
-		return 0;
-	}
+	PVR_RETURN_IF_FALSE(psGroup != NULL, 0);
 
 	PVR_ASSERT(pszPath != NULL);
 
 	iOff = _BuildGroupPath(pszPath, psGroup->psParentGroup);
 	PVR_RETURN_IF_FALSE(iOff != -1, -1);
 
-	iOff += OSStringLCopy(pszPath + iOff, "/",
-	                      DI_IMPL_BRG_PATH_LEN - iOff);
-	PVR_RETURN_IF_FALSE(iOff < DI_IMPL_BRG_PATH_LEN, -1);
+	uFreeCnt = DI_IMPL_BRG_PATH_LEN - iOff;
+	PVR_RETURN_IF_FALSE(uFreeCnt > 1, -1);
 
-	iOff += OSStringLCopy(pszPath + iOff, psGroup->pszName,
-	                      DI_IMPL_BRG_PATH_LEN - iOff);
-	PVR_RETURN_IF_FALSE(iOff < DI_IMPL_BRG_PATH_LEN, -1);
+	pszPath[iOff++] = '/';
+	--uFreeCnt;
+
+	iCopiedCnt = OSStringSafeCopy(&pszPath[iOff], psGroup->pszName, uFreeCnt);
+	PVR_RETURN_IF_FALSE(iCopiedCnt >= 0, -1);
+	iOff += iCopiedCnt;
 
 	return iOff;
 }
@@ -749,16 +760,20 @@ static IMG_INT _BuildGroupPath(IMG_CHAR *pszPath, const DIIB_GROUP *psGroup)
 static PVRSRV_ERROR _BuildEntryPath(IMG_CHAR *pszPath, const IMG_CHAR *pszName,
                                     const DIIB_GROUP *psGroup)
 {
-	IMG_INT iOff = _BuildGroupPath(pszPath, psGroup);
+	ssize_t iOff = _BuildGroupPath(pszPath, psGroup);
+	ssize_t iCopiedCnt;
+	size_t  uFreeCnt;
+
 	PVR_RETURN_IF_FALSE(iOff != -1, PVRSRV_ERROR_INVALID_OFFSET);
 
-	iOff += OSStringLCopy(pszPath + iOff, "/", DI_IMPL_BRG_PATH_LEN - iOff);
-	PVR_RETURN_IF_FALSE(iOff < DI_IMPL_BRG_PATH_LEN,
-	                    PVRSRV_ERROR_INVALID_OFFSET);
+	uFreeCnt = DI_IMPL_BRG_PATH_LEN - iOff;
+	PVR_RETURN_IF_FALSE(uFreeCnt > 1, PVRSRV_ERROR_OUT_OF_MEMORY);
 
-	iOff += OSStringLCopy(pszPath + iOff, pszName, DI_IMPL_BRG_PATH_LEN - iOff);
-	PVR_RETURN_IF_FALSE(iOff < DI_IMPL_BRG_PATH_LEN,
-	                    PVRSRV_ERROR_INVALID_OFFSET);
+	pszPath[iOff++] = '/';
+	--uFreeCnt;
+
+	iCopiedCnt = OSStringSafeCopy(&pszPath[iOff], pszName, uFreeCnt);
+	PVR_RETURN_IF_FALSE(iCopiedCnt >= 0, PVRSRV_ERROR_OUT_OF_MEMORY);
 
 	return PVRSRV_OK;
 }
@@ -813,12 +828,12 @@ static PVRSRV_ERROR _CreateEntry(const IMG_CHAR *pszName,
 		goto destroy_lock_;
 	}
 
-	OSLockAcquire(_g_psImpl->psEntriesLock);
+	OSWRLockAcquireWrite(_g_psImpl->psEntriesLock);
 	eError = HASH_Insert_Extended(_g_psImpl->psEntriesTable,
 	                              psEntry->pszFullPath,
 	                              (uintptr_t) psEntry) ?
 	         PVRSRV_OK : PVRSRV_ERROR_UNABLE_TO_ADD_HANDLE;
-	OSLockRelease(_g_psImpl->psEntriesLock);
+	OSWRLockReleaseWrite(_g_psImpl->psEntriesLock);
 	PVR_LOG_GOTO_IF_ERROR(eError, "HASH_Insert_Extended failed", destroy_lock_);
 
 	*pvEntry = psEntry;
@@ -838,9 +853,9 @@ static void _DestroyEntry(void *pvEntry)
 	DIIB_ENTRY *psEntry = pvEntry;
 	PVR_ASSERT(psEntry != NULL);
 
-	OSLockAcquire(_g_psImpl->psEntriesLock);
+	OSWRLockAcquireWrite(_g_psImpl->psEntriesLock);
 	HASH_Remove_Extended(_g_psImpl->psEntriesTable, psEntry->pszFullPath);
-	OSLockRelease(_g_psImpl->psEntriesLock);
+	OSWRLockReleaseWrite(_g_psImpl->psEntriesLock);
 
 	OSLockDestroy(psEntry->hLock);
 	OSFreeMem(psEntry);
@@ -887,3 +902,7 @@ PVRSRV_ERROR PVRDIImplBrgRegister(void)
 
 	return DIRegisterImplementation("impl_brg", &sImplCb);
 }
+
+/******************************************************************************
+ End of file (di_impl_brg.c)
+******************************************************************************/

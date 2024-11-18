@@ -772,7 +772,7 @@ static void InitialiseAllocation(RECORD_ALLOCATION *psAlloc,
 							IMG_DEVMEM_SIZE_T uiSize,
 							IMG_UINT32 ui32Log2PageSize)
 {
-	OSStringLCopy(psAlloc->szName, pszName, sizeof(psAlloc->szName));
+	OSStringSafeCopy(psAlloc->szName, pszName, sizeof(psAlloc->szName));
 	psAlloc->ui64Serial = ui64Serial;
 	psAlloc->uiPID = uiPID;
 	psAlloc->sDevVAddr = sDevVAddr;
@@ -792,7 +792,6 @@ static PVRSRV_ERROR CreateAllocation(PVRSRV_DEVICE_NODE *psDeviceNode,
 							IMG_DEV_VIRTADDR sDevVAddr,
 							IMG_DEVMEM_SIZE_T uiSize,
 							IMG_UINT32 ui32Log2PageSize,
-							IMG_BOOL bAutoPurge,
 							IMG_UINT32 *puiAllocationIndex)
 {
 	IMG_UINT32 ui32Alloc;
@@ -841,8 +840,7 @@ static IMG_BOOL MatchAllocation(DEVICEMEM_HISTORY_DATA *psDevHData,
 						IMG_DEV_VIRTADDR sDevVAddr,
 						IMG_DEVMEM_SIZE_T uiSize,
 						const IMG_CHAR *pszName,
-						IMG_UINT32 ui32Log2PageSize,
-						IMG_PID uiPID)
+						IMG_UINT32 ui32Log2PageSize)
 {
 	RECORD_ALLOCATION *psAlloc;
 
@@ -874,7 +872,6 @@ static PVRSRV_ERROR FindOrCreateAllocation(PVRSRV_DEVICE_NODE *psDeviceNode,
 							const char *pszName,
 							IMG_UINT32 ui32Log2PageSize,
 							IMG_PID uiPID,
-							IMG_BOOL bSparse,
 							IMG_UINT32 *pui32AllocationIndexOut,
 							IMG_BOOL *pbCreated)
 {
@@ -895,8 +892,7 @@ static PVRSRV_ERROR FindOrCreateAllocation(PVRSRV_DEVICE_NODE *psDeviceNode,
 								sDevVAddr,
 								uiSize,
 								pszName,
-								ui32Log2PageSize,
-								uiPID);
+								ui32Log2PageSize);
 		if (bHaveAllocation)
 		{
 			*pbCreated = IMG_FALSE;
@@ -915,7 +911,6 @@ static PVRSRV_ERROR FindOrCreateAllocation(PVRSRV_DEVICE_NODE *psDeviceNode,
 					sDevVAddr,
 					uiSize,
 					ui32Log2PageSize,
-					IMG_TRUE,
 					&ui32AllocationIndex);
 
 	if (eError == PVRSRV_OK)
@@ -966,7 +961,7 @@ static void GenerateMapUnmapCommandsForSparsePMR(PMR *psPMR,
 		return;
 	}
 
-	for (i = 0; i < psMappingTable->ui32NumVirtChunks; i++)
+	for (i = 0; i < psMappingTable->ui32NumLogicalChunks; i++)
 	{
 		if (psMappingTable->aui32Translation[i] != TRANSLATION_INVALID)
 		{
@@ -991,7 +986,7 @@ static void GenerateMapUnmapCommandsForSparsePMR(PMR *psPMR,
 			 */
 			if ((psMappingTable->aui32Translation[i] == TRANSLATION_INVALID) ||
 				(ui32RunCount == MAP_RANGE_MAX_RANGE) ||
-				(i == (psMappingTable->ui32NumVirtChunks - 1)))
+				(i == (psMappingTable->ui32NumLogicalChunks - 1)))
 			{
 				if (bMap)
 				{
@@ -1110,11 +1105,13 @@ PVRSRV_ERROR DevicememHistoryMapKM(PMR *psPMR,
 							IMG_UINT32 *pui32AllocationIndexOut)
 {
 	IMG_BOOL bSparse = PMR_IsSparse(psPMR);
-	IMG_UINT64 ui64Serial;
+	IMG_UINT64 ui64Serial = PMRInternalGetUID(psPMR);
 	IMG_PID uiPID = OSGetCurrentClientProcessIDKM();
 	PVRSRV_ERROR eError;
 	IMG_BOOL bCreated;
 	DEVICEMEM_HISTORY_DATA *psDevHData;
+
+	PVR_UNREFERENCED_PARAMETER(ui32Offset);
 
 	if ((ui32AllocationIndex != DEVICEMEM_HISTORY_ALLOC_INDEX_NONE) &&
 		!CHECK_ALLOC_INDEX(ui32AllocationIndex))
@@ -1124,8 +1121,6 @@ PVRSRV_ERROR DevicememHistoryMapKM(PMR *psPMR,
 								ui32AllocationIndex));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
-
-	PMRGetUID(psPMR, &ui64Serial);
 
 	psDevHData = DevmemFindDataFromDev(PMR_DeviceNode(psPMR));
 
@@ -1144,7 +1139,6 @@ PVRSRV_ERROR DevicememHistoryMapKM(PMR *psPMR,
 						szName,
 						ui32Log2PageSize,
 						uiPID,
-						bSparse,
 						&ui32AllocationIndex,
 						&bCreated);
 
@@ -1191,6 +1185,8 @@ static void VRangeInsertMapUnmapCommands(PVRSRV_DEVICE_NODE *psDeviceNode,
 							IMG_UINT32 ui32NumPages,
 							const IMG_CHAR *pszName)
 {
+	PVR_UNREFERENCED_PARAMETER(pszName);
+
 	while (ui32NumPages > 0)
 	{
 		IMG_UINT32 ui32PagesToAdd;
@@ -1271,7 +1267,6 @@ PVRSRV_ERROR DevicememHistoryMapVRangeKM(CONNECTION_DATA *psConnection,
 						szName,
 						ui32Log2PageSize,
 						uiPID,
-						IMG_FALSE,
 						&ui32AllocationIndex,
 						&bCreated);
 
@@ -1350,7 +1345,6 @@ PVRSRV_ERROR DevicememHistoryUnmapVRangeKM(CONNECTION_DATA *psConnection,
 						szName,
 						ui32Log2PageSize,
 						uiPID,
-						IMG_FALSE,
 						&ui32AllocationIndex,
 						&bCreated);
 
@@ -1411,11 +1405,13 @@ PVRSRV_ERROR DevicememHistoryUnmapKM(PMR *psPMR,
 							IMG_UINT32 *pui32AllocationIndexOut)
 {
 	IMG_BOOL bSparse = PMR_IsSparse(psPMR);
-	IMG_UINT64 ui64Serial;
+	IMG_UINT64 ui64Serial = PMRInternalGetUID(psPMR);
 	IMG_PID uiPID = OSGetCurrentClientProcessIDKM();
 	PVRSRV_ERROR eError;
 	IMG_BOOL bCreated;
 	DEVICEMEM_HISTORY_DATA *psDevHData;
+
+	PVR_UNREFERENCED_PARAMETER(ui32Offset);
 
 	if ((ui32AllocationIndex != DEVICEMEM_HISTORY_ALLOC_INDEX_NONE) &&
 		!CHECK_ALLOC_INDEX(ui32AllocationIndex))
@@ -1425,8 +1421,6 @@ PVRSRV_ERROR DevicememHistoryUnmapKM(PMR *psPMR,
 								ui32AllocationIndex));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
-
-	PMRGetUID(psPMR, &ui64Serial);
 
 	psDevHData = DevmemFindDataFromDev(PMR_DeviceNode(psPMR));
 
@@ -1445,7 +1439,6 @@ PVRSRV_ERROR DevicememHistoryUnmapKM(PMR *psPMR,
 						szName,
 						ui32Log2PageSize,
 						uiPID,
-						bSparse,
 						&ui32AllocationIndex,
 						&bCreated);
 
@@ -1517,11 +1510,13 @@ PVRSRV_ERROR DevicememHistorySparseChangeKM(PMR *psPMR,
 							IMG_UINT32 ui32AllocationIndex,
 							IMG_UINT32 *pui32AllocationIndexOut)
 {
-	IMG_UINT64 ui64Serial;
+	IMG_UINT64 ui64Serial = PMRInternalGetUID(psPMR);
 	IMG_PID uiPID = OSGetCurrentClientProcessIDKM();
 	PVRSRV_ERROR eError;
 	IMG_BOOL bCreated;
 	DEVICEMEM_HISTORY_DATA *psDevHData;
+
+	PVR_UNREFERENCED_PARAMETER(ui32Offset);
 
 	if (!PMRValidateSize((IMG_UINT64) ui32AllocPageCount << ui32Log2PageSize))
 	{
@@ -1541,8 +1536,6 @@ PVRSRV_ERROR DevicememHistorySparseChangeKM(PMR *psPMR,
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	PMRGetUID(psPMR, &ui64Serial);
-
 	psDevHData = DevmemFindDataFromDev(PMR_DeviceNode(psPMR));
 
 	if (psDevHData == NULL)
@@ -1560,7 +1553,6 @@ PVRSRV_ERROR DevicememHistorySparseChangeKM(PMR *psPMR,
 						szName,
 						ui32Log2PageSize,
 						uiPID,
-						IMG_TRUE /* bSparse */,
 						&ui32AllocationIndex,
 						&bCreated);
 
@@ -1901,7 +1893,7 @@ found_pid:
 			{
 				DEVICEMEM_HISTORY_QUERY_OUT_RESULT *psResult = &psQueryOut->sResults[psQueryOut->ui32NumResults];
 
-				OSStringLCopy(psResult->szString, psAlloc->szName, sizeof(psResult->szString));
+				OSStringSafeCopy(psResult->szString, psAlloc->szName, sizeof(psResult->szString));
 				psResult->sBaseDevVAddr = psAlloc->sDevVAddr;
 				psResult->uiSize = psAlloc->uiSize;
 				psResult->bMap = bMap;
@@ -2118,7 +2110,7 @@ static int DevicememHistoryPrintAllWrapper(OSDI_IMPL_ENTRY *psEntry,
 static PVRSRV_ERROR CreateRecords(DEVICEMEM_HISTORY_DATA *psDevHData)
 {
 	psDevHData->sRecords.pasAllocations =
-			OSAllocMemNoStats(sizeof(RECORD_ALLOCATION) * ALLOCATION_LIST_NUM_ENTRIES);
+			OSAllocZMemNoStats(sizeof(RECORD_ALLOCATION) * ALLOCATION_LIST_NUM_ENTRIES);
 
 	PVR_RETURN_IF_NOMEM(psDevHData->sRecords.pasAllocations);
 

@@ -60,6 +60,7 @@
 #define TC_BASEBOARD_APOLLO 1
 #define TC_BASEBOARD_ODIN 2
 #define TC_BASEBOARD_ORION 3
+#define TC_BASEBOARD_VALI 4
 
 #if defined(SUPPORT_ION) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
 
@@ -83,7 +84,16 @@
 #define TC_INTERRUPT_PDP2    3
 #define TC_INTERRUPT_CDMA    4
 #define TC_INTERRUPT_CDMA2   5
-#define TC_INTERRUPT_COUNT   6
+#define TC_INTERRUPT_OSID0   6
+#define TC_INTERRUPT_OSID1   7
+#define TC_INTERRUPT_OSID2   8
+#define TC_INTERRUPT_OSID3   9
+#define TC_INTERRUPT_OSID4  10
+#define TC_INTERRUPT_OSID5  11
+#define TC_INTERRUPT_OSID6  12
+#define TC_INTERRUPT_OSID7  13
+#define TC_INTERRUPT_COUNT  14
+
 
 int tc_enable(struct device *dev);
 void tc_disable(struct device *dev);
