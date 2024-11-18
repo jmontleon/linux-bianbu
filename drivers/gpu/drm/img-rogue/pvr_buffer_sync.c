@@ -77,13 +77,7 @@ struct pvr_buffer_sync_append_data {
 static struct dma_resv *
 pmr_reservation_object_get(struct _PMR_ *pmr)
 {
-	struct dma_buf *dmabuf;
-
-	dmabuf = PhysmemGetDmaBuf(pmr);
-	if (dmabuf)
-		return dmabuf->resv;
-
-	return NULL;
+	return PhysmemGetDmaResv(pmr);
 }
 
 static int

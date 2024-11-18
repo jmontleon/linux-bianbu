@@ -64,10 +64,10 @@ extern "C" {
 #include "img_types.h"
 #include "img_elf.h"
 #include "pvrsrv_error.h" /* includes pvrsrv_errors.h */
-#include "pvrsrv_firmware_boot.h"
+#include "rgx_firmware_boot.h"
 #include "rgx_bvnc_defs_km.h"
 #include "rgx_fw_info.h"
-#include "rgx_fwif_shared.h" /* includes rgx_common.h and mem_types.h */
+#include "rgx_common.h"
 #include "rgx_meta.h"
 #if defined(RGX_FEATURE_MIPS_BIT_MASK)
 #include "rgx_mips.h"
@@ -80,6 +80,14 @@ extern "C" {
  * RGX_BVNC_CORE_KM_HEADER (rgxcore_km_B.V.N.C.h),
  * RGX_BNC_CONFIG_KM_HEADER (rgxconfig_km_B.V.N.C.h)
  */
+
+/*
+ * Specific fields for RGX_CR_IDLE must not be polled in pdumps
+ * (technical reasons)
+ */
+#define CR_IDLE_UNSELECTED_MASK ((~RGX_CR_SLC_IDLE_ACE_CONVERTERS_CLRMSK) |	\
+								 (~RGX_CR_SLC_IDLE_OWDB_CLRMSK) |			\
+								 (RGX_CR_SLC_IDLE_FBCDC_ARB_EN))
 
 
 /*!
@@ -160,6 +168,7 @@ void RGXErrorLog(const void *hPrivate,
                  const IMG_CHAR *pszString,
                  ...);
 
+#if defined(RGX_FEATURE_MIPS_BIT_MASK)
 /*!
 *******************************************************************************
 
@@ -174,8 +183,9 @@ void RGXErrorLog(const void *hPrivate,
 ******************************************************************************/
 
 IMG_UINT32 RGXGetOSPageSize(const void *hPrivate);
+#endif
 
-/* This is used to get the value of a specific feature from hprivate.
+/* This is used to check if a specific feature is enabled.
  * Should be used instead of calling RGXDeviceHasFeature.  */
 #define RGX_DEVICE_HAS_FEATURE(hPrivate, Feature) \
 			RGXDeviceHasFeature(hPrivate, RGX_FEATURE_##Feature##_BIT_MASK)
@@ -201,6 +211,8 @@ IMG_UINT32 RGXGetOSPageSize(const void *hPrivate);
 #define RGX_DEVICE_HAS_BRN(hPrivate, BRN) \
 			RGXDeviceHasErnBrn(hPrivate, FIX_HW_BRN_##BRN##_BIT_MASK)
 
+#define CLK_CTRL_FORCE_ON(X, Module) \
+			X = (((X) & RGX_CR_##Module##_CLRMSK) | RGX_CR_##Module##_ON)
 /*!
 *******************************************************************************
 
@@ -351,6 +363,44 @@ PVRSRV_ERROR RGXPollReg64(const void *hPrivate,
 /*!
 *******************************************************************************
 
+ @Function       RGXWriteMetaRegThroughSP
+
+ @Description    Write a register value using the META slave port
+
+ @Input          hPrivate         : Implementation specific data
+ @Input          ui32RegAddr      : Register offset inside the register bank
+ @Input          ui32RegValue     : Value written to the register
+
+ @Return         PVRSRV_OK if the poll succeeds,
+                 PVRSRV error code otherwise
+
+******************************************************************************/
+PVRSRV_ERROR RGXWriteMetaRegThroughSP(const void *hPrivate,
+                                      IMG_UINT32 ui32RegAddr,
+                                      IMG_UINT32 ui32RegValue);
+
+/*!
+*******************************************************************************
+
+ @Function       RGXReadMetaRegThroughSP
+
+ @Description    Read a register value using the META slave port
+
+ @Input          hPrivate         : Implementation specific data
+ @Input          ui32RegAddr      : Register offset inside the register bank
+ @Input          *ui32RegValue    : Value read from the register
+
+ @Return         PVRSRV_OK if the poll succeeds,
+                 PVRSRV error code otherwise
+
+******************************************************************************/
+PVRSRV_ERROR RGXReadMetaRegThroughSP(const void *hPrivate,
+                                     IMG_UINT32 ui32RegAddr,
+                                     IMG_UINT32* ui32RegValue);
+
+/*!
+*******************************************************************************
+
  @Function       RGXSetPoweredState
 
  @Description    Declare if the device is powered or not
@@ -420,11 +470,13 @@ void RGXAcquireKernelMMUPC(const void *hPrivate, IMG_DEV_PHYADDR *psPCAddr);
 
 ******************************************************************************/
 #if defined(PDUMP)
+#if !defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
 void RGXWriteKernelMMUPC64(const void *hPrivate,
                            IMG_UINT32 ui32PCReg,
                            IMG_UINT32 ui32PCRegAlignShift,
                            IMG_UINT32 ui32PCRegShift,
                            IMG_UINT64 ui64PCVal);
+#endif
 
 void RGXWriteKernelMMUPC32(const void *hPrivate,
                            IMG_UINT32 ui32PCReg,
@@ -433,8 +485,10 @@ void RGXWriteKernelMMUPC32(const void *hPrivate,
                            IMG_UINT32 ui32PCVal);
 #else /* defined(PDUMP) */
 
+#if !defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
 #define RGXWriteKernelMMUPC64(priv, pcreg, alignshift, shift, pcval) \
 	RGXWriteReg64(priv, pcreg, pcval)
+#endif
 
 #define RGXWriteKernelMMUPC32(priv, pcreg, alignshift, shift, pcval) \
 	RGXWriteReg32(priv, pcreg, pcval)
@@ -842,6 +896,22 @@ void RGXAcquireBootDataAddr(const void *hPrivate, IMG_DEV_VIRTADDR *psBootDataAd
 
 ******************************************************************************/
 IMG_BOOL RGXDeviceAckIrq(const void *hPrivate);
+
+#if defined(RGX_FEATURE_MMU_VERSION_MAX_VALUE_IDX)
+/*!
+*******************************************************************************
+
+@Function       RGXMMUInitRangeValue
+
+@Description    Returns the appropriate config value for each MMU range
+
+@Input          ui32MMURange   : Hardware MMU range to be initialised
+
+@Return         64-bit register value
+
+******************************************************************************/
+IMG_UINT64 RGXMMUInitRangeValue(IMG_UINT32 ui32MMURange);
+#endif
 
 #if defined(__cplusplus)
 }
