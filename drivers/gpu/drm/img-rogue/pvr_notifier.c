@@ -207,7 +207,7 @@ PVRSRVSignalDriverWideEO(void)
 	/* Cleanup Thread could be waiting on Cleanup event object,
 	 * signal it as well to ensure work is processed
 	 */
-	if (psPVRSRVData->hCleanupEventObject)
+	if (psPVRSRVData->hCleanupEventObject && (OSAtomicRead(&psPVRSRVData->i32NumCleanupItemsQueued) != 0))
 	{
 		OSEventObjectSignal(psPVRSRVData->hCleanupEventObject);
 	}
@@ -240,7 +240,7 @@ typedef struct DEBUG_REQUEST_ENTRY_TAG
 typedef struct DEBUG_REQUEST_TABLE_TAG
 {
 	POSWR_LOCK              hLock;
-	DEBUG_REQUEST_ENTRY     asEntry[1];
+	DEBUG_REQUEST_ENTRY     asEntry[IMG_FLEX_ARRAY_MEMBER];
 } DEBUG_REQUEST_TABLE;
 
 typedef struct DEBUG_REQUEST_NOTIFY_TAG
@@ -282,7 +282,7 @@ _RegisterDebugTableI(DEBUG_REQUEST_TABLE **ppsDebugTable)
 	}
 
 	psDebugTable = OSAllocMem(sizeof(DEBUG_REQUEST_TABLE) +
-							  (sizeof(DEBUG_REQUEST_ENTRY) * (g_ui32DebugOrderTableReqCount-1)));
+	                          IMG_FLEX_ARRAY_SIZE(sizeof(DEBUG_REQUEST_ENTRY), g_ui32DebugOrderTableReqCount));
 	PVR_RETURN_IF_NOMEM(psDebugTable);
 
 	eError = OSWRLockCreate(&psDebugTable->hLock);
@@ -543,7 +543,7 @@ PVRSRVDebugRequest(PVRSRV_DEVICE_NODE *psDevNode,
 	                  szVerbosityLevel);
 
 #if defined(RGX_IRQ_HYPERV_HANDLER)
-	if (!PVRSRV_VZ_MODE_IS(GUEST))
+	if (!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDevNode))
 #endif
 	{
 		OSDumpVersionInfo(pfnDumpDebugPrintf, pvDumpDebugFile);
@@ -592,7 +592,7 @@ PVRSRVDebugRequest(PVRSRV_DEVICE_NODE *psDevNode,
 	}
 
 	PVR_DUMPDEBUG_LOG("Driver Mode: %s",
-	                  PVRSRV_VZ_MODE_IS(NATIVE) ? "Native" : (PVRSRV_VZ_MODE_IS(HOST)) ? "Host":"Guest");
+	                  PVRSRV_VZ_MODE_IS(NATIVE, DEVNODE, psDevNode) ? "Native" : (PVRSRV_VZ_MODE_IS(HOST, DEVNODE, psDevNode)) ? "Host":"Guest");
 
 	if (psPVRSRVData->sDriverInfo.ui8UMSupportedArch)
 	{
@@ -613,6 +613,18 @@ PVRSRVDebugRequest(PVRSRV_DEVICE_NODE *psDevNode,
 	PVR_DUMP_DRIVER_INFO("KM", psPVRSRVData->sDriverInfo.sKMBuildInfo);
 
 	PVR_DUMPDEBUG_LOG("Window system: %s", (IS_DECLARED(WINDOW_SYSTEM)) ? (WINDOW_SYSTEM) : "Not declared");
+
+	PVR_DUMPDEBUG_LOG("Power lock status: %s", OSLockIsLocked(psDevNode->hPowerLock) ? "Locked" : "Free");
+#if defined(DEBUG)
+	if (OSLockIsLocked(psDevNode->hPowerLock))
+	{
+		/* Ensure this info is logged before the power lock is taken, in case
+		 * it's already in use. */
+		PVR_DUMPDEBUG_LOG("Power lock owner: PID = %u at timestamp %" IMG_UINT64_FMTSPEC " (%s:%u)",
+		                  psDevNode->uiPwrLockOwnerPID, psDevNode->sPowerLockOwner.ui64Timestamp,
+		                  psDevNode->sPowerLockOwner.pszFile, psDevNode->sPowerLockOwner.ui32LineNum);
+	}
+#endif
 
 	/* Driver debug table */
 	OSWRLockAcquireReadNested(psDriverDebugTable->hLock, DN_LOCKCLASS_DRIVER);
@@ -651,7 +663,8 @@ PVRSRVDebugRequest(PVRSRV_DEVICE_NODE *psDevNode,
 
 	if (!pfnDumpDebugPrintf)
 	{
-		/* Only notify OS of an issue if the debug dump has gone there */
+		/* Only notify OS of an issue if the caller requested it,
+		 * using a NULL pointer in pfnDumpDebugPrintf. */
 		OSWarnOn(IMG_TRUE);
 	}
 }

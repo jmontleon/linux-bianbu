@@ -84,6 +84,7 @@ PVRSRV_ERROR OSConnectionPrivateDataInit(IMG_HANDLE *phOsPrivateData, void *pvOS
 	psEnvConnection->owner = current->tgid;
 
 	psEnvConnection->psDevNode = psPrivData->psDevNode;
+	psEnvConnection->psDRMFile = psPrivData->psDRMFile;
 
 #if defined(SUPPORT_NATIVE_FENCE_SYNC)
 	psEnvConnection->pvPvrSyncPrivateData = NULL;
@@ -154,4 +155,14 @@ PVRSRV_DEVICE_NODE *OSGetDevNode(CONNECTION_DATA *psConnection)
 	PVR_ASSERT(psEnvConnection);
 
 	return psEnvConnection->psDevNode;
+}
+
+struct drm_file *OSGetDRMFile(CONNECTION_DATA *psConnection)
+{
+	ENV_CONNECTION_DATA *psEnvConnection;
+
+	psEnvConnection = PVRSRVConnectionPrivateData(psConnection);
+	PVR_ASSERT(psEnvConnection);
+
+	return psEnvConnection->psDRMFile;
 }

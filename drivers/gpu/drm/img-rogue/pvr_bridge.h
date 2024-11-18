@@ -94,9 +94,6 @@ extern "C" {
 #include "common_validation_bridge.h"
 #endif
 
-#if defined(PVR_TESTING_UTILS)
-#include "common_tutils_bridge.h"
-#endif
 
 #include "common_devicememhistory_bridge.h"
 #include "common_synctracking_bridge.h"
@@ -272,13 +269,8 @@ extern "C" {
 
 /*  18: TUTILS interface functions */
 #define PVRSRV_BRIDGE_TUTILS				18UL
-#if defined(PVR_TESTING_UTILS)
-#define PVRSRV_BRIDGE_TUTILS_DISPATCH_FIRST (PVRSRV_BRIDGE_VALIDATION_DISPATCH_LAST + 1)
-#define PVRSRV_BRIDGE_TUTILS_DISPATCH_LAST  (PVRSRV_BRIDGE_TUTILS_DISPATCH_FIRST + PVRSRV_BRIDGE_TUTILS_CMD_LAST)
-#else
 #define PVRSRV_BRIDGE_TUTILS_DISPATCH_FIRST 0
 #define PVRSRV_BRIDGE_TUTILS_DISPATCH_LAST  (PVRSRV_BRIDGE_VALIDATION_DISPATCH_LAST)
-#endif
 
 /*  19: DevMem history interface functions */
 #define PVRSRV_BRIDGE_DEVICEMEMHISTORY		19UL
@@ -390,12 +382,6 @@ static const IMG_UINT32 gui32PVRBridges =
 	| (1U << (PVRSRV_BRIDGE_PVRTL - PVRSRV_BRIDGE_FIRST))
 #if defined(PVRSRV_ENABLE_GPU_MEMORY_INFO)
 	| (1U << (PVRSRV_BRIDGE_RI - PVRSRV_BRIDGE_FIRST))
-#endif
-#if defined(SUPPORT_VALIDATION)
-	| (1U << (PVRSRV_BRIDGE_VALIDATION - PVRSRV_BRIDGE_FIRST))
-#endif
-#if defined(PVR_TESTING_UTILS)
-	| (1U << (PVRSRV_BRIDGE_TUTILS - PVRSRV_BRIDGE_FIRST))
 #endif
 	| (1U << (PVRSRV_BRIDGE_DEVICEMEMHISTORY - PVRSRV_BRIDGE_FIRST))
 #if defined(PVRSRV_ENABLE_HTB)

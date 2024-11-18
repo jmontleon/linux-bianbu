@@ -69,7 +69,7 @@ typedef struct {
  *****************************************************************************/
 #define RGXKM_DEVICE_STATE_ZERO_FREELIST                          (0x1)  /*!< Zeroing the physical pages of reconstructed free lists */
 #define RGXKM_DEVICE_STATE_DISABLE_DW_LOGGING_EN                  (0x2)  /*!< Used to disable the Devices Watchdog logging */
-#define RGXKM_DEVICE_STATE_GPU_UNITS_POWER_CHANGE_EN              (0x4)  /*!< Used for validation to inject dust requests every TA/3D kick */
+#define RGXKM_DEVICE_STATE_GPU_UNITS_POWER_CHANGE_EN              (0x4)  /*!< Used for validation to inject power units state change every DM kick */
 #define RGXKM_DEVICE_STATE_CCB_GROW_EN                            (0x8)  /*!< Used to indicate CCB grow is permitted */
 #define RGXKM_DEVICE_STATE_ENABLE_SPU_UNITS_POWER_MASK_CHANGE_EN  (0x10) /*!< Used for validation to enable SPU power state mask change */
 #define RGXKM_DEVICE_STATE_MASK                                   (0x1F)
@@ -97,16 +97,18 @@ typedef struct {
 #define RGX_GPU_DVFS_TRANSITION_CALIBRATION_TIME_US  150000    /* Time required for a recalibration after a DVFS transition */
 #define RGX_GPU_DVFS_PERIODIC_CALIBRATION_TIME_US    10000000  /* Time before the next periodic calibration and correlation */
 
+
 /*!
  ******************************************************************************
  * Global flags for driver validation
  *****************************************************************************/
-#define RGX_VAL_FBDC_SIG_CHECK_NOERR_EN          (0U)     /*!< Not supported on Rogue cores */
-#define RGX_VAL_FBDC_SIG_CHECK_ERR_EN            (0U)     /*!< Not supported on Rogue cores */
+#define RGX_VAL_FBDC_SIG_CHECK_NOERR_EN           (0x2U)  /*!< Enable FBDC signature check. Signatures must match */
+#define RGX_VAL_FBDC_SIG_CHECK_ERR_EN             (0x4U)  /*!< Enable FBDC signature check. Signatures must not match */
+#define RGX_VAL_GPUSTATEPIN_EN                    (0x8U)  /*!< Enable GPU state pin check */
 #define RGX_VAL_WGP_SIG_CHECK_NOERR_EN           (0x10U)  /*!< Enable WGP signature check. Signatures must match */
 #define RGX_VAL_WGP_SIG_CHECK_ERR_EN             (0x20U)  /*!< Enable WGP signature check. Signatures must not match */
-#define RGX_VAL_TRP_SIG_CHECK_NOERR_EN           (0U)     /*!< Not supported on Rogue cores */
-#define RGX_VAL_TRP_SIG_CHECK_ERR_EN             (0U)     /*!< Not supported on Rogue cores */
+#define RGX_VAL_TRP_SIG_CHECK_NOERR_EN           (0x40U)  /*!< Enable TRP signature check. Signatures must match */
+#define RGX_VAL_TRP_SIG_CHECK_ERR_EN             (0x80U)  /*!< Enable TRP signature check. Signatures must not match */
 
 /*!
  ******************************************************************************
@@ -180,7 +182,7 @@ typedef struct _RGX_GPU_DVFS_TABLE_
 
 typedef struct _RGXFWIF_TEMP_GPU_UTIL_STATS_
 {
-	IMG_UINT64 aaaui64DMOSTmpCounters[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED][RGXFWIF_GPU_UTIL_STATE_NUM];
+	IMG_UINT64 aaaui64DMOSTmpCounters[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED][RGXFWIF_GPU_UTIL_REDUCED_STATES_NUM];
 	IMG_UINT64 aaui64DMOSTmpLastWord[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];
 	IMG_UINT64 aaui64DMOSTmpLastState[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];
 	IMG_UINT64 aaui64DMOSTmpLastPeriod[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];
@@ -196,10 +198,9 @@ typedef struct _RGXFWIF_GPU_UTIL_STATS_
 	IMG_UINT64 ui64GpuStatIdle;       /* GPU idle statistic */
 	IMG_UINT64 ui64GpuStatCumulative; /* Sum of active/blocked/idle stats */
 
-	IMG_UINT64 aaui64DMOSStatActive[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];     /* Per-DM per-OS active statistic */
-	IMG_UINT64 aaui64DMOSStatBlocked[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];    /* Per-DM per-OS blocked statistic */
-	IMG_UINT64 aaui64DMOSStatIdle[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];       /* Per-DM per-OS idle statistic */
-	IMG_UINT64 aaui64DMOSStatCumulative[RGXFWIF_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED]; /* Per-DM per-OS sum of active/blocked/idle stats */
+	IMG_UINT64 aaui64DMOSStatInactive[RGXFWIF_GPU_UTIL_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];   /* Per-DM per-OS sum of idle and blocked stats */
+	IMG_UINT64 aaui64DMOSStatActive[RGXFWIF_GPU_UTIL_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED];     /* Per-DM per-OS active statistic */
+	IMG_UINT64 aaui64DMOSStatCumulative[RGXFWIF_GPU_UTIL_DM_MAX][RGX_NUM_DRIVERS_SUPPORTED]; /* Per-DM per-OS sum of active/blocked/idle stats */
 
 	IMG_UINT64 ui64TimeStamp;         /* Timestamp of the most recent sample of the GPU stats */
 
@@ -217,12 +218,6 @@ typedef struct _RGX_REG_CONFIG_
 
 typedef struct _PVRSRV_STUB_PBDESC_ PVRSRV_STUB_PBDESC;
 
-typedef struct
-{
-	IMG_UINT32			ui32DustCount1;
-	IMG_UINT32			ui32DustCount2;
-	IMG_BOOL			bToggle;
-} RGX_DUST_STATE;
 
 typedef struct _PVRSRV_DEVICE_FEATURE_CONFIG_
 {
@@ -234,7 +229,10 @@ typedef struct _PVRSRV_DEVICE_FEATURE_CONFIG_
 	IMG_UINT32 ui32C;
 	IMG_UINT32 ui32FeaturesValues[RGX_FEATURE_WITH_VALUES_MAX_IDX];
 	IMG_UINT32 ui32MAXDMCount;
-	IMG_UINT32 ui32MAXDustCount;
+	IMG_UINT32 ui32MAXPowUnitCount;
+#if defined(RGX_FEATURE_RAY_TRACING_ARCH_MAX_VALUE_IDX)
+	IMG_UINT32 ui32MAXRACCount;
+#endif
 	IMG_UINT32 ui32SLCSizeInBytes;
 	IMG_PCHAR  pszBVNCString;
 }PVRSRV_DEVICE_FEATURE_CONFIG;
@@ -308,6 +306,15 @@ typedef union _RGX_WORKLOAD_
 		IMG_UINT32				ui32Characteristic1;
 		IMG_UINT32				ui32Characteristic2;
 	} sTransfer;
+
+#if defined(RGX_FEATURE_RAY_TRACING_ARCH_MAX_VALUE_IDX)
+	struct
+	{
+		IMG_UINT32				ui32DispatchSize;
+		IMG_UINT32				ui32AccStructSize;
+	} sRay;
+#endif
+
 } RGX_WORKLOAD;
 
 /*!
@@ -358,6 +365,13 @@ typedef struct _WORKEST_HOST_DATA_
 		{
 			WORKLOAD_MATCHING_DATA	sDataTDM;	/*!< matching data for TDM-TQ commands */
 		} sTransfer;
+
+#if defined(RGX_FEATURE_RAY_TRACING_ARCH_MAX_VALUE_IDX)
+		struct
+		{
+			WORKLOAD_MATCHING_DATA	sDataRDM;	/*!< matching data for RDM commands */
+		} sRay;
+#endif
 	} uWorkloadMatchingData;
 
 	/*
@@ -384,6 +398,11 @@ typedef struct _WORKEST_RETURN_DATA_
 	WORKLOAD_MATCHING_DATA	*psWorkloadMatchingData;
 	RGX_WORKLOAD			sWorkloadCharacteristics;
 } WORKEST_RETURN_DATA;
+#endif
+
+
+#if defined(RGX_FEATURE_MMU_VERSION_MAX_VALUE_IDX)
+#define RGX_MAX_NUM_MMU_PAGE_SIZE_RANGES    4
 #endif
 
 
@@ -438,6 +457,11 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 
 	/* Kernel mode linear address of device registers */
 	void __iomem			*pvRegsBaseKM;
+
+#if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
+	/* Kernel mode linear address of device registers */
+	void __iomem			*pvSecureRegsBaseKM;
+#endif
 
 	IMG_HANDLE				hRegMapping;
 
@@ -531,8 +555,13 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	DEVMEM_MEMDESC			*psRGXFWSig3DChecksMemDesc;
 	IMG_UINT32				ui32Sig3DChecksSize;
 
-	DEVMEM_MEMDESC			*psRGXFWSigTDM2DChecksMemDesc;
-	IMG_UINT32				ui32SigTDM2DChecksSize;
+	DEVMEM_MEMDESC			*psRGXFWSigTDMChecksMemDesc;
+	IMG_UINT32				ui32SigTDMChecksSize;
+
+#if defined(RGX_FEATURE_RAY_TRACING_ARCH_MAX_VALUE_IDX)
+	DEVMEM_MEMDESC			*psRGXFWSigRDMChecksMemDesc;
+	IMG_UINT32				ui32SigRDMChecksSize;
+#endif
 
 	IMG_BOOL				bDumpedKCCBCtlAlready;
 
@@ -564,8 +593,8 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	IMG_UINT32				ui32ClockSource;
 	IMG_UINT32				ui32LastClockSource;
 
-	DEVMEM_MEMDESC			*psRGXFWIfGpuUtilFWCbCtlMemDesc;
-	RGXFWIF_GPU_UTIL_FWCB	*psRGXFWIfGpuUtilFWCb;
+	DEVMEM_MEMDESC			*psRGXFWIfGpuUtilFWCtlMemDesc;
+	RGXFWIF_GPU_UTIL_FW     *psRGXFWIfGpuUtilFW;
 
 	DEVMEM_MEMDESC			*psRGXFWIfHWPerfBufMemDesc;
 	IMG_BYTE				*psRGXFWIfHWPerfBuf;
@@ -738,7 +767,7 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	POS_LOCK				hGPUUtilLock;
 
 	/* Register configuration */
-	RGX_REG_CONFIG			sRegCongfig;
+	RGX_REG_CONFIG			sRegConfig;
 
 	IMG_BOOL				bRGXPowered;
 	DLLIST_NODE				sMemoryContextList;
@@ -775,10 +804,10 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	POS_LOCK				hNMILock; /*!< Lock to protect NMI operations */
 #endif
 
-#if defined(SUPPORT_VALIDATION)
-	IMG_UINT32				ui32ValidationFlags;	/*!< Validation flags for host driver */
+#if defined(RGX_FEATURE_NUM_SPU_MAX_VALUE_IDX)
+	IMG_UINT32				ui32AvailablePowUnitsMask;
+	IMG_UINT32				ui32AvailableRACMask;
 #endif
-	RGX_DUST_STATE			sDustReqState;
 
 	RGX_LAYER_PARAMS		sLayerParams;
 
@@ -802,31 +831,16 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	IMG_UINT32				ui32FirmwareGcovSize;
 #endif
 
-#if defined(SUPPORT_VALIDATION) && defined(SUPPORT_SOC_TIMER)
-	struct
-	{
-		IMG_UINT64 ui64timerGray;
-		IMG_UINT64 ui64timerBinary;
-		IMG_UINT64 *pui64uscTimers;
-	} sRGXTimerValues;
+#if defined(RGX_FEATURE_MMU_VERSION_MAX_VALUE_IDX)
+	/* Value to store for each page size range config register in MMU4 */
+	IMG_UINT64				aui64MMUPageSizeRangeValue[RGX_MAX_NUM_MMU_PAGE_SIZE_RANGES];
 #endif
 
-#if defined(SUPPORT_VALIDATION)
-	struct
-	{
-		IMG_UINT64 ui64RegVal;
-		struct completion sRegComp;
-	} sFwRegs;
-#endif
+
 
 	IMG_HANDLE				hTQCLISharedMem;		/*!< TQ Client Shared Mem PMR */
 	IMG_HANDLE				hTQUSCSharedMem;		/*!< TQ USC Shared Mem PMR */
 
-#if defined(SUPPORT_VALIDATION)
-	IMG_UINT32				ui32TestSLRInterval; /* Don't enqueue an update sync checkpoint every nth kick */
-	IMG_UINT32				ui32TestSLRCount;    /* (used to test SLR operation) */
-	IMG_UINT32				ui32SLRSkipFWAddr;
-#endif
 
 #if defined(SUPPORT_SECURITY_VALIDATION)
 	DEVMEM_MEMDESC			*psRGXFWIfSecureBufMemDesc;
@@ -857,16 +871,16 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	IMG_UINT32				ui32HostSafetyEventMask;/*!< mask of the safety events handled by the driver */
 
 	RGX_CONTEXT_RESET_REASON	eLastDeviceError;	/*!< device error reported to client */
-#if defined(SUPPORT_VALIDATION)
-	IMG_UINT32 ui32ECCRAMErrInjModule;
-	IMG_UINT32 ui32ECCRAMErrInjInterval;
-#endif
 
 #if defined(SUPPORT_SECURE_ALLOC_KM)
 	PMR						*psGenHeapSecMem;		/*!< An allocation of secure memory mapped to
 													  the general devmem heap. The allocation is
 													  created and mapped at driver init. It's used for
 													  various purposes. See rgx_fwif_km.h for all use cases. */
+#endif
+
+#if defined(SUPPORT_SECURE_CONTEXT_SWITCH)
+	DEVMEM_MEMDESC			*psRGXFWScratchBufMemDesc;
 #endif
 
 	RGX_FWT_LOGTYPE			eDebugDumpFWTLogType;
@@ -877,6 +891,9 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 													  setting for those cores which support
 													  this feature. */
 #endif
+	RGXFWIF_GPU_UTIL_STATS	sGpuUtilStats;          /*!< GPU usage statistics */
+	POS_LOCK				hGpuUtilStatsLock;
+
 } PVRSRV_RGXDEV_INFO;
 
 
@@ -885,6 +902,9 @@ typedef struct _RGX_TIMING_INFORMATION_
 {
 	/*! GPU default core clock speed in Hz */
 	IMG_UINT32			ui32CoreClockSpeed;
+
+	/*! Default SOC clock speed in Hz */
+	IMG_UINT32			ui32SOCClockSpeed;
 
 	/*! Active Power Management: GPU actively requests the host driver to be powered off */
 	IMG_BOOL			bEnableActivePM;
@@ -902,6 +922,12 @@ typedef struct _RGX_DATA_
 	/*! Timing information */
 	RGX_TIMING_INFORMATION	*psRGXTimingInfo;
 } RGX_DATA;
+
+typedef enum _RGX_QUERY_TIMESTAMP_TYPE_
+{
+	RGX_QUERY_HOST_TIMESTAMP,
+	RGX_QUERY_DEVICE_TIMESTAMP,
+} RGX_QUERY_TIMESTAMP_TYPE;
 
 
 /*

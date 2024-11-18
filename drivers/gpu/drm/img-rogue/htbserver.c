@@ -433,7 +433,6 @@ static IMG_BOOL
 _ValidPID( IMG_UINT32 PID )
 {
 	IMG_UINT32 i;
-
 	for (i = 0; i < g_sCtrl.ui32PIDCount; i++)
 	{
 		if ( g_sCtrl.aui32EnablePID[i] == PID )
@@ -473,9 +472,10 @@ HTBLogKM(IMG_UINT32 PID,
 )
 {
 #if defined(PVRSRV_ENABLE_HTB)
+
 	OS_SPINLOCK_FLAGS uiSpinLockFlags;
 	IMG_UINT32 ui32ReturnFlags = 0;
-	IMG_UINT32 i = 0;
+	IMG_UINT32 ui32CurrentArg = 0;
 
 	/* Local snapshot variables of global counters */
 	IMG_UINT64 ui64OSTSSnap;
@@ -497,8 +497,15 @@ HTBLogKM(IMG_UINT32 PID,
 	IMG_UINT32 ui32RetryCount = HTB_LOG_RETRY_COUNT;
 	IMG_UINT32 * pui32Message = aui32MessageBuffer;
 	IMG_UINT32 ui32NumArgs = HTB_SF_PARAMNUM(SF);
+	IMG_UINT32 ui32StrArg = HTB_SF_STRNUM(SF);
+	IMG_UINT32 ui32CurrentStringArg;
 
 	IMG_UINT32 ui32MessageSize = 4 * (HTB_LOG_HEADER_SIZE+ui32NumArgs);
+
+	if (ui32StrArg > 0)
+	{
+		ui32MessageSize += HTB_LOG_STR_ARG_SIZE - sizeof(IMG_UINT32);
+	}
 
 	PVR_ASSERT(ui32NumArgs <= HTB_LOG_MAX_PARAMS);
 	ui32NumArgs = (ui32NumArgs>HTB_LOG_MAX_PARAMS) ?
@@ -510,9 +517,63 @@ HTBLogKM(IMG_UINT32 PID,
 	/* Needs to be set up here because it's accessed from both `if` blocks below
 	 * and it needs to be pre-populated for both of them (pui32Message case and
 	 * HTB_SF_CTRL_FWSYNC_MARK_SCALE case). */
-	for (i = 0; i < ui32NumArgs; i++)
+
+	while (ui32CurrentArg < ui32NumArgs)
 	{
-		aui32Args[i] = va_arg(args, IMG_UINT32);
+		if (ui32StrArg != 0 && ui32CurrentArg == ui32StrArg - 1)
+		{
+			IMG_CHAR* strArg;
+			strArg = va_arg(args, IMG_CHAR*);
+
+			/* if a string is present, it will need more than one UINT32 words. */
+			ui32NumArgs += HTB_LOG_STR_ARG_NUM_WORDS - 1;
+
+			/* Ignore if filename is not supported. */
+			if (strcmp(strArg, "n/a") == 0)
+			{
+				PVR_DPF((PVR_DBG_MESSAGE, "N/A\n"));
+				return PVRSRV_OK;
+			}
+
+			/* looping through the created string to get the substrings to encode. */
+			for (ui32CurrentStringArg = 0; ui32CurrentStringArg < HTB_LOG_STR_ARG_NUM_WORDS; ui32CurrentStringArg++)
+			{
+				IMG_UINT32 encodedString = 0;
+
+				if (*strArg == '\0')
+				{
+					aui32Args[ui32CurrentArg] = encodedString;
+					ui32CurrentArg++;
+				}
+				else
+				{
+					IMG_UINT32 currentSubstring;
+
+					for (currentSubstring = 0; currentSubstring < sizeof(IMG_UINT32); currentSubstring++)
+					{
+						IMG_UINT32 bitPos = currentSubstring * 8;
+
+						if (*strArg == '\0')
+						{
+							break;
+						}
+						else
+						{
+							encodedString |= (IMG_UINT32) *strArg << bitPos;
+							strArg++;
+						}
+					}
+
+					aui32Args[ui32CurrentArg] = encodedString;
+					ui32CurrentArg++;
+				}
+			}
+		}
+		else
+		{
+			aui32Args[ui32CurrentArg] = va_arg(args, IMG_UINT32);
+			ui32CurrentArg++;
+		}
 	}
 
 	if ( g_hTLStream
@@ -526,12 +587,13 @@ HTBLogKM(IMG_UINT32 PID,
 		*pui32Message++ = TID;
 		*pui32Message++ = ((IMG_UINT32)((ui64TimeStamp>>32)&0xffffffff));
 		*pui32Message++ = ((IMG_UINT32)(ui64TimeStamp&0xffffffff));
-		for (i = 0; i < ui32NumArgs; i++)
+		for (ui32CurrentArg = 0; ui32CurrentArg < ui32NumArgs; ui32CurrentArg++)
 		{
-			pui32Message[i] = aui32Args[i];
+			pui32Message[ui32CurrentArg] = aui32Args[ui32CurrentArg];
 		}
 
 		eError = TLStreamWriteRetFlags( g_hTLStream, (IMG_UINT8*)aui32MessageBuffer, ui32MessageSize, &ui32ReturnFlags );
+
 		while ( PVRSRV_ERROR_NOT_READY == eError && ui32RetryCount-- )
 		{
 			OSReleaseThreadQuanta();
@@ -595,6 +657,7 @@ HTBLogKM(IMG_UINT32 PID,
 
 ReturnError:
 	return eError;
+
 #else
 	/* HTB support is disabled. Just return PVRSRV_OK and do nothing. */
 	PVR_UNREFERENCED_PARAMETER(PID);
@@ -602,7 +665,6 @@ ReturnError:
 	PVR_UNREFERENCED_PARAMETER(ui64TimeStamp);
 	PVR_UNREFERENCED_PARAMETER(SF);
 	PVR_UNREFERENCED_PARAMETER(args);
-
 	return PVRSRV_OK;
 #endif
 }
@@ -696,7 +758,7 @@ HTBControlKM_Impl(
 				HTB_STREAM_NAME,
 				g_sCtrl.ui32BufferSize,
 				_LookupFlags(HTB_OPMODE_DROPOLDEST) | g_ui32TLBaseFlags,
-				_OnTLReaderOpenCallback, NULL, NULL, NULL);
+				_OnTLReaderOpenCallback, NULL, NULL, NULL, NULL, NULL);
 		PVR_LOG_RETURN_IF_ERROR(eError, "TLStreamCreate");
 		g_bConfigured = IMG_TRUE;
 	}

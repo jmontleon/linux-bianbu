@@ -76,6 +76,7 @@ struct _CONNECTION_DATA_;
 
  @Input         psDeviceNode          Pointer to device node to allocate
                                       the UFO for.
+ @Input         ui32RequestedSize     Minimum size of allocation requested
  @Output        ppsMemDesc            Pointer to pointer for the memdesc of
                                       the allocation
  @Output        pui32SyncAddr         FW Base address of the UFO block
@@ -84,9 +85,10 @@ struct _CONNECTION_DATA_;
  @Return        PVRSRV_OK if allocation was successful
 */ /**************************************************************************/
 typedef PVRSRV_ERROR (*AllocUFOBlockCallback)(struct _PVRSRV_DEVICE_NODE_ *psDeviceNode,
-														DEVMEM_MEMDESC **ppsMemDesc,
-														IMG_UINT32 *pui32SyncAddr,
-														IMG_UINT32 *puiSyncPrimBlockSize);
+											  IMG_UINT32 ui32RequestedSize,
+											  DEVMEM_MEMDESC **ppsMemDesc,
+											  IMG_UINT32 *pui32SyncAddr,
+											  IMG_UINT32 *puiSyncPrimBlockSize);
 
 /*************************************************************************/ /*!
  @Function      FreeUFOBlockCallback
@@ -145,7 +147,7 @@ typedef struct __DEFAULT_PAGE__
 	X(ACTIVE)                    \
 	X(FROZEN)                    \
 	X(DEINIT)                    \
-	X(DEINIT_POWERED_OFF)        \
+	X(DESTRUCTING)               \
 	X(BAD)                       \
 	X(PCI_ERROR)                 \
 	X(LAST)                      \
@@ -158,27 +160,41 @@ typedef enum _PVRSRV_DEVICE_STATE_
 
 } PVRSRV_DEVICE_STATE;
 
+#define PVRSRV_DEVICE_HEALTH_STATUS_LIST \
+	X(UNDEFINED)                         \
+	X(OK)                                \
+	X(NOT_RESPONDING)                    \
+	X(DEAD)                              \
+	X(FAULT)                             \
+	X(LAST)                              \
+
 typedef enum _PVRSRV_DEVICE_HEALTH_STATUS_
 {
-	PVRSRV_DEVICE_HEALTH_STATUS_UNDEFINED = 0,
-	PVRSRV_DEVICE_HEALTH_STATUS_OK,
-	PVRSRV_DEVICE_HEALTH_STATUS_NOT_RESPONDING,
-	PVRSRV_DEVICE_HEALTH_STATUS_DEAD,
-	PVRSRV_DEVICE_HEALTH_STATUS_FAULT
+#define X(_name) PVRSRV_DEVICE_HEALTH_STATUS_ ## _name,
+	PVRSRV_DEVICE_HEALTH_STATUS_LIST
+#undef X
+
 } PVRSRV_DEVICE_HEALTH_STATUS;
+
+#define PVRSRV_DEVICE_HEALTH_REASON_LIST \
+	X(NONE)                              \
+	X(ASSERTED)                          \
+	X(POLL_FAILING)                      \
+	X(TIMEOUTS)                          \
+	X(QUEUE_CORRUPT)                     \
+	X(QUEUE_STALLED)                     \
+	X(IDLING)                            \
+	X(RESTARTING)                        \
+	X(MISSING_INTERRUPTS)                \
+	X(PCI_ERROR)                         \
+	X(LAST)                              \
 
 typedef enum _PVRSRV_DEVICE_HEALTH_REASON_
 {
-	PVRSRV_DEVICE_HEALTH_REASON_NONE = 0,
-	PVRSRV_DEVICE_HEALTH_REASON_ASSERTED,
-	PVRSRV_DEVICE_HEALTH_REASON_POLL_FAILING,
-	PVRSRV_DEVICE_HEALTH_REASON_TIMEOUTS,
-	PVRSRV_DEVICE_HEALTH_REASON_QUEUE_CORRUPT,
-	PVRSRV_DEVICE_HEALTH_REASON_QUEUE_STALLED,
-	PVRSRV_DEVICE_HEALTH_REASON_IDLING,
-	PVRSRV_DEVICE_HEALTH_REASON_RESTARTING,
-	PVRSRV_DEVICE_HEALTH_REASON_MISSING_INTERRUPTS,
-	PVRSRV_DEVICE_HEALTH_REASON_PCI_ERROR
+#define X(_name) PVRSRV_DEVICE_HEALTH_REASON_ ## _name,
+	PVRSRV_DEVICE_HEALTH_REASON_LIST
+#undef X
+
 } PVRSRV_DEVICE_HEALTH_REASON;
 
 typedef enum _PVRSRV_DEVICE_DEBUG_DUMP_STATUS_
@@ -213,16 +229,13 @@ typedef struct _PVRSRV_DEVICE_DEBUG_INFO_
 	DI_ENTRY *psFWGCOVEntry;
 #endif
 	DI_ENTRY *psFWMappingsEntry;
-#if defined(SUPPORT_VALIDATION) || defined(SUPPORT_RISCV_GDB)
+#if  defined(SUPPORT_RISCV_GDB)
 	DI_ENTRY *psRiscvDmiDIEntry;
 	IMG_UINT64 ui64RiscvDmi;
 #endif
 	DI_ENTRY *psDevMemEntry;
 	IMG_HANDLE hGpuUtilUserDebugFS;
 #endif /* SUPPORT_RGX */
-#ifdef SUPPORT_VALIDATION
-	DI_ENTRY *psRGXRegsEntry;
-#endif /* SUPPORT_VALIDATION */
 #ifdef SUPPORT_POWER_SAMPLING_VIA_DEBUGFS
 	DI_ENTRY *psPowerDataEntry;
 #endif
@@ -238,10 +251,6 @@ typedef struct _PVRSRV_DEVICE_DEBUG_INFO_
 	DI_ENTRY *apsVZDriverIsolationGroupDIEntries[RGX_NUM_DRIVERS_SUPPORTED];
 	DI_VZ_DATA *apsVZDriverData[RGX_NUM_DRIVERS_SUPPORTED];
 	DI_ENTRY *psVZDriverConnectionCooldownPeriodDIEntry;
-#endif
-#if defined(PVR_TESTING_UTILS)
-	DI_ENTRY *psTestLBistDIEntry;
-	DI_ENTRY *psLBistNumWaitersDIEntry;
 #endif
 } PVRSRV_DEVICE_DEBUG_INFO;
 
@@ -315,6 +324,14 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	POS_LOCK				hPowerLock;
 	IMG_PID                 uiPwrLockOwnerPID; /* Only valid between lock and corresponding unlock
 	                                              operations of hPowerLock */
+#if defined(DEBUG)
+	struct
+	{
+		const char        *pszFile;			    /* Power lock acquired location (File) */
+		IMG_UINT32         ui32LineNum;		    /* Power lock acquired location (Line number) */
+		IMG_UINT64         ui64Timestamp;       /* Power lock acquired timestamp */
+	} sPowerLockOwner;
+#endif
 
 #if defined(SUPPORT_PMR_DEFERRED_FREE) || defined(SUPPORT_MMU_DEFERRED_FREE)
 	IMG_UINT32              uiPowerOffCounter; /* Counts how many times the device has been powered
@@ -399,6 +416,8 @@ typedef struct _PVRSRV_DEVICE_NODE_
 
 	MMU_DEVICEATTRIBS* (*pfnGetMMUDeviceAttributes)(struct _PVRSRV_DEVICE_NODE_ *psDevNode, IMG_BOOL bKernelMemoryCtx);
 
+	PVRSRV_DEVICE_SNOOP_MODE (*pfnGetDeviceSnoopMode)(struct _PVRSRV_DEVICE_NODE_ *psDevNode);
+
 	PVRSRV_DEVICE_CONFIG	*psDevConfig;
 
 	/* device post-finalise compatibility check */
@@ -408,7 +427,7 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	PVRSRV_ERROR			(*pfnPhysMemDeviceHeapsInit) (struct _PVRSRV_DEVICE_NODE_ *);
 
 	/* determining the appropriate LMA allocation policy */
-	PHYS_HEAP_POLICY		(*pfnPhysHeapGetLMAPolicy) (PHYS_HEAP_USAGE_FLAGS);
+	PHYS_HEAP_POLICY		(*pfnPhysHeapGetLMAPolicy) (PHYS_HEAP_USAGE_FLAGS, struct _PVRSRV_DEVICE_NODE_ *psDevNode);
 
 	/* initialise fw mmu, if FW not using GPU mmu, NULL otherwise. */
 	PVRSRV_ERROR			(*pfnFwMMUInit) (struct _PVRSRV_DEVICE_NODE_ *);
@@ -528,13 +547,17 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	PVRSRV_DEF_PAGE			sScratchPage;
 	PVRSRV_DEF_PAGE			sDevZeroPage;
 
-	POSWR_LOCK				hMemoryContextPageFaultNotifyListLock;
+	/* Lock protects access to sMemoryContextPageFaultNotifyListHead and
+	 * per memory context DEVMEMINT_CTX::sProcessNotifyListHead lists. */
+	POSWR_LOCK				hPageFaultNotifyLock;
 	DLLIST_NODE				sMemoryContextPageFaultNotifyListHead;
 
-	/* System DMA capability */
-	IMG_BOOL				bHasSystemDMA;
+	/* System DMA channels */
+	IMG_UINT32				ui32RefCountDMA;
 	IMG_HANDLE				hDmaTxChan;
 	IMG_HANDLE				hDmaRxChan;
+	POS_LOCK				hDmaTxLock;
+	POS_LOCK				hDmaRxLock;
 
 #if defined(PDUMP)
 	/*
@@ -567,9 +590,6 @@ typedef struct _PVRSRV_DEVICE_NODE_
 
 #endif
 
-#if defined(SUPPORT_VALIDATION)
-	POS_LOCK			hValidationLock;
-#endif
 
 	/* Members for linking which connections are open on this device */
 	POS_LOCK                hConnectionsLock;    /*!< Lock protecting sConnections */
@@ -585,6 +605,7 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	IMG_BOOL                bEnablePFDebug;      /*!< EnablePageFaultDebug AppHint setting for device */
 
 	DLLIST_NODE             sCleanupThreadWorkList; /*!< List of work for the cleanup thread associated with the device */
+	ATOMIC_T                i32NumCleanupItems;   /*!< Number of cleanup thread work items. Includes items being freed. */
 #if defined(SUPPORT_PMR_DEFERRED_FREE)
 	/* Data for the deferred freeing of a PMR physical pages for a given device */
 	DLLIST_NODE             sPMRZombieList;       /*!< List of PMRs to free */
@@ -599,6 +620,11 @@ typedef struct _PVRSRV_DEVICE_NODE_
 	ATOMIC_T                iFreezeCount;         /*< Number of blocked on frozen tasks */
 	ATOMIC_T                iTotalFreezes;        /*< Total number of times device frozen */
 	ATOMIC_T                iThreadsActive;       /*< Number of threads active on this device */
+	IMG_UINT64              ui64LastDeviceOffTimestamp; /* Last device power off timestamp */
+	IMG_UINT64              ui64LastDeviceOffHostTimestampNs; /* Last device power off host timestamp */
+#if defined(PVRSRV_ANDROID_TRACE_GPU_WORK_PERIOD)
+	IMG_BOOL bGPUWorkPeriodFTraceEnabled;
+#endif
 } PVRSRV_DEVICE_NODE;
 
 /*

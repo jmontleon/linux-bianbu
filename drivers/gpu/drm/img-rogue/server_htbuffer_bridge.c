@@ -198,7 +198,9 @@ PVRSRV_ERROR InitHTBUFFERBridge(void)
 	PVR_LOG_RETURN_IF_ERROR(OSLockCreate(&pHTBUFFERBridgeLock), "OSLockCreate");
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_HTBUFFER, PVRSRV_BRIDGE_HTBUFFER_HTBCONTROL,
-			      PVRSRVBridgeHTBControl, pHTBUFFERBridgeLock);
+			      PVRSRVBridgeHTBControl, pHTBUFFERBridgeLock,
+			      sizeof(PVRSRV_BRIDGE_IN_HTBCONTROL),
+			      sizeof(PVRSRV_BRIDGE_OUT_HTBCONTROL));
 
 	return PVRSRV_OK;
 }

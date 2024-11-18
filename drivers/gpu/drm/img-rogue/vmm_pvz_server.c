@@ -55,15 +55,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 static inline void
 PvzServerLockAcquire(void)
 {
+#if !defined(FPGA)
 	PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
 	OSLockAcquire(psPVRSRVData->hPvzConnectionLock);
+#endif
 }
 
 static inline void
 PvzServerLockRelease(void)
 {
+#if !defined(FPGA)
 	PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
 	OSLockRelease(psPVRSRVData->hPvzConnectionLock);
+#endif
 }
 
 #define VALIDATE_DRVID_DEVID(ui32DriverID, ui32DevID) do {							\
@@ -103,7 +107,7 @@ PvzServerMapDevPhysHeap(IMG_UINT32 ui32DriverID,
 						IMG_UINT64 ui64Size,
 						IMG_UINT64 ui64PAddr)
 {
-#if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS)
+#if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS) && !defined(FPGA)
 		/*
 		 * Reject hypercall if called on a system configured at build time to
 		 * preallocate the Guest's firmware heaps from static carveout memory.
@@ -136,6 +140,12 @@ PvzServerMapDevPhysHeap(IMG_UINT32 ui32DriverID,
 		/* Everything is ready for the firmware to start interacting with this OS */
 		eError = RGXFWSetFwOsState(psDeviceNode->pvDevice, ui32DriverID, RGXFWIF_OS_ONLINE);
 	}
+	else
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Paravirtualized request to map Guest%u's Firmware heap"
+								" rejected: Guest not allowed to run.", __func__, ui32DriverID));
+		eError = PVRSRV_ERROR_PVZ_OSID_IS_OFFLINE;
+	}
 e0:
 #endif /* defined(SUPPORT_RGX) */
 	PvzServerLockRelease();
@@ -148,14 +158,14 @@ PVRSRV_ERROR
 PvzServerUnmapDevPhysHeap(IMG_UINT32 ui32DriverID,
 						  IMG_UINT32 ui32DevID)
 {
-#if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS)
+#if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS) && !defined(FPGA)
 		/*
 		 * Reject hypercall if called on a system configured at built time to
 		 * preallocate the Guest's firmware heaps from static carveout memory.
 		 */
 		PVR_DPF((PVR_DBG_ERROR,
-		         "%s: Host PVZ config: Does not match with Guest PVZ config\n"
-		         "    Host preallocates the Guest's FW physheap from static memory carveouts at startup.\n", __func__));
+		         "%s: Host PVZ config: Does not match with Guest PVZ config."
+		         " Host preallocates the Guest's FW physheap from static memory carveouts at startup.", __func__));
 		return PVRSRV_ERROR_INVALID_PVZ_CONFIG;
 #else
 	PVRSRV_ERROR eError = PVRSRV_OK;

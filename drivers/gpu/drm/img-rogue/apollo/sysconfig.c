@@ -52,6 +52,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "syscommon.h"
 #include "allocmem.h"
 #include "pvr_debug.h"
+#include "rgxfwutils.h"
 
 #if defined(SUPPORT_ION)
 #include PVR_ANDROID_ION_HEADER
@@ -59,6 +60,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "ion_sys.h"
 #endif
 
+#include "vmm_pvz_server.h"
+#include "pvr_bridge_k.h"
+#include "pvr_drv.h"
 #include "tc_drv.h"
 
 #include <linux/platform_device.h>
@@ -112,9 +116,9 @@ static const CARD_PHYS_HEAP_CONFIG_SPEC gasCardHeapTemplate[] =
 #if defined(SUPPORT_SECURITY_VALIDATION) && defined(RGX_PREMAP_FW_HEAPS)
 	 /* simultaneous virtualisation and security support requires premapped heaps,
 	  * i.e. FW_PRIVATE and FW_SHARED must fit contiguously into Fw's VA heap (RGX_FIRMWARE_RAW_HEAP_SIZE) */
-	 (RGX_NUM_DRIVERS_SUPPORTED * RGX_FIRMWARE_RAW_HEAP_SIZE) - SECURE_FW_MEM_SIZE,
+	 RGX_FIRMWARE_RAW_HEAP_SIZE - SECURE_FW_MEM_SIZE,
 #else
-	 (RGX_NUM_DRIVERS_SUPPORTED * RGX_FIRMWARE_RAW_HEAP_SIZE),
+	 RGX_FIRMWARE_RAW_HEAP_SIZE,
 #endif
 #if defined(RGX_PREMAP_FW_HEAPS) || (RGX_NUM_DRIVERS_SUPPORTED > 1)
 	true				/* VZ drivers need dedicated Fw heaps */
@@ -490,14 +494,14 @@ InitLocalHeap(PHYS_HEAP_CONFIG *psPhysHeap,
 			  IMG_UINT64 uiSize, PHYS_HEAP_FUNCTIONS *psFuncs,
 			  PHYS_HEAP_USAGE_FLAGS ui32Flags)
 {
-	psPhysHeap->sCardBase.uiAddr = uiBaseAddr;
-	psPhysHeap->sStartAddr.uiAddr = IMG_CAST_TO_CPUPHYADDR_UINT(uiStartAddr);
-	psPhysHeap->uiSize = uiSize;
 	psPhysHeap->eType = PHYS_HEAP_TYPE_LMA;
-	psPhysHeap->pszPDumpMemspaceName = "LMA";
-	psPhysHeap->pszHeapName = GetHeapName(ui32Flags);
-	psPhysHeap->psMemFuncs = psFuncs;
 	psPhysHeap->ui32UsageFlags = ui32Flags;
+	psPhysHeap->uConfig.sLMA.pszPDumpMemspaceName = "LMA";
+	psPhysHeap->uConfig.sLMA.psMemFuncs = psFuncs;
+	psPhysHeap->uConfig.sLMA.pszHeapName = GetHeapName(ui32Flags);
+	psPhysHeap->uConfig.sLMA.sCardBase.uiAddr = uiBaseAddr;
+	psPhysHeap->uConfig.sLMA.sStartAddr.uiAddr = IMG_CAST_TO_CPUPHYADDR_UINT(uiStartAddr);
+	psPhysHeap->uConfig.sLMA.uiSize = uiSize;
 
 	return PVRSRV_OK;
 }
@@ -519,13 +523,6 @@ CreateCardGPUHeaps(const SYS_DATA *psSysData,
 		if (pasCardHeapSpec[ui32SpecIdx].bUsed)
 		{
 			IMG_UINT64 ui64HeapSize = pasCardHeapSpec[ui32SpecIdx].uiSize;
-
-			if (BITMASK_HAS(pasCardHeapSpec[ui32SpecIdx].ui32UsageFlags, PHYS_HEAP_USAGE_FW_SHARED))
-			{
-				/* The FW_SHARED size reserved initially covered the entire carveout meant to hold the Guest heaps,
-				 * but the heap used by the driver has only RGX_FIRMWARE_RAW_HEAP_SIZE, trim the rest */
-				ui64HeapSize -= (RGX_NUM_DRIVERS_SUPPORTED-1) * RGX_FIRMWARE_RAW_HEAP_SIZE;
-			}
 
 			eError = InitLocalHeap(&pasPhysHeaps[*pui32HeapIdx],
 								   ui64CardAddr,
@@ -599,7 +596,7 @@ InitLocalHeaps(const SYS_DATA *psSysData,
 	else
 	{
 		psHeapFuncs = &gsLocalPhysHeapFuncs;
-		ui64CardBase = 0;
+		ui64CardBase = psSysData->pdata->rogue_heap_memory_base - psSysData->pdata->tc_memory_base;
 	}
 
 	eError = CreateCardGPUHeaps(psSysData, pasCardHeapSpec, pasPhysHeaps, psHeapFuncs, pui32HeapIdx, ui64CardBase);
@@ -625,10 +622,10 @@ InitHostHeaps(const SYS_DATA *psSysData, PHYS_HEAP_CONFIG *pasPhysHeaps, IMG_UIN
 	if (psSysData->pdata->mem_mode != TC_MEMORY_LOCAL)
 	{
 		pasPhysHeaps[*pui32HeapIdx].eType = PHYS_HEAP_TYPE_UMA;
-		pasPhysHeaps[*pui32HeapIdx].pszPDumpMemspaceName = "SYSMEM";
-		pasPhysHeaps[*pui32HeapIdx].pszHeapName = "uma_cpu_local";
-		pasPhysHeaps[*pui32HeapIdx].psMemFuncs = &gsHostPhysHeapFuncs;
 		pasPhysHeaps[*pui32HeapIdx].ui32UsageFlags = PHYS_HEAP_USAGE_CPU_LOCAL;
+		pasPhysHeaps[*pui32HeapIdx].uConfig.sUMA.pszPDumpMemspaceName = "SYSMEM";
+		pasPhysHeaps[*pui32HeapIdx].uConfig.sUMA.psMemFuncs = &gsHostPhysHeapFuncs;
+		pasPhysHeaps[*pui32HeapIdx].uConfig.sUMA.pszHeapName = "uma_cpu_local";
 
 		(*pui32HeapIdx)++;
 
@@ -672,7 +669,19 @@ PhysHeapsInit(const SYS_DATA *psSysData,
 	 */
 	for (i = 0; i < ui32NumHeaps; i++)
 	{
-		pasPhysHeaps[i].hPrivData = pvPrivData;
+		switch (pasPhysHeaps[i].eType)
+		{
+		case PHYS_HEAP_TYPE_UMA:
+			pasPhysHeaps[i].uConfig.sUMA.hPrivData = pvPrivData;
+			break;
+		case PHYS_HEAP_TYPE_LMA:
+			pasPhysHeaps[i].uConfig.sLMA.hPrivData = pvPrivData;
+			break;
+		default:
+			PVR_DPF((PVR_DBG_ERROR, "Invalid PHYS_HEAP_TYPE: %u in %s",
+			                        pasPhysHeaps[i].eType,
+			                        __func__));
+		}
 	}
 
 	return PVRSRV_OK;
@@ -855,6 +864,61 @@ static void odinTCFreeCDMAChan(PVRSRV_DEVICE_CONFIG *psDevConfig,
 	tc_dma_chan_free(psDev->parent, chan);
 }
 
+static void GetDriverMode(PVRSRV_DEVICE_CONFIG *psDevConfig)
+{
+	PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
+	IMG_UINT32 ui32DeviceID;
+
+	/*
+	 * Drivers with virtualization support should check if the mode in which the
+	 * driver must control a device has been explicitly specified at load time
+	 * through module parameters.
+	 * Multi-device platforms must find the internal ID of the device currently
+	 * being created when checking for its associated DriverMode parameter.
+	 */
+	if (PVRSRVAcquireInternalID(&ui32DeviceID) != PVRSRV_OK)
+	{
+		psDevConfig->eDriverMode = DRIVER_MODE_NATIVE;
+		return;
+	}
+
+	if (psPVRSRVData->aeModuleParamDriverMode[ui32DeviceID] == DRIVER_MODE_DEFAULT)
+	{
+#if (RGX_NUM_DRIVERS_SUPPORTED > 1)
+		void __iomem *pvRegBase;
+
+		pvRegBase = (void __iomem *) OSMapPhysToLin(psDevConfig->sRegsCpuPBase, psDevConfig->ui32RegsSize, PVRSRV_MEMALLOCFLAG_CPU_UNCACHED);
+
+		if (pvRegBase == NULL)
+		{
+			/* failed to map register bank, default to native mode */
+			psDevConfig->eDriverMode = DRIVER_MODE_NATIVE;
+		}
+		else
+		{
+			IMG_UINT64 ui64ClkCtrl;
+
+			/* the CLK_CTRL register is valid only in the Os 0 (Host) register bank
+			 * if it reads 0 then we can conclude this Os is set up to run as Guest */
+#if defined(RGX_CR_CLK_CTRL)
+			ui64ClkCtrl = OSReadHWReg64(pvRegBase, RGX_CR_CLK_CTRL);
+#else
+			ui64ClkCtrl = OSReadHWReg64(pvRegBase, RGX_CR_CLK_CTRL1);
+#endif
+			OSUnMapPhysToLin((void __force *) pvRegBase, psDevConfig->ui32RegsSize);
+
+			psDevConfig->eDriverMode = (ui64ClkCtrl != 0) ? (DRIVER_MODE_HOST) : (DRIVER_MODE_GUEST);
+		}
+#else
+		psDevConfig->eDriverMode = DRIVER_MODE_NATIVE;
+#endif
+	}
+	else
+	{
+		psDevConfig->eDriverMode = psPVRSRVData->aeModuleParamDriverMode[ui32DeviceID];
+	}
+}
+
 static PVRSRV_ERROR DeviceConfigCreate(SYS_DATA *psSysData,
 									   PVRSRV_DEVICE_CONFIG **ppsDevConfigOut)
 {
@@ -864,6 +928,14 @@ static PVRSRV_ERROR DeviceConfigCreate(SYS_DATA *psSysData,
 	PHYS_HEAP_CONFIG *pasPhysHeaps;
 	IMG_UINT32 uiPhysHeapCount;
 	PVRSRV_ERROR eError;
+	IMG_UINT32 ui32DeviceID;
+
+#if defined(RGX_NUM_DRIVERS_SUPPORTED) && (RGX_NUM_DRIVERS_SUPPORTED > 1)
+	PVR_LOG_RETURN_IF_FALSE((psSysData->pdata->baseboard == TC_BASEBOARD_ODIN &&
+							 psSysData->pdata->mem_mode == TC_MEMORY_LOCAL),
+							"Multidevice virtualization setup supported only on Odin device with TC_MEMORY_LOCAL",
+							PVRSRV_ERROR_INVALID_DEVICE);
+#endif
 
 	psDevConfig = OSAllocZMem(sizeof(*psDevConfig) +
 							  sizeof(*psRGXData) +
@@ -876,21 +948,15 @@ static PVRSRV_ERROR DeviceConfigCreate(SYS_DATA *psSysData,
 	psRGXData = (RGX_DATA *) IMG_OFFSET_ADDR(psDevConfig, sizeof(*psDevConfig));
 	psRGXTimingInfo = (RGX_TIMING_INFORMATION *) IMG_OFFSET_ADDR(psRGXData, sizeof(*psRGXData));
 
-	eError = PhysHeapsCreate(psSysData, psDevConfig, &pasPhysHeaps, &uiPhysHeapCount);
-	if (eError != PVRSRV_OK)
-	{
-		goto ErrorFreeDevConfig;
-	}
-
 	/* Setup RGX specific timing data */
 #if defined(TC_APOLLO_BONNIE)
 	/* For BonnieTC there seems to be an additional 5x multiplier that occurs to the clock as measured speed is 540Mhz not 108Mhz. */
-	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(&psSysData->pdev->dev)  * 6 * 5;
+	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(psSysData->pdev->dev.parent)  * 6 * 5;
 #elif defined(TC_APOLLO_ES2)
-	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(&psSysData->pdev->dev)  * 6;
+	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(psSysData->pdev->dev.parent)  * 6;
 #else
-	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(&psSysData->pdev->dev) /
-											tc_core_clock_multiplex(&psSysData->pdev->dev);
+	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(psSysData->pdev->dev.parent) /
+											tc_core_clock_multiplex(psSysData->pdev->dev.parent);
 #endif
 	psRGXTimingInfo->bEnableActivePM = IMG_FALSE;
 	psRGXTimingInfo->bEnableRDPowIsland = IMG_FALSE;
@@ -907,6 +973,47 @@ static PVRSRV_ERROR DeviceConfigCreate(SYS_DATA *psSysData,
 	psDevConfig->sRegsCpuPBase.uiAddr = psSysData->registers->start;
 	psDevConfig->ui32RegsSize = resource_size(psSysData->registers);
 
+	PVRSRVAcquireInternalID(&ui32DeviceID);
+#if defined(RGX_NUM_DRIVERS_SUPPORTED) && (RGX_NUM_DRIVERS_SUPPORTED > 1)
+	/* Rogue FPGA images are correctly routing the OSID interrupts
+	 * for cores with the IRQ_PER_OS feature */
+	psDevConfig->ui32IRQ = TC_INTERRUPT_OSID0 + ui32DeviceID;
+#else
+	psDevConfig->ui32IRQ = TC_INTERRUPT_EXT;
+#endif
+
+	GetDriverMode(psDevConfig);
+
+#if defined(RGX_NUM_DRIVERS_SUPPORTED) && (RGX_NUM_DRIVERS_SUPPORTED > 1)
+	/* If there is device running in native mode, prevent any attempts at
+	 * creating any Guest devices, as there will be no Host to support them.
+	 * Currently the VZFPGA supports only one physical GPU. */
+	if (PVRSRV_VZ_MODE_IS(GUEST, DEVCFG, psDevConfig))
+	{
+		PVRSRV_DATA *psPVRSRVData = PVRSRVGetPVRSRVData();
+		PVRSRV_DEVICE_NODE *psDN;
+
+		OSWRLockAcquireRead(psPVRSRVData->hDeviceNodeListLock);
+		for (psDN = psPVRSRVData->psDeviceNodeList; psDN != NULL; psDN = psDN->psNext)
+		{
+			if (PVRSRV_VZ_MODE_IS(NATIVE, DEVNODE, psDN))
+			{
+				OSWRLockReleaseRead(psPVRSRVData->hDeviceNodeListLock);
+				PVR_DPF((PVR_DBG_ERROR, "%s() Device %u is already running in native mode, no other Guests supported in the system.",  __func__, psDN->sDevId.ui32InternalID));
+				eError = PVRSRV_ERROR_INVALID_DEVICE;
+				goto ErrorFreeDevConfig;
+			}
+		}
+		OSWRLockReleaseRead(psPVRSRVData->hDeviceNodeListLock);
+	}
+#endif
+
+	eError = PhysHeapsCreate(psSysData, psDevConfig, &pasPhysHeaps, &uiPhysHeapCount);
+	if (eError != PVRSRV_OK)
+	{
+		goto ErrorFreeDevConfig;
+	}
+
 	if (psSysData->pdata->baseboard == TC_BASEBOARD_ODIN &&
 	    psSysData->pdata->mem_mode == TC_MEMORY_HYBRID)
 	{
@@ -917,8 +1024,6 @@ static PVRSRV_ERROR DeviceConfigCreate(SYS_DATA *psSysData,
 	{
 		psDevConfig->eDefaultHeap = PVRSRV_PHYS_HEAP_GPU_LOCAL;
 	}
-
-	psDevConfig->ui32IRQ = TC_INTERRUPT_EXT;
 
 	psDevConfig->eCacheSnoopingMode = PVRSRV_DEVICE_SNOOP_NONE;
 
@@ -1152,6 +1257,7 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 	PVRSRV_DEVICE_CONFIG *psDevConfig;
 	SYS_DATA *psSysData;
 	resource_size_t uiRegistersSize;
+	IMG_UINT32 ui32MinRegBankSize;
 	PVRSRV_ERROR eError;
 	int err = 0;
 
@@ -1201,11 +1307,19 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 
 	/* Check the address range is large enough. */
 	uiRegistersSize = resource_size(psSysData->registers);
-	if (uiRegistersSize < SYS_RGX_REG_REGION_SIZE)
+#if defined(RGX_NUM_DRIVERS_SUPPORTED) && (RGX_NUM_DRIVERS_SUPPORTED > 1)
+	/* each GPU instance gets the minimum 64kb register range */
+	ui32MinRegBankSize = RGX_CR_MTS_SCHEDULE1 - RGX_CR_MTS_SCHEDULE;
+#else
+	/* the GPU gets the entire 64MB IO range */
+	ui32MinRegBankSize = SYS_RGX_REG_REGION_SIZE;
+#endif
+
+	if (uiRegistersSize < ui32MinRegBankSize)
 	{
 		PVR_DPF((PVR_DBG_ERROR,
 				 "%s: Rogue register region isn't big enough (was %pa, required 0x%08x)",
-				 __func__, &uiRegistersSize, SYS_RGX_REG_REGION_SIZE));
+				 __func__, &uiRegistersSize, ui32MinRegBankSize));
 
 		eError = PVRSRV_ERROR_PCI_REGION_TOO_SMALL;
 		goto ErrorDevDisable;
@@ -1339,7 +1453,8 @@ PVRSRV_ERROR SysInstallDeviceLISR(IMG_HANDLE hSysData,
 	PVRSRV_ERROR eError;
 	int err;
 
-	if (ui32IRQ != TC_INTERRUPT_EXT)
+	if ((ui32IRQ != TC_INTERRUPT_EXT) &&
+		(ui32IRQ < TC_INTERRUPT_OSID0) && (ui32IRQ > TC_INTERRUPT_OSID7))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: No device matching IRQ %d", __func__, ui32IRQ));
 		return PVRSRV_ERROR_UNABLE_TO_INSTALL_ISR;
@@ -1411,4 +1526,215 @@ PVRSRV_ERROR SysUninstallDeviceLISR(IMG_HANDLE hLISRData)
 	OSFreeMem(psLISRData);
 
 	return PVRSRV_OK;
+}
+
+/****************************************************************************************************/
+/****                                   VM migration test code                                   ****/
+/****************************************************************************************************/
+static void SwapHyperlanes(PVRSRV_DEVICE_NODE *psSrcNode, PVRSRV_DEVICE_NODE *psDestNode);
+static void PreMigrationDeviceSuspend(struct drm_device *psDev);
+static void PostMigrationDeviceResume(struct drm_device *psDev);
+
+void PVRVMMigration(unsigned int src, unsigned int dest);
+EXPORT_SYMBOL(PVRVMMigration);
+
+#define SWAP_REGSBASE_PTR(a, b) do \
+	{ \
+		a = (void __iomem *)(((uintptr_t)a)^((uintptr_t)b));	\
+		b = (void __iomem *)(((uintptr_t)a)^((uintptr_t)b));	\
+		a = (void __iomem *)(((uintptr_t)a)^((uintptr_t)b));	\
+	} while (0)
+
+static void SwapHyperlanes(PVRSRV_DEVICE_NODE *psSrcNode, PVRSRV_DEVICE_NODE *psDestNode)
+{
+	PVRSRV_ERROR eError = PVRSRV_OK;
+	PVRSRV_DEVICE_NODE *psHostNode = PVRSRVGetDeviceInstance(0);
+	PVRSRV_RGXDEV_INFO *psSrcInfo = psSrcNode->pvDevice;
+	PVRSRV_RGXDEV_INFO *psDestInfo = psDestNode->pvDevice;
+	PVRSRV_DEVICE_CONFIG *psSrcConfig = psSrcNode->psDevConfig;
+	PVRSRV_DEVICE_CONFIG *psDestConfig = psDestNode->psDevConfig;
+	LISR_DATA *psSrcLISRData = (LISR_DATA *) psSrcInfo->pvLISRData;
+	void *pfnLISR = psSrcLISRData->pfnLISR;
+	IMG_UINT32 ui32SrcHyperLane, ui32DestHyperLane;
+
+	PVR_LOG_RETURN_VOID_IF_FALSE(((psHostNode != NULL) &&
+								  (psHostNode->psDevConfig != NULL)),
+								 "Device 0 (expected Host) not initialised.");
+
+	/* Determine the HyperLane ID used by a Guest Device from the Register Bank Base address used */
+	ui32SrcHyperLane = (psSrcConfig->sRegsCpuPBase.uiAddr - psHostNode->psDevConfig->sRegsCpuPBase.uiAddr) / psSrcConfig->ui32RegsSize;
+	ui32DestHyperLane = (psDestConfig->sRegsCpuPBase.uiAddr - psHostNode->psDevConfig->sRegsCpuPBase.uiAddr) / psDestConfig->ui32RegsSize;
+
+	PVR_DPF((PVR_DBG_WARNING, "%s: Swapping hyperlanes between Dev%u (hyperlane%u) and Dev%u (hyperlane%u)", __func__,
+							psSrcNode->sDevId.ui32InternalID, ui32SrcHyperLane,
+							psDestNode->sDevId.ui32InternalID, ui32DestHyperLane));
+	PVR_DPF((PVR_DBG_WARNING, "%s: Resulting configuration:    Dev%u (hyperlane%u) and Dev%u (hyperlane%u)", __func__,
+							psSrcNode->sDevId.ui32InternalID, ui32DestHyperLane,
+							psDestNode->sDevId.ui32InternalID, ui32SrcHyperLane));
+
+	/* swap the register bank details */
+	SWAP_REGSBASE_PTR(psSrcInfo->pvRegsBaseKM, psDestInfo->pvRegsBaseKM);
+	SWAP(psSrcConfig->sRegsCpuPBase.uiAddr, psDestConfig->sRegsCpuPBase.uiAddr);
+	/* DevConfig->ui32RegsSize remains the same */
+
+	/* Swap interrupt lines between devices */
+	eError = SysUninstallDeviceLISR(psSrcInfo->pvLISRData);
+	PVR_LOG_IF_ERROR_VA(PVR_DBG_ERROR, eError, "SysUninstallDeviceLISR(IRQ%u, Device %u)",
+												psSrcConfig->ui32IRQ, ui32SrcHyperLane);
+	eError = SysUninstallDeviceLISR(psDestInfo->pvLISRData);
+	PVR_LOG_IF_ERROR_VA(PVR_DBG_ERROR, eError, "SysUninstallDeviceLISR(IRQ%u, Device %u)",
+												psDestConfig->ui32IRQ, ui32DestHyperLane);
+
+	SWAP(psSrcConfig->ui32IRQ, psDestConfig->ui32IRQ);
+
+	eError = SysInstallDeviceLISR(psSrcConfig->hSysData,
+								  psSrcConfig->ui32IRQ,
+								  PVRSRV_MODNAME,
+								  pfnLISR,
+								  psSrcNode,
+								  &psSrcInfo->pvLISRData);
+	PVR_LOG_IF_ERROR_VA(PVR_DBG_ERROR, eError, "SysInstallDeviceLISR(IRQ%u, Device %u)",
+												psSrcConfig->ui32IRQ, ui32SrcHyperLane);
+
+	eError = SysInstallDeviceLISR(psDestConfig->hSysData,
+								  psDestConfig->ui32IRQ,
+								  PVRSRV_MODNAME,
+								  pfnLISR,
+								  psDestNode,
+								  &psDestInfo->pvLISRData);
+	PVR_LOG_IF_ERROR_VA(PVR_DBG_ERROR, eError, "SysInstallDeviceLISR(IRQ%u, Device %u)",
+												psDestConfig->ui32IRQ, ui32DestHyperLane);
+
+	/* Swap contents of LMA carveouts between virtual devices */
+	{
+		/* Guest Raw Fw Heap mapping is done using the Host Devices */
+		PHYS_HEAP *psSrcHeap = NULL;
+		PHYS_HEAP *psDestHeap = NULL;
+		IMG_DEV_PHYADDR sSrcHeapBase, sDestHeapBase;
+
+		psSrcHeap = psHostNode->apsPhysHeap[PVRSRV_PHYS_HEAP_FW_PREMAP0 + ui32SrcHyperLane];
+		psDestHeap = psHostNode->apsPhysHeap[PVRSRV_PHYS_HEAP_FW_PREMAP0 + ui32DestHyperLane];
+
+		PVR_LOG_RETURN_VOID_IF_FALSE(((psSrcHeap != NULL) &&
+									  (psDestHeap != NULL)),
+									 "Guest firmware heaps not premapped by the Host Device.");
+
+		eError = PhysHeapGetDevPAddr(psSrcHeap, &sSrcHeapBase);
+		PVR_LOG_RETURN_VOID_IF_ERROR(eError, "PhysHeapGetDevPAddr(src fw heap)");
+		eError = PhysHeapGetDevPAddr(psDestHeap, &sDestHeapBase);
+		PVR_LOG_RETURN_VOID_IF_ERROR(eError, "PhysHeapGetDevPAddr(dest fw heap)");
+
+		eError = PvzServerUnmapDevPhysHeap(ui32SrcHyperLane, 0);
+		PVR_LOG_RETURN_VOID_IF_ERROR(eError, "PvzServerUnmapDevPhysHeap(src fw heap)");
+		eError = PvzServerUnmapDevPhysHeap(ui32DestHyperLane, 0);
+		PVR_LOG_RETURN_VOID_IF_ERROR(eError, "PvzServerUnmapDevPhysHeap(dest fw heap)");
+
+		PhysHeapRelease(psHostNode->apsFWPremapPhysHeap[ui32SrcHyperLane]);
+		PhysHeapRelease(psHostNode->apsFWPremapPhysHeap[ui32DestHyperLane]);
+
+		/* create new heaps with new base addresses */
+		eError = PvzServerMapDevPhysHeap(ui32SrcHyperLane, 0, RGX_FIRMWARE_RAW_HEAP_SIZE, sDestHeapBase.uiAddr);
+		PVR_LOG_RETURN_VOID_IF_ERROR(eError, "PvzServerMapDevPhysHeap(src fw heap)");
+		eError = PvzServerMapDevPhysHeap(ui32DestHyperLane, 0, RGX_FIRMWARE_RAW_HEAP_SIZE, sSrcHeapBase.uiAddr);
+		PVR_LOG_RETURN_VOID_IF_ERROR(eError, "PvzServerMapDevPhysHeap(dest fw heap)");
+	}
+}
+
+static void PreMigrationDeviceSuspend(struct drm_device *psDev)
+{
+	struct pvr_drm_private *psDevPriv = psDev->dev_private;
+	PVRSRV_DEVICE_NODE *psDeviceNode = psDevPriv->dev_node;
+	PVRSRV_ERROR eError;
+
+	/* LinuxBridgeBlockClientsAccess prevents processes from using the driver
+	 * while it's suspended (this is needed for Android). */
+	eError = LinuxBridgeBlockClientsAccess(psDevPriv, IMG_TRUE);
+	PVR_LOG_RETURN_VOID_IF_FALSE(eError == PVRSRV_OK,
+	                           "LinuxBridgeBlockClientsAccess()");
+
+#if defined(SUPPORT_AUTOVZ)
+	/* To allow the driver to power down the GPU under AutoVz, the firmware must
+	 * be declared as offline, otherwise all power requests will be ignored. */
+	psDeviceNode->bAutoVzFwIsUp = IMG_FALSE;
+#endif
+
+	if (PVRSRVSetDeviceSystemPowerState(psDeviceNode,
+										PVRSRV_SYS_POWER_STATE_OFF,
+										PVRSRV_POWER_FLAGS_OSPM_SUSPEND_REQ) != PVRSRV_OK)
+	{
+		/* Ignore return error as we're already returning an error here. */
+		(void) LinuxBridgeUnblockClientsAccess(psDevPriv);
+	}
+}
+
+static void PostMigrationDeviceResume(struct drm_device *psDev)
+{
+	struct pvr_drm_private *psDevPriv = psDev->dev_private;
+	PVRSRV_DEVICE_NODE *psDeviceNode = psDevPriv->dev_node;
+
+	PVRSRVSetDeviceSystemPowerState(psDeviceNode,
+									PVRSRV_SYS_POWER_STATE_ON,
+									PVRSRV_POWER_FLAGS_OSPM_RESUME_REQ);
+
+	/* Ignore return error. We should proceed even if this fails. */
+	(void) LinuxBridgeUnblockClientsAccess(psDevPriv);
+
+	/*
+	 * Reprocess the device queues in case commands were blocked during
+	 * suspend.
+	 */
+	if (psDeviceNode->eDevState == PVRSRV_DEVICE_STATE_ACTIVE)
+	{
+		PVRSRVCheckStatus(NULL);
+	}
+}
+
+void PVRVMMigration(unsigned int src, unsigned int dest)
+{
+	PVRSRV_DEVICE_NODE *psSrcNode = PVRSRVGetDeviceInstance(src);
+	PVRSRV_DEVICE_NODE *psDestNode = PVRSRVGetDeviceInstance(dest);
+	struct device *psSrcDev, *psDestDev;
+	struct drm_device *psSrcDrmDev, *psDestDrmDev;
+
+	PVR_LOG_RETURN_VOID_IF_FALSE(((psSrcNode != NULL) && (psDestNode != NULL) && (psSrcNode != psDestNode)),
+								 "Invalid Device IDs requested for migration.");
+
+	PVR_LOG_RETURN_VOID_IF_FALSE(((psSrcNode->eDevState == PVRSRV_DEVICE_STATE_ACTIVE) &&
+								  (psDestNode->eDevState == PVRSRV_DEVICE_STATE_ACTIVE)),
+								 "Devices not fully initialised.");
+
+	PVR_LOG_RETURN_VOID_IF_FALSE(((psSrcNode->psDevConfig != NULL) &&
+								  (psDestNode->psDevConfig != NULL)),
+								 "Device config structure is NULL.");
+
+	PVR_LOG_RETURN_VOID_IF_FALSE(((psSrcNode->psDevConfig->pvOSDevice != NULL) &&
+								  (psDestNode->psDevConfig->pvOSDevice != NULL)),
+								 "Linux kernel device pointer is NULL.");
+
+	psSrcDev = psSrcNode->psDevConfig->pvOSDevice;
+	psDestDev = psDestNode->psDevConfig->pvOSDevice;
+	psSrcDrmDev = dev_get_drvdata(psSrcDev);
+	psDestDrmDev = dev_get_drvdata(psDestDev);
+
+	PVR_LOG_RETURN_VOID_IF_FALSE(((psSrcDrmDev != NULL) &&
+								  (psDestDrmDev != NULL)),
+								 "Linux kernel drm_device pointer is NULL.");
+
+	PVR_DPF((PVR_DBG_WARNING, "%s: Suspending device %u before migration",
+							__func__, psSrcNode->sDevId.ui32InternalID));
+	PreMigrationDeviceSuspend(psSrcDrmDev);
+
+	PVR_DPF((PVR_DBG_WARNING, "%s: Suspending device %u before migration",
+							__func__, psDestNode->sDevId.ui32InternalID));
+	PreMigrationDeviceSuspend(psDestDrmDev);
+
+	PVR_DPF((PVR_DBG_WARNING, "%s: Migrating vGPU resources (regbank, irq, osid)", __func__));
+	SwapHyperlanes(psSrcNode, psDestNode);
+
+	PVR_DPF((PVR_DBG_WARNING, "%s: Resuming device %u", __func__,
+								psSrcNode->sDevId.ui32InternalID));
+	PostMigrationDeviceResume(psSrcDrmDev);
+	PVR_DPF((PVR_DBG_WARNING, "%s: Resuming device %u", __func__,
+								psDestNode->sDevId.ui32InternalID));
+	PostMigrationDeviceResume(psDestDrmDev);
 }

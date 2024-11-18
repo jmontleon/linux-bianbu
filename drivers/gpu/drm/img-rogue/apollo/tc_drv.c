@@ -145,6 +145,10 @@ static struct debugfs_blob_wrapper tc_debugfs_rogue_name_blobs[] = {
 		.data = "orion",
 		.size = sizeof("orion") - 1,
 	},
+	[ODIN_VERSION_VALI] = {
+		.data = "vali",
+		.size = sizeof("vali") - 1,
+	},
 };
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
@@ -190,89 +194,15 @@ static const struct attribute_group *tc_attr_groups[] = {
 };
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)) */
 
-#if defined(CONFIG_MTRR) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0))
-/*
- * A return value of:
- *      0 or more means success
- *     -1 means we were unable to add an mtrr but we should continue
- *     -2 means we were unable to add an mtrr but we shouldn't continue
- */
-static int mtrr_setup(struct pci_dev *pdev,
-		      resource_size_t mem_start,
-		      resource_size_t mem_size)
-{
-	int err;
-	int mtrr;
-
-	/* Reset MTRR */
-	mtrr = mtrr_add(mem_start, mem_size, MTRR_TYPE_UNCACHABLE, 0);
-	if (mtrr < 0) {
-		dev_err(&pdev->dev, "%d - %s: mtrr_add failed (%d)\n",
-			__LINE__, __func__, mtrr);
-		mtrr = -2;
-		goto err_out;
-	}
-
-	err = mtrr_del(mtrr, mem_start, mem_size);
-	if (err < 0) {
-		dev_err(&pdev->dev, "%d - %s: mtrr_del failed (%d)\n",
-			__LINE__, __func__, err);
-		mtrr = -2;
-		goto err_out;
-	}
-
-	mtrr = mtrr_add(mem_start, mem_size, MTRR_TYPE_WRBACK, 0);
-	if (mtrr < 0) {
-		/* Stop, but not an error as this may be already be setup */
-		dev_dbg(&pdev->dev,
-			"%d - %s: mtrr_add failed (%d) - probably means the mtrr is already setup\n",
-			__LINE__, __func__, mtrr);
-		mtrr = -1;
-		goto err_out;
-	}
-
-	err = mtrr_del(mtrr, mem_start, mem_size);
-	if (err < 0) {
-		dev_err(&pdev->dev, "%d - %s: mtrr_del failed (%d)\n",
-			__LINE__, __func__, err);
-		mtrr = -2;
-		goto err_out;
-	}
-
-	if (mtrr == 0) {
-		/* Replace 0 with a non-overlapping WRBACK mtrr */
-		err = mtrr_add(0, mem_start, MTRR_TYPE_WRBACK, 0);
-		if (err < 0) {
-			dev_err(&pdev->dev, "%d - %s: mtrr_add failed (%d)\n",
-				__LINE__, __func__, err);
-			mtrr = -2;
-			goto err_out;
-		}
-	}
-
-	mtrr = mtrr_add(mem_start, mem_size, MTRR_TYPE_WRCOMB, 0);
-	if (mtrr < 0) {
-		dev_err(&pdev->dev, "%d - %s: mtrr_add failed (%d)\n",
-			__LINE__, __func__, mtrr);
-		mtrr = -1;
-	}
-
-err_out:
-	return mtrr;
-}
-#endif /* defined(CONFIG_MTRR) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)) */
 
 int tc_mtrr_setup(struct tc_device *tc)
 {
 	int err = 0;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 	/* Register the LMA as write combined */
 	err = arch_io_reserve_memtype_wc(tc->tc_mem.base,
 					 tc->tc_mem.size);
 	if (err)
 		return -ENODEV;
-#endif
 	/* Enable write combining */
 	tc->mtrr = arch_phys_wc_add(tc->tc_mem.base,
 				    tc->tc_mem.size);
@@ -281,45 +211,20 @@ int tc_mtrr_setup(struct tc_device *tc)
 		goto err_out;
 	}
 
-#elif defined(CONFIG_MTRR)
-	/* Enable mtrr region caching */
-	tc->mtrr = mtrr_setup(tc->pdev,
-			      tc->tc_mem.base,
-			      tc->tc_mem.size);
-	if (tc->mtrr == -2) {
-		err = -ENODEV;
-		goto err_out;
-	}
-#endif
 	return err;
 
 err_out:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 	arch_io_free_memtype_wc(tc->tc_mem.base,
 				tc->tc_mem.size);
-#endif
 	return err;
 }
 
 void tc_mtrr_cleanup(struct tc_device *tc)
 {
 	if (tc->mtrr >= 0) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 		arch_phys_wc_del(tc->mtrr);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 		arch_io_free_memtype_wc(tc->tc_mem.base,
 					tc->tc_mem.size);
-#endif
-#elif defined(CONFIG_MTRR)
-		int err;
-
-		err = mtrr_del(tc->mtrr,
-			       tc->tc_mem.base,
-			       tc->tc_mem.size);
-		if (err < 0)
-			dev_err(&tc->pdev->dev,
-				"mtrr_del failed (%d)\n", err);
-#endif
 	}
 }
 
@@ -453,6 +358,8 @@ static int tc_register_pdp_device(struct tc_device *tc)
 
 	if (tc->odin || tc->orion)
 		err = odin_register_pdp_device(tc);
+	else if (tc->vali)
+		err = 0;
 	else
 		err = apollo_register_pdp_device(tc);
 
@@ -463,7 +370,7 @@ static int tc_register_ext_device(struct tc_device *tc)
 {
 	int err = 0;
 
-	if (tc->odin || tc->orion)
+	if (tc->odin || tc->orion || tc->vali)
 		err = odin_register_ext_device(tc);
 	else
 		err = apollo_register_ext_device(tc);
@@ -555,6 +462,8 @@ static int tc_init(struct pci_dev *pdev, const struct pci_device_id *id)
 			tc->odin = true;
 		else if (pdev->device == DEVICE_ID_ORION)
 			tc->orion = true;
+		else if (pdev->device == DEVICE_ID_VALI)
+			tc->vali = true;
 
 		dev_info(&pdev->dev, "%s detected\n", odin_tc_name(tc));
 
@@ -625,6 +534,7 @@ static void tc_exit(struct pci_dev *pdev)
 {
 	struct tc_device *tc = devres_find(&pdev->dev,
 					   tc_devres_release, NULL, NULL);
+	int osid;
 
 	if (!tc) {
 		dev_err(&pdev->dev, "No tc device resources found\n");
@@ -634,8 +544,11 @@ static void tc_exit(struct pci_dev *pdev)
 	if (tc->pdp_dev)
 		platform_device_unregister(tc->pdp_dev);
 
-	if (tc->ext_dev)
-		platform_device_unregister(tc->ext_dev);
+	for (osid=0; osid < RGX_NUM_DRIVERS_SUPPORTED; osid++)
+	{
+		if (tc->ext_dev[osid])
+			platform_device_unregister(tc->ext_dev[osid]);
+	}
 
 	if (tc->dma_dev)
 		platform_device_unregister(tc->dma_dev);
@@ -652,6 +565,7 @@ static struct pci_device_id tc_pci_tbl[] = {
 	{ PCI_VDEVICE(POWERVR, DEVICE_ID_PCIE_APOLLO_FPGA) },
 	{ PCI_VDEVICE(POWERVR, DEVICE_ID_TBA) },
 	{ PCI_VDEVICE(ODIN, DEVICE_ID_ODIN) },
+	{ PCI_VDEVICE(ODIN, DEVICE_ID_VALI) },
 	{ PCI_VDEVICE(ODIN, DEVICE_ID_ORION) },
 	{ },
 };
@@ -746,7 +660,7 @@ int tc_enable_interrupt(struct device *dev, int interrupt_id)
 	}
 	tc->interrupt_handlers[interrupt_id].enabled = true;
 
-	if (tc->odin || tc->orion)
+	if (tc->odin || tc->orion || tc->vali)
 		odin_enable_interrupt_register(tc, interrupt_id);
 	else
 		apollo_enable_interrupt_register(tc, interrupt_id);
@@ -783,7 +697,7 @@ int tc_disable_interrupt(struct device *dev, int interrupt_id)
 	}
 	tc->interrupt_handlers[interrupt_id].enabled = false;
 
-	if (tc->odin || tc->orion)
+	if (tc->odin || tc->orion || tc->vali)
 		odin_disable_interrupt_register(tc, interrupt_id);
 	else
 		apollo_disable_interrupt_register(tc, interrupt_id);
@@ -805,7 +719,7 @@ int tc_sys_info(struct device *dev, u32 *tmp, u32 *pll)
 		goto err_out;
 	}
 
-	if (tc->odin || tc->orion)
+	if (tc->odin || tc->orion || tc->vali)
 		err = odin_sys_info(tc, tmp, pll);
 	else
 		err = apollo_sys_info(tc, tmp, pll);
@@ -848,7 +762,7 @@ int tc_sys_strings(struct device *dev,
 		goto err_out;
 	}
 
-	if (tc->odin || tc->orion) {
+	if (tc->odin || tc->orion || tc->vali) {
 		err = odin_sys_strings(tc,
 				 str_fpga_rev, size_fpga_rev,
 				 str_tcf_core_rev, size_tcf_core_rev,

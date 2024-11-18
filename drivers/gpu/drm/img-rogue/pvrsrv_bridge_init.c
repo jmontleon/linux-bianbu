@@ -121,10 +121,6 @@ void DeinitDEVICEMEMHISTORYBridge(void);
 PVRSRV_ERROR InitVALIDATIONBridge(void);
 void DeinitVALIDATIONBridge(void);
 #endif
-#if defined(PVR_TESTING_UTILS)
-PVRSRV_ERROR InitTUTILSBridge(void);
-void DeinitTUTILSBridge(void);
-#endif
 PVRSRV_ERROR InitSYNCTRACKINGBridge(void);
 void DeinitSYNCTRACKINGBridge(void);
 #if defined(SUPPORT_WRAP_EXTMEM)
@@ -207,10 +203,6 @@ ServerBridgeInit(void)
 	PVR_LOG_IF_ERROR(eError, "InitVALIDATIONBridge");
 #endif
 
-#if defined(PVR_TESTING_UTILS)
-	eError = InitTUTILSBridge();
-	PVR_LOG_IF_ERROR(eError, "InitTUTILSBridge");
-#endif
 
 	eError = InitDEVICEMEMHISTORYBridge();
 	PVR_LOG_IF_ERROR(eError, "InitDEVICEMEMHISTORYBridge");
@@ -321,9 +313,6 @@ void ServerBridgeDeInit(void)
 	DeinitPDUMPBridge();
 #endif
 
-#if defined(PVR_TESTING_UTILS)
-	DeinitTUTILSBridge();
-#endif
 
 #if defined(SUPPORT_DISPLAY_CLASS)
 	DeinitDCBridge();
