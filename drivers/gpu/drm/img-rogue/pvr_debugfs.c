@@ -121,14 +121,7 @@ static void _WriteData(void *pvNativeHandle, const void *pvData,
 static void _VPrintf(void *pvNativeHandle, const IMG_CHAR *pszFmt,
                      va_list pArgs)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
 	seq_vprintf(pvNativeHandle, pszFmt, pArgs);
-#else
-	IMG_CHAR szBuffer[PVR_MAX_DEBUG_MESSAGE_LEN];
-
-	vsnprintf(szBuffer, PVR_MAX_DEBUG_MESSAGE_LEN, pszFmt, pArgs);
-	seq_printf(pvNativeHandle, "%s", szBuffer);
-#endif
 }
 
 static void _Puts(void *pvNativeHandle, const IMG_CHAR *pszStr)
@@ -139,11 +132,7 @@ static void _Puts(void *pvNativeHandle, const IMG_CHAR *pszStr)
 static IMG_BOOL _HasOverflowed(void *pvNativeHandle)
 {
 	struct seq_file *psSeqFile = pvNativeHandle;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
 	return seq_has_overflowed(psSeqFile);
-#else
-	return psSeqFile->count == psSeqFile->size;
-#endif
 }
 
 static OSDI_IMPL_ENTRY_CB _g_sEntryCallbacks = {

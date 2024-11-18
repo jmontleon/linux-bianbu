@@ -829,6 +829,8 @@ static INLINE PVRSRV_ERROR CacheOpValidateUMVA(PMR *psPMR,
 
 
 #if !defined(__linux__) || defined(CACHEFLUSH_NO_KMRBF_USING_UMVA)
+	PVR_UNREFERENCED_PARAMETER(uiOffset);
+	PVR_UNREFERENCED_PARAMETER(uiSize);
 	pvAddr = NULL;
 #else
 	/* Validate VA, assume most basic address limit access_ok() check */
@@ -906,13 +908,18 @@ static PVRSRV_ERROR CacheOpPMRExec (PMR *psPMR,
 
 	if (! bIsRequestValidated)
 	{
-		IMG_DEVMEM_SIZE_T uiLPhysicalSize;
-
 		/* Need to validate parameters before proceeding */
-		eError = PMR_PhysicalSize(psPMR, &uiLPhysicalSize);
-		PVR_LOG_RETURN_IF_ERROR(eError, "uiLPhysicalSize");
-
-		PVR_LOG_RETURN_IF_FALSE(((uiOffset+uiSize) <= uiLPhysicalSize), CACHEOP_DEVMEM_OOR_ERROR_STRING, PVRSRV_ERROR_DEVICEMEM_OUT_OF_RANGE);
+		/* Check for size + offset overflow */
+		PVR_LOG_RETURN_IF_FALSE(((uiOffset + uiSize) >= uiSize),
+		                        "Overflow detected on offset + size parameters",
+		                        PVRSRV_ERROR_INVALID_PARAMS);
+		/* Since size + offset is later aligned to page size check for overflow with alignment */
+		PVR_LOG_RETURN_IF_FALSE((((uiOffset + uiSize) + gsCwq.uiPageSize - 1) >= (uiOffset + uiSize)),
+		                        "Overflow detected on offset + size parameters with applied alignment",
+		                        PVRSRV_ERROR_INVALID_PARAMS);
+		PVR_LOG_RETURN_IF_FALSE(((uiOffset+uiSize) <= PMR_PhysicalSize(psPMR)),
+		                        CACHEOP_DEVMEM_OOR_ERROR_STRING,
+		                        PVRSRV_ERROR_DEVICEMEM_OUT_OF_RANGE);
 
 		eError = PMRLockSysPhysAddresses(psPMR);
 		PVR_LOG_RETURN_IF_ERROR(eError, "PMRLockSysPhysAddresses");

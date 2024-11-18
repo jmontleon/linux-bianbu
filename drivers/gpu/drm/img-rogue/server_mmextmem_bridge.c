@@ -148,7 +148,9 @@ PVRSRV_ERROR InitMMEXTMEMBridge(void)
 {
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MMEXTMEM, PVRSRV_BRIDGE_MMEXTMEM_PHYSMEMWRAPEXTMEM,
-			      PVRSRVBridgePhysmemWrapExtMem, NULL);
+			      PVRSRVBridgePhysmemWrapExtMem, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PHYSMEMWRAPEXTMEM),
+			      sizeof(PVRSRV_BRIDGE_OUT_PHYSMEMWRAPEXTMEM));
 
 	return PVRSRV_OK;
 }

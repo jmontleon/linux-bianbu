@@ -54,7 +54,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "lock.h"
 #include "devicemem.h"
 #include "rgx_fwif_shared.h"
-#include "rgx_fwif_km.h"
 
 struct SYNC_CHECKPOINT_RECORD;
 
