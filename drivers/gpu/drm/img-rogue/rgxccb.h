@@ -279,7 +279,8 @@ void RGXCmdHelperInitCmdCCB_CommandSize(PVRSRV_RGXDEV_INFO *psDevInfo,
                                         PRGXFWIF_UFO_ADDR       *ppRMWUFOAddr,
                                         RGX_CCB_CMD_HELPER_DATA *psCmdHelperData);
 
-void RGXCmdHelperInitCmdCCB_OtherData(RGX_CLIENT_CCB *psClientCCB,
+void RGXCmdHelperInitCmdCCB_OtherData(PVRSRV_RGXDEV_INFO *psDevInfo,
+                                      RGX_CLIENT_CCB *psClientCCB,
                                       IMG_UINT32 ui32ClientFenceCount,
                                       PRGXFWIF_UFO_ADDR *pauiFenceUFOAddress,
                                       IMG_UINT32 *paui32FenceValue,

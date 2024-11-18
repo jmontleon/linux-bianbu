@@ -43,7 +43,7 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/component.h>
-#include <linux/of_platform.h>
+#include <linux/platform_device.h>
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0))
 #include <drm/drm_drv.h>
@@ -259,9 +259,6 @@ static int pdp_early_load(struct drm_device *dev)
 	dev->irq_enabled = true;
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 7, 0))
-	dev->vblank_disable_allowed = 1;
-#endif
 
 	return 0;
 
@@ -379,48 +376,6 @@ static void pdp_late_unload(struct drm_device *dev)
 	kfree(dev_priv);
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 18, 0))
-static int pdp_load(struct drm_device *dev, unsigned long flags)
-{
-	int err;
-
-	err = pdp_early_load(dev);
-	if (err)
-		return err;
-
-	err = pdp_late_load(dev);
-	if (err) {
-		pdp_late_unload(dev);
-		return err;
-	}
-
-	return 0;
-}
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0))
-static int pdp_unload(struct drm_device *dev)
-#else
-static void pdp_unload(struct drm_device *dev)
-#endif
-{
-	pdp_early_unload(dev);
-	pdp_late_unload(dev);
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0))
-	return 0;
-#endif
-}
-#endif
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
-static void pdp_preclose(struct drm_device *dev, struct drm_file *file)
-{
-	struct drm_crtc *crtc;
-
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head)
-		pdp_crtc_flip_event_cancel(crtc, file);
-}
-#endif
 
 #if !defined(CONFIG_DRM_FBDEV_EMULATION)
 static inline void pdp_teardown_drm_config(struct drm_device *dev)
@@ -476,10 +431,8 @@ static void pdp_lastclose(struct drm_device *dev)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
 int pdp_enable_vblank(struct drm_crtc *crtc)
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
-static int pdp_enable_vblank(struct drm_device *dev, unsigned int pipe)
 #else
-static int pdp_enable_vblank(struct drm_device *dev, int pipe)
+static int pdp_enable_vblank(struct drm_device *dev, unsigned int pipe)
 #endif
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
@@ -493,11 +446,7 @@ static int pdp_enable_vblank(struct drm_device *dev, int pipe)
 		pdp_crtc_set_vblank_enabled(dev_priv->crtc, true);
 		break;
 	default:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
 		DRM_ERROR("invalid crtc %u\n", pipe);
-#else
-		DRM_ERROR("invalid crtc %d\n", pipe);
-#endif
 		return -EINVAL;
 	}
 
@@ -508,10 +457,8 @@ static int pdp_enable_vblank(struct drm_device *dev, int pipe)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
 void pdp_disable_vblank(struct drm_crtc *crtc)
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
-static void pdp_disable_vblank(struct drm_device *dev, unsigned int pipe)
 #else
-static void pdp_disable_vblank(struct drm_device *dev, int pipe)
+static void pdp_disable_vblank(struct drm_device *dev, unsigned int pipe)
 #endif
 {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0))
@@ -525,11 +472,7 @@ static void pdp_disable_vblank(struct drm_device *dev, int pipe)
 		pdp_crtc_set_vblank_enabled(dev_priv->crtc, false);
 		break;
 	default:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
 		DRM_ERROR("invalid crtc %u\n", pipe);
-#else
-		DRM_ERROR("invalid crtc %d\n", pipe);
-#endif
 		return;
 	}
 
@@ -569,13 +512,13 @@ void pdp_gem_object_free(struct drm_gem_object *obj)
 
 static const struct drm_ioctl_desc pdp_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(PDP_GEM_CREATE, pdp_gem_object_create_ioctl,
-				DRM_AUTH | DRM_UNLOCKED | DRM_RENDER_ALLOW),
+				DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(PDP_GEM_MMAP, pdp_gem_object_mmap_ioctl,
-				DRM_AUTH | DRM_UNLOCKED),
+				DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(PDP_GEM_CPU_PREP, pdp_gem_object_cpu_prep_ioctl,
-				DRM_AUTH | DRM_UNLOCKED),
+				DRM_AUTH),
 	DRM_IOCTL_DEF_DRV(PDP_GEM_CPU_FINI, pdp_gem_object_cpu_fini_ioctl,
-				DRM_AUTH | DRM_UNLOCKED),
+				DRM_AUTH),
 };
 
 static const struct file_operations pdp_driver_fops = {
@@ -593,27 +536,13 @@ static const struct file_operations pdp_driver_fops = {
 };
 
 static struct drm_driver pdp_drm_driver = {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 	.load				= NULL,
 	.unload				= NULL,
-#else
-	.load				= pdp_load,
-	.unload				= pdp_unload,
-#endif
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
-	.preclose			= pdp_preclose,
-#endif
 	.lastclose			= pdp_lastclose,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-	.set_busid			= drm_platform_set_busid,
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0))
-	.get_vblank_counter		= drm_vblank_count,
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
 	.get_vblank_counter		= drm_vblank_no_hw_counter,
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 0) */
+#endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0))
 	.enable_vblank			= pdp_enable_vblank,
@@ -632,8 +561,10 @@ static struct drm_driver pdp_drm_driver = {
 #endif
 
 	.gem_prime_import		= pdp_gem_prime_import,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	.prime_handle_to_fd		= drm_gem_prime_handle_to_fd,
 	.prime_fd_to_handle		= drm_gem_prime_fd_to_handle,
+#endif
 	.gem_prime_import_sg_table	= pdp_gem_prime_import_sg_table,
 
     // Set dumb_create to NULL to avoid xorg owning the display (if xorg is running).
@@ -676,21 +607,12 @@ static int pdp_component_bind(struct device *dev)
 
 	dev_info(dev, "Loading platform device\n");
 	ddev = drm_dev_alloc(&pdp_drm_driver, &pdev->dev);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 	if (IS_ERR(ddev))
 		return PTR_ERR(ddev);
-#else
-	if (!ddev)
-		return -ENOMEM;
-#endif
 
 	// XXX no need to do this as happens in pdp_early_load
 	platform_set_drvdata(pdev, ddev);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-	/* Needed by drm_platform_set_busid */
-	ddev->platformdev = pdev;
-#endif
 	BUG_ON(pdp_drm_driver.load != NULL);
 
 	ret = pdp_early_load(ddev);
@@ -762,23 +684,13 @@ static int pdp_remove(struct platform_device *pdev)
 
 static int pdp_probe(struct platform_device *pdev)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 	struct drm_device *ddev;
 	int ret;
 
 	ddev = drm_dev_alloc(&pdp_drm_driver, &pdev->dev);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 	if (IS_ERR(ddev))
 		return PTR_ERR(ddev);
-#else
-	if (!ddev)
-		return -ENOMEM;
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-	/* Needed by drm_platform_set_busid */
-	ddev->platformdev = pdev;
-#endif
 	/*
 	 * The load callback, called from drm_dev_register, is deprecated,
 	 * because of potential race conditions.
@@ -815,16 +727,12 @@ err_drm_dev_late_unload:
 err_drm_dev_put:
 	drm_dev_put(ddev);
 	return	ret;
-#else
-	return drm_platform_init(&pdp_drm_driver, pdev);
-#endif
 }
 
 static int pdp_remove(struct platform_device *pdev)
 {
 	struct drm_device *ddev = platform_get_drvdata(pdev);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 	/*
 	 * The unload callback, called from drm_dev_unregister, is
 	 * deprecated.
@@ -838,9 +746,7 @@ static int pdp_remove(struct platform_device *pdev)
 	pdp_late_unload(ddev);
 
 	drm_dev_put(ddev);
-#else
-	drm_put_dev(ddev);
-#endif
+
 	return 0;
 }
 

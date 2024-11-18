@@ -453,7 +453,6 @@ struct dma_buf *pdp_gem_prime_export(
 				     int flags)
 {
 	struct pdp_gem_object *pdp_obj = to_pdp_obj(obj);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 	DEFINE_DMA_BUF_EXPORT_INFO(export_info);
 
 	export_info.ops = &pdp_gem_prime_dmabuf_ops;
@@ -465,15 +464,7 @@ struct dma_buf *pdp_gem_prime_export(
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 	return drm_gem_dmabuf_export(obj->dev, &export_info);
 #else
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 	return drm_gem_dmabuf_export(dev, &export_info);
-#else
-	return dma_buf_export(&export_info);
-#endif
-#endif
-#else
-	return dma_buf_export(obj, &pdp_gem_prime_dmabuf_ops, obj->size,
-			      flags, pdp_obj->resv);
 #endif
 }
 

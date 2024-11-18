@@ -50,6 +50,8 @@ PVRSRV_ERROR DebugCommonInitDriver(void);
 void DebugCommonDeInitDriver(void);
 
 const IMG_CHAR *PVRSRVGetDebugDevStateString(PVRSRV_DEVICE_STATE eDevState);
+const IMG_CHAR *PVRSRVGetDebugHealthStatusString(PVRSRV_DEVICE_HEALTH_STATUS eHealthStatus);
+const IMG_CHAR *PVRSRVGetDebugHealthReasonString(PVRSRV_DEVICE_HEALTH_REASON eHealthReason);
 
 PVRSRV_ERROR DebugCommonInitDevice(PVRSRV_DEVICE_NODE *psDeviceNode);
 void DebugCommonDeInitDevice(PVRSRV_DEVICE_NODE *psDeviceNode);

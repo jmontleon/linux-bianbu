@@ -167,16 +167,9 @@ PVRSRV_ERROR PVRSRVRGXDestroyKickSyncContextKM(RGX_SERVER_KICKSYNC_CONTEXT * psK
 	                                          RGXFWIF_DM_GP,
 	                                          PDUMP_FLAGS_NONE);
 
-	if (RGXIsErrorAndDeviceRecoverable(psKickSyncContext->psDeviceNode, &eError))
-	{
-		return eError;
-	}
-	else if (eError != PVRSRV_OK)
-	{
-		PVR_LOG(("%s: Unexpected error from RGXFWRequestCommonContextCleanUp (%s)",
-				__func__,
-				PVRSRVGetErrorString(eError)));
-	}
+	RGX_RETURN_IF_ERROR_AND_DEVICE_RECOVERABLE(psKickSyncContext->psDeviceNode,
+						   eError,
+						   RGXFWRequestCommonContextCleanUp);
 
 	/* ... it has so we can free its resources */
 
@@ -336,7 +329,7 @@ PVRSRV_ERROR PVRSRVRGXKickSyncKM(RGX_SERVER_KICKSYNC_CONTEXT * psKickSyncContext
 		pauiClientUpdateUFOAddress = psKickSyncContext->sSyncAddrListUpdate.pasFWAddrs;
 	}
 	/* Ensure the string is null-terminated (Required for safety) */
-	szUpdateFenceName[31] = '\0';
+	szUpdateFenceName[PVRSRV_SYNC_NAME_LENGTH-1] = '\0';
 
 	/* This will never be true if called from the bridge since piUpdateFence will always be valid */
 	if (iUpdateTimeline >= 0 && !piUpdateFence)
@@ -621,7 +614,7 @@ PVRSRV_ERROR PVRSRVRGXKickSyncKM(RGX_SERVER_KICKSYNC_CONTEXT * psKickSyncContext
 	eError = RGXCmdHelperAcquireCmdCCB(ARRAY_SIZE(asCmdHelperData), asCmdHelperData);
 	if (eError != PVRSRV_OK)
 	{
-		goto fail_cmdaquire;
+		goto fail_cmdacquire;
 	}
 
 	/*
@@ -682,7 +675,7 @@ PVRSRV_ERROR PVRSRVRGXKickSyncKM(RGX_SERVER_KICKSYNC_CONTEXT * psKickSyncContext
 	                  NO_DEADLINE,
 	                  NO_CYCEST);
 
-	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+	LOOP_UNTIL_TIMEOUT_US(MAX_HW_TIME_US)
 	{
 		eError2 = RGXScheduleCommandWithoutPowerLock(psKickSyncContext->psDeviceNode->pvDevice,
 		                             RGXFWIF_DM_GP,
@@ -693,7 +686,7 @@ PVRSRV_ERROR PVRSRVRGXKickSyncKM(RGX_SERVER_KICKSYNC_CONTEXT * psKickSyncContext
 			break;
 		}
 		OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
-	} END_LOOP_UNTIL_TIMEOUT();
+	} END_LOOP_UNTIL_TIMEOUT_US();
 
 	PVRSRVPowerUnlock(psDevInfo->psDeviceNode);
 
@@ -716,7 +709,7 @@ PVRSRV_ERROR PVRSRVRGXKickSyncKM(RGX_SERVER_KICKSYNC_CONTEXT * psKickSyncContext
 	 */
 	if (eError != PVRSRV_OK )
 	{
-		goto fail_cmdaquire;
+		goto fail_cmdacquire;
 	}
 
 #if defined(NO_HARDWARE)
@@ -768,7 +761,7 @@ PVRSRV_ERROR PVRSRVRGXKickSyncKM(RGX_SERVER_KICKSYNC_CONTEXT * psKickSyncContext
 	return PVRSRV_OK;
 
 fail_acquirepowerlock:
-fail_cmdaquire:
+fail_cmdacquire:
 	SyncAddrListRollbackCheckpoints(psKickSyncContext->psDeviceNode, &psKickSyncContext->sSyncAddrListFence);
 	SyncAddrListRollbackCheckpoints(psKickSyncContext->psDeviceNode, &psKickSyncContext->sSyncAddrListUpdate);
 	if (iUpdateFence != PVRSRV_NO_FENCE)

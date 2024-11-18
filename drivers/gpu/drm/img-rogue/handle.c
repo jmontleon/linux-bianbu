@@ -1764,6 +1764,7 @@ PVRSRV_ERROR PVRSRVAllocHandleBase(PVRSRV_HANDLE_BASE **ppsBase,
 	return PVRSRV_OK;
 
 ErrorDestroyHandleBase:
+    eError = PVRSRV_ERROR_INVALID_PARAMS;
 	(void)gpsHandleFuncs->pfnDestroyHandleBase(psBase->psImplBase);
 
 ErrorUnlock:
@@ -2046,9 +2047,6 @@ static const PVRSRV_HANDLE_TYPE g_aeOrderedFreeList[] =
 	PVRSRV_HANDLE_TYPE_RGX_SERVER_COMPUTE_CONTEXT,
 	PVRSRV_HANDLE_TYPE_RGX_SERVER_RAY_CONTEXT,
 	PVRSRV_HANDLE_TYPE_RGX_SERVER_KICKSYNC_CONTEXT,
-#if defined(PVR_TESTING_UTILS) && defined(SUPPORT_VALIDATION)
-	PVRSRV_HANDLE_TYPE_RGX_SERVER_GPUMAP_CONTEXT,
-#endif
 	PVRSRV_HANDLE_TYPE_RI_HANDLE,
 	PVRSRV_HANDLE_TYPE_SYNC_RECORD_HANDLE,
 	PVRSRV_HANDLE_TYPE_SYNC_PRIMITIVE_BLOCK,
@@ -2206,6 +2204,7 @@ PVRSRV_ERROR PVRSRVAcquireProcessHandleBase(IMG_PID uiPid, PROCESS_HANDLE_BASE *
 	return PVRSRV_OK;
 
 ErrorFreeHandleBase:
+    eError = PVRSRV_ERROR_INVALID_PARAMS;
 	PVRSRVFreeHandleBase(psBase->psHandleBase, 0);
 ErrorFreeProcessHandleBase:
 	OSFreeMem(psBase);
@@ -2496,3 +2495,7 @@ PVRSRV_ERROR PVRSRVHandleDeInit(void)
 
 	return eError;
 }
+
+/******************************************************************************
+ End of file (handle.c)
+******************************************************************************/

@@ -44,13 +44,6 @@
 #if !defined(__PVR_FENCE_H__)
 #define __PVR_FENCE_H__
 
-#include <linux/version.h>
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0))
-static inline void pvr_fence_cleanup(void)
-{
-}
-#else
 #include "services_kernel_client.h"
 #include "pvr_linux_fence.h"
 #include <linux/list.h>
@@ -194,7 +187,7 @@ static inline void pvr_fence_cleanup(void)
 {
 	/*
 	 * Ensure all PVR fence contexts have been destroyed, by flushing
-	 * the global workqueue.
+	 * the context destruction workqueue.
 	 */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 36))
 	flush_workqueue(NativeSyncGetFenceCtxDestroyWq());
@@ -242,5 +235,4 @@ static inline void pvr_fence_cleanup(void)
 #define PVR_FENCE_ERR(f, fmt, ...)                                         \
 	DMA_FENCE_ERR(f, "(PVR) " fmt, ## __VA_ARGS__)
 
-#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)) */
 #endif /* !defined(__PVR_FENCE_H__) */
