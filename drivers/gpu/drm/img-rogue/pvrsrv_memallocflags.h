@@ -67,13 +67,17 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
  * | 0-3    | 4-7    | 8-10        | 11-13       | 14          |
  * | GPU-RW | CPU-RW | GPU-Caching | CPU-Caching | KM-Mappable |
  *
- * --- MISC FLAGS         15..23 (9-bits) ---
+ * --- MISC FLAGS         15..20 (9-bits) ---
  * | 15    | 16        | 17  | 18         | 19              | 20      |
  * | Defer | Alloc-Now | SVM | Scratch-Pg | CPU-Cache-Clean | Zero-Pg |
  *
+ * --- RI FLAGS  21..23 (3-bits) ---
+ * | 21     | 22       | 23        |
+ * | Import | Suballoc | FW alloc  |
+ *
  * --- DEV CONTROL FLAGS  26..27 (2-bits) ---
- * | 21-25  | 26-27        |
- * | .....  | Device-Flags |
+ * | 24-25 | 26-27        |
+ * | ...   | Device-Flags |
  *
  * --- MISC FLAGS         28..31 (4-bits) ---
  * | 28             | 29             | 30          | 31            |
@@ -82,6 +86,10 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
  * --- VALIDATION FLAGS ---
  * | 35             |
  * | Shared-buffer  |
+ *
+ * --- OS SPECIFIC FLAGS ---
+ * | 36             | 37            |
+ * | Linux Pref CMA | Linux Movable |
  *
  * --- IPA Policy ---
  * | 53-55      |
@@ -586,12 +594,13 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
 
 /*! ----- Bit 19
 
-  Used to force Services to carry out at least one CPU cache invalidate on a
-  CPU cached buffer during allocation of the memory. Applicable to incoherent
-  systems, it must be used for buffers which are CPU cached and which will not
-  be 100% written to by the CPU before the GPU accesses it. For performance
-  reasons, avoid usage if the whole buffer that is allocated is written to by
-  the CPU anyway before the next GPU kick, or if the system is coherent.
+  Used to force Services to carry out at least one CPU cache flush and
+  invalidate on a CPU cached buffer during allocation of the memory. Applicable
+  to incoherent systems, it must be used for buffers which are CPU cached and
+  which will not be 100% written to by the CPU before the GPU accesses it. For
+  performance reasons, avoid usage if the whole buffer that is allocated is
+  written to by the CPU anyway before the next GPU kick, or if the system is
+  coherent.
  */
 #define PVRSRV_MEMALLOCFLAG_CPU_CACHE_CLEAN				(IMG_UINT64_C(1)<<19)
 
@@ -616,17 +625,65 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
 
 /*
  ************************************************************
- *                   PMR Misc flags                         *
+ *                         RI flags                         *
  ************************************************************
+ * The Flags are used exclusively by the RI (Reference Info)
+ * server for tracking KM allocations by various processes
  *
- * These 4 flags are used to indicate miscellaneous info
- * not otherwise available in the PMR
- * | 21                    | 22-24    |
- * | PMR can be suballoc'd | Reserved |
+ * Import - Handle imported from other process
+ * Suballoc - Handle Suballocation of existing PMR
+ * FW Alloc - Used by FW during driver initialisation
+ *
+ * --- RI FLAGS  21..23 (3-bits) ---
+ * | 21     | 22       | 23        |
+ * | Import | Suballoc | FW alloc  |
  *
  */
 
- /*! ----- Bit 25
+/*! ----- Bit 21
+  Used by RI server to register Allocation as an import from other process
+ */
+#define PVRSRV_MEMALLOCFLAG_RI_IMPORT					(IMG_UINT64_C(1)<<21)
+/*!
+  @Description    Macro checking whether the PVRSRV_MEMALLOCFLAG_RI_IMPORT flag is set.
+  @Input  uiFlags Allocation flags.
+  @Return         True if the flag is set, false otherwise
+ */
+#define PVRSRV_CHECK_RI_IMPORT(uiFlags)			(((uiFlags) & PVRSRV_MEMALLOCFLAG_RI_IMPORT) != 0U)
+
+/*! ----- Bit 22
+  Used by RI server to register Allocation as a suballocation of existing PMR
+ */
+#define PVRSRV_MEMALLOCFLAG_RI_SUBALLOC					(IMG_UINT64_C(1)<<22)
+/*!
+  @Description    Macro checking whether the PVRSRV_MEMALLOCFLAG_RI_SUBALLOC flag is set.
+  @Input  uiFlags Allocation flags.
+  @Return         True if the flag is set, false otherwise
+ */
+#define PVRSRV_CHECK_RI_SUBALLOC(uiFlags)			(((uiFlags) & PVRSRV_MEMALLOCFLAG_RI_SUBALLOC) != 0U)
+
+/*! ----- Bit 23
+  Used by RI server to register Allocation as FW/System process
+  'FW Alloc' also means the allocation is considered to belong to the SYS process
+  (ie that it will have a lifetime longer than the process which allocated it)
+ */
+#define PVRSRV_MEMALLOCFLAG_RI_FWKMD_ALLOC				(IMG_UINT64_C(1)<<23)
+/*!
+  @Description    Macro checking whether the PVRSRV_MEMALLOCFLAG_RI_FWKMD_ALLOC flag is set.
+  @Input  uiFlags Allocation flags.
+  @Return         True if the flag is set, false otherwise
+ */
+#define PVRSRV_CHECK_RI_FWKMD_ALLOC(uiFlags)			(((uiFlags) & PVRSRV_MEMALLOCFLAG_RI_FWKMD_ALLOC) != 0U)
+
+/*!
+  @Description    Macro passing the PVRSRV_MEMALLOCFLAG_RI_ Flags.
+  @Input  uiFlags Allocation flags.
+  @Return         Value of the RI server bit field
+ */
+#define PVRSRV_MEMALLOCFLAG_RI_MASK(uiFlags)			((uiFlags) & (IMG_UINT64_C(7)<<21))
+
+
+/*! ----- Bit 24
   *
     Not used.
  */
@@ -771,6 +828,26 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
 
 #define PVRSRV_MEMALLOCFLAG_VAL_SHARED_BUFFER           (IMG_UINT64_C(1)<<35)
 #define PVRSRV_CHECK_SHARED_BUFFER(uiFlags)             (((uiFlags) & PVRSRV_MEMALLOCFLAG_VAL_SHARED_BUFFER) != 0U)
+
+/*
+ *
+ *  **********************************************************
+ *  *                                                        *
+ *  *                OS Specific alloc flags                 *
+ *  *                                                        *
+ *  **********************************************************
+ *
+ * (Bits 36 to 37)
+ *
+ */
+#define PVRSRV_MEMALLOCFLAG_OS_ALLOCFLAG_OFFSET 36
+#define PVRSRV_MEMALLOCFLAG_OS_ALLOCFLAG_MASK          (IMG_UINT64_C(3) << PVRSRV_MEMALLOCFLAG_OS_ALLOCFLAG_OFFSET)
+
+#define PVRSRV_MEMALLOCFLAG_OS_LINUX_PREFER_CMA         (IMG_UINT64_C(1)<<36)
+#define PVRSRV_CHECK_OS_LINUX_PREFER_CMA(uiFlags)       (((uiFlags) & PVRSRV_MEMALLOCFLAG_OS_LINUX_PREFER_CMA) != 0U)
+
+#define PVRSRV_MEMALLOCFLAG_OS_LINUX_MOVABLE           (IMG_UINT64_C(1)<<37)
+#define PVRSRV_CHECK_OS_LINUX_MOVABLE(uiFlags)         (((uiFlags) & PVRSRV_MEMALLOCFLAG_OS_LINUX_MOVABLE) != 0U)
 
 /*
  *
@@ -930,6 +1007,7 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
                                             PVRSRV_MEMALLOCFLAG_ZERO_BACKING | \
                                             PVRSRV_MEMALLOCFLAG_VAL_SHARED_BUFFER | \
                                             PVRSRV_MEMALLOCFLAG_MANDATE_PHYSHEAP | \
+                                            PVRSRV_MEMALLOCFLAG_OS_ALLOCFLAG_MASK | \
                                             PVRSRV_MEMALLOCFLAG_IPA_POLICY_MASK | \
                                             PVRSRV_PHYS_HEAP_HINT_MASK)
 #else
@@ -947,6 +1025,7 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
                                             PVRSRV_MEMALLOCFLAG_ZERO_BACKING | \
                                             PVRSRV_MEMALLOCFLAG_VAL_SHARED_BUFFER | \
                                             PVRSRV_MEMALLOCFLAG_MANDATE_PHYSHEAP  | \
+                                            PVRSRV_MEMALLOCFLAG_OS_ALLOCFLAG_MASK | \
                                             PVRSRV_MEMALLOCFLAG_IPA_POLICY_MASK | \
                                             PVRSRV_PHYS_HEAP_HINT_MASK)
 #endif
@@ -1013,6 +1092,8 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
 #if defined(DEBUG)
 #define PVRSRV_MEMALLOCFLAGS_DEVMEMX_PHYSICAL_MASK (PVRSRV_MEMALLOCFLAGS_CPU_MMUFLAGSMASK | \
                                                     PVRSRV_MEMALLOCFLAG_GPU_CACHE_MODE_MASK | \
+                                                    PVRSRV_MEMALLOCFLAG_GPU_WRITEABLE | \
+                                                    PVRSRV_MEMALLOCFLAG_GPU_READABLE | \
                                                     PVRSRV_MEMALLOCFLAG_CPU_READ_PERMITTED | \
                                                     PVRSRV_MEMALLOCFLAG_CPU_WRITE_PERMITTED | \
                                                     PVRSRV_MEMALLOCFLAG_CPU_CACHE_CLEAN | \
@@ -1026,6 +1107,8 @@ typedef IMG_UINT64 PVRSRV_MEMALLOCFLAGS_T;
 #else
 #define PVRSRV_MEMALLOCFLAGS_DEVMEMX_PHYSICAL_MASK (PVRSRV_MEMALLOCFLAGS_CPU_MMUFLAGSMASK | \
                                                     PVRSRV_MEMALLOCFLAG_GPU_CACHE_MODE_MASK | \
+                                                    PVRSRV_MEMALLOCFLAG_GPU_WRITEABLE | \
+                                                    PVRSRV_MEMALLOCFLAG_GPU_READABLE | \
                                                     PVRSRV_MEMALLOCFLAG_CPU_READ_PERMITTED | \
                                                     PVRSRV_MEMALLOCFLAG_CPU_WRITE_PERMITTED | \
                                                     PVRSRV_MEMALLOCFLAG_CPU_CACHE_CLEAN | \

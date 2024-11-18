@@ -55,9 +55,7 @@
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_mm.h>
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 #include <drm/drm_plane.h>
-#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0))
 #include <drm/drm_framebuffer.h>
@@ -211,9 +209,6 @@ void pdp_crtc_set_plane_enabled(struct drm_crtc *crtc, bool enable);
 void pdp_crtc_set_vblank_enabled(struct drm_crtc *crtc, bool enable);
 void pdp_crtc_irq_handler(struct drm_crtc *crtc);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
-void pdp_crtc_flip_event_cancel(struct drm_crtc *crtc, struct drm_file *file);
-#endif
 
 struct drm_connector *pdp_dvi_connector_create(struct drm_device *dev);
 

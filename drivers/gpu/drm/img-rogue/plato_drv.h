@@ -239,9 +239,7 @@ struct plato_device {
 	struct platform_device *hdmi_dev;
 #endif
 
-#if defined(CONFIG_MTRR) || (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 	int mtrr;
-#endif
 	int instance;
 };
 

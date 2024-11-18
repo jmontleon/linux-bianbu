@@ -93,6 +93,7 @@ PVRSRV_ERROR RGXInvalidateFBSCTable(PVRSRV_DEVICE_NODE *psDeviceNode,
 		if (psIter->psMMUContext == psMMUContext)
 		{
 			psServerMMUContext = psIter;
+			break;
 		}
 	}
 
@@ -274,7 +275,7 @@ PVRSRV_ERROR RGXMMUCacheInvalidateKick(PVRSRV_DEVICE_NODE *psDeviceNode,
 		goto _PowerUnlockAndReturnErr;
 	}
 
-	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+	LOOP_UNTIL_TIMEOUT_US(MAX_HW_TIME_US)
 	{
 		eError = _PrepareAndSubmitCacheCommand(psDeviceNode, RGXFWIF_DM_GP, ui32FWCacheFlags,
 											   IMG_TRUE, pui32MMUInvalidateUpdate);
@@ -284,7 +285,7 @@ PVRSRV_ERROR RGXMMUCacheInvalidateKick(PVRSRV_DEVICE_NODE *psDeviceNode,
 		}
 		OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
 	}
-	END_LOOP_UNTIL_TIMEOUT();
+	END_LOOP_UNTIL_TIMEOUT_US();
 
 	PVR_LOG_IF_ERROR(eError, "_PrepareAndSubmitCacheCommand");
 
@@ -317,7 +318,7 @@ PVRSRV_ERROR RGXPreKickCacheCommand(PVRSRV_RGXDEV_INFO *psDevInfo,
 		return PVRSRV_OK;
 	}
 
-	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+	LOOP_UNTIL_TIMEOUT_US(MAX_HW_TIME_US)
 	{
 		eError = _PrepareAndSubmitCacheCommand(psDeviceNode, eDM, ui32FWCacheFlags,
 		                                       IMG_FALSE, pui32MMUInvalidateUpdate);
@@ -327,7 +328,7 @@ PVRSRV_ERROR RGXPreKickCacheCommand(PVRSRV_RGXDEV_INFO *psDevInfo,
 		}
 		OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
 	}
-	END_LOOP_UNTIL_TIMEOUT();
+	END_LOOP_UNTIL_TIMEOUT_US();
 
 	PVR_LOG_RETURN_IF_ERROR(eError, "_PrepareAndSubmitCacheCommand");
 
@@ -474,7 +475,7 @@ static void _RecordUnregisteredMemoryContext(PVRSRV_RGXDEV_INFO *psDevInfo, SERV
 	{
 		PVR_LOG(("_RecordUnregisteredMemoryContext: Failed to get PC address for memory context"));
 	}
-	OSStringLCopy(psRecord->szProcessName, psServerMMUContext->szProcessName, sizeof(psRecord->szProcessName));
+	OSStringSafeCopy(psRecord->szProcessName, psServerMMUContext->szProcessName, sizeof(psRecord->szProcessName));
 }
 
 
@@ -697,7 +698,7 @@ PVRSRV_ERROR RGXRegisterMemoryContext(PVRSRV_DEVICE_NODE	*psDeviceNode,
 		psServerMMUContext->uiPID = OSGetCurrentClientProcessIDKM();
 		psServerMMUContext->psMMUContext = psMMUContext;
 		psServerMMUContext->psFWMemContextMemDesc = psFWMemContextMemDesc;
-		OSStringLCopy(psServerMMUContext->szProcessName,
+		OSStringSafeCopy(psServerMMUContext->szProcessName,
 		              OSGetCurrentClientProcessNameKM(),
 		              sizeof(psServerMMUContext->szProcessName));
 
@@ -774,7 +775,7 @@ void RGXCheckFaultAddress(PVRSRV_RGXDEV_INFO *psDevInfo,
 	}
 
 	/* Lastly check for fault in the kernel allocated memory */
-	if (!PVRSRV_VZ_MODE_IS(GUEST))
+	if (!PVRSRV_VZ_MODE_IS(GUEST, DEVINFO, psDevInfo))
 	{
 		if (MMU_AcquireBaseAddr(psDevInfo->psKernelMMUCtx, &sPCDevPAddr) != PVRSRV_OK)
 		{
@@ -825,12 +826,12 @@ IMG_BOOL RGXPCAddrToProcessInfo(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_DEV_PHYADDR s
 	if (psServerMMUContext != NULL)
 	{
 		psInfo->uiPID = psServerMMUContext->uiPID;
-		OSStringLCopy(psInfo->szProcessName, psServerMMUContext->szProcessName, sizeof(psInfo->szProcessName));
+		OSStringSafeCopy(psInfo->szProcessName, psServerMMUContext->szProcessName, sizeof(psInfo->szProcessName));
 		psInfo->bUnregistered = IMG_FALSE;
 		bRet = IMG_TRUE;
 	}
 	/* else check if the input PC addr corresponds to the firmware */
-	else
+	else if (!PVRSRV_VZ_MODE_IS(GUEST, DEVINFO, psDevInfo))
 	{
 		IMG_DEV_PHYADDR sKernelPCDevPAddr;
 		PVRSRV_ERROR eError;
@@ -846,7 +847,7 @@ IMG_BOOL RGXPCAddrToProcessInfo(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_DEV_PHYADDR s
 			if (sPCAddress.uiAddr == sKernelPCDevPAddr.uiAddr)
 			{
 				psInfo->uiPID = RGXMEM_SERVER_PID_FIRMWARE;
-				OSStringLCopy(psInfo->szProcessName, "Firmware", sizeof(psInfo->szProcessName));
+				OSStringSafeCopy(psInfo->szProcessName, "Firmware", sizeof(psInfo->szProcessName));
 				psInfo->bUnregistered = IMG_FALSE;
 				bRet = IMG_TRUE;
 			}
@@ -876,7 +877,7 @@ IMG_BOOL RGXPCAddrToProcessInfo(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_DEV_PHYADDR s
 			if (psRecord->sPCDevPAddr.uiAddr == sPCAddress.uiAddr)
 			{
 				psInfo->uiPID = psRecord->uiPID;
-				OSStringLCopy(psInfo->szProcessName, psRecord->szProcessName, sizeof(psInfo->szProcessName));
+				OSStringSafeCopy(psInfo->szProcessName, psRecord->szProcessName, sizeof(psInfo->szProcessName));
 				psInfo->bUnregistered = IMG_TRUE;
 				bRet = IMG_TRUE;
 				break;
@@ -912,7 +913,7 @@ IMG_BOOL RGXPCPIDToProcessInfo(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_PID uiPID,
 	if (psServerMMUContext != NULL)
 	{
 		psInfo->uiPID = psServerMMUContext->uiPID;
-		OSStringLCopy(psInfo->szProcessName, psServerMMUContext->szProcessName, sizeof(psInfo->szProcessName));
+		OSStringSafeCopy(psInfo->szProcessName, psServerMMUContext->szProcessName, sizeof(psInfo->szProcessName));
 		psInfo->bUnregistered = IMG_FALSE;
 		bRet = IMG_TRUE;
 	}
@@ -920,7 +921,7 @@ IMG_BOOL RGXPCPIDToProcessInfo(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_PID uiPID,
 	else if (uiPID == RGXMEM_SERVER_PID_FIRMWARE)
 	{
 		psInfo->uiPID = RGXMEM_SERVER_PID_FIRMWARE;
-		OSStringLCopy(psInfo->szProcessName, "Firmware", sizeof(psInfo->szProcessName));
+		OSStringSafeCopy(psInfo->szProcessName, "Firmware", sizeof(psInfo->szProcessName));
 		psInfo->bUnregistered = IMG_FALSE;
 		bRet = IMG_TRUE;
 	}
@@ -945,7 +946,7 @@ IMG_BOOL RGXPCPIDToProcessInfo(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_PID uiPID,
 			if (psRecord->uiPID == uiPID)
 			{
 				psInfo->uiPID = psRecord->uiPID;
-				OSStringLCopy(psInfo->szProcessName, psRecord->szProcessName, sizeof(psInfo->szProcessName));
+				OSStringSafeCopy(psInfo->szProcessName, psRecord->szProcessName, sizeof(psInfo->szProcessName));
 				psInfo->bUnregistered = IMG_TRUE;
 				bRet = IMG_TRUE;
 				break;

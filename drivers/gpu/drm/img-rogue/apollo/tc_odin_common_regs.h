@@ -59,20 +59,25 @@ enum odin_common_regs {
 };
 
 #define ODIN_REGNAME(REG_NAME) "ODN_" __stringify(REG_NAME)
+#define VALI_REGNAME(REG_NAME) "VALI_" __stringify(REG_NAME)
 #define ORION_REGNAME(REG_NAME) "SRS_" __stringify(REG_NAME)
 
 struct odin_orion_reg {
 	u32 odin_offset;
+	u32 vali_offset;
 	u32 orion_offset;
 	const char *odin_name;
+	const char *vali_name;
 	const char *orion_name;
 };
 
 #define COMMON_REG_ENTRY(REG) \
 	[REG] = {				  \
 		.odin_offset = ODN_##REG,	  \
+		.vali_offset = ODN_##REG,	  \
 		.orion_offset = SRS_##REG,	  \
 		.odin_name = ODIN_REGNAME(REG),	  \
+		.vali_name = VALI_REGNAME(REG), \
 		.orion_name = ORION_REGNAME(REG), \
 	}
 
@@ -90,6 +95,8 @@ static inline const u32 common_reg_offset(struct tc_device *tc, u32 reg)
 {
 	if (tc->odin)
 		return common_regs[reg].odin_offset;
+	else if (tc->vali)
+		return common_regs[reg].vali_offset;
 	else
 		return common_regs[reg].orion_offset;
 }
@@ -98,6 +105,8 @@ static inline const char *common_reg_name(struct tc_device *tc, u32 reg)
 {
 	if (tc->odin)
 		return common_regs[reg].odin_name;
+	else if (tc->vali)
+		return common_regs[reg].vali_name;
 	else
 		return common_regs[reg].orion_name;
 }

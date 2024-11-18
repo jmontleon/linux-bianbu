@@ -2,7 +2,7 @@
 @File
 @Title          BVNC handling specific routines
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@Description    Functions used for BNVC related work
+@Description    Functions used for BVNC related work
 @License        Dual MIT/GPLv2
 
 The contents of this file are subject to the MIT license as set out below.
@@ -177,9 +177,13 @@ static void _RGXBvncDumpParsedConfig(PVRSRV_DEVICE_NODE *psDeviceNode)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "CSF:      ", CDM_CONTROL_STREAM_FORMAT);
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "FBCDCA:   ", FBCDC_ARCHITECTURE);
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "META:     ", META);
+#if defined(RGX_FEATURE_META_COREMEM_BANKS_IDX)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "MCMB:     ", META_COREMEM_BANKS);
+#endif
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "MCMS:     ", META_COREMEM_SIZE);
+#if defined(RGX_FEATURE_META_DMA_CHANNEL_COUNT_IDX)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "MDMACnt:  ", META_DMA_CHANNEL_COUNT);
+#endif
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "NIIP:     ", NUM_ISP_IPP_PIPES);
 #if defined(RGX_FEATURE_NUM_ISP_PER_SPU_MAX_VALUE_IDX)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "NIPS:     ", NUM_ISP_PER_SPU);
@@ -189,8 +193,12 @@ static void _RGXBvncDumpParsedConfig(PVRSRV_DEVICE_NODE *psDeviceNode)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "NSPU:     ", NUM_SPU);
 #endif
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "PBW:      ", PHYS_BUS_WIDTH);
+#if defined(RGX_FEATURE_SCALABLE_TE_ARCH_IDX)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "STEArch:  ", SCALABLE_TE_ARCH);
+#endif
+#if defined(RGX_FEATURE_SCALABLE_VCE_IDX)
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "SVCEA:    ", SCALABLE_VCE);
+#endif
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "SLCBanks: ", SLC_BANKS);
 	PVR_LOG_DUMP_FEATURE_VALUE(psDevInfo, "SLCCLS:   ", SLC_CACHE_LINE_SIZE_BITS);
 	PVR_LOG(("SLCSize:   %d",  psDevInfo->sDevFeatureCfg.ui32SLCSizeInBytes));
@@ -302,6 +310,7 @@ static PVRSRV_ERROR _RGXBvncParseFeatureValues(PVRSRV_RGXDEV_INFO *psDevInfo,
 		}
 	}
 
+
 #if defined(RGX_FEATURE_POWER_ISLAND_VERSION_MAX_VALUE_IDX)
 	/* Code path for Volcanic */
 
@@ -379,12 +388,12 @@ static PVRSRV_ERROR _RGXBvncParseFeatureValues(PVRSRV_RGXDEV_INFO *psDevInfo,
 	/* Get the max number of dusts in the core */
 	if (RGX_IS_FEATURE_VALUE_SUPPORTED(psDevInfo, NUM_CLUSTERS))
 	{
-		psDevInfo->sDevFeatureCfg.ui32MAXDustCount = MAX(1, (RGX_GET_FEATURE_VALUE(psDevInfo, NUM_CLUSTERS) / 2));
+		psDevInfo->sDevFeatureCfg.ui32MAXPowUnitCount = MAX(1, (RGX_GET_FEATURE_VALUE(psDevInfo, NUM_CLUSTERS) / 2));
 	}
 	else
 	{
 		/* This case should never be reached as all cores have clusters */
-		psDevInfo->sDevFeatureCfg.ui32MAXDustCount = RGX_FEATURE_VALUE_INVALID;
+		psDevInfo->sDevFeatureCfg.ui32MAXPowUnitCount = RGX_FEATURE_VALUE_INVALID;
 		PVR_DPF((PVR_DBG_ERROR, "%s: Number of clusters feature value missing!", __func__));
 		PVR_ASSERT(0);
 		return PVRSRV_ERROR_FEATURE_DISABLED;
@@ -463,7 +472,7 @@ static PVRSRV_ERROR _RGXBvncAcquireAppHint(IMG_CHAR *pszBVNC, const IMG_UINT32 u
 
 		if (ui32BVNCCount == ui32RGXDevCount)
 		{
-			OSStringLCopy(pszBVNC, pszCurrentBVNC, RGX_BVNC_STR_SIZE_MAX);
+			OSStringSafeCopy(pszBVNC, pszCurrentBVNC, RGX_BVNC_STR_SIZE_MAX);
 			OSFreeMem(pszBVNCAppHint);
 			return PVRSRV_OK;
 		}
@@ -479,7 +488,7 @@ static PVRSRV_ERROR _RGXBvncAcquireAppHint(IMG_CHAR *pszBVNC, const IMG_UINT32 u
 	 * devices detected */
 	if (1 == ui32BVNCCount)
 	{
-		OSStringLCopy(pszBVNC, pszBVNCAppHint, RGX_BVNC_STR_SIZE_MAX);
+		OSStringSafeCopy(pszBVNC, pszBVNCAppHint, RGX_BVNC_STR_SIZE_MAX);
 	}
 
 	OSFreeMem(pszBVNCAppHint);
@@ -672,10 +681,10 @@ PVRSRV_ERROR RGXBvncInitialiseConfiguration(PVRSRV_DEVICE_NODE *psDeviceNode)
 	/* Try to detect the RGX BVNC from the HW device */
 	if ((NULL == pui64Cfg) && !psDevInfo->bIgnoreHWReportedBVNC)
 	{
-		IMG_BOOL bPowerDown = (psDeviceNode->psDevConfig->pfnGpuDomainPower(psDeviceNode) == PVRSRV_SYS_POWER_STATE_OFF);
+		IMG_BOOL bPowerDown = ! PVRSRVIsSystemPowered(psDeviceNode);
 
 		/* Power-up the device as required to read the registers */
-		if (bPowerDown)
+		if (!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode) && bPowerDown)
 		{
 			eError = PVRSRVSetSystemPowerState(psDeviceNode->psDevConfig, PVRSRV_SYS_POWER_STATE_ON);
 			PVR_LOG_RETURN_IF_ERROR(eError, "PVRSRVSetSystemPowerState ON");
@@ -687,7 +696,7 @@ PVRSRV_ERROR RGXBvncInitialiseConfiguration(PVRSRV_DEVICE_NODE *psDeviceNode)
 		PVR_LOG(("Read BVNC " RGX_BVNC_STR_FMTSPEC
 				" from HW device registers", B, V, N, C));
 
-		if (!PVRSRV_VZ_MODE_IS(GUEST))
+		if (!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
 		{
 			/* Read the number of cores in the system for newer BVNC (Branch ID > 20) */
 			if (B > 20)
@@ -700,7 +709,7 @@ PVRSRV_ERROR RGXBvncInitialiseConfiguration(PVRSRV_DEVICE_NODE *psDeviceNode)
 		ui32SLCSize = _RGXBvncReadSLCSize(psDeviceNode);
 		PVR_DPF((PVR_DBG_MESSAGE, "%s: SLC Size reported as %u", __func__, ui32SLCSize));
 
-		if (bPowerDown)
+		if (!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode) && bPowerDown)
 		{
 			eError = PVRSRVSetSystemPowerState(psDeviceNode->psDevConfig, PVRSRV_SYS_POWER_STATE_OFF);
 			PVR_LOG_RETURN_IF_ERROR(eError, "PVRSRVSetSystemPowerState OFF");
@@ -713,7 +722,7 @@ PVRSRV_ERROR RGXBvncInitialiseConfiguration(PVRSRV_DEVICE_NODE *psDeviceNode)
 			pui64Cfg = RGX_SEARCH_BVNC_TABLE(gaFeatures, ui64BVNC);
 			PVR_LOG_IF_FALSE((pui64Cfg != NULL), "HW device BVNC configuration not found!");
 		}
-		else if (!PVRSRV_VZ_MODE_IS(GUEST))
+		else if (!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
 		{
 			/*
 			 * On host OS we should not get here as CORE_ID should not be zero, so flag an error.
@@ -813,7 +822,8 @@ PVRSRV_ERROR RGXBvncInitialiseConfiguration(PVRSRV_DEVICE_NODE *psDeviceNode)
 	psDevInfo->sDevFeatureCfg.ui32SLCSizeInBytes = ui32SLCSize;
 
 	/* Message to confirm configuration look up was a success */
-	if (RGX_IS_FEATURE_SUPPORTED(psDevInfo, GPU_MULTICORE_SUPPORT))
+	if (RGX_IS_FEATURE_SUPPORTED(psDevInfo, GPU_MULTICORE_SUPPORT) &&
+		!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
 	{
 #if defined(NO_HARDWARE)
 		{
@@ -944,25 +954,6 @@ PVRSRV_ERROR RGXVerifyBVNC(PVRSRV_DEVICE_NODE *psDeviceNode, IMG_UINT64 ui64Give
 		}
 #endif
 
-#if defined(SUPPORT_VALIDATION) && defined(NO_HARDWARE) && defined(PDUMP)
-		/* check upper DWORD */
-		eError = PDUMPREGPOL(psDeviceNode, RGX_PDUMPREG_NAME,
-		                     (RGX_CR_CORE_ID + 4) + (i << 16),
-		                     (IMG_UINT32)(ui64MatchBVNC >> 32),
-		                     0xFFFFFFFF,
-		                     PDUMP_FLAGS_CONTINUOUS,
-		                     PDUMP_POLL_OPERATOR_EQUAL);
-		if (eError == PVRSRV_OK)
-		{
-			/* check lower DWORD */
-			eError = PDUMPREGPOL(psDeviceNode, RGX_PDUMPREG_NAME,
-			                     RGX_CR_CORE_ID + (i << 16),
-			                     (IMG_UINT32)(ui64MatchBVNC & 0xFFFFFFFF),
-			                     0xFFFFFFFF,
-			                     PDUMP_FLAGS_CONTINUOUS,
-			                     PDUMP_POLL_OPERATOR_EQUAL);
-		}
-#endif
 	}
 
 	return eError;

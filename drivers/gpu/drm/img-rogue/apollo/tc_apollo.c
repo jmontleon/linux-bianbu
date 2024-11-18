@@ -153,13 +153,8 @@ static int spi_read(struct tc_device *tc, u32 off, u32 *val)
 	return 0;
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
-static int apollo_thermal_get_temp(struct thermal_zone_device *thermal,
-				   unsigned long *t)
-#else
 static int apollo_thermal_get_temp(struct thermal_zone_device *thermal,
 				   int *t)
-#endif
 {
 	struct tc_device *tc;
 	int err = -ENODEV;
@@ -633,9 +628,9 @@ static int apollo_hard_reset(struct tc_device *tc,
 
 		/* Register a new thermal zone */
 		apollo_pdata.thermal_zone =
-			thermal_zone_device_register("apollo", 0, 0, tc,
+			thermal_tripless_zone_device_register("apollo", tc,
 						     &apollo_thermal_dev_ops,
-						     NULL, 0, 0);
+						     NULL);
 		if (IS_ERR(apollo_pdata.thermal_zone)) {
 			dev_warn(&tc->pdev->dev, "Couldn't register thermal zone");
 			apollo_pdata.thermal_zone = NULL;
@@ -879,10 +874,69 @@ static u32 apollo_interrupt_id_to_flag(int interrupt_id)
 	}
 }
 
+/*
+ * GetMemorySize:
+ * For a given PCI phys addr and size, go through the memory to check the actual size.
+ * Do this by writing to address zero, and then checking positions in the memory to see if there
+ * is any aliasing. e.g. some devices may advertise 1GB of memory but in reality only have half of
+ * that.
+ */
+static uint64_t
+apollo_get_memory_size(struct tc_device *tc, uint64_t pci_bar_base, uint64_t pci_bar_size)
+{
+#define MEM_PROBE_VALUE 0xa5a5a5a5
+#define MEM_MAP_SIZE sizeof(uint32_t)
+	void __iomem *host_mapped_base;
+	uint32_t *mem_zero;
+	uint64_t mem_size = 0;
+
+	BUG_ON((pci_bar_size & (pci_bar_size-1)) != 0);	/* PCI BARs are always a power of 2 */
+	host_mapped_base = ioremap(pci_bar_base, MEM_MAP_SIZE);
+
+	if (host_mapped_base == NULL) {
+		dev_err(&tc->pdev->dev,
+			"%s: Cannot map PCI memory at phys 0x%llx for size 0x%llx",
+			__func__, pci_bar_base, pci_bar_size);
+	} else {
+		mem_zero = (uint32_t __force *)host_mapped_base;
+		mem_size = 1024*1024;	/* assume at least 1MB of memory */
+		while (mem_size < pci_bar_size) {
+			void __iomem *host_mapped = ioremap(pci_bar_base + mem_size, MEM_MAP_SIZE);
+			volatile uint32_t *mem_probe;
+
+			if (host_mapped == NULL) {
+				dev_err(&tc->pdev->dev,
+					"%s: Cannot map PCI memory at phys 0x%llx for size 0x%llx",
+					__func__, pci_bar_base + mem_size, pci_bar_size);
+				break;
+			}
+
+			mem_probe = (volatile uint32_t __force *)host_mapped;
+
+			/* check that the memory at offset actually exists and is not aliased */
+			*mem_probe = MEM_PROBE_VALUE;
+			*mem_zero = 0;
+			if (*mem_probe != MEM_PROBE_VALUE)
+				break;
+			*mem_probe = 0;	/* reset value */
+			mem_size <<= 1;	/* double the offset we probe each time. */
+			iounmap(host_mapped);
+		}
+		iounmap(host_mapped_base);
+		dev_info(&tc->pdev->dev,
+			"%s: Local memory size 0x%llx (PCI BAR size 0x%llx)",
+			__func__, mem_size, pci_bar_size);
+	}
+
+	return mem_size;
+}
+
 static int apollo_dev_init(struct tc_device *tc, struct pci_dev *pdev,
 			   int pdp_mem_size, int secure_mem_size)
 {
 	int err;
+	uint64_t pci_bar_size;
+	uint64_t tc_mem_size;
 
 	/* Reserve and map the tcf_clk / "sys" registers */
 	err = setup_io_region(pdev, &tc->tcf,
@@ -916,8 +970,18 @@ static int apollo_dev_init(struct tc_device *tc, struct pci_dev *pdev,
 	/* Setup card memory */
 	tc->tc_mem.base =
 		pci_resource_start(pdev, APOLLO_MEM_PCI_BASENUM);
-	tc->tc_mem.size =
-		pci_resource_len(pdev, APOLLO_MEM_PCI_BASENUM);
+
+	pci_bar_size = pci_resource_len(pdev, APOLLO_MEM_PCI_BASENUM);
+
+	tc_mem_size = apollo_get_memory_size(tc, tc->tc_mem.base, pci_bar_size);
+
+	if (tc_mem_size < pci_bar_size) {
+		dev_warn(&tc->pdev->dev,
+			"%s: Device memory region smaller than PCI BAR (got 0x%08llx, PCI BAR 0x%08llx)",
+			__func__, tc_mem_size, pci_bar_size);
+	}
+
+	tc->tc_mem.size = tc_mem_size;
 
 	if (tc->tc_mem.size < pdp_mem_size) {
 		dev_err(&pdev->dev,
@@ -1216,14 +1280,14 @@ int apollo_register_ext_device(struct tc_device *tc)
 		.dma_mask = apollo_get_rogue_dma_mask(tc),
 	};
 
-	tc->ext_dev
+	tc->ext_dev[0]
 		= platform_device_register_full(&rogue_device_info);
 
-	if (IS_ERR(tc->ext_dev)) {
-		err = PTR_ERR(tc->ext_dev);
+	if (IS_ERR(tc->ext_dev[0])) {
+		err = PTR_ERR(tc->ext_dev[0]);
 		dev_err(&tc->pdev->dev,
 			"Failed to register rogue device (%d)\n", err);
-		tc->ext_dev = NULL;
+		tc->ext_dev[0] = NULL;
 	}
 	return err;
 }
@@ -1383,11 +1447,7 @@ int apollo_sys_info(struct tc_device *tc, u32 *tmp, u32 *pll)
 		/* Not implemented on TCF5 */
 		goto err_out;
 	else if (tc->version == APOLLO_VERSION_TCF_2) {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
-		unsigned long t;
-#else
 		int t;
-#endif
 
 		err = apollo_thermal_get_temp(apollo_pdata.thermal_zone, &t);
 		if (err)

@@ -98,40 +98,29 @@ static_assert(PVRSRV_PHYS_HEAP_LAST <= (0x1FU + 1U), "Ensure enum fits in memall
 
 /*! Type conveys the class of physical heap to instantiate within Services
  * for the physical pool of memory. */
+#define PHYS_HEAP_TYPE_LIST                                                                                                                                                                                                                                           \
+	X(UNKNOWN)              /* Not a valid value for any config */                                                                                                                                                                                                    \
+	X(UMA)                  /* Heap represents OS managed physical memory heap i.e. system RAM. Unified Memory Architecture physmem_osmem PMR factory */                                                                                                              \
+	X(LMA)                  /* Heap represents physical memory pool managed by Services i.e. carve out from system RAM or local card memory. Local Memory Architecture physmem_lma PMR factory */                                                                     \
+	X(DLM)                  /* Heap represents local card memory. Used in a DLM heap (Dedicated Local Memory) system. */                                                                                                                                              \
+	X(IMA)                  /* Heap represents phys heap that imports PMBs from a DLM heap.*/                                                                                                                                                                         \
+	X(DMA)                  /* Heap represents a physical memory pool managed by Services, alias of LMA and is only used on VZ non-native system configurations for a heap used for allocations tagged with PVRSRV_PHYS_HEAP_FW_MAIN or PVRSRV_PHYS_HEAP_FW_CONFIG */ \
+	X(WRAP)                 /* Heap used to group UM buffers given to Services. Integrity OS port only. */                                                                                                                                                            \
+	X(LAST)                                                                                                                                                                                                                                                           \
+
 typedef enum _PHYS_HEAP_TYPE_
 {
-	PHYS_HEAP_TYPE_UNKNOWN = 0,     /*!< Not a valid value for any config */
-	PHYS_HEAP_TYPE_UMA,             /*!< Heap represents OS managed physical memory heap
-	                                     i.e. system RAM. Unified Memory Architecture
-	                                     physmem_osmem PMR factory */
-	PHYS_HEAP_TYPE_LMA,             /*!< Heap represents physical memory pool managed by
-	                                     Services i.e. carve out from system RAM or local
-	                                     card memory. Local Memory Architecture
-	                                     physmem_lma PMR factory */
-#if defined(__KERNEL__)
-	PHYS_HEAP_TYPE_DMA,             /*!< Heap represents a physical memory pool managed by
-	                                     Services, alias of LMA and is only used on
-	                                     VZ non-native system configurations for
-	                                     a heap used for allocations tagged with
-	                                     PVRSRV_PHYS_HEAP_FW_MAIN or
-	                                     PVRSRV_PHYS_HEAP_FW_CONFIG */
-#if defined(SUPPORT_WRAP_EXTMEMOBJECT)
-	PHYS_HEAP_TYPE_WRAP,            /*!< Heap used to group UM buffers given
-	                                     to Services. Integrity OS port only. */
-#endif
-#endif
+#define X(_name) PHYS_HEAP_TYPE_ ## _name,
+	PHYS_HEAP_TYPE_LIST
+#undef X
+
 } PHYS_HEAP_TYPE;
 
 /* Defines used when interpreting the ui32PhysHeapFlags in PHYS_HEAP_MEM_STATS
-     0x000000000000dttt
+     0x000000000000000d
      d = is this the default heap? (1=yes, 0=no)
-   ttt = heap type (000 = PHYS_HEAP_TYPE_UNKNOWN,
-                    001 = PHYS_HEAP_TYPE_UMA,
-                    010 = PHYS_HEAP_TYPE_LMA,
-                    011 = PHYS_HEAP_TYPE_DMA)
 */
-#define PVRSRV_PHYS_HEAP_FLAGS_TYPE_MASK  (0x7U << 0)
-#define PVRSRV_PHYS_HEAP_FLAGS_IS_DEFAULT (0x1U << 7)
+#define PVRSRV_PHYS_HEAP_FLAGS_IS_DEFAULT (0x1U)
 
 /* Force PHYS_HEAP_MEM_STATS size to be a multiple of 8 bytes
  * (as type is a parameter in bridge calls)
@@ -141,7 +130,7 @@ typedef struct PHYS_HEAP_MEM_STATS_TAG
 	IMG_UINT64	ui64TotalSize;
 	IMG_UINT64	ui64FreeSize;
 	IMG_UINT32	ui32PhysHeapFlags;
-	IMG_UINT32	ui32UnusedPadding;
+	PHYS_HEAP_TYPE	ePhysHeapType;
 }PHYS_HEAP_MEM_STATS, *PHYS_HEAP_MEM_STATS_PTR;
 
 #if defined(PHYSHEAP_STRINGS)
@@ -162,17 +151,14 @@ static const char *const _pszPhysHeapStrings[] = {
 */ /**************************************************************************/
 static inline const IMG_CHAR *PVRSRVGetClientPhysHeapTypeName(PHYS_HEAP_TYPE ePhysHeapType)
 {
-#define HEAPSTR(x) #x
 	switch (ePhysHeapType)
 	{
-		case PHYS_HEAP_TYPE_UMA:
-			return HEAPSTR(PHYS_HEAP_TYPE_UMA);
-		case PHYS_HEAP_TYPE_LMA:
-			return HEAPSTR(PHYS_HEAP_TYPE_LMA);
+#define X(_name) case PHYS_HEAP_TYPE_ ## _name: return "PHYS_HEAP_TYPE_" # _name;
+		PHYS_HEAP_TYPE_LIST
+#undef X
 		default:
 			return "Unknown Heap Type";
 	}
-#undef HEAPSTR
 }
 
 /*************************************************************************/ /*!
