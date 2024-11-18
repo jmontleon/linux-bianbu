@@ -48,33 +48,141 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * Any new code should be built on top of the existing abstraction layer,
  * which should be extended when necessary. */
 #include "rgxstartstop.h"
-#include "rgxfwutils.h"
-
-#if defined(SUPPORT_SHARED_SLC)
-#include "rgxapi_km.h"
-#endif
-
-#include "rgxdevice.h"
-#include "km/rgxdefs_km.h"
 
 #define SOC_FEATURE_STRICT_SAME_ADDRESS_WRITE_ORDERING
 
-
-/*!
-*******************************************************************************
-
- @Function      RGXEnableClocks
-
- @Description   Enable RGX Clocks
-
- @Input         hPrivate  : Implementation specific data
-
- @Return        void
-
-******************************************************************************/
-static void RGXEnableClocks(const void *hPrivate)
+/*
+	RGXWriteMetaRegThroughSP
+*/
+PVRSRV_ERROR RGXWriteMetaRegThroughSP(const void *hPrivate,
+                                      IMG_UINT32 ui32RegAddr,
+                                      IMG_UINT32 ui32RegValue)
 {
-	RGXCommentLog(hPrivate, "RGX clock: use default (automatic clock gating)");
+	PVRSRV_ERROR eError = PVRSRV_OK;
+	IMG_UINT32 ui32StateReg, ui32StateReadyFlag;
+	IMG_UINT32 ui32CtrlReg, ui32DataReg;
+
+#if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
+	if (RGX_DEVICE_HAS_FEATURE(hPrivate, META_REGISTER_UNPACKED_ACCESSES))
+	{
+		/* ensure the meta_registers_unpacked_accesses auto-increment feature is not used */
+		BITMASK_UNSET(ui32RegAddr, RGX_CR_META_SP_MSLVCTRL0_AUTOINCR_EN);
+
+		if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, HOST_SECURITY_VERSION) > 1)
+		{
+			ui32StateReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_GT1_AND_MRUA;
+			ui32StateReadyFlag = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_GT1_AND_MRUA__READY_EN |
+								 RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_GT1_AND_MRUA__GBLPORT_IDLE_EN;
+			ui32CtrlReg = RGX_CR_META_SP_MSLVCTRL0__HOST_SECURITY_GT1_AND_MRUA;
+			ui32DataReg = RGX_CR_META_SP_MSLVDATAT__HOST_SECURITY_GT1_AND_MRUA;
+		}
+		else
+		{
+			ui32StateReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA;
+			ui32StateReadyFlag = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA__READY_EN |
+								 RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA__GBLPORT_IDLE_EN;
+			ui32CtrlReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA;
+			ui32DataReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA;
+		}
+	}
+	else
+#endif
+	{
+		ui32StateReg = RGX_CR_META_SP_MSLVCTRL1;
+		ui32StateReadyFlag = RGX_CR_META_SP_MSLVCTRL1_READY_EN |
+							 RGX_CR_META_SP_MSLVCTRL1_GBLPORT_IDLE_EN;
+		ui32CtrlReg = RGX_CR_META_SP_MSLVCTRL0;
+		ui32DataReg = RGX_CR_META_SP_MSLVDATAT;
+	}
+
+	eError = RGXPollReg32(hPrivate, ui32StateReg, ui32StateReadyFlag, ui32StateReadyFlag);
+
+	if (eError == PVRSRV_OK)
+	{
+		/* Issue a Write */
+		RGXWriteReg32(hPrivate, ui32CtrlReg, ui32RegAddr);
+		(void) RGXReadReg32(hPrivate, ui32CtrlReg); /* Fence write */
+		RGXWriteReg32(hPrivate, ui32DataReg, ui32RegValue);
+		(void) RGXReadReg32(hPrivate, ui32DataReg); /* Fence write */
+	}
+
+	return eError;
+}
+
+/*
+	RGXReadMetaRegThroughSP
+*/
+PVRSRV_ERROR RGXReadMetaRegThroughSP(const void *hPrivate,
+                                     IMG_UINT32 ui32RegAddr,
+                                     IMG_UINT32* ui32RegValue)
+{
+	PVRSRV_ERROR eError = PVRSRV_OK;
+	IMG_UINT32 ui32StateReg, ui32StateReadyFlag;
+	IMG_UINT32 ui32CtrlReg, ui32DataReg;
+
+#if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
+	if (RGX_DEVICE_HAS_FEATURE(hPrivate, META_REGISTER_UNPACKED_ACCESSES))
+	{
+		/* ensure the meta_registers_unpacked_accesses auto-increment feature is not used */
+		BITMASK_UNSET(ui32RegAddr, RGX_CR_META_SP_MSLVCTRL0_AUTOINCR_EN);
+
+		if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, HOST_SECURITY_VERSION) > 1)
+		{
+			ui32StateReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_GT1_AND_MRUA;
+			ui32StateReadyFlag = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_GT1_AND_MRUA__READY_EN |
+								 RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_GT1_AND_MRUA__GBLPORT_IDLE_EN;
+			ui32CtrlReg = RGX_CR_META_SP_MSLVCTRL0__HOST_SECURITY_GT1_AND_MRUA;
+			ui32DataReg = RGX_CR_META_SP_MSLVDATAX__HOST_SECURITY_GT1_AND_MRUA;
+			BITMASK_SET(ui32RegAddr, RGX_CR_META_SP_MSLVCTRL0__HOST_SECURITY_GT1_AND_MRUA__RD_EN);
+		}
+		else
+		{
+			ui32StateReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA;
+			ui32StateReadyFlag = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA__READY_EN |
+								 RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA__GBLPORT_IDLE_EN;
+			ui32CtrlReg = RGX_CR_META_SP_MSLVCTRL1__HOST_SECURITY_EQ1_AND_MRUA;
+			ui32DataReg = RGX_CR_META_SP_MSLVDATAX__HOST_SECURITY_EQ1_AND_MRUA;
+			BITMASK_SET(ui32RegAddr, RGX_CR_META_SP_MSLVCTRL0__HOST_SECURITY_EQ1_AND_MRUA__RD_EN);
+		}
+	}
+	else
+#endif
+	{
+		ui32StateReg = RGX_CR_META_SP_MSLVCTRL1;
+		ui32StateReadyFlag = RGX_CR_META_SP_MSLVCTRL1_READY_EN |
+							 RGX_CR_META_SP_MSLVCTRL1_GBLPORT_IDLE_EN;
+		ui32CtrlReg = RGX_CR_META_SP_MSLVCTRL0;
+		ui32DataReg = RGX_CR_META_SP_MSLVDATAX;
+		BITMASK_SET(ui32RegAddr, RGX_CR_META_SP_MSLVCTRL0_RD_EN);
+	}
+
+	/* Wait for Slave Port to be Ready */
+	eError = RGXPollReg32(hPrivate,
+						  ui32StateReg,
+						  ui32StateReadyFlag,
+						  ui32StateReadyFlag);
+	if (eError == PVRSRV_OK)
+	{
+		/* Issue a Read */
+		RGXWriteReg32(hPrivate, ui32CtrlReg, ui32RegAddr);
+		(void) RGXReadReg32(hPrivate, ui32CtrlReg); /* Fence write */
+
+		/* Wait for Slave Port to be Ready */
+		eError = RGXPollReg32(hPrivate,
+				  ui32StateReg,
+				  ui32StateReadyFlag,
+				  ui32StateReadyFlag);
+		if (eError != PVRSRV_OK) return eError;
+	}
+
+#if !defined(NO_HARDWARE)
+	*ui32RegValue = RGXReadReg32(hPrivate, ui32DataReg);
+#else
+	PVR_UNREFERENCED_PARAMETER(ui32DataReg);
+	*ui32RegValue = 0xFFFFFFFF;
+#endif
+
+	return eError;
 }
 
 static PVRSRV_ERROR RGXWriteMetaCoreRegThoughSP(const void *hPrivate,
@@ -143,22 +251,11 @@ static void RGXInitMetaProcWrapper(const void *hPrivate)
 {
 	IMG_UINT64 ui64GartenConfig;
 
-	/* Set Garten IDLE to META idle and Set the Garten Wrapper BIF Fence address */
-
 	/* Garten IDLE bit controlled by META */
 	ui64GartenConfig = RGX_CR_MTS_GARTEN_WRAPPER_CONFIG_IDLE_CTRL_META;
 
-	/* The fence addr is set at the fw init sequence */
-
-	if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
-	{
-		/* Set PC = 0 for fences */
-		ui64GartenConfig &= RGX_CR_MTS_GARTEN_WRAPPER_CONFIG__S7_INFRA__FENCE_PC_BASE_CLRMSK;
-		ui64GartenConfig |= (IMG_UINT64)MMU_CONTEXT_MAPPING_FWPRIV
-		                    << RGX_CR_MTS_GARTEN_WRAPPER_CONFIG__S7_INFRA__FENCE_PC_BASE_SHIFT;
-
-	}
-	else
+#if defined(RGX_CR_MTS_GARTEN_WRAPPER_CONFIG__S7_INFRA__FENCE_PC_BASE_SHIFT)
+	/* Set the Garten Wrapper BIF Fence address */
 	{
 		/* Set PC = 0 for fences */
 		ui64GartenConfig &= RGX_CR_MTS_GARTEN_WRAPPER_CONFIG_FENCE_PC_BASE_CLRMSK;
@@ -168,6 +265,7 @@ static void RGXInitMetaProcWrapper(const void *hPrivate)
 		/* Set SLC DM=META */
 		ui64GartenConfig |= ((IMG_UINT64) RGXFW_SEGMMU_META_BIFDM_ID) << RGX_CR_MTS_GARTEN_WRAPPER_CONFIG_FENCE_DM_SHIFT;
 	}
+#endif
 
 	RGXCommentLog(hPrivate, "RGXStart: Configure META wrapper");
 	RGXWriteReg64(hPrivate, RGX_CR_MTS_GARTEN_WRAPPER_CONFIG, ui64GartenConfig);
@@ -374,10 +472,6 @@ static void RGXInitMipsProcWrapper(const void *hPrivate)
 ******************************************************************************/
 static void RGXInitRiscvProcWrapper(const void *hPrivate)
 {
-#if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
-	RGX_LAYER_PARAMS *psParams = (RGX_LAYER_PARAMS*)hPrivate;
-	PVRSRV_RGXDEV_INFO *psDevInfo = psParams->psDevInfo;
-#endif
 	IMG_UINT32 ui32BootCodeRemap = RGXRISCVFW_BOOTLDR_CODE_REMAP;
 	IMG_UINT32 ui32BootDataRemap = RGXRISCVFW_BOOTLDR_DATA_REMAP;
 	IMG_DEV_VIRTADDR sTmp;
@@ -385,7 +479,7 @@ static void RGXInitRiscvProcWrapper(const void *hPrivate)
 	RGXCommentLog(hPrivate, "RGXStart: Configure RISCV wrapper");
 
 #if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
-	if (RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) < 4)
+	if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, HOST_SECURITY_VERSION) < 4)
 #endif
 	{
 		RGXCommentLog(hPrivate, "RGXStart: Write boot code remap");
@@ -406,7 +500,7 @@ static void RGXInitRiscvProcWrapper(const void *hPrivate)
 		              (IMG_UINT64) (RGX_FIRMWARE_RAW_HEAP_SIZE >> FWCORE_ADDR_REMAP_CONFIG0_SIZE_ALIGNSHIFT)
 		                << RGX_CR_FWCORE_ADDR_REMAP_CONFIG0_SIZE_SHIFT |
 		              (IMG_UINT64) MMU_CONTEXT_MAPPING_FWPRIV << FWCORE_ADDR_REMAP_CONFIG0_MMU_CONTEXT_SHIFT |
-#if defined(SUPPORT_TRUSTED_DEVICE)
+#if defined(SUPPORT_TRUSTED_DEVICE) && defined(RGX_CR_FWCORE_ADDR_REMAP_CONFIG0_TRUSTED_EN)
 		              RGX_CR_FWCORE_ADDR_REMAP_CONFIG0_TRUSTED_EN |
 #endif
 		              RGX_CR_FWCORE_ADDR_REMAP_CONFIG0_LOAD_STORE_EN_EN);
@@ -432,74 +526,6 @@ static void RGXInitRiscvProcWrapper(const void *hPrivate)
 ******************************************************************************/
 static void __RGXInitSLC(const void *hPrivate)
 {
-	if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_CACHE_HIERARCHY))
-	{
-		IMG_UINT32 ui32Reg;
-		IMG_UINT32 ui32RegVal;
-
-		/*
-		 * SLC control
-		 */
-		ui32Reg = RGX_CR_SLC3_CTRL_MISC;
-		ui32RegVal = RGX_CR_SLC3_CTRL_MISC_ADDR_DECODE_MODE_SCRAMBLE_PVR_HASH |
-		    RGX_CR_SLC3_CTRL_MISC_WRITE_COMBINER_EN;
-		RGXWriteReg32(hPrivate, ui32Reg, ui32RegVal);
-
-		/*
-		 * SLC scramble bits
-		 */
-		{
-		    IMG_UINT32 i;
-		    IMG_UINT32 ui32Count=0;
-		    IMG_UINT32 ui32SLCBanks = RGXGetDeviceSLCBanks(hPrivate);
-		    IMG_UINT64 aui64ScrambleValues[4];
-		    IMG_UINT32 aui32ScrambleRegs[] = {
-			RGX_CR_SLC3_SCRAMBLE,
-			RGX_CR_SLC3_SCRAMBLE2,
-			RGX_CR_SLC3_SCRAMBLE3,
-			RGX_CR_SLC3_SCRAMBLE4
-		    };
-
-		    if (2 == ui32SLCBanks)
-		    {
-			aui64ScrambleValues[0] = IMG_UINT64_C(0x6965a99a55696a6a);
-			aui64ScrambleValues[1] = IMG_UINT64_C(0x6aa9aa66959aaa9a);
-			aui64ScrambleValues[2] = IMG_UINT64_C(0x9a5665965a99a566);
-			aui64ScrambleValues[3] = IMG_UINT64_C(0x5aa69596aa66669a);
-			ui32Count = 4;
-		    }
-		    else if (4 == ui32SLCBanks)
-		    {
-			aui64ScrambleValues[0] = IMG_UINT64_C(0xc6788d722dd29ce4);
-			aui64ScrambleValues[1] = IMG_UINT64_C(0x7272e4e11b279372);
-			aui64ScrambleValues[2] = IMG_UINT64_C(0x87d872d26c6c4be1);
-			aui64ScrambleValues[3] = IMG_UINT64_C(0xe1b4878d4b36e478);
-			ui32Count = 4;
-
-		    }
-		    else if (8 == ui32SLCBanks)
-		    {
-			aui64ScrambleValues[0] = IMG_UINT64_C(0x859d6569e8fac688);
-			aui64ScrambleValues[1] = IMG_UINT64_C(0xf285e1eae4299d33);
-			aui64ScrambleValues[2] = IMG_UINT64_C(0x1e1af2be3c0aa447);
-			ui32Count = 3;
-		    }
-
-		    for (i = 0; i < ui32Count; i++)
-		    {
-			IMG_UINT32 ui32Reg = aui32ScrambleRegs[i];
-			IMG_UINT64 ui64Value = aui64ScrambleValues[i];
-			RGXWriteReg64(hPrivate, ui32Reg, ui64Value);
-		    }
-		}
-
-		{
-			/* Disable the forced SLC coherency which the hardware enables for compatibility with older pdumps */
-			RGXCommentLog(hPrivate, "Disable forced SLC coherency");
-			RGXWriteReg64(hPrivate, RGX_CR_GARTEN_SLC, 0);
-		}
-	}
-	else
 	{
 		IMG_UINT32 ui32Reg;
 		IMG_UINT32 ui32RegVal;
@@ -556,6 +582,11 @@ static void __RGXInitSLC(const void *hPrivate)
 			ui32RegVal |= RGX_CR_SLC_CTRL_MISC_BYPASS_BURST_COMBINER_EN;
 		}
 
+		if (RGX_DEVICE_HAS_BRN(hPrivate, 71242) && !RGX_DEVICE_HAS_FEATURE(hPrivate, GPU_MULTICORE_SUPPORT))
+		{
+			ui32RegVal |= RGX_CR_SLC_CTRL_MISC_LAZYWB_OVERRIDE_EN;
+		}
+
 		RGXWriteReg32(hPrivate, ui32Reg, ui32RegVal);
 	}
 }
@@ -563,45 +594,6 @@ static void __RGXInitSLC(const void *hPrivate)
 
 static void RGXWriteKernelCatBase(const void *hPrivate, IMG_DEV_PHYADDR sPCAddr)
 {
-	IMG_UINT32 uiPCAddr;
-
-#if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
-	RGX_LAYER_PARAMS *psParams = (RGX_LAYER_PARAMS*)hPrivate;
-	PVRSRV_RGXDEV_INFO *psDevInfo = psParams->psDevInfo;
-
-	if (RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) > 1)
-	{
-		IMG_UINT32 ui32CBaseMapCtxReg = RGX_CR_MMU_CBASE_MAPPING_CONTEXT__HOST_SECURITY_GT1_AND_MHPW_LT6_AND_MMU_VER_GEQ4;
-
-		uiPCAddr = (((sPCAddr.uiAddr >> RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_ALIGNSHIFT)
-		             << RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_SHIFT)
-		            & ~RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_CLRMSK);
-
-		/* Set the mapping context */
-		RGXWriteReg32(hPrivate, ui32CBaseMapCtxReg, MMU_CONTEXT_MAPPING_FWPRIV);
-		(void)RGXReadReg32(hPrivate, ui32CBaseMapCtxReg); /* Fence write */
-
-		/* Write the cat-base address */
-		RGXWriteKernelMMUPC32(hPrivate,
-		                      RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1,
-		                      RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_ALIGNSHIFT,
-		                      RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_SHIFT,
-		                      uiPCAddr);
-
-#if (MMU_CONTEXT_MAPPING_FWIF != MMU_CONTEXT_MAPPING_FWPRIV)
-		/* Set-up different MMU ID mapping to the same PC used above */
-		RGXWriteReg32(hPrivate, ui32CBaseMapCtxReg, MMU_CONTEXT_MAPPING_FWIF);
-		(void)RGXReadReg32(hPrivate, ui32CBaseMapCtxReg); /* Fence write */
-
-		RGXWriteKernelMMUPC32(hPrivate,
-		                      RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1,
-		                      RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_ALIGNSHIFT,
-		                      RGX_CR_MMU_CBASE_MAPPING__HOST_SECURITY_GT1__BASE_ADDR_SHIFT,
-		                      uiPCAddr);
-#endif
-	}
-#else /* defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX) */
-	if (!RGX_DEVICE_HAS_FEATURE(hPrivate, SLC_VIVT))
 	{
 		/* Write the cat-base address */
 		RGXWriteKernelMMUPC64(hPrivate,
@@ -632,36 +624,6 @@ static void RGXWriteKernelCatBase(const void *hPrivate, IMG_DEV_PHYADDR sPCAddr)
 #if defined(SUPPORT_TRUSTED_DEVICE)
 		RGXCommentLog(hPrivate, "RGXWriteKernelCatBase: Trusted Device enabled");
 		RGXWriteReg32(hPrivate, RGX_CR_BIF_TRUST, RGX_CR_BIF_TRUST_ENABLE_EN);
-#endif
-	}
-#endif /* defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX) */
-	else
-	{
-		uiPCAddr = (((sPCAddr.uiAddr >> RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_ALIGNSHIFT)
-		             << RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_SHIFT)
-		            & ~RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_CLRMSK);
-
-		/* Set the mapping context */
-		RGXWriteReg32(hPrivate, RGX_CR_MMU_CBASE_MAPPING_CONTEXT, MMU_CONTEXT_MAPPING_FWPRIV);
-		(void)RGXReadReg32(hPrivate, RGX_CR_MMU_CBASE_MAPPING_CONTEXT); /* Fence write */
-
-		/* Write the cat-base address */
-		RGXWriteKernelMMUPC32(hPrivate,
-		                      RGX_CR_MMU_CBASE_MAPPING,
-		                      RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_ALIGNSHIFT,
-		                      RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_SHIFT,
-		                      uiPCAddr);
-
-#if (MMU_CONTEXT_MAPPING_FWIF != MMU_CONTEXT_MAPPING_FWPRIV)
-		/* Set-up different MMU ID mapping to the same PC used above */
-		RGXWriteReg32(hPrivate, RGX_CR_MMU_CBASE_MAPPING_CONTEXT, MMU_CONTEXT_MAPPING_FWIF);
-		(void)RGXReadReg32(hPrivate, RGX_CR_MMU_CBASE_MAPPING_CONTEXT); /* Fence write */
-
-		RGXWriteKernelMMUPC32(hPrivate,
-		                      RGX_CR_MMU_CBASE_MAPPING,
-		                      RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_ALIGNSHIFT,
-		                      RGX_CR_MMU_CBASE_MAPPING_BASE_ADDR_SHIFT,
-		                      uiPCAddr);
 #endif
 	}
 }
@@ -711,23 +673,46 @@ static void RGXInitBIF(const void *hPrivate)
 }
 
 
+#if defined(RGX_FEATURE_MMU_VERSION_MAX_VALUE_IDX)
+/**************************************************************************/ /*!
+@Function       RGXInitMMURangeRegisters
+@Description    Initialises MMU range registers for Non4K pages.
+@Input          hPrivate           Implementation specific data
+@Return         void
+ */ /**************************************************************************/
+static void RGXInitMMURangeRegisters(const void *hPrivate)
+{
+	RGX_LAYER_PARAMS *psParams = (RGX_LAYER_PARAMS*)hPrivate;
+	PVRSRV_RGXDEV_INFO *psDevInfo = psParams->psDevInfo;
+	IMG_UINT32 ui32RegAddr = RGX_CR_MMU_PAGE_SIZE_RANGE_ONE;
+	IMG_UINT32 i;
+
+	for (i = 0; i < ARRAY_SIZE(psDevInfo->aui64MMUPageSizeRangeValue); ++i, ui32RegAddr += sizeof(IMG_UINT64))
+	{
+		RGXWriteReg64(hPrivate, ui32RegAddr, psDevInfo->aui64MMUPageSizeRangeValue[i]);
+	}
+}
+#endif
+
+
 /*!
 *******************************************************************************
 
- @Function      RGXAXIACELiteInit
+ @Function      RGXInitAXIACE
 
- @Description   Initialise AXI-ACE Lite interface
+ @Description    Initialise AXI-ACE interface
 
  @Input         hPrivate : Implementation specific data
 
  @Return        void
 
 ******************************************************************************/
-static void RGXAXIACELiteInit(const void *hPrivate)
+static void RGXInitAXIACE(const void *hPrivate)
 {
-	IMG_UINT32 ui32RegAddr;
 	IMG_UINT64 ui64RegVal;
+	IMG_UINT32 ui32RegAddr;
 
+#if defined(RGX_FEATURE_AXI_ACELITE_BIT_MASK)
 	ui32RegAddr = RGX_CR_AXI_ACE_LITE_CONFIGURATION;
 
 	/* Setup AXI-ACE config. Set everything to outer cache */
@@ -754,15 +739,99 @@ static void RGXAXIACELiteInit(const void *hPrivate)
 		ui64RegVal |= (IMG_UINT64)1 << RGX_CR_AXI_ACE_LITE_CONFIGURATION_ENABLE_FENCE_OUT_SHIFT;
 	}
 #endif
+#else /* defined(RGX_FEATURE_AXI_ACELITE_BIT_MASK) */
+	ui32RegAddr = RGX_CR_ACE_CTRL;
+
+	/**
+	 * The below configuration is only applicable for RGX cores supporting
+	 * ACE/ACE-lite protocol and connected to ACE coherent interconnect.
+	 */
+
+	/**
+	 * Configure AxDomain and AxCache for MMU transactions.
+	 * AxDomain set to non sharable (0x0).
+	 */
+	ui64RegVal = RGX_CR_ACE_CTRL_MMU_AWCACHE_WRITE_BACK_WRITE_ALLOCATE |
+				 RGX_CR_ACE_CTRL_MMU_ARCACHE_WRITE_BACK_READ_ALLOCATE;
+
+	/**
+	 * Configure AxCache for PM/MMU transactions.
+	 * Set to same value (i.e WBRWALLOC caching, rgxmmunit.c:RGXDerivePTEProt8)
+	 * as non-coherent PTEs
+	 */
+	ui64RegVal |= (IMG_UINT64_C(0xF)) << RGX_CR_ACE_CTRL_PM_MMU_AXCACHE_SHIFT;
+
+	/**
+	 * Configure AxDomain for non MMU transactions.
+	 */
+	ui64RegVal |= (IMG_UINT64)(RGX_CR_ACE_CTRL_COH_DOMAIN_OUTER_SHAREABLE |
+							   RGX_CR_ACE_CTRL_NON_COH_DOMAIN_NON_SHAREABLE);
+#endif /* defined(RGX_FEATURE_AXI_ACELITE_BIT_MASK) */
 
 	RGXCommentLog(hPrivate, "Init AXI-ACE interface");
 	RGXWriteReg64(hPrivate, ui32RegAddr, ui64RegVal);
 }
 
+static void RGXResetSequence(const void *hPrivate, const IMG_CHAR *pcRGXFW_PROCESSOR)
+{
+	IMG_UINT64 ui64SoftResetMask;
+
+#if defined(RGX_CR_SOFT_RESET__PBE2_XE__MASKFULL)
+	if (RGX_DEVICE_HAS_FEATURE(hPrivate, PBE2_IN_XE))
+	{
+		ui64SoftResetMask = RGX_CR_SOFT_RESET__PBE2_XE__MASKFULL;
+	}
+	else
+#endif
+	{
+		ui64SoftResetMask = RGX_CR_SOFT_RESET_MASKFULL;
+	}
+
+	if (RGX_DEVICE_HAS_FEATURE(hPrivate, RISCV_FW_PROCESSOR))
+	{
+		RGXCommentLog(hPrivate, "RGXStart: soft reset cpu core");
+		RGXWriteReg32(hPrivate, RGX_CR_FWCORE_BOOT, 0);
+	}
+
+	{
+		/* Set RGX in soft-reset */
+		RGXCommentLog(hPrivate, "RGXStart: soft reset everything");
+		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, ui64SoftResetMask);
+
+		/* Read soft-reset to fence previous write in order to clear the SOCIF pipeline */
+		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
+
+		/* Take Rascal and Dust out of reset */
+		RGXCommentLog(hPrivate, "RGXStart: Rascal and Dust out of reset");
+		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, ui64SoftResetMask ^ RGX_CR_SOFT_RESET_RASCALDUSTS_EN);
+
+		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
+
+		/* Take everything out of reset but the FW processor */
+		RGXCommentLog(hPrivate, "RGXStart: Take everything out of reset but %s", pcRGXFW_PROCESSOR);
+
+		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_CR_SOFT_RESET_GARTEN_EN);
+
+		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
+	}
+}
+
+static void DeassertMetaReset(const void *hPrivate)
+{
+	/* Need to wait for at least 32 cycles before taking the FW processor out of reset ... */
+	RGXWaitCycles(hPrivate, 32, 3);
+
+	RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, 0x0);
+	(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
+
+	/* ... and afterwards */
+	RGXWaitCycles(hPrivate, 32, 3);
+}
+
 PVRSRV_ERROR RGXStart(const void *hPrivate)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	IMG_CHAR *pcRGXFW_PROCESSOR = RGXFW_PROCESSOR_MIPS;
+	IMG_CHAR *pcRGXFW_PROCESSOR;
 	IMG_BOOL bDoFWSlaveBoot = IMG_FALSE;
 	IMG_BOOL bMetaFW = IMG_FALSE;
 
@@ -770,7 +839,13 @@ PVRSRV_ERROR RGXStart(const void *hPrivate)
 	{
 		pcRGXFW_PROCESSOR = RGXFW_PROCESSOR_RISCV;
 	}
-	else if (RGX_DEVICE_HAS_FEATURE_VALUE(hPrivate, META))
+#if defined(RGX_FEATURE_MIPS_BIT_MASK)
+	else if (RGX_DEVICE_HAS_FEATURE(hPrivate, MIPS))
+	{
+		pcRGXFW_PROCESSOR = RGXFW_PROCESSOR_MIPS;
+	}
+#endif
+	else
 	{
 		pcRGXFW_PROCESSOR = RGXFW_PROCESSOR_META;
 		bMetaFW = IMG_TRUE;
@@ -785,87 +860,25 @@ PVRSRV_ERROR RGXStart(const void *hPrivate)
 		(void) RGXReadReg32(hPrivate, RGX_CR_SYS_BUS_SECURE); /* Fence write */
 	}
 
-#if defined(SUPPORT_SHARED_SLC)
-	/* When the SLC is shared, the SLC reset is performed by the System layer when calling
-	 * RGXInitSLC (before any device uses it), therefore mask out the SLC bit to avoid
-	 * soft_resetting it here.
+#if defined(RGX_FEATURE_HYPERVISOR_MMU_BIT_MASK)
+	/* Only bypass HMMU if the module is present */
+	if (RGX_DEVICE_HAS_FEATURE(hPrivate, HYPERVISOR_MMU))
+	{
+		/* Always set HMMU in bypass mode */
+		RGXWriteReg32(hPrivate, RGX_CR_HMMU_BYPASS, RGX_CR_HMMU_BYPASS_MASKFULL);
+		(void) RGXReadReg32(hPrivate, RGX_CR_HMMU_BYPASS);
+	}
+#endif
+
+	/*!
+	 * Start FW init sequence
 	 */
-#define RGX_CR_SOFT_RESET_ALL  (RGX_CR_SOFT_RESET_MASKFULL ^ RGX_CR_SOFT_RESET_SLC_EN)
-	RGXCommentLog(hPrivate, "RGXStart: Shared SLC (don't reset SLC as part of RGX reset)");
-#else
-#define RGX_CR_SOFT_RESET_ALL  (RGX_CR_SOFT_RESET_MASKFULL)
-#endif
-
-	if (RGX_DEVICE_HAS_FEATURE(hPrivate, RISCV_FW_PROCESSOR))
-	{
-		RGXCommentLog(hPrivate, "RGXStart: soft reset cpu core");
-		RGXWriteReg32(hPrivate, RGX_CR_FWCORE_BOOT, 0);
-	}
-
-#if defined(RGX_S7_SOFT_RESET_DUSTS)
-	if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
-	{
-		/* Set RGX in soft-reset */
-		RGXCommentLog(hPrivate, "RGXStart: soft reset assert step 1");
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_S7_SOFT_RESET_DUSTS);
-
-		/* Read soft-reset to fence previous write in order to clear the SOCIF pipeline */
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET2);
-
-		RGXCommentLog(hPrivate, "RGXStart: soft reset assert step 2");
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_S7_SOFT_RESET_JONES_ALL | RGX_S7_SOFT_RESET_DUSTS);
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET2, RGX_S7_SOFT_RESET2);
-
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET2);
-
-		/* Take everything out of reset but the FW processor */
-		RGXCommentLog(hPrivate, "RGXStart: soft reset de-assert step 1 excluding %s", pcRGXFW_PROCESSOR);
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_S7_SOFT_RESET_DUSTS | RGX_CR_SOFT_RESET_GARTEN_EN);
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET2, 0x0);
-
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET2);
-
-		RGXCommentLog(hPrivate, "RGXStart: soft reset de-assert step 2 excluding %s", pcRGXFW_PROCESSOR);
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_CR_SOFT_RESET_GARTEN_EN);
-
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-	}
-	else
-#endif
-	{
-		/* Set RGX in soft-reset */
-		RGXCommentLog(hPrivate, "RGXStart: soft reset everything");
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_CR_SOFT_RESET_ALL);
-
-		/* Read soft-reset to fence previous write in order to clear the SOCIF pipeline */
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-
-		/* Take Rascal and Dust out of reset */
-		RGXCommentLog(hPrivate, "RGXStart: Rascal and Dust out of reset");
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_CR_SOFT_RESET_ALL ^ RGX_CR_SOFT_RESET_RASCALDUSTS_EN);
-
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-
-		/* Take everything out of reset but the FW processor */
-		RGXCommentLog(hPrivate, "RGXStart: Take everything out of reset but %s", pcRGXFW_PROCESSOR);
-
-		RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, RGX_CR_SOFT_RESET_GARTEN_EN);
-
-		(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-	}
-
-	/* Enable clocks */
-	RGXEnableClocks(hPrivate);
+	RGXResetSequence(hPrivate, pcRGXFW_PROCESSOR);
 
 	/*
 	 * Initialise SLC.
 	 */
-#if !defined(SUPPORT_SHARED_SLC)
 	__RGXInitSLC(hPrivate);
-#endif
 
 	if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, ECC_RAMS) > 0)
 	{
@@ -908,10 +921,20 @@ PVRSRV_ERROR RGXStart(const void *hPrivate)
 	}
 #endif
 
+#if defined(RGX_FEATURE_MMU_VERSION_MAX_VALUE_IDX)
+	if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, MMU_VERSION) >= 4)
+	{
+		/* initialise the MMU range based config registers for Non4K pages */
+		RGXInitMMURangeRegisters(hPrivate);
+	}
+#endif
+
+#if defined(RGX_FEATURE_AXI_ACELITE_BIT_MASK)
 	if (RGX_DEVICE_HAS_FEATURE(hPrivate, AXI_ACELITE))
+#endif
 	{
 		/* We must init the AXI-ACE interface before 1st BIF transaction */
-		RGXAXIACELiteInit(hPrivate);
+		RGXInitAXIACE(hPrivate);
 	}
 
 	/*
@@ -922,15 +945,7 @@ PVRSRV_ERROR RGXStart(const void *hPrivate)
 	RGXSetPoweredState(hPrivate, IMG_TRUE);
 
 	RGXCommentLog(hPrivate, "RGXStart: Take %s out of reset", pcRGXFW_PROCESSOR);
-
-	/* Need to wait for at least 32 cycles before taking the FW processor out of reset ... */
-	RGXWaitCycles(hPrivate, 32, 3);
-
-	RGXWriteReg64(hPrivate, RGX_CR_SOFT_RESET, 0x0);
-	(void) RGXReadReg64(hPrivate, RGX_CR_SOFT_RESET);
-
-	/* ... and afterwards */
-	RGXWaitCycles(hPrivate, 32, 3);
+	DeassertMetaReset(hPrivate);
 
 	if (bMetaFW && bDoFWSlaveBoot)
 	{
@@ -951,7 +966,7 @@ PVRSRV_ERROR RGXStart(const void *hPrivate)
 #if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
 			if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, HOST_SECURITY_VERSION) >= 4)
 			{
-				RGXWriteReg32(hPrivate, RGX_CR_FWCORE_DMI_DMCONTROL__RISCV_AND_HOST_SECURITY_GEQ4, RGX_CR_FWCORE_DMI_DMCONTROL__RISCV_AND_HOST_SECURITY_GEQ4__DMACTIVE_EN);
+				RGXWriteReg32(hPrivate, RGX_CR_FWCORE_DMI_DMCONTROL__HOST_SECURITY_GEQ4, RGX_CR_FWCORE_DMI_DMCONTROL__HOST_SECURITY_GEQ4__DMACTIVE_EN);
 			}
 			else
 #endif
@@ -976,31 +991,19 @@ PVRSRV_ERROR RGXStart(const void *hPrivate)
 
 PVRSRV_ERROR RGXStop(const void *hPrivate)
 {
-	IMG_BOOL bMipsFW = RGX_DEVICE_HAS_FEATURE(hPrivate, MIPS);
-	IMG_BOOL bRiscvFW = RGX_DEVICE_HAS_FEATURE(hPrivate, RISCV_FW_PROCESSOR);
-	IMG_BOOL bMetaFW = !bMipsFW && !bRiscvFW;
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	RGX_LAYER_PARAMS *psParams;
-	PVRSRV_RGXDEV_INFO *psDevInfo;
-	PVR_ASSERT(hPrivate != NULL);
-	psParams = (RGX_LAYER_PARAMS*)hPrivate;
-	psDevInfo = psParams->psDevInfo;
+	IMG_BOOL bMetaFW = RGX_DEVICE_HAS_FEATURE_VALUE(hPrivate, META);
 
 	RGXDeviceAckIrq(hPrivate);
+
+	/* Set FW power state OFF to disable LISR handler */
+	RGXSetPoweredState(hPrivate, IMG_FALSE);
 
 	/* Wait for Sidekick/Jones to signal IDLE except for the Garten Wrapper
 	 * For LAYOUT_MARS = 1, SIDEKICK would have been powered down by FW
 	 */
-	if (!(PVRSRV_GET_DEVICE_FEATURE_VALUE(psDevInfo->psDeviceNode, LAYOUT_MARS) > 0))
+	if (!(RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, LAYOUT_MARS) > 0))
 	{
-		if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
-		{
-			eError = RGXPollReg32(hPrivate,
-					RGX_CR_JONES_IDLE,
-					RGX_CR_JONES_IDLE_MASKFULL^(RGX_CR_JONES_IDLE_GARTEN_EN|RGX_CR_JONES_IDLE_SOCIF_EN|RGX_CR_JONES_IDLE_HOSTIF_EN),
-					RGX_CR_JONES_IDLE_MASKFULL^(RGX_CR_JONES_IDLE_GARTEN_EN|RGX_CR_JONES_IDLE_SOCIF_EN|RGX_CR_JONES_IDLE_HOSTIF_EN));
-		}
-		else
 		{
 			eError = RGXPollReg32(hPrivate,
 					RGX_CR_SIDEKICK_IDLE,
@@ -1011,28 +1014,18 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 		if (eError != PVRSRV_OK) return eError;
 	}
 
-	if (!(PVRSRV_GET_DEVICE_FEATURE_VALUE(psDevInfo->psDeviceNode, LAYOUT_MARS) > 0))
+	if (!(RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, LAYOUT_MARS) > 0))
 	{
-#if !defined(SUPPORT_SHARED_SLC)
 		/*
 		 * Wait for SLC to signal IDLE
 		 * For LAYOUT_MARS = 1, SLC would have been powered down by FW
 		 */
-		if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
-		{
-			eError = RGXPollReg32(hPrivate,
-					RGX_CR_SLC3_IDLE,
-					RGX_CR_SLC3_IDLE_MASKFULL,
-					RGX_CR_SLC3_IDLE_MASKFULL);
-		}
-		else
 		{
 			eError = RGXPollReg32(hPrivate,
 					RGX_CR_SLC_IDLE,
 					RGX_CR_SLC_IDLE_MASKFULL,
 					RGX_CR_SLC_IDLE_MASKFULL);
 		}
-#endif /* SUPPORT_SHARED_SLC */
 		if (eError != PVRSRV_OK) return eError;
 	}
 
@@ -1046,16 +1039,17 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 	              RGX_CR_MTS_BGCTX_THREAD0_DM_ASSOC_DM_ASSOC_CLRMSK
 	              & RGX_CR_MTS_BGCTX_THREAD0_DM_ASSOC_MASKFULL);
 
-#if defined(RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC)
-	RGXWriteReg32(hPrivate,
-	              RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC,
-	              RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC_DM_ASSOC_CLRMSK
-	              & RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC_MASKFULL);
-	RGXWriteReg32(hPrivate,
-	              RGX_CR_MTS_BGCTX_THREAD1_DM_ASSOC,
-	              RGX_CR_MTS_BGCTX_THREAD1_DM_ASSOC_DM_ASSOC_CLRMSK
-	              & RGX_CR_MTS_BGCTX_THREAD1_DM_ASSOC_MASKFULL);
-#endif
+	if (bMetaFW)
+	{
+		RGXWriteReg32(hPrivate,
+					  RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC,
+					  RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC_DM_ASSOC_CLRMSK
+					  & RGX_CR_MTS_INTCTX_THREAD1_DM_ASSOC_MASKFULL);
+		RGXWriteReg32(hPrivate,
+					  RGX_CR_MTS_BGCTX_THREAD1_DM_ASSOC,
+					  RGX_CR_MTS_BGCTX_THREAD1_DM_ASSOC_DM_ASSOC_CLRMSK
+					  & RGX_CR_MTS_BGCTX_THREAD1_DM_ASSOC_MASKFULL);
+	}
 
 #if defined(PDUMP)
 	if (bMetaFW)
@@ -1080,9 +1074,9 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 		 */
 #if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
 		/* Wait for the Slave Port to finish all the transactions */
-		if (RGX_IS_FEATURE_SUPPORTED(psDevInfo, META_REGISTER_UNPACKED_ACCESSES))
+		if (RGX_DEVICE_HAS_FEATURE(hPrivate, META_REGISTER_UNPACKED_ACCESSES))
 		{
-			if (RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) > 1)
+			if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, HOST_SECURITY_VERSION) > 1)
 			{
 				RGXWriteReg32(hPrivate, RGX_CR_META_SP_MSLVIRQSTATUS__HOST_SECURITY_GT1_AND_MRUA, 0x0);
 				(void)RGXReadReg32(hPrivate, RGX_CR_META_SP_MSLVIRQSTATUS__HOST_SECURITY_GT1_AND_MRUA); /* Fence write */
@@ -1136,8 +1130,7 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 	                      RGX_CR_BIFPM_STATUS_MMU_MASKFULL);
 	if (eError != PVRSRV_OK) return eError;
 
-	if (!RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE) &&
-	    !RGX_DEVICE_HAS_FEATURE(hPrivate, XT_TOP_INFRASTRUCTURE))
+	if (!RGX_DEVICE_HAS_FEATURE(hPrivate, XT_TOP_INFRASTRUCTURE))
 	{
 		eError = RGXPollReg32(hPrivate,
 		                      RGX_CR_BIF_READS_EXT_STATUS,
@@ -1151,14 +1144,12 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 	                      0,
 	                      RGX_CR_BIFPM_READS_EXT_STATUS_MASKFULL);
 	if (eError != PVRSRV_OK) return eError;
-	{
-		IMG_UINT64 ui64SLCMask = RGX_CR_SLC_STATUS1_MASKFULL;
-		eError = RGXPollReg64(hPrivate,
-		                      RGX_CR_SLC_STATUS1,
-		                      0,
-		                      ui64SLCMask);
-		if (eError != PVRSRV_OK) return eError;
-	}
+
+	eError = RGXPollReg64(hPrivate,
+	                      RGX_CR_SLC_STATUS1,
+	                      0,
+		                  RGX_CR_SLC_STATUS1_MASKFULL);
+	if (eError != PVRSRV_OK) return eError;
 
 	if (4 == RGXGetDeviceSLCBanks(hPrivate))
 	{
@@ -1169,47 +1160,26 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 		if (eError != PVRSRV_OK) return eError;
 	}
 
-	if (!(PVRSRV_GET_DEVICE_FEATURE_VALUE(psDevInfo->psDeviceNode, LAYOUT_MARS) > 0))
+	if (!(RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, LAYOUT_MARS) > 0))
 	{
-#if !defined(SUPPORT_SHARED_SLC)
 		/*
 		 * Wait for SLC to signal IDLE
 		 * For LAYOUT_MARS = 1, SLC would have been powered down by FW
 		 */
-		if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
-		{
-			eError = RGXPollReg32(hPrivate,
-					RGX_CR_SLC3_IDLE,
-					RGX_CR_SLC3_IDLE_MASKFULL,
-					RGX_CR_SLC3_IDLE_MASKFULL);
-		}
-		else
 		{
 			eError = RGXPollReg32(hPrivate,
 					RGX_CR_SLC_IDLE,
 					RGX_CR_SLC_IDLE_MASKFULL,
 					RGX_CR_SLC_IDLE_MASKFULL);
 		}
-#endif /* SUPPORT_SHARED_SLC */
 		if (eError != PVRSRV_OK) return eError;
 	}
 
 	/* Wait for Sidekick/Jones to signal IDLE except for the Garten Wrapper
 	 * For LAYOUT_MARS = 1, SIDEKICK would have been powered down by FW
 	 */
-	if (!(PVRSRV_GET_DEVICE_FEATURE_VALUE(psDevInfo->psDeviceNode, LAYOUT_MARS) > 0))
+	if (!(RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, LAYOUT_MARS) > 0))
 	{
-		if (RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
-		{
-			if (!RGX_DEVICE_HAS_FEATURE(hPrivate, FASTRENDER_DM))
-			{
-				eError = RGXPollReg32(hPrivate,
-						RGX_CR_JONES_IDLE,
-						RGX_CR_JONES_IDLE_MASKFULL^(RGX_CR_JONES_IDLE_GARTEN_EN|RGX_CR_JONES_IDLE_SOCIF_EN|RGX_CR_JONES_IDLE_HOSTIF_EN),
-						RGX_CR_JONES_IDLE_MASKFULL^(RGX_CR_JONES_IDLE_GARTEN_EN|RGX_CR_JONES_IDLE_SOCIF_EN|RGX_CR_JONES_IDLE_HOSTIF_EN));
-			}
-		}
-		else
 		{
 			eError = RGXPollReg32(hPrivate,
 					RGX_CR_SIDEKICK_IDLE,
@@ -1234,7 +1204,6 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 			/* Wait for Sidekick/Jones to signal IDLE including
 			 * the Garten Wrapper if there is no debugger attached
 			 * (TxVECINT_BHALT = 0x0) */
-			if (!RGX_DEVICE_HAS_FEATURE(hPrivate, S7_TOP_INFRASTRUCTURE))
 			{
 				eError = RGXPollReg32(hPrivate,
 				                      RGX_CR_SIDEKICK_IDLE,
@@ -1242,19 +1211,11 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 				                      RGX_CR_SIDEKICK_IDLE_GARTEN_EN);
 				if (eError != PVRSRV_OK) return eError;
 			}
-			else
-			{
-				eError = RGXPollReg32(hPrivate,
-				                      RGX_CR_JONES_IDLE,
-				                      RGX_CR_JONES_IDLE_GARTEN_EN,
-				                      RGX_CR_JONES_IDLE_GARTEN_EN);
-				if (eError != PVRSRV_OK) return eError;
-			}
 		}
 	}
 	else
 	{
-		if (PVRSRV_GET_DEVICE_FEATURE_VALUE(psDevInfo->psDeviceNode, LAYOUT_MARS) > 0)
+		if (RGX_DEVICE_GET_FEATURE_VALUE(hPrivate, LAYOUT_MARS) > 0)
 		{
 			/* As FW core has been moved from SIDEKICK to the new MARS domain, checking
 			 * idle bits for CPU & System Arbiter excluding SOCIF which will never be Idle
@@ -1279,36 +1240,6 @@ PVRSRV_ERROR RGXStop(const void *hPrivate)
 	return eError;
 }
 
-
-/*
- * RGXInitSLC
- */
-#if defined(SUPPORT_SHARED_SLC)
-PVRSRV_ERROR RGXInitSLC(IMG_HANDLE hDevHandle)
-{
-	PVRSRV_DEVICE_NODE *psDeviceNode = hDevHandle;
-	PVRSRV_RGXDEV_INFO *psDevInfo;
-	void *pvPowerParams;
-
-	if (psDeviceNode == NULL)
-	{
-		return PVRSRV_ERROR_INVALID_PARAMS;
-	}
-	psDevInfo = psDeviceNode->pvDevice;
-	pvPowerParams = &psDevInfo->sLayerParams;
-
-	/* reset the SLC */
-	RGXCommentLog(pvPowerParams, "RGXInitSLC: soft reset SLC");
-	RGXWriteReg64(pvPowerParams, RGX_CR_SOFT_RESET, RGX_CR_SOFT_RESET_SLC_EN);
-
-	/* Read soft-reset to fence previous write in order to clear the SOCIF pipeline */
-	(void) RGXReadReg64(pvPowerParams, RGX_CR_SOFT_RESET);
-
-	/* Take everything out of reset */
-	RGXWriteReg64(pvPowerParams, RGX_CR_SOFT_RESET, 0x0);
-
-	__RGXInitSLC(pvPowerParams);
-
-	return PVRSRV_OK;
-}
-#endif
+/******************************************************************************
+ End of file (rgxstartstop.c)
+******************************************************************************/

@@ -84,20 +84,20 @@ PVRSRVRGXFWDebugSetDriverTimeSliceKM(
 	CONNECTION_DATA *psConnection,
 	PVRSRV_DEVICE_NODE *psDeviceNode,
 	IMG_UINT32  ui32DriverID,
-	IMG_UINT32  ui32DriverTimeSlice);
+	IMG_UINT32  ui32TSPercentage);
 
 PVRSRV_ERROR
 PVRSRVRGXFWDebugSetDriverTimeSliceIntervalKM(
 	CONNECTION_DATA *psConnection,
 	PVRSRV_DEVICE_NODE *psDeviceNode,
-	IMG_UINT32  ui32DriverTimeSliceInterval);
+	IMG_UINT32  ui32TSIntervalMs);
 
 PVRSRV_ERROR
 PVRSRVRGXFWDebugSetDriverPriorityKM(
 	CONNECTION_DATA *psConnection,
 	PVRSRV_DEVICE_NODE *psDeviceNode,
 	IMG_UINT32  ui32DriverID,
-	IMG_UINT32  ui32DriverPriority);
+	IMG_INT32   i32DriverPriority);
 
 PVRSRV_ERROR
 PVRSRVRGXFWDebugSetDriverIsolationGroupKM(
@@ -143,12 +143,12 @@ PVRSRVRGXFWDebugInjectFaultKM(
 	PVRSRV_DEVICE_NODE *psDeviceNode);
 
 PVRSRV_ERROR
-PVRSRVRGXFWDebugSuspendDeviceKM(
+PVRSRVRGXFWDebugPowerOffKM(
 	CONNECTION_DATA *psConnection,
 	PVRSRV_DEVICE_NODE *psDeviceNode);
 
 PVRSRV_ERROR
-PVRSRVRGXFWDebugResumeDeviceKM(
+PVRSRVRGXFWDebugPowerOnKM(
 	CONNECTION_DATA *psConnection,
 	PVRSRV_DEVICE_NODE *psDeviceNode);
 

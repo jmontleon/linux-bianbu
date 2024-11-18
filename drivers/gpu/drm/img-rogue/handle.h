@@ -203,4 +203,5 @@ PVRSRV_ERROR PVRSRVReleaseProcessHandleBase(PROCESS_HANDLE_BASE *psBase, IMG_PID
 void LockHandle(PVRSRV_HANDLE_BASE *psBase);
 void UnlockHandle(PVRSRV_HANDLE_BASE *psBase);
 
+
 #endif /* !defined(HANDLE_API_H) */

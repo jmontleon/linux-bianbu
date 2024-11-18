@@ -42,6 +42,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
 #include <linux/sched.h>
+#include <linux/pid.h>
 #include <linux/moduleparam.h>
 
 #include "img_types.h"
@@ -99,7 +100,7 @@ AddToBufferCCB(const IMG_CHAR *pszFileName, IMG_UINT32 ui32Line,
 
 	do_gettimeofday(&gsDebugCCB[giOffset].sTimeVal);
 
-	OSStringLCopy(gsDebugCCB[giOffset].pcMesg, szBuffer,
+	OSStringSafeCopy(gsDebugCCB[giOffset].pcMesg, szBuffer,
 	              PVRSRV_DEBUG_CCB_MESG_MAX);
 
 	giOffset = (giOffset + 1) % PVRSRV_DEBUG_CCB_MAX;
@@ -161,7 +162,7 @@ void PVRSRVDebugPrintfDumpCCB(void)
 
 static IMG_UINT32 PVRDebugLevel =
 	(
-	 DBGPRIV_FATAL | DBGPRIV_ERROR | DBGPRIV_WARNING | DBGPRIV_DEBUG
+	 DBGPRIV_FATAL | DBGPRIV_ERROR | DBGPRIV_WARNING
 #if defined(PVRSRV_DEBUG_CCB_MAX)
 	 | DBGPRIV_BUFFERED
 #endif /* defined(PVRSRV_DEBUG_CCB_MAX) */
@@ -377,34 +378,34 @@ void PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
 	{
 		case DBGPRIV_FATAL:
 		{
-			OSStringLCopy(pszBuf, "PVR_K:(Fatal): ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K:(Fatal): ", ui32BufSiz);
 			PVRSRV_REPORT_ERROR();
 			break;
 		}
 		case DBGPRIV_ERROR:
 		{
-			OSStringLCopy(pszBuf, "PVR_K:(Error): ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K:(Error): ", ui32BufSiz);
 			PVRSRV_REPORT_ERROR();
 			break;
 		}
 		case DBGPRIV_WARNING:
 		{
-			OSStringLCopy(pszBuf, "PVR_K:(Warn):  ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K:(Warn):  ", ui32BufSiz);
 			break;
 		}
 		case DBGPRIV_MESSAGE:
 		{
-			OSStringLCopy(pszBuf, "PVR_K:(Mesg):  ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K:(Mesg):  ", ui32BufSiz);
 			break;
 		}
 		case DBGPRIV_VERBOSE:
 		{
-			OSStringLCopy(pszBuf, "PVR_K:(Verb):  ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K:(Verb):  ", ui32BufSiz);
 			break;
 		}
 		case DBGPRIV_DEBUG:
 		{
-			OSStringLCopy(pszBuf, "PVR_K:(Debug): ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K:(Debug): ", ui32BufSiz);
 			break;
 		}
 		case DBGPRIV_CALLTRACE:
@@ -412,7 +413,7 @@ void PVRSRVDebugPrintf(IMG_UINT32 ui32DebugLevel,
 		case DBGPRIV_BUFFERED:
 		default:
 		{
-			OSStringLCopy(pszBuf, "PVR_K: ", ui32BufSiz);
+			OSStringSafeCopy(pszBuf, "PVR_K: ", ui32BufSiz);
 			break;
 		}
 	}

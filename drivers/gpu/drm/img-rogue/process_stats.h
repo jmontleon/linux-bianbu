@@ -103,8 +103,6 @@ PVRSRV_ERROR PVRSRVStatsDeviceConnect(PVRSRV_DEVICE_NODE *psDeviceNode);
 
 void PVRSRVStatsDeviceDisconnect(PVRSRV_DEVICE_NODE *psDeviceNode);
 
-#define MAX_POWER_STAT_ENTRIES		51
-
 /*
  * Functions for recording the statistics...
  */
@@ -119,6 +117,14 @@ void PVRSRVStatsAddMemAllocRecord(PVRSRV_MEM_ALLOC_TYPE eAllocType,
 void PVRSRVStatsRemoveMemAllocRecord(PVRSRV_MEM_ALLOC_TYPE eAllocType,
 									 IMG_UINT64 ui64Key,
 									 IMG_PID uiPid);
+
+#if defined(SUPPORT_PMR_DEFERRED_FREE)
+void PVRSRVStatsTransferMemAllocRecord(PVRSRV_MEM_ALLOC_TYPE eCurrentType,
+                                       PVRSRV_MEM_ALLOC_TYPE eTargetType,
+                                       IMG_UINT64 ui64Key,
+                                       IMG_PID currentPid
+                                       DEBUG_MEMSTATS_PARAMS);
+#endif
 
 void PVRSRVStatsIncrMemAllocStat(PVRSRV_MEM_ALLOC_TYPE eAllocType,
 								 size_t uiBytes,

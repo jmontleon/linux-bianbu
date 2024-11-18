@@ -200,9 +200,7 @@ SyncPrimBlockImport(RA_PERARENA_HANDLE hArena,
                     RA_FLAGS_T uFlags,
                     RA_LENGTH_T uBaseAlignment,
                     const IMG_CHAR *pszAnnotation,
-                    RA_BASE_T *puiBase,
-                    RA_LENGTH_T *puiActualSize,
-                    RA_PERISPAN_HANDLE *phImport)
+                    RA_IMPORT *psImport)
 {
 	SYNC_PRIM_CONTEXT *psContext = hArena;
 	SYNC_PRIM_BLOCK *psSyncBlock = NULL;
@@ -243,9 +241,9 @@ SyncPrimBlockImport(RA_PERARENA_HANDLE hArena,
 	 */
 	PVR_ASSERT(uiSpanSize == psSyncBlock->ui32SyncBlockSize);
 
-	*puiBase = psSyncBlock->uiSpanBase;
-	*puiActualSize = psSyncBlock->ui32SyncBlockSize;
-	*phImport = psSyncBlock;
+	psImport->base = psSyncBlock->uiSpanBase;
+	psImport->uSize = psSyncBlock->ui32SyncBlockSize;
+	psImport->hPriv = psSyncBlock;
 	return PVRSRV_OK;
 
 fail_spanalloc:
@@ -412,7 +410,7 @@ SyncPrimContextCreate(SHARED_DEV_CONNECTION hDevConnection,
 	psContext->psSubAllocRA = RA_Create(psContext->azName,
 	                                    /* Params for imports */
 	                                    _Log2(sizeof(IMG_UINT32)),
-	                                    RA_LOCKCLASS_2,
+	                                    RA_LOCKCLASS_3,
 	                                    SyncPrimBlockImport,
 	                                    SyncPrimBlockUnimport,
 	                                    psContext,
@@ -432,7 +430,7 @@ SyncPrimContextCreate(SHARED_DEV_CONNECTION hDevConnection,
 	psContext->psSpanRA = RA_Create(psContext->azSpanName,
 	                                /* Params for imports */
 	                                0,
-	                                RA_LOCKCLASS_1,
+	                                RA_LOCKCLASS_0,
 	                                NULL,
 	                                NULL,
 	                                NULL,
