@@ -71,18 +71,12 @@ static INLINE void RGXFwSharedMemCPUCacheMode(PVRSRV_DEVICE_NODE *psDeviceNode,
 		return;
 	}
 
-	if (PVRSRV_CHECK_UNCACHED(*puiFlags))
-	{
-		/* We don't need to upgrade uncached allocations */
-		return;
-	}
-
 	/* Clear the existing CPU cache flags */
 	*puiFlags &= ~(PVRSRV_MEMALLOCFLAG_CPU_CACHE_MODE_MASK);
 
 	if (PVRSRVSystemSnoopingOfCPUCache(psDeviceNode->psDevConfig))
 	{
-		*puiFlags |= PVRSRV_MEMALLOCFLAG_CPU_CACHED;
+		*puiFlags |= PVRSRV_MEMALLOCFLAG_CPU_CACHE_INCOHERENT;
 	}
 	else
 	{
@@ -117,7 +111,6 @@ static INLINE PVRSRV_ERROR RGXFwSharedMemCacheOpExec(const volatile void *pvVirt
 					   uiUnusedPhysAddr,
 					   uiUnusedPhysAddr,
 					   uiCacheOp);
-	return PVRSRV_OK;
 }
 
 #define RGXFwSharedMemCacheOpValue(value, cacheop) (RGXFwSharedMemCacheOpExec(&value, sizeof(value), PVRSRV_CACHE_OP_##cacheop))

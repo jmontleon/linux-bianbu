@@ -48,6 +48,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "rogue_trace_events.h"
 #endif
 
+#if defined(__linux__) && defined(PVRSRV_ANDROID_TRACE_GPU_WORK_PERIOD)
+#include "linux/cred.h"
+#include "linux/pid.h"
+#endif
 /*
  * Maximum length of time a DM can run for before the DM will be marked
  * as out-of-time. CDM has an increased value due to longer running kernels.
@@ -63,6 +67,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define RGXFWIF_MAX_WORKLOAD_DEADLINE_MS     (40000)
 #define RGXFWIF_MAX_CDM_WORKLOAD_DEADLINE_MS (600000)
 #endif
+#define RGXFWIF_MAX_RDM_WORKLOAD_DEADLINE_MS (36000000)
 
 struct _RGX_SERVER_COMMON_CONTEXT_ {
 	PVRSRV_RGXDEV_INFO *psDevInfo;
@@ -83,6 +88,32 @@ struct _RGX_SERVER_COMMON_CONTEXT_ {
 	IMG_INT32 i32Priority;
 	RGX_CCB_REQUESTOR_TYPE eRequestor;
 };
+
+#if defined(__linux__) && defined(PVRSRV_ANDROID_TRACE_GPU_WORK_PERIOD)
+static IMG_UINT32 _GetUID(IMG_PID pid)
+{
+	struct task_struct *psTask;
+	struct pid *psPid;
+
+	psPid = find_get_pid((pid_t)pid);
+	if (!psPid)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to lookup PID %u.",
+		                        __func__, pid));
+		return 0;
+	}
+
+	psTask = get_pid_task(psPid, PIDTYPE_PID);
+	if (!psTask)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to get pid task for PID %u.",
+		                        __func__, pid));
+	}
+	put_pid(psPid);
+
+	return psTask ? from_kuid(&init_user_ns, psTask->cred->uid) : 0;
+}
+#endif
 
 /*************************************************************************/ /*!
 @Function       _CheckPriority
@@ -245,6 +276,7 @@ PVRSRV_ERROR FWCommonContextAllocate(CONNECTION_DATA *psConnection,
 						  0, RFW_FWADDR_FLAG_NONE);
 	PVR_LOG_GOTO_IF_ERROR(eError, "RGXSetFirmwareAddress:2", fail_cccbctrlfwaddr);
 
+#if defined(RGX_FEATURE_META_DMA_BIT_MASK)
 	if (RGX_IS_FEATURE_SUPPORTED(psDevInfo, META_DMA))
 	{
 		RGXSetMetaDMAAddress(&sFWCommonContext.sCCBMetaDMAAddr,
@@ -252,6 +284,7 @@ PVRSRV_ERROR FWCommonContextAllocate(CONNECTION_DATA *psConnection,
 							 &sFWCommonContext.psCCB,
 							 0);
 	}
+#endif
 
 	/* Set the memory context device address */
 	psServerCommonContext->psFWMemContextMemDesc = psFWMemContextMemDesc;
@@ -285,16 +318,29 @@ PVRSRV_ERROR FWCommonContextAllocate(CONNECTION_DATA *psConnection,
 
 	sFWCommonContext.i32Priority = i32Priority;
 	sFWCommonContext.ui32PrioritySeqNum = 0;
-	sFWCommonContext.ui32MaxDeadlineMS = MIN(ui32MaxDeadlineMS,
-											   (eDM == RGXFWIF_DM_CDM ?
-												RGXFWIF_MAX_CDM_WORKLOAD_DEADLINE_MS :
-												RGXFWIF_MAX_WORKLOAD_DEADLINE_MS));
+
+	if (eDM == RGXFWIF_DM_CDM)
+	{
+		sFWCommonContext.ui32MaxDeadlineMS = MIN(ui32MaxDeadlineMS, RGXFWIF_MAX_CDM_WORKLOAD_DEADLINE_MS);
+	}
+	else if (eDM == RGXFWIF_DM_RAY)
+	{
+		sFWCommonContext.ui32MaxDeadlineMS = MIN(ui32MaxDeadlineMS, RGXFWIF_MAX_RDM_WORKLOAD_DEADLINE_MS);
+	}
+	else
+	{
+		sFWCommonContext.ui32MaxDeadlineMS = MIN(ui32MaxDeadlineMS, RGXFWIF_MAX_WORKLOAD_DEADLINE_MS);
+	}
+
 	sFWCommonContext.ui64RobustnessAddress = ui64RobustnessAddress;
 
 	/* Store a references to Server Common Context and PID for notifications back from the FW. */
 	sFWCommonContext.ui32ServerCommonContextID = psServerCommonContext->ui32ContextID;
 	sFWCommonContext.ui32PID                   = OSGetCurrentClientProcessIDKM();
-	OSStringLCopy(sFWCommonContext.szProcName, psConnection->pszProcName, RGXFW_PROCESS_NAME_LEN);
+#if defined(__linux__) && defined(PVRSRV_ANDROID_TRACE_GPU_WORK_PERIOD)
+	sFWCommonContext.ui32UID                   = _GetUID(sFWCommonContext.ui32PID);
+#endif
+	OSStringSafeCopy(sFWCommonContext.szProcName, psConnection->pszProcName, RGXFW_PROCESS_NAME_LEN);
 
 	/* Set the firmware GPU context state buffer */
 	psServerCommonContext->psContextStateMemDesc = psContextStateMemDesc;
@@ -547,6 +593,8 @@ PVRSRV_ERROR ContextSetPriority(RGX_SERVER_COMMON_CONTEXT *psContext,
 	PVRSRV_ERROR			eError;
 	RGX_CLIENT_CCB *psClientCCB = FWCommonContextGetClientCCB(psContext);
 
+	PVR_UNREFERENCED_PARAMETER(psConnection);
+
 	eError = _CheckPriority(psDevInfo, i32Priority, psContext->eRequestor);
 	PVR_LOG_GOTO_IF_ERROR(eError, "_CheckPriority", fail_checkpriority);
 
@@ -611,7 +659,7 @@ PVRSRV_ERROR ContextSetPriority(RGX_SERVER_COMMON_CONTEXT *psContext,
 	sPriorityCmd.uCmdData.sCmdKickData.ui32WorkEstCmdHeaderOffset = 0;
 #endif
 
-	LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+	LOOP_UNTIL_TIMEOUT_US(MAX_HW_TIME_US)
 	{
 		eError = RGXScheduleCommand(psDevInfo,
 									eDM,
@@ -622,7 +670,7 @@ PVRSRV_ERROR ContextSetPriority(RGX_SERVER_COMMON_CONTEXT *psContext,
 			break;
 		}
 		OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
-	} END_LOOP_UNTIL_TIMEOUT();
+	} END_LOOP_UNTIL_TIMEOUT_US();
 
 	if (eError != PVRSRV_OK)
 	{

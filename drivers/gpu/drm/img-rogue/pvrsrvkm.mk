@@ -43,6 +43,7 @@ pvrsrvkm-y += \
  physmem_hostmem.o \
  physmem_lma.o \
  physmem_osmem.o \
+ physmem_ramem.o \
  pmr.o \
  power.o \
  process_stats.o \
@@ -69,9 +70,13 @@ pvrsrvkm-y += \
  rgxfwcmnctx.o \
  rgxfwdbg.o \
  rgxfwimageutils.o \
+ rgxfwriscv.o \
  rgxfwtrace_strings.o \
  rgxhwperf_common.o \
+ rgxlayer_impl_common.o \
  rgxmem.o \
+ rgxmmuinit.o \
+ rgxpower.o \
  rgxregconfig.o \
  rgxshader.o \
  rgxsyncutils.o \
@@ -80,20 +85,18 @@ pvrsrvkm-y += \
  rgxtimerquery.o \
  rgxutils.o \
  rgxdebug.o \
- rgxfwriscv.o \
  rgxfwutils.o \
  rgxhwperf.o \
  rgxinit.o \
  rgxlayer_impl.o \
  rgxmipsmmuinit.o \
- rgxmmuinit.o \
  rgxmulticore.o \
- rgxpower.o \
  rgxsrvinit.o \
  rgxstartstop.o \
  rgxta3d.o \
  rgxtransfer.o \
  allocmem.o \
+ dkf_server.o \
  event.o \
  fwload.o \
  handle_idr.o \
@@ -106,6 +109,7 @@ pvrsrvkm-y += \
  physmem_extmem_linux.o \
  physmem_osmem_linux.o \
  physmem_test.o \
+ pmr_env.o \
  pmr_os.o \
  pvr_bridge_k.o \
  pvr_buffer_sync.o \
@@ -113,6 +117,7 @@ pvrsrvkm-y += \
  pvr_debug.o \
  pvr_debugfs.o \
  pvr_drm.o \
+ pvr_export_fence.o \
  pvr_fence.o \
  pvr_gputrace.o \
  pvr_platform_drv.o \
