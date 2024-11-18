@@ -99,7 +99,6 @@ typedef struct _CONNECTION_DATA_
 #if defined(SUPPORT_DMA_TRANSFER)
 	IMG_BOOL            bAcceptDmaRequests;
 	ATOMIC_T            ui32NumDmaTransfersInFlight;
-	POS_LOCK            hDmaReqLock;
 	IMG_HANDLE          hDmaEventObject;
 #endif
 	/* Structure which is hooked into the cleanup thread work list */
@@ -110,7 +109,6 @@ typedef struct _CONNECTION_DATA_
 	/* List navigation for deferred freeing of connection data */
 	struct _CONNECTION_DATA_	**ppsThis;
 	struct _CONNECTION_DATA_	*psNext;
-	IMG_BOOL            bSyncConnection;
 } CONNECTION_DATA;
 
 #include "osconnection_server.h"

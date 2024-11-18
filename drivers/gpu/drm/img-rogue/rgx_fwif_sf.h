@@ -69,7 +69,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	X(RGXFW_GROUP_HWP,HWP)          \
 	X(RGXFW_GROUP_RPM,RPM)          \
 	X(RGXFW_GROUP_DMA,DMA)          \
-	X(RGXFW_GROUP_DBG,DBG)
+	X(RGXFW_GROUP_DBG,DBG)          \
+	X(RGXFW_GROUP_VZ,VZ)            \
+	X(RGXFW_GROUP_SAFETY,SAFETY)    \
+	X(RGXFW_GROUP_VERBOSE,VERBOSE)  \
+	X(RGXFW_GROUP_CUSTOMER,CUSTOMER)
 
 /*!
  * @InGroup SRVAndFWTracing
@@ -250,15 +254,15 @@ X(142, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TDM_OFFSET_READ_RESET, "Reset TDM Queue R
 X(143, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UMQ_MISMATCHED_READ_OFFSET, "User Mode Queue mismatched stream start: FWCtx 0x%08.8x, queue: 0x%08x%08x (Roff = %u, StreamStartOffset = %u)", 5) \
 X(144, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_GPU_DEINIT, "GPU deinit", 0) \
 X(145, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UNITS_DEINIT, "GPU units deinit", 0) \
-X(146, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CONFIG, "Initialised OS %u with config flags 0x%08x", 2) \
+X(146, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CONFIG_DEPRECATED, "Initialised OS %u with config flags 0x%08x", 2) \
 X(147, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UFO_LIMIT, "UFO limit exceeded %u/%u", 2) \
 X(148, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_3D_62850KICK, "3D Dummy stencil store", 0) \
-X(149, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CONFIG_DEPRECATED, "Initialised OS %u with config flags 0x%08x and extended config flags 0x%08x", 3) \
+X(149, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CONFIG_DEPRECATED2, "Initialised OS %u with config flags 0x%08x and extended config flags 0x%08x", 3) \
 X(150, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UNKNOWN_COMMAND_DEPRECATED, "Unknown Command (eCmdType=0x%08x)", 1) \
 X(151, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UFO_FORCED_UPDATE, "UFO forced update: FWCtx 0x%08.8x @ %u [0x%08.8x] = 0x%08.8x", 4) \
 X(152, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UFO_FORCED_UPDATE_NOP_DEPRECATED, "UFO forced update NOP: FWCtx 0x%08.8x @ %u [0x%08.8x] = 0x%08.8x, reason %u", 5) \
 X(153, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TDM_BRN66075_CHECK, "TDM context switch check: Roff %u points to 0x%08x, Match=%u", 3) \
-X(154, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CCBS, "Driver ID %u CCB init status: %u (1-ok 0-fail): kCCBCtl@0x%x kCCB@0x%x fwCCBCtl@0x%x fwCCB@0x%x", 6) \
+X(154, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CCBS_DEPRECATED, "Driver ID %u CCB init status: %u (1-ok 0-fail): kCCBCtl@0x%x kCCB@0x%x fwCCBCtl@0x%x fwCCB@0x%x", 6) \
 X(155, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FWIRQ, "FW IRQ # %u @ %u", 2) \
 X(156, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_BREAKPOINT_SET, "Setting breakpoint: Addr 0x%08.8x DM%u usc_breakpoint_ctrl_dm = %u", 3) \
 X(157, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_INVALID_KERNEL_CCB_DEPRECATED, "Invalid KCCB setup for OSid %u: KCCB 0x%08x, KCCB Ctrl 0x%08x", 3) \
@@ -269,8 +273,8 @@ X(161, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FLUSHINVAL_CMD_INVALID_DEPRECATED, "Disca
 X(162, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_INVALID_NOTIFY_WRITE_OFFSET_UPDATE_DEPRECATED, "Invalid Write Offset update notification from OSid %u to DM %u: FWCtx 0x%08x, MemCtx 0x%08x", 4) \
 X(163, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_INVALID_KCCB_KICK_CMD_DEPRECATED, "Null FWCtx in KCCB kick cmd for OSid %u: KCCB 0x%08x, ROff %u, WOff %u", 4) \
 X(164, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FULL_CHPTCCB, "Checkpoint CCB for Driver ID %u is full, signalling host for full check state (Roff = %u, Woff = %u)", 3) \
-X(165, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CCBS_DEPRECATED, "OSid %u CCB init status: %u (1-ok 0-fail): kCCBCtl@0x%x kCCB@0x%x fwCCBCtl@0x%x fwCCB@0x%x chptCCBCtl@0x%x chptCCB@0x%x", 8) \
-X(166, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_STATE_CHANGE, "Driver ID %u fw state transition request: from %u to %u (0-offline 1-ready 2-active 3-offloading 4-cooldown). Status %u (1-ok 0-fail)", 4) \
+X(165, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_INIT_CCBS_DEPRECATED2, "OSid %u CCB init status: %u (1-ok 0-fail): kCCBCtl@0x%x kCCB@0x%x fwCCBCtl@0x%x fwCCB@0x%x chptCCBCtl@0x%x chptCCB@0x%x", 8) \
+X(166, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_STATE_CHANGE_DEPRECATED, "Driver ID %u fw state transition request: from %u to %u (0-offline 1-ready 2-active 3-offloading 4-cooldown). Status %u (1-ok 0-fail)", 4) \
 X(167, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_STALE_KCCB_CMDS, "Driver ID %u has %u stale commands in its KCCB", 2) \
 X(168, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TA_VCE_PAUSE, "Applying VCE pause", 0) \
 X(169, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_KCCB_UPDATE_RTN_SLOT_DEPRECATED, "OSid %u KCCB slot %u value updated to %u", 3) \
@@ -288,7 +292,7 @@ X(181, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SIGNAL_UPDATE, "Signal update, Snoop Filt
 X(182, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_DEV_SERIES8_DEPRECATED, "WARNING: Skipping FW KCCB Cmd type %u which is not yet supported on Series8.", 1) \
 X(183, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_INCONSISTENT_MMU_FLAGS, "MMU context cache data NULL, but cache flags=0x%x (sync counter=%u, update value=%u) OSId=%u", 4) \
 X(184, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SLC_FLUSH, "SLC range based flush: Context=%u VAddr=0x%02x%08x, Size=0x%08x, Invalidate=%u", 5) \
-X(185, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBSC_INVAL, "FBSC invalidate for Context Set [0x%08x]: Entry mask 0x%08x%08x.", 3) \
+X(185, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBSC_INVAL_DEPRECATED, "FBSC invalidate for Context Set [0x%08x]: Entry mask 0x%08x%08x.", 3) \
 X(186, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TDM_BRN66284_UPDATE, "TDM context switch check: Roff %u was not valid for kick starting at %u, moving back to %u", 3) \
 X(187, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SPFILTER_UPDATES, "Signal updates: FIFO: %u, Signals: 0x%08x", 2) \
 X(188, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_INVALID_FBSC_CMD, "Invalid FBSC cmd: FWCtx 0x%08x, MemCtx 0x%08x", 2) \
@@ -299,7 +303,7 @@ X(192, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_NULL_RTAS, "Invalid RTA Set-up. The Valid
 X(193, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_INVALID_COUNTER, "Block 0x%x / Counter 0x%x INVALID and ignored", 2) \
 X(194, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_ECC_FAULT_DEPRECATED, "ECC fault GPU=0x%08x FW=0x%08x", 2) \
 X(195, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_PROCESS_XPU_EVENT, "Processing XPU event on DM = %u", 1) \
-X(196, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_VZ_WDG_TRIGGER, "Driver ID %u failed to respond to the virtualisation watchdog in time. Timestamp of its last input = %u", 2) \
+X(196, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_VZ_WDG_TRIGGER_DEPRECATED, "Driver ID %u failed to respond to the virtualisation watchdog in time. Timestamp of its last input = %u", 2) \
 X(197, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_HWR_HIT_LOCKUP, "GPU-%u has locked up (see HWR logs for more info)", 1) \
 X(198, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UPDATE_TILES_IN_FLIGHT, "Updating Tiles In Flight (Dusts=%u, PartitionMask=0x%08x, ISPCtl=0x%08x)", 3) \
 X(199, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_HWR_HIT_LOCKUP_DM, "GPU has locked up (see HWR logs for more info)", 0) \
@@ -312,12 +316,12 @@ X(205, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_COMPUTE_CORE_STALLED, "Compute stalled co
 X(206, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UMQ_MISMATCHED_CORE_READ_OFFSET, "User Mode Queue mismatched stream start: Core %u, FWCtx 0x%08.8x, queue: 0x%08x%08x (Roff = %u, StreamStartOffset = %u)", 6) \
 X(207, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TDM_RESUMED_FROM_STALL, "TDM resumed core %u (Roff = %u, Woff = %u)", 3) \
 X(208, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_COMPUTE_CORE_RESUMED_FROM_STALL, "Compute resumed core %u (Roff = %u, Woff = %u, Size = %u)", 4) \
-X(209, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_MTS_PERMISSION_CHANGED, " Updated permission for Driver ID %u to perform MTS kicks: %u (1 = allowed, 0 = not allowed)", 2) \
+X(209, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_MTS_PERMISSION_CHANGED_DEPRECATED, " Updated permission for Driver ID %u to perform MTS kicks: %u (1 = allowed, 0 = not allowed)", 2) \
 X(210, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TEST1, "Mask = 0x%X, mask2 = 0x%X", 2) \
 X(211, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TEST2, "  core %u, reg = %u, mask = 0x%X)", 3) \
 X(212, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_ECC_FAULT_SAFETY_BUS, "ECC fault received from safety bus: 0x%08x", 1) \
 X(213, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SAFETY_WDG_CONFIG, "Safety Watchdog threshold period set to 0x%x clock cycles", 1) \
-X(214, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SAFETY_WDG_TRIGGER, "MTS Safety Event trigged by the safety watchdog.", 0) \
+X(214, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SAFETY_WDG_TRIGGER, "MTS Safety Event triggered by the safety watchdog.", 0) \
 X(215, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_USC_TASKS_RANGE, "DM%u USC tasks range limit 0 - %u, stride %u", 3) \
 X(216, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_GPU_ECC_FAULT, "ECC fault GPU=0x%08x", 1) \
 X(217, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_GPU_SAFETY_RESET, "GPU Hardware units reset to prevent transient faults.", 0) \
@@ -347,13 +351,13 @@ X(240, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UFO_CHECK_PENDING_PASS, "UFO Check: [0x%0
 X(241, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UFO_PR_CHECK_PENDING_PASS, "UFO PR-Check: [0x%08.8x] is pending update to 0x%08.8x and therefore passes", 2) \
 X(242, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_DELAY_DM_TO_OVERLAP_PIPES, "Holding kick of DM %u pipe %u to encourage pipeline overlap", 2) \
 X(243, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_RELEASE_DM_PIPE, "Releasing kick for DM %u pipe %u", 2) \
-X(244, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_PRIORITY_CHANGE, "Changing Driver ID %u's priority from %u to %u", 3) \
-X(245, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_ISOLATION_GROUP_CHANGE, "Changing Driver ID %u's isolation group from %u to %u", 3) \
+X(244, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_PRIORITY_CHANGE_DEPRECATED3, "Changing Driver ID %u's priority from %u to %u", 3) \
+X(245, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_ISOLATION_GROUP_CHANGE_DEPRECATED, "Changing Driver ID %u's isolation group from %u to %u", 3) \
 X(246, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_VK_TIMESTAMP, "VK Timestamp: addr=0x%08x%08x, avail=0x%08x%08x stamp=0x%08x%08x", 6) \
 X(247, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SET_HCS_TRIGGERED, "DM %u failed to Context Switch on time (Current time: 0x%08x%08x, deadline: 0x%08x%08x). Triggered HCS (see HWR logs).", 5) \
 X(248, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_HWR_HIT_POLLFAILURE, "HWR has been triggered - GPU has failed a poll, RGX_CR_EVENT_STATUS=0x%08x (see HWR logs)", 1) \
-X(249, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBCDC_FAILURE_DETECTED, "FBCDC signature failure detected so block scheduling more work", 0) \
-X(250, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBCDC_FAILURE_CLEARED, "FBCDC signature cleared which unlocks scheduling more work", 0) \
+X(249, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBCDC_FAILURE_DETECTED_DEPRECATED, "FBCDC signature failure detected so block scheduling more work", 0) \
+X(250, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBCDC_FAILURE_CLEARED_DEPRECATED, "FBCDC signature cleared which unlocks scheduling more work", 0) \
 X(251, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FW_FAULT, "FW FAULT: At line %u in file 0x%08x%08x, additional data=0x%08x%08x", 5) \
 X(252, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_UFO_FORCED_UPDATE_NOP, "UFO forced update NOP: FWCtx 0x%08.8x @ %u, reason %u", 3) \
 X(253, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TDM_CONTEXT_STORED, "TDM FWCtx:0x%08.8x stored", 1) \
@@ -379,6 +383,22 @@ X(272, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TA_CANCEL_PIPELINE, "TA cancelled: Kick I
 X(273, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_3D_CANCEL_PIPELINE, "3D cancelled: Kick ID %u", 1) \
 X(274, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_CDM_CANCEL_PIPELINE, "Compute cancelled: Kick ID %u", 1) \
 X(275, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_RAY_CANCEL_PIPELINE, "Ray cancelled: Kick ID %u", 1) \
+X(276, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TIME_SLICE_MAX_DEPRECATED, "Time Slice: Update Failed, Max total allocations exceeded 100pc", 0)\
+X(277, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TIME_SLICE_DYNAMIC_LOW_DEPRECATED, "Time Slice: Dynamic time slice low, allocating zero time slice to dynamic drivers", 0)\
+X(278, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TIME_SLICE_UPDATE_SUCCESS_DEPRECATED, "Time Slice: Updated Successfully", 0)\
+X(279, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_DISCARD_FWCCB, "FWCCB for Driver ID %u is full, discarding command! (Roff = %u, Woff = %u)", 3) \
+X(280, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_CANCEL_WORK_CMD_RECEIVED_DEPRECATED, "Cancelling jobs with intjobref<0x%08x, DM = %u, FWCtx = 0x%08.8x", 3) \
+X(281, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_CANCEL_WORK_CMD_RECEIVED, "Cancelling jobs with intjobref from 0x%08x to 0x%08x, DM = %u, FWCtx = 0x%08.8x", 4) \
+X(282, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TIME_SLICE_MAX_DEPRECATED2, "Time Slice: Update Failed, Max total allocations exceeded 100pc", 0)\
+X(283, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TIME_SLICE_DYNAMIC_LOW_DEPRECATED2, "Time Slice: Dynamic time slice low, allocating zero time slice to dynamic drivers", 0)\
+X(284, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_TIME_SLICE_UPDATE_SUCCESS_DEPRECATED2, "Time Slice: Updated Successfully", 0)\
+X(285, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_OS_STATE_CHANGE_DEPRECATED2, "Driver ID %u fw state transition request: from %u to %u (0-offline 1-ready 2-active 3-graceful_offloading 4-forced_offloading 5-cooldown). Status %u (1-ok 0-fail)", 4) \
+X(286, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FBSC_INVAL, "FBSC invalidate for Context Set [0x%08x]", 1) \
+X(287, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_CANCEL_WORK_CMD_DROPPED, "Dropped cancel request with intjobref from 0x%08x to 0x%08x, DM = %u, FWCtx = 0x%08.8x", 4) \
+X(288, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_ZERO_LM, "Zeroing local memory after context storing FWCtx = 0x%08.8x", 1) \
+X(289, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_FAILED_IRQ_CLEAR, "Host failed to clear IRQ DriverID: %u Reg: 0x%08x",2) \
+X(290, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_KILLDM_ABORTED, "Kill DM%u aborted", 1) \
+X(291, RGXFW_GROUP_MAIN, RGXFW_SF_MAIN_SOC_CLOCK_SPEED_CHANGE, "SOC clock set to %u Hz", 1) \
 \
 X(  1, RGXFW_GROUP_MTS, RGXFW_SF_MTS_BG_KICK_DEPRECATED, "Bg Task DM = %u, counted = %u", 2) \
 X(  2, RGXFW_GROUP_MTS, RGXFW_SF_MTS_BG_COMPLETE_DEPRECATED, "Bg Task complete DM = %u", 1) \
@@ -523,32 +543,34 @@ X( 18, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SR_STRIP_MODE, "SR: Strip mode is %u", 1)
 X( 19, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SR_STRIP_INDEX, "SR: Strip Render start (strip %u)", 1) \
 X( 20, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SR_BUFFER_RENDERED, "SR: Strip Render complete (buffer %u)", 1) \
 X( 21, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SR_BUFFER_FAULT, "SR: Strip Render fault (buffer %u)", 1) \
-X( 22, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_STATE_DEPRECATED, "TRP state: %u", 1) \
-X( 23, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_FAILURE, "TRP failure: %u", 1) \
-X( 24, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SW_TRP_STATE, "SW TRP State: %u", 1) \
-X( 25, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SW_TRP_FAILURE_DEPRECATED, "SW TRP failure: %u", 1) \
-X( 26, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HW_KICK, "HW kick event (%u)", 1) \
-X( 27, RGXFW_GROUP_MISC, RGXFW_SF_MISC_WGP_CHECKSUMS, "GPU core (%u/%u): checksum 0x%08x vs. 0x%08x", 4) \
-X( 28, RGXFW_GROUP_MISC, RGXFW_SF_MISC_WGP_UNIT_CHECKSUMS, "GPU core (%u/%u), unit (%u,%u): checksum 0x%08x vs. 0x%08x", 6) \
-X( 29, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HWR_CHECK_REG, "HWR: Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
-X( 30, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HWR_USC_SLOTS_CHECK, "HWR: USC Core%u, ui32TotalSlotsUsedByDM=0x%08x, psDMHWCtl->ui32USCSlotsUsedByDM=0x%08x, bHWRNeeded=%u", 4) \
-X( 31, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HWR_USC_REG_CHECK, "HWR: USC Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
-X( 32, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_STATE_HWRTDATA, "TRP HWRTData: 0x%08x, state: %u", 2) \
-X( 33, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_STATE_CNTX, "TRP Context: 0x%08x, state: %u", 2) \
-X( 34, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_FAILURE_CNTX, "TRP Context: 0x%08x, failure: %u", 2) \
-X( 35, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU, "Memory dump: Addr=0x%02x%08x, Size=%d, ContextId=%u, DM=%u", 5) \
-X( 36, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS4, "  0x%02x%08x  %08x %08x %08x %08x", 6) \
-X( 37, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS3, "  0x%02x%08x  %08x %08x %08x", 5) \
-X( 38, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS2, "  0x%02x%08x  %08x %08x", 4) \
-X( 39, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS1, "  0x%02x%08x  %08x", 3) \
-X( 40, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW, "Memory dump: Addr=0x%08x, Size=%d", 2) \
-X( 41, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS4, "  0x%08x  %08x %08x %08x %08x", 5) \
-X( 42, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS3, "  0x%08x  %08x %08x %08x", 4) \
-X( 43, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS2, "  0x%08x  %08x %08x", 3) \
-X( 44, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS1, "  0x%08x  %08x", 2) \
-X( 45, RGXFW_GROUP_MISC, RGXFW_SF_MISC_FBCDC_FAILURE_STATUS, "FBCDC: Core=0x%08x, Status=0x%08x, Signature status=0x%08x", 3) \
+X( 22, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_STATE_DEPRECATED2, "TRP state: %u", 1) \
+X( 23, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_FAILURE_DEPRECATED, "TRP failure: %u", 1) \
+X( 24, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SW_TRP_STATE_DEPRECATED, "SW TRP State: %u", 1) \
+X( 25, RGXFW_GROUP_MISC, RGXFW_SF_MISC_SW_TRP_FAILURE_DEPRECATED2, "SW TRP failure: %u", 1) \
+X( 26, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HW_KICK_DEPRECATED, "HW kick event (%u)", 1) \
+X( 27, RGXFW_GROUP_MISC, RGXFW_SF_MISC_WGP_CHECKSUMS_DEPRECATED, "GPU core (%u/%u): checksum 0x%08x vs. 0x%08x", 4) \
+X( 28, RGXFW_GROUP_MISC, RGXFW_SF_MISC_WGP_UNIT_CHECKSUMS_DEPRECATED, "GPU core (%u/%u), unit (%u,%u): checksum 0x%08x vs. 0x%08x", 6) \
+X( 29, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HWR_CHECK_REG_DEPRECATED, "HWR: Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
+X( 30, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HWR_USC_SLOTS_CHECK_DEPRECATED, "HWR: USC Core%u, ui32TotalSlotsUsedByDM=0x%08x, psDMHWCtl->ui32USCSlotsUsedByDM=0x%08x, bHWRNeeded=%u", 4) \
+X( 31, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HWR_USC_REG_CHECK_DEPRECATED, "HWR: USC Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
+X( 32, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_STATE_HWRTDATA_DEPRECATED, "TRP HWRTData: 0x%08x, state: %u", 2) \
+X( 33, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_STATE_CNTX_DEPRECATED, "TRP Context: 0x%08x, state: %u", 2) \
+X( 34, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_FAILURE_CNTX_DEPRECATED, "TRP Context: 0x%08x, failure: %u", 2) \
+X( 35, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DEPRECATED, "Memory dump: Addr=0x%02x%08x, Size=%d, ContextId=%u, DM=%u", 5) \
+X( 36, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS4_DEPRECATED, "  0x%02x%08x  %08x %08x %08x %08x", 6) \
+X( 37, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS3_DEPRECATED, "  0x%02x%08x  %08x %08x %08x", 5) \
+X( 38, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS2_DEPRECATED, "  0x%02x%08x  %08x %08x", 4) \
+X( 39, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_GPU_DWORDS1_DEPRECATED, "  0x%02x%08x  %08x", 3) \
+X( 40, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DEPRECATED, "Memory dump: Addr=0x%08x, Size=%d", 2) \
+X( 41, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS4_DEPRECATED, "  0x%08x  %08x %08x %08x %08x", 5) \
+X( 42, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS3_DEPRECATED, "  0x%08x  %08x %08x %08x", 4) \
+X( 43, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS2_DEPRECATED, "  0x%08x  %08x %08x", 3) \
+X( 44, RGXFW_GROUP_MISC, RGXFW_SF_MISC_HEXDUMP_FW_DWORDS1_DEPRECATED, "  0x%08x  %08x", 2) \
+X( 45, RGXFW_GROUP_MISC, RGXFW_SF_MISC_FBCDC_FAILURE_STATUS_DEPRECATED, "FBCDC: Core=0x%08x, Status=0x%08x, Signature status=0x%08x", 3) \
 X( 46, RGXFW_GROUP_MISC, RGXFW_SF_MISC_WORK_CYCLES_PIPEDM_EN, "FWCtx 0x%08.8x, PipeDM state %04x, (start) %08x, (end) %08x, elapsed %08x", 5) \
 X( 47, RGXFW_GROUP_MISC, RGXFW_SF_MISC_WORK_CYCLES, "FWCtx 0x%08.8x, elapsed %08x", 2) \
+X( 48, RGXFW_GROUP_MISC, RGXFW_SF_MISC_TRP_UNEXPECTED_EVENT_DEPRECATED, "Unexpected TRP pass completion on DM: %u",1) \
+X( 49, RGXFW_GROUP_MISC, RGXFW_SF_MISC_FAILED_IRQ_CLEAR_DEPRECATED, "Host failed to clear IRQ, Reg: 0x%08x",1) \
 \
 X(  1, RGXFW_GROUP_PM, RGXFW_SF_PM_AMLIST, "ALIST%u SP = %u, MLIST%u SP = %u (VCE 0x%08x%08x, TE 0x%08x%08x, ALIST 0x%08x%08x)", 10) \
 X(  2, RGXFW_GROUP_PM, RGXFW_SF_PM_UFL_SHARED_DEPRECATED, "Is TA: %u, finished: %u on HW %u (HWRTData = 0x%08x, MemCtx = 0x%08x). FL different between TA/3D: global:%u, local:%u, mmu:%u", 8) \
@@ -624,7 +646,7 @@ X( 13, RGXFW_GROUP_RTD, RGXFW_SF_RTD_STORE_PB_DEPRECATED, "Store Freelist 0x%x t
 X( 14, RGXFW_GROUP_RTD, RGXFW_SF_RTD_TA_RTDATA_FINISHED, "TA RTData 0x%08x finished on HW context %u", 2) \
 X( 15, RGXFW_GROUP_RTD, RGXFW_SF_RTD_TA_RTDATA_LOADED, "TA RTData 0x%08x loaded on HW context %u", 2) \
 X( 16, RGXFW_GROUP_RTD, RGXFW_SF_RTD_STORE_PB_DEPRECATED2, "Store Freelist 0x%x type: %u (0:local,1:global,2:mmu) for DM%u: FL Total Pages %u (max=%u,grow size=%u), FL-addr = 0x%08x%08x, stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 12) \
-X( 17, RGXFW_GROUP_RTD, RGXFW_SF_RTD_LOAD_FL_DEPRECATED2, "Load  Freelist 0x%x type: %u (0:local,1:global,2:mmu) for DM%u: FL Total Pages %u (max=%u,grow size=%u), FL-addr = 0x%08x%08x, stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 12) \
+X( 17, RGXFW_GROUP_RTD, RGXFW_SF_RTD_LOAD_FL_DEPRECATED2, "Load Freelist 0x%x type: %u (0:local,1:global,2:mmu) for DM%u: FL Total Pages %u (max=%u,grow size=%u), FL-addr = 0x%08x%08x, stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 12) \
 X( 18, RGXFW_GROUP_RTD, RGXFW_SF_RTD_DEBUG_DEPRECATED, "Freelist 0x%x RESET!!!!!!!!", 1) \
 X( 19, RGXFW_GROUP_RTD, RGXFW_SF_RTD_DEBUG2_DEPRECATED, "Freelist 0x%x stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 5) \
 X( 20, RGXFW_GROUP_RTD, RGXFW_SF_RTD_FL_RECON_DEPRECATED, "Request reconstruction of Freelist 0x%x type: %u (0:local,1:global,2:mmu) on HW context %u", 3) \
@@ -638,11 +660,11 @@ X( 27, RGXFW_GROUP_RTD, RGXFW_SF_RTD_3D_RTDATA_BUFFER_ADDRS_DEPRECATED, "3D Buff
 X( 28, RGXFW_GROUP_RTD, RGXFW_SF_RTD_TA_RESTART_AFTER_PR_EXECUTED, "Restarting TA after partial render, HWRTData0State=0x%x, HWRTData1State=0x%x", 2) \
 X( 29, RGXFW_GROUP_RTD, RGXFW_SF_RTD_PB_SET_TO, "CONTEXT_PB_BASE set to 0x%x, FL different between TA/3D: local: %u, global: %u", 3) \
 X( 30, RGXFW_GROUP_RTD, RGXFW_SF_RTD_STORE_FL, "Store Freelist 0x%x type: %u (0:local,1:global) for PMDM%u: FL Total Pages %u (max=%u,grow size=%u), FL-addr = 0x%08x%08x, stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 12) \
-X( 31, RGXFW_GROUP_RTD, RGXFW_SF_RTD_LOAD_FL, "Load  Freelist 0x%x type: %u (0:local,1:global) for PMDM%u: FL Total Pages %u (max=%u,grow size=%u), FL-addr = 0x%08x%08x, stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 12) \
+X( 31, RGXFW_GROUP_RTD, RGXFW_SF_RTD_LOAD_FL, "Load Freelist 0x%x type: %u (0:local,1:global) for PMDM%u: FL Total Pages %u (max=%u,grow size=%u), FL-addr = 0x%08x%08x, stacktop = 0x%08x%08x, Alloc Page Count = %u, Alloc MMU Page Count = %u", 12) \
 X( 32, RGXFW_GROUP_RTD, RGXFW_SF_RTD_3D_RTDATA_BUFFER_ADDRS_DEPRECATED2, "3D Buffers: FWCtx 0x%08x, parent RT 0x%08x, RTData 0x%08x on ctx %u, (MemCtx 0x%08x)", 5) \
 X( 33, RGXFW_GROUP_RTD, RGXFW_SF_RTD_TA_RTDATA_BUFFER_ADDRS, "TA Buffers: FWCtx 0x%08x, RTData 0x%08x, VHeap 0x%08x%08x, TPC 0x%08x%08x (MemCtx 0x%08x)", 7) \
 X( 34, RGXFW_GROUP_RTD, RGXFW_SF_RTD_3D_RTDATA_BUFFER_ADDRS, "3D Buffers: FWCtx 0x%08x, RTData 0x%08x on ctx %u, (MemCtx 0x%08x)", 4) \
-X( 35, RGXFW_GROUP_RTD, RGXFW_SF_RTD_LOAD_FL_V2, "Load  Freelist 0x%x type: %u (0:local,1:global) for PMDM%u: FL Total Pages %u (max=%u,grow size=%u)", 6) \
+X( 35, RGXFW_GROUP_RTD, RGXFW_SF_RTD_LOAD_FL_V2, "Load Freelist 0x%x type: %u (0:local,1:global) for PMDM%u: FL Total Pages %u (max=%u,grow size=%u)", 6) \
 X( 36, RGXFW_GROUP_RTD, RGXFW_SF_RTD_KILLED_TA, "TA RTData 0x%08x marked as killed.", 1) \
 X( 37, RGXFW_GROUP_RTD, RGXFW_SF_RTD_KILLED_3D, "3D RTData 0x%08x marked as killed.", 1) \
 X( 38, RGXFW_GROUP_RTD, RGXFW_SF_RTD_KILL_TA_AFTER_RESTART, "RTData 0x%08x will be killed after TA restart.", 1) \
@@ -689,7 +711,7 @@ X( 36, RGXFW_GROUP_SPM, RGXFW_SF_SPM_STATE_PR_RUNNING, "SPM State = PR running",
 X( 37, RGXFW_GROUP_SPM, RGXFW_SF_SPM_STATE_PR_AVOIDED, "SPM State = PR avoided", 0) \
 X( 38, RGXFW_GROUP_SPM, RGXFW_SF_SPM_STATE_PR_EXECUTED, "SPM State = PR executed", 0) \
 X( 39, RGXFW_GROUP_SPM, RGXFW_SF_SPM_FREELIST_MATCH, "3DMemFree matches freelist 0x%08x (FL type = %u)", 2) \
-X( 40, RGXFW_GROUP_SPM, RGXFW_SF_SPM_3DMEMFREE_FLAG_SET, "Raise the 3DMemFreeDedected flag", 0) \
+X( 40, RGXFW_GROUP_SPM, RGXFW_SF_SPM_3DMEMFREE_FLAG_SET, "Raise the 3DMemFreeDetected flag", 0) \
 X( 41, RGXFW_GROUP_SPM, RGXFW_SF_SPM_STATE_WAIT_FOR_PENDING_GROW, "Wait for pending grow on Freelist 0x%08x", 1) \
 X( 42, RGXFW_GROUP_SPM, RGXFW_SF_SPM_ZSBUFFER_BACKING_REQUEST_FAILED, "ZS Buffer failed to be populated (ID=0x%08x)", 1) \
 X( 43, RGXFW_GROUP_SPM, RGXFW_SF_SPM_FL_GROW_DEBUG, "Grow update inconsistency: FL addr: 0x%02x%08x, curr pages: %u, ready: %u, new: %u", 5) \
@@ -755,7 +777,7 @@ X( 43, RGXFW_GROUP_POW, RGXFW_SF_POW_HWREQ_RESULT, "HW Request Completed(1)/Abor
 X( 44, RGXFW_GROUP_POW, RGXFW_SF_POW_DUSTS_CHANGE_FIX_59042_DEPRECATED, "Allowed number of dusts is %u due to BRN59042.", 1) \
 X( 45, RGXFW_GROUP_POW, RGXFW_SF_POW_HOST_TIMEOUT_NOTIFICATION, "Host timed out while waiting for a forced idle state. Pow state int: 0x%x, ext: 0x%x, flags: 0x%x", 3) \
 X( 46, RGXFW_GROUP_POW, RGXFW_SF_POW_CHECK, "Check Pow state: Int: 0x%x, Ext: 0x%x, Pow flags: 0x%x, Fence Counters: Check: %u - Update: %u", 5) \
-X( 47, RGXFW_GROUP_POW, RGXFW_SF_POW_PDVFS_GPIO_SEND, "Proactive DVFS: OPP Point Sent = 0x%x, Success = 0x%x", 2) \
+X( 47, RGXFW_GROUP_POW, RGXFW_SF_POW_PDVFS_GPIO_SEND, "Custom/Proactive DVFS: OPP Point Sent = 0x%x, Success = 0x%x", 2) \
 X( 48, RGXFW_GROUP_POW, RGXFW_SF_POW_PDVFS_TO_IDLE, "Proactive DVFS: GPU transitioned to idle", 0) \
 X( 49, RGXFW_GROUP_POW, RGXFW_SF_POW_PDVFS_TO_ACTIVE, "Proactive DVFS: GPU transitioned to active", 0) \
 X( 50, RGXFW_GROUP_POW, RGXFW_SF_POW_POWDUMP_BUFFER_SIZE, "Power counter dumping: Data truncated writing register %u. Buffer too small.", 1) \
@@ -957,24 +979,74 @@ X( 23, RGXFW_GROUP_DBG, RGXFW_SF_DBG_6UNSIGNED, "%u %u %u %u %u %u", 6) \
 X( 24, RGXFW_GROUP_DBG, RGXFW_SF_DBG_7UNSIGNED, "%u %u %u %u %u %u %u", 7) \
 X( 25, RGXFW_GROUP_DBG, RGXFW_SF_DBG_8UNSIGNED, "%u %u %u %u %u %u %u %u", 8) \
 \
+X(  1, RGXFW_GROUP_VZ, RGXFW_SF_VZ_OS_STATE_CHANGE, "[Host time %09u%09u%09u] Driver ID %u fw state transition request: from %u to %u (0-offline 1-ready 2-active 3-graceful_offloading 4-forced_offloading 5-cooldown). Status %u (1-ok 0-fail)", 7) \
+X(  2, RGXFW_GROUP_VZ, RGXFW_SF_VZ_OS_MTS_PERMISSION_CHANGED, "[Host time %09u%09u%09u] Updated permission for Driver ID %u to perform MTS kicks: %u (1 = allowed, 0 = not allowed)", 5) \
+X(  3, RGXFW_GROUP_VZ, RGXFW_SF_VZ_OS_INIT_CCBS, "[Host time %09u%09u%09u] Driver ID %u CCB init status: %u (1-ok 0-fail): kCCBCtl@0x%x kCCB@0x%x fwCCBCtl@0x%x fwCCB@0x%x", 9) \
+X(  4, RGXFW_GROUP_VZ, RGXFW_SF_VZ_OS_INIT_CONFIG, "[Host time %09u%09u%09u] Initialised OS %u with config flags 0x%08x", 5) \
+X(  5, RGXFW_GROUP_VZ, RGXFW_SF_VZ_TIME_SLICE_MAX, "[Host time %09u%09u%09u] Time Slice: Update Failed, Max total allocations exceeded 100pc", 3)\
+X(  6, RGXFW_GROUP_VZ, RGXFW_SF_VZ_TIME_SLICE_DYNAMIC_LOW, "[Host time %09u%09u%09u] Time Slice: Dynamic time slice low, allocating zero time slice to dynamic drivers", 3)\
+X(  7, RGXFW_GROUP_VZ, RGXFW_SF_VZ_TIME_SLICE_UPDATE_SUCCESS, "[Host time %09u%09u%09u] Time Slice: Updated Successfully", 3)\
+X(  8, RGXFW_GROUP_VZ, RGXFW_SF_VZ_OS_ISOLATION_GROUP_CHANGE, "[Host time %09u%09u%09u] Changing Driver ID %u's isolation group from %u to %u", 6) \
+X(  9, RGXFW_GROUP_VZ, RGXFW_SF_VZ_OS_PRIORITY_CHANGE, "[Host time %09u%09u%09u] Changing Driver ID %u's priority from %u to %u", 6) \
+X( 10, RGXFW_GROUP_VZ, RGXFW_SF_VZ_WDG_TRIGGER, "[Host time %09u%09u%09u] Driver ID %u failed to respond to the virtualisation watchdog in time. Timestamp of its last input = %u", 5) \
+\
+\
+X(  1, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_FBCDC_FAILURE_STATUS, "FBCDC: Core=0x%08x, Status=0x%08x, Signature status=0x%08x", 3) \
+X(  2, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_FBCDC_FAILURE_DETECTED, "FBCDC signature failure detected so block scheduling more work", 0) \
+X(  3, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_FBCDC_FAILURE_CLEARED, "FBCDC signature cleared which unlocks scheduling more work", 0) \
+X(  4, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_TRP_FAILURE, "TRP failure: %u", 1) \
+X(  5, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_SW_TRP_STATE, "SW TRP State: %u", 1) \
+X(  6, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_WGP_HW_KICK, "HW kick event (%u)", 1) \
+X(  7, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_WGP_CHECKSUMS, "GPU core (%u/%u): checksum 0x%08x vs. 0x%08x", 4) \
+X(  8, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_WGP_UNIT_CHECKSUMS, "GPU core (%u/%u), unit (%u,%u): checksum 0x%08x vs. 0x%08x", 6) \
+X(  9, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_HWR_CHECK_REG, "HWR: Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
+X( 10, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_HWR_USC_SLOTS_CHECK, "HWR: USC Core%u, ui32TotalSlotsUsedByDM=0x%08x, psDMHWCtl->ui32USCSlotsUsedByDM=0x%08x, bHWRNeeded=%u", 4) \
+X( 11, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_HWR_USC_REG_CHECK, "HWR: USC Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
+X( 12, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_TRP_STATE_HWRTDATA_DEPRECATED, "TRP HWRTData: 0x%08x, state: %u", 2) \
+X( 13, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_TRP_STATE_CNTX_DEPRECATED, "TRP Context: 0x%08x, state: %u", 2) \
+X( 14, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_TRP_FAILURE_CNTX, "TRP Context: 0x%08x, failure: %u", 2) \
+X( 15, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_TRP_UNEXPECTED_EVENT_DEPRECATED, "Unexpected TRP pass completion on DM: %u",1) \
+X( 16, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_ICS_ENABLED, "ICS enabled for DM: %u",1) \
+X( 17, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_ICS_INTERVAL,"ICS: interval: %u cycles, threshold: %u cycles",2) \
+X( 18, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_ICS_FAULT,"ICS fault detected, GPU cores mask 0x%08x",1) \
+X( 19, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_ICS_MODE,"Set ICS mode to: %u ",1) \
+X( 20, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_ICS_TESTS_COMPLETION_FAILURE,"ICS tests not completed in mode %u",1) \
+X( 21, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_ICS_TESTS_START_FAILURE,"ICS tests failed to start",0) \
+X( 22, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_SELF_TEST_START,"Start Safety self-test",0) \
+X( 23, RGXFW_GROUP_SAFETY, RGXFW_SF_SAFETY_SELF_TEST_END,"Safety self-test completed",0) \
+\
+X(  1, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HWR_CHECK_REG, "HWR: Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
+X(  2, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HWR_USC_SLOTS_CHECK, "HWR: USC Core%u, ui32TotalSlotsUsedByDM=0x%08x, psDMHWCtl->ui32USCSlotsUsedByDM=0x%08x, bHWRNeeded=%u", 4) \
+X(  3, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HWR_USC_REG_CHECK, "HWR: USC Core%u, Register=0x%08x, OldValue=0x%08x%08x, CurrValue=0x%08x%08x", 6) \
+X(  4, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_GPU, "Memory dump: Addr=0x%02x%08x, Size=%d, ContextId=%u, DM=%u", 5) \
+X(  5, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_GPU_DWORDS4, "  0x%02x%08x  %08x %08x %08x %08x", 6) \
+X(  6, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_GPU_DWORDS3, "  0x%02x%08x  %08x %08x %08x", 5) \
+X(  7, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_GPU_DWORDS2, "  0x%02x%08x  %08x %08x", 4) \
+X(  8, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_GPU_DWORDS1, "  0x%02x%08x  %08x", 3) \
+X(  9, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_FW, "Memory dump: Addr=0x%08x, Size=%d", 2) \
+X(  0, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_FW_DWORDS4, "  0x%08x  %08x %08x %08x %08x", 5) \
+X( 11, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_FW_DWORDS3, "  0x%08x  %08x %08x %08x", 4) \
+X( 12, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_FW_DWORDS2, "  0x%08x  %08x %08x", 3) \
+X( 13, RGXFW_GROUP_VERBOSE, RGXFW_SF_VERBOSE_HEXDUMP_FW_DWORDS1, "  0x%08x  %08x", 2) \
+\
 X(65535, RGXFW_GROUP_NULL, RGXFW_SF_LAST, "You should not use this string", 15)
 
 
 /*  The symbolic names found in the table above are assigned an ui32 value of
  *  the following format:
- *  31 30 28 27       20   19  16    15  12      11            0   bits
- *  -   ---   ---- ----     ----      ----        ---- ---- ----
- *     0-11: id number
- *    12-15: group id number
- *    16-19: number of parameters
- *    20-27: unused
- *    28-30: active: identify SF packet, otherwise regular int32
- *       31: reserved for signed/unsigned compatibility
+ *  31 30 28 26      20   19  16    15  12      11  10           0   bits
+ *  -   ---   --- ----     ----      ----        -   --- ---- ----
+ *        0-10: id number
+ *    12-15,11: group id number (bits 0-3 and bit 4)
+ *       16-19: number of parameters
+ *       20-26: unused
+ *       28-30: active: identify SF packet, otherwise regular int32
+ *          31: reserved for signed/unsigned compatibility
  *
  *   The following macro assigns those values to the enum generated SF ids list.
  */
 #define RGXFW_LOG_IDMARKER			(0x70000000U)
-#define RGXFW_LOG_CREATESFID(a,b,e) ((IMG_UINT32)(a) | ((IMG_UINT32)(b)<<12U) | ((IMG_UINT32)(e)<<16U)) | RGXFW_LOG_IDMARKER
+#define RGXFW_LOG_CREATESFID(a,b,e) ((IMG_UINT32)(a) | (((IMG_UINT32)(b)&0x10U)<<7U) | (((IMG_UINT32)(b)&0xFU)<<12U) | ((IMG_UINT32)(e)<<16U)) | RGXFW_LOG_IDMARKER
 
 #define RGXFW_LOG_IDMASK			(0xFFF00000U)
 #define RGXFW_LOG_VALIDID(I)		(((I) & RGXFW_LOG_IDMASK) == RGXFW_LOG_IDMARKER)
@@ -986,9 +1058,9 @@ typedef enum {
 } RGXFW_LOG_SFids;
 
 /* Return the group id number that the given (enum generated) id belongs to */
-#define RGXFW_SF_GID(x) (((IMG_UINT32)(x)>>12) & 0xfU)
+#define RGXFW_SF_GID(x) ((((IMG_UINT32)(x)>>12) & 0xfU)|(((IMG_UINT32)(x)>>7) & 0x10U))
 /* Return the id number that the given (enum generated) id belongs to */
-#define RGXFW_SF_ID(x) ((IMG_UINT32)(x) & 0xfffU)
+#define RGXFW_SF_ID(x) ((IMG_UINT32)(x) & 0x7ffU)
 /* Returns how many arguments the SF(string format) for the given (enum generated) id requires */
 #define RGXFW_SF_PARAMNUM(x) (((IMG_UINT32)(x)>>16) & 0xfU)
 

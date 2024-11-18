@@ -75,6 +75,8 @@ void SysRGXErrorNotify(IMG_HANDLE hSysData,
 			}
 			case RGX_CONTEXT_RESET_REASON_GPU_ECC_HWR:
 			case RGX_CONTEXT_RESET_REASON_FW_EXEC_ERR:
+			case RGX_CONTEXT_RESET_REASON_GPU_PARITY_HWR:
+			case RGX_CONTEXT_RESET_REASON_GPU_LATENT_HWR:
 			{
 				ui32DgbLvl = PVR_DBG_WARNING;
 				break;
@@ -82,10 +84,13 @@ void SysRGXErrorNotify(IMG_HANDLE hSysData,
 			case RGX_CONTEXT_RESET_REASON_WGP_CHECKSUM:
 			case RGX_CONTEXT_RESET_REASON_TRP_CHECKSUM:
 			case RGX_CONTEXT_RESET_REASON_FW_ECC_ERR:
+			case RGX_CONTEXT_RESET_REASON_FW_PTE_PARITY_ERR:
+			case RGX_CONTEXT_RESET_REASON_FW_PARITY_ERR:
 			case RGX_CONTEXT_RESET_REASON_FW_WATCHDOG:
 			case RGX_CONTEXT_RESET_REASON_FW_PAGEFAULT:
 			case RGX_CONTEXT_RESET_REASON_HOST_WDG_FW_ERR:
 			case RGX_CONTEXT_PVRIC_SIGNATURE_MISMATCH:
+			case RGX_CONTEXT_RESET_REASON_DCLS_ERR:
 			{
 				ui32DgbLvl = PVR_DBG_ERROR;
 				break;
@@ -132,60 +137,12 @@ void SysRGXErrorNotify(IMG_HANDLE hSysData,
 
 IMG_UINT64 SysRestrictGpuLocalPhysheap(IMG_UINT64 uiHeapSize)
 {
-#if defined(SUPPORT_VALIDATION)
-	void *pvAppHintState = NULL;
-	IMG_UINT32 uiCurrentHeapSizeMB = B2MB(uiHeapSize);
-	IMG_UINT32 uiForcedHeapSizeMB = 0;
-	IMG_UINT64 uiForcedHeapSizeBytes = 0;
-
-	OSCreateAppHintState(&pvAppHintState);
-	OSGetAppHintUINT32(APPHINT_NO_DEVICE, pvAppHintState,
-	                     RestrictGpuLocalPhysHeapSizeMB, &uiCurrentHeapSizeMB,
-						 &uiForcedHeapSizeMB);
-	OSFreeAppHintState(pvAppHintState);
-
-	uiForcedHeapSizeBytes = MB2B((IMG_UINT64)uiForcedHeapSizeMB);
-
-	if (uiForcedHeapSizeMB == 0)
-	{
-		/* Apphint wasn't set, just return current heapsize */
-		return uiHeapSize;
-	}
-
-	if (uiForcedHeapSizeBytes > uiHeapSize)
-	{
-		PVR_DPF((PVR_DBG_WARNING,"GPU_LOCAL Forced heap value greater than possible heap size. "
-								 "Given: %llu Available: %llu. Reverting to default.",
-								 uiForcedHeapSizeBytes, uiHeapSize));
-	}
-	else
-	{
-		PVR_LOG(("RestrictGpuLocalPhysHeapSizeMB applied GPU_LOCAL Size Bytes: %llu", uiForcedHeapSizeBytes));
-	}
-
-	return uiForcedHeapSizeBytes;
-#else
 	return uiHeapSize;
-#endif
 }
 
 IMG_BOOL SysRestrictGpuLocalAddPrivateHeap(void)
 {
-#if defined(SUPPORT_VALIDATION)
-	void *pvAppHintState = NULL;
-	IMG_UINT32 uiCurrentHeapSizeMB = 0;
-	IMG_UINT32 uiForcedHeapSizeMB = 0;
-
-	OSCreateAppHintState(&pvAppHintState);
-	OSGetAppHintUINT32(APPHINT_NO_DEVICE, pvAppHintState,
-	                     RestrictGpuLocalPhysHeapSizeMB, &uiCurrentHeapSizeMB,
-						 &uiForcedHeapSizeMB);
-	OSFreeAppHintState(pvAppHintState);
-
-	return uiForcedHeapSizeMB ? IMG_TRUE : IMG_FALSE;
-#else
 	return IMG_FALSE;
-#endif
 }
 
 IMG_BOOL SysDefaultToCpuLocalHeap(void)

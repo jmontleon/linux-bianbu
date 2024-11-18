@@ -110,7 +110,7 @@ static ssize_t display_enabled_write(struct file *file,
 		return -EFAULT;
 	buffer[count] = '\0';
 
-	if (!strtobool(buffer, &dev_priv->display_enabled) && dev_priv->crtc)
+	if (!kstrtobool(buffer, &dev_priv->display_enabled) && dev_priv->crtc)
 		pdp_crtc_set_plane_enabled(dev_priv->crtc, dev_priv->display_enabled);
 
 	return count;
@@ -124,6 +124,7 @@ static const struct file_operations pdp_display_enabled_fops = {
 	.llseek = default_llseek,
 };
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
 static int pdp_debugfs_create(struct drm_minor *minor, const char *name,
 			      umode_t mode, const struct file_operations *fops)
 {
@@ -153,6 +154,7 @@ static int pdp_debugfs_create(struct drm_minor *minor, const char *name,
 
 	return 0;
 }
+#endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
 int pdp_debugfs_init(struct drm_minor *minor)
@@ -161,10 +163,18 @@ void pdp_debugfs_init(struct drm_minor *minor)
 #endif
 {
 	int err;
-
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
 	err = pdp_debugfs_create(minor, PDP_DEBUGFS_DISPLAY_ENABLED,
 				 0100644,
 				 &pdp_display_enabled_fops);
+#else
+	struct dentry *dent = debugfs_create_file(PDP_DEBUGFS_DISPLAY_ENABLED,
+						  0100644,
+						  minor->debugfs_root,
+						  minor->dev,
+						  &pdp_display_enabled_fops);
+	err = !dent;
+#endif
 	if (err) {
 		DRM_INFO("failed to create '%s' debugfs entry\n",
 			 PDP_DEBUGFS_DISPLAY_ENABLED);
