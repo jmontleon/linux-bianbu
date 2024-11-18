@@ -50,8 +50,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "osfunc.h"
 #include "pdump_physmem.h"
 #include "pdump_km.h"
-#include "rgx_heaps.h"
 #include "pvr_ricommon.h"
+#include "allocmem.h"
 
 #include "physmem_lma.h"
 #include "physmem_osmem.h"
@@ -73,6 +73,12 @@ MODULE_PARM_DESC(PMRAllocFail, "When number of PMR allocs reaches "
 #include "process_stats.h"
 #include "proc_stats.h"
 #endif
+
+/** Computes division using log2 of divisor. */
+#define LOG2_DIV(x, log2) ((x) >> (log2))
+
+/** Computes modulo of a power of 2. */
+#define LOG2_MOD(x, log2) ((x) & ((1 << (log2)) - 1))
 
 PVRSRV_ERROR DevPhysMemAlloc(PVRSRV_DEVICE_NODE	*psDevNode,
                              IMG_UINT32 ui32MemSize,
@@ -114,7 +120,7 @@ PVRSRV_ERROR DevPhysMemAlloc(PVRSRV_DEVICE_NODE	*psDevNode,
 	/* Check to see if the page allocator returned pages with our desired
 	 * alignment, which is not unlikely
 	 */
-	uiMask = (1 << ui32Log2Align) - 1;
+	uiMask = IMG_PAGE2BYTES32(ui32Log2Align) - 1;
 	if (ui32Log2Align && (sDevPhysAddr_int.uiAddr & uiMask))
 	{
 		/* use over allocation instead */
@@ -134,7 +140,7 @@ PVRSRV_ERROR DevPhysMemAlloc(PVRSRV_DEVICE_NODE	*psDevNode,
 	*psDevPhysAddr = sDevPhysAddr_int;
 
 #if defined(PDUMP)
-	ui32PageSize = ui32Log2Align? (1 << ui32Log2Align) : OSGetPageSize();
+	ui32PageSize = ui32Log2Align? IMG_PAGE2BYTES32(ui32Log2Align) : OSGetPageSize();
 	eError = PDumpMalloc(psDevNode,
 	                     pszDevSpace,
 	                     pszSymbolicAddress,
@@ -267,15 +273,75 @@ void DevPhysMemFree(PVRSRV_DEVICE_NODE *psDevNode,
 
 }
 
+PVRSRV_ERROR PhysMemValidateMappingTable(IMG_UINT32 ui32TotalNumVirtChunks,
+                                         IMG_UINT32 ui32IndexCount,
+                                         const IMG_UINT32 *pui32MappingTable)
+{
+	IMG_UINT8 *paui8TrackedIndices;
+	IMG_UINT32 ui32BytesToTrackIndicies;
+	IMG_UINT32 i;
+	PVRSRV_ERROR eError = PVRSRV_OK;
+
+	/* Allocate memory for a bitmask to track indices.
+	 * We allocate 'n' bytes with 1 bit representing each index, to allow
+	 * us to check for any repeated entries in pui32MappingTable.
+	 */
+	ui32BytesToTrackIndicies = LOG2_DIV(ui32TotalNumVirtChunks, 3);
+	if (LOG2_MOD(ui32TotalNumVirtChunks, 3) != 0)
+	{
+		++ui32BytesToTrackIndicies;
+	}
+	paui8TrackedIndices = OSAllocZMem(ui32BytesToTrackIndicies);
+	if (paui8TrackedIndices == NULL)
+	{
+		return PVRSRV_ERROR_OUT_OF_MEMORY;
+	}
+
+	for (i = 0; i < ui32IndexCount; i++)
+	{
+		IMG_UINT32 ui32LogicalIndex = pui32MappingTable[i];
+
+		/* Check that index is within the bounds of the allocation */
+		if (ui32LogicalIndex >= ui32TotalNumVirtChunks)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+			         "%s: Index %u is OOB",
+			         __func__,
+			         ui32LogicalIndex));
+			eError = PVRSRV_ERROR_PMR_INVALID_MAP_INDEX_ARRAY;
+			break;
+		}
+
+		/* Check that index is not repeated */
+		if (BIT_ISSET(paui8TrackedIndices[LOG2_DIV(ui32LogicalIndex, 3)], LOG2_MOD(ui32LogicalIndex, 3)))
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+			         "%s: Duplicate index found: %u",
+			         __func__,
+			         ui32LogicalIndex));
+
+			eError = PVRSRV_ERROR_PMR_INVALID_MAP_INDEX_ARRAY;
+			break;
+		}
+		BIT_SET(paui8TrackedIndices[LOG2_DIV(ui32LogicalIndex, 3)], LOG2_MOD(ui32LogicalIndex, 3));
+	}
+
+	OSFreeMem(paui8TrackedIndices);
+
+	return eError;
+}
 
 /* Checks the input parameters and adjusts them if possible and necessary */
-static inline PVRSRV_ERROR _ValidateParams(IMG_UINT32 ui32NumPhysChunks,
-                                           IMG_UINT32 ui32NumVirtChunks,
-                                           PVRSRV_MEMALLOCFLAGS_T uiFlags,
-                                           IMG_UINT32 *puiLog2AllocPageSize,
-                                           IMG_DEVMEM_SIZE_T *puiSize)
+PVRSRV_ERROR PhysMemValidateParams(PVRSRV_DEVICE_NODE *psDevNode,
+                                   IMG_UINT32 ui32NumPhysChunks,
+                                   IMG_UINT32 ui32NumVirtChunks,
+                                   IMG_UINT32 *pui32MappingTable,
+                                   PVRSRV_MEMALLOCFLAGS_T uiFlags,
+                                   IMG_UINT32 *puiLog2AllocPageSize,
+                                   IMG_DEVMEM_SIZE_T *puiSize)
 {
 	IMG_UINT32 uiLog2AllocPageSize = *puiLog2AllocPageSize;
+	IMG_UINT32 ui32PageSize = IMG_PAGE2BYTES32(uiLog2AllocPageSize);
 	IMG_DEVMEM_SIZE_T uiSize = *puiSize;
 	/* Sparse if we have different number of virtual and physical chunks plus
 	 * in general all allocations with more than one virtual chunk */
@@ -289,20 +355,28 @@ static inline PVRSRV_ERROR _ValidateParams(IMG_UINT32 ui32NumPhysChunks,
 		return PVRSRV_ERROR_INVALID_FLAGS;
 	}
 
-	if (ui32NumPhysChunks == 0 && ui32NumVirtChunks == 0)
+	/* Sparse allocations must be backed immediately as the requested
+	 * pui32MappingTable is not retained in any structure if not immediately
+	 * actioned on allocation.
+	 */
+	if (PVRSRV_CHECK_ON_DEMAND(uiFlags) && bIsSparse)
 	{
-		PVR_DPF((PVR_DBG_ERROR,
-				"%s: Number of physical chunks and number of virtual chunks "
-				"cannot be both 0",
-				__func__));
+		PVR_DPF((PVR_DBG_ERROR, "%s: Invalid to specify ON_DEMAND for a sparse allocation: 0x%" IMG_UINT64_FMTSPECX, __func__, uiFlags));
+		return PVRSRV_ERROR_INVALID_FLAGS;
+	}
+
+	if (ui32NumVirtChunks == 0)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Number of virtual chunks cannot be 0",
+		         __func__));
 
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	/* Protect against ridiculous page sizes */
-	if (uiLog2AllocPageSize > RGX_HEAP_2MB_PAGE_SHIFT || uiLog2AllocPageSize < RGX_HEAP_4KB_PAGE_SHIFT)
+	/* Protect against invalid page sizes */
+	if ((ui32PageSize & psDevNode->psMMUDevAttrs->ui32ValidPageSizeMask) == 0)
 	{
-		PVR_DPF((PVR_DBG_ERROR, "Page size is out of range: 2^%u.", uiLog2AllocPageSize));
+		PVR_LOG_VA(PVR_DBG_ERROR, "Page size of %u is invalid", ui32PageSize);
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
@@ -310,9 +384,9 @@ static inline PVRSRV_ERROR _ValidateParams(IMG_UINT32 ui32NumPhysChunks,
 	if (!PMRValidateSize(uiSize))
 	{
 		PVR_LOG_VA(PVR_DBG_ERROR,
-				 "PMR size exceeds limit #Chunks: %u ChunkSz %"IMG_UINT64_FMTSPECX"",
-				 ui32NumVirtChunks,
-				 (IMG_UINT64) 1ULL << uiLog2AllocPageSize);
+				   "PMR size exceeds limit #Chunks: %u ChunkSz 0x%08X",
+				   ui32NumVirtChunks,
+				   IMG_PAGE2BYTES32(uiLog2AllocPageSize));
 		return PVRSRV_ERROR_PMR_TOO_LARGE;
 	}
 
@@ -356,13 +430,15 @@ static inline PVRSRV_ERROR _ValidateParams(IMG_UINT32 ui32NumPhysChunks,
 			return PVRSRV_ERROR_INVALID_PARAMS;
 		}
 
-		if (ui32NumVirtChunks * (1 << uiLog2AllocPageSize) != uiSize)
+		if (IMG_PAGES2BYTES64(ui32NumVirtChunks, uiLog2AllocPageSize) != uiSize)
 		{
 			PVR_DPF((PVR_DBG_ERROR,
 					 "%s: Total alloc size (%#" IMG_UINT64_FMTSPECx ") "
 					 "is not equal to virtual chunks * chunk size "
 					 "(%#" IMG_UINT64_FMTSPECx ")",
-					 __func__, uiSize, (IMG_UINT64) (ui32NumVirtChunks * (1ULL << uiLog2AllocPageSize))));
+					 __func__,
+					 uiSize,
+					 IMG_PAGES2BYTES64(ui32NumVirtChunks, uiLog2AllocPageSize)));
 
 			return PVRSRV_ERROR_PMR_NOT_PAGE_MULTIPLE;
 		}
@@ -393,14 +469,23 @@ static inline PVRSRV_ERROR _ValidateParams(IMG_UINT32 ui32NumPhysChunks,
 		uiSize = PVR_ALIGN(uiSize, (IMG_DEVMEM_SIZE_T)OSGetPageSize());
 	}
 
-	if ((uiSize & ((1ULL << uiLog2AllocPageSize) - 1)) != 0)
+	if ((uiSize & (IMG_PAGE2BYTES32(uiLog2AllocPageSize) - 1)) != 0)
 	{
 		PVR_DPF((PVR_DBG_ERROR,
 		        "%s: Total size (%#" IMG_UINT64_FMTSPECx ") "
-		        "must be a multiple of the requested contiguity (%"
-		        IMG_UINT64_FMTSPEC ")", __func__, uiSize,
-		        (IMG_UINT64) (1ULL << uiLog2AllocPageSize)));
+		        "must be a multiple of the requested contiguity (%u)",
+		        __func__,
+		        uiSize,
+		        IMG_PAGE2BYTES32(uiLog2AllocPageSize)));
 		return PVRSRV_ERROR_PMR_NOT_PAGE_MULTIPLE;
+	}
+
+	/* Parameter validation - Mapping table entries */
+	{
+		PVRSRV_ERROR eErr = PhysMemValidateMappingTable(ui32NumVirtChunks,
+		                                                ui32NumPhysChunks,
+		                                                pui32MappingTable);
+		PVR_RETURN_IF_ERROR(eErr);
 	}
 
 	*puiLog2AllocPageSize = uiLog2AllocPageSize;
@@ -410,7 +495,8 @@ static inline PVRSRV_ERROR _ValidateParams(IMG_UINT32 ui32NumPhysChunks,
 }
 
 static PVRSRV_ERROR _DevPhysHeapFromFlags(PVRSRV_MEMALLOCFLAGS_T uiFlags,
-										  PVRSRV_PHYS_HEAP *peDevPhysHeap)
+										  PVRSRV_PHYS_HEAP *peDevPhysHeap,
+										  PVRSRV_DEVICE_NODE *psDevNode)
 {
 	PVRSRV_PHYS_HEAP eHeap = PVRSRV_GET_PHYS_HEAP_HINT(uiFlags);
 
@@ -426,7 +512,7 @@ static PVRSRV_ERROR _DevPhysHeapFromFlags(PVRSRV_MEMALLOCFLAGS_T uiFlags,
 		case PVRSRV_PHYS_HEAP_FW_PREMAP7:
 		{
 			/* keep heap (with check) */
-			PVR_RETURN_IF_INVALID_PARAM(!PVRSRV_VZ_MODE_IS(GUEST));
+			PVR_RETURN_IF_INVALID_PARAM(!PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDevNode));
 			break;
 		}
 		case PVRSRV_PHYS_HEAP_LAST:
@@ -442,6 +528,23 @@ static PVRSRV_ERROR _DevPhysHeapFromFlags(PVRSRV_MEMALLOCFLAGS_T uiFlags,
 	*peDevPhysHeap = eHeap;
 
 	return PVRSRV_OK;
+}
+
+static INLINE void _PromoteToCpuCached(PVRSRV_MEMALLOCFLAGS_T *puiFlags)
+{
+	if ((*puiFlags & (PVRSRV_MEMALLOCFLAG_CPU_READABLE |
+	                  PVRSRV_MEMALLOCFLAG_CPU_WRITEABLE |
+	                  PVRSRV_MEMALLOCFLAG_KERNEL_CPU_MAPPABLE)) == 0)
+	{
+		/* We don't need to upgrade if we don't map into the CPU */
+		return;
+	}
+
+	/* Clear the existing CPU cache flags */
+	*puiFlags &= ~(PVRSRV_MEMALLOCFLAG_CPU_CACHE_MODE_MASK);
+
+	/* Add CPU cached flags */
+	*puiFlags |= PVRSRV_MEMALLOCFLAG_CPU_CACHE_INCOHERENT;
 }
 
 PVRSRV_ERROR
@@ -475,14 +578,22 @@ PhysmemNewRamBackedPMR_direct(CONNECTION_DATA *psConnection,
 	 */
 	PVR_UNREFERENCED_PARAMETER(uiAnnotationLength);
 
-	eError = _ValidateParams(ui32NumPhysChunks,
-	                         ui32NumVirtChunks,
-	                         uiFlags,
-	                         &uiLog2AllocPageSize,
-	                         &uiSize);
+	if (PVRSRVSystemSnoopingOfCPUCache(psDevNode->psDevConfig) &&
+		psDevNode->pfnGetDeviceSnoopMode(psDevNode) == PVRSRV_DEVICE_SNOOP_CPU_ONLY)
+	{
+		_PromoteToCpuCached(&uiPMRFlags);
+	}
+
+	eError = PhysMemValidateParams(psDevNode,
+	                               ui32NumPhysChunks,
+	                               ui32NumVirtChunks,
+	                               pui32MappingTable,
+	                               uiFlags,
+	                               &uiLog2AllocPageSize,
+	                               &uiSize);
 	PVR_RETURN_IF_ERROR(eError);
 
-#if defined(PVRSRV_SUPPORT_IPA_FEATURE)
+#if defined(SUPPORT_STATIC_IPA)
 #if !defined(PVRSRV_INTERNAL_IPA_FEATURE_TESTING)
 	/* Do not permit IPA PMR allocation flags to be passed through to the
 	 * new PMR.
@@ -503,7 +614,7 @@ PhysmemNewRamBackedPMR_direct(CONNECTION_DATA *psConnection,
 		                        PVRSRV_ERROR_INVALID_PARAMS);
 	}
 
-	eError = _DevPhysHeapFromFlags(uiFlags, &ePhysHeapIdx);
+	eError = _DevPhysHeapFromFlags(uiFlags, &ePhysHeapIdx, psDevNode);
 	PVR_RETURN_IF_ERROR(eError);
 
 	if (ePhysHeapIdx == PVRSRV_PHYS_HEAP_DEFAULT)
@@ -635,6 +746,7 @@ PhysmemNewRamBackedPMR(CONNECTION_DATA *psConnection,
 	PVRSRV_PHYS_HEAP ePhysHeap = PVRSRV_GET_PHYS_HEAP_HINT(uiFlags);
 	PVRSRV_ERROR eError;
 
+	PVR_LOG_RETURN_IF_INVALID_PARAM(ePhysHeap < PVRSRV_PHYS_HEAP_LAST, "uiFlags");
 	PVR_LOG_RETURN_IF_INVALID_PARAM(uiAnnotationLength != 0, "uiAnnotationLength");
 	PVR_LOG_RETURN_IF_INVALID_PARAM(pszAnnotation != NULL, "pszAnnotation");
 

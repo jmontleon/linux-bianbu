@@ -68,10 +68,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/kthread.h>
 #include <linux/utsname.h>
 #include <linux/scatterlist.h>
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
+#include <linux/interrupt.h>
 #include <linux/pfn_t.h>
 #include <linux/pfn.h>
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
 #include <linux/sched/clock.h>
 #include <linux/sched/signal.h>
@@ -88,6 +87,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #include "log2.h"
+#include "sysinfo.h"
 #include "osfunc.h"
 #include "cache_km.h"
 #include "img_defs.h"
@@ -115,14 +115,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "kernel_compatibility.h"
 
-#if defined(VIRTUAL_PLATFORM)
-#define EVENT_OBJECT_TIMEOUT_US		(120000000ULL)
-#else
-#if defined(EMULATOR) || defined(TC_APOLLO_TCF5)
-#define EVENT_OBJECT_TIMEOUT_US		(2000000ULL)
-#else
-#define EVENT_OBJECT_TIMEOUT_US		(100000ULL)
-#endif /* EMULATOR */
+#if !defined(EVENT_OBJECT_TIMEOUT_US)
+#error EVENT_OBJECT_TIMEOUT_US should be defined sysinfo.h
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0))
@@ -151,6 +145,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #endif
 
+#define _FREEZABLE IMG_TRUE
+#define _NON_FREEZABLE IMG_FALSE
 
 typedef struct {
 	struct task_struct *kthread;
@@ -195,6 +191,8 @@ void OSThreadDumpInfo(DUMPDEBUG_PRINTF_FUNC* pfnDumpDebugPrintf,
                       void *pvDumpDebugFile)
 {
 	PDLLIST_NODE psNodeCurr, psNodeNext;
+	LINUX_THREAD_ACTIVITY_STATS sThreadStats;
+	PVRSRV_ERROR eError = PVRSRV_OK;
 
 	dllist_foreach_node(&gsThreadListHead, psNodeCurr, psNodeNext)
 	{
@@ -209,6 +207,21 @@ void OSThreadDumpInfo(DUMPDEBUG_PRINTF_FUNC* pfnDumpDebugPrintf,
 		{
 			psThreadListNode->pfnDebugDumpCB(pfnDumpDebugPrintf, pvDumpDebugFile);
 		}
+	}
+
+	eError = LinuxGetThreadActivityStats(&sThreadStats);
+	if (eError == PVRSRV_OK)
+	{
+		PVR_DUMPDEBUG_LOG("Active Threads (UM/KM): %d / %d",
+		                  sThreadStats.i32DriverThreadCount,
+		                  sThreadStats.i32KernelThreadCount);
+
+		PVR_DUMPDEBUG_LOG("Suspended Threads: %d",
+		                  sThreadStats.i32SuspendedThreadCount);
+	}
+	else
+	{
+		PVR_LOG_ERROR(eError, "LinuxGetThreadActivityStats");
 	}
 }
 
@@ -640,9 +653,10 @@ struct workqueue_struct *NativeSyncGetFenceCtxDestroyWq(void)
 
 PVRSRV_ERROR OSInitEnvData(void)
 {
-	PVRSRV_ERROR eError = PVRSRV_OK;
+	PVRSRV_ERROR eError;
 
-	LinuxInitPhysmem();
+	eError = LinuxInitPhysmem();
+	PVR_GOTO_IF_ERROR(eError, error_out);
 
 	_OSInitThreadList();
 
@@ -650,6 +664,7 @@ PVRSRV_ERROR OSInitEnvData(void)
 	eError = _NativeSyncInit();
 #endif
 
+error_out:
 	return eError;
 }
 
@@ -913,7 +928,8 @@ typedef struct
 	X(PVRSRV_ERROR_PMR_NOT_PERMITTED, EACCES) \
 	X(PVRSRV_ERROR_INVALID_PARAMS, EINVAL) \
 	X(PVRSRV_ERROR_PMR_NO_KERNEL_MAPPING, EPERM) \
-	X(PVRSRV_ERROR_NOT_IMPLEMENTED, ENOSYS)
+	X(PVRSRV_ERROR_NOT_IMPLEMENTED, ENOSYS) \
+	X(PVRSRV_ERROR_BAD_MAPPING, EINVAL)
 
 /* return -ve versions of POSIX errors as they are used in this form */
 int PVRSRVToNativeError(PVRSRV_ERROR eError)
@@ -1022,6 +1038,11 @@ PVRSRV_ERROR OSScheduleMISR(IMG_HANDLE hMISRData)
 		return rc ? PVRSRV_OK : PVRSRV_ERROR_ALREADY_EXISTS;
 	}
 #endif
+}
+
+void OSSyncIRQ(IMG_UINT32 ui32IRQ)
+{
+	synchronize_irq(ui32IRQ);
 }
 
 /* OS specific values for thread priority */
@@ -1293,27 +1314,26 @@ OSMapPhysToLin(IMG_CPU_PHYADDR BasePAddr,
 		return NULL;
 	}
 
-	if (! PVRSRV_VZ_MODE_IS(NATIVE))
+#if defined(RGX_NUM_DRIVERS_SUPPORTED) && (RGX_NUM_DRIVERS_SUPPORTED > 1)
+	/*
+	  This is required to support DMA physheaps for GPU virtualization.
+	  Unfortunately, if a region of kernel managed memory is turned into
+	  a DMA buffer, conflicting mappings can come about easily on Linux
+	  as the original memory is mapped by the kernel as normal cached
+	  memory whilst DMA buffers are mapped mostly as uncached device or
+	  cache-coherent device memory. In both cases the system will have
+	  two conflicting mappings for the same memory region and will have
+	  "undefined behaviour" for most processors notably ARMv6 onwards
+	  and some x86 micro-architectures. As a result, perform ioremapping
+	  manually for DMA physheap allocations by translating from CPU/VA
+	  to BUS/PA thereby preventing the creation of conflicting mappings.
+	*/
+	pvLinAddr = (void __iomem *) SysDmaDevPAddrToCpuVAddr(BasePAddr.uiAddr, ui32Bytes);
+	if (pvLinAddr != NULL)
 	{
-		/*
-		  This is required to support DMA physheaps for GPU virtualization.
-		  Unfortunately, if a region of kernel managed memory is turned into
-		  a DMA buffer, conflicting mappings can come about easily on Linux
-		  as the original memory is mapped by the kernel as normal cached
-		  memory whilst DMA buffers are mapped mostly as uncached device or
-		  cache-coherent device memory. In both cases the system will have
-		  two conflicting mappings for the same memory region and will have
-		  "undefined behaviour" for most processors notably ARMv6 onwards
-		  and some x86 micro-architectures. As a result, perform ioremapping
-		  manually for DMA physheap allocations by translating from CPU/VA
-		  to BUS/PA thereby preventing the creation of conflicting mappings.
-		*/
-		pvLinAddr = (void __iomem *) SysDmaDevPAddrToCpuVAddr(BasePAddr.uiAddr, ui32Bytes);
-		if (pvLinAddr != NULL)
-		{
-			return (void __force *) pvLinAddr;
-		}
+		return (void __force *) pvLinAddr;
 	}
+#endif
 
 	switch (uiMappingFlags)
 	{
@@ -1354,13 +1374,12 @@ OSUnMapPhysToLin(void *pvLinAddr, size_t ui32Bytes)
 {
 	PVR_UNREFERENCED_PARAMETER(ui32Bytes);
 
-	if (!PVRSRV_VZ_MODE_IS(NATIVE))
+#if defined(RGX_NUM_DRIVERS_SUPPORTED) && (RGX_NUM_DRIVERS_SUPPORTED > 1)
+	if (SysDmaCpuVAddrToDevPAddr(pvLinAddr))
 	{
-		if (SysDmaCpuVAddrToDevPAddr(pvLinAddr))
-		{
-			return IMG_TRUE;
-		}
+		return IMG_TRUE;
 	}
+#endif
 
 	iounmap((void __iomem *) pvLinAddr);
 
@@ -1582,14 +1601,7 @@ PVRSRV_ERROR OSEventObjectDestroy(IMG_HANDLE hEventObject)
 	return LinuxEventObjectListDestroy(hEventObject);
 }
 
-#define _FREEZABLE IMG_TRUE
-#define _NON_FREEZABLE IMG_FALSE
-
-/*
- * EventObjectWaitTimeout()
- */
-static PVRSRV_ERROR EventObjectWaitTimeout(IMG_HANDLE hOSEventKM,
-										   IMG_UINT64 uiTimeoutus)
+PVRSRV_ERROR OSEventObjectWaitTimeout(IMG_HANDLE hOSEventKM, IMG_UINT64 uiTimeoutus)
 {
 	PVRSRV_ERROR eError;
 
@@ -1606,11 +1618,6 @@ static PVRSRV_ERROR EventObjectWaitTimeout(IMG_HANDLE hOSEventKM,
 	return eError;
 }
 
-PVRSRV_ERROR OSEventObjectWaitTimeout(IMG_HANDLE hOSEventKM, IMG_UINT64 uiTimeoutus)
-{
-	return EventObjectWaitTimeout(hOSEventKM, uiTimeoutus);
-}
-
 PVRSRV_ERROR OSEventObjectWait(IMG_HANDLE hOSEventKM)
 {
 	return OSEventObjectWaitTimeout(hOSEventKM, EVENT_OBJECT_TIMEOUT_US);
@@ -1621,20 +1628,14 @@ PVRSRV_ERROR OSEventObjectWaitKernel(IMG_HANDLE hOSEventKM,
 {
 	PVRSRV_ERROR eError;
 
-#if defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP)
-	if (hOSEventKM)
+	if (hOSEventKM != NULL && uiTimeoutus > 0)
 	{
-		if (uiTimeoutus > 0)
-			eError = LinuxEventObjectWait(hOSEventKM, uiTimeoutus,
-			                              _FREEZABLE);
-		else
-			eError = LinuxEventObjectWaitUntilSignalled(hOSEventKM);
+		eError = LinuxEventObjectWait(hOSEventKM, uiTimeoutus, _FREEZABLE);
 	}
-#else /* defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP) */
-	if (hOSEventKM && uiTimeoutus > 0)
+#if defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP)
+	else if (hOSEventKM != NULL)
 	{
-		eError = LinuxEventObjectWait(hOSEventKM, uiTimeoutus,
-		                              _FREEZABLE);
+		eError = LinuxEventObjectWaitUntilSignalled(hOSEventKM);
 	}
 #endif /* defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP) */
 	else
@@ -1767,181 +1768,6 @@ void PVROSFuncDeInit(void)
 void OSDumpStack(void)
 {
 	dump_stack();
-}
-
-PVRSRV_ERROR OSChangeSparseMemCPUAddrMap(void **psPageArray,
-                                         IMG_UINT64 sCpuVAddrBase,
-                                         IMG_CPU_PHYADDR sCpuPAHeapBase,
-                                         IMG_UINT32 ui32AllocPageCount,
-                                         IMG_UINT32 *pai32AllocIndices,
-                                         IMG_UINT32 ui32FreePageCount,
-                                         IMG_UINT32 *pai32FreeIndices,
-                                         IMG_BOOL bIsLMA)
-{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
-	pfn_t sPFN;
-#else
-	IMG_UINT64 uiPFN;
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) */
-
-	PVRSRV_ERROR eError;
-
-	struct mm_struct *psMM = current->mm;
-	struct vm_area_struct *psVMA = NULL;
-	struct address_space *psMapping = NULL;
-	struct page *psPage = NULL;
-
-	IMG_UINT64 uiCPUVirtAddr = 0;
-	IMG_UINT32 ui32Loop = 0;
-	IMG_UINT32 ui32PageSize = OSGetPageSize();
-	IMG_BOOL bMixedMap = IMG_FALSE;
-
-	/*
-	 * Acquire the lock before manipulating the VMA
-	 * In this case only mmap_sem lock would suffice as the pages associated with this VMA
-	 * are never meant to be swapped out.
-	 *
-	 * In the future, in case the pages are marked as swapped, page_table_lock needs
-	 * to be acquired in conjunction with this to disable page swapping.
-	 */
-
-	/* Find the Virtual Memory Area associated with the user base address */
-	psVMA = find_vma(psMM, (uintptr_t)sCpuVAddrBase);
-	if (NULL == psVMA)
-	{
-		eError = PVRSRV_ERROR_PMR_NO_CPU_MAP_FOUND;
-		return eError;
-	}
-
-	/* Acquire the memory sem */
-	mmap_write_lock(psMM);
-
-	psMapping = psVMA->vm_file->f_mapping;
-
-	/* Set the page offset to the correct value as this is disturbed in MMAP_PMR func */
-	psVMA->vm_pgoff = (psVMA->vm_start >>  PAGE_SHIFT);
-
-	/* Delete the entries for the pages that got freed */
-	if (ui32FreePageCount && (pai32FreeIndices != NULL))
-	{
-		for (ui32Loop = 0; ui32Loop < ui32FreePageCount; ui32Loop++)
-		{
-			uiCPUVirtAddr = (uintptr_t)(sCpuVAddrBase + (pai32FreeIndices[ui32Loop] * ui32PageSize));
-
-			unmap_mapping_range(psMapping, uiCPUVirtAddr, ui32PageSize, 1);
-
-#ifndef PVRSRV_UNMAP_ON_SPARSE_CHANGE
-			/*
-			 * Still need to map pages in case remap flag is set.
-			 * That is not done until the remap case succeeds
-			 */
-#endif
-		}
-		eError = PVRSRV_OK;
-	}
-
-	if ((psVMA->vm_flags & VM_MIXEDMAP) || bIsLMA)
-	{
-		pvr_vm_flags_set(psVMA, VM_MIXEDMAP);
-		bMixedMap = IMG_TRUE;
-	}
-	else
-	{
-		if (ui32AllocPageCount && (NULL != pai32AllocIndices))
-		{
-			for (ui32Loop = 0; ui32Loop < ui32AllocPageCount; ui32Loop++)
-			{
-
-				psPage = (struct page *)psPageArray[pai32AllocIndices[ui32Loop]];
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
-				sPFN = page_to_pfn_t(psPage);
-
-				if (!pfn_t_valid(sPFN) || page_count(pfn_t_to_page(sPFN)) == 0)
-#else
-				uiPFN = page_to_pfn(psPage);
-
-				if (!pfn_valid(uiPFN) || (page_count(pfn_to_page(uiPFN)) == 0))
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) */
-				{
-					bMixedMap = IMG_TRUE;
-					pvr_vm_flags_set(psVMA, VM_MIXEDMAP);
-					break;
-				}
-			}
-		}
-	}
-
-	/* Map the pages that got allocated */
-	if (ui32AllocPageCount && (NULL != pai32AllocIndices))
-	{
-		for (ui32Loop = 0; ui32Loop < ui32AllocPageCount; ui32Loop++)
-		{
-			int err;
-
-			uiCPUVirtAddr = (uintptr_t)(sCpuVAddrBase + (pai32AllocIndices[ui32Loop] * ui32PageSize));
-			unmap_mapping_range(psMapping, uiCPUVirtAddr, ui32PageSize, 1);
-
-			if (bIsLMA)
-			{
-				phys_addr_t uiAddr = sCpuPAHeapBase.uiAddr +
-				                     ((IMG_DEV_PHYADDR *)psPageArray)[pai32AllocIndices[ui32Loop]].uiAddr;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
-				sPFN = phys_to_pfn_t(uiAddr, 0);
-				psPage = pfn_t_to_page(sPFN);
-#else
-				uiPFN = uiAddr >> PAGE_SHIFT;
-				psPage = pfn_to_page(uiPFN);
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) */
-			}
-			else
-			{
-				psPage = (struct page *)psPageArray[pai32AllocIndices[ui32Loop]];
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
-				sPFN = page_to_pfn_t(psPage);
-#else
-				uiPFN = page_to_pfn(psPage);
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)) */
-			}
-
-			if (bMixedMap)
-			{
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0))
-				vm_fault_t vmf;
-
-				vmf = vmf_insert_mixed(psVMA, uiCPUVirtAddr, sPFN);
-				if (vmf & VM_FAULT_ERROR)
-				{
-					err = vm_fault_to_errno(vmf, 0);
-				}
-				else
-				{
-					err = 0;
-				}
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
-				err = vm_insert_mixed(psVMA, uiCPUVirtAddr, sPFN);
-#else
-				err = vm_insert_mixed(psVMA, uiCPUVirtAddr, uiPFN);
-#endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)) */
-			}
-			else
-			{
-				err = vm_insert_page(psVMA, uiCPUVirtAddr, psPage);
-			}
-
-			if (err)
-			{
-				PVR_DPF((PVR_DBG_MESSAGE, "Remap failure error code: %d", err));
-				eError = PVRSRV_ERROR_PMR_CPU_PAGE_MAP_FAILED;
-				goto eFailed;
-			}
-		}
-	}
-
-	eError = PVRSRV_OK;
-eFailed:
-	mmap_write_unlock(psMM);
-
-	return eError;
 }
 
 /*************************************************************************/ /*!
@@ -2188,7 +2014,7 @@ static void dma_callback(void *pvOSCleanup)
 	spin_unlock_irqrestore(&psOSCleanup->spinlock, flags);
 }
 
-#if defined(SUPPORT_VALIDATION) && defined(PVRSRV_DEBUG_DMA)
+#if defined(PVRSRV_DEBUG_DMA)
 static void
 DMADumpPhysicalAddresses(struct page **ppsHostMemPages,
 						 IMG_UINT32 uiNumPages,
@@ -2207,16 +2033,20 @@ DMADumpPhysicalAddresses(struct page **ppsHostMemPages,
 		if (uiIdx == 0)
 		{
 			sPagePhysAddr.uiAddr += ui64Offset;
-			PVR_DPF((PVR_DBG_MESSAGE, "\tHost mem start at 0x%llX", sPagePhysAddr.uiAddr));
+			PVR_DPF((PVR_DBG_MESSAGE,
+					 "\tHost mem start at 0x%" IMG_UINT64_FMTSPECx,
+					 (IMG_UINT64)sPagePhysAddr.uiAddr));
 		}
 		else
 		{
-			PVR_DPF((PVR_DBG_MESSAGE, "\tHost Mem Page %d at 0x%llX", uiIdx,
-					 sPagePhysAddr.uiAddr));
+			PVR_DPF((PVR_DBG_MESSAGE,
+					 "\tHost Mem Page %d at 0x%" IMG_UINT64_FMTSPECx,
+					 uiIdx, (IMG_UINT64)sPagePhysAddr.uiAddr));
 		}
 	}
-	PVR_DPF((PVR_DBG_MESSAGE, "Devmem CPU phys address: 0x%llX",
-			 sDmaAddr->uiAddr));
+	PVR_DPF((PVR_DBG_MESSAGE,
+			 "Devmem CPU phys address: 0x%" IMG_UINT64_FMTSPECx,
+			 (IMG_UINT64)sDmaAddr->uiAddr));
 }
 #endif
 
@@ -2421,25 +2251,24 @@ PVRSRV_ERROR OSDmaPrepareTransfer(PVRSRV_DEVICE_NODE *psDevNode,
 		!bMemToDev,
 		psOSCleanupData->pages[psOSCleanupData->uiCount]);
 
+	psOSCleanupData->puiNumPages[psOSCleanupData->uiCount] = num_pinned_pages;
 	if (num_pinned_pages != num_pages)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "get_user_pages_fast failed: (%d - %u)", num_pinned_pages, num_pages));
 		eError = PVRSRV_ERROR_OUT_OF_MEMORY;
-		goto e2;
+		goto e2; /* Unpin what was pinned and return error */
 	}
 
-#if defined(SUPPORT_VALIDATION) && defined(PVRSRV_DEBUG_DMA)
+#if defined(PVRSRV_DEBUG_DMA)
 	DMADumpPhysicalAddresses(psOSCleanupData->pages[psOSCleanupData->uiCount],
 							 num_pages, psDmaAddr, offset);
 #endif
-
-	psOSCleanupData->puiNumPages[psOSCleanupData->uiCount] = num_pinned_pages;
 
 	if (sg_alloc_table_from_pages(psSg, psOSCleanupData->pages[psOSCleanupData->uiCount], num_pages, offset, uiSize, GFP_KERNEL) != 0)
 	{
 		eError = PVRSRV_ERROR_BAD_MAPPING;
 		PVR_DPF((PVR_DBG_ERROR, "sg_alloc_table_from_pages failed"));
-		goto e3;
+		goto e2;
 	}
 
 	if (bMemToDev)
@@ -2461,7 +2290,7 @@ PVRSRV_ERROR OSDmaPrepareTransfer(PVRSRV_DEVICE_NODE *psDevNode,
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Error mapping SG list", __func__));
 		eError = PVRSRV_ERROR_INVALID_PARAMS;
-		goto e4;
+		goto e3;
 	}
 
 	dma_sync_sg_for_device(psDevConfig->pvOSDevice, psSg->sgl,(unsigned int)iRet, eDataDirection);
@@ -2471,7 +2300,7 @@ PVRSRV_ERROR OSDmaPrepareTransfer(PVRSRV_DEVICE_NODE *psDevNode,
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: dmaengine_prep_slave_sg failed", __func__));
 		eError = PVRSRV_ERROR_INVALID_PARAMS;
-		goto e5;
+		goto e4;
 	}
 
 	psOSCleanupData->eDirection = eDataDirection;
@@ -2482,22 +2311,19 @@ PVRSRV_ERROR OSDmaPrepareTransfer(PVRSRV_DEVICE_NODE *psDevNode,
 	psDesc->callback_param = psOSCleanupData;
 	psDesc->callback = dma_callback;
 
-	if	(bFirst)
-	{
-		struct task_struct* t1;
-		t1 = kthread_run(cleanup_thread, psOSCleanupData, "dma-cleanup-thread");
-	}
+	if (bFirst)
+		kthread_run(cleanup_thread, psOSCleanupData, "dma-cleanup-thread");
 	psOSCleanupData->ppsDescriptors[psOSCleanupData->uiCount] = psDesc;
 
 	psOSCleanupData->uiCount++;
 
 	return PVRSRV_OK;
 
-e5:
-	dma_unmap_sg(psDevConfig->pvOSDevice, psSg->sgl, psSg->nents, eDataDirection);
 e4:
-	sg_free_table(psSg);
+	dma_unmap_sg(psDevConfig->pvOSDevice, psSg->sgl, psSg->nents, eDataDirection);
 e3:
+	sg_free_table(psSg);
+e2:
 	{
 		IMG_UINT32 i;
 		/* Unpin pages */
@@ -2506,7 +2332,6 @@ e3:
 			pvr_unpin_user_page_for_dma(psOSCleanupData->pages[psOSCleanupData->uiCount][i]);
 		}
 	}
-e2:
 	OSFreeMem(psOSCleanupData->pages[psOSCleanupData->uiCount]);
 e1:
 	OSFreeMem(psSg);
@@ -2648,7 +2473,7 @@ PVRSRV_ERROR OSDmaPrepareTransferSparse(PVRSRV_DEVICE_NODE *psDevNode,
 			goto e2;
 		}
 
-#if defined(SUPPORT_VALIDATION) && defined(PVRSRV_DEBUG_DMA)
+#if defined(PVRSRV_DEBUG_DMA)
 		DMADumpPhysicalAddresses(next_pages, num_pages,
 								 &psDmaAddr[ui32Idx],
 								 (unsigned long)pvNextAddress & (ui32PageSize - 1));
@@ -2712,13 +2537,11 @@ PVRSRV_ERROR OSDmaPrepareTransferSparse(PVRSRV_DEVICE_NODE *psDevNode,
 
 			if (bFirst)
 			{
-				struct task_struct* t1;
-
 				psOSCleanupData->eDirection = eDataDirection;
 				psOSCleanupData->pfnServerCleanup = pfnServerCleanup;
 				psOSCleanupData->pvServerCleanupData = pvServerCleanupParam;
 
-				t1 = kthread_run(cleanup_thread, psOSCleanupData, "dma-cleanup-thread");
+				kthread_run(cleanup_thread, psOSCleanupData, "dma-cleanup-thread");
 			}
 
 			psOSCleanupData->uiCount++;

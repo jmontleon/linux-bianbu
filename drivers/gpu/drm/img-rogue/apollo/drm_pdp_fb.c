@@ -74,37 +74,7 @@ static struct fb_ops pdp_fbdev_ops = {
 static struct fb_info *
 pdp_fbdev_helper_alloc(struct drm_fb_helper *helper)
 {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
-	struct device *dev = helper->dev->dev;
-	struct fb_info *info;
-	int ret;
-
-	info = framebuffer_alloc(0, dev);
-	if (!info)
-		return ERR_PTR(-ENOMEM);
-
-	ret = fb_alloc_cmap(&info->cmap, 256, 0);
-	if (ret)
-		goto err_release;
-
-	info->apertures = alloc_apertures(1);
-	if (!info->apertures) {
-		ret = -ENOMEM;
-		goto err_free_cmap;
-	}
-
-	helper->fbdev = info;
-
-	return info;
-
-err_free_cmap:
-	fb_dealloc_cmap(&info->cmap);
-err_release:
-	framebuffer_release(info);
-	return ERR_PTR(ret);
-#else
 	return drm_fb_helper_alloc_info(helper);
-#endif
 }
 
 static inline void
@@ -191,10 +161,14 @@ static int pdp_fbdev_probe(struct drm_fb_helper *helper,
 	helper->COMPAT_FB_INFO = info;
 
 	/* Fill out the Linux framebuffer info */
-	strlcpy(info->fix.id, FBDEV_NAME, sizeof(info->fix.id));
+	strscpy(info->fix.id, FBDEV_NAME, sizeof(info->fix.id));
 	pdp_fbdev_helper_fill_info(helper, sizes, info, &mode_cmd);
 	info->par = helper;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0))
 	info->flags = FBINFO_DEFAULT | FBINFO_HWACCEL_DISABLED;
+#else
+	info->flags = FBINFO_HWACCEL_DISABLED;
+#endif
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0))
 	info->flags |= FBINFO_CAN_FORCE_OUTPUT;
 #endif

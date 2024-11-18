@@ -123,6 +123,8 @@ HeapCfgHeapCount(CONNECTION_DATA * psConnection,
 				 IMG_UINT32 uiHeapConfigIndex,
 				 IMG_UINT32 *puiNumHeapsOut)
 {
+	PVR_UNREFERENCED_PARAMETER(psConnection);
+
 	if (uiHeapConfigIndex >= psDeviceNode->sDevMemoryInfo.uiNumHeapConfigs)
 	{
 		return PVRSRV_ERROR_DEVICEMEM_INVALID_HEAP_CONFIG_INDEX;
@@ -140,6 +142,8 @@ HeapCfgHeapConfigName(CONNECTION_DATA * psConnection,
 					  IMG_UINT32 uiHeapConfigNameBufSz,
 					  IMG_CHAR *pszHeapConfigNameOut)
 {
+	PVR_UNREFERENCED_PARAMETER(psConnection);
+
 	if (uiHeapConfigIndex >= psDeviceNode->sDevMemoryInfo.uiNumHeapConfigs)
 	{
 		return PVRSRV_ERROR_DEVICEMEM_INVALID_HEAP_CONFIG_INDEX;
@@ -195,6 +199,8 @@ HeapCfgHeapDetails(CONNECTION_DATA * psConnection,
 				   IMG_UINT32 *puiLog2ImportAlignmentOut)
 {
 	DEVMEM_HEAP_BLUEPRINT *psHeapBlueprint;
+
+	PVR_UNREFERENCED_PARAMETER(psConnection);
 
 	if (uiHeapConfigIndex >= psDeviceNode->sDevMemoryInfo.uiNumHeapConfigs)
 	{

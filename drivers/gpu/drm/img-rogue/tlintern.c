@@ -335,7 +335,7 @@ IMG_UINT32 TLDiscoverStreamNodes(const IMG_CHAR *pszNamePattern,
 				break;
 
 			/* all of names are shorter than MAX and null terminated */
-			OSStringLCopy(aaszStreams[ui32Count], psn->psStream->szName,
+			OSStringSafeCopy(aaszStreams[ui32Count], psn->psStream->szName,
 			              PRVSRVTL_MAX_STREAM_NAME_SIZE);
 		}
 

@@ -114,11 +114,6 @@ static inline void FlushRange(void *pvRangeAddrStart,
 			}
 			break;
 		case PVRSRV_CACHE_OP_INVALIDATE:
-			for (pbBase = pbStart; pbBase < pbEnd; pbBase += ui32CacheLineSize)
-			{
-				asm volatile ("dc ivac, %0" :: "r" (pbBase));
-			}
-			break;
 		case PVRSRV_CACHE_OP_FLUSH:
 			for (pbBase = pbStart; pbBase < pbEnd; pbBase += ui32CacheLineSize)
 			{
@@ -145,28 +140,22 @@ void OSCPUCacheFlushRangeKM(PVRSRV_DEVICE_NODE *psDevNode,
 							IMG_CPU_PHYADDR sCPUPhysEnd)
 {
 	struct device *dev;
+	PVR_UNREFERENCED_PARAMETER(dev);
 
-	if (pvVirtStart)
+	if (pvVirtStart == NULL)
 	{
-		FlushRange(pvVirtStart, pvVirtEnd, PVRSRV_CACHE_OP_FLUSH);
-		return;
+		/*
+		 * Converting the physical addresses to virtual addresses allows us to
+		 * utilize the assembly instruction that makes the Flush + Invalidate
+		 * cache operation atomic.
+		 * There is no state in-between the flush and the invalidate operation.
+		 */
+		pvVirtStart = phys_to_virt(sCPUPhysStart.uiAddr);
+		pvVirtEnd = phys_to_virt(sCPUPhysEnd.uiAddr);
 	}
 
-	dev = psDevNode->psDevConfig->pvOSDevice;
-
-	if (dev)
-	{
-		dma_sync_single_for_device(dev, sCPUPhysStart.uiAddr,
-								   sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
-								   DMA_TO_DEVICE);
-		dma_sync_single_for_cpu(dev, sCPUPhysStart.uiAddr,
-								sCPUPhysEnd.uiAddr - sCPUPhysStart.uiAddr,
-								DMA_FROM_DEVICE);
-	}
-	else
-	{
-		PVR_DPF((PVR_DBG_ERROR, "Cache operation cannot be completed!"));
-	}
+	FlushRange(pvVirtStart, pvVirtEnd, PVRSRV_CACHE_OP_FLUSH);
+	return;
 
 }
 

@@ -110,7 +110,7 @@ exits by its own means (break, return, goto, etc.)
 
 Example of usage:
 
-LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
+LOOP_UNTIL_TIMEOUT_US(MAX_HW_TIME_US)
 {
 	if (psQueueInfo->ui32ReadOffset == psQueueInfo->ui32WriteOffset)
 	{
@@ -119,7 +119,7 @@ LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
 	}
 
 	OSWaitus(MAX_HW_TIME_US/WAIT_TRY_COUNT);
-} END_LOOP_UNTIL_TIMEOUT();
+} END_LOOP_UNTIL_TIMEOUT_US();
 
 -----------------------------------------------------------------------------*/
 
@@ -128,17 +128,17 @@ LOOP_UNTIL_TIMEOUT(MAX_HW_TIME_US)
  * necessary when preemption is enabled.
  */
 /* PRQA S 3411,3431 12 */ /* critical format, leave alone */
-#define LOOP_UNTIL_TIMEOUT(TIMEOUT) \
+#define LOOP_UNTIL_TIMEOUT_US(TIMEOUT_US) \
 {\
 	IMG_UINT32 uiOffset, uiStart, uiCurrent; \
 	IMG_INT32 iNotLastLoop;					 \
 	for (uiOffset = 0, uiStart = OSClockus(), uiCurrent = uiStart + 1, iNotLastLoop = 1;\
-		((uiCurrent - uiStart + uiOffset) < (TIMEOUT)) || iNotLastLoop--;				\
+		((uiCurrent - uiStart + uiOffset) < (TIMEOUT_US)) || iNotLastLoop--;				\
 		uiCurrent = OSClockus(),													\
 		uiOffset = uiCurrent < uiStart ? IMG_UINT32_MAX - uiStart : uiOffset,		\
 		uiStart = uiCurrent < uiStart ? 0 : uiStart)
 
-#define END_LOOP_UNTIL_TIMEOUT() \
+#define END_LOOP_UNTIL_TIMEOUT_US() \
 }
 
 #endif /* SRVKM_H */
