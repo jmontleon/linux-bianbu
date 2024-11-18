@@ -161,25 +161,15 @@ static void pvr_devices_unregister(void)
 
 static int pvr_probe(struct platform_device *pdev)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 	struct drm_device *ddev;
 	int ret;
 
 	DRM_DEBUG_DRIVER("device %p\n", &pdev->dev);
 
 	ddev = drm_dev_alloc(&pvr_drm_platform_driver, &pdev->dev);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
 	if (IS_ERR(ddev))
 		return PTR_ERR(ddev);
-#else
-	if (!ddev)
-		return -ENOMEM;
-#endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-	/* Needed by drm_platform_set_busid */
-	ddev->platformdev = pdev;
-#endif
 
 	/*
 	 * The load callback, called from drm_dev_register, is deprecated,
@@ -211,11 +201,6 @@ err_drm_dev_unload:
 err_drm_dev_put:
 	drm_dev_put(ddev);
 	return	ret;
-#else
-	DRM_DEBUG_DRIVER("device %p\n", &pdev->dev);
-
-	return drm_platform_init(&pvr_drm_platform_driver, pdev);
-#endif
 }
 
 static int pvr_remove(struct platform_device *pdev)
@@ -224,7 +209,6 @@ static int pvr_remove(struct platform_device *pdev)
 
 	DRM_DEBUG_DRIVER("device %p\n", &pdev->dev);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 	drm_dev_unregister(ddev);
 
 	/* The unload callback, called from drm_dev_unregister, is
@@ -234,9 +218,6 @@ static int pvr_remove(struct platform_device *pdev)
 	pvr_drm_unload(ddev);
 
 	drm_dev_put(ddev);
-#else
-	drm_put_dev(ddev);
-#endif
 	return 0;
 }
 
@@ -249,7 +230,6 @@ static void pvr_shutdown(struct platform_device *pdev)
 	PVRSRVDeviceShutdown(ddev);
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
 static const struct of_device_id pvr_of_ids[] = {
 #if defined(SYS_RGX_OF_COMPATIBLE)
 	{ .compatible = SYS_RGX_OF_COMPATIBLE, },
@@ -257,9 +237,8 @@ static const struct of_device_id pvr_of_ids[] = {
 	{},
 };
 
-#if !defined(CHROMIUMOS_KERNEL) || !defined(MODULE)
+#if !defined(CHROMIUMOS_KERNEL)
 MODULE_DEVICE_TABLE(of, pvr_of_ids);
-#endif
 #endif
 
 static struct platform_device_id pvr_platform_ids[] = {
@@ -281,16 +260,14 @@ static struct platform_device_id pvr_platform_ids[] = {
 	{ }
 };
 
-#if !defined(CHROMIUMOS_KERNEL) || !defined(MODULE)
+#if !defined(CHROMIUMOS_KERNEL)
 MODULE_DEVICE_TABLE(platform, pvr_platform_ids);
 #endif
 
 static struct platform_driver pvr_platform_driver = {
 	.driver = {
 		.name		= DRVNAME,
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 9, 0))
 		.of_match_table	= of_match_ptr(pvr_of_ids),
-#endif
 		.pm		= &pvr_pm_ops,
 	},
 	.id_table		= pvr_platform_ids,
@@ -306,10 +283,6 @@ static int __init pvr_init(void)
 	DRM_DEBUG_DRIVER("\n");
 
 	pvr_drm_platform_driver = pvr_drm_generic_driver;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)) && \
-	(LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))
-	pvr_drm_platform_driver.set_busid = drm_platform_set_busid;
-#endif
 
 	err = PVRSRVDriverInit();
 	if (err)
@@ -333,5 +306,5 @@ static void __exit pvr_exit(void)
 	DRM_DEBUG_DRIVER("done\n");
 }
 
-device_initcall(pvr_init);
+late_initcall(pvr_init);
 module_exit(pvr_exit);
