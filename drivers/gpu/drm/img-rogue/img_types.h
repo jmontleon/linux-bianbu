@@ -69,7 +69,8 @@ extern "C" {
 	#include <linux/types.h>
 	#include "kernel_types.h"
 #elif defined(__linux__) || defined(__METAG) || defined(__MINGW32__) || \
-	defined(__QNXNTO__) || defined(INTEGRITY_OS) || defined(__riscv) || defined(__APPLE__)
+	defined(__QNXNTO__) || defined(INTEGRITY_OS) || defined(__riscv) || \
+	defined(__APPLE__) || defined(TEE_DDK)
 	#include <stddef.h>			/* NULL */
 	#include <stdint.h>
 #if defined(__riscv)
@@ -78,6 +79,7 @@ extern "C" {
 #endif
 	#include <inttypes.h>		/* intX_t/uintX_t, format specifiers */
 	#include <limits.h>			/* INT_MIN, etc */
+	#include <sys/types.h>		/* ssize_t */
 #if defined(__riscv)
 #pragma GCC diagnostic pop
 #endif
@@ -176,9 +178,7 @@ typedef bool*     IMG_PBOOL;
 #define IMG_FALSE ((bool) 0)
 #define IMG_TRUE  ((bool) 1)
 
-#if defined(UNDER_WDDM) || defined(WINDOWS_WDF)
 typedef IMG_CHAR const* IMG_PCCHAR;
-#endif
 
 /* Format specifiers for 'size_t' type */
 #if defined(_MSC_VER)
