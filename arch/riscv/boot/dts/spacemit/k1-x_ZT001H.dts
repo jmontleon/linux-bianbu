@@ -6,7 +6,7 @@
 #include "k1-x.dtsi"
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
-#include "lcd/lcd_icnl9951r_mipi.dtsi"
+#include "lcd/lcd_ft8201sinx101_mipi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
@@ -203,11 +203,9 @@
 	status = "okay";
 };
 
-/*
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
-	spacemit-dpu-bitclk = <1000000000>;
-	spacemit-dpu-escclk = <76800000>;
+	spacemit-dpu-bitclk = <614000000>;
 	dsi_1v2-supply = <&ldo_5>;
 	dsi_1v8-supply = <&ldo_11>;
 	vin-supply-names = "dsi_1v2", "dsi_1v8";
@@ -228,14 +226,13 @@
 		gpios-bl = <31>;
 		id = <2>;
 		delay-after-reset = <10>;
-		force-attached = "lcd_icnl9951r_mipi";
+		force-attached = "lcd_ft8201sinx101_mipi";
 	};
 };
 
 &lcds {
 	status = "okay";
 };
-*/
 
 &i2c0 {
 	pinctrl-names = "default";
