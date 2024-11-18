@@ -51,7 +51,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pvrsrv.h"
 #include "sync_internal.h"
 #include "rgxfwutils.h"
-
+#include "rgxlayer.h"
 
 PVRSRV_ERROR RGXQueryAPMState(const PVRSRV_DEVICE_NODE *psDeviceNode,
 	const void *pvPrivateData,
@@ -216,7 +216,7 @@ inline const char * RGXStringifyKickTypeDM(RGX_KICK_TYPE_DM eKickTypeDM)
 	}
 }
 
-PHYS_HEAP_POLICY RGXPhysHeapGetLMAPolicy(PHYS_HEAP_USAGE_FLAGS ui32UsageFlags)
+PHYS_HEAP_POLICY RGXPhysHeapGetLMAPolicy(PHYS_HEAP_USAGE_FLAGS ui32UsageFlags, PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PHYS_HEAP_POLICY ui32Policy;
 
@@ -231,13 +231,13 @@ PHYS_HEAP_POLICY RGXPhysHeapGetLMAPolicy(PHYS_HEAP_USAGE_FLAGS ui32UsageFlags)
 			 PHYS_HEAP_USAGE_FW_CODE      |
 			 PHYS_HEAP_USAGE_FW_PRIV_DATA)))
 		{
-			if (PVRSRV_VZ_MODE_IS(GUEST))
+			if (PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
 			{
-				/* Guest Firmware heaps are always premepped */
+				/* Guest Firmware heaps are always premapped */
 				ui32Policy = PHYS_HEAP_POLICY_DEFAULT;
 			}
 #if defined(RGX_PREMAP_FW_HEAPS)
-			else if (PVRSRV_VZ_MODE_IS(HOST))
+			else if (PVRSRV_VZ_MODE_IS(HOST, DEVNODE, psDeviceNode))
 			{
 				/* All Firmware heaps are premapped under AutoVz*/
 				ui32Policy = PHYS_HEAP_POLICY_DEFAULT;

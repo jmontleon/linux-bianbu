@@ -325,7 +325,7 @@ void pdp_plane_set_surface(struct drm_crtc *crtc, struct drm_plane *plane,
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0))
 		modifier = fb->modifier;
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
+#else
 		modifier = fb->modifier[0];
 #endif
 

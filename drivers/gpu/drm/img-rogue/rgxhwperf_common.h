@@ -53,6 +53,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "rgxdevice.h"
 #include "rgx_hwperf.h"
 #include "rgx_fwif_hwperf.h"
+#if defined(PVR_ARCH_VOLCANIC)
+#include "rgx_hwperf_table.h"
+#endif
 #include "cache_ops.h"
 #include "rgxfwmemctx.h"
 
@@ -285,6 +288,25 @@ void RGXHWPerfHostPostClientInfoProcName(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 									     const IMG_CHAR *psName);
 
 IMG_BOOL RGXHWPerfHostIsEventEnabled(PVRSRV_RGXDEV_INFO *psRgxDevInfo, RGX_HWPERF_HOST_EVENT_TYPE eEvent);
+
+#if defined(PVR_ARCH_VOLCANIC)
+IMG_INTERNAL /*static inline*/ IMG_UINT32
+RGXGetHWPerfBlockConfig(const RGXFW_HWPERF_CNTBLK_TYPE_MODEL **ppsModel);
+
+/*!
+*******************************************************************************
+ @Function    RGXHWPerfMaxDefinedBlks
+
+ @Description Return the number of valid block-IDs for the given device node
+
+ @Input       (PVRSRV_RGXDEV_INFO *)   pvDevice    device-node to query
+
+ @Returns     (IMG_UINT32)             Number of block-IDs (RGX_CNTBLK_ID)
+                                       valid for this device.
+******************************************************************************/
+IMG_INTERNAL IMG_UINT32
+RGXHWPerfMaxDefinedBlks(PVRSRV_RGXDEV_INFO *psDevInfo);
+#endif
 
 #define _RGX_HWPERF_HOST_FILTER(CTX, EV) \
 		(((PVRSRV_RGXDEV_INFO *)CTX->psDeviceNode->pvDevice)->ui32HWPerfHostFilter \
