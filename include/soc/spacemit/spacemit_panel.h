@@ -30,4 +30,17 @@ enum{
 extern int spacemit_hdmi_register_client(struct notifier_block *nb);
 extern int spacemit_hdmi_unregister_client(struct notifier_block *nb);
 
+typedef enum{
+	HEADSET_EVENT_CONNECTED = 0,
+	HEADSET_EVENT_DISCONNECTED,
+	HEADPHONE_EVENT_CONNECTED,
+	HEADPHONE_EVENT_DISCONNECTED,
+	HPMIC_EVENT_CONNECTED,
+	HPMIC_EVENT_DISCONNECTED,
+} __alsa_codec_event_e;
+
+extern int spacemit_headphone_register_client(struct notifier_block *nb);
+extern int spacemit_headphone_unregister_client(struct notifier_block *nb);
+extern int spacemit_headphone_notifier_call_chain(__alsa_codec_event_e val, char *v);
+
 #endif
