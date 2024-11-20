@@ -1172,6 +1172,7 @@ static int es8326_suspend(struct device *dev)
 
 	cancel_delayed_work_sync(&es8326->jack_detect_work);
 	snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
+	es8326_enable_spk(es8326, false);
 	es8326->calibrated = false;
 	regmap_write(es8326->regmap, ES8326_CLK_CTL, ES8326_CLK_OFF);
 	regcache_cache_only(es8326->regmap, true);
