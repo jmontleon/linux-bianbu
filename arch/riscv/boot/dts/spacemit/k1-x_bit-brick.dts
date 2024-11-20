@@ -6,7 +6,7 @@
 #include "k1-x.dtsi"
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
-#include "lcd/lcd_jd9365dah3_mipi.dtsi"
+#include "lcd/lcd_jd9365aainx101_mipi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
@@ -201,8 +201,7 @@
 	memory-region = <&dpu_resv>;
 	spacemit-dpu-bitclk = <500000000>;
 	dsi_1v2-supply = <&ldo_5>;
-	dsi_1v8-supply = <&ldo_11>;
-	vin-supply-names = "dsi_1v2", "dsi_1v8";
+	vin-supply-names = "dsi_1v2";
 	status = "okay";
 };
 
@@ -214,13 +213,11 @@
 		compatible = "spacemit,mipi-panel2";
 		reg = <0>;
 
-		gpios-reset = <30>;
-		gpios-dc = <34 42>;
-		gpios-avdd = <35 36>;
-		gpios-bl = <31>;
+		gpios-reset = <43>;
+		gpios-dc = <42 83>;
 		id = <2>;
 		delay-after-reset = <10>;
-		force-attached = "lcd_jd9365dah3_mipi";
+		force-attached = "lcd_jd9365aainx101_mipi";
 	};
 };
 
