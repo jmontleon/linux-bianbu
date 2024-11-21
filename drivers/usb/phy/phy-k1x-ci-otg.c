@@ -775,7 +775,7 @@ static int mv_otg_probe(struct platform_device *pdev)
 	mvotg->host_remote_wakeup =
 		!device_property_read_bool(&pdev->dev, "spacemit,reset-on-resume");
 
-	mv_otg_run_state_machine(mvotg, 2 * HZ);
+	mv_otg_run_state_machine(mvotg, msecs_to_jiffies(200));
 
 	dev_info(&pdev->dev, "successful probe OTG device.\n");
 
