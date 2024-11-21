@@ -1118,7 +1118,11 @@ static void PMRFinalizeDmaBuf(PMR_IMPL_PRIVDATA pvPriv)
 
 	psPrivData->ui32PhysPageCount = 0;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 36))
 	dma_buf_unmap_attachment_unlocked(psAttachment, psSgTable, DMA_BIDIRECTIONAL);
+#else
+	dma_buf_unmap_attachment(psAttachment, psSgTable, DMA_BIDIRECTIONAL);
+#endif
 
 	if (psPrivData->bPoisonOnFree)
 	{
@@ -1459,8 +1463,12 @@ PhysmemCreateNewDmaBufBackedPMR(PHYS_HEAP *psHeap,
 			goto errFreePhysAddr;
 		}
 	}
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 36))
 	table = dma_buf_map_attachment_unlocked(psAttachment, DMA_BIDIRECTIONAL);
+#else
+
+	table = dma_buf_map_attachment(psAttachment, DMA_BIDIRECTIONAL);
+#endif
 	if (IS_ERR_OR_NULL(table))
 	{
 		eError = PVRSRV_ERROR_INVALID_PARAMS;
@@ -1579,7 +1587,12 @@ PhysmemCreateNewDmaBufBackedPMR(PHYS_HEAP *psHeap,
 	return PVRSRV_OK;
 
 errUnmap:
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 36))
 	dma_buf_unmap_attachment_unlocked(psAttachment, table, DMA_BIDIRECTIONAL);
+#else
+
+	dma_buf_unmap_attachment(psAttachment, table, DMA_BIDIRECTIONAL);
+#endif
 errFreePhysAddr:
 	OSFreeMem(psPrivData->pasDevPhysAddr);
 errFreePrivData:
