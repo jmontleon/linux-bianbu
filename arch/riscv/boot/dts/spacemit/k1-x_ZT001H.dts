@@ -295,6 +295,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c5_0>;
 	status = "okay";
+
+	focaltech@38{
+                compatible = "focaltech,fts";
+                reg = <0x38>;
+                interrupt-parent = <&gpio>;
+                interrupts = <29 0x02>;
+                vdd-supply = <&ldo_11>;
+                focaltech,reset-gpio = <&gpio 32 0x01>;
+                focaltech,irq-gpio = <&gpio 29 0x02>;
+                focaltech,max-touch-number = <10>;
+                focaltech,display-coords =  <0 0 800 1280>;
+        };
 };
 
 
