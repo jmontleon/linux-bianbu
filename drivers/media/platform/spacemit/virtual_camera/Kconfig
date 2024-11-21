@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0
+#
+# SPACEMIT K1X camera configuration
+#
+
+comment "SPACEMIT K1X Virtual Camera Driver"
+
+menuconfig SPACEMIT_K1X_VIR_CAMERA
+    tristate "SPACEMIT K1X virtual camera support"
+	select MEDIA_CONTROLLER
+	select VIDEO_V4L2_SUBDEV_API
+    help
+	  Say Y here to enable selecting the video adapters for
+	  SPACEMIT K1X virtual camera and video v2
+
+config SPACEMIT_K1X_VIR_CAMERA
+    tristate "SPACEMIT K1X VIRTUAL CAMERA support"
+    select VIDEOBUF2_CORE
+    select VIDEOBUF2_V4L2
+    select VIDEOBUF2_DMA_CONTIG
+    select VIDEOBUF2_DMA_SG
+    select SPACEMIT_K1X_CCIC_V2
+    depends on SPACEMIT_K1X_CAMERA_V2
+    help
+      Enable support for spacemit virtual camera
