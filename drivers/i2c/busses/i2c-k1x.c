@@ -28,7 +28,6 @@
 #include <linux/reboot.h>
 #include <linux/of_device.h>
 #include <linux/rpmsg.h>
-
 #include "i2c-k1x.h"
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
@@ -242,8 +241,8 @@ spacemit_i2c_clear_int_status(struct spacemit_i2c_dev *spacemit_i2c, u32 mask)
 
 static bool spacemit_i2c_is_last_byte_to_send(struct spacemit_i2c_dev *spacemit_i2c)
 {
-	return (spacemit_i2c->tx_cnt == spacemit_i2c->cur_msg->len &&
-		spacemit_i2c->msg_idx == spacemit_i2c->num - 1) ? true : false;
+	return (spacemit_i2c->tx_cnt == spacemit_i2c->cur_msg->len
+		&& spacemit_i2c->msg_idx == spacemit_i2c->num - 1) ? true : false;
 }
 
 static bool spacemit_i2c_is_last_byte_to_receive(struct spacemit_i2c_dev *spacemit_i2c)
@@ -369,7 +368,8 @@ static int spacemit_i2c_byte_xfer_body(struct spacemit_i2c_dev *spacemit_i2c)
 		}
 	} else if (spacemit_i2c->i2c_status & SR_ITE) { /* i2c transmit empty */
 		/* MSD comes with ITE */
-		if (spacemit_i2c->i2c_status & SR_MSD)
+		if ((spacemit_i2c->i2c_status & SR_MSD) && (spacemit_i2c->msg_idx == spacemit_i2c->num - 1))
+			/* only if stop signal come with the last msg, we do nothing */
 			return ret;
 
 		if (spacemit_i2c->i2c_status & SR_RWM) { /* receive mode */
@@ -403,7 +403,10 @@ static int spacemit_i2c_byte_xfer_body(struct spacemit_i2c_dev *spacemit_i2c)
 				/* send stop pulse for last byte of last msg */
 				if (spacemit_i2c_is_last_byte_to_send(spacemit_i2c))
 					cr_val |= CR_STOP;
-
+				else if (spacemit_i2c->tx_cnt == spacemit_i2c->cur_msg->len) {
+					cr_val |= CR_STOP;
+					cr_val &= ~CR_DTEIE;
+				}
 				cr_val |= CR_ALDIE | CR_TB;
 				spacemit_i2c_write_reg(spacemit_i2c, REG_CR, cr_val);
 			} else if (spacemit_i2c->msg_idx < spacemit_i2c->num - 1) {
@@ -1002,7 +1005,7 @@ err_out:
 	 * send transaction complete signal:
 	 * error happens, detect master stop
 	 */
-	if (likely(spacemit_i2c->i2c_err || (ret < 0) || (status & SR_MSD))) {
+	if (likely(spacemit_i2c->i2c_err || (ret < 0) || ((status & SR_MSD) && !(status & SR_ITE)))) {
 		/*
 		 * Here the transaction is already done, we don't need any
 		 * other interrupt signals from now, in case any interrupt
@@ -1017,6 +1020,14 @@ err_out:
 		spacemit_i2c_clear_int_status(spacemit_i2c, SPACEMIT_I2C_INT_STATUS_MASK);
 
 		complete(&spacemit_i2c->complete);
+	} else if ((status & SR_MSD) && (status & SR_ITE)) {
+		if (spacemit_i2c->tx_cnt > 1) {
+			ctrl = spacemit_i2c_read_reg(spacemit_i2c, REG_CR);
+			ctrl &= ~SPACEMIT_I2C_INT_CTRL_MASK;
+			spacemit_i2c_write_reg(spacemit_i2c, REG_CR, ctrl);
+			spacemit_i2c_clear_int_status(spacemit_i2c, SPACEMIT_I2C_INT_STATUS_MASK);
+			complete(&spacemit_i2c->complete);
+		}
 	}
 
 	return IRQ_HANDLED;
