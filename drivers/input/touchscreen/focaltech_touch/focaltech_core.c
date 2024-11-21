@@ -2070,160 +2070,10 @@ static int drm_check_dt(struct fts_ts_data *ts_data)
 #endif //CONFIG_DRM_PANEL
 #endif //CONFIG_DRM
 
-
-static int fb_notifier_callback(struct notifier_block *self, unsigned long event, void *v)
-{
-    struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data, fb_notif);
-    FTS_FUNC_ENTER();
-    if (ts_data && v) {
-#if IS_ENABLED(CONFIG_DRM)
-
-#if IS_ENABLED(CONFIG_DRM_PANEL)
-#ifdef CONFIG_SOC_SPACEMIT_K1
-	const unsigned long event_enum[2] = {DRM_PANEL_EARLY_EVENT_BLANK, DRM_PANEL_EVENT_BLANK};
-#else //CONFIG_SOC_SPACEMIT_K1
-        int blank_value = *((int *)(((struct drm_panel_notifier *)v)->data));
-        const unsigned long event_enum[2] = {DRM_PANEL_EARLY_EVENT_BLANK, DRM_PANEL_EVENT_BLANK};
-        const int blank_enum[2] = {DRM_PANEL_BLANK_POWERDOWN, DRM_PANEL_BLANK_UNBLANK};
-#endif //CONFIG_SOC_SPACEMIT_K1
-#else //CONFIG_DRM_PANEL
-        int blank_value = *((int *)(((struct msm_drm_notifier *)v)->data));
-        const unsigned long event_enum[2] = {MSM_DRM_EARLY_EVENT_BLANK, MSM_DRM_EVENT_BLANK};
-        const int blank_enum[2] = {MSM_DRM_BLANK_POWERDOWN, MSM_DRM_BLANK_UNBLANK};
-#endif //CONFIG_DRM_PANEL
-
-#elif IS_ENABLED(CONFIG_FB)
-        const unsigned long event_enum[2] = {FB_EARLY_EVENT_BLANK, FB_EVENT_BLANK};
-        const int blank_enum[2] = {FB_BLANK_POWERDOWN, FB_BLANK_UNBLANK};
-        int blank_value = *((int *)(((struct fb_event *)v)->data));
-#endif //CONFIG_DRM
-#ifdef CONFIG_SOC_SPACEMIT_K1
-	FTS_INFO("notifier,event:%lu", event);
-        if (event_enum[1] == event) {
-            queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
-        } else if (event_enum[0] == event) {
-            cancel_work_sync(&fts_data->resume_work);
-            fts_ts_suspend(ts_data->dev);
-        } else {
-            FTS_DEBUG("notifier,event:%lu, not care", event);
-        }
-#else
-        FTS_INFO("notifier,event:%lu,blank:%d", event, blank_value);
-        if ((blank_enum[1] == blank_value) && (event_enum[1] == event)) {
-            queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
-        } else if ((blank_enum[0] == blank_value) && (event_enum[0] == event)) {
-            cancel_work_sync(&fts_data->resume_work);
-            fts_ts_suspend(ts_data->dev);
-        } else {
-            FTS_DEBUG("notifier,event:%lu,blank:%d, not care", event, blank_value);
-        }
-#endif
-    } else {
-        FTS_ERROR("ts_data/v is null");
-        return -EINVAL;
-    }
-    FTS_FUNC_EXIT();
-    return 0;
-}
-
-
-static int fts_notifier_callback_init(struct fts_ts_data *ts_data)
-{
-    int ret = 0;
-    FTS_FUNC_ENTER();
-#if IS_ENABLED(CONFIG_DRM)
-    ts_data->fb_notif.notifier_call = fb_notifier_callback;
-#if IS_ENABLED(CONFIG_DRM_PANEL)
-    ret = drm_check_dt(ts_data);
-    if (ret) FTS_ERROR("parse drm-panel fail");
-    FTS_INFO("init notifier with drm_panel_notifier_register");
-    if (active_panel) {
-#ifdef CONFIG_SOC_SPACEMIT_K1
-	spacemit_drm_register_client(&ts_data->fb_notif);
-#else
-        ret = drm_panel_notifier_register(active_panel, &ts_data->fb_notif);
-        if (ret) FTS_ERROR("[DRM]drm_panel_notifier_register fail: %d", ret);
-#endif
-    }
-#else
-    FTS_INFO("init notifier with msm_drm_register_client");
-    ret = msm_drm_register_client(&ts_data->fb_notif);
-    if (ret) FTS_ERROR("[DRM]msm_drm_register_client fail: %d", ret);
-#endif //CONFIG_DRM_PANEL
-
-#elif IS_ENABLED(CONFIG_FB)
-    FTS_INFO("init notifier with fb_register_client");
-    ts_data->fb_notif.notifier_call = fb_notifier_callback;
-    ret = fb_register_client(&ts_data->fb_notif);
-    if (ret) {
-        FTS_ERROR("[FB]Unable to register fb_notifier: %d", ret);
-    }
-
-#endif //CONFIG_DRM
-    FTS_FUNC_EXIT();
-    return ret;
-}
-
-static int fts_notifier_callback_exit(struct fts_ts_data *ts_data)
-{
-    FTS_FUNC_ENTER();
-#if IS_ENABLED(CONFIG_DRM)
-#if IS_ENABLED(CONFIG_DRM_PANEL)
-    if (active_panel)
 #ifdef CONFIG_SOC_SPACEMIT_K1X
-	spacemit_drm_unregister_client( &ts_data->fb_notif);
-#else
-        drm_panel_notifier_unregister(active_panel, &ts_data->fb_notif);
-#endif
-#else
-    if (msm_drm_unregister_client(&ts_data->fb_notif))
-        FTS_ERROR("[DRM]Error occurred while unregistering fb_notifier.");
-#endif
-
-#elif IS_ENABLED(CONFIG_FB)
-    if (fb_unregister_client(&ts_data->fb_notif))
-        FTS_ERROR("[FB]Error occurred while unregistering fb_notifier.");
-#endif //CONFIG_DRM
-    FTS_FUNC_EXIT();
-    return 0;
-}
-
-
-int fts_ts_probe_entry(struct fts_ts_data *ts_data)
+static int spacemit_fts_hw_init(struct fts_ts_data *ts_data)
 {
     int ret = 0;
-
-    FTS_FUNC_ENTER();
-    FTS_INFO("%s", FTS_DRIVER_VERSION);
-    fts_data = ts_data;
-    ts_data->pdata = kzalloc(sizeof(struct fts_ts_platform_data), GFP_KERNEL);
-    if (!ts_data->pdata) {
-        FTS_ERROR("allocate memory for platform_data fail");
-        return -ENOMEM;
-    }
-
-    ret = fts_parse_dt(ts_data->dev, ts_data->pdata);
-    if (ret) {
-        FTS_ERROR("device-tree parse fail");
-    }
-
-    ts_data->ts_workqueue = create_singlethread_workqueue("fts_wq");
-    if (!ts_data->ts_workqueue) {
-        FTS_ERROR("create fts workqueue fail");
-    } else {
-        INIT_WORK(&ts_data->resume_work, fts_resume_work);
-    }
-    spin_lock_init(&ts_data->irq_lock);
-    mutex_init(&ts_data->report_mutex);
-    mutex_init(&ts_data->bus_lock);
-    init_waitqueue_head(&ts_data->ts_waitqueue);
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
-    wakeup_source_init(&ts_data->ws, "fts_ws");
-    ts_data->p_ws = &ts_data->ws;
-#else
-    ts_data->p_ws = wakeup_source_register(ts_data->dev, "fts_ws");
-#endif
-
     ret = fts_bus_init(ts_data);
     if (ret) {
         FTS_ERROR("bus initialize fail");
@@ -2277,8 +2127,6 @@ int fts_ts_probe_entry(struct fts_ts_data *ts_data)
         FTS_ERROR("create sysfs node fail");
     }
 
-
-
     ret = fts_point_report_check_init(ts_data);
     if (ret) {
         FTS_ERROR("init point report check fail");
@@ -2301,7 +2149,6 @@ int fts_ts_probe_entry(struct fts_ts_data *ts_data)
     }
 #endif
 
-
     ret = fts_esdcheck_init(ts_data);
     if (ret) {
         FTS_ERROR("init esd check fail");
@@ -2322,12 +2169,6 @@ int fts_ts_probe_entry(struct fts_ts_data *ts_data)
     init_completion(&ts_data->pm_completion);
     ts_data->pm_suspend = false;
 #endif
-
-    ret = fts_notifier_callback_init(ts_data);
-    if (ret) {
-        FTS_ERROR("init notifier callback fail");
-    }
-
     FTS_FUNC_EXIT();
     return 0;
 
@@ -2379,6 +2220,321 @@ err_bus_init:
 
     FTS_FUNC_EXIT();
     return ret;
+}
+#endif
+static int callback_times = 0;
+static int fb_notifier_callback(struct notifier_block *self, unsigned long event, void *v)
+{
+    struct fts_ts_data *ts_data = container_of(self, struct fts_ts_data, fb_notif);
+    FTS_FUNC_ENTER();
+    if (ts_data && v) {
+#if IS_ENABLED(CONFIG_DRM)
+
+#if IS_ENABLED(CONFIG_DRM_PANEL)
+#ifdef CONFIG_SOC_SPACEMIT_K1
+	const unsigned long event_enum[2] = {DRM_PANEL_EARLY_EVENT_BLANK, DRM_PANEL_EVENT_BLANK};
+#else //CONFIG_SOC_SPACEMIT_K1
+        int blank_value = *((int *)(((struct drm_panel_notifier *)v)->data));
+        const unsigned long event_enum[2] = {DRM_PANEL_EARLY_EVENT_BLANK, DRM_PANEL_EVENT_BLANK};
+        const int blank_enum[2] = {DRM_PANEL_BLANK_POWERDOWN, DRM_PANEL_BLANK_UNBLANK};
+#endif //CONFIG_SOC_SPACEMIT_K1
+#else //CONFIG_DRM_PANEL
+        int blank_value = *((int *)(((struct msm_drm_notifier *)v)->data));
+        const unsigned long event_enum[2] = {MSM_DRM_EARLY_EVENT_BLANK, MSM_DRM_EVENT_BLANK};
+        const int blank_enum[2] = {MSM_DRM_BLANK_POWERDOWN, MSM_DRM_BLANK_UNBLANK};
+#endif //CONFIG_DRM_PANEL
+
+#elif IS_ENABLED(CONFIG_FB)
+        const unsigned long event_enum[2] = {FB_EARLY_EVENT_BLANK, FB_EVENT_BLANK};
+        const int blank_enum[2] = {FB_BLANK_POWERDOWN, FB_BLANK_UNBLANK};
+        int blank_value = *((int *)(((struct fb_event *)v)->data));
+#endif //CONFIG_DRM
+#ifdef CONFIG_SOC_SPACEMIT_K1
+	FTS_INFO("notifier,event:%lu", event);
+	if(callback_times == 0)
+	    spacemit_fts_hw_init(ts_data);
+	else {
+            if (event_enum[1] == event) {
+                queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
+            } else if (event_enum[0] == event) {
+                cancel_work_sync(&fts_data->resume_work);
+                fts_ts_suspend(ts_data->dev);
+            } else {
+                FTS_DEBUG("notifier,event:%lu, not care", event);
+            }
+	}
+#else
+        FTS_INFO("notifier,event:%lu,blank:%d", event, blank_value);
+        if ((blank_enum[1] == blank_value) && (event_enum[1] == event)) {
+            queue_work(fts_data->ts_workqueue, &fts_data->resume_work);
+        } else if ((blank_enum[0] == blank_value) && (event_enum[0] == event)) {
+            cancel_work_sync(&fts_data->resume_work);
+            fts_ts_suspend(ts_data->dev);
+        } else {
+            FTS_DEBUG("notifier,event:%lu,blank:%d, not care", event, blank_value);
+        }
+#endif
+    } else {
+        FTS_ERROR("ts_data/v is null");
+        return -EINVAL;
+    }
+    FTS_FUNC_EXIT();
+    callback_times++;
+    return 0;
+}
+
+static int fts_notifier_callback_init(struct fts_ts_data *ts_data)
+{
+    int ret = 0;
+    FTS_FUNC_ENTER();
+#if IS_ENABLED(CONFIG_DRM)
+    ts_data->fb_notif.notifier_call = fb_notifier_callback;
+#if IS_ENABLED(CONFIG_DRM_PANEL)
+    ret = drm_check_dt(ts_data);
+    if (ret) FTS_ERROR("parse drm-panel fail");
+    FTS_INFO("init notifier with drm_panel_notifier_register");
+#ifdef CONFIG_SOC_SPACEMIT_K1
+    spacemit_drm_register_client(&ts_data->fb_notif);
+    FTS_FUNC_EXIT();
+    return 0;
+#else
+    if (active_panel) {
+        ret = drm_panel_notifier_register(active_panel, &ts_data->fb_notif);
+        if (ret) FTS_ERROR("[DRM]drm_panel_notifier_register fail: %d", ret);
+    }
+#endif
+#else
+    FTS_INFO("init notifier with msm_drm_register_client");
+    ret = msm_drm_register_client(&ts_data->fb_notif);
+    if (ret) FTS_ERROR("[DRM]msm_drm_register_client fail: %d", ret);
+#endif //CONFIG_DRM_PANEL
+
+#elif IS_ENABLED(CONFIG_FB)
+    FTS_INFO("init notifier with fb_register_client");
+    ts_data->fb_notif.notifier_call = fb_notifier_callback;
+    ret = fb_register_client(&ts_data->fb_notif);
+    if (ret) {
+        FTS_ERROR("[FB]Unable to register fb_notifier: %d", ret);
+    }
+
+#endif //CONFIG_DRM
+    FTS_FUNC_EXIT();
+    return ret;
+}
+
+static int fts_notifier_callback_exit(struct fts_ts_data *ts_data)
+{
+    FTS_FUNC_ENTER();
+#if IS_ENABLED(CONFIG_DRM)
+#if IS_ENABLED(CONFIG_DRM_PANEL)
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+    spacemit_drm_unregister_client(&ts_data->fb_notif);
+#else
+    if (active_panel)
+        drm_panel_notifier_unregister(active_panel, &ts_data->fb_notif);
+#endif
+#else
+    if (msm_drm_unregister_client(&ts_data->fb_notif))
+        FTS_ERROR("[DRM]Error occurred while unregistering fb_notifier.");
+#endif
+
+#elif IS_ENABLED(CONFIG_FB)
+    if (fb_unregister_client(&ts_data->fb_notif))
+        FTS_ERROR("[FB]Error occurred while unregistering fb_notifier.");
+#endif //CONFIG_DRM
+    FTS_FUNC_EXIT();
+    return 0;
+}
+
+
+int fts_ts_probe_entry(struct fts_ts_data *ts_data)
+{
+    int ret = 0;
+
+    FTS_FUNC_ENTER();
+    FTS_INFO("%s", FTS_DRIVER_VERSION);
+    fts_data = ts_data;
+    ts_data->pdata = kzalloc(sizeof(struct fts_ts_platform_data), GFP_KERNEL);
+    if (!ts_data->pdata) {
+        FTS_ERROR("allocate memory for platform_data fail");
+        return -ENOMEM;
+    }
+
+    ret = fts_parse_dt(ts_data->dev, ts_data->pdata);
+    if (ret) {
+        FTS_ERROR("device-tree parse fail");
+    }
+
+    ts_data->ts_workqueue = create_singlethread_workqueue("fts_wq");
+    if (!ts_data->ts_workqueue) {
+        FTS_ERROR("create fts workqueue fail");
+    } else {
+        INIT_WORK(&ts_data->resume_work, fts_resume_work);
+    }
+    spin_lock_init(&ts_data->irq_lock);
+    mutex_init(&ts_data->report_mutex);
+    mutex_init(&ts_data->bus_lock);
+    init_waitqueue_head(&ts_data->ts_waitqueue);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
+    wakeup_source_init(&ts_data->ws, "fts_ws");
+    ts_data->p_ws = &ts_data->ws;
+#else
+    ts_data->p_ws = wakeup_source_register(ts_data->dev, "fts_ws");
+#endif
+#ifndef CONFIG_SOC_SPACEMIT_K1X
+    ret = fts_bus_init(ts_data);
+    if (ret) {
+        FTS_ERROR("bus initialize fail");
+        goto err_bus_init;
+    }
+
+    ret = fts_buffer_init(ts_data);
+    if (ret) {
+        FTS_ERROR("buffer init fail");
+        goto err_bus_init;
+    }
+
+    ret = fts_gpio_configure(ts_data);
+    if (ret) {
+        FTS_ERROR("configure the gpios fail");
+        goto err_gpio_config;
+    }
+
+    ret = fts_power_init(ts_data);
+    if (ret) {
+        FTS_ERROR("fail to init power");
+        goto err_power_init;
+    }
+
+    ret = fts_get_ic_information(ts_data);
+    if (ret) {
+        FTS_ERROR("not focal IC, unregister driver");
+        goto err_power_init;
+    }
+
+    ret = fts_input_init(ts_data);
+    if (ret) {
+        FTS_ERROR("input initialize fail");
+        goto err_power_init;
+    }
+
+#if FTS_READ_CUSTOMER_INFO
+    ret = fts_read_customer_information(ts_data);
+    if (ret) {
+        FTS_ERROR("read customer information fail");
+    }
+#endif
+
+    ret = fts_create_apk_debug_channel(ts_data);
+    if (ret) {
+        FTS_ERROR("create apk debug node fail");
+    }
+
+    ret = fts_create_sysfs(ts_data);
+    if (ret) {
+        FTS_ERROR("create sysfs node fail");
+    }
+
+    ret = fts_point_report_check_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init point report check fail");
+    }
+
+    ret = fts_ex_mode_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init glove/cover/charger fail");
+    }
+
+    ret = fts_gesture_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init gesture fail");
+    }
+
+#if FTS_PSENSOR_EN
+    ret = fts_proximity_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init proximity fail");
+    }
+#endif
+
+    ret = fts_esdcheck_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init esd check fail");
+    }
+
+    ret = fts_irq_registration(ts_data);
+    if (ret) {
+        FTS_ERROR("request irq failed");
+        goto err_irq_req;
+    }
+
+    ret = fts_fwupg_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init fw upgrade fail");
+    }
+
+#if IS_ENABLED(CONFIG_PM) && FTS_PATCH_COMERR_PM
+    init_completion(&ts_data->pm_completion);
+    ts_data->pm_suspend = false;
+#endif
+#endif
+    ret = fts_notifier_callback_init(ts_data);
+    if (ret) {
+        FTS_ERROR("init notifier callback fail");
+    }
+
+    FTS_FUNC_EXIT();
+    return ret;
+#ifndef CONFIG_SOC_SPACEMIT_K1X
+err_irq_req:
+    fts_esdcheck_exit(ts_data);
+#if FTS_PSENSOR_EN
+    fts_proximity_exit(ts_data);
+#endif
+    fts_gesture_exit(ts_data);
+    fts_ex_mode_exit(ts_data);
+    fts_point_report_check_exit(ts_data);
+    fts_remove_sysfs(ts_data);
+    fts_release_apk_debug_channel(ts_data);
+    input_unregister_device(ts_data->input_dev);
+#if FTS_PEN_EN
+    input_unregister_device(ts_data->pen_dev);
+#endif
+err_power_init:
+#if FTS_PINCTRL_EN
+    if (ts_data->pinctrl) {
+        if (ts_data->pins_release) {
+            pinctrl_select_state(ts_data->pinctrl, ts_data->pins_release);
+        }
+        devm_pinctrl_put(ts_data->pinctrl);
+        ts_data->pinctrl = NULL;
+    }
+#endif
+#if FTS_POWER_SOURCE_CUST_EN
+    fts_power_source_exit(ts_data);
+#endif
+    if (gpio_is_valid(ts_data->pdata->reset_gpio))
+        gpio_free(ts_data->pdata->reset_gpio);
+    if (gpio_is_valid(ts_data->pdata->irq_gpio))
+        gpio_free(ts_data->pdata->irq_gpio);
+err_gpio_config:
+    kfree_safe(ts_data->touch_buf);
+err_bus_init:
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
+    wakeup_source_trash(&ts_data->ws);
+    ts_data->p_ws = NULL;
+#else
+    wakeup_source_unregister(ts_data->p_ws);
+#endif
+    cancel_work_sync(&ts_data->resume_work);
+    if (ts_data->ts_workqueue) destroy_workqueue(ts_data->ts_workqueue);
+    kfree_safe(ts_data->bus_tx_buf);
+    kfree_safe(ts_data->bus_rx_buf);
+    kfree_safe(ts_data->pdata);
+
+    FTS_FUNC_EXIT();
+    return ret;
+#endif
 }
 
 int fts_ts_remove_entry(struct fts_ts_data *ts_data)
