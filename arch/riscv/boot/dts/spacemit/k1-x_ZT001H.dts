@@ -18,6 +18,7 @@
 
 / {
 	model = "ZT001H";
+	modules_usrload = "aic8800_bsp,aic8800_fdrv,aic8800_btlpm";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -141,20 +142,19 @@
 		vin-supply = <&dc_12v>;
 	};
 
-/*
+
 	rf_pwrseq: rf-pwrseq {
 		compatible = "spacemit,rf-pwrseq";
 		//vdd-supply = <&ldo_7>;
 		//vdd_voltage = <3300000>;
-		io-supply = <&dcdc_3>;
+		io-supply = <&ldo_8>;
 		io_voltage = <1800000>;
-		pwr-gpios  = <&gpio 67 0>,
-			     <&gpio 03 0>;
+		pwr-gpios  = <&gpio 03 0>;
 		status = "okay";
 
 		wlan_pwrseq: wlan-pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios = <&gpio 116 0>;
+			regon-gpios = <&gpio 67 0>;
 			interrupt-parent = <&pinctrl>;
 			interrupts = <268>;
 			pinctrl-names = "default";
@@ -166,7 +166,7 @@
 			reset-gpios     = <&gpio 63 0>;
 		};
 	};
-*/
+
 
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
@@ -675,7 +675,7 @@
 	pinctrl-0 = <&pinctrl_mmc2>;
 	bus-width = <4>;
 	non-removable;
-	vqmmc-supply = <&dcdc_3>;
+	vqmmc-supply = <&ldo_8>;
 	no-mmc;
 	no-sd;
 	keep-power-in-suspend;
@@ -733,7 +733,6 @@
 	status = "okay";
 };
 
-/*
 &otg {
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	usb-role-switch;
@@ -743,18 +742,7 @@
 
 	usb-role-switch;
 	role-switch-default-mode = "peripheral";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0x0>;
-			otg_role_switch: endpoint {
-				remote-endpoint = <&otg_ep>;
-			};
-		};
-	};
 };
-*/
 
 &usbphy1 {
 	status = "okay";
@@ -763,11 +751,12 @@
 &udc1 {
 	/*spacemit,udc-mode = <MV_USB_MODE_UDC>;*/
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci1 {
 	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
 };
 
@@ -776,21 +765,26 @@
 	role-switch-user-control;
 	spacemit,reset-on-resume;
 	role-switch-default-mode = "host";
-	vbus-gpios = <&gpio 123 0>;
-	status = "disabled";
+	/* vbus-gpios = <&gpio 123 0>; */
+	status = "okay";
 };
 
 &usb2phy {
-	status = "okay";
+	status = "disabled";
 };
 
 &combphy {
+	status = "disabled";
+};
+
+&usb3hub {
+	/* gpio_124 for ehci1 dcdc-boost, gpio_89 for vbus */
+	vbus-gpios = <&gpio 124 0 &gpio 89 0>;
 	status = "okay";
 };
 
-/*
 &usbdrd3 {
-	status = "okay";
+	status = "disabled";
 	reset-on-resume;
 	dwc3@c0a00000 {
 		dr_mode = "otg";
@@ -802,22 +796,10 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
-
 		usb-role-switch;
-		role-switch-default-mode = "peripheral";
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				reg = <0x0>;
-				dwc3_role_switch: endpoint {
-					remote-endpoint = <&dwc3_ep>;
-				};
-			};
-		};
+		role-switch-default-mode = "host";
 	};
 };
-*/
 
 &imggpu {
 	status = "okay";
