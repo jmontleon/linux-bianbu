@@ -1861,21 +1861,11 @@ static const struct dev_pm_ops k1x_pcie_pm_ops = {
 };
 
 static struct platform_driver k1x_pcie_driver = {
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-	.probe = k1x_pcie_probe,
-#endif
 	.driver = {
 		.name	= "k1x-dwc-pcie",
 		.of_match_table = of_k1x_pcie_match,
 		.suppress_bind_attrs = true,
 		.pm	= &k1x_pcie_pm_ops,
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
-#endif
 	},
 };
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-module_platform_driver(k1x_pcie_driver);
-#else
 builtin_platform_driver_probe(k1x_pcie_driver, k1x_pcie_probe);
-#endif

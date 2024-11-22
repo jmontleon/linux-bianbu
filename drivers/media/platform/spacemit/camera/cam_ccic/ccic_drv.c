@@ -1264,9 +1264,6 @@ struct platform_driver k1x_ccic_driver = {
 	.driver = {
 		.name = K1X_CCIC_DRV_NAME,
 		.of_match_table = of_match_ptr(k1x_ccic_dt_match),
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
-#endif
 	},
 	.probe = k1x_ccic_probe,
 	.remove = k1x_ccic_remove,

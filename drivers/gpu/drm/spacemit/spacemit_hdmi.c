@@ -1095,11 +1095,10 @@ struct platform_driver spacemit_hdmi_driver = {
 		.name = "spacemit-hdmi-drv",
 		.of_match_table = spacemit_hdmi_dt_ids,
 		.pm = &hdmi_pm_ops,
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
-#endif
 	},
 };
+
+// module_platform_driver(spacemit_hdmi_driver);
 
 static int spacemit_hdmi_driver_init(void)
 {

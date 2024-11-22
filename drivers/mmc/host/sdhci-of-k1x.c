@@ -1896,9 +1896,6 @@ static struct platform_driver spacemit_sdhci_driver = {
 		.name	= "sdhci-spacemit",
 		.of_match_table = of_match_ptr(sdhci_spacemit_of_match),
 		.pm	= SDHCI_SPACEMIT_PMOPS,
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
-#endif
 	},
 	.probe		= spacemit_sdhci_probe,
 	.remove_new	= spacemit_sdhci_remove,

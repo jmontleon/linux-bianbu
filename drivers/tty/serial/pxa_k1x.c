@@ -2369,9 +2369,6 @@ static struct platform_driver serial_pxa_driver = {
 #endif
 		.suppress_bind_attrs = true,
 		.of_match_table = serial_pxa_dt_ids,
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
-#endif
 	},
 };
 

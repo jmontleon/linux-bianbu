@@ -679,9 +679,6 @@ static struct platform_driver spacemit_rproc_driver = {
 		.pm	= &spacemit_rproc_pm_ops,
 #endif
 		.of_match_table = spacemit_rproc_of_match,
-#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
-		.probe_type = PROBE_FORCE_SYNCHRONOUS,
-#endif
 	},
 };
 
