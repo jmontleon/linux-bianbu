@@ -20,7 +20,7 @@
 #include <linux/media-bus-format.h>
 #include <linux/atomic.h>
 #include <linux/workqueue.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>

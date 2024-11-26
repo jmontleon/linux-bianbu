@@ -168,7 +168,7 @@ int get_afbc_data_plane_min_rdma_mem_size(u8 rdma_work_mode, u32 drm_4cc_fmt,
 }
 EXPORT_SYMBOL(get_afbc_data_plane_min_rdma_mem_size);
 
-void inline saturn_write_fbcmem_regs(struct drm_plane_state *state, u32 rdma_id,
+void saturn_write_fbcmem_regs(struct drm_plane_state *state, u32 rdma_id,
 				     u32 module_base, volatile RDMA_PATH_X_REG *rdma_regs)
 {
 	struct drm_crtc_state *crtc_state = state->crtc->state;
