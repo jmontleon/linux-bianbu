@@ -323,7 +323,7 @@ static int mv_usb_extcon_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int mv_usb_extcon_remove(struct platform_device *pdev)
+static void mv_usb_extcon_remove(struct platform_device *pdev)
 {
 	struct mv_usb_extcon_info *info = platform_get_drvdata(pdev);
 
@@ -331,8 +331,6 @@ static int mv_usb_extcon_remove(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 0);
 
 	freq_qos_remove_request(&info->qos_idle);
-
-	return 0;
 }
 
 static const struct of_device_id mv_usb_extcon_dt_match[] = {
