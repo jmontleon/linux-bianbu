@@ -13,6 +13,7 @@
 #include <drm/drm_color_mgmt.h>
 #include <linux/component.h>
 #include <linux/dma-mapping.h>
+#include <linux/minmax.h>
 #include "spacemit_cmdlist.h"
 #include "spacemit_dmmu.h"
 #include "spacemit_dpu.h"
@@ -579,8 +580,7 @@ int spacemit_drm_plane_create_color_properties(struct drm_plane *plane,
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_property *prop;
-	struct drm_prop_enum_list enum_list[max_t(int, DRM_COLOR_ENCODING_MAX,
-						       DRM_COLOR_RANGE_MAX)];
+	struct drm_prop_enum_list enum_list[MAX(DRM_COLOR_ENCODING_MAX, DRM_COLOR_RANGE_MAX)];
 	int i, len;
 
 	if (WARN_ON(supported_encodings == 0 ||

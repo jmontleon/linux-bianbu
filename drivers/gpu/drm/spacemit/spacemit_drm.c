@@ -6,11 +6,11 @@
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
-#include <drm/drm_fbdev_generic.h>
 #include <drm/drm_aperture.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_debugfs.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_fbdev_dma.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_of.h>
 #include <linux/component.h>
@@ -186,7 +186,6 @@ static const struct file_operations spacemit_drm_fops = {
 	.compat_ioctl	= drm_compat_ioctl,
 	.poll			= drm_poll,
 	.read			= drm_read,
-	.llseek		= no_llseek,
 	.mmap		= spacemit_gem_mmap,
 };
 
@@ -265,7 +264,8 @@ static int spacemit_drm_bind(struct device *dev)
 	err = drm_dev_register(drm, 0);
 	if (err < 0)
 		goto err_kms_helper_poll_fini;
-	drm_fbdev_generic_setup(drm, 32);
+
+	drm_fbdev_dma_setup(drm, 32);
 
 	return 0;
 
@@ -436,10 +436,9 @@ static int spacemit_drm_probe(struct platform_device *pdev)
 	return spacemit_drm_of_component_probe(&pdev->dev, compare_of,  &drm_component_ops);
 }
 
-static int spacemit_drm_remove(struct platform_device *pdev)
+static void spacemit_drm_remove(struct platform_device *pdev)
 {
 	component_master_del(&pdev->dev, &drm_component_ops);
-	return 0;
 }
 
 static void spacemit_drm_shutdown(struct platform_device *pdev)
