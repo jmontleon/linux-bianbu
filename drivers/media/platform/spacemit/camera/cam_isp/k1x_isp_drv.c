@@ -726,7 +726,7 @@ int k1xisp_dev_context_destroy(struct platform_device *pdev)
 	return ret;
 }
 
-static int k1xisp_dev_remove(struct platform_device *pdev)
+static void k1xisp_dev_remove(struct platform_device *pdev)
 {
 	/* disable runtime pm */
 	pm_runtime_disable(&pdev->dev);
@@ -734,7 +734,6 @@ static int k1xisp_dev_remove(struct platform_device *pdev)
 	k1xisp_cdevs_destroy();
 
 	isp_log_dbg("k1xisp device drvier remove successful!");
-	return 0;
 }
 
 
