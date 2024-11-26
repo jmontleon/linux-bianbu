@@ -258,7 +258,7 @@ alloc_err:
 	return ret;
 }
 
-static int spacemit_rfkill_remove(struct platform_device *pdev)
+static void spacemit_rfkill_remove(struct platform_device *pdev)
 {
 	struct rfkill_pwrseq *pwrseq = platform_get_drvdata(pdev);
 
@@ -269,8 +269,6 @@ static int spacemit_rfkill_remove(struct platform_device *pdev)
 
 	if (!IS_ERR_OR_NULL(pwrseq->ext_clk))
 		clk_disable_unprepare(pwrseq->ext_clk);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_rfkill_ids[] = {
