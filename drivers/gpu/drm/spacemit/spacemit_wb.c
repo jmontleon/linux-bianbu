@@ -66,9 +66,11 @@ static const struct drm_encoder_helper_funcs spacemit_wb_encoder_helper_funcs = 
 	.atomic_check = spacemit_wb_encoder_atomic_check,
 };
 
+#if 0
 static const struct drm_encoder_funcs spacemit_wb_encoder_funcs = {
 	.destroy = drm_encoder_cleanup,
 };
+#endif
 
 static int spacemit_wb_connector_get_modes(struct drm_connector *connector)
 {
@@ -239,10 +241,9 @@ static int spacemit_wb_probe(struct platform_device *pdev)
 	return component_add(&pdev->dev, &spacemit_wb_component_ops);
 }
 
-static int spacemit_wb_remove(struct platform_device *pdev)
+static void spacemit_wb_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &spacemit_wb_component_ops);
-	return 0;
 }
 
 static const struct of_device_id spacemit_wb_of_match[] = {
