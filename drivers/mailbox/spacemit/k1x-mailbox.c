@@ -217,7 +217,7 @@ static int spacemit_mailbox_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int spacemit_mailbox_remove(struct platform_device *pdev)
+static void spacemit_mailbox_remove(struct platform_device *pdev)
 {
 	struct spacemit_mailbox *mbox = platform_get_drvdata(pdev);
 
@@ -225,8 +225,6 @@ static int spacemit_mailbox_remove(struct platform_device *pdev)
 
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_mailbox_of_match[] = {
