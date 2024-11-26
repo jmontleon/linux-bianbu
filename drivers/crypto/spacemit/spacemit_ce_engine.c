@@ -642,7 +642,7 @@ static struct crypto_larval *spacemit_crypto_larval_alloc(const char *name, u32 
 	larval->alg.cra_priority = -1;
 	larval->alg.cra_destroy = spacemit_crypto_larval_destroy;
 
-	strlcpy(larval->alg.cra_name, name, CRYPTO_MAX_ALG_NAME);
+	strscpy(larval->alg.cra_name, name, CRYPTO_MAX_ALG_NAME);
 	init_completion(&larval->completion);
 
 	return larval;
@@ -1525,7 +1525,7 @@ static int ce_aes_test(u32 num)
 	while (--index >= 0) {
 		dev_info(dev,"================ aes test(%d) =============\n",index);
 		for (i = 0; i < (int)(sizeof(tests) / sizeof(tests[0])); i++) {
-			ret = ce_rijndael_setup_internal(index, tests[i].key, tests[i].keylen * BYTES_TO_BITS);
+			ret = ce_rijndael_setup_internal(index, tests[i].key, tests[i].keylen * BYTES_PER_BITS);
 			if (ret != 0) {
 				goto err;
 			}
@@ -1627,7 +1627,7 @@ static int aes_test_for_nsaid(unsigned char *pt,unsigned char *ct,unsigned long 
 
 	dev_info(dev,"================ aes test(%d) =============\n",index);
 
-	if ((err = ce_rijndael_setup_internal(index, tests.key, tests.keylen * BYTES_TO_BITS)) != 0) {
+	if ((err = ce_rijndael_setup_internal(index, tests.key, tests.keylen * BYTES_PER_BITS)) != 0) {
 		dev_err_once(dev,"ce_rijndael_setup_internal failed!\n");
 		return err;
 	}
