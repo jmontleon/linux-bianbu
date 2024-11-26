@@ -202,7 +202,7 @@ put_battery:
 	return ret;
 }
 
-static int sbs_charger_remove(struct platform_device *pdev)
+static void sbs_charger_remove(struct platform_device *pdev)
 {
 	struct sbs_charger_info *info = platform_get_drvdata(pdev);
 
@@ -212,8 +212,6 @@ static int sbs_charger_remove(struct platform_device *pdev)
 	if (info->battery) {
 		power_supply_put(info->battery);
 	}
-
-	return 0;
 }
 
 static const struct of_device_id sbs_charger_of_match[] = {
