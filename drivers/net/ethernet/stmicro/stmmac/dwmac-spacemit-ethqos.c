@@ -153,15 +153,13 @@ disable:
 	return err;
 }
 
-static int dwc_qos_remove(struct platform_device *pdev)
+static void dwc_qos_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
 
 	clk_disable_unprepare(priv->plat->pclk);
 	clk_disable_unprepare(priv->plat->stmmac_clk);
-
-	return 0;
 }
 
 static const struct dwc_eth_dwmac_data dwc_qos_data = {
@@ -276,7 +274,7 @@ err_mem:
 	return ret;
 }
 
-static int spacemit_ethqos_remove(struct platform_device *pdev)
+static void spacemit_ethqos_remove(struct platform_device *pdev)
 {
 	struct spacemit_ethqos *ethqos = get_stmmac_bsp_priv(&pdev->dev);
     struct net_device *ndev = platform_get_drvdata(pdev);
@@ -300,8 +298,6 @@ static int spacemit_ethqos_remove(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to remove subdriver: %d\n", err);
 
 	stmmac_remove_config_dt(pdev, priv->plat);
-
-	return err;
 }
 
 static const struct of_device_id spacemit_ethqos_match[] = {
