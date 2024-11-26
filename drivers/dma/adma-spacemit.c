@@ -595,7 +595,7 @@ static int adma_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int adma_remove(struct platform_device *pdev)
+static void adma_remove(struct platform_device *pdev)
 {
 	struct adma_dev *adev = platform_get_drvdata(pdev);;
 
@@ -603,7 +603,6 @@ static int adma_remove(struct platform_device *pdev)
 		of_dma_controller_free(pdev->dev.of_node);
 	dma_async_device_unregister(&adev->device);
 	platform_set_drvdata(pdev, NULL);
-	return 0;
 }
 
 static struct platform_driver adma_driver = {
