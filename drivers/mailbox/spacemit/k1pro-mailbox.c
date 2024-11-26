@@ -254,14 +254,12 @@ static int spacemit_mailbox_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int spacemit_mailbox_remove(struct platform_device *pdev)
+static void spacemit_mailbox_remove(struct platform_device *pdev)
 {
 	struct spacemit_mailbox *mbox = platform_get_drvdata(pdev);
 
 	mbox_controller_unregister(&mbox->controller);
 	clk_disable_unprepare(mbox->clk);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_mailbox_of_match[] = {
