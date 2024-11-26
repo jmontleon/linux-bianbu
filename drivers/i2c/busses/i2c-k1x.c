@@ -2022,7 +2022,7 @@ err_out:
 	return ret;
 }
 
-static int spacemit_i2c_remove(struct platform_device *pdev)
+static void spacemit_i2c_remove(struct platform_device *pdev)
 {
 	struct spacemit_i2c_dev *spacemit_i2c = platform_get_drvdata(pdev);
 
@@ -2043,7 +2043,6 @@ static int spacemit_i2c_remove(struct platform_device *pdev)
 	clk_disable_unprepare(spacemit_i2c->clk);
 
 	dev_dbg(spacemit_i2c->dev, "driver removed\n");
-	return 0;
 }
 
 static void spacemit_i2c_shutdown(struct platform_device *pdev)
