@@ -48,25 +48,18 @@
  */
 #ifdef CONFIG_SOC_SPACEMIT
 #define PENDING_BASE			0x1000
-#define CONTEXT_ENABLE_BASE		0x2080
-#define CONTEXT_ENABLE_SIZE		0x100
-#else
+#endif
+
 #define CONTEXT_ENABLE_BASE		0x2000
 #define CONTEXT_ENABLE_SIZE		0x80
-#endif
 
 /*
  * Each hart context has a set of control registers associated with it.  Right
  * now there's only two: a source priority threshold over which the hart will
  * take an interrupt, and a register to claim interrupts.
  */
-#ifdef CONFIG_SOC_SPACEMIT
-#define CONTEXT_BASE			0x201000
-#define CONTEXT_SIZE			0x2000
-#else
 #define CONTEXT_BASE			0x200000
 #define CONTEXT_SIZE			0x1000
-#endif
 
 #define CONTEXT_THRESHOLD		0x00
 #define CONTEXT_CLAIM			0x04
