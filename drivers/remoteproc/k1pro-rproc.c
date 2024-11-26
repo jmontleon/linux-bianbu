@@ -332,10 +332,9 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int spacemit_rproc_remove(struct platform_device *pdev)
+static void spacemit_rproc_remove(struct platform_device *pdev)
 {
 	/* TODO */
-	return 0;
 }
 
 static const struct of_device_id spacemit_rproc_of_match[] = {
