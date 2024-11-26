@@ -22,12 +22,12 @@
 #define PREFIX	"simple-audio-card,"
 
 
-int spacemit_simple_hw_params(struct snd_pcm_substream *substream,
+static int spacemit_simple_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
 {
-	struct snd_soc_pcm_runtime *rtd = asoc_substream_to_rtd(substream);
+	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *sdai;
-	struct asoc_simple_priv *priv = snd_soc_card_get_drvdata(rtd->card);
+	struct simple_util_priv *priv = snd_soc_card_get_drvdata(rtd->card);
 	struct simple_dai_props *props = simple_priv_to_props(priv, rtd->num);
 	unsigned int mclk, mclk_fs = 0;
 	int i, ret;
@@ -135,9 +135,9 @@ static int asoc_simple_parse_platform(struct device_node *node,
 
 static int asoc_simple_card_jack_init(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_component *component = asoc_rtd_to_codec(rtd, 0)->component;
+	struct snd_soc_component *component = snd_soc_rtd_to_codec(rtd, 0)->component;
 	struct snd_soc_card *card = rtd->card;
-	struct asoc_simple_priv *priv = snd_soc_card_get_drvdata(card);
+	struct simple_util_priv *priv = snd_soc_card_get_drvdata(card);
 	int ret;
 
 	ret = snd_soc_card_jack_new_pins(rtd->card, "Headset Jack",
@@ -157,7 +157,7 @@ static int asoc_simple_card_jack_init(struct snd_soc_pcm_runtime *rtd)
 	return 0;
 }
 
-int asoc_simple_parse_daistream(struct device *dev,
+static int asoc_simple_parse_daistream(struct device *dev,
 				struct device_node *node,
 				char *prefix,
 				struct snd_soc_dai_link *dai_link)
@@ -197,7 +197,7 @@ int asoc_simple_parse_daistream(struct device *dev,
 }
 
 static int asoc_simple_card_dai_link_of(struct device_node *node,
-					struct asoc_simple_priv *priv,
+					struct simple_util_priv *priv,
 					int idx,
 					bool is_top_level_node)
 {
@@ -237,7 +237,7 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	if (ret < 0)
 		goto dai_link_of_err;
 
-	ret = asoc_simple_parse_daifmt(dev, node, codec,
+	ret = simple_util_parse_daifmt(dev, node, codec,
 				       prefix, &dai_link->dai_fmt);
 	if (ret < 0)
 		goto dai_link_of_err;
@@ -258,7 +258,7 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	if (ret < 0)
 		goto dai_link_of_err;
 
-	ret = asoc_simple_set_dailink_name(dev, dai_link,
+	ret = simple_util_set_dailink_name(dev, dai_link,
 					   "%s-%s",
 					   dai_link->cpus->dai_name,
 					   dai_link->codecs->dai_name);
@@ -275,8 +275,8 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	} else {
 		priv->dai_props->mclk_fs = 256;
 	}
-	asoc_simple_canonicalize_cpu(dai_link->cpus, single_cpu);
-	asoc_simple_canonicalize_platform(dai_link->platforms, dai_link->cpus);
+	simple_util_canonicalize_cpu(dai_link->cpus, single_cpu);
+	simple_util_canonicalize_platform(dai_link->platforms, dai_link->cpus);
 
 dai_link_of_err:
 	of_node_put(cpu);
@@ -286,7 +286,7 @@ dai_link_of_err:
 }
 
 static int asoc_simple_card_parse_of(struct device_node *node,
-				     struct asoc_simple_priv *priv)
+				     struct simple_util_priv *priv)
 {
 	struct device *dev = simple_priv_to_dev(priv);
 	struct device_node *dai_link;
@@ -296,16 +296,16 @@ static int asoc_simple_card_parse_of(struct device_node *node,
 		return -EINVAL;
 
 	/* The off-codec widgets */
-	ret = asoc_simple_parse_widgets(&priv->snd_card, PREFIX);
+	ret = simple_util_parse_widgets(&priv->snd_card, PREFIX);
 	if (ret < 0)
 		return ret;
 
 	/* DAPM routes */
-	ret = asoc_simple_parse_routing(&priv->snd_card, PREFIX);
+	ret = simple_util_parse_routing(&priv->snd_card, PREFIX);
 	if (ret < 0)
 		return ret;
 
-	ret = asoc_simple_parse_pin_switches(&priv->snd_card, PREFIX);
+	ret = simple_util_parse_pin_switches(&priv->snd_card, PREFIX);
 	if (ret < 0)
 		return ret;
 
@@ -331,7 +331,7 @@ static int asoc_simple_card_parse_of(struct device_node *node,
 			goto card_parse_end;
 	}
 
-	ret = asoc_simple_parse_card_name(&priv->snd_card, PREFIX);
+	ret = simple_util_parse_card_name(&priv->snd_card, PREFIX);
 
 card_parse_end:
 	of_node_put(dai_link);
@@ -341,7 +341,7 @@ card_parse_end:
 
 static int asoc_simple_card_probe(struct platform_device *pdev)
 {
-	struct asoc_simple_priv *priv;
+	struct simple_util_priv *priv;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct snd_soc_card *card;
@@ -373,7 +373,7 @@ static int asoc_simple_card_probe(struct platform_device *pdev)
 		li->num[0].platforms	= 1;
 	}
 
-	ret = asoc_simple_init_priv(priv, li);
+	ret = simple_util_init_priv(priv, li);
 	if (ret < 0)
 		return ret;
 
@@ -394,16 +394,15 @@ static int asoc_simple_card_probe(struct platform_device *pdev)
 	if (ret >= 0)
 		return ret;
 err:
-	asoc_simple_clean_reference(&priv->snd_card);
+	simple_util_clean_reference(&priv->snd_card);
 
 	return ret;
 }
 
-static int asoc_simple_card_remove(struct platform_device *pdev)
+static void asoc_simple_card_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	asoc_simple_clean_reference(card);
-	return 0;
+	simple_util_clean_reference(card);
 }
 
 static const struct of_device_id asoc_simple_of_match[] = {
