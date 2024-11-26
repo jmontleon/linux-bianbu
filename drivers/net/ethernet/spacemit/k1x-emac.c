@@ -148,7 +148,7 @@ static int emac_sw_init(struct emac_priv *priv);
 
 static void emac_tx_timeout_task(struct work_struct *work);
 
-void register_dump(struct emac_priv *priv)
+__maybe_unused static void register_dump(struct emac_priv *priv)
 {
 	int i;
 	void __iomem *base = priv->iobase;
@@ -165,7 +165,7 @@ void register_dump(struct emac_priv *priv)
 	}
 }
 
-void print_pkt(unsigned char *buf, int len)
+__maybe_unused static void print_pkt(unsigned char *buf, int len)
 {
 	int i = 0;
 
@@ -185,7 +185,7 @@ void print_pkt(unsigned char *buf, int len)
 	}
 }
 
-void print_desc(unsigned char *buf, int len)
+__maybe_unused static void print_desc(unsigned char *buf, int len)
 {
 	int i;
 
@@ -200,12 +200,12 @@ void print_desc(unsigned char *buf, int len)
 	}
 }
 
-bool emac_is_rmii(struct emac_priv *priv)
+static bool emac_is_rmii(struct emac_priv *priv)
 {
 	return priv->phy_interface == PHY_INTERFACE_MODE_RMII;
 }
 
-void emac_enable_axi_single_id_mode(struct emac_priv *priv, int en)
+static void emac_enable_axi_single_id_mode(struct emac_priv *priv, int en)
 {
 	u32 val;
 
@@ -217,7 +217,7 @@ void emac_enable_axi_single_id_mode(struct emac_priv *priv, int en)
 	writel(val, priv->ctrl_reg);
 }
 
-void emac_phy_interface_config(struct emac_priv *priv)
+static void emac_phy_interface_config(struct emac_priv *priv)
 {
 	u32 val;
 
@@ -348,12 +348,12 @@ int emac_set_mac_addr(struct emac_priv *priv, const unsigned char *addr)
 	return 0;
 }
 
-void emac_dma_start_transmit(struct emac_priv *priv)
+static void emac_dma_start_transmit(struct emac_priv *priv)
 {
 	emac_wr(priv, DMA_TRANSMIT_POLL_DEMAND, 0xFF);
 }
 
-void emac_enable_interrupt(struct emac_priv *priv)
+static void emac_enable_interrupt(struct emac_priv *priv)
 {
 	u32 val;
 	val = emac_rd(priv, DMA_INTERRUPT_ENABLE);
@@ -362,7 +362,7 @@ void emac_enable_interrupt(struct emac_priv *priv)
 	emac_wr(priv, DMA_INTERRUPT_ENABLE, val);
 }
 
-void emac_disable_interrupt(struct emac_priv *priv)
+static void emac_disable_interrupt(struct emac_priv *priv)
 {
 	u32 val;
 	val = emac_rd(priv, DMA_INTERRUPT_ENABLE);
@@ -901,7 +901,7 @@ void emac_ptp_deinit(struct emac_priv *priv)
  *		It also starts one watchdog timer to monitor
  *		the net interface link status.
  */
-int emac_up(struct emac_priv *priv)
+static int emac_up(struct emac_priv *priv)
 {
 	struct net_device *ndev = priv->ndev;
 	struct platform_device *pdev  = priv->pdev;
@@ -1739,7 +1739,7 @@ set_mac_error:
 	return ret;
 }
 
-void emac_mac_multicast_filter_clear(struct emac_priv *priv)
+static void emac_mac_multicast_filter_clear(struct emac_priv *priv)
 {
 	emac_wr(priv, MAC_MULTICAST_HASH_TABLE1, 0x0);
 	emac_wr(priv, MAC_MULTICAST_HASH_TABLE2, 0x0);
@@ -2317,7 +2317,7 @@ static int emac_mdio_deinit(struct emac_priv *priv)
 }
 
 static int emac_get_ts_info(struct net_device *dev,
-			      struct ethtool_ts_info *info)
+			      struct kernel_ethtool_ts_info *info)
 {
 	struct emac_priv *priv = netdev_priv(dev);
 
@@ -2462,7 +2462,7 @@ static int emac_set_link_ksettings(struct net_device *ndev,
 static void emac_get_drvinfo(struct net_device *dev,
 				struct ethtool_drvinfo *info)
 {
-	strlcpy(info->driver, DRIVER_NAME, sizeof(info->driver));
+	strscpy(info->driver, DRIVER_NAME, sizeof(info->driver));
 	info->n_stats = ARRAY_SIZE(emac_ethtool_stats);
 }
 
@@ -2776,7 +2776,7 @@ err_netdev:
 	return ret;
 }
 
-static int emac_remove(struct platform_device *pdev)
+static void emac_remove(struct platform_device *pdev)
 {
 	struct emac_priv *priv = platform_get_drvdata(pdev);
 
@@ -2788,7 +2788,6 @@ static int emac_remove(struct platform_device *pdev)
 	clk_disable_unprepare(priv->mac_clk);
 	if (priv->ref_clk_frm_soc)
 		clk_disable_unprepare(priv->phy_clk);
-	return 0;
 }
 
 static void emac_shutdown(struct platform_device *pdev)

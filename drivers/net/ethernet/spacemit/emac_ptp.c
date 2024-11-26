@@ -47,7 +47,7 @@
 #define INCVALUE_SHIFT_100MHZ	17
 #define INCPERIOD_100MHZ	1
 
-void emac_hw_timestamp_config(struct emac_priv *priv, u32 enable, u8 rx_ptp_type, u32 ptp_msg_id)
+static void emac_hw_timestamp_config(struct emac_priv *priv, u32 enable, u8 rx_ptp_type, u32 ptp_msg_id)
 {
 	void __iomem *ioaddr = priv->iobase;
 	u32 val;
@@ -73,7 +73,7 @@ void emac_hw_timestamp_config(struct emac_priv *priv, u32 enable, u8 rx_ptp_type
 		writel(0, ioaddr + PTP_1588_CTRL);
 }
 
-u32 emac_hw_config_systime_increment(struct emac_priv *priv, u32 ptp_clock,
+static u32 emac_hw_config_systime_increment(struct emac_priv *priv, u32 ptp_clock,
                                         u32 adj_clock)
 {
 	void __iomem *ioaddr = priv->iobase;
@@ -106,7 +106,7 @@ u32 emac_hw_config_systime_increment(struct emac_priv *priv, u32 ptp_clock,
 	return 0;
 }
 
-u64 emac_hw_get_systime(struct emac_priv *priv)
+static u64 emac_hw_get_systime(struct emac_priv *priv)
 {
 	void __iomem *ioaddr = priv->iobase;
 	u64 systimel, systimeh;
@@ -121,7 +121,7 @@ u64 emac_hw_get_systime(struct emac_priv *priv)
 	return systim;
 }
 
-u64 emac_hw_get_phc_time(struct emac_priv *priv)
+static u64 emac_hw_get_phc_time(struct emac_priv *priv)
 {
 	unsigned long flags;
 	u64 cycles, ns;
@@ -136,7 +136,7 @@ u64 emac_hw_get_phc_time(struct emac_priv *priv)
 	return ns;
 }
 
-u64 emac_hw_get_tx_timestamp(struct emac_priv *priv)
+static u64 emac_hw_get_tx_timestamp(struct emac_priv *priv)
 {
 	void __iomem *ioaddr = priv->iobase;
 	unsigned long flags;
@@ -156,7 +156,7 @@ u64 emac_hw_get_tx_timestamp(struct emac_priv *priv)
 	return ns;
 }
 
-u64 emac_hw_get_rx_timestamp(struct emac_priv *priv)
+static u64 emac_hw_get_rx_timestamp(struct emac_priv *priv)
 {
 	void __iomem *ioaddr = priv->iobase;
 	unsigned long flags;
@@ -187,7 +187,7 @@ static u64 emac_cyclecounter_read(const struct cyclecounter *cc)
 	return emac_hw_get_systime(priv);
 }
 	/* according to spec , set system time upper register and adjust time */
-int emac_hw_init_systime(struct emac_priv *priv, u64 set_ns)
+static int emac_hw_init_systime(struct emac_priv *priv, u64 set_ns)
 {
 	unsigned long flags;
 
@@ -200,7 +200,7 @@ int emac_hw_init_systime(struct emac_priv *priv, u64 set_ns)
 	return 0;
 }
 
-struct emac_hw_ptp emac_hwptp = {
+static struct emac_hw_ptp emac_hwptp = {
 	.config_hw_tstamping = emac_hw_timestamp_config,
 	.config_systime_increment = emac_hw_config_systime_increment,
 	.init_systime = emac_hw_init_systime,
