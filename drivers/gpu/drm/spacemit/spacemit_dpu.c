@@ -405,7 +405,7 @@ static void spacemit_crtc_atomic_flush(struct drm_crtc *crtc,
 
 static struct drm_crtc_state *spacemit_crtc_duplicate_state(struct drm_crtc *crtc)
 {
-	struct spacemit_crtc_state *state, *old_state;
+	struct spacemit_crtc_state *state;
 	struct spacemit_drm_private *priv = crtc->dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
 	u8 n_rdma, i;
@@ -413,7 +413,6 @@ static struct drm_crtc_state *spacemit_crtc_duplicate_state(struct drm_crtc *crt
 	if (WARN_ON(!crtc->state))
 		return NULL;
 
-	old_state = to_spacemit_crtc_state(crtc->state);
 	state = kzalloc(sizeof(*state), GFP_KERNEL);
 	if (!state)
 		return NULL;
@@ -986,10 +985,9 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	return component_add(dev, &dpu_component_ops);
 }
 
-static int spacemit_dpu_remove(struct platform_device *pdev)
+static void spacemit_dpu_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &dpu_component_ops);
-	return 0;
 }
 
 static int dpu_pm_suspend(struct device *dev)

@@ -114,13 +114,10 @@ static int spacemit_hdmi_config_video_vsi(struct spacemit_hdmi *hdmi,
 				      struct drm_display_mode *mode)
 {
 	union hdmi_infoframe frame;
-	int rc;
 
-	rc = drm_hdmi_vendor_infoframe_from_display_mode(&frame.vendor.hdmi,
+	return  drm_hdmi_vendor_infoframe_from_display_mode(&frame.vendor.hdmi,
 							 &hdmi->connector,
 							 mode);
-
-	return 0;
 }
 
 static int spacemit_hdmi_upload_frame(struct spacemit_hdmi *hdmi, int setup_rc,
@@ -290,7 +287,6 @@ int pll_reg (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth) {
 	int hdmi_ec_reg = 0;
 	int hdmi_f0_reg = 0;
 	int hdmi_e8_reg = 0;
-	int pow = 0;
 	int bit_clock = bit_depth == EIGHT_BPP ? pixel_clock : pixel_clock * 125 / 100;
 
 	int integer_part = 0;
@@ -304,9 +300,6 @@ int pll_reg (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth) {
 	pll7_reg = 0x50;
 	pll6_reg = 0xD | (pll6_bit_4_5(bit_clock, n) << 4) | (2 << 6);
 	pll5_reg = 0x40 | pll5_bit_0_2(bit_clock, n);
-
-	pow = (pll8_bit_5_6(bit_clock, n));
-
 	pll4_reg = integer_part;
 
 	hdmi_ec_reg = (pll7_reg << 24) | (pll6_reg << 16) | (pll5_reg << 8) | pll4_reg;
@@ -517,7 +510,7 @@ int edid_read (struct spacemit_hdmi *hdmi){
 	return 0;
 }
 
-static int spacemit_hdmi_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
+static int spacemit_hdmi_get_edid_block(void *data, unsigned char *buf, unsigned int block, long unsigned int len)
 {
 	struct spacemit_hdmi *hdmi = data;
 	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
@@ -763,7 +756,7 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 {
 	struct spacemit_hdmi *hdmi = connector_to_spacemit_hdmi(connector);
 	int ret;
-	struct edid *edid;
+	const struct drm_edid *drm_edid;
 	uint32_t value;
 
 	DRM_DEBUG("%s() \n", __func__);
@@ -780,15 +773,15 @@ static int spacemit_hdmi_connector_get_modes(struct drm_connector *connector)
 
 	hdmi->edid_done = false;
 
-	edid = drm_do_get_edid(connector, spacemit_hdmi_get_edid_block, hdmi);
-	if (edid) {
+	drm_edid = drm_edid_read_custom(connector, spacemit_hdmi_get_edid_block, hdmi);
+	if (drm_edid) {
 		if (hdmi->edid_done) {
-			drm_connector_update_edid_property(connector, edid);
-			ret = drm_add_edid_modes(connector, edid);
+			drm_edid_connector_update(connector, drm_edid);
+			ret = drm_edid_connector_add_modes(connector);
 		} else {
 			ret = drm_add_modes_noedid(connector, 1920, 1080);
 		}
-		kfree(edid);
+		drm_edid_free(drm_edid);
 	} else {
 		DRM_INFO("%s() get edid failed\n", __func__);
 		ret = drm_add_modes_noedid(connector, 1920, 1080);
@@ -1007,13 +1000,11 @@ static int spacemit_hdmi_probe(struct platform_device *pdev)
 	return component_add(&pdev->dev, &spacemit_hdmi_ops);
 }
 
-static int spacemit_hdmi_remove(struct platform_device *pdev)
+static void spacemit_hdmi_remove(struct platform_device *pdev)
 {
 	DRM_DEBUG("%s() \n", __func__);
 
 	component_del(&pdev->dev, &spacemit_hdmi_ops);
-
-	return 0;
 }
 
 static int hdmi_rt_pm_resume(struct device *dev)

@@ -725,11 +725,9 @@ static int spacemit_dsi_probe(struct platform_device *pdev)
 	return component_add(&pdev->dev, &dsi_component_ops);
 }
 
-static int spacemit_dsi_remove(struct platform_device *pdev)
+static void spacemit_dsi_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &dsi_component_ops);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_dsi_of_match[] = {

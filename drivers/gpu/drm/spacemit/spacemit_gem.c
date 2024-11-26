@@ -7,6 +7,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-map-ops.h>
+#include <linux/vmalloc.h>
 #include <drm/drm_prime.h>
 #include <drm/drm_gem_dma_helper.h>
 
