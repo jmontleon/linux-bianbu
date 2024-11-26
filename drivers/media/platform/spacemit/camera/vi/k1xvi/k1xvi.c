@@ -499,7 +499,7 @@ entities_fail:
 	return ret;
 }
 
-static int k1xvi_remove(struct platform_device *pdev)
+static void k1xvi_remove(struct platform_device *pdev)
 {
 	struct k1xvi_platform_data *drvdata = platform_get_drvdata(pdev);
 
@@ -516,7 +516,6 @@ static int k1xvi_remove(struct platform_device *pdev)
 #endif
 
 	cam_dbg("%s leave.", __func__);
-	return 0;
 }
 
 static const struct of_device_id k1xvi_dt_match[] = {
