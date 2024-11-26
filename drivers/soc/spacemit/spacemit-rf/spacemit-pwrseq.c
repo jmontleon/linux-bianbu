@@ -262,7 +262,7 @@ static int spacemit_pwrseq_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int spacemit_pwrseq_remove(struct platform_device *pdev)
+static void spacemit_pwrseq_remove(struct platform_device *pdev)
 {
 	struct spacemit_pwrseq *pwrseq = platform_get_drvdata(pdev);
 
@@ -271,8 +271,6 @@ static int spacemit_pwrseq_remove(struct platform_device *pdev)
 
 	mutex_destroy(&pwrseq->pwrseq_mutex);
 	of_platform_depopulate(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_pwrseq_ids[] = {

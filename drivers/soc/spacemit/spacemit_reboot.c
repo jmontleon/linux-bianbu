@@ -69,12 +69,11 @@ static int spacemit_reboot_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int spacemit_reboot_remove(struct platform_device *pdev)
+static void spacemit_reboot_remove(struct platform_device *pdev)
 {
 	struct spacemit_reboot_ctrl *info = platform_get_drvdata(pdev);
 
 	unregister_restart_handler(&info->reset_handler);
-	return 0;
 }
 
 static struct platform_driver spacemit_reboot_driver = {
