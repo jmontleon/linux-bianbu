@@ -481,7 +481,7 @@ err_put_hcd:
 	return retval;
 }
 
-static int mv_ehci_remove(struct platform_device *pdev)
+static void mv_ehci_remove(struct platform_device *pdev)
 {
 	struct ehci_hcd_mv *ehci_mv = platform_get_drvdata(pdev);
 	struct usb_hcd *hcd = ehci_mv->hcd;
@@ -510,8 +510,6 @@ static int mv_ehci_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
-
-	return 0;
 }
 
 MODULE_ALIAS("mv-ehci");
