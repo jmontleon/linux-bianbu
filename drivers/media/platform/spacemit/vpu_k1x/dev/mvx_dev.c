@@ -539,7 +539,7 @@ static int mvx_pdev_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int mvx_pdev_remove(struct platform_device *pdev)
+static void mvx_pdev_remove(struct platform_device *pdev)
 {
 	struct mvx_dev_ctx *ctx = platform_get_drvdata(pdev);
 	int ret;
@@ -549,8 +549,6 @@ static int mvx_pdev_remove(struct platform_device *pdev)
 	ret = mvx_dev_remove(ctx);
 
 	pm_runtime_disable(&pdev->dev);
-
-	return ret;
 }
 
 #ifdef CONFIG_PM
