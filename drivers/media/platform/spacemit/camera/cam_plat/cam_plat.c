@@ -217,7 +217,7 @@ media_fail:
 	return ret;
 }
 
-static int plat_cam_remove(struct platform_device *pdev)
+static void plat_cam_remove(struct platform_device *pdev)
 {
 	struct v4l2_device *v4l2_dev = dev_get_drvdata(&pdev->dev);
 	struct plat_cam_device *plat_cam_dev = to_plat_cam_dev(v4l2_dev);
@@ -232,8 +232,6 @@ static int plat_cam_remove(struct platform_device *pdev)
 
 	mutex_destroy(&plat_cam_dev->mutex);
 	kfree(plat_cam_dev);
-
-	return 0;
 }
 
 static const struct of_device_id plat_cam_dt_match[] = {
