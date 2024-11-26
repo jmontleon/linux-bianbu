@@ -2253,15 +2253,10 @@ static int flexcan_probe(struct platform_device *pdev)
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	if (!of_get_property(pdev->dev.of_node, "rcpu-can", NULL)) {
 		irq = platform_get_irq(pdev, 0);
-		if (irq <= 0)
-			return -ENODEV;
+		if (irq < 0)
+			return irq;
 	} else {
 		irq = -1;
-		of_id = of_match_device(r_flexcan_of_match, &pdev->dev);
-		if (of_id)
-			devtype_data = of_id->data;
-		else
-			return -ENODEV;
 	}
 #else
  	irq = platform_get_irq(pdev, 0);
