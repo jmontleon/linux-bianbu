@@ -338,8 +338,12 @@ static int c_show(struct seq_file *m, void *v)
 	seq_printf(m, "processor\t: %lu\n", cpu_id);
 	seq_printf(m, "hart\t\t: %lu\n", cpuid_to_hartid_map(cpu_id));
 
+#ifdef CONFIG_SOC_SPACEMIT
+	node = of_get_cpu_node(cpu_id, NULL);
 	if (!of_property_read_string(node, "model", &model))
 		seq_printf(m, "model name\t: %s\n", model);
+	of_node_put(node);
+#endif
 
 	/*
 	 * For historical raisins, the isa: line is limited to the lowest common
