@@ -448,7 +448,7 @@ err:
 }
 static DEVICE_ATTR(dr_mode, S_IRUGO | S_IWUSR, get_dr_mode, set_dr_mode);
 
-static int mv_otg_remove(struct platform_device *pdev)
+static void mv_otg_remove(struct platform_device *pdev)
 {
 	struct mv_otg *mvotg = platform_get_drvdata(pdev);
 
@@ -468,8 +468,6 @@ static int mv_otg_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
-
-	return 0;
 }
 
 static int mv_otg_dt_parse(struct platform_device *pdev,
