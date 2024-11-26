@@ -2387,10 +2387,6 @@ static int nvme_update_ns_info_block(struct nvme_ns *ns,
 	if (!nvme_update_disk_info(ns, id, &lim))
 		capacity = 0;
 
-#if defined(CONFIG_SOC_SPACEMIT_K1X)
-	blk_queue_max_segment_size(ns->disk->queue, 0x80000);
-#endif
-
 	nvme_config_discard(ns, &lim);
 	if (IS_ENABLED(CONFIG_BLK_DEV_ZONED) &&
 	    ns->head->ids.csi == NVME_CSI_ZNS)
