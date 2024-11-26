@@ -392,7 +392,11 @@ static int k1x_gpio_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	gpiochip_add(&k1x_chip->chip);
+	ret = devm_gpiochip_add_data(dev, &k1x_chip->chip, k1x_chip);
+	if (ret) {
+		dev_err(dev, "failed to register gpiochip, ret = %d\n", ret);
+		goto err;
+	}
 
 	/* clear all GPIO edge detects */
 	for (i = 0; i < k1x_chip->nbank; i++) {
