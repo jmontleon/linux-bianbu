@@ -14,6 +14,7 @@
 #include <linux/of_address.h>
 #include <linux/of_clk.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/regmap.h>
 #include <linux/pm_qos.h>
