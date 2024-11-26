@@ -1607,7 +1607,7 @@ err_put_ctrl:
 	return ret;
 }
 
-static int k1x_qspi_remove(struct platform_device *pdev)
+static void k1x_qspi_remove(struct platform_device *pdev)
 {
 	struct k1x_qspi *qspi = platform_get_drvdata(pdev);
 
@@ -1636,7 +1636,6 @@ static int k1x_qspi_remove(struct platform_device *pdev)
 	sysfs_remove_group(&(pdev->dev.kobj),
 			(const struct attribute_group *)(&qspi_dev_group));
 #endif
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
