@@ -20,7 +20,7 @@
 #include <linux/clk.h>
 #include <linux/rfkill.h>
 #include <linux/property.h>
-#include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include "spacemit-pwrseq.h"
@@ -142,7 +142,7 @@ alloc_err:
 	return ret;
 }
 
-static int spacemit_bt_remove(struct platform_device *pdev)
+static void spacemit_bt_remove(struct platform_device *pdev)
 {
 	struct bt_pwrseq *pwrseq = platform_get_drvdata(pdev);
 
@@ -153,8 +153,6 @@ static int spacemit_bt_remove(struct platform_device *pdev)
 
 	if (!IS_ERR_OR_NULL(pwrseq->ext_clk))
 		clk_disable_unprepare(pwrseq->ext_clk);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_bt_ids[] = {

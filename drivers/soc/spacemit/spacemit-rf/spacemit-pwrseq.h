@@ -19,6 +19,10 @@ struct spacemit_pwrseq {
 	atomic_t pwrseq_count;
 };
 
+
+void spacemit_wlan_set_power(bool on_off);
+int spacemit_wlan_get_oob_irq(void);
+int spacemit_wlan_get_oob_irq_flags(void);
 void spacemit_power_on(struct spacemit_pwrseq *pwrseq, bool on_off);
 struct spacemit_pwrseq *spacemit_get_pwrseq_from_dev(struct device*);
 #endif
