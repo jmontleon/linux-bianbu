@@ -349,7 +349,7 @@ populate_err:
 	return ret;
 }
 
-static int dwc3_spacemit_remove(struct platform_device *pdev)
+static void dwc3_spacemit_remove(struct platform_device *pdev)
 {
 	struct dwc3_spacemit	*spacemit = platform_get_drvdata(pdev);
 	bool do_wakeup = device_may_wakeup(&pdev->dev);
@@ -364,8 +364,6 @@ static int dwc3_spacemit_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
-
-	return 0;
 }
 
 static const struct dwc3_spacemit_driverdata spacemit_k1pro_drvdata = {
