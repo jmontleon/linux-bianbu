@@ -1049,12 +1049,12 @@ out_error_master_alloc:
 	return status;
 }
 
-static int k1x_spi_remove(struct platform_device *pdev)
+static void k1x_spi_remove(struct platform_device *pdev)
 {
 	struct spi_driver_data *drv_data = platform_get_drvdata(pdev);
 
 	if (!drv_data)
-		return 0;
+		return;
 
 	pm_runtime_get_sync(&pdev->dev);
 
@@ -1076,7 +1076,6 @@ static int k1x_spi_remove(struct platform_device *pdev)
 	free_irq(drv_data->irq, drv_data);
 
 	deinit_dvfm_constraint(drv_data);
-	return 0;
 }
 
 static void k1x_spi_shutdown(struct platform_device *pdev)
