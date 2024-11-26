@@ -221,7 +221,7 @@ static void ddraxi_mon_get_lat(struct ddraxi_mon *monitor)
 	}
 }
 
-struct ddraxi_mon *ddraxi_mon_get_mon(void)
+static struct ddraxi_mon *ddraxi_mon_get_mon(void)
 {
 	int i;
 
@@ -231,7 +231,7 @@ struct ddraxi_mon *ddraxi_mon_get_mon(void)
 	return NULL;
 }
 
-int ddraxi_mon_enable_mon(struct ddraxi_mon *monitor)
+static int ddraxi_mon_enable_mon(struct ddraxi_mon *monitor)
 {
 	if (is_mon_valid(monitor->id) < 0 || !ddraxi_mon_data)
 		return -EINVAL;
@@ -249,7 +249,7 @@ int ddraxi_mon_enable_mon(struct ddraxi_mon *monitor)
 	return 0;
 }
 
-int ddraxi_mon_update_mon(struct ddraxi_mon *monitor)
+static int ddraxi_mon_update_mon(struct ddraxi_mon *monitor)
 {
 	if (!ddraxi_mon_data || is_mon_valid(monitor->id) < 0 || !monitor->init)
 		return -EINVAL;
@@ -271,7 +271,7 @@ int ddraxi_mon_update_mon(struct ddraxi_mon *monitor)
 	return 0;
 }
 
-int ddraxi_mon_disable_mon(struct ddraxi_mon *monitor)
+static int ddraxi_mon_disable_mon(struct ddraxi_mon *monitor)
 {
 	if (is_mon_valid(monitor->id) < 0 || !ddraxi_mon_data)
 		return -EINVAL;
@@ -720,7 +720,7 @@ static int ddr_perf_conf(struct ddr_perf_data *data)
 	return 0;
 }
 
-int ddr_perf_init_cnt(struct device *dev, void __iomem *base)
+static int ddr_perf_init_cnt(struct device *dev, void __iomem *base)
 {
 	ddr_perf_data = devm_kzalloc(dev, sizeof(struct ddr_perf_data), GFP_KERNEL);
 	if (ddr_perf_data == NULL)
@@ -741,7 +741,7 @@ static int ddr_perf_read_cnt(u32 cnt)
 	return val;
 }
 
-struct ddr_perf_cnt *ddr_perf_cnt_get(void)
+static struct ddr_perf_cnt *ddr_perf_cnt_get(void)
 {
 	int i;
 
@@ -751,7 +751,7 @@ struct ddr_perf_cnt *ddr_perf_cnt_get(void)
 	return NULL;
 }
 
-int ddr_perf_cnt_update(struct ddr_perf_cnt *counter)
+static int ddr_perf_cnt_update(struct ddr_perf_cnt *counter)
 {
 	/* read event number */
 	counter->evt_num = ddr_perf_read_cnt(counter->id);
@@ -795,7 +795,7 @@ static int ddr_perf_cnt_enable(struct ddr_perf_cnt *counter)
 	return 0;
 }
 
-int ddr_perf_cnt_disable(struct ddr_perf_cnt *counter)
+static int ddr_perf_cnt_disable(struct ddr_perf_cnt *counter)
 {
 	u32 conf, cnt = counter->id, reg_offset = PERF_CNT_CONF0;
 
@@ -1174,12 +1174,10 @@ static int ddraxi_mon_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ddraxi_mon_remove(struct platform_device *pdev)
+static void ddraxi_mon_remove(struct platform_device *pdev)
 {
 	struct spacemit_ddraxi_mon_data *mon_data = platform_get_drvdata(pdev);
 	mon_data = NULL;
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_ddraxi_dt_match[] = {
