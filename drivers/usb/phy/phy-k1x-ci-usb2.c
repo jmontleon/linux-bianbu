@@ -146,7 +146,7 @@ static int mv_usb2_phy_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int mv_usb2_phy_remove(struct platform_device *pdev)
+static void mv_usb2_phy_remove(struct platform_device *pdev)
 {
 	struct mv_usb2_phy *mv_phy = platform_get_drvdata(pdev);
 
@@ -155,8 +155,6 @@ static int mv_usb2_phy_remove(struct platform_device *pdev)
 	clk_unprepare(mv_phy->clk);
 
 	platform_set_drvdata(pdev, NULL);
-
-	return 0;
 }
 
 static const struct of_device_id mv_usbphy_dt_match[] = {
