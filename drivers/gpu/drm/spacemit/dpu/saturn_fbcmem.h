@@ -34,7 +34,7 @@ int saturn_cal_layer_fbcmem_size(struct drm_plane *plane, \
 int saturn_adjust_rdma_fbcmem(struct spacemit_hw_device *hwdev, \
 			      struct spacemit_dpu_rdma *rdmas);
 
-void inline saturn_write_fbcmem_regs(struct drm_plane_state *state, u32 rdma_id,
+void saturn_write_fbcmem_regs(struct drm_plane_state *state, u32 rdma_id,
 				     u32 module_base, volatile RDMA_PATH_X_REG *rdma_regs);
 
 #endif
