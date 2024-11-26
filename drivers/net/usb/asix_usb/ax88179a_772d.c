@@ -92,7 +92,7 @@ exit:
 }
 
 static int ax88179a_ethtool_get_eee(struct ax_device *axdev,
-				    struct ethtool_eee *data)
+				    struct ethtool_keee *data)
 {
 	int val;
 
@@ -115,7 +115,7 @@ static int ax88179a_ethtool_get_eee(struct ax_device *axdev,
 	return 0;
 }
 
-static int ax88179a_get_eee(struct net_device *net, struct ethtool_eee *edata)
+static int ax88179a_get_eee(struct net_device *net, struct ethtool_keee *edata)
 {
 	struct ax_device *axdev = netdev_priv(net);
 
@@ -131,7 +131,7 @@ static void ax88179a_eee_setting(struct ax_device *axdev, bool enable)
 		     enable, 0, NULL);
 }
 
-static int ax88179a_set_eee(struct net_device *net, struct ethtool_eee *edata)
+static int ax88179a_set_eee(struct net_device *net, struct ethtool_keee *edata)
 {
 	struct ax_device *axdev = netdev_priv(net);
 
