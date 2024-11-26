@@ -1761,8 +1761,8 @@ static void ql_net_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *i
 {
     /* Inherit standard device info */
     usbnet_get_drvinfo(net, info);
-    strlcpy(info->driver, driver_name, sizeof(info->driver));
-    strlcpy(info->version, VERSION_NUMBER, sizeof(info->version));
+    strscpy(info->driver, driver_name, sizeof(info->driver));
+    strscpy(info->version, VERSION_NUMBER, sizeof(info->version));
 }
 
 static struct ethtool_ops ql_net_ethtool_ops;
