@@ -1234,7 +1234,7 @@ static int k1x_ccic_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int k1x_ccic_remove(struct platform_device *pdev)
+static void k1x_ccic_remove(struct platform_device *pdev)
 {
 	struct ccic_dev *ccic_dev;
 	struct ccic_dma *dma;
@@ -1248,8 +1248,6 @@ static int k1x_ccic_remove(struct platform_device *pdev)
 
 	/* disable runtime pm */
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id k1x_ccic_dt_match[] = {
