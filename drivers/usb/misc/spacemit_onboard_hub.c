@@ -173,7 +173,7 @@ err_rpm:
 	return ret;
 }
 
-static int spacemit_hub_remove(struct platform_device *pdev)
+static void spacemit_hub_remove(struct platform_device *pdev)
 {
 	struct spacemit_hub_priv *spacemit = platform_get_drvdata(pdev);
 
@@ -184,7 +184,6 @@ static int spacemit_hub_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
-	return 0;
 }
 
 static const struct of_device_id spacemit_hub_dt_match[] = {
