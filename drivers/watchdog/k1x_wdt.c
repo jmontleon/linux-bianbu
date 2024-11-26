@@ -730,7 +730,7 @@ err_register_fail:
 	return ret;
 }
 
-static int spa_wdt_remove(struct platform_device *pdev)
+static void spa_wdt_remove(struct platform_device *pdev)
 {
 	struct spa_wdt_info *info = platform_get_drvdata(pdev);
 
@@ -743,8 +743,6 @@ static int spa_wdt_remove(struct platform_device *pdev)
 
 	spa_disable_wdt_clk(info);
 	clk_put(info->clk);
-
-	return 0;
 }
 
 static void spa_wdt_shutdown(struct platform_device *pdev)
