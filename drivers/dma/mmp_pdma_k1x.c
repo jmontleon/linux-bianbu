@@ -1257,7 +1257,7 @@ static void dma_do_tasklet(struct tasklet_struct *t)
 	}
 }
 
-static int mmp_pdma_remove(struct platform_device *op)
+static void mmp_pdma_remove(struct platform_device *op)
 {
 	struct mmp_pdma_device *pdev = platform_get_drvdata(op);
 	struct mmp_pdma_phy *phy;
@@ -1289,8 +1289,6 @@ static int mmp_pdma_remove(struct platform_device *op)
 
 	kfree(pdev->reserved_channels);
 	platform_set_drvdata(op, NULL);
-
-	return 0;
 }
 
 static int mmp_pdma_chan_init(struct mmp_pdma_device *pdev, int idx, int irq)
