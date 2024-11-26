@@ -647,14 +647,12 @@ static int tcm_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int tcm_remove(struct platform_device *pdev)
+static void tcm_remove(struct platform_device *pdev)
 {
 	dev_dbg(tcm.dev, "tcm deregister succfully\n");
 	csr_write(0x5db, 0);
 	kfree(g_mmheap);
 	misc_deregister(&tcm_misc_device);
-
-	return 0;
 }
 
 static struct platform_driver tcm_driver = {
