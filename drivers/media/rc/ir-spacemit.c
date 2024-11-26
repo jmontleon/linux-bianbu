@@ -283,14 +283,12 @@ free_dev:
 	return ret;
 }
 
-static int spacemit_ir_remove(struct platform_device *pdev)
+static void spacemit_ir_remove(struct platform_device *pdev)
 {
 	struct spacemit_ir *ir = platform_get_drvdata(pdev);
 
 	rc_unregister_device(ir->rc);
 	spacemit_ir_hw_exit(&pdev->dev);
-
-	return 0;
 }
 
 static void spacemit_ir_shutdown(struct platform_device *pdev)
