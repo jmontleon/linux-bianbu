@@ -724,8 +724,8 @@ void emac_free_rx_resources(struct emac_priv *priv);
 u32 ReadRxStatCounters(struct emac_priv *priv, u8 cnt);
 u32 ReadTxStatCounters(struct emac_priv *priv, u8 cnt);
 
-extern void emac_ptp_register(struct emac_priv *priv);
-extern void emac_ptp_unregister(struct emac_priv *priv);
+void emac_ptp_register(struct emac_priv *priv);
+void emac_ptp_unregister(struct emac_priv *priv);
 void emac_ptp_init(struct emac_priv *priv);
 void emac_ptp_deinit(struct emac_priv *priv);
 #endif /* _K1X_EMAC_H_ */
