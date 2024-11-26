@@ -32,7 +32,7 @@
 #include <linux/clk.h>
 #include <linux/of.h>
 #include <linux/platform_data/k1x_ci_usb.h>
-#include <asm/unaligned.h>
+#include <linux/unaligned.h>
 #include <dt-bindings/usb/k1x_ci_usb.h>
 #include <linux/power_supply.h>
 #include <linux/reset.h>
@@ -2281,7 +2281,7 @@ static void gadget_release(struct device *_dev)
 	complete(&udc->done);
 }
 
-static int mv_udc_remove(struct platform_device *pdev)
+static void mv_udc_remove(struct platform_device *pdev)
 {
 	struct mv_udc *udc;
 
@@ -2309,8 +2309,6 @@ static int mv_udc_remove(struct platform_device *pdev)
 
 	/* free dev, wait for the release() finished */
 	wait_for_completion(&udc->done);
-
-	return 0;
 }
 
 static int mv_udc_dt_parse(struct platform_device *pdev,
