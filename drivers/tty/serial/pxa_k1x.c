@@ -350,41 +350,12 @@ static inline void receive_chars(struct uart_pxa_port *up, int *status)
 
 static void transmit_chars(struct uart_pxa_port *up)
 {
-	struct circ_buf *xmit = &up->port.state->xmit;
-	int count;
+	u8 ch;
 
-	if (up->port.x_char) {
-		serial_out(up, UART_TX, up->port.x_char);
-		up->port.icount.tx++;
-		up->port.x_char = 0;
-		return;
-	}
-	if (uart_circ_empty(xmit) || uart_tx_stopped(&up->port)) {
-		spin_lock_irqsave(&up->port.lock, up->flags);
-		serial_pxa_stop_tx(&up->port);
-		spin_unlock_irqrestore(&up->port.lock, up->flags);
-		return;
-	}
-
-	count = up->port.fifosize / 2;
-	do {
-		serial_out(up, UART_TX, xmit->buf[xmit->tail]);
-		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
-		up->port.icount.tx++;
-		if (uart_circ_empty(xmit))
-			break;
-	} while (--count > 0);
-
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS)
-		uart_write_wakeup(&up->port);
-
-
-	if (uart_circ_empty(xmit))
-	{
-		spin_lock_irqsave(&up->port.lock, up->flags);
-		serial_pxa_stop_tx(&up->port);
-		spin_unlock_irqrestore(&up->port.lock, up->flags);
-	}
+	uart_port_tx_limited(&up->port, ch, up->port.fifosize / 2,
+		true,
+		serial_out(up, UART_TX, ch),
+		({}));
 }
 
 static inline void dma_receive_chars(struct uart_pxa_port *up, int *status)
@@ -963,7 +934,7 @@ static void pxa_uart_transmit_dma_cb(void *data)
 {
 	struct uart_pxa_port *up = (struct uart_pxa_port *)data;
 	struct uart_pxa_dma *pxa_dma = &up->uart_dma;
-	struct circ_buf *xmit = &up->port.state->xmit;
+	struct tty_port *tport = &up->port.state->port;
 
 	if (up->from_resume) {
 		up->from_resume = false;
@@ -993,11 +964,11 @@ static void pxa_uart_transmit_dma_cb(void *data)
 		up->port.x_char = 0;
 	}
 
-	if (uart_circ_chars_pending(xmit) < WAKEUP_CHARS) {
+	if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS) {
 		uart_write_wakeup(&up->port);
 	}
 
-	if (!uart_circ_empty(xmit)) {
+	if (!kfifo_is_empty(&tport->xmit_fifo)) {
 		tasklet_schedule(&pxa_dma->tklet);
 	}
 }
@@ -1104,10 +1075,10 @@ static void pxa_uart_dma_uninit(struct uart_pxa_port *up)
 static void uart_task_action(unsigned long data)
 {
 	struct uart_pxa_port *up = (struct uart_pxa_port *)data;
-	struct circ_buf *xmit = &up->port.state->xmit;
 	unsigned char *tmp = up->uart_dma.txdma_addr;
 	unsigned long flags;
 	int count = 0, c;
+	unsigned char ch;
 
 	/* if the tx is stop or the uart device is suspended, just return. */
 	/* if port is shutdown,just return. */
@@ -1123,17 +1094,12 @@ static void uart_task_action(unsigned long data)
 	}
 
 	up->uart_dma.dma_status |= TX_DMA_RUNNING;
-	while (1) {
-		c = CIRC_CNT_TO_END(xmit->head, xmit->tail, UART_XMIT_SIZE);
-		if (c <= 0) {
-			break;
-		}
-
-		memcpy(tmp, xmit->buf + xmit->tail, c);
-		xmit->tail = (xmit->tail + c) & (UART_XMIT_SIZE - 1);
-		tmp += c;
+	c = uart_fifo_get(&up->port, &ch);
+	while(c) {
+		memcpy(tmp, &ch, c);
+		tmp++;
 		count += c;
-		up->port.icount.tx += c;
+		c = uart_fifo_get(&up->port, &ch);
 	}
 	spin_unlock_irqrestore(&up->port.lock, flags);
 
@@ -1544,81 +1510,6 @@ serial_pxa_type(struct uart_port *port)
 
 static struct uart_pxa_port *serial_pxa_ports[NUM_UART_PORTS];
 static struct uart_driver serial_pxa_reg;
-
-#ifdef CONFIG_PM
-void serial_pxa_get_qos(int port)
-{
-	struct uart_pxa_port *up;
-
-	if ((port < 0) || (port >= NUM_UART_PORTS)) {
-		pr_err("%s: wrong uart port %d\n", __func__, port);
-		return;
-	}
-
-	up = serial_pxa_ports[port];
-	if (!mod_timer(&up->pxa_timer, jiffies + PXA_TIMER_TIMEOUT)) {
-		pm_runtime_get_sync(up->port.dev);
-	}
-
-	return;
-}
-
-EXPORT_SYMBOL_GPL(serial_pxa_get_qos);
-#endif	/* #ifdef CONFIG_PM */
-
-void serial_pxa_assert_rts(int port)
-{
-	struct uart_pxa_port *up;
-	unsigned long flags;
-
-	if ((port < 0) || (port >= NUM_UART_PORTS)) {
-		pr_err("%s: wrong uart port %d\n", __func__, port);
-		return;
-	}
-
-	up = serial_pxa_ports[port];
-
-	spin_lock_irqsave(&up->port.lock, flags);
-	if (!serial_pxa_is_open(up)) {
-		spin_unlock_irqrestore(&up->port.lock, flags);
-		pr_err("%s: uart %d is shutdown\n", __func__, port);
-		return;
-	}
-	serial_pxa_set_mctrl(&up->port, up->port.mctrl | TIOCM_RTS);
-	/* clear serial_core hw_stopped when BT not assert RTS yet */
-	uart_handle_cts_change(&up->port, UART_MSR_CTS);
-	spin_unlock_irqrestore(&up->port.lock, flags);
-
-	return;
-}
-
-EXPORT_SYMBOL_GPL(serial_pxa_assert_rts);
-
-void serial_pxa_deassert_rts(int port)
-{
-	struct uart_pxa_port *up;
-	unsigned long flags;
-
-	if ((port < 0) || (port >= NUM_UART_PORTS)) {
-		pr_err("%s: wrong uart port %d\n", __func__, port);
-		return;
-	}
-
-	up = serial_pxa_ports[port];
-
-	spin_lock_irqsave(&up->port.lock, flags);
-	if (!serial_pxa_is_open(up)) {
-		spin_unlock_irqrestore(&up->port.lock, flags);
-		pr_err("%s: uart %d is shutdown\n", __func__, port);
-		return;
-	}
-	serial_pxa_set_mctrl(&up->port, up->port.mctrl & ~TIOCM_RTS);
-	spin_unlock_irqrestore(&up->port.lock, flags);
-
-	return;
-}
-
-EXPORT_SYMBOL_GPL(serial_pxa_deassert_rts);
 
 
 #ifdef CONFIG_SERIAL_PXA_CONSOLE
@@ -2329,7 +2220,7 @@ err_free:
 	return ret;
 }
 
-static int serial_pxa_remove(struct platform_device *dev)
+static void serial_pxa_remove(struct platform_device *dev)
 {
 	struct uart_pxa_port *sport = platform_get_drvdata(dev);
 
@@ -2355,8 +2246,6 @@ static int serial_pxa_remove(struct platform_device *dev)
 #endif
 	kfree(sport);
 	serial_pxa_ports[dev->id] = NULL;
-
-	return 0;
 }
 
 static struct platform_driver serial_pxa_driver = {
