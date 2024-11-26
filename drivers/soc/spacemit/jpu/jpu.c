@@ -16,7 +16,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
-//#include <linux/sched.h>
+#include <linux/vmalloc.h>
 #include <linux/sched/signal.h>
 #include <linux/pm_runtime.h>
 #include <asm/io.h>
@@ -1701,7 +1701,7 @@ err0:
 	return -1;
 }
 
-static int jpu_remove(struct platform_device *pdev)
+static void jpu_remove(struct platform_device *pdev)
 {
 	struct jpu_device *jdev = platform_get_drvdata(pdev);
 
@@ -1731,8 +1731,6 @@ static int jpu_remove(struct platform_device *pdev)
 	sysfs_remove_groups(&pdev->dev.kobj, jpu_frequency_group);
 
 	dev_dbg(jdev->jdev, "driver removed\n");
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
