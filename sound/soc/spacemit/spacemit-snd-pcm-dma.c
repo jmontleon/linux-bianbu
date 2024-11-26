@@ -866,8 +866,7 @@ unlock:
 	return ret;
 }
 
-snd_pcm_uframes_t
-spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_substream *substream)
+static snd_pcm_uframes_t spacemit_snd_pcm_pointer(struct snd_soc_component *component, struct snd_pcm_substream *substream)
 {
 	struct spacemit_snd_dmadata *dmadata = substream->runtime->private_data;
 	struct spacemit_snd_soc_device *dev = snd_soc_component_get_drvdata(component);
@@ -1363,10 +1362,9 @@ static int spacemit_snd_dma_pdev_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int spacemit_snd_dma_pdev_remove(struct platform_device *pdev)
+static void spacemit_snd_dma_pdev_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_component(&pdev->dev);
-	return 0;
 }
 
 #ifdef CONFIG_OF
