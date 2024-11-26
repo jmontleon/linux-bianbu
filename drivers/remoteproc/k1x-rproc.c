@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/syscore_ops.h>
 #include <linux/pm_domain.h>
+#include <linux/platform_device.h>
 #include <linux/spacemit/platform_pm_ops.h>
 #include "remoteproc_internal.h"
 
@@ -625,7 +626,7 @@ static void k1x_rproc_free_mbox(struct rproc *rproc)
 	}
 }
 
-static int spacemit_rproc_remove(struct platform_device *pdev)
+static void spacemit_rproc_remove(struct platform_device *pdev)
 {
 	int i = 0;
 	struct rproc *rproc = platform_get_drvdata(pdev);
@@ -643,7 +644,6 @@ static int spacemit_rproc_remove(struct platform_device *pdev)
 	unregister_rpmsg_driver(&rpmsg_rcpu_pm_client);
 	unregister_platform_pm_ops(&rproc_platform_pm_ops);
 #endif
-	return 0;
 }
 
 static const struct of_device_id spacemit_rproc_of_match[] = {
