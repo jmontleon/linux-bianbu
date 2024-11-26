@@ -45,11 +45,9 @@ static int dummy_codec_probe(struct platform_device *pdev)
 				      &dummy_dai, 1);
 }
 
-static int dummy_codec_remove(struct platform_device *pdev)
+static void dummy_codec_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_component(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id dummy_codec_of_match[] = {
