@@ -109,7 +109,7 @@ DECLARE_EVENT_CLASS(dpu_status_template,
 		__field(int, status)
 	),
 	TP_fast_assign(
-		__assign_str(name_str, name);
+		__assign_str(name_str);
 		__entry->status = status;
 	),
 	TP_printk("%s: 0x%x",
@@ -149,7 +149,7 @@ DECLARE_EVENT_CLASS(dpu_ul_data_template,
 		__field(unsigned long, ul_data)
 	),
 	TP_fast_assign(
-		__assign_str(name_str, name);
+		__assign_str(name_str);
 		__entry->ul_data = ul_data;
 	),
 	TP_printk("%s: %ld",
@@ -169,7 +169,7 @@ DECLARE_EVENT_CLASS(dpu_uint64_t_data_template,
 		__field(uint64_t, data)
 	),
 	TP_fast_assign(
-		__assign_str(name_str, name);
+		__assign_str(name_str);
 		__entry->data = data;
 	),
 	TP_printk("%s: %lld",
@@ -270,7 +270,7 @@ TRACE_EVENT(dpu_reg_info,
 		__field(uint32_t, reg_num)
 	),
 	TP_fast_assign(
-		__assign_str(name_str, mod_name);
+		__assign_str(name_str);
 		__entry->p_addr = p_addr;
 		__entry->reg_num = reg_num;
 	),
