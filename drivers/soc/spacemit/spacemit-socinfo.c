@@ -176,13 +176,11 @@ static int spacemit_socinfo_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int spacemit_socinfo_remove(struct platform_device *pdev)
+static void spacemit_socinfo_remove(struct platform_device *pdev)
 {
 	struct soc_device *soc_dev = platform_get_drvdata(pdev);
 
 	soc_device_unregister(soc_dev);
-
-	return 0;
 }
 
 static const struct of_device_id spacemit_socinfo_dt_match[] = {
