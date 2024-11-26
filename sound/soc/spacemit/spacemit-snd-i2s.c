@@ -213,7 +213,7 @@ static int i2s_sspa_hw_params(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_dai *cpu_dai = asoc_rtd_to_cpu(rtd, dai->id);
+	struct snd_soc_dai *cpu_dai = snd_soc_rtd_to_cpu(rtd, dai->id);
 	struct sspa_priv *sspa_priv = snd_soc_dai_get_drvdata(dai);
 	struct ssp_device *sspa = sspa_priv->sspa;
 	struct snd_dmaengine_dai_dma_data *dma_params;
@@ -460,15 +460,13 @@ static int asoc_i2s_sspa_probe(struct platform_device *pdev)
 					       &i2s_sspa_dai[dai_id], 1);
 }
 
-static int asoc_i2s_sspa_remove(struct platform_device *pdev)
+static void asoc_i2s_sspa_remove(struct platform_device *pdev)
 {
 	struct sspa_priv *priv = platform_get_drvdata(pdev);
 
 	pm_runtime_disable(&pdev->dev);
 	reset_control_assert(priv->sspa_rst);
 	snd_soc_unregister_component(&pdev->dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_OF
