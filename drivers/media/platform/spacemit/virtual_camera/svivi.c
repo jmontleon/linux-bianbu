@@ -108,6 +108,7 @@ struct recevice_message {
 	struct vcam_header 		rcv_vheader;
 };
 static struct recevice_message recv_msg;
+static int in_use = false;
 
 struct send_message {
 	struct vcam_header  	snd_vheader;
@@ -210,9 +211,15 @@ int fill_recv_msg_by_nlmsg_data (struct nlmsghdr *nlh)
 {
     char *data = NULL;
 
+	if (in_use == false) {
+		vcam_warn("other pid:%d != %d, don't respond netlink:%d\n",
+			 recv_msg.rcv_vheader.user_pid, nlh->nlmsg_pid, SVIVI_NETLINK);
+		return -1;
+	}
+
 	if (recv_msg.rcv_vheader.user_pid != 0) {
 		if (recv_msg.rcv_vheader.user_pid != nlh->nlmsg_pid) {
-			vcam_warn("recv other pid%d user msg!!\n", recv_msg.rcv_vheader.user_pid);
+			vcam_warn("recv other pid:%d != %d!!\n", recv_msg.rcv_vheader.user_pid, nlh->nlmsg_pid);
 			return -1;
 		}
 	}
@@ -770,10 +777,6 @@ static int svivi_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 
 	vind->streaming = 0;
 
-	memset(&recv_msg, 0, sizeof(recv_msg));
-	memset(&snd_msg, 0, sizeof(snd_msg));
-	init_completion(&recv_msg.complete);
-
 	return 0;
 }
 
@@ -802,19 +805,27 @@ static const struct v4l2_ioctl_ops svivi_ioctl_ops = {
 	.vidioc_streamoff 			= svivi_streamoff,
 };
 
-static int svivi_fop_release(struct file *file)
+static int svivi_release(struct file *file)
 {
 	struct video_device *vdev = video_devdata(file);
+
+	in_use = false;
+
+	memset(&recv_msg, 0, sizeof(recv_msg));
+	memset(&snd_msg, 0, sizeof(snd_msg));
+	init_completion(&recv_msg.complete);
 
 	if (vdev->queue)
 		return vb2_fop_release(file);
 	return v4l2_fh_release(file);
 }
-int svivi_open(struct file *filp)
+static int svivi_open(struct file *filp)
 {
+	in_use = true;
+
 	return v4l2_fh_open(filp);
 }
-__poll_t svivi_poll(struct file *file, poll_table *wait)
+static __poll_t svivi_poll(struct file *file, poll_table *wait)
 {
 	int ret;
 	struct vivi *vind = video_drvdata(file);
@@ -833,15 +844,16 @@ __poll_t svivi_poll(struct file *file, poll_table *wait)
 	return POLLIN | POLLRDNORM;
 	// return vb2_fop_poll(file, wait);
 }
-int svivi_mmap(struct file *file, struct vm_area_struct *vma)
+static int svivi_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	return 0;
 	// return vb2_fop_mmap(file, vma);
 }
+
 static const struct v4l2_file_operations svivi_fops = {
 	.owner			= THIS_MODULE,
 	.open           = svivi_open,
-	.release        = svivi_fop_release,
+	.release        = svivi_release,
 	.poll			= svivi_poll,
 	.unlocked_ioctl = video_ioctl2,
 	.mmap           = svivi_mmap,
@@ -959,10 +971,11 @@ static int svivi_probe(struct platform_device *pdev) {
     svivi->netlinkfd = (struct sock *)netlink_kernel_create(&init_net, SVIVI_NETLINK, &cfg);
     if (svivi->netlinkfd == NULL) {
         vcam_err("can not create a netlink socket");
-        return -1;
+        goto unreg_dev;
     }
 
 	svivi->streaming = 0;
+	vcam_info("svivi probe ok.");
 
 	return ret;
 
@@ -970,6 +983,7 @@ unreg_dev:
 	v4l2_device_put(&svivi->v4l2_dev);
 v4l2_dev_err:
 	kfree(svivi);
+	vcam_info("svivi probe fail!");
 
 	return -1;
 }
