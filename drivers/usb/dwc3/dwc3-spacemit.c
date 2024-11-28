@@ -267,6 +267,7 @@ static int dwc3_spacemit_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_get_noresume(dev);
 	pm_runtime_get_sync(dev);
+	device_enable_async_suspend(dev);
 
 	spacemit->irq = platform_get_irq(pdev, 0);
 	if (spacemit->irq < 0) {
