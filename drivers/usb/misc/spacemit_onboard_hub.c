@@ -136,6 +136,7 @@ static int spacemit_hub_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_get_noresume(dev);
 	pm_runtime_get_sync(dev);
+	device_enable_async_suspend(dev);
 
 	spacemit->hub_gpios = devm_gpiod_get_array_optional(
 		&pdev->dev, "hub",
