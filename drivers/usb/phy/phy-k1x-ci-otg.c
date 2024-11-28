@@ -719,6 +719,7 @@ static int mv_otg_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+	device_enable_async_suspend(&pdev->dev);
 
 	mvotg->vbus_gpio =
 		devm_gpiod_get_optional(&pdev->dev, "vbus", GPIOD_OUT_LOW);
