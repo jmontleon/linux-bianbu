@@ -1669,6 +1669,7 @@ static int __init k1x_pcie_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 	pm_runtime_get_noresume(&pdev->dev);
+	device_enable_async_suspend(&pdev->dev);
 
 	reset_control_deassert(k1x->reset);
 
