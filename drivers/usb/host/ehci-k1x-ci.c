@@ -349,6 +349,7 @@ static int mv_ehci_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_noresume(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+	device_enable_async_suspend(&pdev->dev);
 
 	retval = mv_ehci_enable(ehci_mv);
 	if (retval) {
