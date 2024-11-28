@@ -41,7 +41,7 @@
 		compatible = "spacemit,spacemit-snd-sspa";
 		reg = <0 0xc0883900 0 0x300>,
 			<0 0xc0882000 0 0x50>;
-		clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
+		clocks = <&ccu CLK_RCPU_HDMIAUDIO>, <&ccu CLK_HDMI>;
 		resets = <&reset RESET_RCPU_HDMIAUDIO>;
 		assigned-clocks = <&ccu CLK_RCPU_HDMIAUDIO>;
 		assigned-clock-rates = <48000>;
