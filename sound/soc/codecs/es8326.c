@@ -51,6 +51,8 @@ struct es8326_priv {
 	int hp;
 	int jack_remove_retry;
 #ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	u8 mic1_src;
+	u8 mic2_src;
 	int spk_ctl_gpio;
 	int hp_gpio;
 	int hp_irq;
@@ -369,8 +371,10 @@ static const struct regmap_config es8326_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.max_register = 0xff,
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
 	.use_single_read = true,
 	.use_single_write = true,
+#endif
 	.volatile_reg = es8326_volatile_register,
 	.writeable_reg = es8326_writeable_register,
 	.cache_type = REGCACHE_RBTREE,
@@ -983,6 +987,9 @@ static void es8326_jack_detect_handler(struct work_struct *work)
 			regmap_write(es8326->regmap, ES8326_INT_SOURCE, 0x00);
 			regmap_update_bits(es8326->regmap, ES8326_HPDET_TYPE, 0x03, 0x01);
 			regmap_update_bits(es8326->regmap, ES8326_HPDET_TYPE, 0x10, 0x00);
+			#ifndef SPACEMIT_CONFIG_CODEC_ES8326
+			es8326_enable_micbias(es8326->component);
+			#endif
 			usleep_range(50000, 70000);
 			regmap_update_bits(es8326->regmap, ES8326_HPDET_TYPE, 0x03, 0x00);
 			regmap_update_bits(es8326->regmap, ES8326_HPDET_TYPE, 0x10, 0x10);
@@ -1156,6 +1163,142 @@ static int es8326_calibrate(struct snd_soc_component *component)
 	return 0;
 }
 
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+static int es8326_init(struct snd_soc_component *component)
+{
+	struct es8326_priv *es8326 = snd_soc_component_get_drvdata(component);
+	es8326_priv_ptr = es8326;
+
+	/* reset internal clock state */
+	regmap_write(es8326->regmap, ES8326_RESET, 0x1f);
+	regmap_write(es8326->regmap, ES8326_VMIDSEL, 0x0E);
+	regmap_write(es8326->regmap, ES8326_ANA_LP, 0xf0);
+	usleep_range(10000, 15000);
+	regmap_write(es8326->regmap, ES8326_HPJACK_TIMER, 0xd9);
+	regmap_write(es8326->regmap, ES8326_ANA_MICBIAS, 0xd8);
+	/* set headphone default type and detect pin */
+	regmap_write(es8326->regmap, ES8326_HPDET_TYPE, 0x83);
+	regmap_write(es8326->regmap, ES8326_CLK_RESAMPLE, 0x05);
+
+	/* set internal oscillator as clock source of headpone cp */
+	regmap_write(es8326->regmap, ES8326_CLK_DIV_CPC, 0x89);
+	regmap_write(es8326->regmap, ES8326_CLK_CTL, ES8326_CLK_ON);
+	/* clock manager reset release */
+	regmap_write(es8326->regmap, ES8326_RESET, 0x17);
+	/* set headphone detection as half scan mode */
+	regmap_write(es8326->regmap, ES8326_HP_MISC, 0x3d);
+	regmap_write(es8326->regmap, ES8326_PULLUP_CTL, 0x00);
+
+	/* enable headphone driver */
+	regmap_write(es8326->regmap, ES8326_HP_VOL, 0xc4);
+	regmap_write(es8326->regmap, ES8326_HP_DRIVER, 0xa7);
+	usleep_range(2000, 5000);
+	regmap_write(es8326->regmap, ES8326_HP_DRIVER_REF, 0x23);
+	regmap_write(es8326->regmap, ES8326_HP_DRIVER_REF, 0x33);
+	regmap_write(es8326->regmap, ES8326_HP_DRIVER, 0xa1);
+
+	regmap_write(es8326->regmap, ES8326_CLK_INV, 0x00);
+	regmap_write(es8326->regmap, ES8326_CLK_VMIDS1, 0xc4);
+	regmap_write(es8326->regmap, ES8326_CLK_VMIDS2, 0x81);
+	regmap_write(es8326->regmap, ES8326_CLK_CAL_TIME, 0x00);
+	/* calibrate for B version */
+	es8326_calibrate(component);
+	regmap_write(es8326->regmap, ES8326_DAC_CROSSTALK, 0xaa);
+	regmap_write(es8326->regmap, ES8326_DAC_RAMPRATE, 0x00);
+	/* turn off headphone out */
+	regmap_write(es8326->regmap, ES8326_HP_CAL, 0x00);
+	/* set ADC and DAC in low power mode */
+	regmap_write(es8326->regmap, ES8326_ANA_LP, 0xf0);
+
+	regmap_write(es8326->regmap, ES8326_ANA_VSEL, 0x7F);
+	/* select vdda as micbias source */
+	regmap_write(es8326->regmap, ES8326_VMIDLOW, 0x03);
+	/* set dac dsmclip = 1 */
+	regmap_write(es8326->regmap, ES8326_DAC_DSM, 0x08);
+	regmap_write(es8326->regmap, ES8326_DAC_VPPSCALE, 0x15);
+
+	regmap_write(es8326->regmap, ES8326_HPDET_TYPE, 0x80 |
+			((es8326->version == ES8326_VERSION_B) ?
+			(ES8326_HP_DET_SRC_PIN9 | es8326->jack_pol) :
+			(ES8326_HP_DET_SRC_PIN9 | es8326->jack_pol | 0x04)));
+	usleep_range(5000, 10000);
+	es8326_enable_micbias(es8326->component);
+	usleep_range(50000, 70000);
+	regmap_update_bits(es8326->regmap, ES8326_HPDET_TYPE, 0x03, 0x00);
+	regmap_write(es8326->regmap, ES8326_INT_SOURCE, ES8326_INT_SRC_PIN9);
+	regmap_write(es8326->regmap, ES8326_INTOUT_IO,
+		     es8326->interrupt_clk);
+	regmap_write(es8326->regmap, ES8326_SDINOUT1_IO,
+		    (ES8326_IO_DMIC_CLK << ES8326_SDINOUT1_SHIFT));
+	regmap_write(es8326->regmap, ES8326_SDINOUT23_IO, ES8326_IO_INPUT);
+
+	regmap_write(es8326->regmap, ES8326_ANA_PDN, 0x00);
+	regmap_write(es8326->regmap, ES8326_RESET, ES8326_CSM_ON);
+	regmap_update_bits(es8326->regmap, ES8326_PGAGAIN, ES8326_MIC_SEL_MASK,
+			   ES8326_MIC1_SEL);
+
+	regmap_update_bits(es8326->regmap, ES8326_DAC_MUTE, ES8326_MUTE_MASK,
+			   ES8326_MUTE);
+
+	regmap_write(es8326->regmap, ES8326_ADC_MUTE, 0x0f);
+	regmap_write(es8326->regmap, ES8326_ADC1_SRC, es8326->mic1_src);
+	regmap_write(es8326->regmap, ES8326_ADC2_SRC, es8326->mic2_src);
+
+	regmap_write(es8326->regmap, ES8326_FMT, 0x0c);
+
+
+	es8326->jack_remove_retry = 0;
+	es8326->hp = 0;
+
+	es8326->typec_hp = 0;
+	return 0;
+}
+
+static int es8326_resume(struct device *dev)
+{
+	struct es8326_priv *es8326 = dev_get_drvdata(dev);
+
+	regcache_cache_only(es8326->regmap, false);
+	regcache_sync(es8326->regmap);
+	es8326_init(es8326->component);
+	es8326_reset_clk(es8326->component);
+	if (es8326->jack) {
+		snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
+		if (es8326->jd_inverted) {
+			snd_soc_component_update_bits(es8326->component, ES8326_HPDET_TYPE,
+					      ES8326_HP_DET_JACK_POL, ~es8326->jack_pol);
+		}
+		es8326_disable_micbias(es8326->component);
+		if (es8326->irq > 0)
+			es8326_irq(es8326->irq, es8326);
+		else
+			es8326_irq_hpmic(es8326->irq, es8326);
+	}
+
+	return 0;
+}
+
+static int es8326_suspend(struct device *dev)
+{
+	struct es8326_priv *es8326 = dev_get_drvdata(dev);
+
+	cancel_delayed_work_sync(&es8326->jack_detect_work);
+	snd_soc_jack_report(es8326->jack, 0, SND_JACK_HEADSET);
+	es8326_enable_spk(es8326, false);
+	es8326->calibrated = false;
+
+	regmap_write(es8326->regmap, ES8326_CLK_CTL, ES8326_CLK_OFF);
+	regcache_cache_only(es8326->regmap, true);
+	regcache_mark_dirty(es8326->regmap);
+
+	/* reset register value to default */
+	regmap_write(es8326->regmap, ES8326_CSM_I2C_STA, 0x01);
+	usleep_range(1000, 3000);
+	regmap_write(es8326->regmap, ES8326_CSM_I2C_STA, 0x00);
+	return 0;
+}
+
+#else
 static void es8326_init(struct snd_soc_component *component)
 {
 	struct es8326_priv *es8326 = snd_soc_component_get_drvdata(component);
@@ -1264,11 +1407,6 @@ static int es8326_resume(struct snd_soc_component *component)
 
 	regcache_sync(es8326->regmap);
 
-#ifdef SPACEMIT_CONFIG_CODEC_ES8326
-	regmap_write(es8326->regmap, ES8326_ADC1_SRC, es8326->mic1_src);
-	regmap_write(es8326->regmap, ES8326_ADC2_SRC, es8326->mic2_src);
-#endif
-
 	es8326_init(es8326->component);
 	es8326_reset_clk(es8326->component);
 	if (es8326->jack) {
@@ -1316,6 +1454,7 @@ static int es8326_suspend(struct device *dev)
 
 	return 0;
 }
+#endif
 
 #ifdef SPACEMIT_CONFIG_CODEC_ES8326
 static BLOCKING_NOTIFIER_HEAD(headphone_notifier_list);
@@ -1341,7 +1480,7 @@ int spacemit_headphone_notifier_call_chain(__alsa_codec_event_e val, char *v)
 }
 EXPORT_SYMBOL_GPL(spacemit_headphone_notifier_call_chain);
 
-int headphone_connect_event(struct notifier_block *nb, unsigned long event,
+static int headphone_connect_event(struct notifier_block *nb, unsigned long event,
     void *v)
 {
 	switch(event){
@@ -1443,7 +1582,21 @@ static int es8326_probe(struct snd_soc_component *component)
 	es8326->component = component;
 	es8326->jd_inverted = device_property_read_bool(component->dev,
 							"everest,jack-detect-inverted");
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+	ret = device_property_read_u8(component->dev, "everest,mic1-src", &es8326->mic1_src);
+	if (ret != 0) {
+		dev_dbg(component->dev, "mic1-src return %d", ret);
+		es8326->mic1_src = ES8326_ADC_AMIC;
+	}
+	dev_dbg(component->dev, "mic1-src %x", es8326->mic1_src);
 
+	ret = device_property_read_u8(component->dev, "everest,mic2-src", &es8326->mic2_src);
+	if (ret != 0) {
+		dev_dbg(component->dev, "mic2-src return %d", ret);
+		es8326->mic2_src = ES8326_ADC_DMIC;
+	}
+	dev_dbg(component->dev, "mic2-src %x", es8326->mic2_src);
+#endif
 	ret = device_property_read_u8(component->dev, "everest,jack-pol", &es8326->jack_pol);
 	if (ret != 0) {
 		dev_dbg(component->dev, "jack-pol return %d", ret);
@@ -1607,7 +1760,7 @@ static int es8326_i2c_probe(struct i2c_client *i2c)
 		es8326->spk_ctl_gpio = -1;
 	} else {
 		ret = devm_gpio_request_one(&i2c->dev, es8326->spk_ctl_gpio,
-					    GPIOF_DIR_OUT, NULL);
+					    GPIOF_OUT_INIT_LOW, NULL);
 		if (ret) {
 			dev_err(&i2c->dev, "Failed to request spk_ctl_gpio\n");
 			return ret;
@@ -1708,11 +1861,16 @@ static const struct acpi_device_id es8326_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, es8326_acpi_match);
 #endif
 
-
+#ifdef SPACEMIT_CONFIG_CODEC_ES8326
+static const struct dev_pm_ops es8326_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(es8326_suspend, es8326_resume)
+};
+#else
 static const struct dev_pm_ops es8326_pm_ops = {
 	.suspend = es8326_suspend,
 	.resume = es8326_resume,
 };
+#endif
 
 static struct i2c_driver es8326_i2c_driver = {
 	.driver = {
