@@ -145,12 +145,12 @@
 		//vdd_voltage = <3300000>;
 		io-supply = <&dcdc_3>;
 		io_voltage = <1800000>;
-		pwr-gpios  = <&gpio 67 0>;
+		pwr-gpios;//  = <&gpio 67 0>;
 		status = "okay";
 
 		wlan_pwrseq: wlan-pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios = <&gpio 116 0>;
+			regon-gpios = <&gpio 67 0>;
 			interrupt-parent = <&pinctrl>;
 			interrupts = <268>;
 			pinctrl-names = "default";
@@ -174,6 +174,18 @@
 			status = "okay";
 		};
 	};
+
+	/* vcc3v3_pcie: vcc3v3-pcie-regulator { */
+	/* 	compatible = "regulator-fixed"; */
+	/* 	regulator-name = "vcc3v3_pcie"; */
+	/* 	regulator-always-on; */
+	/* 	regulator-boot-on; */
+	/* 	enable-active-high; */
+	/* 	gpio = <&gpio 116 0>; */
+	/* 	regulator-min-microvolt = <3300000>; */
+	/* 	regulator-max-microvolt = <3300000>; */
+	/* 	vin-supply = <&dc_12v>; */
+        /* }; */
 };
 
 &uart0 {
@@ -194,23 +206,17 @@
 	status = "okay";
 };
 
-&rpwm9 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_rpwm9_0>;
-	status = "okay";
-};
-
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
-	spacemit-dpu-bitclk = <424000000>;
-	/* spacemit-dpu-escclk = <76800000>; */
+	spacemit-dpu-bitclk = <500000000>;
+	//spacemit-dpu-escclk = <76800000>;
 	dsi_1v2-supply = <&ldo_5>;
 	vin-supply-names = "dsi_1v2";
-	status = "okay";
+	status = "disabled";
 };
 
 &dsi2 {
-	status = "okay";
+	status = "disabled";
 
 	panel2: panel2@0 {
 		status = "ok";
@@ -257,7 +263,6 @@
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
-	spacemit,i2c-fast-mode;
 	status = "okay";
 
 	eeprom@50{
@@ -278,19 +283,39 @@
 		};
 	};
 
-	es8323: es8323@11 {
-		status = "okay";
+	touchscreen@14 {
+		compatible = "goodix,gt9271";
+		reg = <0x14>;
+		interrupt-parent = <&gpio>;
+		interrupts = <46 1>; /* PE12 */
+		irq-gpios = <&gpio 46 GPIO_ACTIVE_HIGH>; /* PE12 */
+		reset-gpios = <&gpio 45 GPIO_ACTIVE_HIGH>; /* PE11 */
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_touch_gpio>;
+		touchscreen-inverted-x;
+		//touchscreen-inverted-y;
+		touchscreen-swapped-x-y;
+		touchscreen-size-x = <1280>;
+		touchscreen-size-y = <800>;
+	};
+
+	es8326: es8326@19{
+		compatible = "everest,es8326";
+		reg = <0x19>;
 		#sound-dai-cells = <0>;
-		compatible = "everest,es8323";
-		reg = <0x11>;
-		earphone-sw-gpio = <&gpio 79 0>;
-        };
+		interrupt-parent = <&gpio>;
+		interrupts = <126 1>;
+		spk-ctl-gpio = <&gpio 127 0>;
+		everest,mic1-src = [44];
+		everest,mic2-src = [66];
+		status = "okay";
+	};
 };
 
 &i2c3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c3_2>;
-	status = "okay";
+	status = "disabled";
 };
 
 &i2c4 {
@@ -580,12 +605,12 @@
 		&range GPIO_125 3 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 	>;
 
-	pinctrl_rcpu: pinctrl_rcpu_grp {
-		pinctrl-single,pins = <
-			K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_tx */
-			K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/* r_uart0_rx */
-		>;
-	};
+	/* pinctrl_rcpu: pinctrl_rcpu_grp { */
+	/* 	pinctrl-single,pins = < */
+	/* 		K1X_PADCONF(GPIO_47, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/1* r_uart0_tx *1/ */
+	/* 		K1X_PADCONF(GPIO_48, MUX_MODE1, (EDGE_NONE | PULL_UP | PAD_3V_DS4))	/1* r_uart0_rx *1/ */
+	/* 	>; */
+	/* }; */
 
 	pinctrl_gmac0: gmac0_grp {
 		pinctrl-single,pins =<
@@ -604,7 +629,6 @@
 			K1X_PADCONF(GPIO_12, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdc */
 			K1X_PADCONF(GPIO_13, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac0_mdio */
 			K1X_PADCONF(GPIO_14, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_int_n */
-			K1X_PADCONF(GPIO_45, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac0_clk_ref */
 		>;
 	};
 
@@ -625,7 +649,13 @@
 			K1X_PADCONF(GPIO_41, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdc */
 			K1X_PADCONF(GPIO_42, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS0))	/* gmac1_mdio */
 			K1X_PADCONF(GPIO_43, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_int_n */
-			K1X_PADCONF(GPIO_46, MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))	/* gmac1_clk_ref */
+		>;
+	};
+
+	pinctrl_touch_gpio: touch_gpio {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_45, MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))
+			K1X_PADCONF(GPIO_46, MUX_MODE0, (EDGE_NONE | PULL_UP | PAD_1V8_DS0))
 		>;
 	};
 
@@ -641,7 +671,7 @@
 		&pinctrl 49  GPIO_49  2
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  1
-		&pinctrl 65  GPIO_65  1
+		//&pinctrl 65  GPIO_65  1
 		&pinctrl 67  GPIO_67  1
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
@@ -778,7 +808,8 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 		rgmii0: phy@0 {
-			compatible = "ethernet-phy-id001c.c916";
+			compatible = "ethernet-phy-ieee802.3-c22";
+			//compatible = "ethernet-phy-id4f51.e91b";
 			device_type = "ethernet-phy";
 			reg = <0x1>;
 			phy-mode = "rgmii";
@@ -818,7 +849,8 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 		rgmii1: phy@1 {
-			compatible = "ethernet-phy-id001c.c916";
+			compatible = "ethernet-phy-ieee802.3-c22";
+			//compatible = "ethernet-phy-id4f51.e91b";
 			device_type = "ethernet-phy";
 			reg = <0x1>;
 			phy-mode = "rgmii";
@@ -937,12 +969,6 @@
 	};
 };
 
-&spi3 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_ssp3_0>;
-	status = "disabled";
-};
-
 &pwm_bl {
 	pwms = <&pwm14 2000>;
 	brightness-levels = <
@@ -963,7 +989,7 @@
 		224 225 226 227 228 229 230 231 232 233 234 235 236 237 238 239
 		240 241 242 243 244 245 246 247 248 249 250 251 252 253 254 255
 	>;
-	default-brightness-level = <100>;
+	default-brightness-level = <200>;
 
 	status = "okay";
 };
@@ -1056,8 +1082,8 @@
 };
 
 &rcpu {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_rcpu>;
+	/* pinctrl-names = "default"; */
+	/* pinctrl-0 = <&pinctrl_rcpu>; */
 	mboxes = <&mailbox 0>, <&mailbox 1>;
 	mbox-names = "vq0", "vq1";
 	memory-region = <&rcpu_mem_0>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>, <&rsc_table>, <&rcpu_mem_snapshots>;
@@ -1065,9 +1091,9 @@
 };
 
 &i2s0 {
-        pinctrl-names = "default";
-        pinctrl-0 = <&pinctrl_sspa0_0>;
-        status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sspa0_0>;
+	status = "okay";
 };
 
 &hdmiaudio {
@@ -1083,9 +1109,15 @@
 
 &sound_codec {
 	status = "okay";
-	simple-audio-card,name = "snd-es8323";
-	spacemit,mclk-fs = <256>;
+	simple-audio-card,name = "snd-es8326";
+	spacemit,mclk-fs = <64>;
 	simple-audio-card,codec {
-		sound-dai = <&es8323>;
+		sound-dai = <&es8326>;
 	};
+};
+
+&rpwm9 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rpwm9_0>;
+	status = "okay";
 };
