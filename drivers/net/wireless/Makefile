@@ -26,3 +26,4 @@ obj-$(CONFIG_AIC_WLAN_SUPPORT) += aic8800/
 
 obj-$(CONFIG_WLAN) += legacy/
 obj-$(CONFIG_WLAN) += virtual/
+obj-$(CONFIG_BCMDHD) += bcmdhd/
