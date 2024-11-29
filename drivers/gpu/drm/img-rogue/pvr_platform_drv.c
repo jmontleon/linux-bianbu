@@ -306,5 +306,5 @@ static void __exit pvr_exit(void)
 	DRM_DEBUG_DRIVER("done\n");
 }
 
-late_initcall(pvr_init);
+device_initcall(pvr_init);
 module_exit(pvr_exit);
