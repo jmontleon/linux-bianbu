@@ -298,6 +298,6 @@ static int k1x_pwm_driver_init(void)
 {
 	return platform_driver_register(&pwm_driver);
 }
-late_initcall_sync(k1x_pwm_driver_init);
+late_initcall(k1x_pwm_driver_init);
 
 MODULE_LICENSE("GPL v2");
