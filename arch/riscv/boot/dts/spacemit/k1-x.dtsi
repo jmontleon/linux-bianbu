@@ -1901,6 +1901,17 @@
 			};
 		};
 
+		ec_master: ethercat_master {
+			compatible = "igh,k1x-ec-master";
+			run-on-cpu = <1>;
+			debug-level = <0>;
+			master-count = <2>;
+			ec-devices = <&eth0>,<&eth1>;
+			master-indexes = <0>,<0>;
+			modes = "ec_main","ec_backup";
+			status = "disable";
+		};
+
 		eth0: ethernet@cac80000 {
 			compatible = "spacemit,k1x-emac";
 			reg = <0x00000000 0xCAC80000 0x00000000 0x00000420>;
