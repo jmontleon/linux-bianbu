@@ -260,7 +260,9 @@ out:
 
 static const struct drm_mode_config_funcs pdp_mode_config_funcs = {
 	.fb_create = pdp_fb_create,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 36))
 	.output_poll_changed = NULL,
+#endif
 #if defined(PDP_USE_ATOMIC)
 	.atomic_check = drm_atomic_helper_check,
 	.atomic_commit = drm_atomic_helper_commit,
