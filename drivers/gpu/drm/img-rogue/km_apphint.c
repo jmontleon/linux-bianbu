@@ -1594,15 +1594,12 @@ int pvr_apphint_set_string(PVRSRV_DEVICE_NODE *device, APPHINT_ID ue, IMG_CHAR *
 			error = apphint.val[ue + device_offset].set.STRING(apphint.val[ue + device_offset].device,
 															 apphint.val[ue + device_offset].private_data,
 															 pBuffer);
-<<<<<<< HEAD
 		} else if (OSStringSafeCopy(apphint.val[ue + device_offset].stored.STRING, pBuffer, size) >= 0) {
 			error = 0;
-=======
 		} else {
 			if (strscpy(apphint.val[ue + device_offset].stored.STRING, pBuffer, size) < size) {
 				error = 0;
 			}
->>>>>>> parent of c55e220db94e (Revert "drm: img-rogue: porting gpu driver to linux-6.12")
 		}
 		apphint.val[ue].device = device;
 	}
