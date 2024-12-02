@@ -519,6 +519,9 @@ const struct file_operations pvr_drm_fops = {
 #if defined(SUPPORT_LINUX_FDINFO)
 	.show_fdinfo	= pvr_show_fdinfo,
 #endif /* SUPPORT_LINUX_FDINFO */
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(6, 6, 36))
+	.fop_flags = FOP_UNSIGNED_OFFSET,
+#endif
 };
 
 const struct drm_driver pvr_drm_generic_driver = {
