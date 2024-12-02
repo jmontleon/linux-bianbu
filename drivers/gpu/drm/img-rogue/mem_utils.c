@@ -381,7 +381,14 @@ void DeviceMemSetBytes(void *pvDst, unsigned char ui8Value, size_t uSize)
 	}
 }
 
-#if defined(__linux__) && defined(__KERNEL__)
+#if !defined(__QNXNTO__) /* Ignore Neutrino as it uses strlcpy */
+
+#if defined(__KERNEL__) && defined(__linux__)
+/*
+ * In case of Linux kernel-mode in a debug build, choose the variant
+ * of StringLCopy that uses strscpy and logs truncation via a stack dump.
+ * For Linux kernel-mode in a release build, strscpy alone is used.
+ */
 #if defined(DEBUG)
 /*
  * In case of Linux kernel-mode in a debug build, choose the variant of
