@@ -795,8 +795,9 @@ static PVRSRV_ERROR CreateAllocation(PVRSRV_DEVICE_NODE *psDeviceNode,
 							IMG_UINT32 *puiAllocationIndex)
 {
 	IMG_UINT32 ui32Alloc;
+#if defined(PDUMP)
 	RECORD_ALLOCATION *psAlloc;
-
+#endif
 	DEVICEMEM_HISTORY_DATA *psDevHData;
 
 	psDevHData = DevmemFindDataFromDev(psDeviceNode);
@@ -807,9 +808,9 @@ static PVRSRV_ERROR CreateAllocation(PVRSRV_DEVICE_NODE *psDeviceNode,
 	}
 
 	ui32Alloc = GetFreeAllocation(psDevHData);
-
+#if defined(PDUMP)
 	psAlloc = ALLOC_INDEX_TO_PTR(psDevHData, ui32Alloc);
-
+#endif
 	InitialiseAllocation(ALLOC_INDEX_TO_PTR(psDevHData, ui32Alloc),
 						pszName,
 						ui64Serial,

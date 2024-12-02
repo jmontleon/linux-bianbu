@@ -4489,7 +4489,7 @@ MMU_UnmapPMRFastUnlocked(MMU_CONTEXT *psMMUContext,
 		{
 			for (i=uiPTEIndex; i<uiLastPTEIndex; i++)
 			{
-				IMG_DEV_VIRTADDR sDevVAddrToLog;
+				__maybe_unused IMG_DEV_VIRTADDR sDevVAddrToLog;
 				sDevVAddrToLog.uiAddr = sDevVAddr.uiAddr + (i - uiPTEIndex) * uiPageSize;
 
 				/* Log modifications */
