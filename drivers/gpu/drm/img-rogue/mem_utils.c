@@ -381,8 +381,6 @@ void DeviceMemSetBytes(void *pvDst, unsigned char ui8Value, size_t uSize)
 	}
 }
 
-#if !defined(__QNXNTO__) /* Ignore Neutrino as it uses strlcpy */
-
 #if defined(__KERNEL__) && defined(__linux__)
 /*
  * In case of Linux kernel-mode in a debug build, choose the variant
