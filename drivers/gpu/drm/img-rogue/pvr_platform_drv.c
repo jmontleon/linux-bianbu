@@ -218,7 +218,7 @@ static void pvr_remove(struct platform_device *pdev)
 	pvr_drm_unload(ddev);
 
 	drm_dev_put(ddev);
-	return 0;
+	return;
 }
 
 static void pvr_shutdown(struct platform_device *pdev)
