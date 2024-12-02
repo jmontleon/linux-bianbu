@@ -572,7 +572,7 @@ PhysmemNewRamBackedPMR_direct(CONNECTION_DATA *psConnection,
 	/* This is where we would expect to validate the uiAnnotationLength parameter
 	   (to confirm it is sufficient to store the string in pszAnnotation plus a
 	   terminating NULL). However, we do not make reference to this value when
-	   we copy the string in PMRCreatePMR() - instead there we use strlcpy()
+	   we copy the string in PMRCreatePMR() - instead there we use strscpy()
 	   to copy at most chars and ensure whatever is copied is null-terminated.
 	   The parameter is only used by the generated bridge code.
 	 */
