@@ -674,10 +674,9 @@ static int pdp_probe(struct platform_device *pdev)
 	return component_master_add_with_match(dev, &pdp_component_ops, match);
 }
 
-static int pdp_remove(struct platform_device *pdev)
+static void pdp_remove(struct platform_device *pdev)
 {
 	component_master_del(&pdev->dev, &pdp_component_ops);
-	return 0;
 }
 
 #else // !SUPPORT_PLATO_DISPLAY
@@ -729,7 +728,7 @@ err_drm_dev_put:
 	return	ret;
 }
 
-static int pdp_remove(struct platform_device *pdev)
+static void pdp_remove(struct platform_device *pdev)
 {
 	struct drm_device *ddev = platform_get_drvdata(pdev);
 

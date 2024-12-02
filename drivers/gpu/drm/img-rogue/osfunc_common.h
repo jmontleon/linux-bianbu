@@ -263,6 +263,25 @@ ssize_t OSStringSafeCopy(IMG_CHAR *pszDest, const IMG_CHAR *pszSrc, size_t uData
 	} while (false)
 #endif /* defined(__KERNEL__) */
 
+/**************************************************************************/ /*!
+@Function       OSStringLCopy
+@Description    Copy at most uDataSize-1 bytes from pszSrc to pszDest.
+                If no null byte ('\0') is contained within the first uDataSize-1
+                characters of the source string, the destination string will be
+                truncated. If the length of the source string is less than uDataSize
+                an additional NUL byte will be copied to the destination string
+                to ensure that the string is NUL-terminated.
+@Input          a     char pointer to the destination string
+@Input          b     const char pointer to the source string
+@Input          c     the maximum number of bytes to be copied
+@Return         Size of the source string
+ */ /**************************************************************************/
+#if defined(__QNXNTO__) || (defined(__linux__) && defined(__KERNEL__) && !defined(DEBUG))
+#define OSStringLCopy(a,b,c) strscpy((a), (b), (c))
+#else /* defined(__QNXNTO__) ... */
+#define OSStringLCopy(a,b,c) StringLCopy((a), (b), (c))
+#endif /* defined(__QNXNTO__) ... */
+
 #ifdef __cplusplus
 }
 #endif
