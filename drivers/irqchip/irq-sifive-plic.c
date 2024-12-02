@@ -763,3 +763,4 @@ static int __init plic_early_probe(struct device_node *node,
 }
 
 IRQCHIP_DECLARE(riscv, "allwinner,sun20i-d1-plic", plic_early_probe);
+IRQCHIP_DECLARE(riscv_plic0, "riscv,plic0", plic_early_probe); /* for legacy systems */
