@@ -1964,7 +1964,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	spacemit_i2c->drv_retries = 3;
 	spacemit_i2c->adapt.dev.of_node = dnode;
 	spacemit_i2c->adapt.algo_data = spacemit_i2c;
-	strlcpy(spacemit_i2c->adapt.name, "spacemit-i2c-adapter",
+	strscpy(spacemit_i2c->adapt.name, "spacemit-i2c-adapter",
 		sizeof(spacemit_i2c->adapt.name));
 
 	if (!spacemit_i2c->dma_disable)
