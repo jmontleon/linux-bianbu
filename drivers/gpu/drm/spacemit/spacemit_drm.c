@@ -187,6 +187,7 @@ static const struct file_operations spacemit_drm_fops = {
 	.poll			= drm_poll,
 	.read			= drm_read,
 	.mmap		= spacemit_gem_mmap,
+	.fop_flags = FOP_UNSIGNED_OFFSET,
 };
 
 const struct vm_operations_struct spacemit_gem_vm_ops = {
