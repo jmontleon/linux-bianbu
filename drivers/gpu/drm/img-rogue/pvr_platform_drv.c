@@ -203,7 +203,7 @@ err_drm_dev_put:
 	return	ret;
 }
 
-static int pvr_remove(struct platform_device *pdev)
+static void pvr_remove(struct platform_device *pdev)
 {
 	struct drm_device *ddev = platform_get_drvdata(pdev);
 
