@@ -1052,8 +1052,15 @@ static int hdmi_rt_pm_suspend(struct device *dev)
 static int hdmi_drv_pm_suspend(struct device *dev)
 {
 	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+	uint32_t value;
 
 	DRM_DEBUG("%s()\n", __func__);
+
+	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
+	value &= (~SPACEMIT_HDMI_HPD_IQR_MASK);
+	value |= SPACEMIT_HDMI_HPD_IQR;
+	hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
+	udelay(5);
 
 	clk_disable_unprepare(hdmi->hdmi_mclk);
 
@@ -1063,10 +1070,16 @@ static int hdmi_drv_pm_suspend(struct device *dev)
 static int hdmi_drv_pm_resume(struct device *dev)
 {
 	struct spacemit_hdmi *hdmi = dev_get_drvdata(dev);
+	uint32_t value;
 
 	DRM_DEBUG("%s()\n", __func__);
 
 	clk_prepare_enable(hdmi->hdmi_mclk);
+	udelay(5);
+
+	value = hdmi_readb(hdmi, SPACEMIT_HDMI_PHY_STATUS);
+	value |= SPACEMIT_HDMI_HPD_IQR_MASK;
+	hdmi_writeb(hdmi, SPACEMIT_HDMI_PHY_STATUS, value);
 
 	return 0;
 }
