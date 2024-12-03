@@ -107,7 +107,7 @@ static int ec_parse_dt(struct platform_device *pdev)
     struct device_node *eth_node;
     const char *mode;
     int master_index;
-    int ret, i;
+    int ret, i, count;
 
     if (!node) {
         EC_ERR("No device tree node found\n");
@@ -132,7 +132,13 @@ static int ec_parse_dt(struct platform_device *pdev)
         return -EINVAL;
     }
 
-    for (i = 0; i < master_count; ++i) {
+    count = of_property_count_elems_of_size(node, "ec-devices", sizeof(phandle));
+    if (count < 0) {
+	    EC_ERR("Failed to get the number of EtherCAT devices\n");
+	    return -EINVAL;
+    }
+
+    for (i = 0; i < count; ++i) {
         /* Parse the phandle for ec_devices[i] */
         if (!(eth_node = of_parse_phandle(node, "ec-devices", i))) {
             EC_ERR("Failed to parse ec_devices[%d]\n", i);
@@ -169,13 +175,13 @@ static int ec_probe(struct platform_device *pdev)
 {
     int ret, i;
 
-    EC_INFO(DRIVER_NAME ": Probing EtherCAT master driver\n");
-
     sema_init(&master_sem, 1);
 
     ret = ec_parse_dt(pdev);
-    if (ret)
-        goto out_return;
+    if (ret) {
+	EC_ERR(DRIVER_NAME ": Failed to parse dts, error %d\n", ret);
+	master_count = 0;
+    }
 
     if (master_count) {
         if (alloc_chrdev_region(&device_number,

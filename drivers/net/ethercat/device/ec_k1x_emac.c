@@ -1606,10 +1606,12 @@ static int emac_probe(struct platform_device *pdev)
 	SET_NETDEV_DEV(ndev, &pdev->dev);
 
 	priv->ecdev = ecdev_offer(priv->ndev, emac_ec_poll, THIS_MODULE);
-	if(!priv->ecdev)
-		dev_err(&pdev->dev, "Failed to offer EtherCAT device\n");
-	else
-		printk("success to offer EtherCAT device\n");
+	if(!priv->ecdev) {
+		dev_err(&pdev->dev, "failed to offer EtherCAT device\n");
+		goto err_mdio_deinit;
+	} else {
+		pr_info("success to offer EtherCAT device\n");
+	}
 
 	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
 
