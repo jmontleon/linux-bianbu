@@ -1905,7 +1905,7 @@
 			compatible = "igh,k1x-ec-master";
 			run-on-cpu = <1>;
 			debug-level = <0>;
-			master-count = <2>;
+			master-count = <1>;
 			ec-devices = <&eth0>,<&eth1>;
 			master-indexes = <0>,<0>;
 			modes = "ec_main","ec_backup";
