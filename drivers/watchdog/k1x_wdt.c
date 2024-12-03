@@ -771,7 +771,7 @@ static int spa_wdt_suspend(struct platform_device *pdev, pm_message_t state)
 		goto exit;
 	}
 
-	if(spa_wdt_read(info, WDT_WMER)|0x1) {
+	if(spa_wdt_read(info, WDT_WMER) & 0x1) {
 		spa_wdt_stop(&info->wdt_dev);
 		info->enable_to_suspend = true;
 	}
