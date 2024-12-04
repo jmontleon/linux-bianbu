@@ -24,6 +24,7 @@
 #include <linux/pm_qos.h>
 #include <linux/delay.h>
 #include <linux/syscore_ops.h>
+#include <linux/fs.h>
 #include <linux/pm_domain.h>
 #include <linux/dma-map-ops.h>
 #include <linux/dma-direction.h>
@@ -192,7 +193,27 @@ static int spacemit_rproc_prepare(struct rproc *rproc)
 
 static int spacemit_rproc_start(struct rproc *rproc)
 {
+	loff_t pos = 0;
+	struct file *dtb;
+	const char *dtb_path = "/lib/firmware/dtb.dtb";
+	struct rproc_mem_entry *rcpu_dtb_mem;
 	struct spacemit_rproc *priv = rproc->priv;
+
+	/* load the dtb file of rcpu */
+	rcpu_dtb_mem = rproc_find_carveout_by_name(rproc, "rcpu_mem_dtb");
+	if (!rcpu_dtb_mem) {
+		pr_info("Failed to find the rcpu_dtb_mem\n");
+		/* do not need to dealing with this situation */
+	} else {
+		dtb = filp_open(dtb_path, O_RDWR, 0644);
+		if (IS_ERR(dtb)) {
+			pr_err("filp open %s failed\n", dtb_path);
+			return -1;
+		}
+
+		kernel_read(dtb, rcpu_dtb_mem->va, dtb->f_inode->i_size, &pos);
+		filp_close(dtb, NULL);
+	}
 
 	/* enable ipc2ap clk & reset--> rcpu side */
 	writel(0xff, priv->base[BOOTC_MEM_BASE_OFFSET] + ESOS_AON_PER_CLK_RST_CTL_REG);
