@@ -32,6 +32,7 @@
 #include <linux/pm_wakeirq.h>
 #include <linux/reset.h>
 #include <linux/clk.h>
+#include <linux/syscore_ops.h>
 #endif
 
 #include "core.h"
@@ -190,6 +191,9 @@ struct pcs_device {
 	struct resource *gedge_flag_res;
 	void __iomem *gedge_flag_base;
 	unsigned gedge_flag_size;
+	struct resource gpio_res;
+	void __iomem *gpio_base;
+	unsigned gpio_size;
 #endif
 	void *saved_vals;
 	unsigned size;
@@ -563,6 +567,25 @@ static int pcs_pinconf_get(struct pinctrl_dev *pctldev,
 	return -ENOTSUPP;
 }
 
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+static int pin_to_gpio_number[] = {
+0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
+72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+82, 83, 84, 85, 0, 0, 0, 101, 100, 99, 98,
+103, 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 104, 105, 106, 107, 108, 109, 110,
+93, 94, 95, 96, 97, 0, 86, 87, 88, 89, 90,
+91, 92, 0, 111, 112, 113, 114, 115, 116, 117,
+118, 119, 120, 121, 122, 123, 124, 125, 126, 127
+};
+#endif
+
 static int pcs_pinconf_set(struct pinctrl_dev *pctldev,
 				unsigned pin, unsigned long *configs,
 				unsigned num_configs)
@@ -572,6 +595,10 @@ static int pcs_pinconf_set(struct pinctrl_dev *pctldev,
 	unsigned offset = 0, shift = 0, i, data, ret;
 	u32 arg;
 	int j;
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	int gpio_number;
+	void __iomem *gpio_base;
+#endif
 
 	ret = pcs_get_function(pctldev, pin, &func);
 	if (ret)
@@ -586,8 +613,72 @@ static int pcs_pinconf_set(struct pinctrl_dev *pctldev,
 			offset = pin * (pcs->width / BITS_PER_BYTE);
 			data = pcs->read(pcs->base + offset);
 			arg = pinconf_to_config_argument(configs[j]);
+
 			switch (func->conf[i].param) {
 			/* 2 parameters */
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+			case PIN_CONFIG_OUTPUT_ENABLE:
+				gpio_number = pin_to_gpio_number[pin - 1];
+				switch (gpio_number) {
+				case 0 ... 31:
+					gpio_base = pcs->gpio_base + 0xc;
+					offset = gpio_number;
+					break;
+				case 32 ... 63:
+					gpio_base = pcs->gpio_base + 0x4 + 0xc;
+					offset = gpio_number - 32;
+					break;
+				case 64 ... 95:
+					gpio_base = pcs->gpio_base + 0x8 + 0xc;
+					offset = gpio_number - 64;
+					break;
+				case 96 ... 127:
+					gpio_base = pcs->gpio_base + 0x100 + 0xc;
+					offset = gpio_number - 96;
+					break;
+				default:
+					pr_err("Bad pin number\n");
+					break;
+				}
+
+				data = pcs->read(gpio_base);
+				data |= (arg << offset);
+				pcs->write(data, gpio_base);
+
+				break;
+			case PIN_CONFIG_OUTPUT:
+				gpio_number = pin_to_gpio_number[pin - 1];
+				switch (gpio_number) {
+				case 0 ... 31:
+					gpio_base = pcs->gpio_base + ((arg == 1) ? 0x18 : 0x24);
+					offset = gpio_number;
+					break;
+				case 32 ... 63:
+					gpio_base = pcs->gpio_base + 0x4 + ((arg == 1) ? 0x18 : 0x24);
+					offset = gpio_number - 32;
+					break;
+				case 64 ... 95:
+					gpio_base = pcs->gpio_base + 0x8 + ((arg == 1) ? 0x18 : 0x24);
+					offset = gpio_number - 64;
+					break;
+				case 96 ... 127:
+					gpio_base = pcs->gpio_base + 0x100 + ((arg == 1) ? 0x18 : 0x24);
+					offset = gpio_number - 96;
+					break;
+				default:
+					pr_err("Bad pin number\n");
+					break;
+				}
+
+				/* if we want to set output low, we should set the arg to 1 */
+				if (arg == 0)
+					arg = 1;
+
+				data = 0;
+				data |= (arg << offset);
+				pcs->write(data, gpio_base);
+				break;
+#endif
 			case PIN_CONFIG_INPUT_SCHMITT:
 			case PIN_CONFIG_DRIVE_STRENGTH:
 			case PIN_CONFIG_SLEW_RATE:
@@ -596,10 +687,12 @@ static int pcs_pinconf_set(struct pinctrl_dev *pctldev,
 				shift = ffs(func->conf[i].mask) - 1;
 				data &= ~func->conf[i].mask;
 				data |= (arg << shift) & func->conf[i].mask;
+				pcs->write(data, pcs->base + offset);
 				break;
 			/* 4 parameters */
 			case PIN_CONFIG_BIAS_DISABLE:
 				pcs_pinconf_clear_bias(pctldev, pin);
+				pcs->write(data, pcs->base + offset);
 				break;
 			case PIN_CONFIG_BIAS_PULL_DOWN:
 			case PIN_CONFIG_BIAS_PULL_UP:
@@ -613,10 +706,10 @@ static int pcs_pinconf_set(struct pinctrl_dev *pctldev,
 				else
 					data |= func->conf[i].disable;
 				break;
+				pcs->write(data, pcs->base + offset);
 			default:
 				return -ENOTSUPP;
 			}
-			pcs->write(data, pcs->base + offset);
 
 			break;
 		}
@@ -941,6 +1034,10 @@ static int pcs_parse_pinconf(struct pcs_device *pcs, struct device_node *np,
 		{ "pinctrl-single,slew-rate", PIN_CONFIG_SLEW_RATE, },
 		{ "pinctrl-single,input-enable", PIN_CONFIG_INPUT_ENABLE, },
 		{ "pinctrl-single,input-schmitt", PIN_CONFIG_INPUT_SCHMITT, },
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+		{ "pinctrl-single,output-enable", PIN_CONFIG_OUTPUT_ENABLE, },
+		{ "pinctrl-single,output", PIN_CONFIG_OUTPUT, },
+#endif
 		{ "pinctrl-single,low-power-mode", PIN_CONFIG_MODE_LOW_POWER, },
 	};
 	static const struct pcs_conf_type prop4[] = {
@@ -1723,6 +1820,7 @@ static int pcs_irq_init_chained_handler(struct pcs_device *pcs,
 }
 
 #ifdef CONFIG_PM
+#ifndef CONFIG_SOC_SPACEMIT_K1X
 static int pcs_save_context(struct pcs_device *pcs)
 {
 	int i, mux_bytes;
@@ -1820,6 +1918,31 @@ static int pinctrl_single_resume(struct platform_device *pdev)
 
 	return pinctrl_force_default(pcs->pctl);
 }
+
+#else
+
+#ifdef CONFIG_PM_SLEEP
+static struct pcs_device *pinctrl_pcs;
+
+static int pinctrl_syscore_suspend(void)
+{
+	pinctrl_force_sleep(pinctrl_pcs->pctl);
+
+	return 0;
+}
+
+static void pinctrl_syscore_resume(void)
+{
+	pinctrl_force_default(pinctrl_pcs->pctl);
+}
+
+static struct syscore_ops pinctrl_syscore_ops = {
+	.suspend = pinctrl_syscore_suspend,
+	.resume = pinctrl_syscore_resume,
+};
+#endif
+
+#endif
 #endif
 
 /**
@@ -2009,6 +2132,18 @@ static int pcs_probe(struct platform_device *pdev)
 		dev_err(pcs->dev, "could not ioremap\n");
 		return -ENODEV;
 	}
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+	if (!res) {
+		dev_err(pcs->dev, "could not get resource\n");
+		return -ENODEV;
+	}
+
+	pcs->gpio_base = ioremap(res->start, resource_size(res));
+	if (!pcs->gpio_base) {
+		dev_err(pcs->dev, "could not ioremap\n");
+		return -ENODEV;
+	}
 #endif
 
 	platform_set_drvdata(pdev, pcs);
@@ -2087,6 +2222,11 @@ static int pcs_probe(struct platform_device *pdev)
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	dev_pm_set_wake_irq(&pdev->dev, pcs->socdata.irq);
 	device_init_wakeup(&pdev->dev, true);
+
+#ifdef CONFIG_PM_SLEEP
+	pinctrl_pcs = pcs;
+	register_syscore_ops(&pinctrl_syscore_ops);
+#endif
 #endif
 
 	ret = pinctrl_enable(pcs->pctl);
@@ -2143,7 +2283,7 @@ static const struct pcs_soc_data pinctrl_single_am654 = {
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 static const struct pcs_soc_data pinconf_single_aib = {
-	.flags = PCS_QUIRK_SHARED_IRQ,
+	.flags = PCS_QUIRK_SHARED_IRQ | PCS_FEAT_PINCONF,
 	.irq_enable_mask = (1 << EDGE_CLEAR),	/* WAKEUPENABLE */
 	.irq_status_mask = (1 << EDGE_CLEAR),       /* WAKEUPENABLE */
 };
@@ -2179,9 +2319,11 @@ static struct platform_driver pcs_driver = {
 		.name		= DRIVER_NAME,
 		.of_match_table	= pcs_of_match,
 	},
+#ifndef CONFIG_SOC_SPACEMIT_K1X
 #ifdef CONFIG_PM
 	.suspend = pinctrl_single_suspend,
 	.resume = pinctrl_single_resume,
+#endif
 #endif
 };
 
