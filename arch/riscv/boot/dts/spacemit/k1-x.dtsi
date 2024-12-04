@@ -465,6 +465,12 @@
 			reg = <0x0 0x30300000 0x0 0x40000>;
 			no-map;
 		};
+
+		/* the dtb file of rcpu */
+		rcpu_mem_dtb: rcpu_mem_dtb@30300000 {
+			reg = <0x0 0x30340000 0x0 0x40000>;
+			no-map;
+		};
 	};
 
 	soc: soc {
