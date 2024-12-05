@@ -242,6 +242,7 @@ static IMG_BOOL VBAppend(IMG_CHAR *pszBuf, IMG_UINT32 ui32BufSiz, const IMG_CHAR
 	return i32Len < 0 || i32Len >= (IMG_INT32)ui32Space;
 }
 
+__printf(1, 0)
 void PVRSRVReleasePrintfVArgs(const IMG_CHAR *pszFormat, va_list vaArgs)
 {
 	unsigned long ulLockFlags = 0;

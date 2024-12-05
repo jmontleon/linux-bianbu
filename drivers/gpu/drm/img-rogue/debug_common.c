@@ -80,6 +80,7 @@ struct DI_VZ_DATA {
 };
 #endif
 
+__printf(2, 3)
 static void _DumpDebugDIPrintfWrapper(void *pvDumpDebugFile, const IMG_CHAR *pszFormat, ...)
 {
 	IMG_CHAR szBuffer[PVR_MAX_DEBUG_MESSAGE_LEN];
