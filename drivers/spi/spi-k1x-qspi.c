@@ -530,11 +530,11 @@ static void qspi_write_rbct(struct k1x_qspi *qspi, uint32_t val)
 		qspi_writel(qspi, val, qspi->io_map + QSPI_RBCT);
 }
 
-void qspi_init_ahbread(struct k1x_qspi *qspi, int seq_id)
+static void qspi_init_ahbread(struct k1x_qspi *qspi, int seq_id)
 {
 	u32 buf_cfg = 0;
 
-	/* Disable BUF0~BUF1, use BUF3 for all masters */
+	/* Disable BUF0~BUF1, use BUF3 for all controllers */
 	qspi_writel(qspi, 0, qspi->io_map + QSPI_BUF0IND);
 	qspi_writel(qspi, 0, qspi->io_map + QSPI_BUF1IND);
 	qspi_writel(qspi, 0, qspi->io_map + QSPI_BUF2IND);
@@ -546,14 +546,14 @@ void qspi_init_ahbread(struct k1x_qspi *qspi, int seq_id)
 	qspi_writel(qspi, 0xe, qspi->io_map + QSPI_BUF0CR);
 	qspi_writel(qspi, 0xe, qspi->io_map + QSPI_BUF1CR);
 	qspi_writel(qspi, 0xe, qspi->io_map + QSPI_BUF2CR);
-	qspi_writel(qspi, buf_cfg, qspi->io_map + QSPI_BUF3CR); // other masters
+	qspi_writel(qspi, buf_cfg, qspi->io_map + QSPI_BUF3CR);
 
 	/* set AHB read sequence id */
 	qspi_writel(qspi, QSPI_BFGENCR_SEQID(seq_id), qspi->io_map + QSPI_BFGENCR);
 	dev_info(qspi->dev, "AHB buf size: %d\n", qspi->ahb_buf_size);
 }
 
-void qspi_dump_reg(struct k1x_qspi *qspi)
+__maybe_unused static void qspi_dump_reg(struct k1x_qspi *qspi)
 {
 	u32 reg = 0;
 	void __iomem *base = qspi->io_map;
@@ -737,7 +737,7 @@ static void k1x_qspi_dma_callback(void *arg)
 	complete(dma_completion);
 }
 
-int k1x_qspi_tx_dma_exec(struct k1x_qspi *qspi,
+static int k1x_qspi_tx_dma_exec(struct k1x_qspi *qspi,
 			const struct spi_mem_op *op)
 {
 	struct dma_async_tx_descriptor *desc;
@@ -779,7 +779,7 @@ out:
 	return err;
 }
 
-int k1x_qspi_rx_dma_exec(struct k1x_qspi *qspi, dma_addr_t dma_dst,
+static int k1x_qspi_rx_dma_exec(struct k1x_qspi *qspi, dma_addr_t dma_dst,
 			dma_addr_t dma_src, size_t len)
 {
 	dma_cookie_t cookie;
@@ -1153,10 +1153,9 @@ static int k1x_qspi_check_buswidth(struct k1x_qspi *qspi, u8 width)
 	return -ENOTSUPP;
 }
 
-static bool k1x_qspi_supports_op(struct spi_mem *mem,
-				 const struct spi_mem_op *op)
+static bool k1x_qspi_supports_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
-	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->master);
+	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->controller);
 	int ret;
 
 	mutex_lock(&qspi->lock);
@@ -1219,13 +1218,13 @@ static bool k1x_qspi_supports_op(struct spi_mem *mem,
 static const char *k1x_qspi_get_name(struct spi_mem *mem)
 {
 
-	struct k1x_qspi *qspi = spi_master_get_devdata(mem->spi->master);
+	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->controller);
 	struct device *dev = qspi->dev;
 	const char *name;
 
 	name = devm_kasprintf(dev, GFP_KERNEL,
 			      "%s-%d", dev_name(dev),
-			      mem->spi->chip_select);
+			      spi_get_chipselect(mem->spi, 0));
 
 	if (!name) {
 		dev_err(dev, "failed to get memory for custom flash name\n");
@@ -1237,7 +1236,7 @@ static const char *k1x_qspi_get_name(struct spi_mem *mem)
 
 static int k1x_qspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
-	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->master);
+	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->controller);
 	int err = 0;
 	u32 mask;
 	u32 reg;
@@ -1314,7 +1313,7 @@ static int k1x_qspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 
 static int k1x_qspi_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 {
-	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->master);
+	struct k1x_qspi *qspi = spi_controller_get_devdata(mem->spi->controller);
 
 	mutex_lock(&qspi->lock);
 	if (op->data.dir == SPI_MEM_DATA_OUT) {
@@ -1419,7 +1418,7 @@ static int k1x_qspi_probe(struct platform_device *pdev)
 	u32 qspi_bus_num = 0;
 	int host_irq = 0;
 
-	ctlr = spi_alloc_master(&pdev->dev, sizeof(struct k1x_qspi));
+	ctlr = spi_alloc_host(&pdev->dev, sizeof(struct k1x_qspi));
 	if (!ctlr)
 		return -ENOMEM;
 
