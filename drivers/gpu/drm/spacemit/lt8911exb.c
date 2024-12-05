@@ -206,7 +206,7 @@ static struct lt8911exb *panel_to_lt8911exb(struct drm_panel *panel)
 	return container_of(panel, struct lt8911exb, base);
 }
 
-void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
+static void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
 {
 	__maybe_unused unsigned int tmp;
 
@@ -281,7 +281,7 @@ void lt8911exb_mipi_video_timing(struct lt8911exb *lt8911exb)
 #endif
 }
 
-void lt8911exb_edp_video_cfg(struct lt8911exb *lt8911exb)
+static void lt8911exb_edp_video_cfg(struct lt8911exb *lt8911exb)
 {
 	__maybe_unused unsigned int tmp;
 
@@ -359,7 +359,7 @@ void lt8911exb_edp_video_cfg(struct lt8911exb *lt8911exb)
 #endif
 }
 
-void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
+static void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 {
 #ifdef _read_edid_
 	u8 i, j;
@@ -384,15 +384,11 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 	regmap_read(lt8911exb->regmap, 0x25, &reg);
 	DRM_INFO("lt8911exb_read_edid 0x25 0x%x\n", reg);
 
-	if( ( reg & 0x0f ) == 0x0c )
-	{
-		for( j = 0; j < 8; j++ )
-		{
-			if( j == 7 )
-			{
+	if ((reg & 0x0f) == 0x0c) {
+		for (j=0; j<8; j++) {
+			if (j == 7) {
 				regmap_write(lt8911exb->regmap, 0x2b, 0x10 ); //MOT
-			}else
-			{
+			} else {
 				regmap_write(lt8911exb->regmap, 0x2b, 0x50 );
 			}
 
@@ -404,33 +400,20 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 
 			regmap_read(lt8911exb->regmap, 0x39, &reg);
 			DRM_INFO("lt8911exb_read_edid 0x39 0x%x\n", reg);
-			if (reg == 0x31)
-			{
+			if (reg == 0x31) {
 				regmap_read(lt8911exb->regmap, 0x2b, &reg);
 				DRM_INFO("lt8911exb_read_edid 0x2b 0x%x\n", reg);
-				for( i = 0; i < 16; i++ )
-				{
+				for (i=0; i<16; i++) {
 					regmap_read(lt8911exb->regmap, 0x2b, &reg);
 					EDID_DATA[j * 16 + i] = reg;
 				}
 
 				EDID_Reply = 1;
-			}else
-			{
+			} else {
 				EDID_Reply = 0;
 				return;
 			}
 		}
-
-		// for( i = 0; i < 128; i++ ) //print edid data
-		// {
-		// 	if( ( i % 16 ) == 0 )
-		// 	{
-		// 		DRM_INFO( "\n" );
-		// 	}
-		// 	DRM_INFO( "%x", EDID_DATA[i] );
-		// }
-
 
 		EDID_Timing[hfp] = (EDID_DATA[0x41] & 0xC0) * 4 + EDID_DATA[0x3e];
 		EDID_Timing[hs] = (EDID_DATA[0x41] & 0x30) * 16 + EDID_DATA[0x3f];
@@ -454,7 +437,7 @@ void lt8911exb_read_edid(struct lt8911exb *lt8911exb)
 #endif
 }
 
-void lt8911exb_setup(struct lt8911exb *lt8911exb)
+static void lt8911exb_setup(struct lt8911exb *lt8911exb)
 {
 	u8	i;
 	u8	pcr_pll_postdiv;
@@ -482,14 +465,11 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x49, 0x7f);
 
 	regmap_write(lt8911exb->regmap, 0xff, 0x82);
+
 #if (eDP_lane == 2)
-	{
-		regmap_write(lt8911exb->regmap, 0x12, 0x33);
-	}
+	regmap_write(lt8911exb->regmap, 0x12, 0x33);
 #elif (eDP_lane == 1)
-	{
-		regmap_write(lt8911exb->regmap, 0x12, 0x11);
-	}
+	regmap_write(lt8911exb->regmap, 0x12, 0x11);
 #endif
 
 	/* mipi Rx analog */
@@ -743,7 +723,7 @@ void lt8911exb_setup(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x01, (u8)(Nvid_Val[_Nvid] % 256));	// 0x00
 }
 
-void lt8911exb_video_check(struct lt8911exb *lt8911exb)
+static void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 {
 	unsigned int reg;
 	unsigned int temp2;
@@ -835,16 +815,12 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 
 }
 
-void DpcdWrite(struct lt8911exb *lt8911exb, u32 Address, u8 Data)
+static void DpcdWrite(struct lt8911exb *lt8911exb, u32 Address, u8 Data)
 {
-	/***************************
-	   注意大小端的问题!
-	   这里默认是大端模式
-
-	   Pay attention to the Big-Endian and Little-Endian!
-	   The default mode is Big-Endian here.
-
-	 ****************************/
+	/*
+	 * Pay attention to the Big-Endian and Little-Endian!
+	 * The default mode is Big-Endian here.
+	 */
 	u8	AddressH = 0x0f & (Address >> 16);
 	u8	AddressM = 0xff & (Address >> 8);
 	u8	AddressL = 0xff & Address;
@@ -866,17 +842,12 @@ void DpcdWrite(struct lt8911exb *lt8911exb, u32 Address, u8 Data)
 	}
 }
 
-unsigned int DpcdRead( struct lt8911exb *lt8911exb, u32 Address )
+static unsigned int DpcdRead( struct lt8911exb *lt8911exb, u32 Address )
 {
-	/***************************
-	   注意大小端的问题!
-	   这里默认是大端模式
-
-	   Pay attention to the Big-Endian and Little-Endian!
-	   The default mode is Big-Endian here.
-
-	 ****************************/
-
+	/*
+	 * Pay attention to the Big-Endian and Little-Endian!
+	 * The default mode is Big-Endian here.
+	 */
 	unsigned int DpcdValue = 0x00;
 	unsigned int AddressH = 0x0f & (Address >> 16);
 	unsigned int AddressM = 0xff & (Address >> 8);
@@ -919,7 +890,7 @@ unsigned int DpcdRead( struct lt8911exb *lt8911exb, u32 Address )
 
 
 
-void lt8911exb_link_train(struct lt8911exb *lt8911exb)
+static void lt8911exb_link_train(struct lt8911exb *lt8911exb)
 {
 	regmap_write(lt8911exb->regmap, 0xff, 0x81);
 	regmap_write(lt8911exb->regmap, 0x06, 0xdf); // rset VID TX
@@ -983,7 +954,7 @@ void lt8911exb_link_train(struct lt8911exb *lt8911exb)
 #endif
 }
 
-void lt8911exb_reset(struct lt8911exb *lt8911exb)
+static void lt8911exb_reset(struct lt8911exb *lt8911exb)
 {
 	if (!lt8911exb->reset_gpio) {
 		DRM_DEBUG_ATOMIC("no gpio, no reset\n");
@@ -998,7 +969,7 @@ void lt8911exb_reset(struct lt8911exb *lt8911exb)
 	usleep_range(5*1000, 10*1000); //10ms
 }
 
-void LT8911EX_TxSwingPreSet(struct lt8911exb *lt8911exb)
+static void LT8911EX_TxSwingPreSet(struct lt8911exb *lt8911exb)
 {
 	regmap_write(lt8911exb->regmap, 0xFF, 0x82);
 	regmap_write(lt8911exb->regmap, 0x22, Swing_Setting1[Level]);	//lane 0 tap0
@@ -1014,7 +985,7 @@ void LT8911EX_TxSwingPreSet(struct lt8911exb *lt8911exb)
 #endif
 }
 
-void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
+static void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 {
 #ifdef _link_train_enable_
 	u8	i;
@@ -1064,7 +1035,7 @@ void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 }
 
 
-void LT8911EX_link_train_result(struct lt8911exb *lt8911exb)
+static void LT8911EX_link_train_result(struct lt8911exb *lt8911exb)
 {
 	u8 i;
 	unsigned int reg;
@@ -1092,7 +1063,7 @@ void LT8911EX_link_train_result(struct lt8911exb *lt8911exb)
 	}
 }
 
-void PCR_Status(struct lt8911exb *lt8911exb)	// for debug
+static void PCR_Status(struct lt8911exb *lt8911exb)
 {
 #ifdef _uart_debug_
 	unsigned int reg;
