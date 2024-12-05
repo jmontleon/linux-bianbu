@@ -118,8 +118,8 @@ static void _WriteData(void *pvNativeHandle, const void *pvData,
 	seq_write(pvNativeHandle, pvData, uiSize);
 }
 
-static void _VPrintf(void *pvNativeHandle, const IMG_CHAR *pszFmt,
-                     va_list pArgs)
+__printf(2, 0)
+static void _VPrintf(void *pvNativeHandle, const IMG_CHAR *pszFmt, va_list pArgs)
 {
 	seq_vprintf(pvNativeHandle, pszFmt, pArgs);
 }
