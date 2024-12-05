@@ -18,27 +18,12 @@
 #include "crypto/skcipher.h"
 #include "spacemit_engine.h"
 
-int aes_expandkey_nouse(struct crypto_aes_ctx *key, u8 const in[], int size){return 0;}
-#define aes_expandkey		aes_expandkey_nouse
 #define PRIO			500
 #define MODE			"spacemit-ce1"
 char __aligned(8) align[16] = {0};
 
-extern int spacemit_aes_ecb_encrypt(int index, const unsigned char *pt,unsigned char *ct, u8 *key, unsigned int len, unsigned int blocks);
-extern int spacemit_aes_ecb_decrypt(int index, const unsigned char *ct,unsigned char *pt, u8 *key, unsigned int len, unsigned int blocks);
-extern int spacemit_aes_cbc_encrypt(int index, const unsigned char *pt,unsigned char *ct, u8 *key, unsigned int len, u8 *IV,unsigned int blocks);
-extern int spacemit_aes_cbc_decrypt(int index, const unsigned char *ct,unsigned char *pt, u8 *key, unsigned int len, u8 *IV,unsigned int blocks);
-extern int spacemit_aes_xts_encrypt(int index, const unsigned char *pt, unsigned char *ct,
-			u8 *key1, u8 *key2, unsigned int len, u8 *IV,
-			unsigned int blocks);
-extern int spacemit_aes_xts_decrypt(int index, const unsigned char *ct, unsigned char *pt,
-			u8 *key1, u8 *key2, unsigned int len, u8 *iv,
-			unsigned int blocks);
-extern int spacemit_crypto_aes_set_key(int index, struct crypto_tfm *tfm, const u8 *key,unsigned int keylen);
-extern void spacemit_aes_getaddr(unsigned char **in, unsigned char **out);
-extern void spacemit_aes_reladdr(void);
 
-int aes_setkey(struct crypto_skcipher *tfm, const u8 *key,unsigned int keylen)
+static int aes_setkey(struct crypto_skcipher *tfm, const u8 *key,unsigned int keylen)
 {
 	return spacemit_crypto_aes_set_key(0, &tfm->base, key, keylen);
 }
