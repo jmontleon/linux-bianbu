@@ -14,6 +14,11 @@ EXTRA_CFLAGS += -Wno-unused-label
 #EXTRA_CFLAGS += -Wno-unused-function
 EXTRA_CFLAGS += -Wno-unused
 #EXTRA_CFLAGS += -Wno-uninitialized
+EXTRA_CFLAGS += -Wno-restrict
+EXTRA_CFLAGS += -Wno-empty-body
+EXTRA_CFLAGS += -Wno-missing-prototypes
+EXTRA_CFLAGS += -Wno-missing-declarations
+EXTRA_CFLAGS += -Wno-old-style-declaration
 
 ############ ANDROID COMMON KERNEL ############
 # clang
