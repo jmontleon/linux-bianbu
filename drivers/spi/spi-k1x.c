@@ -27,6 +27,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/acpi.h>
 
+#include "internals.h"
 #include "spi-k1x.h"
 
 #define TIMOUT_DFLT		3000
@@ -46,47 +47,6 @@ static u32 k1x_configure_topctrl(const struct spi_driver_data *drv_data, u8 bits
 	 * set DSS
 	 */
 	return TOP_FRF_Motorola | TOP_DSS(bits);
-}
-
-static void set_dvfm_constraint(struct spi_driver_data *drv_data)
-{
-#if 0
-	if (drv_data->qos_idle_value != PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE)
-		freq_qos_update_request(&drv_data->qos_idle,
-				drv_data->qos_idle_value);
-#endif
-}
-
-static void unset_dvfm_constraint(struct spi_driver_data *drv_data)
-{
-#if 0
-	if (drv_data->qos_idle_value != PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE)
-		freq_qos_update_request(&drv_data->qos_idle,
-					PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
-#endif
-}
-
-static void init_dvfm_constraint(struct spi_driver_data *drv_data)
-{
-#if 0
-#ifdef CONFIG_PM
-	struct freq_constraints *idle_qos;
-
-	idle_qos = cpuidle_get_constraints();
-
-	freq_qos_add_request(idle_qos, &drv_data->qos_idle, FREQ_QOS_MAX,
-			     PM_QOS_CPUIDLE_BLOCK_DEFAULT_VALUE);
-#endif
-#endif
-}
-
-static void deinit_dvfm_constraint(struct spi_driver_data *drv_data)
-{
-#if 0
-#ifdef CONFIG_PM
-	freq_qos_remove_request(&drv_data->qos_idle);
-#endif
-#endif
 }
 
 static void cs_assert(struct spi_driver_data *drv_data)
@@ -280,7 +240,7 @@ static void giveback(struct spi_driver_data *drv_data)
 		 */
 
 		/* get a pointer to the next message, if any */
-		next_msg = spi_get_next_queued_message(drv_data->master);
+		next_msg = spi_get_next_queued_message(drv_data->controller);
 
 		/* see if the next and current messages point
 		 * to the same chip
@@ -292,8 +252,7 @@ static void giveback(struct spi_driver_data *drv_data)
 	}
 
 	drv_data->cur_chip = NULL;
-	spi_finalize_current_message(drv_data->master);
-	unset_dvfm_constraint(drv_data);
+	spi_finalize_current_message(drv_data->controller);
 
 	if (drv_data->slave_mode)
 		del_timer(&drv_data->slave_rx_timer);
@@ -525,19 +484,7 @@ static void pump_transfers(struct work_struct *work)
 	}
 
 	/* Check if we can DMA this transfer */
-	if (!k1x_spi_dma_is_possible(transfer->len) && chip->enable_dma) {
-		/* reject already-mapped transfers; PIO won't always work */
-		if (message->is_dma_mapped
-				|| transfer->rx_dma || transfer->tx_dma) {
-			dev_err(&drv_data->pdev->dev,
-				"pump_transfers: mapped transfer length of "
-				"%u is greater than %d\n",
-				transfer->len, MAX_DMA_LEN);
-			message->status = -EINVAL;
-			giveback(drv_data);
-			return;
-		}
-
+	if (!k1x_spi_dma_is_possible(transfer->len) && drv_data->controller_info->enable_dma) {
 		/* warn ... we force this to PIO mode */
 		dev_warn_ratelimited(&message->spi->dev,
 				     "pump_transfers: DMA disabled for transfer length %ld "
@@ -600,7 +547,7 @@ static void pump_transfers(struct work_struct *work)
 
 	top_ctrl = k1x_configure_topctrl(drv_data, bits);
 		dev_dbg(&message->spi->dev, "%u Hz, %s\n",
-			drv_data->master->max_speed_hz,
+			drv_data->controller->max_speed_hz,
 			chip->enable_dma ? "DMA" : "PIO");
 	top_ctrl |= chip->top_ctrl;
 	fifo_ctrl = chip->fifo_ctrl;
@@ -678,7 +625,6 @@ static void pump_transfers(struct work_struct *work)
 	 * k1x_spi_write(drv_data, SSCR1, cr1);
 	 */
 
-	set_dvfm_constraint(drv_data);	/*disable system to idle while DMA */
 	if (drv_data->slave_mode)
 		top_ctrl |= TOP_SSE | TOP_SCLKDIR | TOP_SFRMDIR;
 	else
@@ -703,10 +649,10 @@ static void pump_transfers(struct work_struct *work)
 	k1x_spi_write(drv_data, TOP_CTRL, top_ctrl);
 }
 
-static int k1x_spi_transfer_one_message(struct spi_master *master,
+static int k1x_spi_transfer_one_message(struct spi_controller *host,
 					   struct spi_message *msg)
 {
-	struct spi_driver_data *drv_data = spi_master_get_devdata(master);
+	struct spi_driver_data *drv_data = spi_controller_get_devdata(host);
 
 	drv_data->cur_msg = msg;
 	/* Initial message state*/
@@ -721,9 +667,9 @@ static int k1x_spi_transfer_one_message(struct spi_master *master,
 	 */
 	drv_data->cur_chip = spi_get_ctldata(drv_data->cur_msg->spi);
 
-	if (master->max_speed_hz != drv_data->cur_transfer->speed_hz) {
-		master->max_speed_hz = drv_data->cur_transfer->speed_hz;
-		clk_set_rate(drv_data->clk, master->max_speed_hz);
+	if (host->max_speed_hz != drv_data->cur_transfer->speed_hz) {
+		host->max_speed_hz = drv_data->cur_transfer->speed_hz;
+		clk_set_rate(drv_data->clk, host->max_speed_hz);
 	}
 
 	reinit_completion(&drv_data->cur_msg_completion);
@@ -734,9 +680,9 @@ static int k1x_spi_transfer_one_message(struct spi_master *master,
 	return 0;
 }
 
-static int k1x_spi_unprepare_transfer(struct spi_master *master)
+static int k1x_spi_unprepare_transfer(struct spi_controller *host)
 {
-	struct spi_driver_data *drv_data = spi_master_get_devdata(master);
+	struct spi_driver_data *drv_data = spi_controller_get_devdata(host);
 
 	/* Disable the SSP now */
 	k1x_spi_write(drv_data, TOP_CTRL,
@@ -757,7 +703,7 @@ static int setup_cs(struct spi_device *spi, struct chip_data *chip)
 static int setup(struct spi_device *spi)
 {
 	struct chip_data *chip;
-	struct spi_driver_data *drv_data = spi_master_get_devdata(spi->master);
+	struct spi_driver_data *drv_data = spi_controller_get_devdata(spi->controller);
 	uint tx_thres, tx_hi_thres, rx_thres;
 
 	tx_thres = TX_THRESH_DFLT;
@@ -767,7 +713,7 @@ static int setup(struct spi_device *spi)
 	/* Only alloc on first setup */
 	chip = spi_get_ctldata(spi);
 	if (!chip) {
-		chip = devm_kzalloc(&spi->master->dev, sizeof(struct chip_data),
+		chip = devm_kzalloc(&spi->controller->dev, sizeof(struct chip_data),
 				GFP_KERNEL);
 		if (!chip)
 			return -ENOMEM;
@@ -781,7 +727,7 @@ static int setup(struct spi_device *spi)
 	chip->top_ctrl = 0;
 	chip->fifo_ctrl = 0;
 
-	chip->enable_dma = drv_data->master_info->enable_dma;
+	chip->enable_dma = drv_data->controller_info->enable_dma;
 	if (drv_data->slave_mode)
 		chip->dma_burst_size = 32;
 
@@ -823,9 +769,9 @@ static int setup(struct spi_device *spi)
 		chip->write = u32_writer;
 	}
 
-	if (spi->master->max_speed_hz != spi->max_speed_hz) {
-		spi->master->max_speed_hz = spi->max_speed_hz;
-		clk_set_rate(drv_data->clk, spi->master->max_speed_hz);
+	if (spi->controller->max_speed_hz != spi->max_speed_hz) {
+		spi->controller->max_speed_hz = spi->max_speed_hz;
+		clk_set_rate(drv_data->clk, spi->controller->max_speed_hz);
 	}
 
 	spi_set_ctldata(spi, chip);
@@ -855,61 +801,57 @@ MODULE_DEVICE_TABLE(of, k1x_spi_dt_ids);
 static int k1x_spi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct k1x_spi_master *platform_info;
-	struct spi_master *master = NULL;
+	struct k1x_spi_controller *controller_info;
+	struct spi_controller *host = NULL;
 	struct spi_driver_data *drv_data = NULL;
 	struct device_node *np = dev->of_node;
 	const struct of_device_id *id =
 		of_match_device(of_match_ptr(k1x_spi_dt_ids), dev);
 	struct resource *iores;
 	u32 bus_num;
-#if 0
-	const __be32 *prop;
-	unsigned int proplen;
-#endif
-    int status;
+	int status;
 	u32 tmp;
 
-	platform_info = dev_get_platdata(dev);
-	if (!platform_info) {
-		platform_info = devm_kzalloc(dev, sizeof(*platform_info),
+	controller_info = dev_get_platdata(dev);
+	if (!controller_info) {
+		controller_info = devm_kzalloc(dev, sizeof(*controller_info),
 				GFP_KERNEL);
-		if (!platform_info)
+		if (!controller_info)
 			return -ENOMEM;
-		platform_info->num_chipselect = 1;
+		controller_info->num_chipselect = 1;
 		/* TODO: NO DMA on FPGA yet */
 		if (of_get_property(np, "k1x,ssp-disable-dma", NULL))
-			platform_info->enable_dma = 0;
+			controller_info->enable_dma = 0;
 		else
-			platform_info->enable_dma = 1;
+			controller_info->enable_dma = 1;
 	}
 
-	master = spi_alloc_master(dev, sizeof(struct spi_driver_data));
-	if (!master) {
-		dev_err(&pdev->dev, "cannot alloc spi_master\n");
+	host = spi_alloc_host(dev, sizeof(struct spi_driver_data));
+	if (!host) {
+		dev_err(&pdev->dev, "cannot alloc spi_controller\n");
 		return -ENOMEM;
 	}
-	drv_data = spi_master_get_devdata(master);
+	drv_data = spi_controller_get_devdata(host);
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (iores == NULL) {
 		dev_err(dev, "no memory resource defined\n");
 		status = -ENODEV;
-		goto out_error_master_alloc;
+		goto out_error_controller_alloc;
 	}
 
 	drv_data->ioaddr = devm_ioremap_resource(dev, iores);
 	if (drv_data->ioaddr == NULL) {
 		dev_err(dev, "failed to ioremap() registers\n");
 		status = -ENODEV;
-		goto out_error_master_alloc;
+		goto out_error_controller_alloc;
 	}
 
 	drv_data->irq = platform_get_irq(pdev, 0);
 	if (drv_data->irq < 0) {
 		dev_err(dev, "no IRQ resource defined\n");
 		status = -ENODEV;
-		goto out_error_master_alloc;
+		goto out_error_controller_alloc;
 	}
 
 	/* Receive FIFO auto full ctrl enable */
@@ -923,22 +865,10 @@ static int k1x_spi_probe(struct platform_device *pdev)
 				slave_rx_timer_expired, 0);
 	}
 
-#if 0
-	prop = of_get_property(dev->of_node, "k1x,ssp-lpm-qos", &proplen);
-	if (!prop) {
-		dev_err(&pdev->dev, "lpm-qos for spi is not defined!\n");
-		status = -EINVAL;
-		goto out_error_master_alloc;
-	} else
-		drv_data->qos_idle_value = be32_to_cpup(prop);
-#endif
-
-	init_dvfm_constraint(drv_data);
-
-	master->dev.of_node = dev->of_node;
+	host->dev.of_node = dev->of_node;
 	drv_data->ssp_type = (uintptr_t) id->data;
 	if (!of_property_read_u32(np, "k1x,ssp-id", &bus_num))
-		master->bus_num = bus_num;
+		host->bus_num = bus_num;
 	drv_data->ssdr_physical = iores->start + DATAR;
 
 	drv_data->clk = devm_clk_get(dev, NULL);
@@ -955,23 +885,23 @@ static int k1x_spi_probe(struct platform_device *pdev)
 		goto out_error_clk_check;
 	}
 
-	drv_data->master = master;
-	drv_data->master_info = platform_info;
+	drv_data->controller = host;
+	drv_data->controller_info = controller_info;
 	drv_data->pdev = pdev;
 
-	master->dev.parent = &pdev->dev;
+	host->dev.parent = &pdev->dev;
 	/* the spi->mode bits understood by this driver: */
-	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH | SPI_LOOP;
+	host->mode_bits = SPI_CPOL | SPI_CPHA | SPI_CS_HIGH | SPI_LOOP;
 
-	master->dma_alignment = DMA_ALIGNMENT;
-	master->cleanup = cleanup;
-	master->setup = setup;
-	master->transfer_one_message = k1x_spi_transfer_one_message;
-	master->unprepare_transfer_hardware = k1x_spi_unprepare_transfer;
-	master->auto_runtime_pm = true;
+	host->dma_alignment = DMA_ALIGNMENT;
+	host->cleanup = cleanup;
+	host->setup = setup;
+	host->transfer_one_message = k1x_spi_transfer_one_message;
+	host->unprepare_transfer_hardware = k1x_spi_unprepare_transfer;
+	host->auto_runtime_pm = true;
 
-	master->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
-	drv_data->int_cr = INT_EN_TIE | INT_EN_RIE | INT_EN_TINTE; /* INT_EN */
+	host->bits_per_word_mask = SPI_BPW_RANGE_MASK(4, 32);
+	drv_data->int_cr = INT_EN_TIE | INT_EN_RIE | INT_EN_TINTE;
 	drv_data->dma_cr = (drv_data->slave_mode) ? INT_EN_TINTE : 0;
 	drv_data->clear_sr = STATUS_ROR | STATUS_TINT;
 	drv_data->mask_sr = STATUS_TINT | STATUS_RFS | STATUS_TFS | STATUS_ROR;
@@ -982,26 +912,26 @@ static int k1x_spi_probe(struct platform_device *pdev)
 			drv_data);
 	if (status < 0) {
 		dev_err(&pdev->dev, "cannot get IRQ %d\n", drv_data->irq);
-		goto out_error_master_alloc;
+		goto out_error_clk_check;
 	}
 
 	/* Setup DMA if requested */
-	if (platform_info->enable_dma) {
+	if (controller_info->enable_dma) {
 		status = k1x_spi_dma_setup(drv_data);
 		if (status) {
 			dev_dbg(dev, "no DMA channels available, using PIO\n");
-			platform_info->enable_dma = false;
+			controller_info->enable_dma = false;
 		}
 	}
 
-	status = of_property_read_u32(np, "k1x,ssp-clock-rate", &master->max_speed_hz);
+	status = of_property_read_u32(np, "k1x,ssp-clock-rate", &host->max_speed_hz);
 	if (status < 0) {
 		dev_err(&pdev->dev, "cannot get clock-rate from DT file\n");
-		goto out_error_master_alloc;
+		goto out_error_clk_check;
 	}
 
-	clk_set_rate(drv_data->clk, master->max_speed_hz);
-	master->max_speed_hz = clk_get_rate(drv_data->clk);
+	clk_set_rate(drv_data->clk, host->max_speed_hz);
+	host->max_speed_hz = clk_get_rate(drv_data->clk);
 	clk_prepare_enable(drv_data->clk);
     	reset_control_deassert(drv_data->reset);
 
@@ -1017,7 +947,7 @@ static int k1x_spi_probe(struct platform_device *pdev)
 
 	k1x_spi_write(drv_data, PSP_CTRL, 0);
 
-	master->num_chipselect = platform_info->num_chipselect;
+	host->num_chipselect = controller_info->num_chipselect;
 
 	INIT_WORK(&drv_data->pump_transfers, pump_transfers);
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 50);
@@ -1029,9 +959,9 @@ static int k1x_spi_probe(struct platform_device *pdev)
 
 	/* Register with the SPI framework */
 	platform_set_drvdata(pdev, drv_data);
-	status = devm_spi_register_master(&pdev->dev, master);
+	status = devm_spi_register_controller(&pdev->dev, host);
 	if (status != 0) {
-		dev_err(&pdev->dev, "problem registering spi master\n");
+		dev_err(&pdev->dev, "problem registering spi controller\n");
 		goto out_error_clock_enabled;
 	}
 
@@ -1043,9 +973,8 @@ out_error_clock_enabled:
 	k1x_spi_dma_release(drv_data);
 	free_irq(drv_data->irq, drv_data);
 out_error_clk_check:
-	deinit_dvfm_constraint(drv_data);
-out_error_master_alloc:
-	spi_master_put(master);
+out_error_controller_alloc:
+	spi_controller_put(host);
 	return status;
 }
 
@@ -1056,17 +985,19 @@ static void k1x_spi_remove(struct platform_device *pdev)
 	if (!drv_data)
 		return;
 
+	spi_unregister_controller(drv_data->controller);
 	pm_runtime_get_sync(&pdev->dev);
 
 	/* Disable the SSP at the peripheral and SOC level */
 	k1x_spi_write(drv_data, TOP_CTRL, 0);
-	k1x_spi_write(drv_data, FIFO_CTRL, 0); /* whether need this line? */
+	k1x_spi_write(drv_data, FIFO_CTRL, 0);
 
+	/* disable ssp clock */
     	reset_control_assert(drv_data->reset);
 	clk_disable_unprepare(drv_data->clk);
 
 	/* Release DMA */
-	if (drv_data->master_info->enable_dma)
+	if (drv_data->controller_info->enable_dma)
 		k1x_spi_dma_release(drv_data);
 
 	pm_runtime_put_noidle(&pdev->dev);
@@ -1074,16 +1005,11 @@ static void k1x_spi_remove(struct platform_device *pdev)
 
 	/* Release IRQ */
 	free_irq(drv_data->irq, drv_data);
-
-	deinit_dvfm_constraint(drv_data);
 }
 
 static void k1x_spi_shutdown(struct platform_device *pdev)
 {
-	int status = 0;
-
-	if ((status = k1x_spi_remove(pdev)) != 0)
-		dev_err(&pdev->dev, "shutdown failed with %d\n", status);
+	k1x_spi_remove(pdev);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -1093,7 +1019,7 @@ static int k1x_spi_suspend(struct device *dev)
 	int status = 0;
 
 	pm_runtime_get_sync(dev);
-	status = spi_master_suspend(drv_data->master);
+	status = spi_controller_suspend(drv_data->controller);
 	if (status != 0)
 		return status;
 	k1x_spi_write(drv_data, TOP_CTRL, 0);
@@ -1117,7 +1043,7 @@ static int k1x_spi_resume(struct device *dev)
 	}
 
 	/* Start the queue running */
-	status = spi_master_resume(drv_data->master);
+	status = spi_controller_resume(drv_data->controller);
 	pm_runtime_mark_last_busy(dev);
 	pm_runtime_put_autosuspend(dev);
 	if (status != 0) {
@@ -1129,36 +1055,8 @@ static int k1x_spi_resume(struct device *dev)
 }
 #endif
 
-#ifdef CONFIG_PM
-/** static int k1x_spi_runtime_suspend(struct device *dev)
- * {
- *	struct spi_driver_data *drv_data = dev_get_drvdata(dev);
- *
- *	reset_control_assert(drv_data->reset);
- *	clk_disable_unprepare(drv_data->clk);
- *
- *	return 0;
- *}
- */
-
-/**
- * static int k1x_spi_runtime_resume(struct device *dev)
- * {
- *	struct spi_driver_data *drv_data = dev_get_drvdata(dev);
- *
- *	clk_prepare_enable(drv_data->clk);
- *	reset_control_deassert(drv_data->reset);
- *	return 0;
- *}
- */
-#endif
-
 static const struct dev_pm_ops k1x_spi_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(k1x_spi_suspend, k1x_spi_resume)
-	/**
-	 * SET_RUNTIME_PM_OPS(k1x_spi_runtime_suspend,
-	 *		   k1x_spi_runtime_resume, NULL)
-	 */
 };
 
 static struct platform_driver driver = {

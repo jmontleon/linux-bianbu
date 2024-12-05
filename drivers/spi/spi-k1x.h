@@ -150,10 +150,10 @@ struct spi_driver_data {
 
 	/* SPI framework hookup */
 	enum k1x_ssp_type ssp_type;
-	struct spi_master *master;
+	struct spi_controller *controller;
 
 	/* k1x hookup */
-	struct k1x_spi_master *master_info;
+	struct k1x_spi_controller *controller_info;
 
 	/* SSP register addresses */
 	void __iomem *ioaddr;
@@ -334,7 +334,7 @@ static inline void k1x_ssp_free(struct ssp_device *ssp) {}
 struct dma_chan;
 
 /* device.platform_data for SSP controller devices */
-struct k1x_spi_master {
+struct k1x_spi_controller {
 	u16 num_chipselect;
 	u8 enable_dma;
 
