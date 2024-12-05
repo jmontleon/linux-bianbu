@@ -21,6 +21,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/thermal.h>
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#include <soc/spacemit/spacemit_misc.h>
+#endif
 
 #include "cpufreq-dt.h"
 
@@ -155,11 +158,6 @@ static void cpufreq_exit(struct cpufreq_policy *policy)
 {
 	clk_put(policy->clk);
 }
-
-#ifdef CONFIG_SOC_SPACEMIT_K1X
-extern int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy);
-extern void spacemit_cpufreq_ready(struct cpufreq_policy *policy);
-#endif
 
 static struct cpufreq_driver dt_cpufreq_driver = {
 	.flags = CPUFREQ_NEED_INITIAL_FREQ_CHECK |
