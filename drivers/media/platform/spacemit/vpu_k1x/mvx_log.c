@@ -141,7 +141,9 @@ static struct dentry *lookup(struct dentry *parent,
 	struct dentry *child;
 
 	/* Loop over directory entries in mvx/drain/. */
-#if (KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)
+#if (KERNEL_VERSION(6, 7, 0) <= LINUX_VERSION_CODE)
+	hlist_for_each_entry(child, &parent->d_children, d_sib)
+#elif (KERNEL_VERSION(3, 18, 0) <= LINUX_VERSION_CODE)
 	list_for_each_entry(child, &parent->d_subdirs, d_child)
 #else
 	list_for_each_entry(child, &parent->d_subdirs, d_u.d_child)

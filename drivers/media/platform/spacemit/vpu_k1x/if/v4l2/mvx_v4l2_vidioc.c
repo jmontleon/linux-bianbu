@@ -600,8 +600,8 @@ static int start_streaming(struct vb2_queue *q,
 	 */
 	if (ret != 0 && atomic_read(&q->owned_by_drv_count) > 0) {
 		int i;
-
-		for (i = 0; i < q->num_buffers; ++i)
+		int num_buffers = vb2_get_num_buffers(q);
+		for (i = 0; i < num_buffers; ++i)
 			if (q->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
 				vb2_buffer_done(q->bufs[i],
 						VB2_BUF_STATE_QUEUED);
@@ -640,8 +640,8 @@ static void stop_streaming(struct vb2_queue *q)
 	 */
 	if (atomic_read(&q->owned_by_drv_count) > 0) {
 		int i;
-
-		for (i = 0; i < q->num_buffers; ++i)
+		int num_buffers = vb2_get_num_buffers(q);
+		for (i = 0; i < num_buffers; ++i)
 			if (q->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
 				vb2_buffer_done(q->bufs[i],
 						VB2_BUF_STATE_ERROR);
@@ -813,9 +813,9 @@ int mvx_v4l2_vidioc_querycap(struct file *file,
 
 	MVX_SESSION_INFO(&session->session, "v4l2: Query capabilities.");
 
-	strlcpy(cap->driver, "mvx", sizeof(cap->driver));
-	strlcpy(cap->card, "Linlon Video device", sizeof(cap->card));
-	strlcpy(cap->bus_info, "platform:mvx", sizeof(cap->bus_info));
+	strscpy(cap->driver, "mvx", sizeof(cap->driver));
+	strscpy(cap->card, "Linlon Video device", sizeof(cap->card));
+	strscpy(cap->bus_info, "platform:mvx", sizeof(cap->bus_info));
 
 	cap->capabilities = V4L2_CAP_DEVICE_CAPS |
 			    V4L2_CAP_VIDEO_M2M |
@@ -849,7 +849,7 @@ static int mvx_v4l2_vidioc_enum_fmt_vid(struct mvx_v4l2_session *session,
 			if (f->index == index) {
 				f->flags = mvx_fmts[i].flags;
 				f->pixelformat = mvx_fmts[i].pixelformat;
-				strlcpy(f->description, mvx_fmts[i].description,
+				strscpy(f->description, mvx_fmts[i].description,
 					sizeof(f->description));
 				break;
 			}

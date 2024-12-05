@@ -37,6 +37,7 @@
 #include <linux/device.h>
 #include <linux/list.h>
 #include <linux/module.h>
+#include <linux/vmalloc.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/version.h>
@@ -714,7 +715,7 @@ static const uint8_t qtbl_luma_ref[MVX_FW_QUANT_LEN] = {
 	72, 92, 95, 98, 112, 100, 103, 99
 };
 
-void generate_quant_tbl(int quality,
+static void generate_quant_tbl(int quality,
 			const uint8_t qtbl_ref[MVX_FW_QUANT_LEN],
 			uint8_t qtbl[MVX_FW_QUANT_LEN])
 {

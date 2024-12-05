@@ -34,6 +34,8 @@
 #include <linux/delay.h>
 #include "mvx_log_group.h"
 #include "mvx_dev.h"
+#include "mvx_pm_runtime.h"
+
 
 int mvx_pm_runtime_get_sync(struct device *dev)
 {

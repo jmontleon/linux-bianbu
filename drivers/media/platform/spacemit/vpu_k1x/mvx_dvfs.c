@@ -572,8 +572,9 @@ static ssize_t sysfs_print_enabled(struct device *dev,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_enabled(struct device *dev, struct device_attribute *attr,
-        const char *buf, size_t count)
+static ssize_t sysfs_set_enabled(struct device *dev, 
+	struct device_attribute *attr,
+	const char *buf, size_t count)
 {
     int failed;
     int enabled;
@@ -605,8 +606,9 @@ static ssize_t sysfs_print_freq(struct device *dev,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_freq(struct device *dev, struct device_attribute *attr,
-        const char *buf, size_t count)
+static ssize_t sysfs_set_freq(struct device *dev, 
+	struct device_attribute *attr,
+	const char *buf, size_t count)
 {
     int failed;
     unsigned int freq;
@@ -633,7 +635,7 @@ static ssize_t sysfs_print_min_freq(struct device *dev,
     return num;
 }
 
-uint32_t clip_min_max_rate(uint32_t freq, bool is_min_freq)
+static uint32_t clip_min_max_rate(uint32_t freq, bool is_min_freq)
 {
     int i = 0;
     bool clip = false;
@@ -670,8 +672,9 @@ uint32_t clip_min_max_rate(uint32_t freq, bool is_min_freq)
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_min_freq(struct device *dev, struct device_attribute *attr,
-        const char *buf, size_t count)
+static ssize_t sysfs_set_min_freq(struct device *dev, 
+	struct device_attribute *attr,
+	const char *buf, size_t count)
 {
     int failed;
     unsigned int freq;
@@ -704,8 +707,9 @@ static ssize_t sysfs_print_max_frep(struct device *dev,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_max_freq(struct device *dev, struct device_attribute *attr,
-        const char *buf, size_t count)
+static ssize_t sysfs_set_max_freq(struct device *dev, 
+	struct device_attribute *attr,
+	const char *buf, size_t count)
 {
     int failed;
     unsigned int freq;
@@ -725,7 +729,7 @@ ssize_t sysfs_set_max_freq(struct device *dev, struct device_attribute *attr,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_poll_interval_ms(struct device *dev,
+static ssize_t sysfs_set_poll_interval_ms(struct device *dev,
         struct device_attribute *attr,
         const char *buf, size_t count)
 {
@@ -739,7 +743,7 @@ ssize_t sysfs_set_poll_interval_ms(struct device *dev,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_up_step_percent(struct device *dev, struct device_attribute *attr,
+static ssize_t sysfs_set_up_step_percent(struct device *dev, struct device_attribute *attr,
         const char *buf, size_t count)
 {
     int failed;
@@ -757,7 +761,7 @@ ssize_t sysfs_set_up_step_percent(struct device *dev, struct device_attribute *a
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_down_step_percent(struct device *dev, struct device_attribute *attr,
+static ssize_t sysfs_set_down_step_percent(struct device *dev, struct device_attribute *attr,
         const char *buf, size_t count)
 {
     int failed;
@@ -834,8 +838,8 @@ static ssize_t sysfs_print_watchdog_timeout(struct device *dev,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_watchdog_timeout(struct device *dev, struct device_attribute *attr,
-        const char *buf, size_t count)
+static ssize_t sysfs_set_watchdog_timeout(struct device *dev, 
+	struct device_attribute *attr, const char *buf, size_t count)
 {
     int failed;
     unsigned int watchdog_timeout;
@@ -867,8 +871,8 @@ static ssize_t sysfs_print_wait_pending_timeout(struct device *dev,
  *
  * Used for debugging/verification purposes.
  */
-ssize_t sysfs_set_wait_pending_timeout(struct device *dev, struct device_attribute *attr,
-        const char *buf, size_t count)
+static ssize_t sysfs_set_wait_pending_timeout(struct device *dev, 
+	struct device_attribute *attr, const char *buf, size_t count)
 {
     int failed;
     unsigned int wait_pending_timeout;

@@ -37,6 +37,7 @@
 #include <linux/debugfs.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
+#include <linux/vmalloc.h>
 #include <linux/gfp.h>
 #include <linux/list.h>
 #include <linux/sched.h>
