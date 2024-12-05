@@ -77,10 +77,10 @@ static void v4l2_port_show(struct mvx_v4l2_port *port,
 	mvx_seq_printf(s, "vb2_queue", 1, "\n");
 	mvx_seq_printf(s, "memory", 2, "%u\n",
 		       port->vb2_queue.memory);
-	mvx_seq_printf(s, "min_buffers_needed", 2, "%u\n",
-		       port->vb2_queue.min_buffers_needed);
+	mvx_seq_printf(s, "min_queued_buffers", 2, "%u\n",
+		       port->vb2_queue.min_queued_buffers);
 	mvx_seq_printf(s, "num_buffers", 2, "%u\n",
-		       port->vb2_queue.num_buffers);
+		       vb2_get_num_buffers(&port->vb2_queue));
 	mvx_seq_printf(s, "queued_count", 2, "%u\n",
 		       port->vb2_queue.queued_count);
 	mvx_seq_printf(s, "streaming", 2, "%u\n",
