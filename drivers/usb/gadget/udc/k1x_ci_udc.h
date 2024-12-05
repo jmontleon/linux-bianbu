@@ -334,17 +334,17 @@ struct mv_dtd {
 	struct mv_dtd *next_dtd_virt;
 };
 
-uint32_t UDC_READ_REG32(uint32_t volatile *reg)
+inline uint32_t UDC_READ_REG32(uint32_t volatile *reg)
 {
 	return readl(reg);
 }
 
-void DWC_WRITE_REG32(uint32_t volatile *reg, uint32_t value)
+inline void DWC_WRITE_REG32(uint32_t volatile *reg, uint32_t value)
 {
 	writel(value, reg);
 }
 
-void UDC_MODIFY_REG32(uint32_t volatile *reg, uint32_t clear_mask, uint32_t set_mask)
+inline void UDC_MODIFY_REG32(uint32_t volatile *reg, uint32_t clear_mask, uint32_t set_mask)
 {
 	writel((readl(reg) & ~clear_mask) | set_mask, reg);
 }
