@@ -143,7 +143,8 @@ static int spacemit_panel_unprepare(struct drm_panel *p)
 	return 0;
 }
 
-void spacemit_prepare_regulator (struct spacemit_panel *panel){
+__maybe_unused static void spacemit_prepare_regulator (struct spacemit_panel *panel)
+{
 	int ret = 0;
 
 	if (panel->vdd_2v8 != NULL) {
