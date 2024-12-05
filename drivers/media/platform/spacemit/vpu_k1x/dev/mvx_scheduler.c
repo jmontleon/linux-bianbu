@@ -416,7 +416,7 @@ static const struct file_operations sched_fops = {
 	.release = single_release
 };
 
-int sched_debugfs_init(struct mvx_sched *sched,
+static int sched_debugfs_init(struct mvx_sched *sched,
 		       struct dentry *parent)
 {
 	struct dentry *dentry;

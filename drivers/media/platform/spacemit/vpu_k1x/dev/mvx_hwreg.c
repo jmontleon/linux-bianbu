@@ -319,7 +319,7 @@ static int lsid_regs_debugfs_init(struct mvx_lsid_hwreg *lsid_hwreg,
 	return 0;
 }
 
-int debugfs_init(struct mvx_hwreg *hwreg,
+static int debugfs_init(struct mvx_hwreg *hwreg,
 		 struct dentry *parent)
 {
 	int ret;
