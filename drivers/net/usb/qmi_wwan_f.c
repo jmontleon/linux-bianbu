@@ -1320,7 +1320,7 @@ typedef struct {
     unsigned int dl_minimum_padding; //0x1A
 } QMAP_SETTING;
 
-int qma_setting_store(struct device *dev, QMAP_SETTING *qmap_settings, size_t size) {
+static int qma_setting_store(struct device *dev, QMAP_SETTING *qmap_settings, size_t size) {
     struct net_device *netdev = to_net_dev(dev);
     struct usbnet * usbnetdev = netdev_priv( netdev );
     struct qmi_wwan_state *info = (void *)&usbnetdev->data;
