@@ -4120,7 +4120,7 @@ struct fe_hdr_combine *fe_hdr_combine_create(unsigned int grp_id, void *isp_ctx)
 	for (i = HDR_PAD_F0OUT; i < HDR_COMBINE_PAD_NUM; i++) {
 		hdr_combine->pads[i].flags = MEDIA_PAD_FL_SOURCE;
 	}
-	strlcpy(name, "hdr_combine", SPACEMIT_VI_ENTITY_NAME_LEN);
+	strscpy(name, "hdr_combine", SPACEMIT_VI_ENTITY_NAME_LEN);
 	ret = spm_subdev_init(grp_id, name, 0, &fe_hdr_combine_subdev_ops, HDR_COMBINE_PAD_NUM, hdr_combine->pads, isp_ctx, &hdr_combine->sc_subdev);
 	if (ret) {
 		cam_err("%s spm_subdev_init fail ret=%d.", __func__, ret);
