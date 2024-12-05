@@ -107,7 +107,7 @@ struct spa_wdt_info {
 	struct notifier_block restart_handler;
 };
 
-void spa_wdt_shutdown_reason(char *cmd)
+static void spa_wdt_shutdown_reason(char *cmd)
 {
 	void __iomem *mpmu_arsr;
 	u32 reg;
@@ -144,7 +144,6 @@ void spa_wdt_shutdown_reason(char *cmd)
 		reg |= MPMU_ARSR_REBOOT_CMD(REBOOT_CMD_VALID);
 	writel(reg, mpmu_arsr);
 }
-EXPORT_SYMBOL(spa_wdt_shutdown_reason);
 
 static inline u32 spa_wdt_read(struct spa_wdt_info *info,
 				unsigned reg)
