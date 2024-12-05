@@ -1396,7 +1396,7 @@ static int spm_vdev_vidioc_streamoff(struct file *file, void *fn, enum v4l2_buf_
 
 static int spm_vdev_vidioc_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 {
-	strlcpy(cap->driver, "spacemitisp", 16);
+	strscpy(cap->driver, "spacemitisp", 16);
 	cap->capabilities = V4L2_CAP_DEVICE_CAPS | V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 	cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 	return 0;
@@ -1555,7 +1555,7 @@ static long spm_vdev_vidioc_default(struct file *file,
 	case VIDIOC_G_ENTITY_INFO:
 		entity_info = (struct v4l2_vi_entity_info *)arg;
 		entity_info->id = media_entity_id(&sc_vnode->vnode.entity);
-		strlcpy(entity_info->name, sc_vnode->name, SPACEMIT_VI_ENTITY_NAME_LEN);
+		strscpy(entity_info->name, sc_vnode->name, SPACEMIT_VI_ENTITY_NAME_LEN);
 		break;
 	case VIDIOC_G_SLICE_MODE:
 		BUG_ON(!pipe);
@@ -2065,8 +2065,8 @@ struct spm_camera_vnode *spm_vdev_create_vnode(const char *name,
 		goto queue_init_fail;
 	}
 
-	strlcpy(sc_vnode->vnode.name, name, 32);
-	strlcpy(sc_vnode->name, name, SPACEMIT_VI_ENTITY_NAME_LEN);
+	strscpy(sc_vnode->vnode.name, name, 32);
+	strscpy(sc_vnode->name, name, SPACEMIT_VI_ENTITY_NAME_LEN);
 	sc_vnode->vnode.queue = &sc_vnode->buf_queue;
 	sc_vnode->vnode.fops = &spm_camera_file_operations;
 	sc_vnode->vnode.ioctl_ops = &spm_camera_v4l2_ioctl_ops;
