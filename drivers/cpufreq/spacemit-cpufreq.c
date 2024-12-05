@@ -15,6 +15,8 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/slab.h>
+#include <soc/spacemit/spacemit_misc.h>
+	
 #include "../opp/opp.h"
 #include "cpufreq-dt.h"
 
@@ -461,9 +463,6 @@ int spacmeit_cpufreq_veritfy(struct cpufreq_policy_data *policy)
 				policy->min, policy->max, policy->cpu);
 	return 0;
 }
-
-extern void remove_boost_sysfs_file(void);
-extern void remove_policy_boost_sysfs_file(struct cpufreq_policy *policy);
 
 void spacemit_cpufreq_ready(struct cpufreq_policy *policy)
 {
