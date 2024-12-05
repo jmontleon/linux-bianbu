@@ -169,7 +169,8 @@ enum bit_depth{
 	TWELVE_BPP =2,
 };
 
-int power_of_two(int n) {
+static int power_of_two(int n)
+{
 	int result = 1;
 	for (int i = 0; i < n; ++i) {
 		result <<= 1;
@@ -178,7 +179,8 @@ int power_of_two(int n) {
 	return result;
 }
 
-int pll8_bit_5_6 (int bit_clock, int n){
+static int pll8_bit_5_6 (int bit_clock, int n)
+{
 	int ret = 0;
 	bit_clock = bit_clock / n;
 
@@ -194,7 +196,8 @@ int pll8_bit_5_6 (int bit_clock, int n){
 	return ret;
 }
 
-int pll6_bit_4_5 (int bit_clock, int n){
+static int pll6_bit_4_5 (int bit_clock, int n)
+{
 	int ret = 0;
 	bit_clock = bit_clock / n;
 
@@ -216,7 +219,8 @@ int pll6_bit_4_5 (int bit_clock, int n){
 	return ret;
 }
 
-int pll5_bit_0_2 (int bit_clock, int n){
+static int pll5_bit_0_2 (int bit_clock, int n)
+{
 	int value =  bit_clock * power_of_two(pll8_bit_5_6(bit_clock, n)) / n;
 	int ret;
 
@@ -242,7 +246,8 @@ int pll5_bit_0_2 (int bit_clock, int n){
 
 int PLL9_BIT0_1[3] = {0x0, 0x1, 0x2};
 
-void pll_reg_cal(int bit_clock, int ref_clock, int n, int *integer_part, u32 *hmdi_e8_reg) {
+static void pll_reg_cal(int bit_clock, int ref_clock, int n, int *integer_part, u32 *hmdi_e8_reg)
+{
 	long long int_para = 1000000000;
 	long long value = (power_of_two(pll8_bit_5_6(bit_clock, n))) * bit_clock * int_para / (n * (pll6_bit_4_5(bit_clock, n) + 1) * ref_clock);
 	long long integer = (power_of_two(pll8_bit_5_6(bit_clock, n)))* bit_clock / (n * (pll6_bit_4_5(bit_clock, n) + 1) * ref_clock) * int_para;
@@ -259,7 +264,7 @@ void pll_reg_cal(int bit_clock, int ref_clock, int n, int *integer_part, u32 *hm
 	*integer_part = negative ? integer/int_para + 1 : integer/int_para;
 
 
-	for (int i = 0; i < 20; i++){
+	for (int i = 0; i < 20; i++) {
 		if (bit >= int_para) {
 			frac_20bit |= 1 << (19 - i);
 			fraction -= int_para;
@@ -268,7 +273,7 @@ void pll_reg_cal(int bit_clock, int ref_clock, int n, int *integer_part, u32 *hm
 		bit = fraction;
 	}
 
-	if (!negative){
+	if (!negative) {
 		pll2_reg = ((frac_20bit & 0xF0000) >> 16) | (1 << 5);
 	} else {
 		frac_20bit = (~frac_20bit + 1) & 0xfffff;
@@ -280,7 +285,8 @@ void pll_reg_cal(int bit_clock, int ref_clock, int n, int *integer_part, u32 *hm
 	*hmdi_e8_reg = (0x20 << 24) | (pll2_reg << 16) | (pll1_reg << 8) | pll0_reg;
 }
 
-int pll_reg (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth) {
+static int pll_reg (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth)
+{
 	int pll9_reg = 0, pll8_reg = 0, pll7_reg = 0, pll6_reg = 0, pll5_reg = 0, pll4_reg = 0;
 	int n = 100;
 	int ref_clock = 24;
@@ -362,7 +368,7 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 
 	DRM_DEBUG("hdmi_i2c_read ++%u\r\n", length);
 
-	do{
+	do {
 		if(left <= 16)
 			count = left;
 		else
@@ -375,12 +381,12 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 		reg = hdmi_readb(hdmi, 0xC);
 		num = (reg & 0x1f0) >> 4;
 
-		while(num < count){
+		while(num < count) {
 			reg = hdmi_readb(hdmi, 0xC);
 			num = (reg & 0x1f0) >> 4;
 		}
 
-		for(i = 0; i < count; i++){
+		for(i = 0; i < count; i++) {
 			value = hdmi_readb(hdmi, 0x4);
 			*pvalue++ = value;
 		}
@@ -425,7 +431,7 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 			count = 16;
 		left -= count;
 
-		for(i = 0; i < count; i++){
+		for(i = 0; i < count; i++) {
 			value = *pvalue++;
 			hdmi_writeb(hdmi, 0x0, value & 0xFF);
 		}
@@ -460,7 +466,8 @@ static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 
 }
 
-int edid_read (struct spacemit_hdmi *hdmi){
+static int edid_read (struct spacemit_hdmi *hdmi)
+{
 	int i;
 	struct hdmi_data_info *hdmi_data = hdmi->hdmi_data;
 	uint8_t offset;
@@ -493,7 +500,7 @@ int edid_read (struct spacemit_hdmi *hdmi){
 		}
 	}
 
-	for(i = 0; i < 256; i += 8){
+	for(i = 0; i < 256; i += 8) {
 		DRM_DEBUG("EDID 0x%x: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x\r\n", i,
 			hdmi_data->edid[i], hdmi_data->edid[i+1], hdmi_data->edid[i+2], hdmi_data->edid[i+3],
 			hdmi_data->edid[i+4], hdmi_data->edid[i+5], hdmi_data->edid[i+6], hdmi_data->edid[i+7]);
@@ -547,7 +554,7 @@ static int spacemit_hdmi_get_edid_block(void *data, unsigned char *buf, unsigned
 	return 0;
 }
 
-void hdmi_write_bits(struct spacemit_hdmi *hdmi, u16 offset, u32 value, u32 mask, u32 shifts)
+static void hdmi_write_bits(struct spacemit_hdmi *hdmi, u16 offset, u32 value, u32 mask, u32 shifts)
 {
 	u32 reg_val;
 
@@ -557,7 +564,8 @@ void hdmi_write_bits(struct spacemit_hdmi *hdmi, u16 offset, u32 value, u32 mask
 	writel_relaxed(reg_val, hdmi->regs + (offset));
 }
 
-void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth){
+static void hdmi_init (struct spacemit_hdmi *hdmi, int pixel_clock, int bit_depth)
+{
 	u32 value = 0;
 	int color_depth = bit_depth == EIGHT_BPP ? 4 : 5;
 
@@ -1018,7 +1026,7 @@ static int hdmi_rt_pm_resume(struct device *dev)
 
 	clk_val = clk_get_rate(hdmi->hdmi_mclk);
 	DRM_DEBUG("get hdmi mclk=%lld\n", clk_val);
-	if(clk_val != DPU_MCLK_DEFAULT){
+	if (clk_val != DPU_MCLK_DEFAULT) {
 		clk_val = clk_round_rate(hdmi->hdmi_mclk, DPU_MCLK_DEFAULT);
 		clk_set_rate(hdmi->hdmi_mclk, clk_val);
 		DRM_INFO("set hdmi mclk=%lld\n", clk_val);
