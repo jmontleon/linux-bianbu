@@ -706,7 +706,7 @@ static void dsi_ready_dphy(struct spacemit_dsi_device* device_ctx)
 {
 }
 
-int spacemit_dsi_open(struct spacemit_dsi_device* device_ctx, bool ready)
+static int spacemit_dsi_open(struct spacemit_dsi_device* device_ctx, bool ready)
 {
 	int lane_number;
 	struct spacemit_mipi_info *mipi_info = &device_ctx->mipi_info;
@@ -751,7 +751,7 @@ int spacemit_dsi_open(struct spacemit_dsi_device* device_ctx, bool ready)
 	return 0;
 }
 
-int spacemit_dsi_close(struct spacemit_dsi_device* device_ctx)
+static int spacemit_dsi_close(struct spacemit_dsi_device* device_ctx)
 {
 #ifdef LCD_IS_READY
 	return 0;
@@ -774,7 +774,7 @@ int spacemit_dsi_close(struct spacemit_dsi_device* device_ctx)
 	return 0;
 }
 
-int spacemit_dsi_ready_for_datatx(struct spacemit_dsi_device* device_ctx)
+static int spacemit_dsi_ready_for_datatx(struct spacemit_dsi_device* device_ctx)
 {
 	struct spacemit_mipi_info *mipi_info = &device_ctx->mipi_info;
 
@@ -799,7 +799,7 @@ int spacemit_dsi_ready_for_datatx(struct spacemit_dsi_device* device_ctx)
 	return 0;
 }
 
-int spacemit_dsi_close_datatx(struct spacemit_dsi_device* device_ctx)
+static int spacemit_dsi_close_datatx(struct spacemit_dsi_device* device_ctx)
 {
 #ifdef LCD_IS_READY
 	return 0;
@@ -818,7 +818,7 @@ int spacemit_dsi_close_datatx(struct spacemit_dsi_device* device_ctx)
 	return 0;
 }
 
-int spacemit_dsi_write_cmds(struct spacemit_dsi_device* device_ctx,
+static int spacemit_dsi_write_cmds(struct spacemit_dsi_device* device_ctx,
 									struct spacemit_dsi_cmd_desc *cmds, int count)
 {
 #ifdef LCD_IS_READY
@@ -835,7 +835,7 @@ int spacemit_dsi_write_cmds(struct spacemit_dsi_device* device_ctx,
 	return dsi_write_cmd_array(device_ctx, cmds, count);
 }
 
-int spacemit_dsi_read_cmds(struct spacemit_dsi_device* device_ctx, struct spacemit_dsi_rx_buf *dbuf,
+static int spacemit_dsi_read_cmds(struct spacemit_dsi_device* device_ctx, struct spacemit_dsi_rx_buf *dbuf,
 								struct spacemit_dsi_cmd_desc *cmds, int count)
 {
 #ifdef LCD_IS_READY
@@ -851,12 +851,12 @@ int spacemit_dsi_read_cmds(struct spacemit_dsi_device* device_ctx, struct spacem
 	return dsi_read_cmd_array(device_ctx, dbuf, cmds, count);
 }
 
-int spacemit_dsi_parse_dt(struct spacemit_dsi_device* device_ctx, struct device_node *np)
+static int spacemit_dsi_parse_dt(struct spacemit_dsi_device* device_ctx, struct device_node *np)
 {
 	return 0;
 }
 
-int spacemit_dsi_isr(struct spacemit_dsi_device* device_ctx)
+static int spacemit_dsi_isr(struct spacemit_dsi_device* device_ctx)
 {
 	uint32_t irq_st;
 
