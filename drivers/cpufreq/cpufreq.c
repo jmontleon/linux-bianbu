@@ -30,6 +30,9 @@
 #include <linux/tick.h>
 #include <linux/units.h>
 #include <trace/events/power.h>
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+#include <soc/spacemit/spacemit_misc.h>
+#endif
 
 static LIST_HEAD(cpufreq_policy_list);
 
