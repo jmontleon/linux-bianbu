@@ -110,7 +110,7 @@ static const struct drm_connector_helper_funcs spacemit_wb_connector_helper_func
 	.mode_valid = spacemit_wb_connector_mode_valid,
 };
 
-void spacemit_wb_drm_atomic_helper_connector_destroy_state(struct drm_connector *connector,
+static void spacemit_wb_drm_atomic_helper_connector_destroy_state(struct drm_connector *connector,
 					  struct drm_connector_state *state)
 {
 	struct drm_crtc *crtc = NULL;
