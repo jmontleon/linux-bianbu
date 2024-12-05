@@ -168,7 +168,7 @@ static void dump_dpu_regs_by_enum(void __iomem *io_base, phys_addr_t phy_base, d
 	}
 }
 
-bool dpu_reg_enum_valid(dpu_reg_enum reg_enum)
+static bool dpu_reg_enum_valid(dpu_reg_enum reg_enum)
 {
 	int size = ARRAY_SIZE(SATURN_LE_DPU_REG_ENUM_LISTS);
 	int i = 0;
