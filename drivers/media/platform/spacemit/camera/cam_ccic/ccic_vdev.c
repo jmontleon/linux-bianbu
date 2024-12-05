@@ -734,7 +734,7 @@ static int spm_cvdev_vidioc_querycap(struct file *file, void *fh, struct v4l2_ca
 	struct video_device *vnode = video_devdata(file);
 	struct spm_ccic_vnode *ac_vnode = container_of(vnode, struct spm_ccic_vnode, vnode);
 
-	strlcpy(cap->driver, ac_vnode->name, 16);
+	strscpy(cap->driver, ac_vnode->name, 16);
 	cap->capabilities = V4L2_CAP_DEVICE_CAPS | V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 	cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 	return 0;
@@ -1217,8 +1217,8 @@ struct spm_ccic_vnode* spm_cvdev_create_vnode(const char *name,
 		goto queue_init_fail;
 	}
 
-	strlcpy(ac_vnode->vnode.name, name, 32);
-	strlcpy(ac_vnode->name, name, 32);
+	strscpy(ac_vnode->vnode.name, name, 32);
+	strscpy(ac_vnode->name, name, 32);
 	ac_vnode->ccic_dev = ccic_dev;
 	ac_vnode->vnode.queue = &ac_vnode->buf_queue;
 	ac_vnode->vnode.fops = &spm_ccic_file_operations;
