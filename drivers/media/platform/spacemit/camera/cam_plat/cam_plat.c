@@ -199,7 +199,7 @@ static int plat_cam_probe(struct platform_device *pdev)
 
 	media_device_init(v4l2_dev->mdev);
 	v4l2_dev->mdev->dev = &(pdev->dev);
-	strlcpy(v4l2_dev->mdev->model, PLAT_CAM_NAME, sizeof(v4l2_dev->mdev->model));
+	strscpy(v4l2_dev->mdev->model, PLAT_CAM_NAME, sizeof(v4l2_dev->mdev->model));
 
 	ret = __media_device_register(v4l2_dev->mdev, NULL);
 	if (ret)
