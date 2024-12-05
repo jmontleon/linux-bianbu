@@ -338,7 +338,7 @@ static void dphy_get_setting(struct spacemit_dphy_ctx *dphy_ctx, struct device_n
 }
 
 
-void spacemit_dphy_core_get_status(struct spacemit_dphy_ctx *dphy_ctx)
+static void spacemit_dphy_core_get_status(struct spacemit_dphy_ctx *dphy_ctx)
 {
 	pr_debug("%s\n", __func__);
 
@@ -355,7 +355,7 @@ void spacemit_dphy_core_get_status(struct spacemit_dphy_ctx *dphy_ctx)
 	pr_debug("%s: dphy_status2 = 0x%x\n", __func__, dphy_ctx->dphy_status2);
 }
 
-void spacemit_dphy_core_reset(struct spacemit_dphy_ctx *dphy_ctx)
+static void spacemit_dphy_core_reset(struct spacemit_dphy_ctx *dphy_ctx)
 {
 	pr_debug("%s\n", __func__);
 
@@ -379,7 +379,7 @@ void spacemit_dphy_core_reset(struct spacemit_dphy_ctx *dphy_ctx)
  * This function has no return value.
  *
  */
-void spacemit_dphy_core_init(struct spacemit_dphy_ctx *dphy_ctx)
+static void spacemit_dphy_core_init(struct spacemit_dphy_ctx *dphy_ctx)
 {
 	pr_debug("%s\n", __func__);
 
@@ -423,7 +423,7 @@ void spacemit_dphy_core_init(struct spacemit_dphy_ctx *dphy_ctx)
  * This function has no return value.
  *
  */
-void spacemit_dphy_core_uninit(struct spacemit_dphy_ctx *dphy_ctx)
+static void spacemit_dphy_core_uninit(struct spacemit_dphy_ctx *dphy_ctx)
 {
 	pr_debug("%s\n", __func__);
 
@@ -445,7 +445,7 @@ void spacemit_dphy_core_uninit(struct spacemit_dphy_ctx *dphy_ctx)
 	dphy_ctx->status = DPHY_STATUS_UNINIT;
 }
 
-int spacemit_dphy_core_parse_dt(struct spacemit_dphy_ctx *dphy_ctx, struct device_node *np)
+static int spacemit_dphy_core_parse_dt(struct spacemit_dphy_ctx *dphy_ctx, struct device_node *np)
 {
 	if (!dphy_ctx) {
 		pr_err("%s: Param is NULL\n",__func__);

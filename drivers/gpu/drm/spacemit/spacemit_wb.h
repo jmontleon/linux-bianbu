@@ -54,6 +54,4 @@ struct spacemit_wb {
 	struct spacemit_wb_device ctx;
 };
 
-void saturn_wb_config(struct spacemit_dpu *dpu);
-
 #endif
