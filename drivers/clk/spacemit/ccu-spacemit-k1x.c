@@ -1541,7 +1541,7 @@ static struct clk_hw_table bootup_enable_clk_table[] = {
 	{"pmua_aclk", 	CLK_PMUA_ACLK},
 };
 
-void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
+static void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
 {
 	int i;
 	struct clk *clk;
@@ -1556,7 +1556,7 @@ void spacemit_clocks_enable(struct clk_hw_table *tbl, int tbl_size)
 }
 
 unsigned long spacemit_k1x_ddr_freq_tbl[MAX_FREQ_LV + 1] = {0};
-void spacemit_fill_ddr_freq_tbl(void)
+static void spacemit_fill_ddr_freq_tbl(void)
 {
 	int i;
 	struct clk *clk;
@@ -1571,7 +1571,7 @@ void spacemit_fill_ddr_freq_tbl(void)
 	}
 }
 
-int ccu_common_init(struct clk_hw * hw, struct spacemit_k1x_clk *clk_info)
+static int ccu_common_init(struct clk_hw * hw, struct spacemit_k1x_clk *clk_info)
 {
 	struct ccu_common *common = hw_to_ccu_common(hw);
 	struct ccu_pll *pll = hw_to_ccu_pll(hw);
@@ -1750,39 +1750,6 @@ static void spacemit_k1x_ccu_probe(struct device_node *np)
 out:
 	return;
 }
-
-void * spacemit_get_ddr_freq_tbl(void)
-{
-	return spacemit_k1x_ddr_freq_tbl;
-}
-EXPORT_SYMBOL_GPL(spacemit_get_ddr_freq_tbl);
-
-u32 spacemit_get_ddr_freq_level(void)
-{
-	u32 ddr_freq_lvl = 0;
-
-	struct clk_hw *hw = spacemit_k1x_hw_clks.hws[CLK_DDR];
-	ddr_freq_lvl = clk_hw_get_parent_index(hw);
-
-	return ddr_freq_lvl;
-}
-EXPORT_SYMBOL_GPL(spacemit_get_ddr_freq_level);
-
-int spacemit_set_ddr_freq_level(u32 level)
-{
-	int ret = 0;
-	struct clk_hw *hw = spacemit_k1x_hw_clks.hws[CLK_DDR];
-
-	if (level < 0 || level > MAX_FREQ_LV)
-		return -EINVAL;
-
-	ret = clk_hw_set_parent(hw, clk_hw_get_parent_by_index(hw, level));
-	if (ret)
-		pr_err("%s : set ddr freq fail\n", __func__);
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(spacemit_set_ddr_freq_level);
 
 CLK_OF_DECLARE(k1x_clock, "spacemit,k1x-clock", spacemit_k1x_ccu_probe);
 

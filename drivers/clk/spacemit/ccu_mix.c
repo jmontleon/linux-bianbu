@@ -271,7 +271,7 @@ static long ccu_mix_round_rate(struct clk_hw *hw, unsigned long rate,
 	return rate;
 }
 
-unsigned long ccu_mix_calc_best_rate(struct clk_hw *hw, unsigned long rate, u32 *mux_val, u32 *div_val)
+static unsigned long ccu_mix_calc_best_rate(struct clk_hw *hw, unsigned long rate, u32 *mux_val, u32 *div_val)
 {
 	struct ccu_mix *mix = hw_to_ccu_mix(hw);
 	struct ccu_common * common = &mix->common;
