@@ -14,6 +14,9 @@
 #include <linux/bitfield.h>
 #include <linux/pci.h>
 #include <linux/usb/phy.h>
+#if defined(CONFIG_SOC_SPACEMIT_K1X)
+#include <soc/spacemit/spacemit_misc.h>
+#endif
 
 #include "xhci.h"
 #include "xhci-trace.h"
@@ -577,10 +580,6 @@ static void xhci_disable_port(struct xhci_hcd *xhci, struct xhci_port *port)
 	xhci_dbg(xhci, "disable port %d-%d, portsc: 0x%x\n",
 		 hcd->self.busnum, port->hcd_portnum + 1, portsc);
 }
-
-#if defined(CONFIG_SOC_SPACEMIT_K1X)
-extern void dwc3_spacemit_clear_disconnect(struct device *dev);
-#endif
 
 static void xhci_clear_port_change_bit(struct xhci_hcd *xhci, u16 wValue,
 		u16 wIndex, __le32 __iomem *addr, u32 port_status)
