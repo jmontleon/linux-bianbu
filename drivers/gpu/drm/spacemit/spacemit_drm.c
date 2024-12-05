@@ -29,7 +29,7 @@
 #define DRIVER_MAJOR	1
 #define DRIVER_MINOR	0
 
-void spacemit_drm_atomic_commit_tail(struct drm_atomic_state *old_state)
+static void spacemit_drm_atomic_commit_tail(struct drm_atomic_state *old_state)
 {
 	struct drm_device *dev = old_state->dev;
 
@@ -313,7 +313,7 @@ static int compare_of(struct device *dev, void *data)
 	return dev->of_node == np;
 }
 
-int spacemit_drm_of_component_probe(struct device *dev,
+static int spacemit_drm_of_component_probe(struct device *dev,
 			   int (*compare_of)(struct device *, void *),
 			   const struct component_master_ops *m_ops)
 {
