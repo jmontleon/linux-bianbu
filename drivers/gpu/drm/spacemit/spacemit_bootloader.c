@@ -10,6 +10,8 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/mm.h>
 #include <linux/memblock.h>
+#include "spacemit_bootloader.h"
+
 
 static bool spacemit_dpu_free_logo = false;
 

@@ -165,20 +165,18 @@ const u32 saturn_le_rdma_fixed_fbcmem_sizes[] = {
 };
 
 static atomic_t mclk_cnt = ATOMIC_INIT(0);;
-bool dpu_mclk_exclusive_get(void)
+static bool dpu_mclk_exclusive_get(void)
 {
 	if (0 == atomic_cmpxchg(&mclk_cnt, 0, 1))
 		return true;
 	else
 		return false;
 }
-EXPORT_SYMBOL(dpu_mclk_exclusive_get);
 
-void dpu_mclk_exclusive_put(void)
+static void dpu_mclk_exclusive_put(void)
 {
 	atomic_set(&mclk_cnt, 0);
 }
-EXPORT_SYMBOL(dpu_mclk_exclusive_put);
 
 struct spacemit_hw_device spacemit_dp_devices[DP_MAX_DEVICES] = {
 	[SATURN_HDMI] = {
@@ -279,7 +277,7 @@ static unsigned int dpu_get_bpp(u32 format)
 	return SPACEMIT_DPU_INVALID_FORMAT_ID;
 }
 
-int dpu_calc_plane_mclk_bw(struct drm_plane *plane, \
+static int dpu_calc_plane_mclk_bw(struct drm_plane *plane, \
 		struct drm_plane_state *new_state)
 {
 	/* For some platform without aclk, mclk = max(aclk, mclk) */
@@ -850,7 +848,7 @@ static void saturn_conf_scaler_x(struct drm_plane_state *state)
 	write_to_cmdlist(priv, RDMA_PATH_X_REG, module_base, LEFT_SCL_RATIO_V, 0x1 << 20 | ver_delta_phase);
 }
 
-void saturn_conf_scaler_coefs(struct drm_plane *plane, struct spacemit_plane_state *spacemit_pstate){
+static void saturn_conf_scaler_coefs(struct drm_plane *plane, struct spacemit_plane_state *spacemit_pstate){
 	struct drm_property_blob * blob = spacemit_pstate->scale_coefs_blob_prop;
 	struct spacemit_drm_private *priv = plane->dev->dev_private;
 	int scale_num = 192;
@@ -1390,7 +1388,7 @@ static void saturn_ctrl_sw_start(struct spacemit_dpu *dpu, bool enable)
 	}
 }
 
-void saturn_wb_disable(struct spacemit_dpu *dpu)
+static void saturn_wb_disable(struct spacemit_dpu *dpu)
 {
 	struct spacemit_drm_private *priv = dpu->crtc.dev->dev_private;
 	struct spacemit_hw_device *hwdev = priv->hwdev;
@@ -1399,7 +1397,7 @@ void saturn_wb_disable(struct spacemit_dpu *dpu)
 	dpu_write_reg(hwdev, DPU_CTL_REG, DPU_CTRL_BASE_ADDR, ctl2_nml_cfg_rdy, 1);
 }
 
-void saturn_wb_config(struct spacemit_dpu *dpu)
+static void saturn_wb_config(struct spacemit_dpu *dpu)
 {
 
 }
