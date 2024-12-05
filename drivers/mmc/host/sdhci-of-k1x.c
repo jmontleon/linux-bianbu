@@ -32,11 +32,11 @@
 #include <linux/slab.h>
 #include <linux/reset.h>
 #include <linux/cpufreq.h>
+#include <soc/spacemit/spacemit_misc.h>
 
 #include "sdhci.h"
 #include "sdhci-pltfm.h"
 
-#define CONFIG_K1X_MMC_DEBUG 		1
 #define BOOTPART_NOACC_DEFAULT 		0
 
 /* SDH registers define */
@@ -155,12 +155,6 @@ static int spacemit_reg[] = {
 	0x188, 0x18c, 0x190, 0x1f0, 0x1f4, 0xFFF,
 };
 
-#ifdef CONFIG_K1X_MMC_DEBUG
-static u8 cur_com_reg[960]; /* 8 line, 120  character  per line */
-static u8 cur_pri_reg[960];
-static u8 pre_com_reg[960];
-static u8 pre_pri_reg[960];
-#endif
 
 #define spacemit_monitor_cmd(cmd) (((cmd) == MMC_READ_SINGLE_BLOCK) || \
 				((cmd) == MMC_READ_MULTIPLE_BLOCK) || \
@@ -341,14 +335,6 @@ static u32 spacemit_handle_interrupt(struct sdhci_host *host, u32 intmask)
 		if (spacemit_monitor_cmd(cmd)) {
 			printk_ratelimited(KERN_ERR "%s: cmd%d error(INT status:0x%08x).\n",
 				mmc_hostname(host->mmc), cmd, intmask);
-#ifdef CONFIG_K1X_MMC_DEBUG
-			/* dump host register */
-			dump_sdh_regs(host, &cur_com_reg[0], &cur_pri_reg[0]);
-			printk_ratelimited(KERN_INFO "%s", cur_com_reg);
-			printk_ratelimited(KERN_INFO "%s", cur_pri_reg);
-			//pr_err("register before cmd%d trigger %s", cmd, pre_com_reg);
-			//pr_err("%s", pre_pri_reg);
-#endif
 		}
 
 		if (intmask & (SDHCI_INT_CRC | SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_END_BIT | SDHCI_INT_AUTO_CMD_ERR)) {
@@ -361,15 +347,6 @@ static u32 spacemit_handle_interrupt(struct sdhci_host *host, u32 intmask)
 
 	return intmask;
 }
-
-#ifdef CONFIG_K1X_MMC_DEBUG
-void __maybe_unused spacemit_save_sdhci_regs(struct sdhci_host *host, u32 cmd)
-{
-	if (host->mmc->card && spacemit_monitor_cmd(cmd))
-		dump_sdh_regs(host, &pre_com_reg[0], &pre_pri_reg[0]);
-}
-EXPORT_SYMBOL(spacemit_save_sdhci_regs);
-#endif
 
 extern int __mmc_claim_host(struct mmc_host *host, struct mmc_ctx *ctx, atomic_t *abort);
 extern void mmc_release_host(struct mmc_host *host);
@@ -1385,11 +1362,7 @@ static void spacemit_sdhci_set_encrypt(struct sdhci_host *host, unsigned int enc
 
 static void spacemit_sdhci_dump_vendor_regs(struct sdhci_host *host)
 {
-#ifdef CONFIG_K1X_MMC_DEBUG
-	dump_sdh_regs(host, &cur_com_reg[0], &cur_pri_reg[0]);
-	printk_ratelimited(KERN_INFO "%s", cur_com_reg);
-	printk_ratelimited(KERN_INFO "%s", cur_pri_reg);
-#endif
+
 }
 
 static const struct sdhci_ops spacemit_sdhci_ops = {
@@ -1520,7 +1493,7 @@ static void spacemit_get_of_property(struct sdhci_host *host,
 extern void switch_jtag_tapctl(unsigned int tap_ctl);
 #endif
 #define SD_PMUX_SYSFS "/sys/devices/platform/soc/d4200000.axi/d4280000.sdh/sd_card_pmux"
-ssize_t sdhci_sysfs_pmux_set(struct device *dev, struct device_attribute *attr,
+static ssize_t sdhci_sysfs_pmux_set(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -1563,7 +1536,7 @@ ssize_t sdhci_sysfs_pmux_set(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
-ssize_t sdhci_tx_delaycode_show(struct device *dev, struct device_attribute *attr,
+static ssize_t sdhci_tx_delaycode_show(struct device *dev, struct device_attribute *attr,
 					char *buf)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -1573,7 +1546,7 @@ ssize_t sdhci_tx_delaycode_show(struct device *dev, struct device_attribute *att
 	return sprintf(buf, "0x%02x\n", pdata->tx_delaycode);
 }
 
-ssize_t sdhci_tx_delaycode_set(struct device *dev, struct device_attribute *attr,
+static ssize_t sdhci_tx_delaycode_set(struct device *dev, struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
