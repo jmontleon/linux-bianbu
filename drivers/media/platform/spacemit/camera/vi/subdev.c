@@ -111,7 +111,7 @@ int spm_subdev_init(unsigned int grp_id,
 		cam_err("%s register plat cam(%s) failed ret=%d ", __func__, name, ret);
 		return ret;
 	}
-	strlcpy(sc_subdev->name, name, V4L2_SUBDEV_NAME_SIZE);
+	strscpy(sc_subdev->name, name, V4L2_SUBDEV_NAME_SIZE);
 	sc_subdev->pcsd.sd.grp_id = grp_id;
 	return 0;
 }
@@ -145,11 +145,11 @@ long spm_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	case VIDIOC_G_ENTITY_INFO:
 		entity_info = (struct v4l2_vi_entity_info *)arg;
 		entity_info->id = media_entity_id(&sd->entity);
-		strlcpy(entity_info->name, sc_subdev->name, SPACEMIT_VI_ENTITY_NAME_LEN);
+		strscpy(entity_info->name, sc_subdev->name, SPACEMIT_VI_ENTITY_NAME_LEN);
 		return 0;
 	case VIDIOC_QUERYCAP: {
 		struct v4l2_capability *cap = (struct v4l2_capability*)arg;
-		strlcpy(cap->driver, "spacemitisp", 16);
+		strscpy(cap->driver, "spacemitisp", 16);
 		cap->capabilities = V4L2_CAP_DEVICE_CAPS | V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 		cap->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_CAPTURE_MPLANE;
 	}
