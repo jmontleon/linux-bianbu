@@ -161,6 +161,10 @@ static const struct ieee80211_rate rtw_rates[] = {
 #define rtw_g_rates		(rtw_rates + 0)
 #define RTW_G_RATES_NUM	12
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+static DEFINE_MUTEX(wireless_dev_lock);
+#endif
+
 static int rtw_cfg80211_set_assocresp_ies(struct net_device *net, const u8 *buf, int len);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
@@ -239,9 +243,16 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 	if (started) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+		mutex_lock(&wireless_dev_lock);
+		__acquire(&wireless_dev_lock);
+#else
 		mutex_lock(&wdev->mtx);
 		__acquire(&wdev->mtx);
-		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
+#endif
+		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id, 0, false);
+		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id, 0, false, 0);
 		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id, 0, false);
@@ -259,8 +270,14 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 		#else
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0);
 		#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+		__release(&wireless_dev_lock);
+		mutex_unlock(&wireless_dev_lock);
+#else
 		__release(&wdev->mtx);
 		mutex_unlock(&wdev->mtx);
+#endif
 		goto exit;
 	}
 #endif
@@ -268,17 +285,33 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter, struct rtw_chan_def *rtw_chd
 	if (!rtw_cfg80211_allow_ch_switch_notify(adapter))
 		goto exit;
 
-	mutex_lock(&wdev->mtx);
-	__acquire(&wdev->mtx);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+		mutex_lock(&wireless_dev_lock);
+		__acquire(&wireless_dev_lock);
+
+#else
+		mutex_lock(&wdev->mtx);
+		__acquire(&wdev->mtx);
+#endif
+
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0))
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, alink->mlmepriv.link_id, 0);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2))
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, 0);
 #else
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef);
 #endif
-	__release(&wdev->mtx);
-	mutex_unlock(&wdev->mtx);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0))
+		__release(&wireless_dev_lock);
+		mutex_unlock(&wireless_dev_lock);
+#else
+		__release(&wdev->mtx);
+		mutex_unlock(&wdev->mtx);
+#endif
 
 #else
 	int freq = rtw_bch2freq(rtw_chdef->band, rtw_chdef->chan);
@@ -5634,9 +5667,10 @@ static int rtw_cfg80211_set_beacon_ies(struct net_device *net, const u8 *head,
 }
 
 static int cfg80211_rtw_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
-		struct cfg80211_beacon_data *info)
+		struct cfg80211_ap_update *update)
 {
 	int ret = 0;
+	 struct cfg80211_beacon_data *info = &update->beacon;
 	_adapter *adapter = (_adapter *)rtw_netdev_priv(ndev);
 
 	RTW_INFO(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
