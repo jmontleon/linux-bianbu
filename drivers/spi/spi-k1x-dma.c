@@ -304,7 +304,7 @@ void k1x_spi_dma_start(struct spi_driver_data *drv_data)
 
 int k1x_spi_dma_setup(struct spi_driver_data *drv_data)
 {
-	struct k1x_spi_master *pdata = drv_data->master_info;
+	struct k1x_spi_controller *pdata = drv_data->controller_info;
 	struct device *dev = &drv_data->pdev->dev;
 	dma_cap_mask_t mask;
 
