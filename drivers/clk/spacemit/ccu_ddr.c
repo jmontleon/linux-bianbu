@@ -135,7 +135,7 @@ static long ccu_ddr_round_rate(struct clk_hw *hw, unsigned long rate,
 	return rate;
 }
 
-unsigned long ccu_ddr_calc_best_rate(struct clk_hw *hw, unsigned long rate,
+static unsigned long ccu_ddr_calc_best_rate(struct clk_hw *hw, unsigned long rate,
 				u32 *mux_val)
 {
 	struct ccu_ddr *ddr = hw_to_ccu_ddr(hw);
