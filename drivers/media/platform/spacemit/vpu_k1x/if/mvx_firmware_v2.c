@@ -35,6 +35,7 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <linux/string.h>
+#include <linux/vmalloc.h>
 #include "fw_v2/mve_protocol_def.h"
 #include "mvx_firmware_cache.h"
 #include "mvx_firmware_priv.h"
@@ -1031,7 +1032,7 @@ static int get_message_v2(struct mvx_fw *fw,
 			break;
 		}
 
-		strlcpy(msg->error.message, fw_msg.error.message,
+		strscpy(msg->error.message, fw_msg.error.message,
 			min(sizeof(msg->error.message),
 			    sizeof(fw_msg.error.message)));
 
