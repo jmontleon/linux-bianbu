@@ -191,14 +191,14 @@ static void spacemit_gpio_set(struct gpio_chip *chip, unsigned int offset,
 static int spacemit_gpio_input(struct gpio_chip *chip, unsigned int offset)
 {
 	/* set the gpio input */
-	return pinctrl_gpio_direction_input(chip->base + offset);
+	return pinctrl_gpio_direction_input(chip, offset);
 }
 
 static int spacemit_gpio_output(struct gpio_chip *chip, unsigned int offset,
 			      int value)
 {
 	/* set the gpio output */
-	return pinctrl_gpio_direction_input(chip->base + offset);
+	return pinctrl_gpio_direction_output(chip, offset);
 }
 
 static int spacemit_pin_conf_get(struct pinctrl_dev *pctldev, unsigned int pin,
