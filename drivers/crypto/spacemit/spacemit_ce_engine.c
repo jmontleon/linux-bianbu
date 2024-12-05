@@ -86,7 +86,7 @@ static uint32_t crypto_read32(int index, size_t offset)
 }
 
 /* just port from syscon_regmap_lookup_by_compatible */
-struct regmap *spacemit_syscon_regmap_lookup_by_compatible(const char *s)
+static struct regmap *spacemit_syscon_regmap_lookup_by_compatible(const char *s)
 {
         struct device_node *syscon_np;
         struct regmap *regmap;
@@ -100,9 +100,8 @@ struct regmap *spacemit_syscon_regmap_lookup_by_compatible(const char *s)
 
         return regmap;
 }
-EXPORT_SYMBOL_GPL(spacemit_syscon_regmap_lookup_by_compatible);
 
-void dump_data(const unsigned char *tag, const unsigned char *str, unsigned int len)
+__maybe_unused static void dump_data(const unsigned char *tag, const unsigned char *str, unsigned int len)
 {
 	char *p_addr;
 	uint8_t *buff;
@@ -584,7 +583,7 @@ static int crypto_aes_set_key2(int index, const uint8_t *key, AES_KEY_LEN_T keyl
 	return 0;
 }
 
-int ce_rijndael_setup_internal(int index, const unsigned char *key, int keylen)
+__maybe_unused static int ce_rijndael_setup_internal(int index, const unsigned char *key, int keylen)
 {
 	if (!key || keylen <= 0) {
 		goto error;
@@ -729,7 +728,7 @@ static void spacemit_crypto_start_test(struct crypto_larval *larval)
 	larval->test_started = true;
 	up_write(&crypto_alg_sem);
 
-	crypto_wait_for_test(larval);
+	crypto_schedule_test(larval);
 }
 
 static struct crypto_alg *spacemit_crypto_larval_wait(struct crypto_alg *alg)
@@ -1332,58 +1331,6 @@ void spacemit_aes_reladdr(void)
 }
 EXPORT_SYMBOL(spacemit_aes_reladdr);
 
-__maybe_unused static void engine_reg_dump(int index)
-{
-        uint32_t val;
-        printk("======> engine[%d] reg dump start! <======\n", index);
-
-        /*BIU*/
-        val = biu_read32(index, SP_HST_INTERRUPT_MASK);
-        printk("BIU[%d] SP_HST_INTERRUPT_MASK: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_BIU_REG_OFFSET + SP_HST_INTERRUPT_MASK, val);
-        val = biu_read32(index, SP_INTERRUPT_MASK);
-        printk("BIU[%d] SP_INTERRUPT_MASK: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_BIU_REG_OFFSET + SP_INTERRUPT_MASK, val);
-        val = biu_read32(index, SP_CONTROL);
-        printk("BIU[%d] SP_CONTROL: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_BIU_REG_OFFSET + SP_CONTROL, val);
-
-        /*ADEC*/
-        val = adec_read32(index, CE_ADEC_CTRL);
-        printk("ADEC[%d] CE_ADEC_CTRL: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_ADEC_CTRL, val);
-        val = adec_read32(index, CE_ADEC_CTRL2);
-        printk("ADEC[%d] CE_ADEC_CTRL2: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_ADEC_CTRL2, val);
-        val = adec_read32(index, CE_AXI_SL_CTRL);
-        printk("ADEC[%d] CE_AXI_SL_CTRL: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_AXI_SL_CTRL, val);
-        val = adec_read32(index, CE_ADEC_INT);
-        printk("ADEC[%d] CE_ADEC_INT: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_ADEC_INT, val);
-        val = adec_read32(index, CE_ADEC_INT_MSK);
-        printk("ADEC[%d] CE_ADEC_INT_MSK: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_ADEC_INT_MSK, val);
-        val = adec_read32(index, CE_ADEC_ACC_ERR_ADR);
-        printk("ADEC[%d] CE_ADEC_ACC_ERR_ADR: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_ADEC_ACC_ERR_ADR, val);
-        val = adec_read32(index, CE_ADEC_MP_FIFO_ERR_ADR);
-        printk("ADEC[%d] CE_ADEC_MP_FIFO_ERR_ADR: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ADEC_REG_OFFSET + CE_ADEC_MP_FIFO_ERR_ADR, val);
-
-        /*ABUS*/
-        val = abus_read32(index, CE_ABUS_BUS_CTRL);
-        printk("ABUS[%d] CE_ABUS_BUS_CTRL: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_ABUS_REG_OFFSET + CE_ABUS_BUS_CTRL, val);
-
-        /*DMA*/
-        val = dma_read32(index, CE_DMA_IN_CTRL);
-        printk("DMA[%d] CE_DMA_IN_CTRL: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_CTRL, val);
-        val = dma_read32(index, CE_DMA_IN_STATUS);
-        printk("DMA[%d] CE_DMA_IN_STATUS: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_STATUS, val);
-        val = dma_read32(index, CE_DMA_IN_SRC_ADR);
-        printk("DMA[%d] CE_DMA_IN_SRC_ADR: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_SRC_ADR, val);
-        val = dma_read32(index, CE_DMA_IN_XFER_CNTR);
-        printk("DMA[%d] CE_DMA_IN_XFER_CNTR: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_XFER_CNTR, val);
-        val = dma_read32(index, CE_DMA_IN_NX_LL_ADR);
-        printk("DMA[%d] CE_DMA_IN_NX_LL_ADR: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_NX_LL_ADR, val);
-        val = dma_read32(index, CE_DMA_IN_INT);
-        printk("DMA[%d] CE_DMA_IN_INT: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_INT, val);
-        val = dma_read32(index, CE_DMA_IN_INT_MASK);
-        printk("DMA[%d] CE_DMA_IN_INT_MASK: reg = 0x%lx, val = 0x%x\n", index, engine[index].engine_base + CE_DMA_REG_OFFSET + CE_DMA_IN_INT_MASK, val);
-
-        printk("======> engine[%d] reg dump finish! <======\n", index);
-}
-
 static inline void clear_adec_biu_int_flag(int index)
 {
 	volatile uint32_t val;
@@ -1857,14 +1804,13 @@ err_ioremap:
 	return -EINVAL;
 }
 
-static int crypto_engine_remove(struct platform_device *pdev)
+static void crypto_engine_remove(struct platform_device *pdev)
 {
 	struct aes_clk_reset_ctrl *ctrl = dev_get_drvdata(&pdev->dev);
 	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, in_buffer, dma_addr_in, DMA_TO_DEVICE);
 	dma_free_noncoherent(dev, SPACEMIT_AES_BUFFER_LEN, out_buffer, dma_addr_out, DMA_FROM_DEVICE);
 	clk_disable_unprepare(ctrl->clk);
 	reset_control_assert(ctrl->reset);
-	return 0;
 }
 
 
