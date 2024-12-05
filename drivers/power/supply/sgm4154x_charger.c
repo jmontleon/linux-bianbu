@@ -88,14 +88,7 @@ enum SGM4154x_QC_VOLT {
 	QC_20_9000mV,
 	QC_20_12000mV,
 };
-#if 0
-static enum power_supply_usb_type sgm4154x_usb_type[] = {
-	POWER_SUPPLY_USB_TYPE_UNKNOWN,
-	POWER_SUPPLY_USB_TYPE_SDP,
-	POWER_SUPPLY_USB_TYPE_DCP,
-	POWER_SUPPLY_USB_TYPE_CDP,
-};
-#endif
+
 static int sgm4154x_usb_notifier(struct notifier_block *nb, unsigned long val,
 				void *priv)
 {
@@ -127,69 +120,7 @@ static void sgm4154x_usb_work(struct work_struct *data)
 
 	dev_err(sgm->dev, "Error switching to charger mode.\n");
 }
-#if 0
-static int sgm4154x_get_term_curr(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int reg_val;
-	int offset = SGM4154x_TERMCHRG_I_MIN_uA;
 
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_3, &reg_val);
-	if (ret)
-		return ret;
-
-	reg_val &= SGM4154x_TERMCHRG_CUR_MASK;
-	reg_val = reg_val * SGM4154x_TERMCHRG_CURRENT_STEP_uA + offset;
-	return reg_val;
-}
-
-static int sgm4154x_get_prechrg_curr(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int reg_val;
-	int offset = SGM4154x_PRECHRG_I_MIN_uA;
-
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_3, &reg_val);
-	if (ret)
-		return ret;
-
-	reg_val = (reg_val&SGM4154x_PRECHRG_CUR_MASK)>>4;
-	reg_val = reg_val * SGM4154x_PRECHRG_CURRENT_STEP_uA + offset;
-	return reg_val;
-}
-
-static int sgm4154x_get_ichg_curr(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int ichg;
-	unsigned int curr;
-
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_2, &ichg);
-	if (ret)
-		return ret;
-
-	ichg &= SGM4154x_ICHRG_CUR_MASK;
-#if (defined(__SGM41513_CHIP_ID__) || defined(__SGM41513A_CHIP_ID__) || defined(__SGM41513D_CHIP_ID__))
-	if (ichg <= 0x8)
-		curr = ichg * 5000;
-	else if (ichg <= 0xF)
-		curr = 40000 + (ichg - 0x8) * 10000;
-	else if (ichg <= 0x17)
-		curr = 110000 + (ichg - 0xF) * 20000;
-	else if (ichg <= 0x20)
-		curr = 270000 + (ichg - 0x17) * 30000;
-	else if (ichg <= 0x30)
-		curr = 540000 + (ichg - 0x20) * 60000;
-	else if (ichg <= 0x3C)
-		curr = 1500000 + (ichg - 0x30) * 120000;
-	else
-		curr = 3000000;
-#else
-	curr = ichg * SGM4154x_ICHRG_I_STEP_uA;
-#endif
-	return curr;
-}
-#endif
 static int sgm4154x_set_term_curr(struct sgm4154x_device *sgm, int uA)
 {
 	int reg_val;
@@ -285,338 +216,6 @@ static int sgm4154x_set_chrg_volt(struct sgm4154x_device *sgm, int chrg_volt)
 
 	return ret;
 }
-#if 0
-static int sgm4154x_get_chrg_volt(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int vreg_val, chrg_volt;
-
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_4, &vreg_val);
-	if (ret)
-		return ret;
-
-	vreg_val = (vreg_val & SGM4154x_VREG_V_MASK)>>3;
-
-	if (15 == vreg_val)
-		chrg_volt = 4352000; //default
-	else if (vreg_val < 25)
-		chrg_volt = vreg_val*SGM4154x_VREG_V_STEP_uV + SGM4154x_VREG_V_MIN_uV;
-
-	return chrg_volt;
-}
-#endif
-#if 0//(defined(__SGM41542_CHIP_ID__)|| defined(__SGM41516D_CHIP_ID__) || defined(__SGM41543D_CHIP_ID__) || defined(__SGM41513D_CHIP_ID__))
-static int sgm4154x_enable_qc20_hvdcp_9v(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int dp_val, dm_val;
-
-	/*dp and dm connected,dp 0.6V dm Hiz*/
-    dp_val = 0x2<<3;
-    ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 0.6V
-    if (ret)
-        return ret;
-
-	dm_val = 0;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm Hiz
-    if (ret)
-        return ret;
-    //mdelay(1000);
-	msleep(1400);
-
-	/* dp 3.3v and dm 0.6v out 9V */
-	dp_val = SGM4154x_DP_VSEL_MASK;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 3.3v
-	if (ret)
-		return ret;
-
-	dm_val = 0x2<<1;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm 0.6v
-
-	return ret;
-}
-
-static int sgm4154x_enable_qc20_hvdcp_12v(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int dp_val, dm_val;
-
-	/*dp and dm connected,dp 0.6V dm Hiz*/
-    dp_val = 0x2<<3;
-    ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 0.6V
-    if (ret)
-        return ret;
-
-	dm_val = 0<<1;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm Hiz
-    if (ret)
-        return ret;
-    //mdelay(1000);
-	msleep(1400);
-
-	/* dp 0.6v and dm 0.6v out 12V */
-	dp_val = 0x2<<3;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 0.6v
-	if (ret)
-		return ret;
-	//mdelay(1250);
-
-	dm_val = 0x2<<1;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm 0.6v
-
-	return ret;
-}
-
-/* step 1. entry QC3.0 mode
-   step 2. up or down 200mv
-   step 3. retry step 2 */
-static int sgm4154x_enable_qc30_hvdcp(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int dp_val, dm_val;
-
-	dp_val = 0x2<<3;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 0.6v
-	if (ret)
-		return ret;
-
-	dm_val = 0;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm Hiz
-    if (ret)
-        return ret;
-    //mdelay(1000);
-	msleep(1400);
-	dm_val = 0x2;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm 0V
-	mdelay(10);
-
-	dm_val = SGM4154x_DM_VSEL_MASK;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm 3.3v
-
-	return ret;
-}
-
-// Must enter 3.0 mode to call ,otherwise cannot step correctly.
-static int sgm4154x_qc30_step_up_vbus(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int dp_val;
-
-	/*  dm 3.3v to dm 0.6v  step up 200mV when IC is QC3.0 mode*/
-	dp_val = SGM4154x_DP_VSEL_MASK;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 3.3v
-	if (ret)
-		return ret;
-
-	dp_val = 0x2<<3;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DP_VSEL_MASK, dp_val); //dp 0.6v
-	if (ret)
-		return ret;
-
-	udelay(100);
-	return ret;
-}
-// Must enter 3.0 mode to call ,otherwise cannot step correctly.
-static int sgm4154x_qc30_step_down_vbus(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int dm_val;
-
-	/* dp 0.6v and dm 0.6v step down 200mV when IC is QC3.0 mode*/
-	dm_val = 0x2<<1;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm 0.6V
-    if (ret)
-        return ret;
-
-	dm_val = SGM4154x_DM_VSEL_MASK;
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_d,
-				  SGM4154x_DM_VSEL_MASK, dm_val); //dm 3.3v
-	udelay(100);
-
-	return ret;
-}
-
-
-// fine tuning termination voltage,to Improve accuracy
-static int sgm4154x_vreg_fine_tuning(struct sgm4154x_device *sgm,enum SGM4154x_VREG_FT ft)
-{
-	int ret;
-	int reg_val;
-
-	switch(ft) {
-		case VREG_FT_DISABLE:
-			reg_val = 0;
-			break;
-
-		case VREG_FT_UP_8mV:
-			reg_val = SGM4154x_VREG_FT_UP_8mV;
-			break;
-
-		case VREG_FT_DN_8mV:
-			reg_val = SGM4154x_VREG_FT_DN_8mV;
-			break;
-
-		case VREG_FT_DN_16mV:
-			reg_val = SGM4154x_VREG_FT_DN_16mV;
-			break;
-
-		default:
-			reg_val = 0;
-			break;
-	}
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_f,
-				  SGM4154x_VREG_FT_MASK, reg_val);
-	pr_debug("%s reg_val:%d\n",__func__,reg_val);
-
-	return ret;
-}
-
-#endif
-static int sgm4154x_get_vindpm_offset_os(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int reg_val;
-
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_f, &reg_val);
-	if (ret)
-		return ret;
-
-	reg_val = reg_val & SGM4154x_VINDPM_OS_MASK;
-
-	return reg_val;
-}
-
-
-static int sgm4154x_get_input_volt_lim(struct sgm4154x_device *sgm)
-{
-	int ret;
-	int offset;
-	int vlim;
-	int temp;
-
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_6, &vlim);
-	if (ret)
-		return ret;
-
-	temp = sgm4154x_get_vindpm_offset_os(sgm);
-	if (VINDPM_OS_3900mV == temp)
-		offset = 3900000; //uv
-	else if (VINDPM_OS_5900mV == temp)
-		offset = 5900000;
-	else if (VINDPM_OS_7500mV == temp)
-		offset = 7500000;
-	else if (VINDPM_OS_10500mV == temp)
-		offset = 10500000;
-
-	vlim = offset + (vlim & 0x0F) * SGM4154x_VINDPM_STEP_uV;
-	return vlim;
-}
-
-
-static int sgm4154x_set_vindpm_offset_os(struct sgm4154x_device *sgm,enum SGM4154x_VINDPM_OS offset_os)
-{
-	int ret;
-
-
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_f,
-				  SGM4154x_VINDPM_OS_MASK, offset_os);
-
-	if (ret){
-		pr_err("%s fail\n",__func__);
-		return ret;
-	}
-
-	return ret;
-}
-
-static int sgm4154x_set_input_volt_lim(struct sgm4154x_device *sgm, unsigned int vindpm)
-{
-	int ret;
-	unsigned int offset;
-	u8 reg_val;
-	enum SGM4154x_VINDPM_OS os_val;
-
-	if (vindpm < SGM4154x_VINDPM_V_MIN_uV ||
-	    vindpm > SGM4154x_VINDPM_V_MAX_uV)
- 		return -EINVAL;
-
-	if (vindpm < 5900000){
-		os_val = VINDPM_OS_3900mV;
-		offset = 3900000;
-	}
-	else if (vindpm >= 5900000 && vindpm < 7500000){
-		os_val = VINDPM_OS_5900mV;
-		offset = 5900000; //uv
-	}
-	else if (vindpm >= 7500000 && vindpm < 10500000){
-		os_val = VINDPM_OS_7500mV;
-		offset = 7500000; //uv
-	}
-	else{
-		os_val = VINDPM_OS_10500mV;
-		offset = 10500000; //uv
-	}
-
-	sgm4154x_set_vindpm_offset_os(sgm,os_val);
-	reg_val = (vindpm - offset) / SGM4154x_VINDPM_STEP_uV;
-
-	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_6,
-				  SGM4154x_VINDPM_V_MASK, reg_val);
-
-	return ret;
-}
-
-bool sgm4154x_is_hvdcp(struct sgm4154x_device *sgm,enum SGM4154x_QC_VOLT val)
-{
-    int i = 20;
-	int vlim;
-	int temp;
-
-	vlim = sgm4154x_get_input_volt_lim(sgm);
-
-	if (QC_20_9000mV == val)
-	{
-		sgm4154x_set_input_volt_lim(sgm,8000000); //8v
-	}
-	else if (QC_20_12000mV == val)
-	{
-		sgm4154x_set_input_volt_lim(sgm,11000000); //11v
-	}
-	else
-	{
-		sgm4154x_set_input_volt_lim(sgm,4500000); //4.5v
-		return 0;
-	}
-	mdelay(1);
-	while(i--){
-		regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_a, &temp);
-
-		if(0 == (temp&0x40)){
-			return 1;
-		}
-		else if(1 == !!(temp&0x40) && i == 1){
-			sgm4154x_set_input_volt_lim(sgm,vlim);
-			return 0;
-		}
-		mdelay(10);
-	}
-	return 0;
-}
 
 static int sgm4154x_set_input_curr_lim(struct sgm4154x_device *sgm, int iindpm)
 {
@@ -675,19 +274,7 @@ static int sgm4154x_set_watchdog_timer(struct sgm4154x_device *sgm, int time)
 
 	return ret;
 }
-#if 0
-static int sgm4154x_set_wdt_rst(struct sgm4154x_device *sgm, bool is_rst)
-{
-	int val = 0;
 
-	if (is_rst)
-		val = SGM4154x_WDT_RST_MASK;
-	else
-		val = 0;
-	return regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_1,
-				  SGM4154x_WDT_RST_MASK, val);
-}
-#endif
 static int sgm4154x_get_state(struct sgm4154x_device *sgm,
 			     struct sgm4154x_state *state)
 {
@@ -745,19 +332,8 @@ static int sgm4154x_get_state(struct sgm4154x_device *sgm,
 
 	return 0;
 }
-#if 0
-static int sgm4154x_set_hiz_en(struct sgm4154x_device *sgm, bool hiz_en)
-{
-	int reg_val;
 
-	dev_notice(sgm->dev, "%s:%d", __func__, hiz_en);
-	reg_val = hiz_en ? SGM4154x_HIZ_EN : 0;
-
-	return regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_0,
-				  SGM4154x_HIZ_EN, reg_val);
-}
-#endif
-int sgm4154x_enable_charger(struct sgm4154x_device *sgm)
+static int sgm4154x_enable_charger(struct sgm4154x_device *sgm)
 {
     int ret;
     printk("sgm4154x_enable_charger\n");
@@ -767,7 +343,7 @@ int sgm4154x_enable_charger(struct sgm4154x_device *sgm)
     return ret;
 }
 
-int sgm4154x_disable_charger(struct sgm4154x_device *sgm)
+static int sgm4154x_disable_charger(struct sgm4154x_device *sgm)
 {
     int ret;
     printk("sgm4154x_disable_charger\n");
@@ -776,86 +352,6 @@ int sgm4154x_disable_charger(struct sgm4154x_device *sgm)
                      0);
     return ret;
 }
-#if 0
-float sgm4154x_get_charger_output_power(struct sgm4154x_device *sgm)
-{
-    int ret;
-	int i = 0x1F;
-	int j = 0;
-	int vlim;
-	int ilim;
-	int temp;
-	int offset;
-	int output_volt;
-	int output_curr;
-	float o_i,o_v;
-
-    ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_6, &vlim); //read default setting to save
-	if (ret){
-		pr_err("%s read SGM4154x_CHRG_CTRL_6 fail\n",__func__);
-		return ret;
-	}
-
-	ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_0, &ilim); //read default setting to save
-	if (ret){
-		pr_err("%s read SGM4154x_CHRG_CTRL_0 fail\n",__func__);
-		return ret;
-	}
-
-
-	regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_6,
-				  SGM4154x_VINDPM_V_MASK, 0);
-	while(i--){
-
-		regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_0,
-				  SGM4154x_IINDPM_I_MASK, i);
-		mdelay(50);
-		ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_a, &temp);
-		if (ret){
-			pr_err("%s read SGM4154x_CHRG_CTRL_a fail\n",__func__);
-			return ret;
-		}
-		if (1 == !!(temp&0x20)){
-			output_curr = 100 + i*100; //mA
-			if (0x1F == i)
-				output_curr = 3800;	      //mA
-		}
-	}
-
-	regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_0,
-				  SGM4154x_IINDPM_I_MASK, SGM4154x_IINDPM_I_MASK);
-	for(j = 0;j <= 0xF;j ++)
-	{
-		regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_6,
-				  SGM4154x_VINDPM_V_MASK, j);
-
-		mdelay(10);
-		ret = regmap_read(sgm->regmap, SGM4154x_CHRG_CTRL_a, &temp);
-		if (ret){
-			pr_err("%s read SGM4154x_CHRG_CTRL_a fail\n",__func__);
-			return ret;
-		}
-
-		if (1 == !!(temp&0x40)){
-
-			temp = sgm4154x_get_vindpm_offset_os(sgm);
-			if (0 == temp)
-				offset = 3900;  //mv
-			else if (1 == temp)
-				offset = 5900;  //mv
-			else if (2 == temp)
-				offset = 7500;  //mv
-			else if (3 == temp)
-				offset = 10500; //mv
-			output_volt = offset + j*100; //mv
-		}
-
-	}
-	o_i = (float)output_curr/1000;
-	o_v = (float)output_volt/1000;
-    return o_i * o_v;
-}
-#endif
 
 static int sgm4154x_set_vac_ovp(struct sgm4154x_device *sgm)
 {
@@ -878,40 +374,6 @@ static int sgm4154x_set_recharge_volt(struct sgm4154x_device *sgm, int recharge_
 				  SGM4154x_VRECHARGE, reg_val);
 }
 
-#if 0//(defined(__SGM41542_CHIP_ID__)|| defined(__SGM41516D_CHIP_ID__) || defined(__SGM41543D_CHIP_ID__)|| defined(__SGM41513D_CHIP_ID__))
-static int get_charger_type(struct sgm4154x_device * sgm)
-{
-	enum power_supply_usb_type usb_type;
-	switch(sgm->state.chrg_type) {
-		case SGM4154x_USB_SDP:
-			sgm4154x_power_supply_desc.type = POWER_SUPPLY_TYPE_USB;
-			usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-			break;
-
-		case SGM4154x_USB_CDP:
-			sgm4154x_power_supply_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			usb_type = POWER_SUPPLY_USB_TYPE_CDP;
-			break;
-
-		case SGM4154x_USB_DCP:
-			sgm4154x_power_supply_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-			break;
-
-		case SGM4154x_NON_STANDARD:
-			sgm4154x_power_supply_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-			break;
-
-		default:
-			sgm4154x_power_supply_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-			break;
-	}
-	pr_err("%s psy.type:%d,usb_type:%d\n",__func__,sgm4154x_power_supply_desc.type,usb_type);
-	return usb_type;
-}
-#endif
 static int sgm4154x_property_is_writeable(struct power_supply *psy,
 					 enum power_supply_property prop)
 {
@@ -938,18 +400,7 @@ static int sgm4154x_charger_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		ret = sgm4154x_set_input_curr_lim(sgm, val->intval);
 		break;
-#if 0
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		if (val->intval)
-			ret = sgm4154x_enable_charger(sgm);
-		else
-			ret = sgm4154x_disable_charger(sgm);
-		break;
-	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT:
-		ret = sgm4154x_set_input_volt_lim(sgm, val->intval);
-		break;
 
-#endif
 	default:
 		return -EINVAL;
 	}
@@ -1046,22 +497,6 @@ static int sgm4154x_charger_get_property(struct power_supply *psy,
 		}
 		break;
 
-	//case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		//val->intval = state.vbus_adc;
-		//break;
-
-	//case POWER_SUPPLY_PROP_CURRENT_NOW:
-		//val->intval = state.ibus_adc;
-		//break;
-
-/*	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_LIMIT:
-		ret = sgm4154x_get_input_volt_lim(sgm);
-		if (ret < 0)
-			return ret;
-
-		val->intval = ret;
-		break;*/
-
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		ret = sgm4154x_get_input_curr_lim(sgm);
 		if (ret < 0)
@@ -1069,38 +504,13 @@ static int sgm4154x_charger_get_property(struct power_supply *psy,
 
 		val->intval = ret;
 		break;
-/*
-	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = !state.hiz_en;
-		break;
-*/
+
 	default:
 		return -EINVAL;
 	}
 
 	return ret;
 }
-
-
-#if 0
-static bool sgm4154x_state_changed(struct sgm4154x_device *sgm,
-				  struct sgm4154x_state *new_state)
-{
-	struct sgm4154x_state old_state;
-
-	mutex_lock(&sgm->lock);
-	old_state = sgm->state;
-	mutex_unlock(&sgm->lock);
-
-	return (old_state.chrg_type != new_state->chrg_type ||
-		old_state.chrg_stat != new_state->chrg_stat	||
-		old_state.online != new_state->online		||
-		old_state.therm_stat != new_state->therm_stat	||
-		old_state.vsys_stat != new_state->vsys_stat	||
-		old_state.chrg_fault != new_state->chrg_fault
-		);
-}
-#endif
 
 static void sgm4154x_dump_register(struct sgm4154x_device * sgm)
 {
@@ -1216,8 +626,6 @@ static void charger_detect_work_func(struct work_struct *work)
 		case SGM4154x_USB_DCP:
 			pr_err("SGM4154x charger type: DCP can select up volt\n");
 			curr_in_limit = 2000000;
-			//sgm4154x_enable_qc20_hvdcp_9v(sgm);
-			//sgm4154x_is_hvdcp(sgm,0);
 			break;
 
 		case SGM4154x_UNKNOWN:
@@ -1416,10 +824,6 @@ static int sgm4154x_hw_init(struct sgm4154x_device *sgm)
 	if (ret)
 		goto err_out;
 
-	/*ret = sgm4154x_set_input_volt_lim(sgm, sgm->init_data.vlim);
-	if (ret)
-		goto err_out;*/
-
 	ret = sgm4154x_set_input_curr_lim(sgm, sgm->init_data.ilim);
 	if (ret)
 		goto err_out;
@@ -1453,16 +857,7 @@ static int sgm4154x_parse_dt(struct sgm4154x_device *sgm)
 	int irq_gpio = 0, irqn = 0;
 	int chg_en_gpio = 0;
 	struct gpio_desc *nqon;
-	#if 0
-	ret = device_property_read_u32(sgm->dev, "watchdog-timer",
-				       &sgm->watchdog_timer);
-	if (ret)
-		sgm->watchdog_timer = SGM4154x_WATCHDOG_DIS;
 
-	if (sgm->watchdog_timer > SGM4154x_WATCHDOG_MAX ||
-	    sgm->watchdog_timer < SGM4154x_WATCHDOG_DIS)
-		return -EINVAL;
-	#endif
 	nqon = devm_gpiod_get(sgm->dev, "nqon", GPIOD_OUT_LOW);
 	gpiod_set_value(nqon, 1);
 	ret = device_property_read_u32(sgm->dev,
