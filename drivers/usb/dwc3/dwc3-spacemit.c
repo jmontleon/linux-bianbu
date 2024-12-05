@@ -18,6 +18,8 @@
 #include <linux/reset.h>
 #include <linux/of_address.h>
 #include <linux/pm_wakeirq.h>
+#include <soc/spacemit/spacemit_misc.h>
+
 
 #define DWC3_LFPS_WAKE_STATUS		(1 << 29)
 #define DWC3_CDWS_WAKE_STATUS		(1 << 28)
