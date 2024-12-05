@@ -80,8 +80,7 @@ static ssize_t v2d_sysfs_clkrate_set(struct device *dev, struct device_attribute
 	struct v2d_info *info  = dev_get_drvdata(dev);
 	long rate = 0;
 	rate = simple_strtol(buf, NULL, 10);
-	if (0 != rate)
-	{
+	if (0 != rate) {
 		clk_set_rate(info->clkcore, rate);
 	}
 	return count;
@@ -104,8 +103,7 @@ static int v2d_resume(struct device *dev)
 static int v2d_runtime_suspend(struct device *dev)
 {
 	struct v2d_info *info  = dev_get_drvdata(dev);
-	if (!IS_ERR_OR_NULL(info->clkcore))
-	{
+	if (!IS_ERR_OR_NULL(info->clkcore)) {
 		clk_disable_unprepare(info->clkcore);
 		V2DLOGI("v2d: clock off.\n");
 	}
@@ -117,8 +115,7 @@ static int v2d_runtime_resume(struct device *dev)
 	struct v2d_info *info  = dev_get_drvdata(dev);
 	long clk_rate = 0;
 
-	if (!IS_ERR_OR_NULL(info->clkcore))
-	{
+	if (!IS_ERR_OR_NULL(info->clkcore)) {
 			clk_prepare_enable(info->clkcore);
 			clk_rate = clk_get_rate(info->clkcore);
 			V2DLOGI("v2d: clock on, rate: %ld\n", clk_rate);
@@ -147,8 +144,7 @@ static irqreturn_t v2d_irq_handler(int32_t irq, void *dev_id)
 	}
 
 	spin_lock_irqsave(&info->power_spinlock, flags);
-	if (!info->refcount)
-	{
+	if (!info->refcount) {
 		spin_unlock_irqrestore(&info->power_spinlock, flags);
 		V2DLOGE("v2d power is off !\n");
 		return IRQ_NONE;
@@ -199,7 +195,7 @@ const struct dma_fence_ops v2d_fence_ops = {
 	.fence_value_str = v2d_fence_fence_value_str
 };
 
-int v2d_fence_generate(struct v2d_info *info, struct dma_fence **fence, int *fence_fd)
+static int v2d_fence_generate(struct v2d_info *info, struct dma_fence **fence, int *fence_fd)
 {
 	struct sync_file *sync_file = NULL;
 	int fd;
@@ -221,8 +217,7 @@ int v2d_fence_generate(struct v2d_info *info, struct dma_fence **fence, int *fen
 	}
 	fd = get_unused_fd_flags(O_CLOEXEC);
 	*fence_fd = fd;
-	if(fd<0)
-	{
+	if (fd<0) {
 		dma_fence_put(*fence);
 		fput(sync_file->file);
 		return -ENOMEM;
@@ -231,7 +226,7 @@ int v2d_fence_generate(struct v2d_info *info, struct dma_fence **fence, int *fen
 	return 0;
 }
 
-void v2d_fence_wait(struct v2d_info *info, struct dma_fence *fence)
+static void v2d_fence_wait(struct v2d_info *info, struct dma_fence *fence)
 {
 	int err = dma_fence_wait_timeout(fence, false, msecs_to_jiffies(V2D_SHORT_FENCE_TIMEOUT));
 	if (err > 0)
@@ -244,14 +239,12 @@ void v2d_fence_wait(struct v2d_info *info, struct dma_fence *fence)
 		dev_warn(&info->pdev->dev, "error waiting on fence: %d\n", err);
 }
 
-void kfree_v2d_post_task(struct v2d_pending_post_task *element)
+static void kfree_v2d_post_task(struct v2d_pending_post_task *element)
 {
-	if (!element)
-	{
+	if (!element) {
 		return;
 	}
-	if (!element->pTask)
-	{
+	if (!element->pTask) {
 		kfree(element);
 		return;
 	}
@@ -457,7 +450,7 @@ static void v2d_put_dmabuf(struct v2d_info *v2dinfo, struct v2d_pending_post_tas
 	v2d_iommu_map_end();
 }
 
-int v2d_job_submit(struct v2d_info *info, V2D_SUBMIT_TASK_S *psubmit)
+static int v2d_job_submit(struct v2d_info *info, V2D_SUBMIT_TASK_S *psubmit)
 {
 	int err = 0;
  	V2D_SUBMIT_TASK_S *pTask = NULL;
@@ -469,12 +462,11 @@ int v2d_job_submit(struct v2d_info *info, V2D_SUBMIT_TASK_S *psubmit)
 		goto error;
 	}
 	memset(pTask,0,sizeof(V2D_SUBMIT_TASK_S));
-	if(copy_from_user(pTask,(uint32_t *)psubmit, sizeof(V2D_SUBMIT_TASK_S)) != 0) {
+	if (copy_from_user(pTask,(uint32_t *)psubmit, sizeof(V2D_SUBMIT_TASK_S)) != 0) {
 		err = -EINVAL;
 		goto error;
 	}
-	if(v2d_fence_generate(info, &fence, &pTask->completeFencefd))
-	{
+	if (v2d_fence_generate(info, &fence, &pTask->completeFencefd)) {
 		printk(KERN_ERR "%s" "-%s-Failed to generate fence(%pf),fd(%d)-slot1\n", "v2d", __func__,fence, pTask->completeFencefd);
 		err = -EINVAL;
 		goto error;
@@ -494,12 +486,10 @@ int v2d_job_submit(struct v2d_info *info, V2D_SUBMIT_TASK_S *psubmit)
 	memset(cfg,0,sizeof(struct v2d_pending_post_task));
 	INIT_LIST_HEAD(&cfg->head);
 	cfg->pTask = pTask;
-	if (pTask->completeFencefd>=0)
-	{
+	if (pTask->completeFencefd>=0) {
 		cfg->pCompleteFence = fence;
 	}
-	if (pTask->acquireFencefd>=0)
-	{
+	if (pTask->acquireFencefd>=0) {
 		#ifdef CONFIG_SYNC_FILE
 		cfg->pAcquireFence = sync_file_get_fence(cfg->pTask->acquireFencefd);
 		#endif
@@ -518,13 +508,13 @@ int v2d_job_submit(struct v2d_info *info, V2D_SUBMIT_TASK_S *psubmit)
 	return 0;
 
 error:
-	if(pTask){
+	if (pTask){
 		kfree(pTask);
 	}
 	return err;
 }
 
-void v2d_work_done(struct work_struct *data)
+static void v2d_work_done(struct work_struct *data)
 {
 	struct v2d_pending_post_task *element, *tmp;
 	int refcount;
@@ -533,10 +523,9 @@ void v2d_work_done(struct work_struct *data)
 
 	mutex_lock(&info->free_lock);
 	list_for_each_entry_safe(element, tmp, &info->free_list, head) {
-		if (element->pTask->completeFencefd>=0)
-		{
+		if (element->pTask->completeFencefd>=0) {
 			pCompleteFence = element->pCompleteFence;
-			if(NULL != pCompleteFence) {
+			if (NULL != pCompleteFence) {
 				dma_fence_signal(pCompleteFence);
 				dma_fence_put(pCompleteFence);
 			}
@@ -549,8 +538,7 @@ void v2d_work_done(struct work_struct *data)
 			v2d_golbal_reset();
 			info->do_reset = 0;
 		}
-		if(!refcount)
-		{
+		if (!refcount) {
 			v2d_irq_disable();
 			v2d_clk_off(info);
 		}
@@ -562,7 +550,7 @@ void v2d_work_done(struct work_struct *data)
 	mutex_unlock(&info->free_lock);
 }
 
-void do_softreset(void)
+static void do_softreset(void)
 {
 	struct v2d_pending_post_task *element, *tmp;
 	struct dma_fence *pCompleteFence = NULL;
@@ -572,10 +560,9 @@ void do_softreset(void)
 
 	mutex_lock(&info->free_lock);
 	list_for_each_entry_safe(element, tmp, &info->free_list, head) {
-		if (element->pTask->completeFencefd>=0)
-		{
+		if (element->pTask->completeFencefd>=0) {
 			pCompleteFence = element->pCompleteFence;
-			if(NULL != pCompleteFence) {
+			if (NULL != pCompleteFence) {
 				dma_fence_signal(pCompleteFence);
 				dma_fence_put(pCompleteFence);
 			}
@@ -588,8 +575,7 @@ void do_softreset(void)
 		v2d_dump_irqraw_status();
 		v2d_golbal_reset();
 		spin_unlock_irqrestore(&info->power_spinlock, flags);
-		if(!refcount)
-		{
+		if (!refcount) {
 			v2d_irq_disable();
 			v2d_clk_off(info);
 		}
@@ -602,7 +588,7 @@ void do_softreset(void)
 	flush_workqueue(info->v2d_job_done_wq);
 }
 
-void v2d_post_work_func(struct kthread_work *work)
+static void v2d_post_work_func(struct kthread_work *work)
 {
 	struct v2d_info *info = container_of(work, struct v2d_info, post_work);
 	struct v2d_pending_post_task *post, *next;
@@ -611,13 +597,11 @@ void v2d_post_work_func(struct kthread_work *work)
 	struct dma_fence *pAcquireFence = NULL;
 	mutex_lock(&info->post_lock);
 	list_for_each_entry_safe(post, next, &info->post_list, head) {
-		while(down_timeout(&info->sem_lock, msecs_to_jiffies(2500)))
-		{
+		while(down_timeout(&info->sem_lock, msecs_to_jiffies(2500))) {
 			printk(KERN_ERR "%s hang do softreset\n", "v2d");
 			do_softreset();
 		}
-		if (post->pTask->acquireFencefd>=0)
-		{
+		if (post->pTask->acquireFencefd>=0) {
 			pAcquireFence = post->pAcquireFence;
 			v2d_fence_wait(info, pAcquireFence);
 			dma_fence_put(pAcquireFence);
@@ -631,8 +615,7 @@ void v2d_post_work_func(struct kthread_work *work)
 		refcount = info->refcount;
 		info->refcount++;
 		spin_unlock_irqrestore(&info->power_spinlock, flags);
-		if(!refcount)
-		{
+		if (!refcount) {
 			v2d_clk_on(info);
 			v2d_irq_enable();
 		}
@@ -667,12 +650,12 @@ static int v2d_dev_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-ssize_t v2d_dev_read(struct file *filp, char __user *buf, size_t count, loff_t *ppos)
+static ssize_t v2d_dev_read(struct file *filp, char __user *buf, size_t count, loff_t *ppos)
 {
 	return 0;
 }
 
-ssize_t v2d_dev_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
+static ssize_t v2d_dev_write(struct file *filp, const char __user *buf, size_t count, loff_t *ppos)
 {
 	int ret;
 	struct v2d_info *pInfo;
@@ -762,9 +745,9 @@ static int v2d_iommu_deinit(struct platform_device *pdev)
 	struct v2d_iommu_res *v2d_res = &sV2dIommuRes;
 
 	dma_free_coherent(dev,
-				MAX_SIZE_PER_TTB*TBU_INSTANCES_NUM,
-				v2d_res->tbu_ins[0].ttb_va,
-				v2d_res->tbu_ins[0].ttb_pa);
+		MAX_SIZE_PER_TTB*TBU_INSTANCES_NUM,
+		v2d_res->tbu_ins[0].ttb_va,
+		v2d_res->tbu_ins[0].ttb_pa);
 
 	return 0;
 }
@@ -886,9 +869,9 @@ static int v2d_probe(struct platform_device *pdev)
 	return 0;
 
 err:
-	if(info->post_thread)
+	if (info->post_thread)
 		 kthread_stop(info->post_thread);
-	if(info->v2d_job_done_wq)
+	if (info->v2d_job_done_wq)
 		destroy_workqueue(info->v2d_job_done_wq);
 
 err_misc:
@@ -921,7 +904,7 @@ static void v2d_remove(struct platform_device *pdev)
 	clk_notifier_unregister(info->clkcore, &info->nb);
 #endif
 	misc_deregister(&info->mdev);
-	if(info->v2d_job_done_wq)
+	if (info->v2d_job_done_wq)
 		destroy_workqueue(info->v2d_job_done_wq);
 
 	if (__clk_is_enabled(info->clkcore)) {
