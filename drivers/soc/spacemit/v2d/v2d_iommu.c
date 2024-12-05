@@ -6,10 +6,11 @@
 */
 #include "v2d_priv.h"
 #include "v2d_reg.h"
+#include "v2d_drv.h"
 
 struct v2d_iommu_res sV2dIommuRes;
 
-unsigned long phys_cpu2v2d(unsigned long phys_addr)
+static unsigned long phys_cpu2v2d(unsigned long phys_addr)
 {
 	if (phys_addr >= 0x100000000UL) {
 		phys_addr -= 0x80000000UL;
