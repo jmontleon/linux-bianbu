@@ -6,13 +6,14 @@
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
-#include <drm/drm_aperture.h>
+#include <linux/aperture.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_debugfs.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_fbdev_dma.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_of.h>
+#include <drm/drm_client_setup.h>
 #include <linux/component.h>
 #include <linux/mutex.h>
 #include <linux/of_graph.h>
@@ -201,6 +202,7 @@ static struct drm_driver spacemit_drm_drv = {
 	.fops = &spacemit_drm_fops,
 	.dumb_create = spacemit_gem_dumb_create,
 	.gem_prime_import_sg_table = spacemit_gem_prime_import_sg_table,
+	DRM_FBDEV_DMA_DRIVER_OPS,
 #ifdef CONFIG_DEBUG_FS
 	.debugfs_init		= spacemit_drm_debugfs_init,
 #endif
@@ -220,7 +222,7 @@ static int spacemit_drm_bind(struct device *dev)
 
 	DRM_DEBUG("%s()\n", __func__);
 	/* Remove existing drivers that may own the framebuffer memory. */
-	err = drm_aperture_remove_framebuffers(&spacemit_drm_drv);
+	err =aperture_remove_all_conflicting_devices(spacemit_drm_drv.name);
 	if (err) {
 		DRM_ERROR("Failed to remove existing framebuffers - %d.\n", err);
 		return err;
@@ -266,7 +268,7 @@ static int spacemit_drm_bind(struct device *dev)
 	if (err < 0)
 		goto err_kms_helper_poll_fini;
 
-	drm_fbdev_dma_setup(drm, 32);
+	drm_client_setup(drm, NULL);
 
 	return 0;
 
