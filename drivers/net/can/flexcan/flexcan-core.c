@@ -2555,7 +2555,7 @@ static struct platform_driver r_flexcan_driver = {
 		.of_match_table = r_flexcan_of_match,
 	},
 	.probe = flexcan_probe,
-	.remove_new = flexcan_remove,
+	.remove = flexcan_remove,
 	.id_table = flexcan_id_table,
 };
 
