@@ -28,7 +28,7 @@ static int spacemit_simple_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 	struct snd_soc_dai *sdai;
 	struct simple_util_priv *priv = snd_soc_card_get_drvdata(rtd->card);
-	struct simple_dai_props *props = simple_priv_to_props(priv, rtd->num);
+	struct simple_dai_props *props = simple_priv_to_props(priv, rtd->id);
 	unsigned int mclk, mclk_fs = 0;
 	int i, ret;
 
