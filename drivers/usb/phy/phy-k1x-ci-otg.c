@@ -5,7 +5,6 @@
  * Copyright (c) 2023 Spacemit Inc.
  */
 #include <linux/irqreturn.h>
-#include <linux/reset.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
@@ -13,6 +12,7 @@
 #include <linux/device.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/of.h>
 #include <linux/workqueue.h>
 #include <linux/platform_device.h>
