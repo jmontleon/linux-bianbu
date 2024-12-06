@@ -1871,7 +1871,7 @@ static struct platform_driver spacemit_sdhci_driver = {
 		.pm	= SDHCI_SPACEMIT_PMOPS,
 	},
 	.probe		= spacemit_sdhci_probe,
-	.remove_new	= spacemit_sdhci_remove,
+	.remove		= spacemit_sdhci_remove,
 };
 
 module_platform_driver(spacemit_sdhci_driver);
