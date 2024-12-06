@@ -1337,12 +1337,11 @@ xfer_retry:
 	reinit_completion(&spacemit_i2c->complete);
 
 	spacemit_i2c_enable(spacemit_i2c);
-	enable_irq(spacemit_i2c->irq);
 
 	/* i2c wait for bus busy */
 	ret = spacemit_i2c_recover_bus_busy(spacemit_i2c);
 	if (unlikely(ret))
-		goto err_recover;
+		goto timeout_xfex;
 
 	/* i2c msg transmit */
 	if (likely(spacemit_i2c->xfer_mode == SPACEMIT_I2C_MODE_INTERRUPT))
@@ -1367,8 +1366,6 @@ xfer_retry:
 							spacemit_i2c->timeout);
 		if (unlikely(time_left == 0)) {
 			dev_alert(spacemit_i2c->dev, "msg completion timeout\n");
-			synchronize_irq(spacemit_i2c->irq);
-			disable_irq(spacemit_i2c->irq);
 			spacemit_i2c_bus_reset(spacemit_i2c);
 			spacemit_i2c_reset(spacemit_i2c);
 			ret = -ETIMEDOUT;
@@ -1379,9 +1376,6 @@ xfer_retry:
 err_xfer:
 	if (likely(!ret))
 		spacemit_i2c_check_bus_release(spacemit_i2c);
-
-err_recover:
-	disable_irq(spacemit_i2c->irq);
 
 timeout_xfex:
 	/* disable spacemit i2c */
@@ -1728,7 +1722,6 @@ static int spacemit_i2c_reg_slave(struct i2c_client *slave)
 
 	spacemit_i2c_write_reg(spacemit_i2c, REG_SAR, slave->addr);
 	spacemit_i2c_write_reg(spacemit_i2c, REG_CR, SPACEMIT_I2C_SLAVE_CRINIT);
-	enable_irq(spacemit_i2c->irq);
 
 	return 0;
 }
@@ -1738,8 +1731,6 @@ static int spacemit_i2c_unreg_slave(struct i2c_client *slave)
 	struct spacemit_i2c_dev *spacemit_i2c = i2c_get_adapdata(slave->adapter);
 
 	WARN_ON(!spacemit_i2c->slave);
-
-	disable_irq(spacemit_i2c->irq);
 
 	spacemit_i2c_write_reg(spacemit_i2c, REG_CR, 0);
 	/* clear slave address */
@@ -1928,7 +1919,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 		}
 
 		ret = devm_request_irq(spacemit_i2c->dev, spacemit_i2c->irq, spacemit_i2c_int_handler,
-				IRQF_NO_SUSPEND | IRQF_NO_AUTOEN,
+				IRQF_NO_SUSPEND,
 				dev_name(spacemit_i2c->dev), spacemit_i2c);
 		if (ret) {
 			dev_err(spacemit_i2c->dev, "failed to request irq\n");
