@@ -10,6 +10,7 @@ config DRM_SPACEMIT
 	select DRM_PANEL
 	select VIDEOMODE_HELPERS
 	select BACKLIGHT_CLASS_DEVICE
+	select DRM_CLIENT_SELECTION
 	select GKI_FIX_WORKAROUND if DRM_SPACEMIT=m
 	depends on DRM
 	default n
