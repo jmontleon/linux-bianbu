@@ -20,7 +20,7 @@
 #include <linux/dma-buf.h>
 #include <linux/highmem.h>
 
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 
 #define  V2D_DRV_NAME		"spacemit_v2d"
 struct v2d_info *v2dInfo;
