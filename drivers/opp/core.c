@@ -2706,14 +2706,15 @@ int dev_pm_opp_set_config_indexed(struct device *dev, struct dev_pm_opp_config *
 		data->flags |= OPP_CONFIG_REGULATOR;
 	}
 
-	/* Attach genpds */
-	if (config->genpd_names) {
-		ret = _opp_attach_genpd(opp_table, dev, config->genpd_names,
-					config->virt_devs);
+	if (config->required_dev) {
+		ret = _opp_set_required_dev(opp_table, dev,
+					    config->required_dev,
+					    config->required_dev_index);
 		if (ret)
 			goto err;
 
-		data->flags |= OPP_CONFIG_GENPD;
+		data->required_dev_index = config->required_dev_index;
+		data->flags |= OPP_CONFIG_REQUIRED_DEV;
 	}
 
 	ret = xa_alloc(&opp_configs, &id, data, XA_LIMIT(1, INT_MAX),
