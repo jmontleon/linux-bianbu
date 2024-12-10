@@ -1131,8 +1131,9 @@ static void spacemit_i2c_init_xfer_params(struct spacemit_i2c_dev *spacemit_i2c)
 static int spacemit_i2c_pio_xfer(struct spacemit_i2c_dev *spacemit_i2c)
 {
 	int ret = 0, xfer_try = 0;
-	u32 status;
+	u32 status, ctrl;
 	signed long timeout;
+	signed long stop_timeout = 3000;
 
 xfer_retry:
 	/* calculate timeout */
@@ -1163,7 +1164,17 @@ xfer_retry:
 	}
 
 	while (spacemit_i2c->num > 0 && timeout > 0) {
-		status = spacemit_i2c_read_reg(spacemit_i2c, REG_SR);
+		ctrl = spacemit_i2c_read_reg(spacemit_i2c, REG_CR);
+		if (ctrl & CR_STOP)
+			while (stop_timeout > 0) {
+				status = spacemit_i2c_read_reg(spacemit_i2c, REG_SR);
+				udelay(100);
+				stop_timeout -= 100;
+				if (status & SR_MSD)
+					break;
+			}
+		else 
+			status = spacemit_i2c_read_reg(spacemit_i2c, REG_SR);
 		spacemit_i2c_clear_int_status(spacemit_i2c, status);
 		spacemit_i2c->i2c_status = status;
 
@@ -1183,13 +1194,17 @@ xfer_retry:
 
 		/* transmit empty */
 		if (likely(status & SR_ITE)) {
-			ret = spacemit_i2c_byte_xfer(spacemit_i2c);
-			if (unlikely(ret < 0))
+			if ((spacemit_i2c->tx_cnt > 1) && (status & SR_MSD))
 				break;
+			else {
+				ret = spacemit_i2c_byte_xfer(spacemit_i2c);
+				if (unlikely(ret < 0))
+					break;
+			}
 		}
-
+		
 		/* transaction done */
-		if (likely(status & SR_MSD))
+		if (((status & SR_MSD) && !(status & SR_ITE)))
 			break;
 
 		udelay(10);
