@@ -51,7 +51,7 @@
 #define HUSB239_REG_SRC_PDO_9V		0x6B
 #define HUSB239_REG_SRC_PDO_12V		0x6C
 
-#define HUSB239_REG_MAX				0x97
+#define HUSB239_REG_MAX				0xFF
 
 #define HUSB239_REG_PORTROLE_ORIENTDEB			BIT(6)
 #define HUSB239_REG_PORTROLE_MASK				GENMASK(5, 4)
@@ -697,7 +697,7 @@ static int husb23_usb_set_orientation(struct typec_switch_dev *sw,
 
 static int husb239_chip_init(struct husb239 *husb239)
 {
-	int ret;
+	int ret, value;
 
 	husb239->vdd_supply = devm_regulator_get_optional(husb239->dev, "vdd");
 	if (IS_ERR(husb239->vdd_supply)) {
@@ -744,6 +744,33 @@ static int husb239_chip_init(struct husb239 *husb239)
 				HUSB239_REG_CONTROL_HOST_CUR_3A);
 	if (ret)
 		return ret;
+
+	/*  enable USB Communications Capable
+	 *  0xb8 =0x25; 0xcb =0x37; 0xdf= 0x48; 0x1f=0x33;
+	 *  0x4a[3]=1b; 0x1f= 0x00;
+	 */
+	ret = regmap_write(husb239->regmap, 0xB8, 0x25)
+			| regmap_write(husb239->regmap, 0xCB, 0x37)
+			| regmap_write(husb239->regmap, 0xDF, 0x48)
+			| regmap_write(husb239->regmap, 0x1F, 0x33);
+	if (ret){
+		return ret;
+	}
+
+	ret = regmap_read(husb239->regmap, 0x4A, &value);
+	if (ret){
+		return ret;
+	}
+
+	ret = regmap_write(husb239->regmap, 0x4A, value | 0x8);
+	if (ret){
+		return ret;
+	}
+
+	ret = regmap_write(husb239->regmap, 0x1F, 0x00);
+	if (ret){
+		return ret;
+	}
 
 	ret = regmap_write(husb239->regmap, HUSB239_REG_CONTROL1,
 				HUSB239_REG_CONTROL1_VDM_RESPOND |
