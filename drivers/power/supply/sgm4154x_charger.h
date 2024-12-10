@@ -213,15 +213,30 @@
 #define JEITA_TEMP_T3_TO_T4_CV	4100000
 #define JEITA_TEMP_T2_TO_T3_CV	4350000
 #define JEITA_TEMP_T1_TO_T2_CV	4350000
-#define JEITA_TEMP_T0_TO_T1_CV	0
-#define JEITA_TEMP_BELOW_T0_CV	0
+#define JEITA_TEMP_BELOW_T1_CV	0
+#define JEITA_TEMP_LOW_CV	4100000
+#define JEITA_TEMP_NORMAL_CV_H	1
+#define JEITA_TEMP_NORMAL_CV_L	0
+#define JEITA_TEMP_LOW_CV_H	0
+#define JEITA_TEMP_LOW_CV_L	1
+#define JEITA_TEMP_CV_H_MASK	BIT(4)
+#define JEITA_TEMP_CV_L_MASK	BIT(7)
+
+#define JEITA_TEMP_T2_LEVEL	4
+#define JEITA_TEMP_T3_LEVEL	4
+#define JEITA_TEMP_T2_SET_MASK	GENMASK(3, 2)
+#define JEITA_TEMP_T3_SET_MASK	GENMASK(1, 0)
 
 #define JEITA_TEMP_ABOVE_T4_CC_CURRENT	0
 #define JEITA_TEMP_T3_TO_T4_CC_CURRENT	1000000
 #define JEITA_TEMP_T2_TO_T3_CC_CURRENT	2400000
 #define JEITA_TEMP_T1_TO_T2_CC_CURRENT	2000000
-#define JEITA_TEMP_T0_TO_T1_CC_CURRENT	0
-#define JEITA_TEMP_BELOW_T0_CC_CURRENT	0
+#define JEITA_TEMP_BELOW_T1_CC_CURRENT	0
+#define JEITA_CUR_T2_LEVEL		2
+#define JEITA_CUR_T2_EN_MASK		BIT(6)
+#define JEITA_CUR_T2_SET_MASK		BIT(0)
+#define JEITA_CUR_T3_LEVEL		4
+#define JEITA_CUR_T3_SET_MASK		GENMASK(5, 4)
 
 #define TEMP_T4_THRES  50
 #define TEMP_T4_THRES_MINUS_X_DEGREE 47
@@ -231,9 +246,12 @@
 #define TEMP_T2_THRES_PLUS_X_DEGREE 16
 #define TEMP_T1_THRES  0
 #define TEMP_T1_THRES_PLUS_X_DEGREE 6
-#define TEMP_T0_THRES  0
-#define TEMP_T0_THRES_PLUS_X_DEGREE  0
 #define TEMP_NEG_10_THRES 0
+
+static int jeita_cool_thres[JEITA_TEMP_T2_LEVEL] = {5, 10, 15, 20};
+static int jeita_warm_thres[JEITA_TEMP_T3_LEVEL] = {40, 45, 50, 55};
+static int jeita_cool_cur_perc[JEITA_CUR_T2_LEVEL] = {50, 20};
+static int jeita_warm_cur_perc[JEITA_CUR_T3_LEVEL] = {0, 20, 50, 100};
 
 struct sgm4154x_init_data {
 	u32 ichg;	/* charge current		*/
@@ -267,13 +285,12 @@ struct sgm4154x_jeita {
 	int jeita_temp_t3_to_t4_cv;
 	int jeita_temp_t2_to_t3_cv;
 	int jeita_temp_t1_to_t2_cv;
-	int jeita_temp_t0_to_t1_cv;
-	int jeita_temp_below_t0_cv;
+	int jeita_temp_below_t1_cv;
 	int jeita_temp_above_t4_cc_current;
 	int jeita_temp_t3_to_t4_cc_current;
 	int jeita_temp_t2_to_t3_cc_current;
 	int jeita_temp_t1_to_t2_cc_current;
-	int jeita_temp_below_t0_cc_current;
+	int jeita_temp_below_t1_cc_current;
 	int temp_t4_thres;
 	int temp_t4_thres_minus_x_degree;
 	int temp_t3_thres;
@@ -282,8 +299,6 @@ struct sgm4154x_jeita {
 	int temp_t2_thres_plus_x_degree;
 	int temp_t1_thres;
 	int temp_t1_thres_plus_x_degree;
-	int temp_t0_thres;
-	int temp_t0_thres_plus_x_degree;
 	int temp_neg_10_thres;
 };
 

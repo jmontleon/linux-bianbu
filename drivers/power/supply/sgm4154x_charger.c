@@ -285,6 +285,100 @@ static int sgm4154x_set_chrg_volt(struct sgm4154x_device *sgm, int chrg_volt)
 
 	return ret;
 }
+
+static int sgm4154x_set_jeita_config(struct sgm4154x_device *sgm)
+{
+	int ret, i;
+	int reg_val;
+
+	for(i = 0;i < JEITA_TEMP_T2_LEVEL;i++)
+		if (sgm->data.temp_t2_thres == jeita_cool_thres[i]) {
+			reg_val = i << 2;
+			ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_c,
+					JEITA_TEMP_T2_SET_MASK, reg_val);
+			if (ret < 0)
+				return ret;
+			break;
+		}
+	if (i == JEITA_TEMP_T2_LEVEL) {
+		pr_err("%s: jeita T2 temp wrong value.Please use the specified value\n",__func__);
+		return -EINVAL;
+	}
+
+	for(i = 0;i < JEITA_TEMP_T3_LEVEL;i++)
+		if (sgm->data.temp_t3_thres == jeita_warm_thres[i]) {
+			reg_val = i;
+			ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_c,
+					JEITA_TEMP_T3_SET_MASK, reg_val);
+			if(ret < 0)
+				return ret;
+			break;
+		}
+	if (i == JEITA_TEMP_T3_LEVEL) {
+		pr_err("%s: jeita T3 temp wrong value.Please use the specified value\n",__func__);
+		return -EINVAL;
+	}
+
+	for(i = 0;i < JEITA_CUR_T2_LEVEL;i++)
+		if ((sgm->data.jeita_temp_t1_to_t2_cc_current * 100 / sgm->data.jeita_temp_t2_to_t3_cc_current)
+				== jeita_cool_cur_perc[i]) {
+			reg_val = i;
+			regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_c,
+					JEITA_CUR_T2_EN_MASK, 1 << 6);
+			ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_5,
+					JEITA_CUR_T2_SET_MASK, reg_val);
+			if (ret < 0)
+				return ret;
+			break;
+		}
+	if (i == JEITA_CUR_T2_LEVEL) {
+		pr_err("%s: jeita T1-T2 charge current wrong value.Please use the specified value\n",__func__);
+		return -EINVAL;
+	}
+
+	for(i = 0;i < JEITA_CUR_T3_LEVEL;i++)
+		if ((sgm->data.jeita_temp_t3_to_t4_cc_current * 100 / sgm->data.jeita_temp_t2_to_t3_cc_current)
+				== jeita_warm_cur_perc[i]) {
+			reg_val = i << 4;
+			ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_c,
+					JEITA_CUR_T3_SET_MASK, reg_val);
+			if (ret < 0)
+				return ret;
+			break;
+		}
+	if (i == JEITA_CUR_T3_LEVEL) {
+		pr_err("%s: jeita T3-T4 charge current wrong value.Please use the specified value\n",__func__);
+		return -EINVAL;
+	}
+
+	if (sgm->data.jeita_temp_t3_to_t4_cv == sgm->data.jeita_temp_t2_to_t3_cv)
+		reg_val = JEITA_TEMP_NORMAL_CV_H;
+	else if (sgm->data.jeita_temp_t3_to_t4_cv < sgm->data.jeita_temp_t2_to_t3_cv)
+		reg_val = JEITA_TEMP_LOW_CV_H;
+	else {
+		pr_err("%s: jeita T3 charge voltage wrong value.Please use the specified value\n",__func__);
+		return -EINVAL;
+	}
+	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_7,
+			JEITA_TEMP_CV_H_MASK, reg_val << 4);
+	if (ret < 0)
+		return ret;
+
+	if (sgm->data.jeita_temp_t1_to_t2_cv == sgm->data.jeita_temp_t2_to_t3_cv)
+		reg_val = JEITA_TEMP_NORMAL_CV_L;
+	else if (sgm->data.jeita_temp_t1_to_t2_cv < sgm->data.jeita_temp_t2_to_t3_cv)
+		reg_val = JEITA_TEMP_LOW_CV_L;
+	else {
+		pr_err("%s: jeita T1 charge voltage wrong value.Please use the specified value\n",__func__);
+		return -EINVAL;
+	}
+	ret = regmap_update_bits(sgm->regmap, SGM4154x_CHRG_CTRL_c,
+			JEITA_TEMP_CV_L_MASK, reg_val << 7);
+	if (ret < 0)
+		return ret;
+
+	return ret;
+}
 #if 0
 static int sgm4154x_get_chrg_volt(struct sgm4154x_device *sgm)
 {
@@ -1432,6 +1526,12 @@ static int sgm4154x_hw_init(struct sgm4154x_device *sgm)
 	if (ret)
 		goto err_out;
 
+	if (sgm->enable_sw_jeita) {
+		ret = sgm4154x_set_jeita_config(sgm);
+		if (ret)
+			goto err_out;
+	}
+
 	dev_dbg(sgm->dev, "ichrg_curr:%d prechrg_curr:%d chrg_vol:%d"
 		" term_curr:%d input_curr_lim:%d",
 		bat_info.constant_charge_current_max_ua,
@@ -1547,23 +1647,16 @@ static int sgm4154x_parse_dt(struct sgm4154x_device *sgm)
 		sgm->data.jeita_temp_t1_to_t2_cv = JEITA_TEMP_T1_TO_T2_CV;
 	}
 
-	if (of_property_read_u32(sgm->dev->of_node, "jeita_temp_t0_to_t1_cv", &val) >= 0)
-		sgm->data.jeita_temp_t0_to_t1_cv = val;
+	if (of_property_read_u32(sgm->dev->of_node, "jeita_temp_below_t1_cv", &val) >= 0)
+		sgm->data.jeita_temp_below_t1_cv = val;
 	else {
-		dev_err(sgm->dev, "use default JEITA_TEMP_T0_TO_T1_CV:%d\n",JEITA_TEMP_T0_TO_T1_CV);
-		sgm->data.jeita_temp_t0_to_t1_cv = JEITA_TEMP_T0_TO_T1_CV;
+		dev_err(sgm->dev, "use default JEITA_TEMP_BELOW_T1_CV:%d\n",JEITA_TEMP_BELOW_T1_CV);
+		sgm->data.jeita_temp_below_t1_cv = JEITA_TEMP_BELOW_T1_CV;
 	}
-
-	if (of_property_read_u32(sgm->dev->of_node, "jeita_temp_below_t0_cv", &val) >= 0)
-		sgm->data.jeita_temp_below_t0_cv = val;
-	else {
-		dev_err(sgm->dev, "use default JEITA_TEMP_BELOW_T0_CV:%d\n",JEITA_TEMP_BELOW_T0_CV);
-		sgm->data.jeita_temp_below_t0_cv = JEITA_TEMP_BELOW_T0_CV;
-	}
-	pr_err("%s,enable_sw_jeita = %d,CV1 = %d,CV2 = %d,CV3 = %d,CV4 = %d,CV5 = %d,CV6 = %d\n",__func__,
+	pr_err("%s,enable_sw_jeita = %d,CV1 = %d,CV2 = %d,CV3 = %d,CV4 = %d,CV5 = %d\n",__func__,
 			sgm->enable_sw_jeita,sgm->data.jeita_temp_above_t4_cv,sgm->data.jeita_temp_t3_to_t4_cv,
 			sgm->data.jeita_temp_t2_to_t3_cv,sgm->data.jeita_temp_t1_to_t2_cv,
-			sgm->data.jeita_temp_t0_to_t1_cv,sgm->data.jeita_temp_below_t0_cv);
+			sgm->data.jeita_temp_below_t1_cv);
 
 	if (of_property_read_u32(sgm->dev->of_node, "jeita_temp_above_t4_cc_current", &val) >= 0)
 		sgm->data.jeita_temp_above_t4_cc_current = val;
@@ -1583,15 +1676,15 @@ static int sgm4154x_parse_dt(struct sgm4154x_device *sgm)
 	else
 		sgm->data.jeita_temp_t1_to_t2_cc_current = JEITA_TEMP_T1_TO_T2_CC_CURRENT;
 
-	if (of_property_read_u32(sgm->dev->of_node, "jeita_temp_below_t0_cc_current", &val) >= 0)
-		sgm->data.jeita_temp_below_t0_cc_current = val;
+	if (of_property_read_u32(sgm->dev->of_node, "jeita_temp_below_t1_cc_current", &val) >= 0)
+		sgm->data.jeita_temp_below_t1_cc_current = val;
 	else
-		sgm->data.jeita_temp_below_t0_cc_current = JEITA_TEMP_BELOW_T0_CC_CURRENT;
+		sgm->data.jeita_temp_below_t1_cc_current = JEITA_TEMP_BELOW_T1_CC_CURRENT;
 
 	pr_err("%s,CC1 = %d,CC2 = %d,CC3 = %d,CC4 = %d,CC5 = %d\n",__func__,
 			sgm->data.jeita_temp_above_t4_cc_current,sgm->data.jeita_temp_t3_to_t4_cc_current,
 			sgm->data.jeita_temp_t2_to_t3_cc_current,sgm->data.jeita_temp_t1_to_t2_cc_current,
-			sgm->data.jeita_temp_below_t0_cc_current);
+			sgm->data.jeita_temp_below_t1_cc_current);
 
 	if (of_property_read_u32(sgm->dev->of_node, "temp_t4_thres", &val) >= 0)
 		sgm->data.temp_t4_thres = val;
@@ -1648,30 +1741,15 @@ static int sgm4154x_parse_dt(struct sgm4154x_device *sgm)
 		sgm->data.temp_t1_thres_plus_x_degree = TEMP_T1_THRES_PLUS_X_DEGREE;
 	}
 
-	if (of_property_read_u32(sgm->dev->of_node, "temp_t0_thres", &val) >= 0)
-		sgm->data.temp_t0_thres = val;
-	else {
-		dev_err(sgm->dev,"use default TEMP_T0_THRES:%d\n",TEMP_T0_THRES);
-		sgm->data.temp_t0_thres = TEMP_T0_THRES;
-	}
-
-	if (of_property_read_u32(sgm->dev->of_node, "temp_t0_thres_plus_x_degree", &val) >= 0)
-		sgm->data.temp_t0_thres_plus_x_degree = val;
-	else {
-		dev_err(sgm->dev,"use default TEMP_T0_THRES_PLUS_X_DEGREE:%d\n",TEMP_T0_THRES_PLUS_X_DEGREE);
-		sgm->data.temp_t0_thres_plus_x_degree = TEMP_T0_THRES_PLUS_X_DEGREE;
-	}
-
 	if (of_property_read_u32(sgm->dev->of_node, "temp_neg_10_thres", &val) >= 0)
 		sgm->data.temp_neg_10_thres = val;
 	else {
 		dev_err(sgm->dev,"use default TEMP_NEG_10_THRES:%d\n",TEMP_NEG_10_THRES);
 		sgm->data.temp_neg_10_thres = TEMP_NEG_10_THRES;
 	}
-	pr_err("%s,thres4 = %d,thres3 = %d,thres2 = %d,thres1 = %d,thres0 = %d\n",__func__,
+	pr_err("%s,thres4 = %d,thres3 = %d,thres2 = %d,thres1 = %d\n",__func__,
 			sgm->data.temp_t4_thres,sgm->data.temp_t3_thres,
-			sgm->data.temp_t2_thres,sgm->data.temp_t1_thres,
-			sgm->data.temp_t0_thres);
+			sgm->data.temp_t2_thres,sgm->data.temp_t1_thres);
 	return 0;
 }
 
