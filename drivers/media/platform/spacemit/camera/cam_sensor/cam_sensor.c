@@ -1207,6 +1207,20 @@ static int camsnr_release(struct inode *inode, struct file *file)
 	struct cam_sensor_device *msnr_dev =
 	    container_of(inode->i_cdev, struct cam_sensor_device, cdev);
 
+	//ctrl + c exit still use clk and gpio, close them
+	if (msnr_dev->mclk && __clk_is_enabled(msnr_dev->mclk)) {
+		cam_info("disable mclk and gpio low");
+		/* rst-gpios */
+		if (!IS_ERR_OR_NULL(msnr_dev->rst))
+			gpiod_set_value_cansleep(msnr_dev->rst, 0);
+
+		/* pwdn-gpios */
+		if (!IS_ERR_OR_NULL(msnr_dev->pwdn))
+			gpiod_set_value_cansleep(msnr_dev->pwdn, 0);
+
+		clk_disable_unprepare(msnr_dev->mclk);
+	}
+
 	if (msnr_dev->is_pinmulti && msnr_dev->req_pinmulti == true && use_pinmulti == true)
 		release_res_in_pinmulti_mode(msnr_dev);
 
@@ -1390,7 +1404,7 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		sensor->pwdn = devm_gpiod_get(dev, "pwdn", GPIOD_OUT_HIGH);
 		if (IS_ERR(sensor->pwdn)) {
 			cam_info("%s: unable to parse sensor%d pwdn gpio", __func__, cell_id);
-			ret = PTR_ERR(sensor->pwdn);
+			//ret = PTR_ERR(sensor->pwdn);
 		} else {
 			ret = gpiod_direction_output(sensor->pwdn, 0);
 			if (ret < 0) {
@@ -1403,7 +1417,6 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		sensor->rst = devm_gpiod_get(dev, "reset", GPIOD_OUT_HIGH);
 		if (IS_ERR(sensor->rst)) {
 			cam_info("%s: unable to parse sensor%d reset gpio", __func__, cell_id);
-			ret = PTR_ERR(sensor->rst);
 		} else {
 			ret = gpiod_direction_output(sensor->rst, 0);
 			if (ret < 0) {
@@ -1437,6 +1450,10 @@ static int camsnr_of_parse(struct cam_sensor_device *sensor)
 		usleep_range(100 * 1000, 100 * 1000);
 	}
 #endif
+	if (IS_ERR(sensor->rst) && IS_ERR(sensor->pwdn)) {
+		cam_err("rst and pwdn both fail to get");
+		ret = -EAGAIN;
+	}
 
 	return ret;
 
