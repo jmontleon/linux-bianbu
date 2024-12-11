@@ -47,11 +47,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
 #define RGX_GET_DMI_REG(psDevInfo, value) \
 	((RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) >= 4) ? \
-	 RGX_CR_FWCORE_DMI_##value##__RISCV_AND_HOST_SECURITY_GEQ4 : RGX_CR_FWCORE_DMI_##value)
-#define RGX_GET_RISCV_REGS_BASE(psDevInfo) ((psDevInfo)->pvSecureRegsBaseKM)
+	 RGX_CR_FWCORE_DMI_##value##__HOST_SECURITY_GEQ4 : RGX_CR_FWCORE_DMI_##value)
 #else
 #define RGX_GET_DMI_REG(psDevInfo, value) RGX_CR_FWCORE_DMI_##value
-#define RGX_GET_RISCV_REGS_BASE(psDevInfo) ((psDevInfo)->pvRegsBaseKM)
 #endif
 
 /*
@@ -91,7 +89,7 @@ PVRSRV_ERROR RGXRiscvHalt(PVRSRV_RGXDEV_INFO *psDevInfo)
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Send halt request (no need to select one or more harts on this RISC-V core) */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
 	               RGX_CR_FWCORE_DMI_DMCONTROL_HALTREQ_EN |
 	               RGX_CR_FWCORE_DMI_DMCONTROL_DMACTIVE_EN);
 
@@ -103,12 +101,12 @@ PVRSRV_ERROR RGXRiscvHalt(PVRSRV_RGXDEV_INFO *psDevInfo)
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Hart not halted (0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_DMSTATUS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMSTATUS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 
 	/* Clear halt request */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
 	               RGX_CR_FWCORE_DMI_DMCONTROL_DMACTIVE_EN);
 #endif
 
@@ -128,7 +126,7 @@ IMG_BOOL RGXRiscvIsHalted(PVRSRV_RGXDEV_INFO *psDevInfo)
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 	IMG_UINT32 ui32_DMI_DMSTATUS_Reg = RGX_GET_DMI_REG(psDevInfo, DMSTATUS);
 
-	return (OSReadHWReg32(pui32RegsBase, ui32_DMI_DMSTATUS_Reg) &
+	return (OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMSTATUS_Reg) &
 	        RGX_CR_FWCORE_DMI_DMSTATUS_ALLHALTED_EN) != 0U;
 #endif
 }
@@ -170,7 +168,7 @@ PVRSRV_ERROR RGXRiscvResume(PVRSRV_RGXDEV_INFO *psDevInfo)
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Send resume request (no need to select one or more harts on this RISC-V core) */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
 	               RGX_CR_FWCORE_DMI_DMCONTROL_RESUMEREQ_EN |
 	               RGX_CR_FWCORE_DMI_DMCONTROL_DMACTIVE_EN);
 
@@ -182,12 +180,12 @@ PVRSRV_ERROR RGXRiscvResume(PVRSRV_RGXDEV_INFO *psDevInfo)
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Hart not resumed (0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_DMSTATUS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMSTATUS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 
 	/* Clear resume request */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DMCONTROL_Reg,
 	               RGX_CR_FWCORE_DMI_DMCONTROL_DMACTIVE_EN);
 #endif
 
@@ -225,7 +223,7 @@ static RGXRISCVFW_ABSTRACT_CMD_ERR RGXRiscvCheckAbstractCmdError(PVRSRV_RGXDEV_I
 	void __iomem *pvRegsBaseKM = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Check error status */
-	eCmdErr = (OSReadHWReg32(pvRegsBaseKM, ui32_DMI_ABSTRACTCS_Reg)
+	eCmdErr = (OSReadUncheckedHWReg32(pvRegsBaseKM, ui32_DMI_ABSTRACTCS_Reg)
 	          & ~RGX_CR_FWCORE_DMI_ABSTRACTCS_CMDERR_CLRMSK)
 	          >> RGX_CR_FWCORE_DMI_ABSTRACTCS_CMDERR_SHIFT;
 
@@ -234,7 +232,7 @@ static RGXRISCVFW_ABSTRACT_CMD_ERR RGXRiscvCheckAbstractCmdError(PVRSRV_RGXDEV_I
 		PVR_DPF((PVR_DBG_WARNING, "RISC-V FW abstract command error %u", eCmdErr));
 
 		/* Clear the error (note CMDERR field is write-1-to-clear) */
-		OSWriteHWReg32(pvRegsBaseKM, ui32_DMI_ABSTRACTCS_Reg,
+		OSWriteUncheckedHWReg32(pvRegsBaseKM, ui32_DMI_ABSTRACTCS_Reg,
 		               ~RGX_CR_FWCORE_DMI_ABSTRACTCS_CMDERR_CLRMSK);
 	}
 #endif
@@ -264,7 +262,7 @@ PVRSRV_ERROR RGXRiscvReadReg(PVRSRV_RGXDEV_INFO *psDevInfo,
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Send abstract register read command */
-	OSWriteHWReg32(pui32RegsBase,
+	OSWriteUncheckedHWReg32(pui32RegsBase,
 	               ui32_DMI_COMMAND_Reg,
 	               (RGXRISCVFW_DMI_COMMAND_ACCESS_REGISTER << RGX_CR_FWCORE_DMI_COMMAND_CMDTYPE_SHIFT) |
 	               RGXRISCVFW_DMI_COMMAND_READ |
@@ -279,14 +277,14 @@ PVRSRV_ERROR RGXRiscvReadReg(PVRSRV_RGXDEV_INFO *psDevInfo,
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Abstract command did not complete in time (abstractcs = 0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 
 	if (RGXRiscvCheckAbstractCmdError(psDevInfo) == RISCV_ABSTRACT_CMD_NO_ERROR)
 	{
 		/* Read register value */
-		*pui32Value = OSReadHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg);
+		*pui32Value = OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg);
 	}
 	else
 	{
@@ -392,10 +390,10 @@ PVRSRV_ERROR RGXRiscvWriteReg(PVRSRV_RGXDEV_INFO *psDevInfo,
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Prepare data to be written to register */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg, ui32Value);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg, ui32Value);
 
 	/* Send abstract register write command */
-	OSWriteHWReg32(pui32RegsBase,
+	OSWriteUncheckedHWReg32(pui32RegsBase,
 	               ui32_DMI_COMMAND_Reg,
 	               (RGXRISCVFW_DMI_COMMAND_ACCESS_REGISTER << RGX_CR_FWCORE_DMI_COMMAND_CMDTYPE_SHIFT) |
 	               RGXRISCVFW_DMI_COMMAND_WRITE |
@@ -410,7 +408,7 @@ PVRSRV_ERROR RGXRiscvWriteReg(PVRSRV_RGXDEV_INFO *psDevInfo,
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Abstract command did not complete in time (abstractcs = 0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 #endif
@@ -447,7 +445,7 @@ static __maybe_unused RGXRISCVFW_SYSBUS_ERR RGXRiscvCheckSysBusError(PVRSRV_RGXD
 #else
 	void __iomem *pvRegsBaseKM = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
-	eSBError = (OSReadHWReg32(pvRegsBaseKM, ui32_DMI_SBCS_Reg)
+	eSBError = (OSReadUncheckedHWReg32(pvRegsBaseKM, ui32_DMI_SBCS_Reg)
 	         & ~RGX_CR_FWCORE_DMI_SBCS_SBERROR_CLRMSK)
 	         >> RGX_CR_FWCORE_DMI_SBCS_SBERROR_SHIFT;
 
@@ -456,7 +454,7 @@ static __maybe_unused RGXRISCVFW_SYSBUS_ERR RGXRiscvCheckSysBusError(PVRSRV_RGXD
 		PVR_DPF((PVR_DBG_WARNING, "RISC-V FW system bus error %u", eSBError));
 
 		/* Clear the error (note SBERROR field is write-1-to-clear) */
-		OSWriteHWReg32(pvRegsBaseKM, ui32_DMI_SBCS_Reg,
+		OSWriteUncheckedHWReg32(pvRegsBaseKM, ui32_DMI_SBCS_Reg,
 		               ~RGX_CR_FWCORE_DMI_SBCS_SBERROR_CLRMSK);
 	}
 #endif
@@ -499,10 +497,10 @@ RGXRiscvReadAbstractMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG_
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Prepare read address */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DATA1_Reg, ui32Addr);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA1_Reg, ui32Addr);
 
 	/* Send abstract memory read command */
-	OSWriteHWReg32(pui32RegsBase,
+	OSWriteUncheckedHWReg32(pui32RegsBase,
 	               ui32_DMI_COMMAND_Reg,
 	               (RGXRISCVFW_DMI_COMMAND_ACCESS_MEMORY << RGX_CR_FWCORE_DMI_COMMAND_CMDTYPE_SHIFT) |
 	               RGXRISCVFW_DMI_COMMAND_READ |
@@ -516,14 +514,14 @@ RGXRiscvReadAbstractMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG_
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Abstract command did not complete in time (abstractcs = 0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 
 	if (RGXRiscvCheckAbstractCmdError(psDevInfo) == RISCV_ABSTRACT_CMD_NO_ERROR)
 	{
 		/* Read memory value */
-		*pui32Value = OSReadHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg);
+		*pui32Value = OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg);
 	}
 	else
 	{
@@ -640,13 +638,13 @@ RGXRiscvReadSysBusMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG_UI
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Configure system bus to read 32 bit every time a new address is provided */
-	OSWriteHWReg32(pui32RegsBase,
+	OSWriteUncheckedHWReg32(pui32RegsBase,
 	               ui32_DMI_SBCS_Reg,
 	               (RGXRISCVFW_DMI_SBCS_SBACCESS_32BIT << RGX_CR_FWCORE_DMI_SBCS_SBACCESS_SHIFT) |
 	               RGX_CR_FWCORE_DMI_SBCS_SBREADONADDR_EN);
 
 	/* Perform read */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_SBADDRESS0_Reg, ui32Addr);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_SBADDRESS0_Reg, ui32Addr);
 
 	/* Wait until system bus is idle */
 	if (PVRSRVPollForValueKM(psDevInfo->psDeviceNode,
@@ -656,14 +654,14 @@ RGXRiscvReadSysBusMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG_UI
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: System Bus did not go idle in time (sbcs = 0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_SBCS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_SBCS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 
 	if (RGXRiscvCheckSysBusError(psDevInfo) == RISCV_SYSBUS_NO_ERROR)
 	{
 		/* Read value from debug system bus */
-		*pui32Value = OSReadHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg);
+		*pui32Value = OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg);
 	}
 	else
 	{
@@ -835,13 +833,13 @@ RGXRiscvWriteAbstractMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Prepare write address */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DATA1_Reg, ui32Addr);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA1_Reg, ui32Addr);
 
 	/* Prepare write data */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg, ui32Value);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_DATA0_Reg, ui32Value);
 
 	/* Send abstract memory write command */
-	OSWriteHWReg32(pui32RegsBase,
+	OSWriteUncheckedHWReg32(pui32RegsBase,
 	               ui32_DMI_COMMAND_Reg,
 	               (RGXRISCVFW_DMI_COMMAND_ACCESS_MEMORY << RGX_CR_FWCORE_DMI_COMMAND_CMDTYPE_SHIFT) |
 	               RGXRISCVFW_DMI_COMMAND_WRITE |
@@ -855,7 +853,7 @@ RGXRiscvWriteAbstractMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Abstract command did not complete in time (abstractcs = 0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_ABSTRACTCS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 #endif
@@ -917,15 +915,15 @@ RGXRiscvWriteSysBusMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG_U
 	IMG_UINT32 __iomem *pui32RegsBase = RGX_GET_RISCV_REGS_BASE(psDevInfo);
 
 	/* Configure system bus for 32 bit accesses */
-	OSWriteHWReg32(pui32RegsBase,
+	OSWriteUncheckedHWReg32(pui32RegsBase,
 	               ui32_DMI_SBCS_Reg,
 	               RGXRISCVFW_DMI_SBCS_SBACCESS_32BIT << RGX_CR_FWCORE_DMI_SBCS_SBACCESS_SHIFT);
 
 	/* Prepare write address */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_SBADDRESS0_Reg, ui32Addr);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_SBADDRESS0_Reg, ui32Addr);
 
 	/* Prepare write data and initiate write */
-	OSWriteHWReg32(pui32RegsBase, ui32_DMI_SBDATA0_Reg, ui32Value);
+	OSWriteUncheckedHWReg32(pui32RegsBase, ui32_DMI_SBDATA0_Reg, ui32Value);
 
 	/* Wait until system bus is idle */
 	if (PVRSRVPollForValueKM(psDevInfo->psDeviceNode,
@@ -935,7 +933,7 @@ RGXRiscvWriteSysBusMem(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32Addr, IMG_U
 	                         POLL_FLAG_LOG_ERROR, NULL) != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: System Bus did not go idle in time (sbcs = 0x%x)",
-		         __func__, OSReadHWReg32(pui32RegsBase, ui32_DMI_SBCS_Reg)));
+		         __func__, OSReadUncheckedHWReg32(pui32RegsBase, ui32_DMI_SBCS_Reg)));
 		return PVRSRV_ERROR_TIMEOUT;
 	}
 #endif
@@ -973,7 +971,7 @@ PVRSRV_ERROR RGXRiscvDmiOp(PVRSRV_RGXDEV_INFO *psDevInfo,
 	return PVRSRV_ERROR_NOT_SUPPORTED;
 #else
 #if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
-#define DMI_BASE     ((RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) >= 4) ? RGX_CR_FWCORE_DMI_RESERVED00__RISCV_AND_HOST_SECURITY_GEQ4 : RGX_CR_FWCORE_DMI_RESERVED00)
+#define DMI_BASE     ((RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) >= 4) ? RGX_CR_FWCORE_DMI_RESERVED00__HOST_SECURITY_GEQ4 : RGX_CR_FWCORE_DMI_RESERVED00)
 #else
 #define DMI_BASE     RGX_CR_FWCORE_DMI_RESERVED00
 #endif
@@ -1035,13 +1033,13 @@ PVRSRV_ERROR RGXRiscvDmiOp(PVRSRV_RGXDEV_INFO *psDevInfo,
 				ui64Op = DMI_OP_STATUS_SUCCESS;
 				break;
 			case DMI_OP_WRITE:
-				OSWriteHWReg32(pvRegsBase,
+				OSWriteUncheckedHWReg32(pvRegsBase,
 						DMI_REG(ui64Address),
 						(IMG_UINT32)ui64Data);
 				ui64Op = DMI_OP_STATUS_SUCCESS;
 				break;
 			case DMI_OP_READ:
-				ui64Data = (IMG_UINT64)OSReadHWReg32(pvRegsBase,
+				ui64Data = (IMG_UINT64)OSReadUncheckedHWReg32(pvRegsBase,
 						DMI_REG(ui64Address));
 				ui64Op = DMI_OP_STATUS_SUCCESS;
 				break;

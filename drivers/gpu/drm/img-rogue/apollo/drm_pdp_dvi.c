@@ -77,24 +77,6 @@ struct pdp_mode_data {
 };
 
 static const struct pdp_mode_data pdp_extra_modes[] = {
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0))
-	{
-		.hdisplay = 1280,
-		.vdisplay = 720,
-		.vrefresh = 60,
-		.reduced_blanking = false,
-		.interlaced = false,
-		.margins = false,
-	},
-	{
-		.hdisplay = 1920,
-		.vdisplay = 1080,
-		.vrefresh = 60,
-		.reduced_blanking = false,
-		.interlaced = false,
-		.margins = false,
-	},
-#endif
 };
 
 static char preferred_mode_name[DRM_DISPLAY_MODE_LEN] = "\0";

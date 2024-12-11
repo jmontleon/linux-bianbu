@@ -119,7 +119,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -381,7 +381,11 @@
 		vbus-gpios = <&gpio 14 0>,
 				<&gpio 92 0>;
 		chg-gpio = <&gpio 13 0>;
-		int-gpio = <&gpio 06 0>;
+		interrupt-parent = <&pinctrl>;
+		interrupts = <28>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_husb239_u2>;
+		wakeup-source;
 		status = "disabled";
 
 		ports {
@@ -403,12 +407,16 @@
 		vbus-gpios = <&gpio 89 0>,
 				<&gpio 124 0>;
 		chg-gpio = <&gpio 04 0>;
-		int-gpio = <&gpio 01 0>;
 		aud-gpio = <&gpio 86 0>;
 		mic-gpio = <&gpio 79 0>;
 		orient-oe-gpio  = <&gpio 48 0>;
 		orient-sel-gpio = <&gpio 78 0>;
 		orientation;
+		interrupt-parent = <&pinctrl>;
+		interrupts = <8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_husb239_u3>;
+		wakeup-source;
 		status = "okay";
 
 		ports {
@@ -767,8 +775,7 @@
 
 &pinctrl {
 	pinctrl-single,gpio-range = <
-		&range GPIO_01  4 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
-		&range GPIO_06  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_02  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_13  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_48  1 (MUX_MODE0 | EDGE_NONE | PULL_DOWN | PAD_3V_DS4)
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
@@ -820,12 +827,22 @@
 		>;
 	};
 
+	pinctrl_husb239_u2: husb239_u2_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_06, MUX_MODE0, (EDGE_FALL | PULL_UP | PAD_1V8_DS2))
+		>;
+	};
+
+	pinctrl_husb239_u3: husb239_u3_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_01, MUX_MODE0, (EDGE_FALL | PULL_UP | PAD_1V8_DS2))
+		>;
+	};
 };
 
 &gpio{
 	gpio-ranges = <
-		&pinctrl 01  GPIO_01  4
-		&pinctrl 06  GPIO_06  1
+		&pinctrl 02  GPIO_02  3
 		&pinctrl 13  GPIO_13  2
 		&pinctrl 48  GPIO_48  3
 		&pinctrl 58  GPIO_58  1
@@ -943,12 +960,6 @@
 &udc {
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
-};
-
-&ehci {
-	spacemit,reset-on-resume;
-	spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	status = "disabled";
 };
 
 &otg {

@@ -49,6 +49,7 @@
 #include "pvr_fence.h"
 #include "services_kernel_client.h"
 #include "sync_checkpoint_external.h"
+#include "osfunc_common.h"
 
 #define CREATE_TRACE_POINTS
 #include "pvr_fence_trace.h"
@@ -362,7 +363,7 @@ pvr_fence_context_create_internal(struct workqueue_struct *fence_status_wq,
 	fctx->fence_wq = fence_status_wq;
 
 	fctx->fence_context = dma_fence_context_alloc(1);
-	strlcpy(fctx->name, name, sizeof(fctx->name));
+	OSStringSafeCopy(fctx->name, name, sizeof(fctx->name));
 
 	srv_err = PVRSRVRegisterCmdCompleteNotify(&fctx->cmd_complete_handle,
 				pvr_fence_context_signal_fences,

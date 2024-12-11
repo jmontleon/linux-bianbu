@@ -299,8 +299,7 @@ struct spacemit_ddrbw_status {
 #define IDMON_CTRL_EN		24
 #define IDMON_CLK_EN		16
 
-#define is_mon_valid(mon)	((mon < (SPACEMIT_MON_CTRL_NUM + \
-		SPACEMIT_ID_MASTER_NUM + 1)) ? 0 : -EINVAL)
+#define is_mon_valid(mon)	((mon < (SPACEMIT_MON_CTRL_NUM + SPACEMIT_ID_MASTER_NUM + 1)) ? 0 : -EINVAL)
 
 #define PERF_SYS_NODE_LEN	20
 
@@ -316,10 +315,13 @@ struct spacemit_ddrbw_status {
  */
 /* Monitor bandwidth by default. */
 int mon_evt_id[SPACEMIT_MON_EVT_NUM] = {16, 18, 1, 9, 17, 19};
+
 /* need to enable/disable monitor for max rd/wr latency data */
 int mon_lat_id[SPACEMIT_MON_LAT_NUM];
-/* we will just use evnet 5 and event 13 on dove z1 */
+
+/* we will just use evnet 5 and event 13 */
 int mon_lat_id_z1[SPACEMIT_MON_LAT_NUM] = {5, 13, 5, 13};
+
 /*
  * latency for a0:
  * event 0x14: max rd

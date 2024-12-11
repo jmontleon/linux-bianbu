@@ -155,7 +155,7 @@ ifeq ($(CONFIG_RISCV_M_MODE)$(CONFIG_ARCH_CANAAN),yy)
 KBUILD_IMAGE := $(boot)/loader.bin
 else
 ifeq ($(CONFIG_EFI_ZBOOT),)
-KBUILD_IMAGE := $(boot)/Image.gz.itb
+KBUILD_IMAGE := $(boot)/Image.gz
 else
 KBUILD_IMAGE := $(boot)/vmlinuz.efi
 endif

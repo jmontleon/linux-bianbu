@@ -18,6 +18,7 @@
 #include <linux/usb/typec_mux.h>
 #include <linux/delay.h>
 #include <linux/power_supply.h>
+#include <linux/pm_wakeirq.h>
 #include "mux.h"
 #include <soc/spacemit/spacemit_panel.h>
 
@@ -441,10 +442,41 @@ static int husb239_register_partner(struct husb239 *husb239,
 	return 0;
 }
 
+static int husb239_usbpd_detect(struct husb239 *husb239)
+{
+	int ret, status, status0;
+	int count = 10;
+
+	while(--count) {
+		ret = regmap_read(husb239->regmap, HUSB239_REG_CONTRACT_STATUS0, &status0);
+		if (ret)
+			return ret;
+
+		dev_dbg(husb239->dev, "husb239 detect pd, contract status0: %x\n", status0);
+		if (((status0 & HUSB239_PD_CONTRACT_MASK) >> HUSB239_PD_CONTRACT_SHIFT) == SNKCAP_5V)
+			break;
+
+		/* check attach status */
+		ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
+		if (ret)
+			return ret;
+
+		if (!(status & HUSB239_REG_STATUS_ATTACH))
+			return -ENODEV;
+
+		msleep(50);
+	}
+
+	if (count == 0)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 {
 	struct typec_info *info = &husb239->info;
-	unsigned int src_pdo;
+	unsigned int src_pdo, type, status;
 	int ret, snk_sel;
 	int count = 10;
 
@@ -485,6 +517,14 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 		if (src_pdo & HUSB239_REG_SRC_DETECT)
 			break;
 
+		/* check attach status */
+		ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
+		if (ret)
+			return ret;
+
+		if (!(status & HUSB239_REG_STATUS_ATTACH))
+			return -ENODEV;
+
 		msleep(100);
 	}
 
@@ -497,7 +537,26 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 	if (ret)
 		return ret;
 
-	msleep(100);
+	count = 20;
+	while(--count) {
+		ret = regmap_read(husb239->regmap, HUSB239_REG_TYPE, &type);
+		if (ret)
+			return ret;
+
+		dev_dbg(husb239->dev, "husb239_attach type: %x\n", type);
+		if (!(type & HUSB239_REG_TYPE_CC_RX_ACTIVE))
+			break;
+
+		/* check attach status */
+		ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
+		if (ret)
+			return ret;
+
+		if (!(status & HUSB239_REG_STATUS_ATTACH))
+			return -ENODEV;
+
+		msleep(100);
+	}
 
 	ret = regmap_write_bits(husb239->regmap, HUSB239_REG_GO_COMMAND,
 				HUSB239_REG_GO_COMMAND_MASK, HUSB239_REG_GO_PDO_SELECT);
@@ -557,8 +616,10 @@ static int husb239_attach(struct husb239 *husb239)
 	/* pd contract,  try max voltage */
 	if (type & HUSB239_REG_TYPE_SINK) {
 		husb239_update_operating_status(husb239);
-		husb239->req_voltage = info->sink_voltage / 1000;/* mv */
-		husb239_usbpd_request_voltage(husb239);
+		if (!husb239_usbpd_detect(husb239)) {
+			husb239->req_voltage = info->sink_voltage / 1000;/* mv */
+			husb239_usbpd_request_voltage(husb239);
+		}
 	}
 
 	return ret;
@@ -744,6 +805,7 @@ static irqreturn_t husb239_irq_handler(int irq, void *data)
 	struct husb239 *husb239 = (struct husb239 *)data;
 
 	disable_irq_nosync(husb239->gpio_irq);
+	pm_wakeup_event(husb239->dev, 0);
 	queue_work(husb239->workqueue, &husb239->work);
 
 	return IRQ_HANDLED;
@@ -773,7 +835,7 @@ static int husb239_irq_init(struct husb239 *husb239)
 
 	ret = devm_request_threaded_irq(husb239->dev, husb239->gpio_irq, NULL,
 				husb239_irq_handler,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				IRQF_TRIGGER_FALLING | IRQF_ONESHOT | IRQF_NO_SUSPEND,
 				"husb239", husb239);
 	if (ret){
 		dev_err(husb239->dev, "failed to request threaded irq\n");

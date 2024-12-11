@@ -21,6 +21,7 @@
 #include <sound/soc.h>
 #include <sound/pxa2xx-lib.h>
 #include <sound/dmaengine_pcm.h>
+#include <linux/suspend.h>
 #include "spacemit-snd-sspa.h"
 
 #include <linux/notifier.h>
@@ -255,8 +256,8 @@ static int spacemit_sspa_suspend(struct device *dev)
 {
 	struct sspa_priv *priv = dev_get_drvdata(dev);
 
-	spacemit_hdmi_unregister_client(&hdmi_connect_notifier);
 	reset_control_assert(priv->rst);
+
 	return 0;
 }
 
@@ -270,7 +271,6 @@ static int spacemit_sspa_resume(struct device *dev)
 	value |= BIT(0);
 	writel(value, priv->base_hdmi + SPACEMIT_HDMI_AUDIO_EN);
 	reset_control_deassert(priv->rst);
-	spacemit_hdmi_register_client(&hdmi_connect_notifier);
 
 	if (spacemit_sspa_get_hdmi_status()) {
 		ret = devm_snd_soc_register_component(dev, &spacemit_snd_sspa_component,
@@ -278,8 +278,6 @@ static int spacemit_sspa_resume(struct device *dev)
 		if (ret != 0) {
 			dev_err(dev, "failed to register DAI\n");
 		}
-	} else {
-		snd_soc_unregister_component(dev);
 	}
 
 	return 0;
@@ -288,6 +286,43 @@ static int spacemit_sspa_resume(struct device *dev)
 const struct dev_pm_ops spacemit_snd_sspa_pm_ops = {
 	.suspend = spacemit_sspa_suspend,
 	.resume = spacemit_sspa_resume,
+};
+
+static int sspa_pm_suspend_notifier(struct notifier_block *nb,
+				unsigned long event,
+				void *dummy)
+{
+	int ret;
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+	case PM_HIBERNATION_PREPARE:
+		spacemit_hdmi_unregister_client(&hdmi_connect_notifier);
+		snd_soc_unregister_component(&sspa_platdev->dev);
+		return NOTIFY_DONE;
+
+	case PM_POST_SUSPEND:
+	case PM_POST_HIBERNATION:
+		if (spacemit_sspa_get_hdmi_status()) {
+			ret = devm_snd_soc_register_component(&sspa_platdev->dev, &spacemit_snd_sspa_component,
+				spacemit_snd_sspa_dai, ARRAY_SIZE(spacemit_snd_sspa_dai));
+			if (ret != 0) {
+				dev_err(&sspa_platdev->dev, "failed to register DAI\n");
+			}
+		} else {
+			snd_soc_unregister_component(&sspa_platdev->dev);
+		}
+
+		spacemit_hdmi_register_client(&hdmi_connect_notifier);
+		return NOTIFY_OK;
+
+	default:
+		return NOTIFY_DONE;
+	}
+}
+
+static struct notifier_block sspa_pm_notif_block = {
+	.notifier_call = sspa_pm_suspend_notifier,
 };
 
 static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
@@ -351,6 +386,7 @@ static int spacemit_snd_sspa_pdev_probe(struct platform_device *pdev)
 	}
 
 	spacemit_hdmi_register_client(&hdmi_connect_notifier);
+	ret = register_pm_notifier(&sspa_pm_notif_block);
 
 	return 0;
 }

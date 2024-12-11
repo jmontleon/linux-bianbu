@@ -569,6 +569,13 @@ config SPACEMIT_TCM
 	help
 	  This driver allows you to alloc tcm for userspace.
 
+config OCP2138
+	tristate "Driver for ocp2138"
+	default y
+
+	help
+	  Support for ocp2138.
+
 config ICM42607
         tristate "ICM42607 sensor support"
         depends on I2C

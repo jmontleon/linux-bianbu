@@ -1861,6 +1861,7 @@ static const struct dev_pm_ops k1x_pcie_pm_ops = {
 };
 
 static struct platform_driver k1x_pcie_driver = {
+	.probe = k1x_pcie_probe,
 	.driver = {
 		.name	= "k1x-dwc-pcie",
 		.of_match_table = of_k1x_pcie_match,
@@ -1868,4 +1869,4 @@ static struct platform_driver k1x_pcie_driver = {
 		.pm	= &k1x_pcie_pm_ops,
 	},
 };
-builtin_platform_driver_probe(k1x_pcie_driver, k1x_pcie_probe);
+module_platform_driver(k1x_pcie_driver);

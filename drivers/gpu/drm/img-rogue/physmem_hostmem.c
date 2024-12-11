@@ -78,15 +78,12 @@ static PVRSRV_DEVICE_CONFIG gsHostMemDevConfig[];
 static PHYS_HEAP_CONFIG gsPhysHeapConfigHostMemDevice[] =
 {
 	{
-		PHYS_HEAP_TYPE_UMA,
-		"SYSMEM",
-		&gsHostMemDevPhysHeapFuncs,
-		{0},
-		{0},
-		0,
-		"uma_cpu_local",
-		(IMG_HANDLE)&gsHostMemDevConfig[0],
-		PHYS_HEAP_USAGE_CPU_LOCAL,
+		.eType = PHYS_HEAP_TYPE_UMA,
+		.ui32UsageFlags = PHYS_HEAP_USAGE_CPU_LOCAL,
+		.uConfig.sUMA.pszPDumpMemspaceName = "SYSMEM",
+		.uConfig.sUMA.psMemFuncs = &gsHostMemDevPhysHeapFuncs,
+		.uConfig.sUMA.pszHeapName = "uma_cpu_local",
+		.uConfig.sUMA.hPrivData = (IMG_HANDLE)&gsHostMemDevConfig[0]
 	}
 };
 
@@ -107,7 +104,6 @@ static void HostMemCpuPAddrToDevPAddr(IMG_HANDLE hPrivData,
                                       IMG_CPU_PHYADDR *psCpuPAddr)
 {
 	PVR_UNREFERENCED_PARAMETER(hPrivData);
-
 	/* Optimise common case */
 	psDevPAddr[0].uiAddr = phys_cpu2gpu(psCpuPAddr[0].uiAddr);
 	if (ui32NumOfAddr > 1)
@@ -126,7 +122,6 @@ static void HostMemDevPAddrToCpuPAddr(IMG_HANDLE hPrivData,
                                       IMG_DEV_PHYADDR *psDevPAddr)
 {
 	PVR_UNREFERENCED_PARAMETER(hPrivData);
-
 	/* Optimise common case */
 	psCpuPAddr[0].uiAddr = phys_gpu2cpu(psDevPAddr[0].uiAddr);
 	if (ui32NumOfAddr > 1)
@@ -156,7 +151,7 @@ PVRSRV_ERROR HostMemDeviceCreate(PVRSRV_DEVICE_NODE **ppsDeviceNode)
 	/* N.B.- In case of any failures in this function, we just return error to
 	   the caller, as clean-up is taken care by _HostMemDeviceDestroy function */
 
-	psDeviceNode = OSAllocZMem(sizeof(*psDeviceNode));
+	psDeviceNode = OSAllocZMem(sizeof(*psDeviceNode) + sizeof(*psDeviceNode->psMMUDevAttrs));
 	PVR_LOG_RETURN_IF_NOMEM(psDeviceNode, "OSAllocZMem");
 
 	/* early save return pointer to aid clean-up */
@@ -167,22 +162,34 @@ PVRSRV_ERROR HostMemDeviceCreate(PVRSRV_DEVICE_NODE **ppsDeviceNode)
 	psDeviceNode->psPhysHeapList = NULL;
 
 	eError = OSLockCreate(&psDeviceNode->hPhysHeapLock);
-	PVR_LOG_RETURN_IF_ERROR(eError, "OSLockCreate");
+	PVR_LOG_GOTO_IF_ERROR(eError, "OSLockCreate", LockCreateErr);
 
 	eError = PhysHeapCreateHeapFromConfig(psDeviceNode,
 										  &psDevConfig->pasPhysHeaps[0],
 										  NULL);
-	PVR_LOG_RETURN_IF_ERROR(eError, "PhysHeapCreateHeapFromConfig");
+	PVR_LOG_GOTO_IF_ERROR(eError, "PhysHeapCreateHeapFromConfig", PhysHeapCreateErr);
 
 	/* Only CPU local heap is valid on host-mem DevNode, so enable minimal callbacks */
 	eError = PhysHeapAcquireByID(PVRSRV_PHYS_HEAP_CPU_LOCAL,
 								 psDeviceNode,
 								 &psDeviceNode->apsPhysHeap[PVRSRV_PHYS_HEAP_CPU_LOCAL]);
-	PVR_LOG_RETURN_IF_ERROR(eError, "PhysHeapAcquire");
+	PVR_LOG_GOTO_IF_ERROR(eError, "PhysHeapAcquire", AcquirePhysHeapErr);
+
+	psDeviceNode->psMMUDevAttrs = (MMU_DEVICEATTRIBS*)(psDeviceNode + 1);
+	psDeviceNode->psMMUDevAttrs->ui32ValidPageSizeMask = OSGetPageSize();
 
 	dllist_init(&psDeviceNode->sCleanupThreadWorkList);
 
 	return PVRSRV_OK;
+
+AcquirePhysHeapErr:
+	PhysHeapDestroyDeviceHeaps(psDeviceNode);
+PhysHeapCreateErr:
+	OSLockDestroy(psDeviceNode->hPhysHeapLock);
+LockCreateErr:
+	OSFreeMem(psDeviceNode);
+
+	return eError;
 }
 
 void HostMemDeviceDestroy(PVRSRV_DEVICE_NODE *psDeviceNode)

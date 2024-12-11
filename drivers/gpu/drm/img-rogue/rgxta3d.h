@@ -148,6 +148,8 @@ struct _RGX_FREELIST_ {
 	PMR						*psFreeListPMR;
 	IMG_DEVMEM_OFFSET_T		uiFreeListPMROffset;
 
+	DEVMEMINT_RESERVATION* psFreeListReservation;
+
 	/* Freelist config */
 	IMG_UINT32				ui32MaxFLPages;
 	IMG_UINT32				ui32InitFLPages;
@@ -200,11 +202,10 @@ typedef struct {
 
 	DEVMEMINT_RESERVATION	*psReservation;
 	PMR						*psPMR;
-	DEVMEMINT_MAPPING		*psMapping;
-	PVRSRV_MEMALLOCFLAGS_T	uiMapFlags;
 	IMG_UINT32				ui32ZSBufferID;
 	IMG_UINT32				ui32RefCount;
 	IMG_BOOL				bOnDemand;
+	IMG_BOOL				bIsBacked;
 
 	IMG_UINT32				ui32NumReqByApp;		/* Number of Backing Requests from Application */
 	IMG_UINT32				ui32NumReqByFW;			/* Number of Backing Requests from Firmware */
@@ -259,12 +260,12 @@ PVRSRV_ERROR RGXDestroyHWRTDataSet(RGX_KM_HW_RT_DATASET *psKMHWRTDataSet);
 /*
 	RGXCreateZSBufferKM
 */
-PVRSRV_ERROR RGXCreateZSBufferKM(CONNECTION_DATA			*psConnection,
-                                 PVRSRV_DEVICE_NODE			*psDeviceNode,
-                                 DEVMEMINT_RESERVATION		*psReservation,
-                                 PMR						*psPMR,
+PVRSRV_ERROR RGXCreateZSBufferKM(CONNECTION_DATA * psConnection,
+                                 PVRSRV_DEVICE_NODE	*psDeviceNode,
+                                 DEVMEMINT_RESERVATION	*psReservation,
+                                 PMR					*psPMR,
                                  PVRSRV_MEMALLOCFLAGS_T		uiMapFlags,
-                                 RGX_ZSBUFFER_DATA			**ppsZSBuffer);
+                                 RGX_ZSBUFFER_DATA **ppsZSBuffer);
 
 /*
 	RGXDestroyZSBufferKM
@@ -331,9 +332,7 @@ PVRSRV_ERROR RGXCreateFreeList(CONNECTION_DATA      *psConnection,
                                IMG_UINT32           ui32GrowParamThreshold,
                                RGX_FREELIST			*psGlobalFreeList,
                                IMG_BOOL				bCheckFreelist,
-                               IMG_DEV_VIRTADDR		sFreeListDevVAddr,
-                               PMR					*psFreeListPMR,
-                               IMG_DEVMEM_OFFSET_T	uiFreeListPMROffset,
+                               DEVMEMINT_RESERVATION* psFreeListReservation,
                                RGX_FREELIST			**ppsFreeList);
 
 /* Destroy free list */

@@ -48,12 +48,8 @@
 #include <drm/drmP.h>
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
-#include <drm/drm_crtc_helper.h>
-#else
 #include <drm/drm_encoder.h>
 #include <drm/drm_modeset_helper_vtables.h>
-#endif
 
 #include "kernel_compatibility.h"
 

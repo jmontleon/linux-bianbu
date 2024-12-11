@@ -72,9 +72,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #if defined(SUPPORT_LINUX_DVFS)
 #include "pvr_dvfs_device.h"
 #endif
-#if defined(SUPPORT_VALIDATION) && defined(NO_HARDWARE) && defined(PDUMP)
-#include "os_apphint.h"
-#include "validation_soc.h"
+
+#if defined(PVRSRV_ANDROID_TRACE_GPU_FREQ)
+#include "pvr_gpufreq.h"
+#endif /* defined(PVRSRV_ANDROID_TRACE_GPU_FREQ) */
+
+#if defined(SUPPORT_PDVFS) && (PDVFS_COM == PDVFS_COM_HOST)
+#include "rgxpdvfs.h"
 #endif
 
 static PVRSRV_ERROR RGXFWNotifyHostTimeout(PVRSRV_RGXDEV_INFO *psDevInfo)
@@ -98,49 +102,68 @@ static PVRSRV_ERROR RGXFWNotifyHostTimeout(PVRSRV_RGXDEV_INFO *psDevInfo)
 
 static void _RGXUpdateGPUUtilStats(PVRSRV_RGXDEV_INFO *psDevInfo)
 {
-	RGXFWIF_GPU_UTIL_FWCB *psUtilFWCb;
-	IMG_UINT64 (*paui64DMOSLastWord)[RGXFW_MAX_NUM_OSIDS];
-	IMG_UINT64 (*paaui64DMOSStatsCounters)[RGXFW_MAX_NUM_OSIDS][RGXFWIF_GPU_UTIL_STATE_NUM];
+	RGXFWIF_GPU_UTIL_FW *psUtilFW;
 	IMG_UINT64 ui64LastPeriod;
 	IMG_UINT64 ui64LastState;
+	IMG_UINT64 ui64LastReducedState;
 	IMG_UINT64 ui64LastTime;
 	IMG_UINT64 ui64TimeNow;
-	RGXFWIF_DM eDM;
+	IMG_UINT32 ui32DriverID;
+	IMG_UINT64 ui64DMOSStatsCounter;
 
-	psUtilFWCb = psDevInfo->psRGXFWIfGpuUtilFWCb;
-	RGXFwSharedMemCacheOpPtr(psDevInfo->psRGXFWIfGpuUtilFWCb, INVALIDATE);
-	paui64DMOSLastWord = &psUtilFWCb->aaui64DMOSLastWord[0];
-	paaui64DMOSStatsCounters = &psUtilFWCb->aaaui64DMOSStatsCounters[0];
+	psUtilFW = psDevInfo->psRGXFWIfGpuUtilFW;
+	RGXFwSharedMemCacheOpPtr(psDevInfo->psRGXFWIfGpuUtilFW, INVALIDATE);
 
 	OSLockAcquire(psDevInfo->hGPUUtilLock);
 
 	ui64TimeNow = RGXFWIF_GPU_UTIL_GET_TIME(RGXTimeCorrGetClockns64(psDevInfo->psDeviceNode));
 
 	/* Update counters to account for the time since the last update */
-	ui64LastState  = RGXFWIF_GPU_UTIL_GET_STATE(psUtilFWCb->ui64GpuLastWord);
-	ui64LastTime   = RGXFWIF_GPU_UTIL_GET_TIME(psUtilFWCb->ui64GpuLastWord);
+	ui64LastState  = RGXFWIF_GPU_UTIL_GET_STATE(psUtilFW->ui64GpuLastWord);
+	ui64LastTime   = RGXFWIF_GPU_UTIL_GET_TIME(psUtilFW->ui64GpuLastWord);
 	ui64LastPeriod = RGXFWIF_GPU_UTIL_GET_PERIOD(ui64TimeNow, ui64LastTime);
-	psUtilFWCb->aui64GpuStatsCounters[ui64LastState] += ui64LastPeriod;
+	psUtilFW->aui64GpuStatsCounters[ui64LastState] += ui64LastPeriod;
 
 	/* Update state and time of the latest update */
-	psUtilFWCb->ui64GpuLastWord = RGXFWIF_GPU_UTIL_MAKE_WORD(ui64TimeNow, ui64LastState);
+	psUtilFW->ui64GpuLastWord = RGXFWIF_GPU_UTIL_MAKE_WORD(ui64TimeNow, ui64LastState);
 
-	for (eDM = 0; eDM < psDevInfo->sDevFeatureCfg.ui32MAXDMCount; eDM++)
+	/* convert last period into the same units as used by fw */
+	ui64TimeNow  = ui64TimeNow >> RGXFWIF_DM_OS_TIMESTAMP_SHIFT;
+
+	FOREACH_SUPPORTED_DRIVER(ui32DriverID)
 	{
-		IMG_UINT32 ui32DriverID;
+		RGXFWIF_GPU_STATS *psStats = &psUtilFW->sStats[ui32DriverID];
+		RGXFWIF_DM eDM;
 
-		FOREACH_SUPPORTED_DRIVER(ui32DriverID)
+		for (eDM = 0; eDM < RGXFWIF_GPU_UTIL_DM_MAX; eDM++)
 		{
-			ui64LastState  = RGXFWIF_GPU_UTIL_GET_STATE(psUtilFWCb->aaui64DMOSLastWord[eDM][ui32DriverID]);
-			ui64LastTime   = RGXFWIF_GPU_UTIL_GET_TIME(psUtilFWCb->aaui64DMOSLastWord[eDM][ui32DriverID]);
+			ui64LastState  = (IMG_UINT64)RGXFWIF_GPU_UTIL_GET_STATE32(psStats->aui32DMOSLastWord[eDM]);
+			ui64LastTime   = (IMG_UINT64)RGXFWIF_GPU_UTIL_GET_TIME32(psStats->aui32DMOSLastWord[eDM]) +
+			                 ((IMG_UINT64)psStats->aui32DMOSLastWordWrap[eDM] << 32);
 			ui64LastPeriod = RGXFWIF_GPU_UTIL_GET_PERIOD(ui64TimeNow, ui64LastTime);
-			paaui64DMOSStatsCounters[eDM][ui32DriverID][ui64LastState] += ui64LastPeriod;
+			/* for states statistics per DM per driver we only care about the time in Active state,
+			so we "combine" other states (Idle and Blocked) together */
+			ui64LastReducedState = (ui64LastState == RGXFWIF_GPU_UTIL_STATE_ACTIVE) ?
+			                       RGXFWIF_GPU_UTIL_STATE_ACTIVE : RGXFWIF_GPU_UTIL_STATE_INACTIVE;
+			ui64DMOSStatsCounter = (IMG_UINT64)psStats->aaui32DMOSStatsCounters[eDM][ui64LastReducedState] + ui64LastPeriod;
+			psStats->aaui32DMOSStatsCounters[eDM][ui64LastReducedState] = (IMG_UINT32)(ui64DMOSStatsCounter & IMG_UINT32_MAX);
+			if (ui64DMOSStatsCounter > IMG_UINT32_MAX)
+			{
+				psStats->aaui32DMOSCountersWrap[eDM][ui64LastReducedState] += (IMG_UINT32)(ui64DMOSStatsCounter >> 32);
+			}
 
 			/* Update state and time of the latest update */
-			paui64DMOSLastWord[eDM][ui32DriverID] = RGXFWIF_GPU_UTIL_MAKE_WORD(ui64TimeNow, ui64LastState);
+			psStats->aui32DMOSLastWord[eDM] = RGXFWIF_GPU_UTIL_MAKE_WORD32((ui64TimeNow & (IMG_UINT64)IMG_UINT32_MAX), ui64LastState);
+			if (ui64TimeNow > IMG_UINT32_MAX)
+			{
+				if (psStats->aui32DMOSLastWordWrap[eDM] != (IMG_UINT32)(ui64TimeNow >> 32))
+				{
+					psStats->aui32DMOSLastWordWrap[eDM] = (IMG_UINT32)(ui64TimeNow >> 32);
+				}
+			}
 		}
 	}
-	RGXFwSharedMemCacheOpPtr(psDevInfo->psRGXFWIfGpuUtilFWCb, FLUSH);
+	RGXFwSharedMemCacheOpPtr(psDevInfo->psRGXFWIfGpuUtilFW, FLUSH);
 
 	OSLockRelease(psDevInfo->hGPUUtilLock);
 }
@@ -148,185 +171,262 @@ static void _RGXUpdateGPUUtilStats(PVRSRV_RGXDEV_INFO *psDevInfo)
 static INLINE PVRSRV_ERROR RGXDoStop(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError;
+	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
+
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
 #if defined(SUPPORT_TRUSTED_DEVICE) && !defined(NO_HARDWARE) && !defined(SUPPORT_SECURITY_VALIDATION)
-	PVRSRV_DEVICE_CONFIG *psDevConfig = psDeviceNode->psDevConfig;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
-
-	if (psDevConfig->pfnTDRGXStop == NULL)
+	if (psDeviceNode->psDevConfig->pfnTDRGXStop == NULL)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "RGXPrePowerState: TDRGXStop not implemented!"));
 		return PVRSRV_ERROR_NOT_IMPLEMENTED;
 	}
 
-	eError = psDevConfig->pfnTDRGXStop(psDevConfig->hSysData);
+	psDevInfo->bRGXPowered = IMG_FALSE;
+	eError = psDeviceNode->psDevConfig->pfnTDRGXStop(psDeviceNode->psDevConfig->hSysData);
 #else
-	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
-
 	eError = RGXStop(&psDevInfo->sLayerParams);
 #endif
 
 	return eError;
 }
 
-/*
-	RGXPrePowerState
-*/
-PVRSRV_ERROR RGXPrePowerState(IMG_HANDLE				hDevHandle,
-                              PVRSRV_DEV_POWER_STATE	eNewPowerState,
-                              PVRSRV_DEV_POWER_STATE	eCurrentPowerState,
-                              PVRSRV_POWER_FLAGS		ePwrFlags)
+/*************************************************************************/ /*!
+@Function       RGXSendPowerOffKick
+@Description    Send a KCCB kick to power off the GPU FW. This function will wait
+                for completion of the command before exiting.
+
+@Input          psDeviceNode    The device node struct associated with the GPU.
+@Input          bForce          A boolean indicating if the power off command
+                                should be forced.
+
+@Return         Failure code if the virtual address is invalid.
+*/ /**************************************************************************/
+static PVRSRV_ERROR RGXSendPowerOffKick(PVRSRV_DEVICE_NODE *psDeviceNode,
+                                        IMG_BOOL bForce)
 {
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	RGXFWIF_KCCB_CMD sPowCmd;
+	IMG_UINT32 ui32CmdKCCBSlot;
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	PVRSRV_DEVICE_NODE    *psDeviceNode = hDevHandle;
 
-	if ((eNewPowerState != eCurrentPowerState) &&
-	    (eNewPowerState != PVRSRV_DEV_POWER_STATE_ON))
+	PVR_ASSERT(psDeviceNode != NULL);
+	PVR_ASSERT(psDeviceNode->pvDevice != NULL);
+
+	psDevInfo = psDeviceNode->pvDevice;
+
+	/* Send the Power off request to the FW */
+	sPowCmd.eCmdType = RGXFWIF_KCCB_CMD_POW;
+	sPowCmd.uCmdData.sPowData.ePowType = RGXFWIF_POW_OFF_REQ;
+	sPowCmd.uCmdData.sPowData.uPowerReqData.bForced = bForce;
+
+	eError = SyncPrimSet(psDevInfo->psPowSyncPrim, 0);
+	if (eError != PVRSRV_OK)
 	{
-		PVRSRV_RGXDEV_INFO    *psDevInfo = psDeviceNode->pvDevice;
-		RGXFWIF_KCCB_CMD      sPowCmd;
-		IMG_UINT32            ui32CmdKCCBSlot;
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to set Power sync prim",
+		         __func__));
+		return eError;
+	}
 
-		const RGXFWIF_SYSDATA *psFwSysData = psDevInfo->psRGXFWIfFwSysData;
+	eError = RGXSendCommandAndGetKCCBSlot(psDevInfo,
+	                                      &sPowCmd,
+	                                      PDUMP_FLAGS_NONE,
+	                                      &ui32CmdKCCBSlot);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to send Power off request",
+		         __func__));
+		return eError;
+	}
 
-		/* Send the Power off request to the FW */
-		sPowCmd.eCmdType = RGXFWIF_KCCB_CMD_POW;
-		sPowCmd.uCmdData.sPowData.ePowType = RGXFWIF_POW_OFF_REQ;
-		sPowCmd.uCmdData.sPowData.uPowerReqData.bForced = BITMASK_HAS(ePwrFlags, PVRSRV_POWER_FLAGS_FORCED);
+	/* Wait for the firmware to complete processing. It cannot use PVRSRVWaitForValueKM as it relies
+	 * on the EventObject which is signalled in this MISR */
+	return RGXPollForGPCommandCompletion(psDeviceNode,
+	                                     psDevInfo->psPowSyncPrim->pui32LinAddr,
+	                                     0x1, 0xFFFFFFFF);
+}
 
-		eError = SyncPrimSet(psDevInfo->psPowSyncPrim, 0);
-		if (eError != PVRSRV_OK)
-		{
-			PVR_DPF((PVR_DBG_ERROR, "%s: Failed to set Power sync prim",
-					__func__));
-			return eError;
-		}
+/*************************************************************************/ /*!
+@Function       RGXFinalisePowerOff
+@Description    Finalises the GPU power transition to off.
 
-		eError = RGXSendCommandAndGetKCCBSlot(psDevInfo,
-		                                      &sPowCmd,
-		                                      PDUMP_FLAGS_NONE,
-		                                      &ui32CmdKCCBSlot);
-		if (eError != PVRSRV_OK)
-		{
-			PVR_DPF((PVR_DBG_ERROR, "%s: Failed to send Power off request",
-					__func__));
-			return eError;
-		}
+@Input          psDeviceNode    The device node struct associated with the GPU.
 
-		/* Wait for the firmware to complete processing. It cannot use PVRSRVWaitForValueKM as it relies
-		   on the EventObject which is signalled in this MISR */
-		eError = RGXPollForGPCommandCompletion(psDeviceNode,
-								  psDevInfo->psPowSyncPrim->pui32LinAddr,
-								  0x1, 0xFFFFFFFF);
+@Return         Result code indicating the success or reason for failure.
+*/ /**************************************************************************/
+static PVRSRV_ERROR RGXFinalisePowerOff(PVRSRV_DEVICE_NODE *psDeviceNode)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo;
+	PVRSRV_ERROR eError = PVRSRV_OK;
 
-		/* Check the Power state after the answer */
-		if (eError == PVRSRV_OK)
-		{
-			RGXFwSharedMemCacheOpValue(psFwSysData->ePowState,
-			                           INVALIDATE);
-			/* Finally, de-initialise some registers. */
-			if (psFwSysData->ePowState == RGXFWIF_POW_OFF)
-			{
-#if !defined(NO_HARDWARE)
-				IMG_UINT32 ui32idx;
-
-				/* Driver takes the VZ Fw-KM connection down, preventing the
-				 * firmware from submitting further interrupts */
-				KM_SET_OS_CONNECTION(OFFLINE, psDevInfo);
-				KM_CONNECTION_CACHEOP(Os, FLUSH);
-
-#if defined(RGX_FW_IRQ_OS_COUNTERS)
-				ui32idx = RGXFW_HOST_DRIVER_ID;
-#else
-				for_each_irq_cnt(ui32idx)
-#endif /* RGX_FW_IRQ_OS_COUNTERS */
-				{
-					IMG_UINT32 ui32IrqCnt;
-
-					get_irq_cnt_val(ui32IrqCnt, ui32idx, psDevInfo);
-
-					/* Wait for the pending FW processor to host interrupts to come back. */
-					eError = PVRSRVPollForValueKM(psDeviceNode,
-					                              (IMG_UINT32 __iomem *)&psDevInfo->aui32SampleIRQCount[ui32idx],
-					                              ui32IrqCnt,
-					                              0xffffffff,
-					                              POLL_FLAG_LOG_ERROR,
-					                              NULL);
-
-					if (eError != PVRSRV_OK)
-					{
-						PVR_DPF((PVR_DBG_ERROR,
-								"%s: Wait for pending interrupts failed (DevID %u)." MSG_IRQ_CNT_TYPE " %u Host: %u, FW: %u",
-								__func__,
-								psDeviceNode->sDevId.ui32InternalID,
-								ui32idx,
-								psDevInfo->aui32SampleIRQCount[ui32idx],
-								ui32IrqCnt));
-
-						RGX_WaitForInterruptsTimeout(psDevInfo);
-					}
-				}
-#endif /* NO_HARDWARE */
-
-				/* Update GPU frequency and timer correlation related data */
-				RGXTimeCorrEnd(psDeviceNode, RGXTIMECORR_EVENT_POWER);
-
-				/* Update GPU state counters */
-				_RGXUpdateGPUUtilStats(psDevInfo);
-
-#if defined(SUPPORT_LINUX_DVFS)
-				eError = SuspendDVFS(psDeviceNode);
-				if (eError != PVRSRV_OK)
-				{
-					PVR_DPF((PVR_DBG_ERROR, "%s: Failed to suspend DVFS", __func__));
-					return eError;
-				}
+#if !defined(NO_HARDWARE) && !defined(SUPPORT_SYNC_IRQ)
+	IMG_UINT32 ui32idx;
 #endif
 
-				/* Firmware was successfully stopped, no further interrupts expected */
-				psDevInfo->bRGXPowered = IMG_FALSE;
+	PVR_ASSERT(psDeviceNode != NULL);
+	PVR_ASSERT(psDeviceNode->pvDevice != NULL);
 
-				eError = RGXDoStop(psDeviceNode);
-				if (eError != PVRSRV_OK)
-				{
-					/* Power down failures are treated as successful since the power was removed but logged. */
-					PVR_DPF((PVR_DBG_WARNING, "%s: RGXDoStop failed (%s)",
-							__func__, PVRSRVGetErrorString(eError)));
-					psDevInfo->ui32ActivePMReqNonIdle++;
-					eError = PVRSRV_OK;
-				}
-			}
-			else
-			{
-				/* the sync was updated but the pow state isn't off -> the FW denied the transition */
-				eError = PVRSRV_ERROR_DEVICE_POWER_CHANGE_DENIED;
+	psDevInfo = psDeviceNode->pvDevice;
 
-				if (BITMASK_HAS(ePwrFlags, PVRSRV_POWER_FLAGS_FORCED))
-				{	/* It is an error for a forced request to be denied */
-					PVR_DPF((PVR_DBG_ERROR,
-							 "%s: Failure to power off during a forced power off. FW: %d",
-							 __func__, psFwSysData->ePowState));
-				}
-			}
-		}
-		else if (eError == PVRSRV_ERROR_TIMEOUT)
-		{
-			/* timeout waiting for the FW to ack the request: return timeout */
-			PVR_DPF((PVR_DBG_WARNING,
-					 "%s: Timeout waiting for powoff ack from the FW",
-					 __func__));
-		}
-		else
+#if !defined(NO_HARDWARE)
+	/* Driver takes the VZ Fw-KM connection down, preventing the
+		* firmware from submitting further interrupts */
+	KM_SET_OS_CONNECTION(OFFLINE, psDevInfo);
+	KM_CONNECTION_CACHEOP(Os, FLUSH);
+
+#if defined(SUPPORT_SYNC_IRQ)
+	/* Wait for the pending IRQ handlers to complete. */
+	OSSyncIRQ(psDeviceNode->psDevConfig->ui32IRQ);
+#else
+#if defined(RGX_FW_IRQ_OS_COUNTERS)
+	ui32idx = RGXFW_HOST_DRIVER_ID;
+#else
+	for_each_irq_cnt(ui32idx)
+#endif /* RGX_FW_IRQ_OS_COUNTERS */
+	{
+		IMG_UINT32 ui32IrqCnt;
+
+		get_irq_cnt_val(ui32IrqCnt, ui32idx, psDevInfo);
+
+		/* Wait for the pending FW processor to host interrupts to come back. */
+		eError = PVRSRVPollForValueKM(psDeviceNode,
+		                              (IMG_UINT32 __iomem *)&psDevInfo->aui32SampleIRQCount[ui32idx],
+		                              ui32IrqCnt,
+		                              0xffffffff,
+		                              POLL_FLAG_LOG_ERROR | POLL_FLAG_DEBUG_DUMP,
+		                              NULL);
+
+		if (eError != PVRSRV_OK)
 		{
 			PVR_DPF((PVR_DBG_ERROR,
-					 "%s: Error waiting for powoff ack from the FW (%s)",
-					 __func__, PVRSRVGetErrorString(eError)));
-			eError = PVRSRV_ERROR_DEVICE_POWER_CHANGE_FAILURE;
+			         "%s: Wait for pending interrupts failed (DevID %u)." MSG_IRQ_CNT_TYPE " %u Host: %u, FW: %u",
+			         __func__,
+			         psDeviceNode->sDevId.ui32InternalID,
+			         ui32idx,
+			         psDevInfo->aui32SampleIRQCount[ui32idx],
+			         ui32IrqCnt));
+
+			RGX_WaitForInterruptsTimeout(psDevInfo);
+#if !defined(RGX_FW_IRQ_OS_COUNTERS)
+			break;
+#endif
 		}
+	}
+#endif /* SUPPORT_SYNC_IRQ */
+#endif /* NO_HARDWARE */
+
+	/* Update GPU frequency and timer correlation related data */
+	RGXTimeCorrEnd(psDeviceNode, RGXTIMECORR_EVENT_POWER);
+
+	/* Update GPU state counters */
+	_RGXUpdateGPUUtilStats(psDevInfo);
+
+#if defined(SUPPORT_LINUX_DVFS)
+	eError = SuspendDVFS(psDeviceNode);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to suspend DVFS", __func__));
+		return eError;
+	}
+#endif
+
+	eError = RGXDoStop(psDeviceNode);
+	if (eError != PVRSRV_OK)
+	{
+		/* Power down failures are treated as successful since the power was removed but logged. */
+		PVR_DPF((PVR_DBG_WARNING, "%s: RGXDoStop failed (%s)",
+		         __func__, PVRSRVGetErrorString(eError)));
+		psDevInfo->ui32ActivePMReqNonIdle++;
+		eError = PVRSRV_OK;
 	}
 
 	return eError;
+}
+
+/*************************************************************************/ /*!
+@Function       RGXPrePowerState
+@Description    Initial step for setting power state, to be followed by
+                RGXPostPowerState.
+
+@Input          psDeviceNode        The device node struct associated with the GPU.
+@Input          eNewPowerState      The power state the GPU is to transition to.
+@Input          eCurrentPowerState  The current power state of the GPU.
+@Input          ePwrFlags           Flags indicating the behaviour of the transition.
+
+@Return         Result code indicating the success or reason for failure.
+*/ /**************************************************************************/
+PVRSRV_ERROR RGXPrePowerState(PVRSRV_DEVICE_NODE *psDeviceNode,
+                              PVRSRV_DEV_POWER_STATE eNewPowerState,
+                              PVRSRV_DEV_POWER_STATE eCurrentPowerState,
+                              PVRSRV_POWER_FLAGS ePwrFlags)
+{
+	PVRSRV_RGXDEV_INFO *psDevInfo = (PVRSRV_RGXDEV_INFO*)psDeviceNode->pvDevice;
+	const RGXFWIF_SYSDATA *psFwSysData;
+#if defined(PVRSRV_FORCE_UNLOAD_IF_BAD_STATE)
+	IMG_BOOL              bDeviceOk;
+#endif
+	PVRSRV_ERROR eError = PVRSRV_OK;
+
+	PVR_ASSERT(psDevInfo != NULL);
+
+	psFwSysData = psDevInfo->psRGXFWIfFwSysData;
+
+	if ((eNewPowerState == eCurrentPowerState) ||
+	    (eNewPowerState == PVRSRV_DEV_POWER_STATE_ON))
+	{
+		return PVRSRV_OK;
+	}
+
+#if defined(PVRSRV_FORCE_UNLOAD_IF_BAD_STATE)
+	bDeviceOk = (OSAtomicRead(&psDeviceNode->eHealthStatus) == PVRSRV_DEVICE_HEALTH_STATUS_OK);
+	if (bDeviceOk)
+#endif
+	{
+		IMG_BOOL bForce = IMG_FALSE;
+
+		if (BITMASK_HAS(ePwrFlags, PVRSRV_POWER_FLAGS_FORCED))
+		{
+			bForce = IMG_TRUE;
+		}
+
+		eError = RGXSendPowerOffKick(psDeviceNode, bForce);
+		if (eError == PVRSRV_ERROR_TIMEOUT)
+		{
+			/* timeout waiting for the FW to ack the request: return timeout */
+			PVR_DPF((PVR_DBG_WARNING,
+			         "%s: Timeout waiting for powoff ack from the FW",
+			         __func__));
+			return eError;
+		}
+		else if (eError != PVRSRV_OK)
+		{
+			PVR_DPF((PVR_DBG_ERROR,
+			         "%s: Error waiting for powoff ack from the FW (%s)",
+			         __func__, PVRSRVGetErrorString(eError)));
+			return PVRSRV_ERROR_DEVICE_POWER_CHANGE_FAILURE;
+		}
+	}
+
+	/* Check the Power state after the answer */
+	RGXFwSharedMemCacheOpValue(psFwSysData->ePowState, INVALIDATE);
+	if ((psFwSysData->ePowState != RGXFWIF_POW_OFF)
+#if defined(PVRSRV_FORCE_UNLOAD_IF_BAD_STATE)
+	    && (bDeviceOk)
+#endif
+		)
+	{
+		if (BITMASK_HAS(ePwrFlags, PVRSRV_POWER_FLAGS_FORCED))
+		{	/* It is an error for a forced request to be denied */
+			PVR_DPF((PVR_DBG_ERROR,
+			         "%s: Failure to power off during a forced power off. FW: %d",
+			         __func__, psFwSysData->ePowState));
+		}
+
+		/* the sync was updated but the pow state isn't off -> the FW denied the transition */
+		return PVRSRV_ERROR_DEVICE_POWER_CHANGE_DENIED;
+	}
+
+	return RGXFinalisePowerOff(psDeviceNode);
 }
 
 #if defined(SUPPORT_AUTOVZ)
@@ -336,7 +436,7 @@ static PVRSRV_ERROR _RGXWaitForGuestsToDisconnect(PVRSRV_DEVICE_NODE *psDeviceNo
 	PVRSRV_ERROR eError = PVRSRV_ERROR_TIMEOUT;
 	IMG_UINT32 ui32FwTimeout = (20 * SECONDS_TO_MICROSECONDS);
 
-	LOOP_UNTIL_TIMEOUT(ui32FwTimeout)
+	LOOP_UNTIL_TIMEOUT_US(ui32FwTimeout)
 	{
 		IMG_UINT32 ui32DriverID;
 		IMG_BOOL bGuestOnline = IMG_FALSE;
@@ -351,7 +451,8 @@ static PVRSRV_ERROR _RGXWaitForGuestsToDisconnect(PVRSRV_DEVICE_NODE *psDeviceNo
 					psDevInfo->psRGXFWIfFwSysData->asOsRuntimeFlagsMirror[ui32DriverID].bfOsState;
 
 			if ((eGuestState == RGXFW_CONNECTION_FW_ACTIVE) ||
-				(eGuestState == RGXFW_CONNECTION_FW_OFFLOADING))
+				(eGuestState == RGXFW_CONNECTION_FW_GRACEFUL_OFFLOAD) ||
+				(eGuestState == RGXFW_CONNECTION_FW_FORCED_OFFLOAD))
 			{
 				bGuestOnline = IMG_TRUE;
 				PVR_DPF((PVR_DBG_WARNING, "%s: Guest OS %u still online.", __func__, ui32DriverID));
@@ -382,7 +483,7 @@ static PVRSRV_ERROR _RGXWaitForGuestsToDisconnect(PVRSRV_DEVICE_NODE *psDeviceNo
 		}
 
 		OSSleepms(10);
-	} END_LOOP_UNTIL_TIMEOUT();
+	} END_LOOP_UNTIL_TIMEOUT_US();
 
 	if (!PVRSRVPwrLockIsLockedByMe(psDeviceNode))
 	{
@@ -397,13 +498,12 @@ static PVRSRV_ERROR _RGXWaitForGuestsToDisconnect(PVRSRV_DEVICE_NODE *psDeviceNo
 /*
 	RGXVzPrePowerState
 */
-PVRSRV_ERROR RGXVzPrePowerState(IMG_HANDLE				hDevHandle,
+PVRSRV_ERROR RGXVzPrePowerState(PVRSRV_DEVICE_NODE		*psDeviceNode,
                                 PVRSRV_DEV_POWER_STATE	eNewPowerState,
                                 PVRSRV_DEV_POWER_STATE	eCurrentPowerState,
                                 PVRSRV_POWER_FLAGS		ePwrFlags)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	PVRSRV_DEVICE_NODE *psDeviceNode = hDevHandle;
 
 	PVR_LOG_RETURN_IF_FALSE((eNewPowerState != eCurrentPowerState), "no power change", eError);
 
@@ -411,7 +511,7 @@ PVRSRV_ERROR RGXVzPrePowerState(IMG_HANDLE				hDevHandle,
 	{
 		/* powering down */
 #if defined(SUPPORT_AUTOVZ)
-		if (PVRSRV_VZ_MODE_IS(HOST) && (!psDeviceNode->bAutoVzFwIsUp || psDeviceNode->bAutoVzAllowGPUPowerdown))
+		if (PVRSRV_VZ_MODE_IS(HOST, DEVNODE, psDeviceNode) && (!psDeviceNode->bAutoVzFwIsUp || psDeviceNode->bAutoVzAllowGPUPowerdown))
 		{
 			if (psDeviceNode->bAutoVzFwIsUp)
 			{
@@ -454,60 +554,106 @@ PVRSRV_ERROR RGXVzPrePowerState(IMG_HANDLE				hDevHandle,
 			if (KM_FW_CONNECTION_IS(ACTIVE, psDevInfo) &&
 				KM_OS_CONNECTION_IS(ACTIVE, psDevInfo))
 			{
-				PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
 				PVRSRV_ERROR eError = RGXFWSetFwOsState(psDevInfo, 0, RGXFWIF_OS_OFFLINE);
 				PVR_LOG_RETURN_IF_ERROR(eError, "RGXFWSetFwOsState");
 			}
 		}
 #endif
 		PVR_DPF((PVR_DBG_WARNING, "%s: %s driver powering down: bAutoVzFwIsUp = %s",
-								__func__, PVRSRV_VZ_MODE_IS(GUEST)? "GUEST" : "HOST",
+								__func__, PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode)? "GUEST" : "HOST",
 								psDeviceNode->bAutoVzFwIsUp ? "TRUE" : "FALSE"));
 	}
 	else if (eCurrentPowerState != PVRSRV_DEV_POWER_STATE_ON)
 	{
 		/* powering up */
 		PVR_DPF((PVR_DBG_WARNING, "%s: %s driver powering up: bAutoVzFwIsUp = %s",
-								__func__, PVRSRV_VZ_MODE_IS(GUEST)? "GUEST" : "HOST",
+								__func__, PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode)? "GUEST" : "HOST",
 								psDeviceNode->bAutoVzFwIsUp ? "TRUE" : "FALSE"));
 
 	}
 
-	if (!(PVRSRV_VZ_MODE_IS(GUEST) || (psDeviceNode->bAutoVzFwIsUp)))
+	if (!(PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode) || (psDeviceNode->bAutoVzFwIsUp)))
 	{
 		/* call regular device power function */
-		eError = RGXPrePowerState(hDevHandle, eNewPowerState, eCurrentPowerState, ePwrFlags);
+		eError = RGXPrePowerState(psDeviceNode, eNewPowerState, eCurrentPowerState, ePwrFlags);
 	}
 
 	return eError;
 }
 
+#if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS)
+static PVRSRV_ERROR RGXVzWaitFirmwareReady(PVRSRV_RGXDEV_INFO *psDevInfo)
+{
+	KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
+	if (!KM_FW_CONNECTION_IS(READY, psDevInfo))
+	{
+		PVR_LOG(("%s: Firmware Connection is not in Ready state. Waiting for Firmware ...", __func__));
+	}
+
+	LOOP_UNTIL_TIMEOUT_US(RGX_VZ_CONNECTION_TIMEOUT_US)
+	{
+		KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
+		if (KM_FW_CONNECTION_IS(READY, psDevInfo))
+		{
+			PVR_LOG(("%s: Firmware Connection is Ready. Initialisation proceeding.", __func__));
+			break;
+		}
+		else
+		{
+			OSSleepms(10);
+		}
+	} END_LOOP_UNTIL_TIMEOUT_US();
+
+	KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
+	if (!KM_FW_CONNECTION_IS(READY, psDevInfo))
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Timed out waiting for the Firmware to enter Ready state.", __func__));
+		return PVRSRV_ERROR_TIMEOUT;
+	}
+
+	return PVRSRV_OK;
+}
+#endif
+
 /*
 	RGXVzPostPowerState
 */
-PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
+PVRSRV_ERROR RGXVzPostPowerState(PVRSRV_DEVICE_NODE		*psDeviceNode,
                                  PVRSRV_DEV_POWER_STATE	eNewPowerState,
                                  PVRSRV_DEV_POWER_STATE	eCurrentPowerState,
                                  PVRSRV_POWER_FLAGS		ePwrFlags)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	PVRSRV_DEVICE_NODE *psDeviceNode = hDevHandle;
 	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
 
 	PVR_LOG_RETURN_IF_FALSE((eNewPowerState != eCurrentPowerState), "no power change", eError);
 
-	if (!(PVRSRV_VZ_MODE_IS(GUEST) || (psDeviceNode->bAutoVzFwIsUp)))
+	if (!(PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode) || (psDeviceNode->bAutoVzFwIsUp)))
 	{
+		if (eCurrentPowerState != PVRSRV_DEV_POWER_STATE_ON)
+		{
+			KM_SET_OS_CONNECTION(READY, psDevInfo);
+			KM_CONNECTION_CACHEOP(Os, FLUSH);
+		}
 		/* call regular device power function */
-		eError = RGXPostPowerState(hDevHandle, eNewPowerState, eCurrentPowerState, ePwrFlags);
+		eError = RGXPostPowerState(psDeviceNode, eNewPowerState, eCurrentPowerState, ePwrFlags);
+	}
+	else
+	{
+		KM_SET_OS_CONNECTION(OFFLINE, psDevInfo);
+		KM_CONNECTION_CACHEOP(Os, FLUSH);
 	}
 
 	if (eNewPowerState != PVRSRV_DEV_POWER_STATE_ON)
 	{
 		/* powering down */
-		PVR_LOG_RETURN_IF_FALSE((!psDeviceNode->bAutoVzFwIsUp), "AutoVz Fw active, power not changed", eError);
+		if (psDeviceNode->bAutoVzFwIsUp)
+		{
+			PVR_LOG(("%s: AutoVz Fw active, power not changed", __func__));
+			return eError;
+		}
 		PVR_DPF((PVR_DBG_WARNING, "%s: %s driver powering down: bAutoVzFwIsUp = %s",
-								__func__, PVRSRV_VZ_MODE_IS(GUEST)? "GUEST" : "HOST",
+								__func__, PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode)? "GUEST" : "HOST",
 								psDeviceNode->bAutoVzFwIsUp ? "TRUE" : "FALSE"));
 
 #if !defined(SUPPORT_AUTOVZ_HW_REGS)
@@ -518,7 +664,7 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 		RGXFwSharedMemCacheOpPtr(psDevInfo->psRGXFWIfConnectionCtl, FLUSH);
 #endif /* defined(SUPPORT_AUTOVZ) && !defined(SUPPORT_AUTOVZ_HW_REGS) */
 
-		if (PVRSRV_VZ_MODE_IS(GUEST) || (psDeviceNode->bAutoVzFwIsUp))
+		if (PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode) || (psDeviceNode->bAutoVzFwIsUp))
 		{
 #if defined(SUPPORT_AUTOVZ)
 			/* AutoVz Guests attempting to suspend have updated their connections earlier in RGXVzPrePowerState.
@@ -544,9 +690,9 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 		pbUpdatedFlag = &psDevInfo->psRGXFWIfOsInit->sRGXCompChecks.bUpdated;
 
 		PVR_DPF((PVR_DBG_WARNING, "%s: %s driver powering up: bAutoVzFwIsUp = %s",
-								__func__, PVRSRV_VZ_MODE_IS(GUEST)? "GUEST" : "HOST",
+								__func__, PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode)? "GUEST" : "HOST",
 								psDeviceNode->bAutoVzFwIsUp ? "TRUE" : "FALSE"));
-		if (PVRSRV_VZ_MODE_IS(GUEST))
+		if (PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
 		{
 			/* Guests don't execute the power transition callbacks, so update their RGXPowered flag here */
 			psDevInfo->bRGXPowered = IMG_TRUE;
@@ -554,38 +700,9 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 #if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS)
 			/* Guest drivers expect the firmware to have set its end of the
 			 * connection to Ready state by now. */
-			KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
-			if (!KM_FW_CONNECTION_IS(READY, psDevInfo))
-			{
-				PVR_DPF((PVR_DBG_WARNING, "%s: Firmware Connection is not in Ready state. Waiting for Firmware ...", __func__));
-			}
-
-			LOOP_UNTIL_TIMEOUT(RGX_VZ_CONNECTION_TIMEOUT_US)
-			{
-				KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
-				if (KM_FW_CONNECTION_IS(READY, psDevInfo))
-				{
-					PVR_DPF((PVR_DBG_MESSAGE, "%s: Firmware Connection is Ready. Initialisation proceeding.", __func__));
-					break;
-				}
-				else
-				{
-					OSSleepms(10);
-				}
-			} END_LOOP_UNTIL_TIMEOUT();
-
-			KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
-			if (!KM_FW_CONNECTION_IS(READY, psDevInfo))
-			{
-				PVR_DPF((PVR_DBG_ERROR, "%s: Timed out waiting for the Firmware to enter Ready state.", __func__));
-				return PVRSRV_ERROR_TIMEOUT;
-			}
+			eError = RGXVzWaitFirmwareReady(psDevInfo);
+			PVR_LOG_RETURN_IF_ERROR(eError, "RGXVzWaitFirmwareReady()");
 #endif /* RGX_VZ_STATIC_CARVEOUT_FW_HEAPS */
-
-			/* Guests can only access the register holding the connection states,
-			 * after the GPU is confirmed to be powered up */
-			KM_SET_OS_CONNECTION(READY, psDevInfo);
-			KM_CONNECTION_CACHEOP(Os, FLUSH);
 
 			OSWriteDeviceMem32WithWMB(pbUpdatedFlag, IMG_FALSE);
 
@@ -599,15 +716,15 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 				RGXFWIF_KCCB_CMD sCmpKCCBCmd;
 				sCmpKCCBCmd.eCmdType = RGXFWIF_KCCB_CMD_HEALTH_CHECK;
 
+				KM_SET_OS_CONNECTION(READY, psDevInfo);
+				KM_CONNECTION_CACHEOP(Os, FLUSH);
+
 				eError = RGXSendCommand(psDevInfo, &sCmpKCCBCmd, PDUMP_FLAGS_CONTINUOUS);
 				PVR_LOG_RETURN_IF_ERROR(eError, "RGXSendCommand()");
 			}
 		}
 		else
 		{
-			KM_SET_OS_CONNECTION(READY, psDevInfo);
-			KM_CONNECTION_CACHEOP(Os, FLUSH);
-
 #if defined(SUPPORT_AUTOVZ)
 			/* Disable power callbacks that should not be run on virtualised drivers after the GPU
 			 * is fully initialised: system layer pre/post functions and driver idle requests.
@@ -616,14 +733,33 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 									&RGXVzPrePowerState, &RGXVzPostPowerState,
 									NULL, NULL, NULL, NULL);
 
-			/* During first-time boot the flag is set here, while subsequent reboots will already
-			 * have set it earlier in RGXInit. Set to true from this point onwards in any case. */
-			psDeviceNode->bAutoVzFwIsUp = IMG_TRUE;
+			/* AutoVz Host driver reconnecting to running Firmware */
+			if (psDeviceNode->bAutoVzFwIsUp)
+			{
+				/* Firmware already running, send a KCCB command to establish the new connection */
+				RGXFWIF_KCCB_CMD sCmpKCCBCmd;
+				sCmpKCCBCmd.eCmdType = RGXFWIF_KCCB_CMD_HEALTH_CHECK;
+
+				eError = RGXVzWaitFirmwareReady(psDevInfo);
+				PVR_LOG_RETURN_IF_ERROR(eError, "RGXVzWaitFirmwareReady()");
+
+				KM_SET_OS_CONNECTION(READY, psDevInfo);
+				KM_CONNECTION_CACHEOP(Os, FLUSH);
+
+				eError = RGXSendCommand(psDevInfo, &sCmpKCCBCmd, PDUMP_FLAGS_CONTINUOUS);
+				PVR_LOG_RETURN_IF_ERROR(eError, "RGXSendCommand()");
+			}
+			else
+			{
+				/* During first-time boot the flag is set here, while subsequent reboots will already
+				 * have set it earlier in RGXInit. Set to true from this point on. */
+				psDeviceNode->bAutoVzFwIsUp = IMG_TRUE;
+			}
 #endif
 		}
 
 		/* Wait for the firmware to accept and enable the connection with this OS by setting its state to Active */
-		LOOP_UNTIL_TIMEOUT(RGX_VZ_CONNECTION_TIMEOUT_US)
+		LOOP_UNTIL_TIMEOUT_US(RGX_VZ_CONNECTION_TIMEOUT_US)
 		{
 			KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
 			if (KM_FW_CONNECTION_IS(ACTIVE, psDevInfo))
@@ -636,7 +772,7 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 				PVR_DPF((PVR_DBG_WARNING, "%s: Firmware Connection is not in Active state. Waiting for Firmware ...", __func__));
 				OSSleepms(10);
 			}
-		} END_LOOP_UNTIL_TIMEOUT();
+		} END_LOOP_UNTIL_TIMEOUT_US();
 
 		KM_CONNECTION_CACHEOP(Fw, INVALIDATE);
 		if (!KM_FW_CONNECTION_IS(ACTIVE, psDevInfo))
@@ -645,19 +781,19 @@ PVRSRV_ERROR RGXVzPostPowerState(IMG_HANDLE				hDevHandle,
 			return PVRSRV_ERROR_TIMEOUT;
 		}
 
-		if (PVRSRV_VZ_MODE_IS(GUEST))
+		if (PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
 		{
 			/* poll on the Firmware supplying the compatibility data */
-			LOOP_UNTIL_TIMEOUT(ui32FwTimeout)
+			LOOP_UNTIL_TIMEOUT_US(ui32FwTimeout)
 			{
 				if (*pbUpdatedFlag)
 				{
 					break;
 				}
 				OSSleepms(10);
-			} END_LOOP_UNTIL_TIMEOUT();
+			} END_LOOP_UNTIL_TIMEOUT_US();
 
-			PVR_LOG_RETURN_IF_FALSE(*pbUpdatedFlag, "Firmware does not respond with compatibility data. ", PVRSRV_ERROR_TIMEOUT);
+			PVR_LOG_RETURN_IF_FALSE(*pbUpdatedFlag, "Firmware does not respond with compatibility data.", PVRSRV_ERROR_TIMEOUT);
 		}
 
 		KM_SET_OS_CONNECTION(ACTIVE, psDevInfo);
@@ -729,6 +865,7 @@ static INLINE void RGXCheckFWBootStage(PVRSRV_RGXDEV_INFO *psDevInfo)
 static INLINE PVRSRV_ERROR RGXDoStart(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError;
+	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
 
 #if defined(SUPPORT_TRUSTED_DEVICE) && !defined(NO_HARDWARE) && !defined(SUPPORT_SECURITY_VALIDATION)
 	PVRSRV_DEVICE_CONFIG *psDevConfig = psDeviceNode->psDevConfig;
@@ -740,9 +877,12 @@ static INLINE PVRSRV_ERROR RGXDoStart(PVRSRV_DEVICE_NODE *psDeviceNode)
 	}
 
 	eError = psDevConfig->pfnTDRGXStart(psDevConfig->hSysData);
-#else
-	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
 
+	if (eError == PVRSRV_OK)
+	{
+		psDevInfo->bRGXPowered = IMG_TRUE;
+	}
+#else
 	eError = RGXStart(&psDevInfo->sLayerParams);
 #endif
 
@@ -862,238 +1002,116 @@ static PVRSRV_ERROR RGXVirtualisationPowerupSidebandTest(PVRSRV_DEVICE_NODE	 *ps
 }
 #endif /* defined(SUPPORT_GPUVIRT_VALIDATION_MTS) */
 
-#if defined(SUPPORT_VALIDATION) && defined(NO_HARDWARE) && defined(PDUMP)
-#define SCRATCH_VALUE  (0x12345678U)
-
-static void RGXRiscvDebugModuleTest(PVRSRV_RGXDEV_INFO *psDevInfo)
-{
-	void *pvAppHintState = NULL;
-	const IMG_BOOL bDefaultFalse = IMG_FALSE;
-	IMG_BOOL bRunRiscvDmiTest;
-
-	IMG_UINT32 *pui32FWCode = NULL;
-	PVRSRV_ERROR eError;
-
-	OSCreateAppHintState(&pvAppHintState);
-	OSGetAppHintBOOL(APPHINT_NO_DEVICE, pvAppHintState, RiscvDmiTest,
-	                   &bDefaultFalse, &bRunRiscvDmiTest);
-	OSFreeAppHintState(pvAppHintState);
-
-	if (bRunRiscvDmiTest == IMG_FALSE)
-	{
-		return;
-	}
-
-	eError = DevmemAcquireCpuVirtAddr(psDevInfo->psRGXFWCodeMemDesc, (void **)&pui32FWCode);
-
-	if (eError != PVRSRV_OK)
-	{
-		PVR_DPF((PVR_DBG_ERROR,
-		         "%s: Error acquiring FW code memory pointer (%s)",
-		         __func__,
-		         PVRSRVGetErrorString(eError)));
-	}
-
-	PDumpIfKM(psDevInfo->psDeviceNode, "ENABLE_RISCV_DMI_TEST", PDUMP_FLAGS_CONTINUOUS);
-	PDUMPCOMMENTWITHFLAGS(psDevInfo->psDeviceNode, PDUMP_FLAGS_CONTINUOUS, "DMI_TEST BEGIN");
-
-	RGXRiscvHalt(psDevInfo);
-
-	/*
-	 * Test RISC-V register reads/writes.
-	 * RGXRiscv[Write/Poll]Reg are used to access internal RISC-V registers
-	 * via debug module.
-	 */
-
-	/* Write RISC-V mscratch register */
-	RGXRiscvWriteReg(psDevInfo, RGXRISCVFW_MSCRATCH_ADDR, SCRATCH_VALUE);
-	/* Read RISC-V misa register (compare against default standard value) */
-	RGXRiscvPollReg(psDevInfo,  RGXRISCVFW_MISA_ADDR,     RGXRISCVFW_MISA_VALUE);
-	/* Read RISC-V mscratch register (compare against previously written value) */
-	RGXRiscvPollReg(psDevInfo,  RGXRISCVFW_MSCRATCH_ADDR, SCRATCH_VALUE);
-
-	/*
-	 * Test RISC-V memory reads/writes.
-	 * RGXRiscv[Write/Poll]Mem are used to access system memory via debug module
-	 * (from RISC-V point of view).
-	 */
-
-	if (pui32FWCode != NULL)
-	{
-		IMG_UINT32 ui32Tmp;
-		IMG_UINT32 ui32FWBootCodeRemap;
-
-		/* Get the FW boot code remap */
-#if defined(RGX_FEATURE_HOST_SECURITY_VERSION_MAX_VALUE_IDX)
-		if (RGX_GET_FEATURE_VALUE(psDevInfo, HOST_SECURITY_VERSION) >= 4)
-		{
-			ui32FWBootCodeRemap = RGXRISCVFW_BOOTLDR_CODE_REMAP_SECURE;
-		}
-		else
-#endif
-		{
-			ui32FWBootCodeRemap = RGXRISCVFW_BOOTLDR_CODE_REMAP;
-		}
-
-		/* Acquire pointer to FW code (bootloader) */
-		pui32FWCode += RGXGetFWImageSectionOffset(NULL, RISCV_UNCACHED_CODE) / sizeof(IMG_UINT32);
-		/* Save FW code at address (bootloader) */
-		ui32Tmp = *pui32FWCode;
-
-		/* Write FW code at address (bootloader) */
-		RGXWriteFWModuleAddr(psDevInfo, ui32FWBootCodeRemap,     SCRATCH_VALUE);
-		/* Read FW code at address (bootloader + 4) (compare against value read from Host) */
-		RGXRiscvPollMem(psDevInfo,  ui32FWBootCodeRemap + 4, *(pui32FWCode + 1));
-		/* Read FW code at address (bootloader) (compare against previously written value) */
-		RGXRiscvPollMem(psDevInfo,  ui32FWBootCodeRemap,     SCRATCH_VALUE);
-		/* Restore FW code at address (bootloader) */
-		RGXWriteFWModuleAddr(psDevInfo, ui32FWBootCodeRemap,     ui32Tmp);
-
-		DevmemReleaseCpuVirtAddr(psDevInfo->psRGXFWCodeMemDesc);
-	}
-
-	/*
-	 * Test GPU register reads/writes.
-	 * RGXRiscv[Write/Poll]Mem are used to access GPU registers via debug module
-	 * (from RISC-V point of view).
-	 * Note that system memory and GPU register accesses both use the same
-	 * debug module interface, targeting different address ranges.
-	 */
-
-	/* Write SCRATCH0 from the Host */
-	PDUMPREG32(psDevInfo->psDeviceNode, RGX_PDUMPREG_NAME, RGX_CR_SCRATCH0,
-	           SCRATCH_VALUE, PDUMP_FLAGS_CONTINUOUS);
-	/* Read SCRATCH0 */
-	RGXRiscvPollMem(psDevInfo,  RGXRISCVFW_SOCIF_BASE | RGX_CR_SCRATCH0, SCRATCH_VALUE);
-	/* Write SCRATCH0 */
-	RGXWriteFWModuleAddr(psDevInfo, RGXRISCVFW_SOCIF_BASE | RGX_CR_SCRATCH0, ~SCRATCH_VALUE);
-	/* Read SCRATCH0 from the Host */
-	PDUMPREGPOL(psDevInfo->psDeviceNode, RGX_PDUMPREG_NAME, RGX_CR_SCRATCH0,
-	            ~SCRATCH_VALUE, 0xFFFFFFFFU,
-	            PDUMP_FLAGS_CONTINUOUS, PDUMP_POLL_OPERATOR_EQUAL);
-
-	RGXRiscvResume(psDevInfo);
-
-	PDUMPCOMMENTWITHFLAGS(psDevInfo->psDeviceNode, PDUMP_FLAGS_CONTINUOUS, "DMI_TEST END");
-	PDumpFiKM(psDevInfo->psDeviceNode, "ENABLE_RISCV_DMI_TEST", PDUMP_FLAGS_CONTINUOUS);
-}
-#endif
 
 /*
 	RGXPostPowerState
 */
-PVRSRV_ERROR RGXPostPowerState(IMG_HANDLE				hDevHandle,
+PVRSRV_ERROR RGXPostPowerState(PVRSRV_DEVICE_NODE		*psDeviceNode,
                                PVRSRV_DEV_POWER_STATE	eNewPowerState,
                                PVRSRV_DEV_POWER_STATE	eCurrentPowerState,
                                PVRSRV_POWER_FLAGS		ePwrFlags)
 {
-	PVRSRV_DEVICE_NODE	 *psDeviceNode = hDevHandle;
-	PVRSRV_RGXDEV_INFO	 *psDevInfo = psDeviceNode->pvDevice;
-	PVRSRV_ERROR		 eError = PVRSRV_OK;
+	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
+	PVRSRV_ERROR eError = PVRSRV_OK;
 
-	if ((eNewPowerState != eCurrentPowerState) &&
-	    (eCurrentPowerState != PVRSRV_DEV_POWER_STATE_ON))
+	PVR_UNREFERENCED_PARAMETER(ePwrFlags);
+
+	if ((eNewPowerState == eCurrentPowerState) ||
+	    (eCurrentPowerState != PVRSRV_DEV_POWER_STATE_OFF))
 	{
-		if (eCurrentPowerState == PVRSRV_DEV_POWER_STATE_OFF)
-		{
-			/* Update timer correlation related data */
-			RGXTimeCorrBegin(psDeviceNode, RGXTIMECORR_EVENT_POWER);
+		PDUMPCOMMENT(psDeviceNode,
+		             "RGXPostPowerState: Current state: %d, New state: %d",
+		             eCurrentPowerState, eNewPowerState);
 
-			/* Update GPU state counters */
-			_RGXUpdateGPUUtilStats(psDevInfo);
+		return PVRSRV_OK;
+	}
 
-			eError = RGXDoStart(psDeviceNode);
-			PVR_LOG_GOTO_IF_ERROR(eError, "RGXDoStart", fail);
+	/* Update timer correlation related data */
+	RGXTimeCorrBegin(psDeviceNode, RGXTIMECORR_EVENT_POWER);
 
-			OSMemoryBarrier(NULL);
+	/* Update GPU state counters */
+	_RGXUpdateGPUUtilStats(psDevInfo);
 
-			/*
-			 * Check whether the FW has started by polling on bFirmwareStarted flag
-			 */
-			RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->bFirmwareStarted,
-			                           INVALIDATE);
-			if (PVRSRVPollForValueKM(psDeviceNode,
-			                         (IMG_UINT32 __iomem *)&psDevInfo->psRGXFWIfSysInit->bFirmwareStarted,
-			                         IMG_TRUE,
-			                         0xFFFFFFFF,
-			                         POLL_FLAG_LOG_ERROR | POLL_FLAG_DEBUG_DUMP,
-			                         RGXFwSharedMemCacheOpExecPfn) != PVRSRV_OK)
-			{
-				PVR_DPF((PVR_DBG_ERROR, "RGXPostPowerState: Polling for 'FW started' flag failed."));
-				eError = PVRSRV_ERROR_TIMEOUT;
+	eError = RGXDoStart(psDeviceNode);
+	PVR_LOG_GOTO_IF_ERROR(eError, "RGXDoStart", fail);
+
+	OSMemoryBarrier(NULL);
+
+
+	/*
+		* Check whether the FW has started by polling on bFirmwareStarted flag
+		*/
+	RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->bFirmwareStarted,
+	                           INVALIDATE);
+	if (PVRSRVPollForValueKM(psDeviceNode,
+	                         (IMG_UINT32 __iomem *)&psDevInfo->psRGXFWIfSysInit->bFirmwareStarted,
+	                         IMG_TRUE,
+	                         0xFFFFFFFF,
+	                         POLL_FLAG_LOG_ERROR | POLL_FLAG_DEBUG_DUMP,
+	                         RGXFwSharedMemCacheOpExecPfn) != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "RGXPostPowerState: Polling for 'FW started' flag failed."));
+		eError = PVRSRV_ERROR_TIMEOUT;
 
 #if defined(TRACK_FW_BOOT)
-				RGXCheckFWBootStage(psDevInfo);
+		RGXCheckFWBootStage(psDevInfo);
 #endif
 
-				/*
-				 * When bFirmwareStarted fails some info may be gained by doing the following
-				 * debug dump but unfortunately it could be potentially dangerous if the reason
-				 * for not booting is the GPU power is not ON. However, if we have reached this
-				 * point the System Layer has returned without errors, we assume the GPU power
-				 * is indeed ON.
-				 */
-				RGXDumpRGXDebugSummary(NULL, NULL, psDeviceNode->pvDevice, IMG_TRUE);
-				RGXDumpRGXRegisters(NULL, NULL, psDeviceNode->pvDevice);
+		/*
+		* When bFirmwareStarted fails some info may be gained by doing the following
+		* debug dump but unfortunately it could be potentially dangerous if the reason
+		* for not booting is the GPU power is not ON. However, if we have reached this
+		* point the System Layer has returned without errors, we assume the GPU power
+		* is indeed ON.
+		*/
+		RGXDumpRGXDebugSummary(NULL, NULL, psDeviceNode->pvDevice, IMG_TRUE);
+		RGXDumpRGXRegisters(NULL, NULL, psDeviceNode->pvDevice);
 
-				PVR_LOG_GOTO_IF_ERROR(eError, "PVRSRVPollForValueKM(bFirmwareStarted)", fail);
-			}
+		PVR_LOG_GOTO_IF_ERROR(eError, "PVRSRVPollForValueKM(bFirmwareStarted)", fail);
+	}
 
 #if defined(PDUMP)
-			PDUMPCOMMENTWITHFLAGS(psDeviceNode, PDUMP_FLAGS_CONTINUOUS, "Wait for the Firmware to start.");
-			eError = DevmemPDumpDevmemPol32(psDevInfo->psRGXFWIfSysInitMemDesc,
-			                                offsetof(RGXFWIF_SYSINIT, bFirmwareStarted),
-			                                IMG_TRUE,
-			                                0xFFFFFFFFU,
-			                                PDUMP_POLL_OPERATOR_EQUAL,
-			                                PDUMP_FLAGS_CONTINUOUS);
+	PDUMPCOMMENTWITHFLAGS(psDeviceNode, PDUMP_FLAGS_CONTINUOUS, "Wait for the Firmware to start.");
+	eError = DevmemPDumpDevmemPol32(psDevInfo->psRGXFWIfSysInitMemDesc,
+	                                offsetof(RGXFWIF_SYSINIT, bFirmwareStarted),
+	                                IMG_TRUE,
+	                                0xFFFFFFFFU,
+	                                PDUMP_POLL_OPERATOR_EQUAL,
+	                                PDUMP_FLAGS_CONTINUOUS);
 
-			if (eError != PVRSRV_OK)
-			{
-				PVR_DPF((PVR_DBG_ERROR,
-				         "RGXPostPowerState: problem pdumping POL for psRGXFWIfSysInitMemDesc (%d)",
-				         eError));
-				PVR_LOG_GOTO_IF_ERROR(eError, "DevmemPDumpDevmemPol32", fail);
-			}
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR,
+		         "RGXPostPowerState: problem pdumping POL for psRGXFWIfSysInitMemDesc (%d)",
+		         eError));
+		PVR_LOG_GOTO_IF_ERROR(eError, "DevmemPDumpDevmemPol32", fail);
+	}
 
-#if defined(SUPPORT_VALIDATION) && defined(NO_HARDWARE)
-			/* Check if the Validation IRQ flag is set */
-			if ((psDevInfo->psRGXFWIfFwSysData->ui32ConfigFlags & RGXFWIF_INICFG_VALIDATE_IRQ) != 0)
-			{
-				eError = PVRSRVValidateIrqs(psDeviceNode);
-				PVR_LOG_GOTO_IF_ERROR(eError, "PVRSRVValidateIrqs", fail);
-			}
-#endif /* defined(SUPPORT_VALIDATION) && defined(NO_HARDWARE) */
 #endif /* defined(PDUMP) */
 
 #if defined(SUPPORT_GPUVIRT_VALIDATION_MTS)
-			eError = RGXVirtualisationPowerupSidebandTest(psDeviceNode, psDevInfo->psRGXFWIfSysInit, psDevInfo);
-			PVR_LOG_GOTO_IF_ERROR(eError, "RGXVirtualisationPowerupSidebandTest", fail);
+	eError = RGXVirtualisationPowerupSidebandTest(psDeviceNode, psDevInfo->psRGXFWIfSysInit, psDevInfo);
+	PVR_LOG_GOTO_IF_ERROR(eError, "RGXVirtualisationPowerupSidebandTest", fail);
 #endif
 
-#if defined(SUPPORT_VALIDATION) && defined(NO_HARDWARE) && defined(PDUMP)
-			RGXRiscvDebugModuleTest(psDevInfo);
-#endif
 
 #if defined(PVRSRV_ENABLE_PROCESS_STATS)
-			RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->ui32FirmwareStartedTimeStamp,
-			                           INVALIDATE);
-			PVRSRVSetFirmwareStartTime(psDeviceNode->psPowerDev,
-			                           psDevInfo->psRGXFWIfSysInit->ui32FirmwareStartedTimeStamp);
-			RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->ui32FirmwareStartedTimeStamp,
-			                           FLUSH);
+	RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->ui32FirmwareStartedTimeStamp,
+	                           INVALIDATE);
+	PVRSRVSetFirmwareStartTime(psDeviceNode->psPowerDev,
+	                           psDevInfo->psRGXFWIfSysInit->ui32FirmwareStartedTimeStamp);
+	RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->ui32FirmwareStartedTimeStamp,
+	                           FLUSH);
 #endif
 
-			RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->ui32MarkerVal,
-			                           INVALIDATE);
-			HTBSyncPartitionMarker(psDevInfo->psRGXFWIfSysInit->ui32MarkerVal);
+	RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfSysInit->ui32MarkerVal,
+	                           INVALIDATE);
+	HTBSyncPartitionMarker(psDevInfo->psRGXFWIfSysInit->ui32MarkerVal);
 
 #if defined(SUPPORT_LINUX_DVFS)
-			eError = ResumeDVFS(psDeviceNode);
-			PVR_LOG_GOTO_IF_ERROR(eError, "ResumeDVFS", fail);
+	eError = ResumeDVFS(psDeviceNode);
+	PVR_LOG_GOTO_IF_ERROR(eError, "ResumeDVFS", fail);
 #endif
-		}
-	}
 
 	PDUMPCOMMENT(psDeviceNode,
 	             "RGXPostPowerState: Current state: %d, New state: %d",
@@ -1110,16 +1128,14 @@ fail:
 /*
 	RGXPreClockSpeedChange
 */
-PVRSRV_ERROR RGXPreClockSpeedChange(IMG_HANDLE				hDevHandle,
+PVRSRV_ERROR RGXPreClockSpeedChange(PVRSRV_DEVICE_NODE		*psDeviceNode,
                                     PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	PVRSRV_DEVICE_NODE *psDeviceNode = hDevHandle;
 	const PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
-	const RGX_DATA *psRGXData = (RGX_DATA*)psDeviceNode->psDevConfig->hDevData;
+	__maybe_unused const RGX_DATA *psRGXData = (RGX_DATA*)psDeviceNode->psDevConfig->hDevData;
 	const RGXFWIF_SYSDATA *psFwSysData = psDevInfo->psRGXFWIfFwSysData;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
-	PVR_UNREFERENCED_PARAMETER(psRGXData);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
 	PVR_DPF((PVR_DBG_MESSAGE, "RGXPreClockSpeedChange: RGX clock speed was %uHz",
 			psRGXData->psRGXTimingInfo->ui32CoreClockSpeed));
@@ -1140,17 +1156,16 @@ PVRSRV_ERROR RGXPreClockSpeedChange(IMG_HANDLE				hDevHandle,
 /*
 	RGXPostClockSpeedChange
 */
-PVRSRV_ERROR RGXPostClockSpeedChange(IMG_HANDLE				hDevHandle,
+PVRSRV_ERROR RGXPostClockSpeedChange(PVRSRV_DEVICE_NODE		*psDeviceNode,
                                      PVRSRV_DEV_POWER_STATE	eCurrentPowerState)
 {
-	PVRSRV_DEVICE_NODE *psDeviceNode = hDevHandle;
 	const PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
 	const RGX_DATA *psRGXData = (RGX_DATA*)psDeviceNode->psDevConfig->hDevData;
 	const RGXFWIF_SYSDATA *psFwSysData = psDevInfo->psRGXFWIfFwSysData;
 	PVRSRV_ERROR eError = PVRSRV_OK;
 	IMG_UINT32 ui32NewClockSpeed = psRGXData->psRGXTimingInfo->ui32CoreClockSpeed;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_SUPPORTED);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_ERROR_NOT_SUPPORTED);
 
 	/* Update runtime configuration with the new value */
 	OSWriteDeviceMem32WithWMB(&psDevInfo->psRGXFWIfRuntimeCfg->ui32CoreClockSpeed,
@@ -1186,6 +1201,11 @@ PVRSRV_ERROR RGXPostClockSpeedChange(IMG_HANDLE				hDevHandle,
 			return eError;
 		}
 
+#if defined(PVRSRV_ANDROID_TRACE_GPU_FREQ)
+		GpuTraceFrequency(psDeviceNode->sDevId.ui32InternalID,
+				psRGXData->psRGXTimingInfo->ui32CoreClockSpeed);
+#endif /* defined(PVRSRV_ANDROID_TRACE_GPU_FREQ) */
+
 		PVR_DPF((PVR_DBG_MESSAGE, "RGXPostClockSpeedChange: RGX clock speed changed to %uHz",
 				psRGXData->psRGXTimingInfo->ui32CoreClockSpeed));
 	}
@@ -1194,48 +1214,65 @@ PVRSRV_ERROR RGXPostClockSpeedChange(IMG_HANDLE				hDevHandle,
 }
 
 /*!
- ******************************************************************************
+******************************************************************************
 
- @Function	RGXDustCountChange
+ @Function	RGXPowUnitsChange
 
- @Description
+ @Description Change power units state
 
-	Does change of number of DUSTs
-
- @Input	   hDevHandle : RGX Device Node
- @Input	   ui32NumberOfDusts : Number of DUSTs to make transition to
+ @Input	   psDeviceNode : RGX Device Node
+ @Input	   ui32PowUnits : On Rogue: Number of DUSTs to make transition to.
+                          On Volcanic: Mask containing power state of SPUs.
+                          Each bit corresponds to an SPU and value must be non-zero.
 
  @Return   PVRSRV_ERROR :
 
- ******************************************************************************/
-PVRSRV_ERROR RGXDustCountChange(IMG_HANDLE		hDevHandle,
-                                IMG_UINT32		ui32NumberOfDusts)
-{
+******************************************************************************/
+PVRSRV_ERROR RGXPowUnitsChange(PVRSRV_DEVICE_NODE *psDeviceNode,
+                               IMG_UINT32 ui32PowUnits)
 
-	PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
+{
 	PVRSRV_RGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 	PVRSRV_ERROR		eError;
-	RGXFWIF_KCCB_CMD	sDustCountChange;
-	IMG_UINT32			ui32MaxAvailableDusts = psDevInfo->sDevFeatureCfg.ui32MAXDustCount;
+	RGXFWIF_KCCB_CMD	sPowUnitsChange;
+	IMG_UINT32			ui32AvailablePowUnits;
 	IMG_UINT32			ui32CmdKCCBSlot;
 	RGXFWIF_RUNTIME_CFG *psRuntimeCfg = psDevInfo->psRGXFWIfRuntimeCfg;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
-	if (ui32NumberOfDusts > ui32MaxAvailableDusts)
+#if defined(PVR_ARCH_VOLCANIC)
+	ui32AvailablePowUnits = psDevInfo->ui32AvailablePowUnitsMask;
+
+	/**
+	 * Validate the input. At-least one PU must be powered on and all requested
+	 * PU's must be a subset of full PU mask.
+	 */
+	if ((ui32PowUnits == 0) || (ui32PowUnits & ~ui32AvailablePowUnits))
 	{
-		eError = PVRSRV_ERROR_INVALID_PARAMS;
 		PVR_DPF((PVR_DBG_ERROR,
-				"%s: Invalid number of DUSTs (%u) while expecting value within <0,%u>. Error:%u",
+				"%s: Invalid Power Units mask requested (0x%X). Value should be non-zero and sub-set of 0x%X mask",
 				__func__,
-				ui32NumberOfDusts,
-				ui32MaxAvailableDusts,
-				eError));
-		return eError;
+				ui32PowUnits,
+				ui32AvailablePowUnits));
+		return PVRSRV_ERROR_INVALID_SPU_MASK;
 	}
+#else
+	ui32AvailablePowUnits = psDevInfo->sDevFeatureCfg.ui32MAXPowUnitCount;
 
-	psRuntimeCfg->ui32DefaultDustsNumInit = ui32NumberOfDusts;
-	OSWriteMemoryBarrier(&psRuntimeCfg->ui32DefaultDustsNumInit);
-	RGXFwSharedMemCacheOpValue(psRuntimeCfg->ui32DefaultDustsNumInit, FLUSH);
+	if (ui32PowUnits > ui32AvailablePowUnits)
+	{
+		PVR_DPF((PVR_DBG_ERROR,
+				"%s: Invalid number of DUSTs (%u) while expecting value within <0,%u>",
+				__func__,
+				ui32PowUnits,
+				ui32AvailablePowUnits));
+		return PVRSRV_ERROR_INVALID_PARAMS;
+	}
+#endif
+
+	psRuntimeCfg->ui32PowUnitsState = ui32PowUnits;
+	OSWriteMemoryBarrier(&psRuntimeCfg->ui32PowUnitsState);
+	RGXFwSharedMemCacheOpValue(psRuntimeCfg->ui32PowUnitsState, FLUSH);
 
 #if !defined(NO_HARDWARE)
 	{
@@ -1252,7 +1289,7 @@ PVRSRV_ERROR RGXDustCountChange(IMG_HANDLE		hDevHandle,
 		{
 			eError = PVRSRV_ERROR_DEVICE_POWER_CHANGE_DENIED;
 			PVR_DPF((PVR_DBG_ERROR,
-					 "%s: Attempt to change dust count when not IDLE",
+					 "%s: Powered units state can not be changed when not IDLE",
 					 __func__));
 			return eError;
 		}
@@ -1267,25 +1304,34 @@ PVRSRV_ERROR RGXDustCountChange(IMG_HANDLE		hDevHandle,
 		return eError;
 	}
 
-	sDustCountChange.eCmdType = RGXFWIF_KCCB_CMD_POW;
-	sDustCountChange.uCmdData.sPowData.ePowType = RGXFWIF_POW_NUM_UNITS_CHANGE;
-	sDustCountChange.uCmdData.sPowData.uPowerReqData.ui32NumOfDusts = ui32NumberOfDusts;
+	sPowUnitsChange.eCmdType = RGXFWIF_KCCB_CMD_POW;
+	sPowUnitsChange.uCmdData.sPowData.ePowType = RGXFWIF_POW_NUM_UNITS_CHANGE;
+	sPowUnitsChange.uCmdData.sPowData.uPowerReqData.ui32PowUnits = ui32PowUnits;
+#if defined(RGX_FEATURE_POWER_ISLAND_VERSION_MAX_VALUE_IDX)
+	sPowUnitsChange.uCmdData.sPowData.uPowerReqData.ui32RACUnits = 0;
+
+	if (RGX_GET_FEATURE_VALUE(psDevInfo, POWER_ISLAND_VERSION) >= 3)
+	{
+		sPowUnitsChange.uCmdData.sPowData.uPowerReqData.ui32RACUnits =
+			(1U << psDevInfo->sDevFeatureCfg.ui32MAXRACCount) - 1;
+	}
+#endif
 
 	PDUMPCOMMENT(psDeviceNode,
-	             "Scheduling command to change Dust Count to %u",
-	             ui32NumberOfDusts);
+	             "Scheduling command to change power units state to 0x%X",
+	             ui32PowUnits);
 	eError = RGXSendCommandAndGetKCCBSlot(psDeviceNode->pvDevice,
-	                                      &sDustCountChange,
+	                                      &sPowUnitsChange,
 	                                      PDUMP_FLAGS_NONE,
 	                                      &ui32CmdKCCBSlot);
 
 	if (eError != PVRSRV_OK)
 	{
 		PDUMPCOMMENT(psDeviceNode,
-		             "Scheduling command to change Dust Count failed. Error:%u",
+		             "Scheduling command to change power units state. Error:%u",
 		             eError);
 		PVR_DPF((PVR_DBG_ERROR,
-				 "%s: Scheduling KCCB to change Dust Count failed. Error:%u",
+				 "%s: Scheduling KCCB to change power units state. Error:%u",
 				 __func__, eError));
 		return eError;
 	}
@@ -1320,24 +1366,20 @@ PVRSRV_ERROR RGXDustCountChange(IMG_HANDLE		hDevHandle,
 /*
  @Function	RGXAPMLatencyChange
 */
-PVRSRV_ERROR RGXAPMLatencyChange(IMG_HANDLE		hDevHandle,
-                                 IMG_UINT32		ui32ActivePMLatencyms,
-                                 IMG_BOOL		bActivePMLatencyPersistant)
+PVRSRV_ERROR RGXAPMLatencyChange(PVRSRV_DEVICE_NODE	*psDeviceNode,
+                                 IMG_UINT32			ui32ActivePMLatencyms,
+                                 IMG_BOOL			bActivePMLatencyPersistant)
 {
-
-	PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
 	PVRSRV_RGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 	PVRSRV_ERROR		eError;
 	RGXFWIF_RUNTIME_CFG	*psRuntimeCfg = psDevInfo->psRGXFWIfRuntimeCfg;
 	IMG_UINT32			ui32CmdKCCBSlot;
 	PVRSRV_DEV_POWER_STATE	ePowerState;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
-	eError = PVRSRVPowerLock(psDeviceNode);
-	if (eError != PVRSRV_OK)
+	if (psRuntimeCfg == NULL)
 	{
-		PVR_DPF((PVR_DBG_ERROR, "RGXAPMLatencyChange: Failed to acquire power lock"));
-		return eError;
+		return PVRSRV_ERROR_NOT_INITIALISED;
 	}
 
 	/* Update runtime configuration with the new values and ensure the
@@ -1349,6 +1391,19 @@ PVRSRV_ERROR RGXAPMLatencyChange(IMG_HANDLE		hDevHandle,
 	OSWriteMemoryBarrier(&psRuntimeCfg->bActivePMLatencyPersistant);
 	RGXFwSharedMemCacheOpValue(psRuntimeCfg->ui32ActivePMLatencyms, FLUSH);
 	RGXFwSharedMemCacheOpValue(psRuntimeCfg->bActivePMLatencyPersistant, FLUSH);
+
+	eError = PVRSRVPowerLock(psDeviceNode);
+	if (eError == PVRSRV_ERROR_SYSTEM_STATE_POWERED_OFF)
+	{
+		/* Power is off, APM latency will be read on next firmware boot */
+		return PVRSRV_OK;
+	}
+	else if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to acquire power lock (%u)",
+		         __func__, eError));
+		return eError;
+	}
 
 	eError = PVRSRVGetDevicePowerState(psDeviceNode, &ePowerState);
 
@@ -1371,7 +1426,9 @@ PVRSRV_ERROR RGXAPMLatencyChange(IMG_HANDLE		hDevHandle,
 			PDUMPCOMMENT(psDeviceNode,
 			             "Scheduling command to change APM latency failed. Error:%u",
 			             eError);
-			PVR_DPF((PVR_DBG_ERROR, "RGXAPMLatencyChange: Scheduling KCCB to change APM latency failed. Error:%u", eError));
+			PVR_DPF((PVR_DBG_ERROR,
+			         "%s: Scheduling KCCB to change APM latency failed. Error:%u",
+			         __func__, eError));
 			goto ErrorExit;
 		}
 	}
@@ -1385,13 +1442,12 @@ ErrorExit:
 /*
 	RGXActivePowerRequest
 */
-PVRSRV_ERROR RGXActivePowerRequest(IMG_HANDLE hDevHandle)
+PVRSRV_ERROR RGXActivePowerRequest(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	PVRSRV_DEVICE_NODE *psDeviceNode = hDevHandle;
 	PVRSRV_RGXDEV_INFO *psDevInfo = psDeviceNode->pvDevice;
 	const RGXFWIF_SYSDATA *psFwSysData = psDevInfo->psRGXFWIfFwSysData;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
 
 	psDevInfo->ui32ActivePMReqTotal++;
@@ -1459,9 +1515,8 @@ _RGXActivePowerRequest_PowerLock_failed:
 
 #define RGX_FORCED_IDLE_RETRY_COUNT 10
 
-PVRSRV_ERROR RGXForcedIdleRequest(IMG_HANDLE hDevHandle, IMG_BOOL bDeviceOffPermitted)
+PVRSRV_ERROR RGXForcedIdleRequest(PVRSRV_DEVICE_NODE *psDeviceNode, IMG_BOOL bDeviceOffPermitted)
 {
-	PVRSRV_DEVICE_NODE    *psDeviceNode = hDevHandle;
 	PVRSRV_RGXDEV_INFO    *psDevInfo = psDeviceNode->pvDevice;
 	RGXFWIF_KCCB_CMD      sPowCmd;
 	PVRSRV_ERROR          eError;
@@ -1470,7 +1525,7 @@ PVRSRV_ERROR RGXForcedIdleRequest(IMG_HANDLE hDevHandle, IMG_BOOL bDeviceOffPerm
 #if !defined(NO_HARDWARE)
 	const RGXFWIF_SYSDATA *psFwSysData;
 #endif
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
 #if !defined(NO_HARDWARE)
 	psFwSysData = psDevInfo->psRGXFWIfFwSysData;
@@ -1486,6 +1541,8 @@ PVRSRV_ERROR RGXForcedIdleRequest(IMG_HANDLE hDevHandle, IMG_BOOL bDeviceOffPerm
 	/* Firmware is not powered. Sometimes this is permitted, for instance we were forcing idle to power down. */
 	if (psFwSysData->ePowState == RGXFWIF_POW_OFF)
 	{
+		PVR_DPF((PVR_DBG_WARNING, "Firmware is powered OFF (bDeviceOffPermitted = %s)",
+				 bDeviceOffPermitted ? "Yes" : "No"));
 		return (bDeviceOffPermitted) ? PVRSRV_OK : PVRSRV_ERROR_DEVICE_IDLE_REQUEST_DENIED;
 	}
 #endif
@@ -1558,6 +1615,8 @@ PVRSRV_ERROR RGXForcedIdleRequest(IMG_HANDLE hDevHandle, IMG_BOOL bDeviceOffPerm
 	                           INVALIDATE);
 	if (psFwSysData->ePowState != RGXFWIF_POW_FORCED_IDLE)
 	{
+		PVR_DPF((PVR_DBG_WARNING, "FW power state (%u) is not RGXFWIF_POW_FORCED_IDLE (%u)",
+				 psFwSysData->ePowState, RGXFWIF_POW_FORCED_IDLE));
 		return PVRSRV_ERROR_DEVICE_IDLE_REQUEST_DENIED;
 	}
 #endif
@@ -1568,14 +1627,13 @@ PVRSRV_ERROR RGXForcedIdleRequest(IMG_HANDLE hDevHandle, IMG_BOOL bDeviceOffPerm
 /*
 	RGXCancelForcedIdleRequest
 */
-PVRSRV_ERROR RGXCancelForcedIdleRequest(IMG_HANDLE hDevHandle)
+PVRSRV_ERROR RGXCancelForcedIdleRequest(PVRSRV_DEVICE_NODE *psDeviceNode)
 {
-	PVRSRV_DEVICE_NODE	*psDeviceNode = hDevHandle;
 	PVRSRV_RGXDEV_INFO	*psDevInfo = psDeviceNode->pvDevice;
 	RGXFWIF_KCCB_CMD	sPowCmd;
 	PVRSRV_ERROR		eError = PVRSRV_OK;
 	IMG_UINT32			ui32CmdKCCBSlot;
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_OK);
 
 	eError = SyncPrimSet(psDevInfo->psPowSyncPrim, 0);
 	if (eError != PVRSRV_OK)
@@ -1637,54 +1695,134 @@ ErrorExit:
 	return eError;
 }
 
-/*!
- ******************************************************************************
-
- @Function	PVRSRVGetNextDustCount
-
- @Description
-
-	Calculate a sequence of dust counts to achieve full transition coverage.
-	We increment two counts of dusts and switch up and down between them.
-	It does contain a few redundant transitions. If two dust exist, the
-	output transitions should be as follows.
-
-	0->1, 0<-1, 0->2, 0<-2, (0->1)
-	1->1, 1->2, 1<-2, (1->2)
-	2->2, (2->0),
-	0->0. Repeat.
-
-	Redundant transitions in brackets.
-
- @Input		psDustReqState : Counter state used to calculate next dust count
- @Input		ui32DustCount : Number of dusts in the core
-
- @Return	PVRSRV_ERROR
-
- ******************************************************************************/
-IMG_UINT32 RGXGetNextDustCount(RGX_DUST_STATE *psDustReqState, IMG_UINT32 ui32DustCount)
+#if defined(SUPPORT_FW_CORE_CLK_RATE_CHANGE_NOTIFY)
+#if defined(SUPPORT_PDVFS) && (PDVFS_COM == PDVFS_COM_HOST)
+/*************************************************************************/ /*!
+@Function       PDVFSProcessCoreClkChangeRequest
+@Description    Processes a core clock rate change request.
+@Input          psDevInfo            A pointer to PVRSRV_RGXDEV_INFO.
+@Input          ui32CoreClockRate    New core clock rate.
+@Return         PVRSRV_ERROR.
+*/ /**************************************************************************/
+PVRSRV_ERROR RGXProcessCoreClkChangeRequest(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32CoreClockRate)
 {
-	if (psDustReqState->bToggle)
+	PVRSRV_DEVICE_CONFIG *psDevConfig = psDevInfo->psDeviceNode->psDevConfig;
+	IMG_DVFS_DEVICE_CFG *psDVFSDeviceCfg = &psDevConfig->sDVFS.sDVFSDeviceCfg;
+	RGX_TIMING_INFORMATION *psRGXTimingInfo = ((RGX_DATA*)(psDevConfig->hDevData))->psRGXTimingInfo;
+	IMG_UINT32 ui32CoreClockRateCurrent = psRGXTimingInfo->ui32CoreClockSpeed;
+	const IMG_OPP *psOpp = NULL;
+	IMG_UINT32 ui32Index;
+	PVRSRV_ERROR eError;
+
+	if (!_PDVFSEnabled())
 	{
-		psDustReqState->ui32DustCount2++;
+		/* No error message to avoid excessive messages */
+		return PVRSRV_OK;
 	}
 
-	if (psDustReqState->ui32DustCount2 > ui32DustCount)
+	PVR_DPF((PVR_DBG_MESSAGE, "Core clock rate = %u", ui32CoreClockRate));
+
+	/* Find the matching OPP (Exact). */
+	for (ui32Index = 0; ui32Index < psDVFSDeviceCfg->ui32OPPTableSize; ui32Index++)
 	{
-		psDustReqState->ui32DustCount1++;
-		psDustReqState->ui32DustCount2 = psDustReqState->ui32DustCount1;
+		if (ui32CoreClockRate == psDVFSDeviceCfg->pasOPPTable[ui32Index].ui32Freq)
+		{
+			psOpp = &psDVFSDeviceCfg->pasOPPTable[ui32Index];
+			break;
+		}
 	}
 
-	if (psDustReqState->ui32DustCount1 > ui32DustCount)
+	if (! psOpp)
 	{
-		psDustReqState->ui32DustCount1 = 0;
-		psDustReqState->ui32DustCount2 = 0;
+		PVR_DPF((PVR_DBG_ERROR, "Frequency not present in OPP table - %u", ui32CoreClockRate));
+		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	psDustReqState->bToggle = !psDustReqState->bToggle;
+	eError = PVRSRVDevicePreClockSpeedChange(psDevInfo->psDeviceNode, psDVFSDeviceCfg->bIdleReq, NULL);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "PVRSRVDevicePreClockSpeedChange failed"));
+		return eError;
+	}
 
-	return (psDustReqState->bToggle) ? psDustReqState->ui32DustCount1 : psDustReqState->ui32DustCount2;
+	psRGXTimingInfo->ui32CoreClockSpeed = ui32CoreClockRate;
+
+	/* Increasing frequency, change voltage first */
+	if (ui32CoreClockRate > ui32CoreClockRateCurrent)
+	{
+		psDVFSDeviceCfg->pfnSetVoltage(psDevConfig->hSysData, psOpp->ui32Volt);
+	}
+
+	psDVFSDeviceCfg->pfnSetFrequency(psDevConfig->hSysData, ui32CoreClockRate);
+
+	/* Decreasing frequency, change frequency first */
+	if (ui32CoreClockRate < ui32CoreClockRateCurrent)
+	{
+		psDVFSDeviceCfg->pfnSetVoltage(psDevConfig->hSysData, psOpp->ui32Volt);
+	}
+
+	PVRSRVDevicePostClockSpeedChange(psDevInfo->psDeviceNode, psDVFSDeviceCfg->bIdleReq, NULL);
+
+	return PVRSRV_OK;
 }
+#else
+/*************************************************************************/ /*!
+@Function       PDVFSProcessCoreClkChangeNotification
+@Description    Processes a core clock rate change notification.
+@Input          psDevInfo            A pointer to PVRSRV_RGXDEV_INFO.
+@Input          ui32CoreClockRate    New core clock rate.
+@Return         PVRSRV_ERROR.
+*/ /**************************************************************************/
+PVRSRV_ERROR RGXProcessCoreClkChangeNotification(PVRSRV_RGXDEV_INFO *psDevInfo, IMG_UINT32 ui32CoreClockRate)
+{
+	PVRSRV_DEVICE_CONFIG *psDevConfig = psDevInfo->psDeviceNode->psDevConfig;
+	RGX_TIMING_INFORMATION *psRGXTimingInfo = ((RGX_DATA*)(psDevConfig->hDevData))->psRGXTimingInfo;
+	PVRSRV_DEV_POWER_STATE ePowerState;
+	PVRSRV_ERROR eError;
+
+	eError = PVRSRVPowerLock(psDevInfo->psDeviceNode);
+
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: failed to acquire lock (%s)",
+				 __func__, PVRSRVGetErrorString(eError)));
+		return eError;
+	}
+
+	eError = PVRSRVGetDevicePowerState(psDevInfo->psDeviceNode, &ePowerState);
+
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: failed to acquire power state (%s)",
+				 __func__, PVRSRVGetErrorString(eError)));
+		PVRSRVPowerUnlock(psDevInfo->psDeviceNode);
+		return eError;
+	}
+
+	/* Guest drivers do not initialize psRGXFWIfFwSysData */
+	RGXFwSharedMemCacheOpValue(psDevInfo->psRGXFWIfFwSysData->ePowState,
+	                           INVALIDATE);
+	if ((ePowerState != PVRSRV_DEV_POWER_STATE_OFF)
+	    && ((psDevInfo->psRGXFWIfFwSysData == NULL) || (psDevInfo->psRGXFWIfFwSysData->ePowState != RGXFWIF_POW_OFF)))
+	{
+		/* Update GPU frequency and timer correlation related data */
+		RGXTimeCorrEnd(psDevInfo->psDeviceNode, RGXTIMECORR_EVENT_DVFS);
+		psRGXTimingInfo->ui32CoreClockSpeed = ui32CoreClockRate;
+		RGXTimeCorrBegin(psDevInfo->psDeviceNode, RGXTIMECORR_EVENT_DVFS);
+	}
+	else
+	{
+		psRGXTimingInfo->ui32CoreClockSpeed = ui32CoreClockRate;
+	}
+
+	PVRSRVPowerUnlock(psDevInfo->psDeviceNode);
+
+	return PVRSRV_OK;
+}
+#endif
+#endif /* SUPPORT_FW_CORE_CLK_RATE_CHANGE_NOTIFY */
+
+
 
 /******************************************************************************
  End of file (rgxpower.c)

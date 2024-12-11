@@ -310,7 +310,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 
 	#define PVR_LOG_ERROR(_rc, _call) do \
 		{ \
-			HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+			HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 			PVR_DPF((PVR_DBG_ERROR, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 		} while (false)
 
@@ -318,7 +318,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 			} \
 		MSC_SUPPRESS_4127 \
@@ -328,7 +328,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_WARNING, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_WARNING, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_WARNING, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 			} \
 		MSC_SUPPRESS_4127 \
@@ -338,7 +338,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_expr == NULL)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_OUT_OF_MEMORY, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_OUT_OF_MEMORY, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s failed (PVRSRV_ERROR_OUT_OF_MEMORY) in %s()", _call, __func__)); \
 				return PVRSRV_ERROR_OUT_OF_MEMORY; \
 			} \
@@ -349,7 +349,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_expr == NULL)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_OUT_OF_MEMORY, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_OUT_OF_MEMORY, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s failed (PVRSRV_ERROR_OUT_OF_MEMORY) in %s()", #_expr, __func__)); \
 				_err = PVRSRV_ERROR_OUT_OF_MEMORY; \
 				goto _go; \
@@ -361,7 +361,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 				return _rc; \
 			} \
@@ -372,7 +372,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 				return; \
 			} \
@@ -383,7 +383,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 				goto _go; \
 			} \
@@ -392,7 +392,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 
 	#define PVR_LOG_GOTO_WITH_ERROR(_call, _err, _rc, _go) do \
 		{ \
-			HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+			HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 			PVR_DPF((PVR_DBG_ERROR, "%s() failed (%s) in %s()", _call, PVRSRVGETERRORSTRING(_rc), __func__)); \
 			_err = _rc; \
 			goto _go; \
@@ -403,7 +403,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s in %s()", _msg, __func__)); \
 			} \
 		MSC_SUPPRESS_4127 \
@@ -413,7 +413,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s in %s()", _msg, __func__)); \
 				return _rc; \
 			} \
@@ -424,7 +424,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s in %s()", _msg, __func__)); \
 				return; \
 			} \
@@ -435,7 +435,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_F, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s in %s()", _msg, __func__)); \
 				goto _go; \
 			} \
@@ -446,7 +446,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely((_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_T, PVRSRV_ERROR_UNEXPECTED_TRUE_EXPR, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_COND_ERROR_T, PVRSRV_ERROR_UNEXPECTED_TRUE_EXPR, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s in %s()", _msg, __func__)); \
 				return _rc; \
 			} \
@@ -457,7 +457,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_INVALID_PARAMS, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_INVALID_PARAMS, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, "%s invalid in %s()", _param, __func__)); \
 				return PVRSRV_ERROR_INVALID_PARAMS; \
 			} \
@@ -466,7 +466,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 
 	#define PVR_LOG_GOTO_IF_INVALID_PARAM(_expr, _err, _go) do \
 		{ if (unlikely(!(_expr))) { \
-			HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_INVALID_PARAMS, __LINE__); \
+			HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_INVALID_PARAMS, HTB_FILE_NAME, __LINE__); \
 			PVR_DPF((PVR_DBG_ERROR, "%s invalid in %s()", #_expr, __func__)); \
 			_err = PVRSRV_ERROR_INVALID_PARAMS; \
 			goto _go; } \
@@ -477,11 +477,11 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (_lvl == PVR_DBG_ERROR) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_NOT_SUPPORTED, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_MSGLVL_ERROR, HTB_FILE_NAME, __LINE__); \
 			} \
 			else if (_lvl == PVR_DBG_WARNING) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_WARNING, PVRSRV_ERROR_NOT_SUPPORTED, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_MSGLVL_WARN, HTB_FILE_NAME, __LINE__); \
 			} \
 			PVR_DPF((_lvl, ("In %s() "_msg), __func__)); \
 		} while (false)
@@ -490,11 +490,11 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (_lvl == PVR_DBG_ERROR) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_NOT_SUPPORTED, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_MSGLVL_ERROR, HTB_FILE_NAME, __LINE__); \
 			} \
 			else if (_lvl == PVR_DBG_WARNING) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_WARNING, PVRSRV_ERROR_NOT_SUPPORTED, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_MSGLVL_WARN, HTB_FILE_NAME, __LINE__); \
 			} \
 			PVR_DPF((_lvl, ("In %s() "_msg), __func__, __VA_ARGS__)); \
 		} while (false)
@@ -505,11 +505,11 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 			{ \
 				if (_lvl == PVR_DBG_ERROR) \
 				{ \
-					HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+					HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				} \
 				else if (_lvl == PVR_DBG_WARNING) \
 				{ \
-					HTBLOGK(HTB_SF_MAIN_DBG_WARNING, _rc, __LINE__); \
+					HTBLOGK(HTB_SF_MAIN_DBG_WARNING, _rc, HTB_FILE_NAME, __LINE__); \
 				} \
 				PVR_DPF((_lvl, ("In %s() "_msg), __func__, __VA_ARGS__)); \
 			} \
@@ -522,11 +522,11 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 			{ \
 				if (_lvl == PVR_DBG_ERROR) \
 				{ \
-					HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_NOT_SUPPORTED, __LINE__); \
+					HTBLOGK(HTB_SF_MAIN_DBG_MSGLVL_ERROR, HTB_FILE_NAME, __LINE__); \
 				} \
 				else if (_lvl == PVR_DBG_WARNING) \
 				{ \
-					HTBLOGK(HTB_SF_MAIN_DBG_WARNING, PVRSRV_ERROR_NOT_SUPPORTED, __LINE__); \
+					HTBLOGK(HTB_SF_MAIN_DBG_MSGLVL_WARN, HTB_FILE_NAME, __LINE__); \
 				} \
 				PVR_DPF((_lvl, ("In %s() "_msg), __func__, __VA_ARGS__)); \
 			} \
@@ -537,7 +537,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, ("In %s() "_msg), __func__, __VA_ARGS__)); \
 				return _rc; \
 			} \
@@ -548,7 +548,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(_rc != PVRSRV_OK)) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, ("In %s() "_msg), __func__, __VA_ARGS__)); \
 				goto _go; \
 			} \
@@ -559,7 +559,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, ("At %s: "_msg), __func__, __VA_ARGS__)); \
 				return _rc; \
 			} \
@@ -570,7 +570,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely(!(_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, PVRSRV_ERROR_UNEXPECTED_FALSE_EXPR, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, ("In %s() "_msg), __func__, __VA_ARGS__)); \
 				goto _go; \
 			} \
@@ -581,7 +581,7 @@ PVRSRVDebugAssertFail(const IMG_CHAR *pszFile,
 		{ \
 			if (unlikely((_expr))) \
 			{ \
-				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, __LINE__); \
+				HTBLOGK(HTB_SF_MAIN_DBG_ERROR, _rc, HTB_FILE_NAME, __LINE__); \
 				PVR_DPF((PVR_DBG_ERROR, ("At %s: "_msg), __func__, __VA_ARGS__)); \
 				return _rc; \
 			} \

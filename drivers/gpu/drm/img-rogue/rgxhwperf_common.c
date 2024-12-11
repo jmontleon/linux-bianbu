@@ -223,28 +223,113 @@ ErrReturn:
 }
 
 /*
+  RGXHWPerfGetMaxTransfer
+ */
+static IMG_UINT32 RGXHWPerfGetMaxTransfer(PVRSRV_RGXDEV_INFO *psDeviceInfo,
+                                          IMG_UINT32 ui32BytesExp,
+                                          IMG_UINT32 uiL2StreamCopyMask)
+{
+	IMG_UINT32 uiMaxXfer = ui32BytesExp;
+	IMG_UINT32 eL2StreamId;
+
+	for (eL2StreamId = 0; eL2StreamId < RGX_HWPERF_L2_STREAM_LAST; eL2StreamId++)
+	{
+		if (BIT_ISSET(uiL2StreamCopyMask, eL2StreamId))
+		{
+			IMG_UINT32 uiMaxXferSize = TLStreamGetMaxTransfer(
+			                             ui32BytesExp,
+			                             psDeviceInfo->hHWPerfStream[eL2StreamId]);
+
+			if (uiMaxXferSize < uiMaxXfer)
+			{
+				/* New minimum size found, save it for later */
+#if defined(DEBUG)
+				PVR_DPF((PVR_DBG_MESSAGE,
+				         "%s(dev %u, len %u, mask %u) New/Old = [0x%x/0x%x]",
+				         __func__, eL2StreamId, ui32BytesExp,
+				         uiL2StreamCopyMask, uiMaxXferSize, uiMaxXfer));
+#endif
+
+				uiMaxXfer = uiMaxXferSize;
+			}
+#if defined(DEBUG)
+			else
+			{
+				PVR_DPF((PVR_DBG_VERBOSE,
+				         "%s(dev %u, len %u, mask %u) New/Old = [0x%x/0x%x]",
+				         __func__, eL2StreamId, ui32BytesExp,
+				         uiL2StreamCopyMask, uiMaxXferSize, uiMaxXfer));
+			}
+#endif
+		}
+	}
+
+	return uiMaxXfer;
+}
+
+/*
 	RGXHWPerfCopyDataL1toL2
  */
 static IMG_UINT32 RGXHWPerfCopyDataL1toL2(PVRSRV_RGXDEV_INFO* psDeviceInfo,
                                           IMG_BYTE   *pbFwBuffer,
-                                          IMG_UINT32 ui32BytesExp)
+                                          IMG_UINT32 ui32BytesExp,
+                                          IMG_UINT32 uiL2StreamCopyMask)
 {
 	IMG_UINT32 eL2StreamId, uiHWPerfBytesCopied = 0;
-
-	/* Invalidate initial packet header, type/size cast via RGX_HWPEF_GET_PACKET */
-	RGXFwSharedMemCacheOpPtr(RGX_HWPERF_GET_PACKET(pbFwBuffer), INVALIDATE);
 
 	/* HWPERF_MISR_FUNC_DEBUG enables debug code for investigating HWPerf issues */
 #ifdef HWPERF_MISR_FUNC_DEBUG
 	static IMG_UINT32 gui32Ordinal = IMG_UINT32_MAX;
 #endif
 
+	/* Invalidate initial packet header, type/size cast via RGX_HWPEF_GET_PACKET */
+	RGXFwSharedMemCacheOpPtr(RGX_HWPERF_GET_PACKET(pbFwBuffer), INVALIDATE);
+
 	PVR_DPF_ENTERED;
 
 #ifdef HWPERF_MISR_FUNC_DEBUG
-	PVR_DPF((PVR_DBG_VERBOSE, "EVENTS to copy from 0x%p length:%05d",
-			pbFwBuffer, ui32BytesExp));
+	PVR_DPF((PVR_DBG_VERBOSE, "EVENTS to copy from 0x%p length:%05d mask:0x%2x",
+			pbFwBuffer, ui32BytesExp, uiL2StreamCopyMask));
 #endif
+
+	/* Determine the maximum space available in all consumer (L2) streams.
+	 * This limits the amount of data that will be copied if we have multiple
+	 * L2 consumers registered. In this case we only transfer the amount of
+	 * data that can fit into all available L2 consumer streams and so we will
+	 * exert back-pressure onto the L1 buffer whenever one of the L2 consumer
+	 * streams gets filled.
+	 * This effectively lock-steps the L2 consumer streams together.
+	 */
+	ui32BytesExp = RGXHWPerfGetMaxTransfer(psDeviceInfo, ui32BytesExp, uiL2StreamCopyMask);
+
+	for (eL2StreamId = 0; eL2StreamId < RGX_HWPERF_L2_STREAM_LAST; eL2StreamId++)
+	{
+		if (BIT_ISSET(uiL2StreamCopyMask, eL2StreamId))
+		{
+			IMG_UINT32 uiBytesCopied, uiPacketDataSize = ui32BytesExp;
+			IMG_UINT32 uiMaxPacketSize = psDeviceInfo->ui32L2BufMaxPacketSize[eL2StreamId];
+
+			if (ui32BytesExp > uiMaxPacketSize)
+			{
+				uiPacketDataSize = RGXHWPerfGetPackets(ui32BytesExp, uiMaxPacketSize,
+				                                       RGX_HWPERF_GET_PACKET(pbFwBuffer));
+
+				if (uiPacketDataSize == 0)
+				{
+					PVR_DPF((PVR_DBG_ERROR, "Failed to write data into host buffer "
+					        "(%u) as packet is too big and hence it breaches TL "
+					        "packet size limit (TLBufferSize / 2.5)", eL2StreamId));
+
+					continue;
+				}
+			}
+
+			uiBytesCopied = RGXHWPerfCopyData(psDeviceInfo, pbFwBuffer, eL2StreamId,
+			                                  uiPacketDataSize);
+
+			uiHWPerfBytesCopied = MAX(uiBytesCopied, uiHWPerfBytesCopied);
+		}
+	}
 
 #ifdef HWPERF_MISR_FUNC_DEBUG
 	{
@@ -285,38 +370,9 @@ static IMG_UINT32 RGXHWPerfCopyDataL1toL2(PVRSRV_RGXDEV_INFO* psDeviceInfo,
 			}
 			gui32Ordinal = asCurPos->ui32Ordinal;
 			pbFwBufferIter += RGX_HWPERF_GET_SIZE(asCurPos);
-		} while (pbFwBufferIter < pbFwBufferEnd);
+		} while (pbFwBufferIter < pbFwBufferEnd && pbFwBufferIter < (pbFwBuffer + uiHWPerfBytesCopied));
 	}
 #endif
-
-	for (eL2StreamId = 0; eL2StreamId < RGX_HWPERF_L2_STREAM_LAST; eL2StreamId++)
-	{
-		if (!psDeviceInfo->bSuspendHWPerfL2DataCopy[eL2StreamId])
-		{
-			IMG_UINT32 uiBytesCopied, uiPacketDataSize = ui32BytesExp;
-			IMG_UINT32 uiMaxPacketSize = psDeviceInfo->ui32L2BufMaxPacketSize[eL2StreamId];
-
-			if (ui32BytesExp > uiMaxPacketSize)
-			{
-				uiPacketDataSize = RGXHWPerfGetPackets(ui32BytesExp, uiMaxPacketSize,
-				                                       RGX_HWPERF_GET_PACKET(pbFwBuffer));
-
-				if (uiPacketDataSize == 0)
-				{
-					PVR_DPF((PVR_DBG_ERROR, "Failed to write data into host buffer "
-					        "(%u) as packet is too big and hence it breaches TL "
-					        "packet size limit (TLBufferSize / 2.5)", eL2StreamId));
-
-					continue;
-				}
-			}
-
-			uiBytesCopied = RGXHWPerfCopyData(psDeviceInfo, pbFwBuffer, eL2StreamId,
-			                                  uiPacketDataSize);
-
-			uiHWPerfBytesCopied = MAX(uiBytesCopied, uiHWPerfBytesCopied);
-		}
-	}
 
 	/* Return the remaining packets left to be transported. */
 	PVR_DPF_RETURN_VAL(uiHWPerfBytesCopied);
@@ -339,6 +395,10 @@ static INLINE IMG_UINT32 RGXHWPerfAdvanceRIdx(
 	The number of copied data is always the maximum read number of packets.
 	In case where one of the stream is not able to accept the same amount of
 	data as other streams it will suffer from gaps in the data.
+
+	To avoid these gaps, we will exert back-pressure on the L1 buffer by
+	pre-calculating the maximum amount of data that can be copied to all
+	L2 streams (currently a maximum of 2).
  */
 static IMG_UINT32 RGXHWPerfDataStore(PVRSRV_RGXDEV_INFO	*psDevInfo)
 {
@@ -346,29 +406,35 @@ static IMG_UINT32 RGXHWPerfDataStore(PVRSRV_RGXDEV_INFO	*psDevInfo)
 	IMG_BYTE*				psHwPerfInfo = psDevInfo->psRGXFWIfHWPerfBuf;
 	IMG_UINT32				ui32SrcRIdx, ui32SrcWIdx, ui32SrcWrapCount;
 	IMG_UINT32				ui32BytesExp = 0, ui32BytesCopied = 0, ui32BytesCopiedSum = 0;
+	IMG_UINT32				uiStreamCopyMask = 0;
 #ifdef HWPERF_MISR_FUNC_DEBUG
 	IMG_UINT32				ui32BytesExpSum = 0;
 #endif
+
+	/* It's unlikely that we're ever going to have more than 32 consumers
+	 * for the Firmware L1 buffer but check just to be safe. */
+	static_assert(RGX_HWPERF_L2_STREAM_LAST <= sizeof(uiStreamCopyMask) * 8,
+	              "RGX_HWPERF_L2_STREAM_LAST cannot be greater than 32.")
 
 	PVR_DPF_ENTERED;
 
 	/* Caller should check this member is valid before calling */
 	{
-		IMG_UINT32 i, uiSuspendedCount = 0;
+		RGX_HWPERF_L2_STREAM_ID eL2StreamId;
 #if defined(PVRSRV_NEED_PVR_ASSERT)
 		IMG_UINT32 uiNotNullCount = 0;
 #endif
-		for (i = 0; i < RGX_HWPERF_L2_STREAM_LAST; i++)
+		for (eL2StreamId = 0; eL2StreamId < RGX_HWPERF_L2_STREAM_LAST; eL2StreamId++)
 		{
 #if defined(PVRSRV_NEED_PVR_ASSERT)
-			if (psDevInfo->hHWPerfStream[i] != NULL)
+			if (psDevInfo->hHWPerfStream[eL2StreamId] != NULL)
 			{
 				uiNotNullCount++;
 			}
 #endif
-			if (psDevInfo->bSuspendHWPerfL2DataCopy[i])
+			if (!psDevInfo->bSuspendHWPerfL2DataCopy[eL2StreamId])
 			{
-				uiSuspendedCount++;
+				BIT_SET(uiStreamCopyMask, eL2StreamId);
 			}
 		}
 
@@ -377,8 +443,11 @@ static IMG_UINT32 RGXHWPerfDataStore(PVRSRV_RGXDEV_INFO	*psDevInfo)
 		PVR_ASSERT(uiNotNullCount > 0);
 #endif
 
-		/* Only proceed if any of the streams are not suspended. */
-		if (uiSuspendedCount == RGX_HWPERF_L2_STREAM_LAST)
+		/* Only proceed if any of the streams are not suspended.
+		 * Build bit field representing each L2 stream's suspend status. This
+		 * will be passed down the stack for copy function to determine if the
+		 * data should or should not be copied. */
+		if (uiStreamCopyMask == 0)
 		{
 			PVR_DPF((PVR_DBG_MESSAGE, "%s : Copying data to all L2 host buffers for FW events is "
 			        "suspended. Start at least one of the HWPerf consumers or restart the driver "
@@ -431,7 +500,8 @@ static IMG_UINT32 RGXHWPerfDataStore(PVRSRV_RGXDEV_INFO	*psDevInfo)
 #endif
 			ui32BytesCopied = RGXHWPerfCopyDataL1toL2(psDevInfo,
 			                                          psHwPerfInfo + ui32SrcRIdx,
-			                                          ui32BytesExp);
+			                                          ui32BytesExp,
+			                                          uiStreamCopyMask);
 
 			/* Advance the read index and the free bytes counter by the number
 			 * of bytes transported. Items will be left in buffer if not all data
@@ -456,10 +526,10 @@ static IMG_UINT32 RGXHWPerfDataStore(PVRSRV_RGXDEV_INFO	*psDevInfo)
 #ifdef HWPERF_MISR_FUNC_DEBUG
 			ui32BytesExpSum += ui32BytesExp;
 #endif
-			/* Attempt to transfer the packets to the TL stream buffer */
 			ui32BytesCopied = RGXHWPerfCopyDataL1toL2(psDevInfo,
 			                                          psHwPerfInfo + ui32SrcRIdx,
-			                                          ui32BytesExp);
+			                                          ui32BytesExp,
+			                                          uiStreamCopyMask);
 
 			/* Advance read index as before and Update the local copy of the
 			 * read index as it might be used in the last if branch*/
@@ -492,7 +562,8 @@ static IMG_UINT32 RGXHWPerfDataStore(PVRSRV_RGXDEV_INFO	*psDevInfo)
 #endif
 				ui32BytesCopied = RGXHWPerfCopyDataL1toL2(psDevInfo,
 				                                          psHwPerfInfo,
-				                                          ui32BytesExp);
+				                                          ui32BytesExp,
+				                                          uiStreamCopyMask);
 				/* Advance the FW buffer read position. */
 				psFwSysData->sHWPerfCtrl.ui32HWPerfRIdx = RGXHWPerfAdvanceRIdx(
 						psDevInfo->ui32RGXFWIfHWPerfBufSize, ui32SrcRIdx,
@@ -527,11 +598,11 @@ PVRSRV_ERROR RGXHWPerfDataStoreCB(PVRSRV_DEVICE_NODE *psDevInfo)
 	PVRSRV_RGXDEV_INFO* psRgxDevInfo;
 	IMG_UINT32          ui32BytesCopied;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
+	PVR_ASSERT(psDevInfo);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDevInfo, PVRSRV_OK);
 
 	PVR_DPF_ENTERED;
 
-	PVR_ASSERT(psDevInfo);
 	psRgxDevInfo = psDevInfo->pvDevice;
 
 	/* Store FW event data if the destination buffer exists.*/
@@ -650,12 +721,12 @@ PVRSRV_ERROR RGXHWPerfInit(PVRSRV_RGXDEV_INFO *psRgxDevInfo)
 	PVRSRV_ERROR eError;
 	IMG_UINT32 i;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
-
 	PVR_DPF_ENTERED;
 
 	/* expecting a valid device info */
 	PVR_RETURN_IF_INVALID_PARAM(psRgxDevInfo != NULL);
+
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_OK);
 
 	/* Create a lock for HWPerf server module used for serializing, L1 to L2
 	 * copy calls (e.g. in case of TL producer callback) and L1, L2 resource
@@ -714,13 +785,13 @@ static void _HWPerfFWOnReaderOpenCB(void *pvArg)
 	RGXFWIF_KCCB_CMD sKccbCmd;
 	IMG_UINT32 ui32kCCBCommandSlot;
 
-	PVRSRV_VZ_RETN_IF_MODE(GUEST);
+	PVRSRV_VZ_RETN_IF_MODE(GUEST, DEVNODE, psDevNode);
 
 	/* Clear any previously suspended state for bSuspendHWPerfL2DataCopy as we
 	 * now have a reader attached so the data will be delivered upstream. */
 	if (psRgxDevInfo->bSuspendHWPerfL2DataCopy[RGX_HWPERF_L2_STREAM_HWPERF])
 	{
-		PVR_DPF((PVR_DBG_WARNING, "%s: Resuming HWPerf FW event collection.",
+		PVR_DPF((PVR_DBG_MESSAGE, "%s: Resuming HWPerf FW event collection.",
 		        __func__));
 		psRgxDevInfo->bSuspendHWPerfL2DataCopy[RGX_HWPERF_L2_STREAM_HWPERF] = IMG_FALSE;
 	}
@@ -744,6 +815,13 @@ static void _HWPerfFWOnReaderOpenCB(void *pvArg)
 	eError = RGXWaitForKCCBSlotUpdate(psRgxDevInfo, ui32kCCBCommandSlot, PDUMP_FLAGS_CONTINUOUS);
 	PVR_LOG_RETURN_VOID_IF_ERROR(eError, "RGXWaitForKCCBSlotUpdate");
 }
+
+static void _HWPerfFWOnReaderCloseCB(void *pvArg)
+{
+	PVRSRV_RGXDEV_INFO* psRgxDevInfo = (PVRSRV_RGXDEV_INFO*) pvArg;
+
+	psRgxDevInfo->bSuspendHWPerfL2DataCopy[RGX_HWPERF_L2_STREAM_HWPERF] = IMG_TRUE;
+}
 #endif
 
 /*************************************************************************/ /*!
@@ -765,7 +843,7 @@ PVRSRV_ERROR RGXHWPerfInitOnDemandL1Buffer(PVRSRV_RGXDEV_INFO *psRgxDevInfo)
 	PVRSRV_MEMALLOCFLAGS_T uiMemAllocFlags;
 	PVRSRV_ERROR eError;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	PVR_DPF_ENTERED;
 
@@ -790,6 +868,7 @@ PVRSRV_ERROR RGXHWPerfInitOnDemandL1Buffer(PVRSRV_RGXDEV_INFO *psRgxDevInfo)
 #else /* Helps show corruption issues in driver-live */
 						| PVRSRV_MEMALLOCFLAG_POISON_ON_ALLOC
 #endif
+						| PVRSRV_MEMALLOCFLAG_RI_FWKMD_ALLOC
 						| PVRSRV_MEMALLOCFLAG_PHYS_HEAP_HINT(FW_MAIN);
 
 	/* Allocate HWPerf FW L1 buffer */
@@ -874,7 +953,7 @@ PVRSRV_ERROR RGXHWPerfInitOnDemandL2Stream(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 	TL_STREAM_INFO sTLStreamInfo;
 #endif
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	PVR_ASSERT(eL2StreamId < RGX_HWPERF_L2_STREAM_LAST);
 
@@ -905,6 +984,7 @@ PVRSRV_ERROR RGXHWPerfInitOnDemandL2Stream(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 								psRgxDevInfo->ui32RGXL2HWPerfBufSize,
 								TL_OPMODE_DROP_NEWER | TL_FLAG_NO_SIGNAL_ON_COMMIT,
 								_HWPerfFWOnReaderOpenCB, psRgxDevInfo,
+								_HWPerfFWOnReaderCloseCB, psRgxDevInfo,
 #if !defined(SUPPORT_TL_PRODUCER_CALLBACK)
 								NULL, NULL
 #else
@@ -964,11 +1044,11 @@ void RGXHWPerfDeinitL2Stream(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 {
 	IMG_HANDLE hStream;
 
-	PVRSRV_VZ_RETN_IF_MODE(GUEST);
-
 	PVR_DPF_ENTERED;
 
 	PVR_ASSERT(psRgxDevInfo);
+
+	PVRSRV_VZ_RETN_IF_MODE(GUEST, DEVINFO, psRgxDevInfo);
 
 	hStream = psRgxDevInfo->hHWPerfStream[eL2StreamId];
 
@@ -1018,8 +1098,9 @@ static PVRSRV_ERROR RGXHWPerfCtrlFwBuffer(const PVRSRV_DEVICE_NODE *psDeviceNode
 	RGXFWIF_KCCB_CMD sKccbCmd;
 	IMG_UINT32 ui32kCCBCommandSlot;
 	IMG_UINT64 ui64MaskValue = ui64Mask;
+	IMG_UINT64 ui64OldMaskValue;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_SUPPORTED);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_ERROR_NOT_SUPPORTED);
 
 	PVR_ASSERT(eL2StreamId < RGX_HWPERF_L2_STREAM_LAST);
 
@@ -1077,6 +1158,11 @@ static PVRSRV_ERROR RGXHWPerfCtrlFwBuffer(const PVRSRV_DEVICE_NODE *psDeviceNode
 		goto done_;
 	}
 
+	ui64OldMaskValue = psDevice->ui64HWPerfFilter[eL2StreamId];
+	ui64MaskValue = RGXHWPerfFwSetEventFilter(psDevice, eL2StreamId, bToggle
+	                                          ? psDevice->ui64HWPerfFilter[eL2StreamId] ^ ui64MaskValue
+	                                          : ui64MaskValue);
+
 	/* Prepare command parameters ... */
 	sKccbCmd.eCmdType = RGXFWIF_KCCB_CMD_HWPERF_UPDATE_CONFIG;
 	sKccbCmd.uCmdData.sHWPerfCtrl.eOpCode = bToggle ? RGXFWIF_HWPERF_CTRL_TOGGLE : RGXFWIF_HWPERF_CTRL_SET;
@@ -1092,16 +1178,12 @@ static PVRSRV_ERROR RGXHWPerfCtrlFwBuffer(const PVRSRV_DEVICE_NODE *psDeviceNode
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to set new HWPerfFW filter in "
 				"firmware (error = %d)", __func__, eError));
-		goto return_;
+		goto restore_mask_;
 	}
-
-	(void) RGXHWPerfFwSetEventFilter(psDevice, eL2StreamId, bToggle
-	                                 ? psDevice->ui64HWPerfFilter[eL2StreamId] ^ ui64Mask
-	                                 : ui64MaskValue);
 
 	/* Wait for FW to complete */
 	eError = RGXWaitForKCCBSlotUpdate(psDevice, ui32kCCBCommandSlot, PDUMP_FLAGS_CONTINUOUS);
-	PVR_LOG_GOTO_IF_ERROR(eError, "RGXWaitForKCCBSlotUpdate", return_);
+	PVR_LOG_GOTO_IF_ERROR(eError, "RGXWaitForKCCBSlotUpdate", restore_mask_);
 
 done_:
 	return PVRSRV_OK;
@@ -1109,7 +1191,11 @@ done_:
 unlock_and_return:
 	OSLockRelease(psDevice->hHWPerfLock);
 
-return_:
+	return eError;
+
+restore_mask_:
+	(void) RGXHWPerfFwSetEventFilter(psDevice, eL2StreamId, ui64OldMaskValue);
+
 	return eError;
 }
 
@@ -1125,7 +1211,6 @@ static PVRSRV_ERROR RGXHWPerfCtrlHostBuffer(const PVRSRV_DEVICE_NODE *psDeviceNo
 	IMG_UINT32 ui32OldFilter = psDevice->ui32HWPerfHostFilter;
 #endif
 
-	OSLockAcquire(psDevice->hLockHWPerfHostStream);
 	if (psDevice->hHWPerfHostStream == NULL)
 	{
 		eError = RGXHWPerfHostInitOnDemandResources(psDevice);
@@ -1134,11 +1219,11 @@ static PVRSRV_ERROR RGXHWPerfCtrlHostBuffer(const PVRSRV_DEVICE_NODE *psDeviceNo
 			PVR_DPF((PVR_DBG_ERROR,
 					 "%s: Initialisation of on-demand HWPerfHost resources failed",
 					 __func__));
-			OSLockRelease(psDevice->hLockHWPerfHostStream);
 			return eError;
 		}
 	}
 
+	OSLockAcquire(psDevice->hLockHWPerfHostStream);
 	psDevice->ui32HWPerfHostFilter = bToggle ?
 			psDevice->ui32HWPerfHostFilter ^ ui32Mask : ui32Mask;
 
@@ -1170,18 +1255,16 @@ static PVRSRV_ERROR RGXHWPerfCtrlHostBuffer(const PVRSRV_DEVICE_NODE *psDeviceNo
 
 	OSLockRelease(psDevice->hLockHWPerfHostStream);
 
-#if defined(DEBUG)
 	if (bToggle)
 	{
-		PVR_DPF((PVR_DBG_WARNING, "HWPerfHost events (%x) have been TOGGLED",
+		PVR_DPF((PVR_DBG_MESSAGE, "HWPerfHost events (%x) have been TOGGLED",
 				ui32Mask));
 	}
 	else
 	{
-		PVR_DPF((PVR_DBG_WARNING, "HWPerfHost mask has been SET to (%x)",
+		PVR_DPF((PVR_DBG_MESSAGE, "HWPerfHost mask has been SET to (%x)",
 				ui32Mask));
 	}
-#endif
 
 	return PVRSRV_OK;
 }
@@ -1201,18 +1284,16 @@ static PVRSRV_ERROR RGXHWPerfCtrlClientBuffer(IMG_BOOL bToggle,
 			psData->pui32InfoPage[ui32InfoPageIdx] ^ ui32Mask : ui32Mask;
 	OSLockRelease(psData->hInfoPageLock);
 
-#if defined(DEBUG)
 	if (bToggle)
 	{
-		PVR_DPF((PVR_DBG_WARNING, "HWPerfClient (%u) events (%x) have been TOGGLED",
+		PVR_DPF((PVR_DBG_MESSAGE, "HWPerfClient (%u) events (%x) have been TOGGLED",
 				ui32InfoPageIdx, ui32Mask));
 	}
 	else
 	{
-		PVR_DPF((PVR_DBG_WARNING, "HWPerfClient (%u) mask has been SET to (%x)",
+		PVR_DPF((PVR_DBG_MESSAGE, "HWPerfClient (%u) mask has been SET to (%x)",
 				ui32InfoPageIdx, ui32Mask));
 	}
-#endif
 
 	return PVRSRV_OK;
 }
@@ -1223,6 +1304,8 @@ PVRSRV_ERROR PVRSRVRGXGetHWPerfBvncFeatureFlagsKM(CONNECTION_DATA    *psConnecti
 {
 	PVRSRV_RGXDEV_INFO *psDevInfo;
 	PVRSRV_ERROR        eError;
+
+	PVR_UNREFERENCED_PARAMETER(psConnection);
 
 	PVR_LOG_RETURN_IF_FALSE((NULL != psDeviceNode), "psDeviceNode invalid", PVRSRV_ERROR_INVALID_PARAMS);
 
@@ -1534,9 +1617,9 @@ PVRSRV_ERROR RGXHWPerfHostInit(PVRSRV_RGXDEV_INFO *psRgxDevInfo, IMG_UINT32 ui32
 {
 	PVRSRV_ERROR eError;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_OK);
-
 	PVR_RETURN_IF_INVALID_PARAM(psRgxDevInfo != NULL);
+
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_OK);
 
 	eError = OSLockCreate(&psRgxDevInfo->hLockHWPerfHostStream);
 	PVR_LOG_GOTO_IF_ERROR(eError, "OSLockCreate", error);
@@ -1687,7 +1770,7 @@ PVRSRV_ERROR RGXHWPerfHostInitOnDemandResources(PVRSRV_RGXDEV_INFO *psRgxDevInfo
 	/* 4 makes space up to "hwperf_host_999" streams */
 	IMG_CHAR pszHWPerfHostStreamName[sizeof(PVRSRV_TL_HWPERF_HOST_SERVER_STREAM) + 4];
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	if (psRgxDevInfo->hHWPerfHostStream != NULL)
 	{
@@ -1711,7 +1794,7 @@ PVRSRV_ERROR RGXHWPerfHostInitOnDemandResources(PVRSRV_RGXDEV_INFO *psRgxDevInfo
 	                        pszHWPerfHostStreamName, psRgxDevInfo->ui32HWPerfHostBufSize,
 	                        TL_OPMODE_DROP_NEWER,
 	                        _HWPerfHostOnConnectCB, psRgxDevInfo,
-	                        NULL, NULL);
+	                        NULL, NULL, NULL, NULL);
 	PVR_LOG_RETURN_IF_ERROR(eError, "TLStreamCreate");
 
 	eError = TLStreamSetNotifStream(psRgxDevInfo->hHWPerfHostStream,
@@ -1775,9 +1858,9 @@ err_install_misr:
 
 void RGXHWPerfHostDeInit(PVRSRV_RGXDEV_INFO *psRgxDevInfo)
 {
-	PVRSRV_VZ_RETN_IF_MODE(GUEST);
-
 	PVR_ASSERT (psRgxDevInfo);
+
+	PVRSRV_VZ_RETN_IF_MODE(GUEST, DEVINFO, psRgxDevInfo);
 
 	if (psRgxDevInfo->pui8DeferredEvents)
 	{
@@ -1835,7 +1918,7 @@ static IMG_UINT64 RGXHWPerfFwSetEventFilterNoLock(PVRSRV_RGXDEV_INFO *psRgxDevIn
 	psRgxDevInfo->ui64HWPerfFwFilter = uiTmpFilter;
 
 #if !defined(NO_HARDWARE)
-	PVR_DPF((PVR_DBG_WARNING, "HWPerfFW mask has been SET to 0x%" IMG_UINT64_FMTSPECx
+	PVR_DPF((PVR_DBG_MESSAGE, "HWPerfFW mask has been SET to 0x%" IMG_UINT64_FMTSPECx
 	         " (stream %u value SET to 0x%" IMG_UINT64_FMTSPECx ")",
 	         psRgxDevInfo->ui64HWPerfFwFilter, eL2StreamId,
 	         psRgxDevInfo->ui64HWPerfFilter[eL2StreamId]));
@@ -1859,7 +1942,7 @@ IMG_UINT64 RGXHWPerfFwSetEventFilter(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 
 inline void RGXHWPerfHostSetEventFilter(PVRSRV_RGXDEV_INFO *psRgxDevInfo, IMG_UINT32 ui32Filter)
 {
-	PVRSRV_VZ_RETN_IF_MODE(GUEST);
+	PVRSRV_VZ_RETN_IF_MODE(GUEST, DEVINFO, psRgxDevInfo);
 	psRgxDevInfo->ui32HWPerfHostFilter = ui32Filter;
 }
 
@@ -2165,8 +2248,7 @@ static void _GetHWPerfHostPacketSpecifics(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 	OSSpinLockRelease(psRgxDevInfo->hHWPerfHostSpinLock, uiFlags);
 }
 
-static inline void _SetupHostPacketHeader(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
-                                          IMG_UINT8 *pui8Dest,
+static inline void _SetupHostPacketHeader(IMG_UINT8 *pui8Dest,
                                           RGX_HWPERF_HOST_EVENT_TYPE eEvType,
                                           IMG_UINT32 ui32Size,
                                           IMG_UINT32 ui32Ordinal,
@@ -2237,7 +2319,7 @@ void RGXHWPerfHostPostRaw(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, eEvType, ui32PktSize, ui32Ordinal, ui64Timestamp);
+	_SetupHostPacketHeader(pui8Dest, eEvType, ui32PktSize, ui32Ordinal, ui64Timestamp);
 	OSDeviceMemCopy((IMG_UINT8*)IMG_OFFSET_ADDR(pui8Dest, sizeof(RGX_HWPERF_V2_PACKET_HDR)), pbPayload, ui32PayloadSize);
 	_CommitHWPerfStream(psRgxDevInfo, ui32PktSize);
 
@@ -2274,7 +2356,7 @@ void RGXHWPerfHostPostEnqEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_ENQ, ui32Size,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_ENQ, ui32Size,
 	                       ui32Ordinal, ui64Timestamp);
 	_SetupHostEnqPacketData(pui8Dest,
 	                        eEnqType,
@@ -2410,7 +2492,7 @@ void RGXHWPerfHostPostUfoEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		pui8Dest = GET_DE_EVENT_DATA(pui8Dest);
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_UFO, ui32Size,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_UFO, ui32Size,
 	                       ui32Ordinal, ui64Timestamp);
 	_SetupHostUfoPacketData(pui8Dest, eUfoType, psUFOData);
 
@@ -2446,8 +2528,10 @@ static inline IMG_UINT32 _FixNameAndCalculateHostAllocPacketSize(
 	if (*ppsName != NULL && *ui32NameSize > 0)
 	{
 		/* if string longer than maximum cut it (leave space for '\0') */
-		if (*ui32NameSize >= PVRSRV_SYNC_NAME_LENGTH)
+		if ((*ui32NameSize +1U) >= PVRSRV_SYNC_NAME_LENGTH)
 			*ui32NameSize = PVRSRV_SYNC_NAME_LENGTH;
+		else
+			*ui32NameSize += 1U;
 	}
 	else
 	{
@@ -2502,19 +2586,27 @@ static inline void _SetupHostAllocPacketData(IMG_UINT8 *pui8Dest,
 	switch (eAllocType)
 	{
 		case RGX_HWPERF_HOST_RESOURCE_TYPE_SYNC:
-			psData->uAllocDetail.sSyncAlloc = puAllocDetail->sSyncAlloc;
+			psData->uAllocDetail.sSyncAlloc.ui32FWAddr = puAllocDetail->sSyncAlloc.ui32FWAddr;
 			acName = psData->uAllocDetail.sSyncAlloc.acName;
 			break;
 		case RGX_HWPERF_HOST_RESOURCE_TYPE_FENCE_PVR:
-			psData->uAllocDetail.sFenceAlloc = puAllocDetail->sFenceAlloc;
+			psData->uAllocDetail.sFenceAlloc.uiPID = puAllocDetail->sFenceAlloc.uiPID;
+			psData->uAllocDetail.sFenceAlloc.hFence = puAllocDetail->sFenceAlloc.hFence;
+			psData->uAllocDetail.sFenceAlloc.ui32CheckPt_FWAddr = puAllocDetail->sFenceAlloc.ui32CheckPt_FWAddr;
 			acName = psData->uAllocDetail.sFenceAlloc.acName;
 			break;
 		case RGX_HWPERF_HOST_RESOURCE_TYPE_FENCE_SW:
-			psData->uAllocDetail.sSWFenceAlloc = puAllocDetail->sSWFenceAlloc;
+			psData->uAllocDetail.sSWFenceAlloc.uiPID = puAllocDetail->sSWFenceAlloc.uiPID;
+			psData->uAllocDetail.sSWFenceAlloc.hSWFence = puAllocDetail->sSWFenceAlloc.hSWFence;
+			psData->uAllocDetail.sSWFenceAlloc.hSWTimeline = puAllocDetail->sSWFenceAlloc.hSWTimeline;
+			psData->uAllocDetail.sSWFenceAlloc.ui64SyncPtIndex = puAllocDetail->sSWFenceAlloc.ui64SyncPtIndex;
 			acName = psData->uAllocDetail.sSWFenceAlloc.acName;
 			break;
 		case RGX_HWPERF_HOST_RESOURCE_TYPE_SYNC_CP:
-			psData->uAllocDetail.sSyncCheckPointAlloc = puAllocDetail->sSyncCheckPointAlloc;
+			psData->uAllocDetail.sSyncCheckPointAlloc.ui32CheckPt_FWAddr = puAllocDetail->sSyncCheckPointAlloc.ui32CheckPt_FWAddr;
+			psData->uAllocDetail.sSyncCheckPointAlloc.hTimeline = puAllocDetail->sSyncCheckPointAlloc.hTimeline;
+			psData->uAllocDetail.sSyncCheckPointAlloc.uiPID = puAllocDetail->sSyncCheckPointAlloc.uiPID;
+			psData->uAllocDetail.sSyncCheckPointAlloc.hFence = puAllocDetail->sSyncCheckPointAlloc.hFence;
 			acName = psData->uAllocDetail.sSyncCheckPointAlloc.acName;
 			break;
 		default:
@@ -2529,7 +2621,7 @@ static inline void _SetupHostAllocPacketData(IMG_UINT8 *pui8Dest,
 	{
 		if (ui32NameSize)
 		{
-			OSStringLCopy(acName, psName, ui32NameSize);
+			OSStringSafeCopy(acName, psName, ui32NameSize);
 		}
 		else
 		{
@@ -2563,7 +2655,7 @@ void RGXHWPerfHostPostAllocEvent(PVRSRV_RGXDEV_INFO* psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_ALLOC, ui32Size,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_ALLOC, ui32Size,
 	                       ui32Ordinal, ui64Timestamp);
 
 	_SetupHostAllocPacketData(pui8Dest,
@@ -2581,7 +2673,6 @@ cleanup:
 static inline void _SetupHostFreePacketData(IMG_UINT8 *pui8Dest,
                                             RGX_HWPERF_HOST_RESOURCE_TYPE eFreeType,
                                             IMG_UINT64 ui64UID,
-                                            IMG_UINT32 ui32PID,
                                             IMG_UINT32 ui32FWAddr)
 {
 	RGX_HWPERF_HOST_FREE_DATA *psData = (RGX_HWPERF_HOST_FREE_DATA *)
@@ -2619,6 +2710,8 @@ void RGXHWPerfHostPostFreeEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 	IMG_UINT32 ui32Ordinal;
 	IMG_UINT64 ui64Timestamp;
 
+	PVR_UNREFERENCED_PARAMETER(ui32PID);
+
 	_GetHWPerfHostPacketSpecifics(psRgxDevInfo, &ui32Ordinal, &ui64Timestamp,
 	                              NULL, IMG_TRUE);
 	_PostFunctionPrologue(psRgxDevInfo, ui32Ordinal);
@@ -2628,12 +2721,11 @@ void RGXHWPerfHostPostFreeEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_FREE, ui32Size,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_FREE, ui32Size,
 	                       ui32Ordinal, ui64Timestamp);
 	_SetupHostFreePacketData(pui8Dest,
 	                         eFreeType,
 	                         ui64UID,
-	                         ui32PID,
 	                         ui32FWAddr);
 
 	_CommitHWPerfStream(psRgxDevInfo, ui32Size);
@@ -2718,7 +2810,7 @@ static inline void _SetupHostModifyPacketData(IMG_UINT8 *pui8Dest,
 	{
 		if (ui32NameSize)
 		{
-			OSStringLCopy(acName, psName, ui32NameSize);
+			OSStringSafeCopy(acName, psName, ui32NameSize);
 		}
 		else
 		{
@@ -2753,7 +2845,7 @@ void RGXHWPerfHostPostModifyEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_MODIFY, ui32Size,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_MODIFY, ui32Size,
 	                       ui32Ordinal, ui64Timestamp);
 	_SetupHostModifyPacketData(pui8Dest,
 	                           eModifyType,
@@ -2773,15 +2865,15 @@ static inline void _SetupHostClkSyncPacketData(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 {
 	RGX_HWPERF_HOST_CLK_SYNC_DATA *psData = (RGX_HWPERF_HOST_CLK_SYNC_DATA *)
 					IMG_OFFSET_ADDR(pui8Dest, sizeof(RGX_HWPERF_V2_PACKET_HDR));
-	RGXFWIF_GPU_UTIL_FWCB *psGpuUtilFWCB = psRgxDevInfo->psRGXFWIfGpuUtilFWCb;
+	RGXFWIF_GPU_UTIL_FW *psGpuUtilFW = psRgxDevInfo->psRGXFWIfGpuUtilFW;
 	IMG_UINT32 ui32CurrIdx;
 	RGXFWIF_TIME_CORR *psTimeCorr;
 
-	RGXFwSharedMemCacheOpValue(psGpuUtilFWCB->ui32TimeCorrSeqCount, INVALIDATE);
-	ui32CurrIdx = RGXFWIF_TIME_CORR_CURR_INDEX(psGpuUtilFWCB->ui32TimeCorrSeqCount);
+	RGXFwSharedMemCacheOpValue(psGpuUtilFW->ui32TimeCorrSeqCount, INVALIDATE);
+	ui32CurrIdx = RGXFWIF_TIME_CORR_CURR_INDEX(psGpuUtilFW->ui32TimeCorrSeqCount);
 
-	RGXFwSharedMemCacheOpValue(psGpuUtilFWCB->sTimeCorr[ui32CurrIdx], INVALIDATE);
-	psTimeCorr = &psGpuUtilFWCB->sTimeCorr[ui32CurrIdx];
+	RGXFwSharedMemCacheOpValue(psGpuUtilFW->sTimeCorr[ui32CurrIdx], INVALIDATE);
+	psTimeCorr = &psGpuUtilFW->sTimeCorr[ui32CurrIdx];
 
 	psData->ui64CRTimestamp = psTimeCorr->ui64CRTimeStamp;
 	psData->ui64OSTimestamp = psTimeCorr->ui64OSTimeStamp;
@@ -2798,7 +2890,7 @@ void RGXHWPerfHostPostClkSyncEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo)
 
 	/* if the buffer for time correlation data is not yet available (possibly
 	 * device not initialised yet) skip this event */
-	if (psRgxDevInfo->psRGXFWIfGpuUtilFWCb == NULL)
+	if (psRgxDevInfo->psRGXFWIfGpuUtilFW == NULL)
 	{
 		return;
 	}
@@ -2812,7 +2904,7 @@ void RGXHWPerfHostPostClkSyncEvent(PVRSRV_RGXDEV_INFO *psRgxDevInfo)
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_CLK_SYNC, ui32Size,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_CLK_SYNC, ui32Size,
 	                       ui32Ordinal, ui64Timestamp);
 	_SetupHostClkSyncPacketData(psRgxDevInfo, pui8Dest);
 
@@ -2909,7 +3001,7 @@ void RGXHWPerfHostPostDeviceInfo(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 
 		if ((pui8Dest = _ReserveHWPerfStream(psRgxDevInfo, ui32Size)) != NULL)
 		{
-			_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_DEV_INFO, ui32Size, ui32Ordinal, ui64Timestamp);
+			_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_DEV_INFO, ui32Size, ui32Ordinal, ui64Timestamp);
 			_SetupHostDeviceInfoPacketData(psRgxDevInfo, eEvType, puData, pui8Dest);
 			_CommitHWPerfStream(psRgxDevInfo, ui32Size);
 		}
@@ -2967,7 +3059,7 @@ static inline IMG_UINT32 _CalculateHostInfoPacketSize(RGX_HWPERF_INFO_EV eEvType
 			if (PVRSRVGetProcessMemUsage(pui64TotalMemoryUsage, pui32LivePids, ppsPerProcessMemUsage) == PVRSRV_OK)
 			{
 				ui32Size += offsetof(RGX_HWPERF_HOST_INFO_DETAIL, sMemUsageStats.sPerProcessUsage)
-					+ ((*pui32LivePids) * sizeof(((RGX_HWPERF_HOST_INFO_DETAIL*)0)->sMemUsageStats.sPerProcessUsage));
+					+ ((*pui32LivePids) * sizeof(struct _RGX_HWPERF_HOST_INFO_PER_PROC_USAGE_));
 			}
 #else
 			PVR_DPF((PVR_DBG_ERROR, "This functionality is not yet implemented for this platform"));
@@ -3004,7 +3096,7 @@ void RGXHWPerfHostPostInfo(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 
 		if ((pui8Dest = _ReserveHWPerfStream(psRgxDevInfo, ui32Size)) != NULL)
 		{
-			_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_INFO, ui32Size, ui32Ordinal, ui64Timestamp);
+			_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_INFO, ui32Size, ui32Ordinal, ui64Timestamp);
 			_SetupHostInfoPacketData(eEvType, ui64TotalMemoryUsage, ui32LivePids, psPerProcessMemUsage, pui8Dest);
 			_CommitHWPerfStream(psRgxDevInfo, ui32Size);
 		}
@@ -3095,7 +3187,7 @@ void RGXHWPerfHostPostFenceWait(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_SYNC_FENCE_WAIT,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_SYNC_FENCE_WAIT,
 	                       ui32Size, ui32Ordinal, ui64Timestamp);
 	_SetupHostFenceWaitPacketData(pui8Dest, eType, uiPID, hFence, ui32Data);
 
@@ -3147,7 +3239,7 @@ void RGXHWPerfHostPostSWTimelineAdv(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_SYNC_SW_TL_ADVANCE,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_SYNC_SW_TL_ADVANCE,
 	                       ui32Size, ui32Ordinal, ui64Timestamp);
 	_SetupHostSWTimelineAdvPacketData(pui8Dest, uiPID, hSWTimeline, ui64SyncPtIndex);
 
@@ -3181,7 +3273,7 @@ void RGXHWPerfHostPostClientInfoProcName(PVRSRV_RGXDEV_INFO *psRgxDevInfo,
 		goto cleanup;
 	}
 
-	_SetupHostPacketHeader(psRgxDevInfo, pui8Dest, RGX_HWPERF_HOST_CLIENT_INFO,
+	_SetupHostPacketHeader(pui8Dest, RGX_HWPERF_HOST_CLIENT_INFO,
 	                       ui32Size, ui32Ordinal, ui64Timestamp);
 
 	psPkt = (RGX_HWPERF_HOST_CLIENT_INFO_DATA*)IMG_OFFSET_ADDR(pui8Dest, sizeof(RGX_HWPERF_V2_PACKET_HDR));
@@ -3236,8 +3328,6 @@ PVRSRV_ERROR RGXHWPerfLazyConnect(RGX_HWPERF_CONNECTION** ppsHWPerfConnection)
 	RGX_HWPERF_CONNECTION* psHWPerfConnection;
 	IMG_BOOL bFWActive = IMG_FALSE;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	/* avoid uninitialised data */
 	PVR_ASSERT(*ppsHWPerfConnection == NULL);
 	PVR_ASSERT(psPVRSRVData);
@@ -3256,6 +3346,12 @@ PVRSRV_ERROR RGXHWPerfLazyConnect(RGX_HWPERF_CONNECTION** ppsHWPerfConnection)
 
 	while (psDeviceNode)
 	{
+		if (PVRSRV_VZ_MODE_IS(GUEST, DEVNODE, psDeviceNode))
+		{
+			OSWRLockReleaseRead(psPVRSRVData->hDeviceNodeListLock);
+			return PVRSRV_ERROR_NOT_IMPLEMENTED;
+		}
+
 		if (psDeviceNode->eDevState != PVRSRV_DEVICE_STATE_ACTIVE)
 		{
 			PVR_DPF((PVR_DBG_WARNING,
@@ -3328,8 +3424,6 @@ PVRSRV_ERROR RGXHWPerfOpen(RGX_HWPERF_CONNECTION *psHWPerfConnection)
 	IMG_UINT32 ui32StreamFlags = PVRSRV_STREAM_FLAG_ACQUIRE_NONBLOCKING |
 			PVRSRV_STREAM_FLAG_DISABLE_PRODUCER_CALLBACK;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	/* Validate input argument values supplied by the caller */
 	if (!psHWPerfConnection)
 	{
@@ -3341,6 +3435,8 @@ PVRSRV_ERROR RGXHWPerfOpen(RGX_HWPERF_CONNECTION *psHWPerfConnection)
 	{
 		psDevData = (RGX_KM_HWPERF_DEVDATA *) psHWPerfDev->hDevData;
 		psRgxDevInfo = psDevData->psRgxDevInfo;
+
+		PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 		/* In the case where the AppHint has not been set we need to
 		 * initialise the HWPerf resources here. Allocated on-demand
@@ -3458,8 +3554,6 @@ PVRSRV_ERROR RGXHWPerfConnect(RGX_HWPERF_CONNECTION** ppsHWPerfConnection)
 {
 	PVRSRV_ERROR eError;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	eError = RGXHWPerfLazyConnect(ppsHWPerfConnection);
 	PVR_LOG_GOTO_IF_ERROR(eError, "RGXHWPerfLazyConnect", e0);
 
@@ -3493,14 +3587,14 @@ PVRSRV_ERROR PVRSRVRGXControlHWPerfBlocksKM(
 
 	PVR_UNREFERENCED_PARAMETER(psConnection);
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_SUPPORTED);
+	PVR_ASSERT(psDeviceNode);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_ERROR_NOT_SUPPORTED);
 
 	PVR_DPF_ENTERED;
 
 	PVR_LOG_RETURN_IF_INVALID_PARAM(psBlockIDs != NULL, "psBlockIDs");
 	PVR_LOG_RETURN_IF_INVALID_PARAM((ui32ArrayLen>0) && (ui32ArrayLen <= RGXFWIF_HWPERF_CTRL_BLKS_MAX), "ui32ArrayLen");
 
-	PVR_ASSERT(psDeviceNode);
 	psDevice = psDeviceNode->pvDevice;
 
 	/* Fill in the command structure with the parameters needed
@@ -3525,13 +3619,14 @@ PVRSRV_ERROR PVRSRVRGXControlHWPerfBlocksKM(
 	eError = RGXWaitForKCCBSlotUpdate(psDevice, ui32kCCBCommandSlot, PDUMP_FLAGS_CONTINUOUS);
 	PVR_LOG_RETURN_IF_ERROR(eError, "RGXWaitForKCCBSlotUpdate");
 
-
-#if defined(DEBUG)
 	if (bEnable)
-		PVR_DPF((PVR_DBG_WARNING, "HWPerf %d counter blocks have been ENABLED", ui32ArrayLen));
+	{
+		PVR_DPF((PVR_DBG_MESSAGE, "HWPerf %d counter blocks have been ENABLED", ui32ArrayLen));
+	}
 	else
-		PVR_DPF((PVR_DBG_WARNING, "HWPerf %d counter blocks have been DISABLED", ui32ArrayLen));
-#endif
+	{
+		PVR_DPF((PVR_DBG_MESSAGE, "HWPerf %d counter blocks have been DISABLED", ui32ArrayLen));
+	}
 
 	PVR_DPF_RETURN_OK;
 }
@@ -3548,10 +3643,10 @@ PVRSRV_ERROR PVRSRVRGXCtrlHWPerfKM(
 {
 	PVR_UNREFERENCED_PARAMETER(psConnection);
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
+	PVR_ASSERT(psDeviceNode);
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDeviceNode, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	PVR_DPF_ENTERED;
-	PVR_ASSERT(psDeviceNode);
 
 	if (eStreamId == RGX_HWPERF_STREAM_ID0_FW)
 	{
@@ -3635,8 +3730,6 @@ PVRSRV_ERROR RGXHWPerfControl(
 	RGX_KM_HWPERF_DEVDATA* psDevData;
 	RGX_HWPERF_DEVICE* psHWPerfDev;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	/* Validate input argument values supplied by the caller */
 	if (!psHWPerfConnection)
 	{
@@ -3648,6 +3741,8 @@ PVRSRV_ERROR RGXHWPerfControl(
 	while (psHWPerfDev)
 	{
 		psDevData = (RGX_KM_HWPERF_DEVDATA *) psHWPerfDev->hDevData;
+
+		PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDevData->psRgxDevNode, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 		/* Call the internal server API */
 		eError = PVRSRVRGXCtrlHWPerfKM(NULL, psDevData->psRgxDevNode, eStreamId, bToggle, ui64Mask);
@@ -3678,8 +3773,6 @@ IMG_INTERNAL PVRSRV_ERROR RGXHWPerfToggleCounters(
 	RGX_KM_HWPERF_DEVDATA* psDevData;
 	RGX_HWPERF_DEVICE*     psHWPerfDev;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	if (!psHWPerfConnection || ui32NumBlocks==0 || !aeBlockIDs)
 	{
 		return PVRSRV_ERROR_INVALID_PARAMS;
@@ -3695,6 +3788,8 @@ IMG_INTERNAL PVRSRV_ERROR RGXHWPerfToggleCounters(
 	while (psHWPerfDev)
 	{
 		psDevData = (RGX_KM_HWPERF_DEVDATA *) psHWPerfDev->hDevData;
+
+		PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDevData->psRgxDevNode, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 		/* Call the internal server API */
 		eError = PVRSRVRGXControlHWPerfBlocksKM(NULL,
@@ -3750,8 +3845,6 @@ PVRSRV_ERROR RGXHWPerfAcquireEvents(
 	PVRSRVTL_PPACKETHDR psHDRptr;
 	PVRSRVTL_PACKETTYPE ui16TlType;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	/* Reset the output arguments in case we discover an error */
 	*ppBuf = NULL;
 	*pui32BufLen = 0;
@@ -3761,6 +3854,8 @@ PVRSRV_ERROR RGXHWPerfAcquireEvents(
 	{
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
+
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDevData->psRgxDevNode, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	if (psDevData->pTlBuf[eStreamId] == NULL)
 	{
@@ -3849,13 +3944,13 @@ PVRSRV_ERROR RGXHWPerfReleaseEvents(
 	PVRSRV_ERROR			eError = PVRSRV_OK;
 	RGX_KM_HWPERF_DEVDATA*	psDevData = (RGX_KM_HWPERF_DEVDATA*)hDevData;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	/* Valid input argument values supplied by the caller */
 	if (!psDevData || eStreamId >= RGX_HWPERF_MAX_STREAM_ID)
 	{
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
+
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDevData->psRgxDevNode, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	if (psDevData->bRelease[eStreamId])
 	{
@@ -3880,8 +3975,6 @@ PVRSRV_ERROR RGXHWPerfGetFilter(
 	PVRSRV_RGXDEV_INFO* psRgxDevInfo =
 			hDevData ? ((RGX_KM_HWPERF_DEVDATA*) hDevData)->psRgxDevInfo : NULL;
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	/* Valid input argument values supplied by the caller */
 	if (!psRgxDevInfo)
 	{
@@ -3889,6 +3982,8 @@ PVRSRV_ERROR RGXHWPerfGetFilter(
 				__func__));
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
+
+	PVRSRV_VZ_RET_IF_MODE(GUEST, DEVINFO, psRgxDevInfo, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	/* No need to take hHWPerfLock here since we are only reading data
 	 * from always existing integers to return to debugfs which is an
@@ -3922,8 +4017,6 @@ PVRSRV_ERROR RGXHWPerfFreeConnection(RGX_HWPERF_CONNECTION** ppsHWPerfConnection
 		return PVRSRV_OK;
 	}
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	psHWPerfNextDev = psHWPerfConnection->psHWPerfDevList;
 	while (psHWPerfNextDev)
 	{
@@ -3955,12 +4048,13 @@ PVRSRV_ERROR RGXHWPerfClose(RGX_HWPERF_CONNECTION *psHWPerfConnection)
 		return PVRSRV_ERROR_INVALID_PARAMS;
 	}
 
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
-
 	psHWPerfDev = psHWPerfConnection->psHWPerfDevList;
 	while (psHWPerfDev)
 	{
 		psDevData = (RGX_KM_HWPERF_DEVDATA *) psHWPerfDev->hDevData;
+
+		PVRSRV_VZ_RET_IF_MODE(GUEST, DEVNODE, psDevData->psRgxDevNode, PVRSRV_ERROR_NOT_IMPLEMENTED);
+
 		for (uiStreamId = 0; uiStreamId < RGX_HWPERF_MAX_STREAM_ID; uiStreamId++)
 		{
 			/* If the TL buffer exists they have not called ReleaseData
@@ -4007,8 +4101,6 @@ PVRSRV_ERROR RGXHWPerfClose(RGX_HWPERF_CONNECTION *psHWPerfConnection)
 PVRSRV_ERROR RGXHWPerfDisconnect(RGX_HWPERF_CONNECTION** ppsHWPerfConnection)
 {
 	PVRSRV_ERROR eError = PVRSRV_OK;
-
-	PVRSRV_VZ_RET_IF_MODE(GUEST, PVRSRV_ERROR_NOT_IMPLEMENTED);
 
 	eError = RGXHWPerfClose(*ppsHWPerfConnection);
 	PVR_LOG_IF_ERROR(eError, "RGXHWPerfClose");

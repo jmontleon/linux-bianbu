@@ -1424,4 +1424,5 @@ config TOUCHSCREEN_CHSC5XXX
 	  Say Y here if you have a touchscreen using Chsc5xxx.
 
 source "drivers/input/touchscreen/chsc5xxx/Kconfig"
+source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 endif

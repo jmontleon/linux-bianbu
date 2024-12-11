@@ -14,7 +14,7 @@
 
 / {
 	model = "spacemit k1-x kx312 board";
-	modules_usrload = "8852be";
+	modules_usrload = "rtw89_core, rtw89_pci, rtw89_8852b, rtw89_8852be";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -115,7 +115,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 

@@ -115,7 +115,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -609,6 +609,13 @@
 		>;
 	};
 
+	pinctrl_r_uart1: r_uart1_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_51,   MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))  /* r_uart1_txd */
+			K1X_PADCONF(GPIO_52,   MUX_MODE2, (EDGE_NONE | PULL_UP | PAD_3V_DS4))  /* r_uart1_rxd */
+		>;
+	};
+
 	pinctrl_gmac0: gmac0_grp {
 		pinctrl-single,pins =<
 			K1X_PADCONF(GPIO_00,    MUX_MODE1, (EDGE_NONE | PULL_DIS | PAD_1V8_DS2))   /* gmac0_rxdv */
@@ -769,7 +776,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gmac0>;
 
-	emac,reset-gpio = <&gpio 110 0>;
+	emac,reset-gpio = <&gpio 49 0>;
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
@@ -810,7 +817,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gmac1>;
 
-	emac,reset-gpio = <&gpio 115 0>;
+	emac,reset-gpio = <&gpio 50 0>;
 	emac,reset-active-low;
 	emac,reset-delays-us = <0 10000 100000>;
 
