@@ -299,6 +299,17 @@ static void spacemit_crtc_atomic_enable(struct drm_crtc *crtc,
 	DRM_INFO("%s(power on)\n", __func__);
 	trace_spacemit_crtc_atomic_enable(dpu->dev_id);
 
+	if (dpu->logo_booton && dpu->type == DSI) {
+		pm_runtime_enable(dpu->dev);
+
+		pm_runtime_get_sync(dpu->dev);
+		dpu_pm_resume(dpu->dev);
+		dpu_pm_suspend(dpu->dev);
+		pm_runtime_put_sync(dpu->dev);
+		dpu->logo_booton = false;
+		msleep(10);
+	}
+
 	pm_runtime_get_sync(dpu->dev);
 	dpu_pm_resume(dpu->dev);
 
@@ -952,13 +963,15 @@ static int spacemit_dpu_probe(struct platform_device *pdev)
 	}
 
 	dpu_num++;
-	pm_runtime_enable(&pdev->dev);
+
 	/*
 	 * To keep bootloader logo on, below operations must be
 	 * done in probe func as power domain framework will turn
 	 * on/off lcd power domain before/after probe func.
 	 */
-	if (dpu->logo_booton) {
+	if (dpu->logo_booton && dpu->type == HDMI) {
+		pm_runtime_enable(&pdev->dev);
+
 		pm_runtime_get_sync(&pdev->dev);
 		dpu_pm_resume(&pdev->dev);
 		dpu_pm_suspend(&pdev->dev);

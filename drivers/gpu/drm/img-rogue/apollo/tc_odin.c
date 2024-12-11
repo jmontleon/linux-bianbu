@@ -798,6 +798,16 @@ err_out:
 	return err;
 }
 
+static int odin_get_default_clocks_vali(struct tc_device *tc,
+				int *core_clock, int *mem_clock, int *clock_mulitplex)
+{
+	/* For now use default TC values */
+	*core_clock = RGX_TC_CORE_CLOCK_SPEED;
+	*mem_clock = RGX_TC_MEM_CLOCK_SPEED;
+	*clock_mulitplex = RGX_TC_CLOCK_MULTIPLEX;
+	return 0;
+}
+
 static int odin_hard_reset_bonnie(struct tc_device *tc)
 {
 	int reset_cnt = 0;
@@ -1240,6 +1250,8 @@ static int odin_hard_reset(struct tc_device *tc, int *core_clock, int *mem_clock
 #if defined(SUPPORT_RGX)
 	if (tc->version == ODIN_VERSION_TCF_BONNIE)
 		return odin_hard_reset_bonnie(tc);
+	if (tc->version == ODIN_VERSION_VALI)
+		return odin_get_default_clocks_vali(tc, core_clock, mem_clock, clock_mulitplex);
 	if (tc->version == ODIN_VERSION_FPGA)
 		return odin_hard_reset_fpga(tc, core_clock, mem_clock, clock_mulitplex);
 	if (tc->version == ODIN_VERSION_ORION)
@@ -1366,7 +1378,8 @@ static int odin_hw_init(struct tc_device *tc, int *core_clock,
 	if (err)
 		goto err_out;
 
-	odin_set_fbc_bypass(tc, fbc_bypass);
+	if (!tc->vali)
+		odin_set_fbc_bypass(tc, fbc_bypass);
 
 #if defined(SUPPORT_RGX)
 	if (tc->version == ODIN_VERSION_FPGA)
@@ -1439,6 +1452,9 @@ odin_detect_daughterboard_version(struct tc_device *tc)
 
 	if (tc->orion)
 		return ODIN_VERSION_ORION;
+
+	if (tc->vali)
+		return ODIN_VERSION_VALI;
 
 	val = (val & ODN_REG_BANK_DB_TYPE_ID_TYPE_MASK) >>
 		ODN_REG_BANK_DB_TYPE_ID_TYPE_SHIFT;
@@ -1629,6 +1645,11 @@ static int odin_dev_init(struct tc_device *tc, struct pci_dev *pdev,
 		       ODN_CORE_REL);
 		dev_info(&pdev->dev, "%s = 0x%08x\n",
 			"ODN_CORE_REL", val);
+	} else if (tc->vali) {
+		val = ioread32(tc->tcf.registers + ODN_CORE_ID);
+		dev_info(&pdev->dev, "%s = 0x%08x\n", "VALI_CORE_ID", val);
+		val = ioread32(tc->tcf.registers + ODN_CORE_REL);
+		dev_info(&pdev->dev, "%s = 0x%08x\n", "VALI_CORE_REL", val);
 	} else {
 		val = ioread32(tc->tcf.registers +
 		       SRS_CORE_REVISION);
@@ -1695,6 +1716,22 @@ static u32 odin_interrupt_id_to_flag(int interrupt_id)
 		return ODN_INTERRUPT_ENABLE_CDMA;
 	case TC_INTERRUPT_CDMA2:
 		return ODN_INTERRUPT_ENABLE_CDMA2;
+	case TC_INTERRUPT_OSID0:
+		return ODN_INTERRUPT_ENABLE_OSID(0);
+	case TC_INTERRUPT_OSID1:
+		return ODN_INTERRUPT_ENABLE_OSID(1);
+	case TC_INTERRUPT_OSID2:
+		return ODN_INTERRUPT_ENABLE_OSID(2);
+	case TC_INTERRUPT_OSID3:
+		return ODN_INTERRUPT_ENABLE_OSID(3);
+	case TC_INTERRUPT_OSID4:
+		return ODN_INTERRUPT_ENABLE_OSID(4);
+	case TC_INTERRUPT_OSID5:
+		return ODN_INTERRUPT_ENABLE_OSID(5);
+	case TC_INTERRUPT_OSID6:
+		return ODN_INTERRUPT_ENABLE_OSID(6);
+	case TC_INTERRUPT_OSID7:
+		return ODN_INTERRUPT_ENABLE_OSID(7);
 	default:
 		BUG();
 	}
@@ -1821,53 +1858,70 @@ int odin_register_ext_device(struct tc_device *tc)
 {
 #if defined(SUPPORT_RGX)
 	int err = 0;
-	struct resource odin_rogue_resources[] = {
-		DEFINE_RES_MEM_NAMED(pci_resource_start(tc->pdev,
-							ODN_DUT_SOCIF_BAR),
-				     ODN_DUT_SOCIF_SIZE, "rogue-regs"),
-	};
-	struct tc_rogue_platform_data pdata = {
+	int osid;
+
+	unsigned long CarveoutSize = tc->tc_mem.size/RGX_NUM_DRIVERS_SUPPORTED;
+	unsigned long EXTHeapSize  = tc->ext_heap_mem_size/RGX_NUM_DRIVERS_SUPPORTED;
+	unsigned long PDPHeapSize  = tc->pdp_heap_mem_size/RGX_NUM_DRIVERS_SUPPORTED;
+
+	for (osid=0; osid < RGX_NUM_DRIVERS_SUPPORTED; osid++)
+	{
+		unsigned long EXTHeapBase = tc->tc_mem.base + osid*CarveoutSize;
+		unsigned long PDPHeapBase = EXTHeapBase + EXTHeapSize;
+
+		struct resource odin_rogue_resources[] = {
+			DEFINE_RES_MEM_NAMED(pci_resource_start(tc->pdev, ODN_DUT_SOCIF_BAR) +
+								 osid*ODN_DUT_SOCIF_SIZE,
+								 ODN_DUT_SOCIF_SIZE,
+								 "rogue-regs"),
+		};
+
+		struct tc_rogue_platform_data pdata = {
 #if defined(SUPPORT_ION) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
-		.ion_device = tc->ion_device,
-		.ion_heap_id = ION_HEAP_TC_ROGUE,
+			.ion_device = tc->ion_device,
+			.ion_heap_id = ION_HEAP_TC_ROGUE,
 #endif
-		.mem_mode = tc->mem_mode,
-		.tc_memory_base = tc->tc_mem.base,
-		.pdp_heap_memory_base = tc->pdp_heap_mem_base,
-		.pdp_heap_memory_size = tc->pdp_heap_mem_size,
-		.rogue_heap_memory_base = tc->ext_heap_mem_base,
-		.rogue_heap_memory_size = tc->ext_heap_mem_size,
+			.mem_mode = tc->mem_mode,
+			.tc_memory_base = tc->tc_mem.base,
+			.pdp_heap_memory_base = PDPHeapBase,
+			.pdp_heap_memory_size = PDPHeapSize,
+			.rogue_heap_memory_base = EXTHeapBase,
+			.rogue_heap_memory_size = EXTHeapSize,
 #if defined(SUPPORT_FAKE_SECURE_ION_HEAP)
-		.secure_heap_memory_base = tc->secure_heap_mem_base,
-		.secure_heap_memory_size = tc->secure_heap_mem_size,
+			.secure_heap_memory_base = tc->secure_heap_mem_base,
+			.secure_heap_memory_size = tc->secure_heap_mem_size,
 #endif
-		.tc_dma_tx_chan_name = ODIN_DMA_TX_CHAN_NAME,
-		.tc_dma_rx_chan_name = ODIN_DMA_RX_CHAN_NAME,
-	};
-	struct platform_device_info odin_rogue_dev_info = {
-		.parent = &tc->pdev->dev,
-		.name = TC_DEVICE_NAME_ROGUE,
-		.id = -2,
-		.res = odin_rogue_resources,
-		.num_res = ARRAY_SIZE(odin_rogue_resources),
-		.data = &pdata,
-		.size_data = sizeof(pdata),
-		.dma_mask = odin_get_rogue_dma_mask(tc),
-	};
+			.tc_dma_tx_chan_name = ODIN_DMA_TX_CHAN_NAME,
+			.tc_dma_rx_chan_name = ODIN_DMA_RX_CHAN_NAME,
+		};
 
-	if (tc->odin)
-		pdata.baseboard = TC_BASEBOARD_ODIN;
-	else if (tc->orion)
-		pdata.baseboard = TC_BASEBOARD_ORION;
+		struct platform_device_info odin_rogue_dev_info = {
+			.parent = &tc->pdev->dev,
+			.name = TC_DEVICE_NAME_ROGUE,
+			.id = -2,
+			.res = odin_rogue_resources,
+			.num_res = ARRAY_SIZE(odin_rogue_resources),
+			.data = &pdata,
+			.size_data = sizeof(pdata),
+			.dma_mask = odin_get_rogue_dma_mask(tc),
+		};
 
-	tc->ext_dev
-		= platform_device_register_full(&odin_rogue_dev_info);
+		if (tc->odin)
+			pdata.baseboard = TC_BASEBOARD_ODIN;
+		else if (tc->orion)
+			pdata.baseboard = TC_BASEBOARD_ORION;
+		else if (tc->vali)
+			pdata.baseboard = TC_BASEBOARD_VALI;
 
-	if (IS_ERR(tc->ext_dev)) {
-		err = PTR_ERR(tc->ext_dev);
-		dev_err(&tc->pdev->dev,
-			"Failed to register rogue device (%d)\n", err);
-		tc->ext_dev = NULL;
+		tc->ext_dev[osid]
+			= platform_device_register_full(&odin_rogue_dev_info);
+
+		if (IS_ERR(tc->ext_dev[osid])) {
+			err = PTR_ERR(tc->ext_dev[osid]);
+			dev_err(&tc->pdev->dev,
+				"Failed to register rogue device[%u] (%d)\n", osid, err);
+			tc->ext_dev[osid] = NULL;
+		}
 	}
 	return err;
 #else /* defined(SUPPORT_RGX) */
@@ -1949,6 +2003,38 @@ void odin_enable_interrupt_register(struct tc_device *tc,
 		dev_info(&tc->pdev->dev,
 			"Enabling Odin CDMA2 interrupts\n");
 		break;
+	case TC_INTERRUPT_OSID0:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID0 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID1:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID1 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID2:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID2 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID3:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID3 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID4:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID4 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID5:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID5 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID6:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID6 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID7:
+		dev_info(&tc->pdev->dev,
+			"Enabling Odin OSID7 interrupts\n");
+		break;
 	default:
 		dev_err(&tc->pdev->dev,
 			"Error - illegal interrupt id\n");
@@ -1988,6 +2074,38 @@ void odin_disable_interrupt_register(struct tc_device *tc,
 	case TC_INTERRUPT_CDMA2:
 		dev_info(&tc->pdev->dev,
 			"Disabling Odin CDMA2 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID0:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID0 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID1:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID1 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID2:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID2 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID3:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID3 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID4:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID4 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID5:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID5 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID6:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID6 interrupts\n");
+		break;
+	case TC_INTERRUPT_OSID7:
+		dev_info(&tc->pdev->dev,
+			"Disabling Odin OSID7 interrupts\n");
 		break;
 	default:
 		dev_err(&tc->pdev->dev,
@@ -2072,6 +2190,21 @@ irqreturn_t odin_irq_handler(int irq, void *data)
 		ret = IRQ_HANDLED;
 	}
 
+	if (interrupt_status & ODN_INTERRUPT_STATUS_OS_IRQ_MASK) {
+		unsigned osid;
+
+		for (osid=0; osid < RGX_NUM_DRIVERS_SUPPORTED; osid++)
+		{
+			struct tc_interrupt_handler *ext_int =
+				&tc->interrupt_handlers[TC_INTERRUPT_OSID0 + osid];
+
+			if (ext_int->enabled && ext_int->handler_function) {
+				ext_int->handler_function(ext_int->handler_data);
+				interrupt_clear |= ODN_INTERRUPT_CLEAR_OSID(osid);
+			}
+		}
+		ret = IRQ_HANDLED;
+	}
 
 	if (interrupt_clear)
 		iowrite32(interrupt_clear,
@@ -2198,6 +2331,8 @@ const char *odin_tc_name(struct tc_device *tc)
 		return "Odin";
 	else if (tc->orion)
 		return "Orion";
+	else if (tc->vali)
+		return "Vali";
 	else
 		return "Unknown TC";
 }
@@ -2213,12 +2348,6 @@ bool odin_pfim_compatible(struct tc_device *tc)
 		 >= ODIN_PFIM_RELNUM));
 }
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)) && !defined(TC_XILINX_DMA)
-static bool odin_dma_chan_filter(struct dma_chan *chan, void *param)
-{
-	return false;
-}
-#endif
 
 struct dma_chan *odin_cdma_chan(struct tc_device *tc, char *name)
 {
@@ -2250,17 +2379,7 @@ struct dma_chan *odin_cdma_chan(struct tc_device *tc, char *name)
 	if (tc->dma_refcnt[chan_idx]) {
 		tc->dma_refcnt[chan_idx]++;
 	} else {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0))
 		chan = dma_request_chan(&tc->dma_dev->dev, name);
-#else
-		dma_cap_mask_t mask;
-
-		dma_cap_zero(mask);
-		dma_cap_set(DMA_SLAVE, mask);
-		chan = dma_request_channel(mask,
-					   odin_dma_chan_filter,
-					   (void *)chan_idx);
-#endif
 		if (IS_ERR(chan)) {
 			err = PTR_ERR(chan);
 			dev_err(&tc->pdev->dev,

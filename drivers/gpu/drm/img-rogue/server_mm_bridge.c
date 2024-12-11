@@ -241,18 +241,17 @@ PMRExportPMR_exit:
 			 * This should never fail... */
 			PVR_ASSERT((eError == PVRSRV_OK) || (eError == PVRSRV_ERROR_RETRY));
 
-			/* Avoid freeing/destroying/releasing the resource a second time below */
-			psPMRExportInt = NULL;
 			/* Release now we have cleaned up creation handles. */
 			UnlockHandle(psConnection->psProcessHandleBase->psHandleBase);
 		}
 
-		if (psPMRExportInt)
+		else if (psPMRExportInt)
 		{
 			LockHandle(KERNEL_HANDLE_BASE);
 			PMRUnexportPMR(psPMRExportInt);
 			UnlockHandle(KERNEL_HANDLE_BASE);
 		}
+
 	}
 
 	return 0;
@@ -769,42 +768,6 @@ PMRUnrefPMR_exit:
 	return 0;
 }
 
-static IMG_INT
-PVRSRVBridgePMRUnrefUnlockPMR(IMG_UINT32 ui32DispatchTableEntry,
-			      IMG_UINT8 * psPMRUnrefUnlockPMRIN_UI8,
-			      IMG_UINT8 * psPMRUnrefUnlockPMROUT_UI8,
-			      CONNECTION_DATA * psConnection)
-{
-	PVRSRV_BRIDGE_IN_PMRUNREFUNLOCKPMR *psPMRUnrefUnlockPMRIN =
-	    (PVRSRV_BRIDGE_IN_PMRUNREFUNLOCKPMR *) IMG_OFFSET_ADDR(psPMRUnrefUnlockPMRIN_UI8, 0);
-	PVRSRV_BRIDGE_OUT_PMRUNREFUNLOCKPMR *psPMRUnrefUnlockPMROUT =
-	    (PVRSRV_BRIDGE_OUT_PMRUNREFUNLOCKPMR *) IMG_OFFSET_ADDR(psPMRUnrefUnlockPMROUT_UI8, 0);
-
-	/* Lock over handle destruction. */
-	LockHandle(psConnection->psHandleBase);
-
-	psPMRUnrefUnlockPMROUT->eError =
-	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
-					      (IMG_HANDLE) psPMRUnrefUnlockPMRIN->hPMR,
-					      PVRSRV_HANDLE_TYPE_PHYSMEM_PMR);
-	if (unlikely((psPMRUnrefUnlockPMROUT->eError != PVRSRV_OK) &&
-		     (psPMRUnrefUnlockPMROUT->eError != PVRSRV_ERROR_KERNEL_CCB_FULL) &&
-		     (psPMRUnrefUnlockPMROUT->eError != PVRSRV_ERROR_RETRY)))
-	{
-		PVR_DPF((PVR_DBG_ERROR,
-			 "%s: %s", __func__, PVRSRVGetErrorString(psPMRUnrefUnlockPMROUT->eError)));
-		UnlockHandle(psConnection->psHandleBase);
-		goto PMRUnrefUnlockPMR_exit;
-	}
-
-	/* Release now we have destroyed handles. */
-	UnlockHandle(psConnection->psHandleBase);
-
-PMRUnrefUnlockPMR_exit:
-
-	return 0;
-}
-
 static PVRSRV_ERROR _PhysmemNewRamBackedPMRpsPMRPtrIntRelease(void *pvData)
 {
 	PVRSRV_ERROR eError;
@@ -1097,17 +1060,16 @@ DevmemIntCtxCreate_exit:
 			 * This should never fail... */
 			PVR_ASSERT((eError == PVRSRV_OK) || (eError == PVRSRV_ERROR_RETRY));
 
-			/* Avoid freeing/destroying/releasing the resource a second time below */
-			psDevMemServerContextInt = NULL;
 			/* Release now we have cleaned up creation handles. */
 			UnlockHandle(psConnection->psHandleBase);
 
 		}
 
-		if (psDevMemServerContextInt)
+		else if (psDevMemServerContextInt)
 		{
 			DevmemIntCtxDestroy(psDevMemServerContextInt);
 		}
+
 	}
 
 	return 0;
@@ -1197,9 +1159,7 @@ PVRSRVBridgeDevmemIntHeapCreate(IMG_UINT32 ui32DispatchTableEntry,
 	psDevmemIntHeapCreateOUT->eError =
 	    DevmemIntHeapCreate(psDevmemCtxInt,
 				psDevmemIntHeapCreateIN->ui32HeapConfigIndex,
-				psDevmemIntHeapCreateIN->ui32HeapIndex,
-				psDevmemIntHeapCreateIN->sHeapBaseAddr,
-				psDevmemIntHeapCreateIN->ui32Log2DataPageSize, &psDevmemHeapPtrInt);
+				psDevmemIntHeapCreateIN->ui32HeapIndex, &psDevmemHeapPtrInt);
 	/* Exit early if bridged call fails */
 	if (unlikely(psDevmemIntHeapCreateOUT->eError != PVRSRV_OK))
 	{
@@ -1290,13 +1250,6 @@ DevmemIntHeapDestroy_exit:
 	return 0;
 }
 
-static PVRSRV_ERROR _DevmemIntMapPMRpsMappingIntRelease(void *pvData)
-{
-	PVRSRV_ERROR eError;
-	eError = DevmemIntUnmapPMR((DEVMEMINT_MAPPING *) pvData);
-	return eError;
-}
-
 static IMG_INT
 PVRSRVBridgeDevmemIntMapPMR(IMG_UINT32 ui32DispatchTableEntry,
 			    IMG_UINT8 * psDevmemIntMapPMRIN_UI8,
@@ -1307,28 +1260,13 @@ PVRSRVBridgeDevmemIntMapPMR(IMG_UINT32 ui32DispatchTableEntry,
 	PVRSRV_BRIDGE_OUT_DEVMEMINTMAPPMR *psDevmemIntMapPMROUT =
 	    (PVRSRV_BRIDGE_OUT_DEVMEMINTMAPPMR *) IMG_OFFSET_ADDR(psDevmemIntMapPMROUT_UI8, 0);
 
-	IMG_HANDLE hDevmemServerHeap = psDevmemIntMapPMRIN->hDevmemServerHeap;
-	DEVMEMINT_HEAP *psDevmemServerHeapInt = NULL;
 	IMG_HANDLE hReservation = psDevmemIntMapPMRIN->hReservation;
 	DEVMEMINT_RESERVATION *psReservationInt = NULL;
 	IMG_HANDLE hPMR = psDevmemIntMapPMRIN->hPMR;
 	PMR *psPMRInt = NULL;
-	DEVMEMINT_MAPPING *psMappingInt = NULL;
 
 	/* Lock over handle lookup. */
 	LockHandle(psConnection->psHandleBase);
-
-	/* Look up the address from the handle */
-	psDevmemIntMapPMROUT->eError =
-	    PVRSRVLookupHandleUnlocked(psConnection->psHandleBase,
-				       (void **)&psDevmemServerHeapInt,
-				       hDevmemServerHeap,
-				       PVRSRV_HANDLE_TYPE_DEVMEMINT_HEAP, IMG_TRUE);
-	if (unlikely(psDevmemIntMapPMROUT->eError != PVRSRV_OK))
-	{
-		UnlockHandle(psConnection->psHandleBase);
-		goto DevmemIntMapPMR_exit;
-	}
 
 	/* Look up the address from the handle */
 	psDevmemIntMapPMROUT->eError =
@@ -1355,46 +1293,12 @@ PVRSRVBridgeDevmemIntMapPMR(IMG_UINT32 ui32DispatchTableEntry,
 	/* Release now we have looked up handles. */
 	UnlockHandle(psConnection->psHandleBase);
 
-	psDevmemIntMapPMROUT->eError =
-	    DevmemIntMapPMR(psDevmemServerHeapInt,
-			    psReservationInt,
-			    psPMRInt, psDevmemIntMapPMRIN->uiMapFlags, &psMappingInt);
-	/* Exit early if bridged call fails */
-	if (unlikely(psDevmemIntMapPMROUT->eError != PVRSRV_OK))
-	{
-		goto DevmemIntMapPMR_exit;
-	}
-
-	/* Lock over handle creation. */
-	LockHandle(psConnection->psHandleBase);
-
-	psDevmemIntMapPMROUT->eError = PVRSRVAllocHandleUnlocked(psConnection->psHandleBase,
-								 &psDevmemIntMapPMROUT->hMapping,
-								 (void *)psMappingInt,
-								 PVRSRV_HANDLE_TYPE_DEVMEMINT_MAPPING,
-								 PVRSRV_HANDLE_ALLOC_FLAG_MULTI,
-								 (PFN_HANDLE_RELEASE) &
-								 _DevmemIntMapPMRpsMappingIntRelease);
-	if (unlikely(psDevmemIntMapPMROUT->eError != PVRSRV_OK))
-	{
-		UnlockHandle(psConnection->psHandleBase);
-		goto DevmemIntMapPMR_exit;
-	}
-
-	/* Release now we have created handles. */
-	UnlockHandle(psConnection->psHandleBase);
+	psDevmemIntMapPMROUT->eError = DevmemIntMapPMR(psReservationInt, psPMRInt);
 
 DevmemIntMapPMR_exit:
 
 	/* Lock over handle lookup cleanup. */
 	LockHandle(psConnection->psHandleBase);
-
-	/* Unreference the previously looked up handle */
-	if (psDevmemServerHeapInt)
-	{
-		PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
-					    hDevmemServerHeap, PVRSRV_HANDLE_TYPE_DEVMEMINT_HEAP);
-	}
 
 	/* Unreference the previously looked up handle */
 	if (psReservationInt)
@@ -1412,14 +1316,6 @@ DevmemIntMapPMR_exit:
 	/* Release now we have cleaned up look up handles. */
 	UnlockHandle(psConnection->psHandleBase);
 
-	if (psDevmemIntMapPMROUT->eError != PVRSRV_OK)
-	{
-		if (psMappingInt)
-		{
-			DevmemIntUnmapPMR(psMappingInt);
-		}
-	}
-
 	return 0;
 }
 
@@ -1434,27 +1330,41 @@ PVRSRVBridgeDevmemIntUnmapPMR(IMG_UINT32 ui32DispatchTableEntry,
 	PVRSRV_BRIDGE_OUT_DEVMEMINTUNMAPPMR *psDevmemIntUnmapPMROUT =
 	    (PVRSRV_BRIDGE_OUT_DEVMEMINTUNMAPPMR *) IMG_OFFSET_ADDR(psDevmemIntUnmapPMROUT_UI8, 0);
 
-	/* Lock over handle destruction. */
+	IMG_HANDLE hReservation = psDevmemIntUnmapPMRIN->hReservation;
+	DEVMEMINT_RESERVATION *psReservationInt = NULL;
+
+	/* Lock over handle lookup. */
 	LockHandle(psConnection->psHandleBase);
 
+	/* Look up the address from the handle */
 	psDevmemIntUnmapPMROUT->eError =
-	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
-					      (IMG_HANDLE) psDevmemIntUnmapPMRIN->hMapping,
-					      PVRSRV_HANDLE_TYPE_DEVMEMINT_MAPPING);
-	if (unlikely((psDevmemIntUnmapPMROUT->eError != PVRSRV_OK) &&
-		     (psDevmemIntUnmapPMROUT->eError != PVRSRV_ERROR_KERNEL_CCB_FULL) &&
-		     (psDevmemIntUnmapPMROUT->eError != PVRSRV_ERROR_RETRY)))
+	    PVRSRVLookupHandleUnlocked(psConnection->psHandleBase,
+				       (void **)&psReservationInt,
+				       hReservation,
+				       PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION, IMG_TRUE);
+	if (unlikely(psDevmemIntUnmapPMROUT->eError != PVRSRV_OK))
 	{
-		PVR_DPF((PVR_DBG_ERROR,
-			 "%s: %s", __func__, PVRSRVGetErrorString(psDevmemIntUnmapPMROUT->eError)));
 		UnlockHandle(psConnection->psHandleBase);
 		goto DevmemIntUnmapPMR_exit;
 	}
-
-	/* Release now we have destroyed handles. */
+	/* Release now we have looked up handles. */
 	UnlockHandle(psConnection->psHandleBase);
 
+	psDevmemIntUnmapPMROUT->eError = DevmemIntUnmapPMR(psReservationInt);
+
 DevmemIntUnmapPMR_exit:
+
+	/* Lock over handle lookup cleanup. */
+	LockHandle(psConnection->psHandleBase);
+
+	/* Unreference the previously looked up handle */
+	if (psReservationInt)
+	{
+		PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
+					    hReservation, PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION);
+	}
+	/* Release now we have cleaned up look up handles. */
+	UnlockHandle(psConnection->psHandleBase);
 
 	return 0;
 }
@@ -1503,7 +1413,8 @@ PVRSRVBridgeDevmemIntReserveRange(IMG_UINT32 ui32DispatchTableEntry,
 	psDevmemIntReserveRangeOUT->eError =
 	    DevmemIntReserveRange(psDevmemServerHeapInt,
 				  psDevmemIntReserveRangeIN->sAddress,
-				  psDevmemIntReserveRangeIN->uiLength, &psReservationInt);
+				  psDevmemIntReserveRangeIN->uiLength,
+				  psDevmemIntReserveRangeIN->uiFlags, &psReservationInt);
 	/* Exit early if bridged call fails */
 	if (unlikely(psDevmemIntReserveRangeOUT->eError != PVRSRV_OK))
 	{
@@ -1555,10 +1466,10 @@ DevmemIntReserveRange_exit:
 	return 0;
 }
 
-static PVRSRV_ERROR _DevmemIntReserveRangeAndMapPMRpsMappingIntRelease(void *pvData)
+static PVRSRV_ERROR _DevmemIntReserveRangeAndMapPMRpsReservationIntRelease(void *pvData)
 {
 	PVRSRV_ERROR eError;
-	eError = DevmemIntUnreserveRangeAndUnmapPMR((DEVMEMINT_MAPPING *) pvData);
+	eError = DevmemIntUnreserveRange((DEVMEMINT_RESERVATION *) pvData);
 	return eError;
 }
 
@@ -1579,7 +1490,7 @@ PVRSRVBridgeDevmemIntReserveRangeAndMapPMR(IMG_UINT32 ui32DispatchTableEntry,
 	DEVMEMINT_HEAP *psDevmemServerHeapInt = NULL;
 	IMG_HANDLE hPMR = psDevmemIntReserveRangeAndMapPMRIN->hPMR;
 	PMR *psPMRInt = NULL;
-	DEVMEMINT_MAPPING *psMappingInt = NULL;
+	DEVMEMINT_RESERVATION *psReservationInt = NULL;
 
 	/* Lock over handle lookup. */
 	LockHandle(psConnection->psHandleBase);
@@ -1614,8 +1525,8 @@ PVRSRVBridgeDevmemIntReserveRangeAndMapPMR(IMG_UINT32 ui32DispatchTableEntry,
 					   psDevmemIntReserveRangeAndMapPMRIN->sAddress,
 					   psDevmemIntReserveRangeAndMapPMRIN->uiLength,
 					   psPMRInt,
-					   psDevmemIntReserveRangeAndMapPMRIN->uiMapFlags,
-					   &psMappingInt);
+					   psDevmemIntReserveRangeAndMapPMRIN->uiFlags,
+					   &psReservationInt);
 	/* Exit early if bridged call fails */
 	if (unlikely(psDevmemIntReserveRangeAndMapPMROUT->eError != PVRSRV_OK))
 	{
@@ -1627,11 +1538,12 @@ PVRSRVBridgeDevmemIntReserveRangeAndMapPMR(IMG_UINT32 ui32DispatchTableEntry,
 
 	psDevmemIntReserveRangeAndMapPMROUT->eError =
 	    PVRSRVAllocHandleUnlocked(psConnection->psHandleBase,
-				      &psDevmemIntReserveRangeAndMapPMROUT->hMapping,
-				      (void *)psMappingInt, PVRSRV_HANDLE_TYPE_DEVMEMINT_MAPPING,
+				      &psDevmemIntReserveRangeAndMapPMROUT->hReservation,
+				      (void *)psReservationInt,
+				      PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION,
 				      PVRSRV_HANDLE_ALLOC_FLAG_MULTI,
 				      (PFN_HANDLE_RELEASE) &
-				      _DevmemIntReserveRangeAndMapPMRpsMappingIntRelease);
+				      _DevmemIntReserveRangeAndMapPMRpsReservationIntRelease);
 	if (unlikely(psDevmemIntReserveRangeAndMapPMROUT->eError != PVRSRV_OK))
 	{
 		UnlockHandle(psConnection->psHandleBase);
@@ -1664,56 +1576,11 @@ DevmemIntReserveRangeAndMapPMR_exit:
 
 	if (psDevmemIntReserveRangeAndMapPMROUT->eError != PVRSRV_OK)
 	{
-		if (psMappingInt)
+		if (psReservationInt)
 		{
-			DevmemIntUnreserveRangeAndUnmapPMR(psMappingInt);
+			DevmemIntUnreserveRange(psReservationInt);
 		}
 	}
-
-	return 0;
-}
-
-static IMG_INT
-PVRSRVBridgeDevmemIntUnreserveRangeAndUnmapPMR(IMG_UINT32 ui32DispatchTableEntry,
-					       IMG_UINT8 *
-					       psDevmemIntUnreserveRangeAndUnmapPMRIN_UI8,
-					       IMG_UINT8 *
-					       psDevmemIntUnreserveRangeAndUnmapPMROUT_UI8,
-					       CONNECTION_DATA * psConnection)
-{
-	PVRSRV_BRIDGE_IN_DEVMEMINTUNRESERVERANGEANDUNMAPPMR *psDevmemIntUnreserveRangeAndUnmapPMRIN
-	    =
-	    (PVRSRV_BRIDGE_IN_DEVMEMINTUNRESERVERANGEANDUNMAPPMR *)
-	    IMG_OFFSET_ADDR(psDevmemIntUnreserveRangeAndUnmapPMRIN_UI8, 0);
-	PVRSRV_BRIDGE_OUT_DEVMEMINTUNRESERVERANGEANDUNMAPPMR
-	    *psDevmemIntUnreserveRangeAndUnmapPMROUT =
-	    (PVRSRV_BRIDGE_OUT_DEVMEMINTUNRESERVERANGEANDUNMAPPMR *)
-	    IMG_OFFSET_ADDR(psDevmemIntUnreserveRangeAndUnmapPMROUT_UI8, 0);
-
-	/* Lock over handle destruction. */
-	LockHandle(psConnection->psHandleBase);
-
-	psDevmemIntUnreserveRangeAndUnmapPMROUT->eError =
-	    PVRSRVDestroyHandleStagedUnlocked(psConnection->psHandleBase,
-					      (IMG_HANDLE) psDevmemIntUnreserveRangeAndUnmapPMRIN->
-					      hMapping, PVRSRV_HANDLE_TYPE_DEVMEMINT_MAPPING);
-	if (unlikely
-	    ((psDevmemIntUnreserveRangeAndUnmapPMROUT->eError != PVRSRV_OK)
-	     && (psDevmemIntUnreserveRangeAndUnmapPMROUT->eError != PVRSRV_ERROR_KERNEL_CCB_FULL)
-	     && (psDevmemIntUnreserveRangeAndUnmapPMROUT->eError != PVRSRV_ERROR_RETRY)))
-	{
-		PVR_DPF((PVR_DBG_ERROR,
-			 "%s: %s",
-			 __func__,
-			 PVRSRVGetErrorString(psDevmemIntUnreserveRangeAndUnmapPMROUT->eError)));
-		UnlockHandle(psConnection->psHandleBase);
-		goto DevmemIntUnreserveRangeAndUnmapPMR_exit;
-	}
-
-	/* Release now we have destroyed handles. */
-	UnlockHandle(psConnection->psHandleBase);
-
-DevmemIntUnreserveRangeAndUnmapPMR_exit:
 
 	return 0;
 }
@@ -1774,12 +1641,10 @@ PVRSRVBridgeChangeSparseMem(IMG_UINT32 ui32DispatchTableEntry,
 	PVRSRV_BRIDGE_OUT_CHANGESPARSEMEM *psChangeSparseMemOUT =
 	    (PVRSRV_BRIDGE_OUT_CHANGESPARSEMEM *) IMG_OFFSET_ADDR(psChangeSparseMemOUT_UI8, 0);
 
-	IMG_HANDLE hSrvDevMemHeap = psChangeSparseMemIN->hSrvDevMemHeap;
-	DEVMEMINT_HEAP *psSrvDevMemHeapInt = NULL;
-	IMG_HANDLE hPMR = psChangeSparseMemIN->hPMR;
-	PMR *psPMRInt = NULL;
 	IMG_UINT32 *ui32AllocPageIndicesInt = NULL;
 	IMG_UINT32 *ui32FreePageIndicesInt = NULL;
+	IMG_HANDLE hReservation = psChangeSparseMemIN->hReservation;
+	DEVMEMINT_RESERVATION *psReservationInt = NULL;
 
 	IMG_UINT32 ui32NextOffset = 0;
 	IMG_BYTE *pArrayArgsBuffer = NULL;
@@ -1885,19 +1750,9 @@ PVRSRVBridgeChangeSparseMem(IMG_UINT32 ui32DispatchTableEntry,
 	/* Look up the address from the handle */
 	psChangeSparseMemOUT->eError =
 	    PVRSRVLookupHandleUnlocked(psConnection->psHandleBase,
-				       (void **)&psSrvDevMemHeapInt,
-				       hSrvDevMemHeap, PVRSRV_HANDLE_TYPE_DEVMEMINT_HEAP, IMG_TRUE);
-	if (unlikely(psChangeSparseMemOUT->eError != PVRSRV_OK))
-	{
-		UnlockHandle(psConnection->psHandleBase);
-		goto ChangeSparseMem_exit;
-	}
-
-	/* Look up the address from the handle */
-	psChangeSparseMemOUT->eError =
-	    PVRSRVLookupHandleUnlocked(psConnection->psHandleBase,
-				       (void **)&psPMRInt,
-				       hPMR, PVRSRV_HANDLE_TYPE_PHYSMEM_PMR, IMG_TRUE);
+				       (void **)&psReservationInt,
+				       hReservation,
+				       PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION, IMG_TRUE);
 	if (unlikely(psChangeSparseMemOUT->eError != PVRSRV_OK))
 	{
 		UnlockHandle(psConnection->psHandleBase);
@@ -1907,16 +1762,11 @@ PVRSRVBridgeChangeSparseMem(IMG_UINT32 ui32DispatchTableEntry,
 	UnlockHandle(psConnection->psHandleBase);
 
 	psChangeSparseMemOUT->eError =
-	    DevmemIntChangeSparse(psSrvDevMemHeapInt,
-				  psPMRInt,
-				  psChangeSparseMemIN->ui32AllocPageCount,
+	    DevmemIntChangeSparse(psChangeSparseMemIN->ui32AllocPageCount,
 				  ui32AllocPageIndicesInt,
 				  psChangeSparseMemIN->ui32FreePageCount,
 				  ui32FreePageIndicesInt,
-				  psChangeSparseMemIN->ui32SparseFlags,
-				  psChangeSparseMemIN->uiFlags,
-				  psChangeSparseMemIN->sDevVAddr,
-				  psChangeSparseMemIN->ui64CPUVAddr);
+				  psChangeSparseMemIN->ui32SparseFlags, psReservationInt);
 
 ChangeSparseMem_exit:
 
@@ -1924,17 +1774,10 @@ ChangeSparseMem_exit:
 	LockHandle(psConnection->psHandleBase);
 
 	/* Unreference the previously looked up handle */
-	if (psSrvDevMemHeapInt)
+	if (psReservationInt)
 	{
 		PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
-					    hSrvDevMemHeap, PVRSRV_HANDLE_TYPE_DEVMEMINT_HEAP);
-	}
-
-	/* Unreference the previously looked up handle */
-	if (psPMRInt)
-	{
-		PVRSRVReleaseHandleUnlocked(psConnection->psHandleBase,
-					    hPMR, PVRSRV_HANDLE_TYPE_PHYSMEM_PMR);
+					    hReservation, PVRSRV_HANDLE_TYPE_DEVMEMINT_RESERVATION);
 	}
 	/* Release now we have cleaned up look up handles. */
 	UnlockHandle(psConnection->psHandleBase);
@@ -2988,115 +2831,174 @@ PVRSRV_ERROR InitMMBridge(void)
 {
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMREXPORTPMR,
-			      PVRSRVBridgePMRExportPMR, NULL);
+			      PVRSRVBridgePMRExportPMR, NULL, sizeof(PVRSRV_BRIDGE_IN_PMREXPORTPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMREXPORTPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRUNEXPORTPMR,
-			      PVRSRVBridgePMRUnexportPMR, NULL);
+			      PVRSRVBridgePMRUnexportPMR, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PMRUNEXPORTPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRUNEXPORTPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRGETUID, PVRSRVBridgePMRGetUID,
-			      NULL);
+			      NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PMRGETUID),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRGETUID));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRMAKELOCALIMPORTHANDLE,
-			      PVRSRVBridgePMRMakeLocalImportHandle, NULL);
+			      PVRSRVBridgePMRMakeLocalImportHandle, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PMRMAKELOCALIMPORTHANDLE),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRMAKELOCALIMPORTHANDLE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRUNMAKELOCALIMPORTHANDLE,
-			      PVRSRVBridgePMRUnmakeLocalImportHandle, NULL);
+			      PVRSRVBridgePMRUnmakeLocalImportHandle, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PMRUNMAKELOCALIMPORTHANDLE),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRUNMAKELOCALIMPORTHANDLE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRIMPORTPMR,
-			      PVRSRVBridgePMRImportPMR, NULL);
+			      PVRSRVBridgePMRImportPMR, NULL, sizeof(PVRSRV_BRIDGE_IN_PMRIMPORTPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRIMPORTPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRLOCALIMPORTPMR,
-			      PVRSRVBridgePMRLocalImportPMR, NULL);
+			      PVRSRVBridgePMRLocalImportPMR, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PMRLOCALIMPORTPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRLOCALIMPORTPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRUNREFPMR,
-			      PVRSRVBridgePMRUnrefPMR, NULL);
-
-	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRUNREFUNLOCKPMR,
-			      PVRSRVBridgePMRUnrefUnlockPMR, NULL);
+			      PVRSRVBridgePMRUnrefPMR, NULL, sizeof(PVRSRV_BRIDGE_IN_PMRUNREFPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_PMRUNREFPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PHYSMEMNEWRAMBACKEDPMR,
-			      PVRSRVBridgePhysmemNewRamBackedPMR, NULL);
+			      PVRSRVBridgePhysmemNewRamBackedPMR, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PHYSMEMNEWRAMBACKEDPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_PHYSMEMNEWRAMBACKEDPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTCTXCREATE,
-			      PVRSRVBridgeDevmemIntCtxCreate, NULL);
+			      PVRSRVBridgeDevmemIntCtxCreate, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTCTXCREATE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTCTXCREATE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTCTXDESTROY,
-			      PVRSRVBridgeDevmemIntCtxDestroy, NULL);
+			      PVRSRVBridgeDevmemIntCtxDestroy, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTCTXDESTROY),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTCTXDESTROY));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTHEAPCREATE,
-			      PVRSRVBridgeDevmemIntHeapCreate, NULL);
+			      PVRSRVBridgeDevmemIntHeapCreate, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTHEAPCREATE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTHEAPCREATE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTHEAPDESTROY,
-			      PVRSRVBridgeDevmemIntHeapDestroy, NULL);
+			      PVRSRVBridgeDevmemIntHeapDestroy, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTHEAPDESTROY),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTHEAPDESTROY));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTMAPPMR,
-			      PVRSRVBridgeDevmemIntMapPMR, NULL);
+			      PVRSRVBridgeDevmemIntMapPMR, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTMAPPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTMAPPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTUNMAPPMR,
-			      PVRSRVBridgeDevmemIntUnmapPMR, NULL);
+			      PVRSRVBridgeDevmemIntUnmapPMR, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTUNMAPPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTUNMAPPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTRESERVERANGE,
-			      PVRSRVBridgeDevmemIntReserveRange, NULL);
+			      PVRSRVBridgeDevmemIntReserveRange, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTRESERVERANGE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTRESERVERANGE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTRESERVERANGEANDMAPPMR,
-			      PVRSRVBridgeDevmemIntReserveRangeAndMapPMR, NULL);
-
-	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTUNRESERVERANGEANDUNMAPPMR,
-			      PVRSRVBridgeDevmemIntUnreserveRangeAndUnmapPMR, NULL);
+			      PVRSRVBridgeDevmemIntReserveRangeAndMapPMR, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTRESERVERANGEANDMAPPMR),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTRESERVERANGEANDMAPPMR));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTUNRESERVERANGE,
-			      PVRSRVBridgeDevmemIntUnreserveRange, NULL);
+			      PVRSRVBridgeDevmemIntUnreserveRange, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTUNRESERVERANGE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTUNRESERVERANGE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_CHANGESPARSEMEM,
-			      PVRSRVBridgeChangeSparseMem, NULL);
+			      PVRSRVBridgeChangeSparseMem, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_CHANGESPARSEMEM),
+			      sizeof(PVRSRV_BRIDGE_OUT_CHANGESPARSEMEM));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMISVDEVADDRVALID,
-			      PVRSRVBridgeDevmemIsVDevAddrValid, NULL);
+			      PVRSRVBridgeDevmemIsVDevAddrValid, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMISVDEVADDRVALID),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMISVDEVADDRVALID));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINVALIDATEFBSCTABLE,
-			      PVRSRVBridgeDevmemInvalidateFBSCTable, NULL);
+			      PVRSRVBridgeDevmemInvalidateFBSCTable, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINVALIDATEFBSCTABLE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINVALIDATEFBSCTABLE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_HEAPCFGHEAPCONFIGCOUNT,
-			      PVRSRVBridgeHeapCfgHeapConfigCount, NULL);
+			      PVRSRVBridgeHeapCfgHeapConfigCount, NULL, 0,
+			      sizeof(PVRSRV_BRIDGE_OUT_HEAPCFGHEAPCONFIGCOUNT));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_HEAPCFGHEAPCOUNT,
-			      PVRSRVBridgeHeapCfgHeapCount, NULL);
+			      PVRSRVBridgeHeapCfgHeapCount, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_HEAPCFGHEAPCOUNT),
+			      sizeof(PVRSRV_BRIDGE_OUT_HEAPCFGHEAPCOUNT));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_HEAPCFGHEAPCONFIGNAME,
-			      PVRSRVBridgeHeapCfgHeapConfigName, NULL);
+			      PVRSRVBridgeHeapCfgHeapConfigName, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_HEAPCFGHEAPCONFIGNAME),
+			      sizeof(PVRSRV_BRIDGE_OUT_HEAPCFGHEAPCONFIGNAME));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_HEAPCFGHEAPDETAILS,
-			      PVRSRVBridgeHeapCfgHeapDetails, NULL);
+			      PVRSRVBridgeHeapCfgHeapDetails, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_HEAPCFGHEAPDETAILS),
+			      sizeof(PVRSRV_BRIDGE_OUT_HEAPCFGHEAPDETAILS));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTREGISTERPFNOTIFYKM,
-			      PVRSRVBridgeDevmemIntRegisterPFNotifyKM, NULL);
+			      PVRSRVBridgeDevmemIntRegisterPFNotifyKM, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMINTREGISTERPFNOTIFYKM),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMINTREGISTERPFNOTIFYKM));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PHYSHEAPGETMEMINFO,
-			      PVRSRVBridgePhysHeapGetMemInfo, NULL);
+			      PVRSRVBridgePhysHeapGetMemInfo, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PHYSHEAPGETMEMINFO),
+			      sizeof(PVRSRV_BRIDGE_OUT_PHYSHEAPGETMEMINFO));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_GETDEFAULTPHYSICALHEAP,
-			      PVRSRVBridgeGetDefaultPhysicalHeap, NULL);
+			      PVRSRVBridgeGetDefaultPhysicalHeap, NULL, 0,
+			      sizeof(PVRSRV_BRIDGE_OUT_GETDEFAULTPHYSICALHEAP));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMGETFAULTADDRESS,
-			      PVRSRVBridgeDevmemGetFaultAddress, NULL);
+			      PVRSRVBridgeDevmemGetFaultAddress, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMGETFAULTADDRESS),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMGETFAULTADDRESS));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PVRSRVSTATSUPDATEOOMSTAT,
-			      PVRSRVBridgePVRSRVStatsUpdateOOMStat, NULL);
+			      PVRSRVBridgePVRSRVStatsUpdateOOMStat, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_PVRSRVSTATSUPDATEOOMSTAT),
+			      sizeof(PVRSRV_BRIDGE_OUT_PVRSRVSTATSUPDATEOOMSTAT));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMXINTRESERVERANGE,
-			      PVRSRVBridgeDevmemXIntReserveRange, NULL);
+			      PVRSRVBridgeDevmemXIntReserveRange, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMXINTRESERVERANGE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMXINTRESERVERANGE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMXINTUNRESERVERANGE,
-			      PVRSRVBridgeDevmemXIntUnreserveRange, NULL);
+			      PVRSRVBridgeDevmemXIntUnreserveRange, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMXINTUNRESERVERANGE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMXINTUNRESERVERANGE));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMXINTMAPPAGES,
-			      PVRSRVBridgeDevmemXIntMapPages, NULL);
+			      PVRSRVBridgeDevmemXIntMapPages, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMXINTMAPPAGES),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMXINTMAPPAGES));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMXINTUNMAPPAGES,
-			      PVRSRVBridgeDevmemXIntUnmapPages, NULL);
+			      PVRSRVBridgeDevmemXIntUnmapPages, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMXINTUNMAPPAGES),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMXINTUNMAPPAGES));
 
 	SetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMXINTMAPVRANGETOBACKINGPAGE,
-			      PVRSRVBridgeDevmemXIntMapVRangeToBackingPage, NULL);
+			      PVRSRVBridgeDevmemXIntMapVRangeToBackingPage, NULL,
+			      sizeof(PVRSRV_BRIDGE_IN_DEVMEMXINTMAPVRANGETOBACKINGPAGE),
+			      sizeof(PVRSRV_BRIDGE_OUT_DEVMEMXINTMAPVRANGETOBACKINGPAGE));
 
 	return PVRSRV_OK;
 }
@@ -3123,8 +3025,6 @@ void DeinitMMBridge(void)
 
 	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRUNREFPMR);
 
-	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PMRUNREFUNLOCKPMR);
-
 	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_PHYSMEMNEWRAMBACKEDPMR);
 
 	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTCTXCREATE);
@@ -3142,9 +3042,6 @@ void DeinitMMBridge(void)
 	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTRESERVERANGE);
 
 	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTRESERVERANGEANDMAPPMR);
-
-	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM,
-				PVRSRV_BRIDGE_MM_DEVMEMINTUNRESERVERANGEANDUNMAPPMR);
 
 	UnsetDispatchTableEntry(PVRSRV_BRIDGE_MM, PVRSRV_BRIDGE_MM_DEVMEMINTUNRESERVERANGE);
 

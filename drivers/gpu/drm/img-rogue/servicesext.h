@@ -114,40 +114,6 @@ typedef IMG_UINT32 PVRSRV_POWER_FLAGS;
                                                            transition has been requested.
                                                            Allows system modules to load VRAM */
 
-/* Clock speed handler prototypes */
-
-/*!
-  Typedef for a pointer to a Function that will be called before a transition
-  from one clock speed to another. See also PFN_POST_CLOCKSPEED_CHANGE.
- */
-typedef PVRSRV_ERROR (*PFN_PRE_CLOCKSPEED_CHANGE) (IMG_HANDLE				hDevHandle,
-												   PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
-
-/*!
-  Typedef for a pointer to a Function that will be called after a transition
-  from one clock speed to another. See also PFN_PRE_CLOCKSPEED_CHANGE.
- */
-typedef PVRSRV_ERROR (*PFN_POST_CLOCKSPEED_CHANGE) (IMG_HANDLE				hDevHandle,
-													PVRSRV_DEV_POWER_STATE	eCurrentPowerState);
-
-/*!
-  Typedef for a pointer to a function that will be called to transition the
-  device to a forced idle state. Used in unison with (forced) power requests,
-  DVFS and cluster count changes.
- */
-typedef PVRSRV_ERROR (*PFN_FORCED_IDLE_REQUEST) (IMG_HANDLE		hDevHandle,
-												 IMG_BOOL		bDeviceOffPermitted);
-
-/*!
-  Typedef for a pointer to a function that will be called to cancel a forced
-  idle state and return the firmware back to a state where the hardware can be
-  scheduled.
- */
-typedef PVRSRV_ERROR (*PFN_FORCED_IDLE_CANCEL_REQUEST) (IMG_HANDLE	hDevHandle);
-
-typedef PVRSRV_ERROR (*PFN_GPU_UNITS_POWER_CHANGE) (IMG_HANDLE		hDevHandle,
-													IMG_UINT32		ui32SESPowerState);
-
 /*!
  *****************************************************************************
  * This structure is used for OS independent registry (profile) access

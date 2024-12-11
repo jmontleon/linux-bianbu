@@ -6,7 +6,7 @@
 #include "k1-x.dtsi"
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
-#include "lcd/lcd_icnl9951r_mipi.dtsi"
+#include "lcd/lcd_ft8201sinx101_mipi.dtsi"
 #include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
 #include "k1-x_opp_table.dtsi"
@@ -18,6 +18,7 @@
 
 / {
 	model = "ZT001H";
+	modules_usrload = "aic8800_bsp,aic8800_fdrv,aic8800_btlpm";
 
 	cpus: cpus {
 		#address-cells = <1>;
@@ -118,7 +119,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -141,20 +142,19 @@
 		vin-supply = <&dc_12v>;
 	};
 
-/*
+
 	rf_pwrseq: rf-pwrseq {
 		compatible = "spacemit,rf-pwrseq";
 		//vdd-supply = <&ldo_7>;
 		//vdd_voltage = <3300000>;
-		io-supply = <&dcdc_3>;
+		io-supply = <&ldo_8>;
 		io_voltage = <1800000>;
-		pwr-gpios  = <&gpio 67 0>,
-			     <&gpio 03 0>;
+		pwr-gpios  = <&gpio 03 0>;
 		status = "okay";
 
 		wlan_pwrseq: wlan-pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios = <&gpio 116 0>;
+			regon-gpios = <&gpio 67 0>;
 			interrupt-parent = <&pinctrl>;
 			interrupts = <268>;
 			pinctrl-names = "default";
@@ -166,7 +166,7 @@
 			reset-gpios     = <&gpio 63 0>;
 		};
 	};
-*/
+
 
 	gpio_keys: gpio_keys {
 		compatible = "gpio-keys";
@@ -203,11 +203,9 @@
 	status = "okay";
 };
 
-/*
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
-	spacemit-dpu-bitclk = <1000000000>;
-	spacemit-dpu-escclk = <76800000>;
+	spacemit-dpu-bitclk = <614000000>;
 	dsi_1v2-supply = <&ldo_5>;
 	dsi_1v8-supply = <&ldo_11>;
 	vin-supply-names = "dsi_1v2", "dsi_1v8";
@@ -228,14 +226,13 @@
 		gpios-bl = <31>;
 		id = <2>;
 		delay-after-reset = <10>;
-		force-attached = "lcd_icnl9951r_mipi";
+		force-attached = "lcd_ft8201sinx101_mipi";
 	};
 };
 
 &lcds {
 	status = "okay";
 };
-*/
 
 &i2c0 {
 	pinctrl-names = "default";
@@ -298,6 +295,18 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c5_0>;
 	status = "okay";
+
+	focaltech@38{
+                compatible = "focaltech,fts";
+                reg = <0x38>;
+                interrupt-parent = <&gpio>;
+                interrupts = <29 0x02>;
+                vdd-supply = <&ldo_11>;
+                focaltech,reset-gpio = <&gpio 32 0x01>;
+                focaltech,irq-gpio = <&gpio 29 0x02>;
+                focaltech,max-touch-number = <10>;
+                focaltech,display-coords =  <0 0 800 1280>;
+        };
 };
 
 
@@ -568,17 +577,17 @@
 	cw2015: cw2015@62 {
 		compatible = "cellwise,cw2015";
 		reg = <0x62>;
-/*		cellwise,battery-profile = /bits/ 8 <
-			0x17 0x67 0x73 0x69 0x68 0x65 0x64 0x55
-			0x75 0x60 0x4A 0x57 0x57 0x4E 0x42 0x3A
-			0x30 0x28 0x23 0x1E 0x23 0x35 0x46 0x4D
-			0x14 0x86 0x06 0x66 0x25 0x45 0x51 0x63
-			0x72 0x69 0x66 0x6B 0x3F 0x1B 0x78 0x39
-			0x0A 0x2F 0x1A 0x46 0x88 0x94 0x9B 0x12
-			0x3B 0x5F 0x9A 0xB6 0x80 0x57 0x7F 0xCB
+		cellwise,battery-profile = /bits/ 8 <
+			0x18 0x0A 0x8F 0x78 0x6D 0x6D 0x6D 0x6E
+			0x6E 0x6C 0x6A 0x69 0x66 0x5F 0x65 0x5D
+			0x4C 0x41 0x33 0x2C 0x28 0x27 0x2C 0x3A
+			0x46 0x4C 0x0C 0xCD 0x25 0x45 0x47 0x48
+			0x49 0x49 0x48 0x47 0x36 0x0F 0x65 0x11
+			0x02 0x21 0x3C 0x69 0x8A 0x92 0x93 0x32
+			0x4C 0x7D 0x98 0x9F 0x80 0x4F 0x9D 0xCB
 			0x2F 0x00 0x64 0xA5 0xB5 0xC1 0x46 0xAE
 		>;
-*/		status = "okay";
+		status = "okay";
 	};
 };
 
@@ -666,7 +675,7 @@
 	pinctrl-0 = <&pinctrl_mmc2>;
 	bus-width = <4>;
 	non-removable;
-	vqmmc-supply = <&dcdc_3>;
+	vqmmc-supply = <&ldo_8>;
 	no-mmc;
 	no-sd;
 	keep-power-in-suspend;
@@ -724,7 +733,6 @@
 	status = "okay";
 };
 
-/*
 &otg {
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	usb-role-switch;
@@ -734,18 +742,7 @@
 
 	usb-role-switch;
 	role-switch-default-mode = "peripheral";
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		port@0 {
-			reg = <0x0>;
-			otg_role_switch: endpoint {
-				remote-endpoint = <&otg_ep>;
-			};
-		};
-	};
 };
-*/
 
 &usbphy1 {
 	status = "okay";
@@ -754,11 +751,12 @@
 &udc1 {
 	/*spacemit,udc-mode = <MV_USB_MODE_UDC>;*/
 	spacemit,udc-mode = <MV_USB_MODE_OTG>;
-	status = "disabled";
+	status = "okay";
 };
 
 &ehci1 {
 	spacemit,reset-on-resume;
+	spacemit,udc-mode = <MV_USB_MODE_OTG>;
 	status = "okay";
 };
 
@@ -767,21 +765,26 @@
 	role-switch-user-control;
 	spacemit,reset-on-resume;
 	role-switch-default-mode = "host";
-	vbus-gpios = <&gpio 123 0>;
-	status = "disabled";
+	/* vbus-gpios = <&gpio 123 0>; */
+	status = "okay";
 };
 
 &usb2phy {
-	status = "okay";
+	status = "disabled";
 };
 
 &combphy {
+	status = "disabled";
+};
+
+&usb3hub {
+	/* gpio_124 for ehci1 dcdc-boost, gpio_89 for vbus */
+	vbus-gpios = <&gpio 124 0 &gpio 89 0>;
 	status = "okay";
 };
 
-/*
 &usbdrd3 {
-	status = "okay";
+	status = "disabled";
 	reset-on-resume;
 	dwc3@c0a00000 {
 		dr_mode = "otg";
@@ -793,22 +796,10 @@
 		snps,dis-del-phy-power-chg-quirk;
 		snps,dis-tx-ipgap-linecheck-quirk;
 		snps,parkmode-disable-ss-quirk;
-
 		usb-role-switch;
-		role-switch-default-mode = "peripheral";
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				reg = <0x0>;
-				dwc3_role_switch: endpoint {
-					remote-endpoint = <&dwc3_ep>;
-				};
-			};
-		};
+		role-switch-default-mode = "host";
 	};
 };
-*/
 
 &imggpu {
 	status = "okay";

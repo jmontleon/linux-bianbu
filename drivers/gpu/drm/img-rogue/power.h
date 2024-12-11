@@ -66,18 +66,52 @@ typedef IMG_BOOL (*PFN_SYS_DEV_IS_DEFAULT_STATE_OFF)(PVRSRV_POWER_DEV *psPowerDe
   Typedef for a pointer to a Function that will be called before a transition
   from one power state to another. See also PFN_POST_POWER.
  */
-typedef PVRSRV_ERROR (*PFN_PRE_POWER) (IMG_HANDLE				hDevHandle,
-									   PVRSRV_DEV_POWER_STATE	eNewPowerState,
-									   PVRSRV_DEV_POWER_STATE	eCurrentPowerState,
-									   PVRSRV_POWER_FLAGS		ePwrFlags);
+typedef PVRSRV_ERROR (*PFN_PRE_POWER)(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                      PVRSRV_DEV_POWER_STATE eNewPowerState,
+                                      PVRSRV_DEV_POWER_STATE eCurrentPowerState,
+                                      PVRSRV_POWER_FLAGS ePwrFlags);
 /*!
   Typedef for a pointer to a Function that will be called after a transition
   from one power state to another. See also PFN_PRE_POWER.
  */
-typedef PVRSRV_ERROR (*PFN_POST_POWER) (IMG_HANDLE				hDevHandle,
-										PVRSRV_DEV_POWER_STATE	eNewPowerState,
-										PVRSRV_DEV_POWER_STATE	eCurrentPowerState,
-										PVRSRV_POWER_FLAGS		ePwrFlags);
+typedef PVRSRV_ERROR (*PFN_POST_POWER)(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                       PVRSRV_DEV_POWER_STATE eNewPowerState,
+                                       PVRSRV_DEV_POWER_STATE eCurrentPowerState,
+                                       PVRSRV_POWER_FLAGS ePwrFlags);
+
+/* Clock speed handler prototypes */
+
+/*!
+  Typedef for a pointer to a Function that will be called before a transition
+  from one clock speed to another. See also PFN_POST_CLOCKSPEED_CHANGE.
+ */
+typedef PVRSRV_ERROR (*PFN_PRE_CLOCKSPEED_CHANGE)(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                                  PVRSRV_DEV_POWER_STATE eCurrentPowerState);
+
+/*!
+  Typedef for a pointer to a Function that will be called after a transition
+  from one clock speed to another. See also PFN_PRE_CLOCKSPEED_CHANGE.
+ */
+typedef PVRSRV_ERROR (*PFN_POST_CLOCKSPEED_CHANGE)(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                                   PVRSRV_DEV_POWER_STATE eCurrentPowerState);
+
+/*!
+  Typedef for a pointer to a function that will be called to transition the
+  device to a forced idle state. Used in unison with (forced) power requests,
+  DVFS and cluster count changes.
+ */
+typedef PVRSRV_ERROR (*PFN_FORCED_IDLE_REQUEST)(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                                IMG_BOOL bDeviceOffPermitted);
+
+/*!
+  Typedef for a pointer to a function that will be called to cancel a forced
+  idle state and return the firmware back to a state where the hardware can be
+  scheduled.
+ */
+typedef PVRSRV_ERROR (*PFN_FORCED_IDLE_CANCEL_REQUEST)(PPVRSRV_DEVICE_NODE psDeviceNode);
+
+typedef PVRSRV_ERROR (*PFN_GPU_UNITS_POWER_CHANGE)(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                                   IMG_UINT32 ui32SESPowerState);
 
 const char *PVRSRVSysPowerStateToString(PVRSRV_SYS_POWER_STATE eState);
 const char *PVRSRVDevPowerStateToString(PVRSRV_DEV_POWER_STATE eState);
@@ -96,7 +130,13 @@ void PVRSRVPowerLockDeInit(PPVRSRV_DEVICE_NODE psDeviceNode);
  @Return	PVRSRV_ERROR_SYSTEM_STATE_POWERED_OFF or PVRSRV_OK
 
 ******************************************************************************/
+#if defined(DEBUG)
+PVRSRV_ERROR PVRSRVPowerLock_Debug(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                   const char *pszFile, const unsigned int ui32LineNum);
+#define PVRSRVPowerLock(DEV_NODE)	PVRSRVPowerLock_Debug(DEV_NODE, __FILE__, __LINE__)
+#else
 PVRSRV_ERROR PVRSRVPowerLock(PPVRSRV_DEVICE_NODE psDeviceNode);
+#endif
 
 /*!
 ******************************************************************************
@@ -122,7 +162,32 @@ void PVRSRVPowerUnlock(PPVRSRV_DEVICE_NODE psDeviceNode);
 		PVRSRV_OK
 
 ******************************************************************************/
+#if defined(DEBUG)
+PVRSRV_ERROR PVRSRVPowerTryLock_Debug(PPVRSRV_DEVICE_NODE psDeviceNode,
+                                      const char *pszFile, const unsigned int ui32LineNum);
+#define PVRSRVPowerTryLock(DEV_NODE)	PVRSRVPowerTryLock_Debug(DEV_NODE, __FILE__, __LINE__)
+#else
 PVRSRV_ERROR PVRSRVPowerTryLock(PPVRSRV_DEVICE_NODE psDeviceNode);
+#endif
+
+/*!
+******************************************************************************
+
+ @Function	PVRSRVPowerTryLockWaitForTimeout
+
+ @Description	Try to obtain the mutex for power transitions. Only allowed when
+		system power is on. The call blocks until either the lock is acquired,
+		or the timeout is reached.
+
+		*** Debug only. DO NOT use in core GPU functions which cannot fail. ***
+		If the power lock cannot be taken the device may be powered down at
+		any time in another worker thread.
+
+ @Return	PVRSRV_ERROR_RETRY or PVRSRV_ERROR_SYSTEM_STATE_POWERED_OFF or
+		PVRSRV_OK
+
+******************************************************************************/
+PVRSRV_ERROR PVRSRVPowerTryLockWaitForTimeout(PPVRSRV_DEVICE_NODE psDeviceNode);
 
 /*!
 ******************************************************************************
@@ -309,6 +374,42 @@ PVRSRV_ERROR PVRSRVGetDevicePowerState(PCPVRSRV_DEVICE_NODE psDeviceNode,
 
 ******************************************************************************/
 IMG_BOOL PVRSRVIsDevicePowered(PPVRSRV_DEVICE_NODE psDeviceNode);
+
+/*!
+******************************************************************************
+
+ @Function	PVRSRVGetSystemPowerState
+
+ @Description
+
+	Return the system power state
+
+ @Input		psDeviceNode : Device node
+ @Output	peCurrentSysPowerState : Current power state
+
+ @Return	PVRSRV_ERROR_UNKNOWN_POWER_STATE if device could not be found.
+            PVRSRV_OK otherwise.
+
+******************************************************************************/
+PVRSRV_ERROR PVRSRVGetSystemPowerState(PPVRSRV_DEVICE_NODE psDeviceNode,
+	                                   PPVRSRV_SYS_POWER_STATE peCurrentSysPowerState);
+
+/*!
+******************************************************************************
+
+ @Function	PVRSRVIsSystemPowered
+
+ @Description
+
+	Whether the system layer is powered, for ensuring the RGX regbank is powered
+	during initial GPU driver configuration.
+
+ @Input		psDeviceNode : Device node
+
+ @Return	IMG_BOOL
+
+******************************************************************************/
+IMG_BOOL PVRSRVIsSystemPowered(PPVRSRV_DEVICE_NODE psDeviceNode);
 
 /**************************************************************************/ /*!
 @Function       PVRSRVDevicePreClockSpeedChange

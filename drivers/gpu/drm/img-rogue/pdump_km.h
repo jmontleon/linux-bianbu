@@ -90,6 +90,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define PDUMP_PD_UNIQUETAG	(IMG_HANDLE)0
 #define PDUMP_PT_UNIQUETAG	(IMG_HANDLE)0
 
+/* Defines for CMD:SetParity's state word */
+#define PDUMP_SET_PARITY_STATE_WORD_VERSION_SHIFT		(0U)
+#define PDUMP_SET_PARITY_STATE_WORD_VERSION_MASK		(0x00000007U)
+
+#define PDUMP_SET_PARITY_STATE_WORD_PARITY_SHIFT_SHIFT	(3U)
+#define PDUMP_SET_PARITY_STATE_WORD_PARITY_SHIFT_MASK	(0x000001F8U)
+
+#define PDUMP_SET_PARITY_STATE_WORD_VA_PARITY_SHIFT		(9U)
+#define PDUMP_SET_PARITY_STATE_WORD_VA_PARITY_MASK		(0x00000200U)
+
 /* Invalid value for PDump block number */
 #define PDUMP_BLOCKNUM_INVALID      IMG_UINT32_MAX
 
@@ -102,6 +112,7 @@ typedef enum _PDUMP_TRANSITION_EVENT_
 	PDUMP_TRANSITION_EVENT_BLOCK_FINISHED,    /* Block mode event, current PDump-block has finished */
 	PDUMP_TRANSITION_EVENT_BLOCK_STARTED,     /* Block mode event, new PDump-block has started */
 	PDUMP_TRANSITION_EVENT_RANGE_ENTERED,     /* Transition into capture range */
+	PDUMP_TRANSITION_EVENT_RANGE_APPEND,      /* Append to an already entered capture range */
 	PDUMP_TRANSITION_EVENT_RANGE_EXITED,      /* Transition out of capture range */
 } PDUMP_TRANSITION_EVENT;
 
@@ -227,8 +238,8 @@ PVRSRV_ERROR PDumpSetFrameKM(CONNECTION_DATA *psConnection,
                              PVRSRV_DEVICE_NODE *psDeviceNode,
                              IMG_UINT32 ui32Frame);
 PVRSRV_ERROR PDumpGetFrameKM(CONNECTION_DATA *psConnection,
-                             PVRSRV_DEVICE_NODE * psDeviceNode,
-                             IMG_UINT32* pui32Frame);
+                             PVRSRV_DEVICE_NODE *psDeviceNode,
+                             IMG_UINT32 *pui32Frame);
 PVRSRV_ERROR PDumpCommentKM(CONNECTION_DATA *psConnection,
                             PVRSRV_DEVICE_NODE *psDeviceNode,
                             IMG_UINT32 ui32CommentSize,
@@ -817,10 +828,11 @@ PDumpStopInitPhase(PVRSRV_DEVICE_NODE *psDeviceNode)
 #endif
 static INLINE PVRSRV_ERROR
 PDumpSetFrameKM(CONNECTION_DATA *psConnection,
-                PVRSRV_DEVICE_NODE *psDevNode,
+                PVRSRV_DEVICE_NODE *psDeviceNode,
                 IMG_UINT32 ui32Frame)
 {
 	PVR_UNREFERENCED_PARAMETER(psConnection);
+	PVR_UNREFERENCED_PARAMETER(psDeviceNode);
 	PVR_UNREFERENCED_PARAMETER(ui32Frame);
 	return PVRSRV_OK;
 }
@@ -831,9 +843,10 @@ PDumpSetFrameKM(CONNECTION_DATA *psConnection,
 static INLINE PVRSRV_ERROR
 PDumpGetFrameKM(CONNECTION_DATA *psConnection,
                 PVRSRV_DEVICE_NODE *psDeviceNode,
-                IMG_UINT32* pui32Frame)
+                IMG_UINT32 *pui32Frame)
 {
 	PVR_UNREFERENCED_PARAMETER(psConnection);
+	PVR_UNREFERENCED_PARAMETER(psDeviceNode);
 	PVR_UNREFERENCED_PARAMETER(pui32Frame);
 	return PVRSRV_OK;
 }

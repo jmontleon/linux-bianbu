@@ -5035,12 +5035,19 @@ static void fe_isp_dma_bh_handler(struct isp_dma_work_struct *isp_dma_work)
 	struct spm_camera_vnode *sc_vnode = dma_ctx->vnode;
 	//struct isp_context *isp_ctx = dma_ctx->isp_ctx;
 	struct spm_camera_pipeline *sc_pipeline = NULL;
-	struct media_pipeline *pipe = media_entity_pipeline(&sc_vnode->vnode.entity);
+	struct media_pipeline *pipe = NULL;
 	struct spm_camera_vbuffer *n = NULL, *pos = NULL;
 	unsigned int *hw_err_code = NULL;
 	unsigned int irq_status = isp_dma_work->irq_status;
 	LIST_HEAD(export_list);
 	unsigned long flags = 0;
+
+	if (!sc_vnode) {
+		cam_dbg("a[%d] debug 0", dma_ctx->id);
+		goto dma_tasklet_finish;
+	}
+
+	pipe = media_entity_pipeline(&sc_vnode->vnode.entity);
 
 	if (!sc_vnode || !pipe) {
 		cam_dbg("a[%d] debug 1", dma_ctx->id);

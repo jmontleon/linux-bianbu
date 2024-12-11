@@ -58,6 +58,7 @@ typedef struct _DEVMEMINT_CTX_EXPORT_ DEVMEMINT_CTX_EXPORT;
 typedef struct _DEVMEMINT_HEAP_ DEVMEMINT_HEAP;
 
 typedef struct _DEVMEMINT_RESERVATION_ DEVMEMINT_RESERVATION;
+
 typedef struct _DEVMEMINT_MAPPING_ DEVMEMINT_MAPPING;
 typedef struct _DEVMEMXINT_RESERVATION_ DEVMEMXINT_RESERVATION;
 typedef struct _DEVMEMINT_PF_NOTIFY_ DEVMEMINT_PF_NOTIFY;
@@ -167,8 +168,6 @@ PVRSRV_ERROR
 DevmemIntHeapCreate(DEVMEMINT_CTX *psDevmemCtx,
                     IMG_UINT32 uiHeapConfigIndex,
                     IMG_UINT32 uiHeapIndex,
-                    IMG_DEV_VIRTADDR sHeapBaseAddr,
-                    IMG_UINT32 uiLog2DataPageSize,
                     DEVMEMINT_HEAP **ppsDevmemHeapPtr);
 /*
  * DevmemIntHeapDestroy()
@@ -188,81 +187,136 @@ DevmemIntHeapDestroy(DEVMEMINT_HEAP *psDevmemHeap);
 IMG_DEV_VIRTADDR
 DevmemIntHeapGetBaseAddr(DEVMEMINT_HEAP *psDevmemHeap);
 
-/*
- * DevmemIntMapPMR()
+/*************************************************************************/ /*!
+ * @Function    DevmemIntReserveRange()
+ * @Description Reserves a number of virtual addresses starting sReservationVAddr
+ *              and continuing until sReservationVAddr + uiVirtualSize - 1.
  *
- * Maps the given PMR to the virtual range previously allocated with
- * DevmemIntReserveRange()
+ *              If you call DevmemIntReserveRange() (and the call succeeds)
+ *              then you are promising that you shall later call DevmemIntUnreserveRange()
  *
- * If appropriate, the PMR must have had its physical backing committed, as
- * this call will call into the MMU code to set up the page tables for this
- * allocation, which shall in turn request the physical addresses from the
- * PMR. Alternatively, the PMR implementation can choose to do so off the
- * the back of the "lock" callback, which it will receive as a result
- * (indirectly) of this call.
+ * @Input       psDevmemHeap        The virtual heap the DevVAddr is within.
+ * @Input       sReservationVAddr   The first virtual address of the range.
+ * @Input       uiVirtualSize       The number of bytes in the virtual range.
+ * @Input       uiFlags             Mem alloc flags
+ * @Output      ppsReservationPtr   A pointer to the created reservation.
  *
- * This function makes no promise w.r.t. the circumstances that it can be
- * called, and these would be "inherited" from the implementation of the PMR.
- * For example if the PMR "lock" callback causes pages to be pinned at that
- * time (which may cause scheduling or disk I/O etc.) then it would not be
- * legal to "Map" the PMR in a context where scheduling events are disallowed.
- *
- * If you call DevmemIntMapPMR() (and the call succeeds) then you are promising
- * that you shall later call DevmemIntUnmapPMR()
- */
-PVRSRV_ERROR
-DevmemIntMapPMR(DEVMEMINT_HEAP *psDevmemHeap,
-                DEVMEMINT_RESERVATION *psReservation,
-                PMR *psPMR,
-                PVRSRV_MEMALLOCFLAGS_T uiMapFlags,
-                DEVMEMINT_MAPPING **ppsMappingPtr);
-/*
- * DevmemIntUnmapPMR()
- *
- * Reverses the mapping caused by DevmemIntMapPMR()
- */
-PVRSRV_ERROR
-DevmemIntUnmapPMR(DEVMEMINT_MAPPING *psMapping);
-
-
-
-/*
- * DevmemIntReserveRangeAndMapPMR()
- * Bundled call to reserve range and map.
- */
-PVRSRV_ERROR
-DevmemIntReserveRangeAndMapPMR(DEVMEMINT_HEAP *psDevmemHeap,
-							   IMG_DEV_VIRTADDR sAllocationDevVAddr,
-							   IMG_DEVMEM_SIZE_T uiAllocationSize,
-							   PMR *psPMR,
-							   PVRSRV_MEMALLOCFLAGS_T uiMapFlags,
-							   DEVMEMINT_MAPPING **ppsMappingPtr);
-
-PVRSRV_ERROR
-DevmemIntUnreserveRangeAndUnmapPMR(DEVMEMINT_MAPPING *psMappingPtr);
-
-/*
- * DevmemIntReserveRange()
- *
- * Indicates that the specified range should be reserved from the given heap.
- *
- * In turn causes the page tables to be allocated to cover the specified range.
- *
- * If you call DevmemIntReserveRange() (and the call succeeds) then you are
- * promising that you shall later call DevmemIntUnreserveRange()
- */
+ * @Return      PVRSRV_ERROR
+*/ /**************************************************************************/
 PVRSRV_ERROR
 DevmemIntReserveRange(DEVMEMINT_HEAP *psDevmemHeap,
-                      IMG_DEV_VIRTADDR sAllocationDevVAddr,
-                      IMG_DEVMEM_SIZE_T uiAllocationSize,
+                      IMG_DEV_VIRTADDR sReservationVAddr,
+                      IMG_DEVMEM_SIZE_T uiVirtualSize,
+                      PVRSRV_MEMALLOCFLAGS_T uiFlags,
                       DEVMEMINT_RESERVATION **ppsReservationPtr);
-/*
- * DevmemIntUnreserveRange()
+
+/*************************************************************************/ /*!
+ * @Function    DevmemIntUnreserveRange()
+ * @Description Unreserves the specified virtual range. In the case that the
+ *              virtual range has not been unmapped, it will be unmapped.
+ *              If any references are held on the reservation PVRSRV_ERROR_RETRY
+ *              will be returned.
  *
- * Undoes the state change caused by DevmemIntReserveRage()
- */
+ * @Input       psDevmemReservation The reservation to unreserve
+ *
+ * @Return      PVRSRV_ERROR
+*/ /**************************************************************************/
 PVRSRV_ERROR
 DevmemIntUnreserveRange(DEVMEMINT_RESERVATION *psDevmemReservation);
+
+/*************************************************************************/ /*!
+ * @Function    DevmemIntMapPMR
+ *
+ * @Description Maps the given PMR to the virtual range previously reserved with
+ *              DevmemIntReserveRange(). When calling this function, the reservation
+ *              must be valid, and not mapped. Additionally, the PMRs logical
+ *              size and the reservations virtual size must be equal.
+ *
+ *              If appropriate, the PMR must have had its physical backing
+ *              committed, as this call will call into the MMU code to set
+ *              up the page tables for this allocation, which shall in turn
+ *              request the physical addresses from the PMR. Alternatively,
+ *              the PMR implementation can choose to do so off the back of
+ *              the "lock" callback, which it will receive as a result
+ *              (indirectly) of this call.
+ *
+ *              If you call DevmemIntMapPMR() (and the call succeeds) then you
+ *              are promising that you shall later call DevmemIntUnmapPMR()
+ *
+ * @Input       psReservation    The reservation the PMR will be mapped into.
+ * @Input       psPMR            The PMR to be mapped.
+ *
+ * @Return      PVRSRV_ERROR failure code
+*/ /**************************************************************************/
+PVRSRV_ERROR
+DevmemIntMapPMR(DEVMEMINT_RESERVATION *psReservation, PMR *psPMR);
+
+/*************************************************************************/ /*!
+ * @Function    DevmemIntUnmapPMR()
+ *
+ * @Description Unmaps a previously mapped virtual range.
+ *
+ * @Input       psReservation   The virtual range to unmap.
+ *
+ * @Return      PVRSRV_ERROR
+*/ /**************************************************************************/
+PVRSRV_ERROR
+DevmemIntUnmapPMR(DEVMEMINT_RESERVATION *psReservation);
+
+
+/*************************************************************************/ /*!
+ * @Function    DevmemIntReserveRangeAndMapPMR()
+ *
+ * @Description Reserve (with DevmemIntReserveRange), and map a virtual range
+ *              to a PMR (with DevmemIntMapPMR).
+ *
+ * @Input       psDevmemHeap        The virtual heap DevVAddr is within.
+ * @Input       sReservationVAddr   The first virtual address of the range.
+ * @Input       uiVirtualSize       The number of bytes in the virtual range.
+ * @Input       psPMR               The PMR to be mapped.
+ * @Input       uiFlags             Mem alloc flags
+ * @Output      ppsReservation      A pointer to the created reservation.
+ *
+ * @Return      PVRSRV_ERROR
+*/ /**************************************************************************/
+PVRSRV_ERROR
+DevmemIntReserveRangeAndMapPMR(DEVMEMINT_HEAP *psDevmemHeap,
+                               IMG_DEV_VIRTADDR sReservationVAddr,
+                               IMG_DEVMEM_SIZE_T uiVirtualSize,
+                               PMR *psPMR,
+                               PVRSRV_MEMALLOCFLAGS_T uiFlags,
+                               DEVMEMINT_RESERVATION **ppsReservation);
+
+/*************************************************************************/ /*!
+ * @Function       DevmemIntChangeSparse
+ * @Description    Changes the sparse allocations of a PMR by allocating and freeing
+ *                 pages and changing their corresponding GPU mapping.
+ *
+ *                 Prior to calling this function DevmemIntMapPMR
+ *                 or DevmemIntReserveRangeAndMapPMR must be used.
+ *
+ * @Input          psReservation         The reservation that the PMR is mapped to.
+ * @Input          ui32AllocPageCount    Number of pages to allocate
+ * @Input          pai32AllocIndices     The logical PMR indices where pages will
+ *                                       be allocated. May be NULL.
+ * @Input          ui32FreePageCount     Number of pages to free
+ * @Input          pai32FreeIndices      The logical PMR indices where pages will
+ *                                       be freed. May be NULL.
+ * @Input          uiSparseFlags         Flags passed in to determine which kind
+ *                                       of sparse change the user wanted.
+ *                                       See devicemem_typedefs.h for details.
+ * @Return         PVRSRV_ERROR
+*/ /**************************************************************************/
+PVRSRV_ERROR
+DevmemIntChangeSparse(IMG_UINT32 ui32AllocPageCount,
+                      IMG_UINT32 *pai32AllocIndices,
+                      IMG_UINT32 ui32FreePageCount,
+                      IMG_UINT32 *pai32FreeIndices,
+                      SPARSE_MEM_RESIZE_FLAGS uiSparseFlags,
+                      DEVMEMINT_RESERVATION *psReservation);
+
+PVRSRV_ERROR
+DevmemIntGetReservationData(DEVMEMINT_RESERVATION* psReservation, PMR** ppsPMR, IMG_DEV_VIRTADDR* psDevVAddr);
 
 /*************************************************************************/ /*!
  * @Function    DevmemXIntReserveRange()
@@ -278,16 +332,16 @@ DevmemIntUnreserveRange(DEVMEMINT_RESERVATION *psDevmemReservation);
  *
  * @Input       psDevmemHeap        Pointer to the heap the reservation is made
  *                                  on
- * @Input       sAllocationDevVAddr Virtual address of the reservation
- * @Input       uiAllocationSize    Size of the reservation (in bytes)
+ * @Input       sReservationVAddr   Virtual address of the reservation
+ * @Input       uiVirtualSize       Size of the reservation (in bytes)
  * @Input       ppsRsrv             Return pointer to the reservation object
  *
  * @Return      PVRSRV_ERROR
 */ /**************************************************************************/
 PVRSRV_ERROR
 DevmemXIntReserveRange(DEVMEMINT_HEAP *psDevmemHeap,
-                       IMG_DEV_VIRTADDR sAllocationDevVAddr,
-                       IMG_DEVMEM_SIZE_T uiAllocationSize,
+                       IMG_DEV_VIRTADDR sReservationVAddr,
+                       IMG_DEVMEM_SIZE_T uiVirtualSize,
                        DEVMEMXINT_RESERVATION **ppsRsrv);
 
 /*************************************************************************/ /*!
@@ -380,43 +434,8 @@ DevmemXIntMapVRangeToBackingPage(DEVMEMXINT_RESERVATION *psRsrv,
                                  PVRSRV_MEMALLOCFLAGS_T uiFlags,
                                  IMG_UINT32 uiVirtPageOffset);
 
-/*************************************************************************/ /*!
-@Function       DevmemIntChangeSparse
-@Description    Changes the sparse allocations of a PMR by allocating and freeing
-                pages and changing their corresponding CPU and GPU mappings.
-
-@input          psDevmemHeap          Pointer to the heap we map on
-@input          psPMR                 The PMR we want to map
-@input          ui32AllocPageCount    Number of pages to allocate
-@input          pai32AllocIndices     The logical PMR indices where pages will
-                                      be allocated. May be NULL.
-@input          ui32FreePageCount     Number of pages to free
-@input          pai32FreeIndices      The logical PMR indices where pages will
-                                      be freed. May be NULL.
-@input          uiSparseFlags         Flags passed in to determine which kind
-                                      of sparse change the user wanted.
-                                      See devicemem_typedefs.h for details.
-@input          uiFlags               Memalloc flags for this virtual range.
-@input          sDevVAddrBase         The base address of the virtual range of
-                                      this sparse allocation.
-@input          sCpuVAddrBase         The CPU base address of this allocation.
-                                      May be 0 if not existing.
-@Return         PVRSRV_ERROR failure code
-*/ /**************************************************************************/
-PVRSRV_ERROR
-DevmemIntChangeSparse(DEVMEMINT_HEAP *psDevmemHeap,
-                      PMR *psPMR,
-                      IMG_UINT32 ui32AllocPageCount,
-                      IMG_UINT32 *pai32AllocIndices,
-                      IMG_UINT32 ui32FreePageCount,
-                      IMG_UINT32 *pai32FreeIndices,
-                      SPARSE_MEM_RESIZE_FLAGS uiSparseFlags,
-                      PVRSRV_MEMALLOCFLAGS_T uiFlags,
-                      IMG_DEV_VIRTADDR sDevVAddrBase,
-                      IMG_UINT64 sCpuVAddrBase);
-
 /*
- * DevmemIntRGXInvalidateFBSCTable()
+ * DevmemIntInvalidateFBSCTable()
  *
  * Invalidate selected FBSC table indices.
  *

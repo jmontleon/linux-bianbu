@@ -49,7 +49,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "rgxdevice.h"
 #include "device.h"
 
-#if defined(__linux__) && defined(CONFIG_EVENT_TRACING)
+#if defined(__linux__) && defined(CONFIG_EVENT_TRACING) && \
+	(defined(PVRSRV_TRACE_ROGUE_EVENTS) || \
+	 defined(PVRSRV_ANDROID_TRACE_GPU_WORK_PERIOD))
 
 /* Early initialisation of GPU Trace events logic.
  * This function is called on *driver* initialisation. */

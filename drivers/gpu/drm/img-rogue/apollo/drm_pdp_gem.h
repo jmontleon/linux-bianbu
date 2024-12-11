@@ -53,9 +53,7 @@
 #include <drm/drmP.h>
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0))
 #include <drm/drm_gem.h>
-#endif
 
 #include "drm_pdp_drv.h"
 #include "pvr_dma_resv.h"

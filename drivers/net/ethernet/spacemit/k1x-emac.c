@@ -2875,6 +2875,9 @@ static struct platform_driver emac_driver = {
 		.name = DRIVER_NAME,
 		.of_match_table = of_match_ptr(emac_of_match),
 		.pm     = &k1x_emac_pm_qos,
+#ifdef CONFIG_SPACEMIT_PARALLEL_BOOTING
+		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
+#endif
 	},
 };
 

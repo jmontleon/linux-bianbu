@@ -41,7 +41,7 @@
 		#size-cells = <0>;
 		timebase-frequency = <10000000>;
 		cpu_0: cpu@0 {
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			device_type = "cpu";
 			model = "Spacemit(R) X60";
 			reg = <0>;
@@ -78,7 +78,7 @@
 			device_type = "cpu";
 			reg = <1>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -112,7 +112,7 @@
 			device_type = "cpu";
 			reg = <2>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -146,7 +146,7 @@
 			device_type = "cpu";
 			reg = <3>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -180,7 +180,7 @@
 			device_type = "cpu";
 			reg = <4>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -214,7 +214,7 @@
 			device_type = "cpu";
 			reg = <5>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -248,7 +248,7 @@
 			device_type = "cpu";
 			reg = <6>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -282,7 +282,7 @@
 			device_type = "cpu";
 			reg = <7>;
 			status = "okay";
-			compatible = "riscv";
+			compatible = "spacemit,x60", "riscv";
 			model = "Spacemit(R) X60";
 			riscv,isa = "rv64imafdcv";
 			riscv,isa-base = "rv64i";
@@ -507,13 +507,13 @@
 			status = "okay";
 		};
 
-		/* dram mapping for pcie for ex. */
+		/* dram mapping for pcie0 for ex. */
 		dram_range2: dram_range@2 {
 			compatible = "spacemit-dram-bus";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
-				     <0x0 0xb8000000 0x1 0x38000000 0x3 0x48000000>;
+				     <0x0 0x90000000 0x1 0x10000000 0x3 0x70000000>;
 			#interconnect-cells = <0>;
 			status = "okay";
 		};
@@ -547,6 +547,30 @@
 			#size-cells = <2>;
 			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
 				     <0x0 0x80000000 0x1 0x00000000 0x0 0x80000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for pcie1 for ex. */
+		dram_range6: dram_range@6 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x0 0x80000000 0x1 0x00000000 0x0 0x10000000>,
+				     <0x0 0xa0000000 0x1 0x20000000 0x3 0x60000000>;
+			#interconnect-cells = <0>;
+			status = "okay";
+		};
+
+		/* dram mapping for pcie2 for ex. */
+		dram_range7: dram_range@7 {
+			compatible = "spacemit-dram-bus";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			dma-ranges = <0x0 0x00000000 0x0 0x00000000 0x0 0x80000000>,
+				     <0x0 0x80000000 0x1 0x00000000 0x0 0x20000000>,
+				     <0x0 0xb8000000 0x1 0x38000000 0x3 0x48000000>;
 			#interconnect-cells = <0>;
 			status = "okay";
 		};
@@ -1207,6 +1231,8 @@
 			#size-cells = <0>;
 			interrupt-parent = <&intc>;
 			interrupts = <39>;
+			clocks = <&ccu CLK_SEC_TWSI3>;
+			resets = <&reset RESET_SEC_TWSI3>;
 			spacemit,dma-disable;
 			/* spacemit,i2c-fast-mode; */
 			/* spacemit,i2c-high-mode; */
@@ -2249,7 +2275,7 @@
 			#size-cells = <2>;
 			ranges = <0x01000000 0x0 0x9f002000 0 0x9f002000 0x0 0x100000>,
 				 <0x02000000 0x0 0x90000000 0 0x90000000 0x0 0x0f000000>;
-			interconnects = <&dram_range2>;
+			interconnects = <&dram_range6>;
 			interconnect-names = "dma-mem";
 
 			interrupts = <142>, <146>;
@@ -2299,7 +2325,7 @@
 			ranges = <0x01000000 0x0 0xb7002000 0 0xb7002000 0x0 0x100000>,
 				 <0x42000000 0x0 0xa0000000 0 0xa0000000 0x0 0x10000000>,
 				 <0x02000000 0x0 0xb0000000 0 0xb0000000 0x0 0x7000000>;
-			interconnects = <&dram_range2>;
+			interconnects = <&dram_range7>;
 			interconnect-names = "dma-mem";
 
 			interrupts = <143>, <147>;

@@ -93,6 +93,7 @@ enum tc_version_t {
 	ODIN_VERSION_TCF_BONNIE,
 	ODIN_VERSION_FPGA,
 	ODIN_VERSION_ORION,
+	ODIN_VERSION_VALI,
 };
 
 struct tc_interrupt_handler {
@@ -116,6 +117,7 @@ struct tc_device {
 
 	enum tc_version_t version;
 	bool odin;
+	bool vali;
 	bool orion;
 
 	int mem_mode;
@@ -130,7 +132,7 @@ struct tc_device {
 	resource_size_t pdp_heap_mem_base;
 	resource_size_t pdp_heap_mem_size;
 
-	struct platform_device *ext_dev;
+	struct platform_device *ext_dev[RGX_NUM_DRIVERS_SUPPORTED];
 
 	resource_size_t ext_heap_mem_base;
 	resource_size_t ext_heap_mem_size;
@@ -148,9 +150,7 @@ struct tc_device {
 	resource_size_t secure_heap_mem_size;
 #endif
 
-#if defined(CONFIG_MTRR) || (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
 	int mtrr;
-#endif
 	spinlock_t interrupt_handler_lock;
 	spinlock_t interrupt_enable_lock;
 

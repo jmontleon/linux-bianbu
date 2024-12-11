@@ -119,7 +119,7 @@
 	};
 
 	chosen {
-		bootargs = "earlycon=sbi console=ttyS0,115200n8 debug loglevel=8 swiotlb=65536 rdinit=/init";
+		bootargs = "earlycon=sbi console=ttyS0,115200n8 loglevel=8 swiotlb=65536 rdinit=/init";
 		stdout-path = "serial0:115200n8";
 	};
 
@@ -358,7 +358,11 @@
 		compatible = "hynetek,husb239";
 		reg = <0x42>;
 		vbus-gpios = <&gpio 124 0>;
-		int-gpio = <&gpio 78 0>;
+		interrupt-parent = <&pinctrl>;
+		interrupts = <316>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_husb239_u2>;
+		//wakeup-source;
 		status = "okay";
 
 		ports {
@@ -692,7 +696,6 @@
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_76  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
-		&range GPIO_78  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_89  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -724,6 +727,11 @@
 		>;
 	};
 
+	pinctrl_husb239_u2: husb239_u2_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(GPIO_78, MUX_MODE0, (EDGE_FALL | PULL_UP | PAD_3V_DS2))
+		>;
+	};
 };
 
 &gpio{
@@ -737,7 +745,6 @@
 		&pinctrl 70  PRI_TDI  4
 		&pinctrl 74  GPIO_74  1
 		&pinctrl 76  GPIO_76  1
-		&pinctrl 78  GPIO_78  1
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 89  GPIO_89  4
 		&pinctrl 96  DVL0     2

@@ -247,11 +247,11 @@ PVRSRV_ERROR PvzVMMConfigure(VMM_CONF_PARAM eVMMParamType,
 		case VMM_CONF_TIME_SLICE_DRV7:
 		{
 			IMG_UINT32 ui32DriverID = eVMMParamType - VMM_CONF_TIME_SLICE_DRV0;
-			IMG_UINT32 ui32TimeSlice = ui32ParamValue;
+			IMG_UINT32 ui32TSPercentage = ui32ParamValue;
 
 			if (ui32DriverID < RGX_NUM_DRIVERS_SUPPORTED)
 			{
-				eError = PVRSRVRGXFWDebugSetDriverTimeSliceKM(NULL, psDevNode, ui32DriverID, ui32TimeSlice);
+				eError = PVRSRVRGXFWDebugSetDriverTimeSliceKM(NULL, psDevNode, ui32DriverID, ui32TSPercentage);
 			}
 			else
 			{
@@ -261,9 +261,9 @@ PVRSRV_ERROR PvzVMMConfigure(VMM_CONF_PARAM eVMMParamType,
 		}
 		case VMM_CONF_TIME_SLICE_INTERVAL:
 		{
-			IMG_UINT32 ui32TimeSliceInterval = ui32ParamValue;
+			IMG_UINT32 ui32TSIntervalMs = ui32ParamValue;
 
-			eError = PVRSRVRGXFWDebugSetDriverTimeSliceIntervalKM(NULL, psDevNode, ui32TimeSliceInterval);
+			eError = PVRSRVRGXFWDebugSetDriverTimeSliceIntervalKM(NULL, psDevNode, ui32TSIntervalMs);
 			break;
 		}
 		case VMM_CONF_VZ_CONNECTION_COOLDOWN_PERIOD:

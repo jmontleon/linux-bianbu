@@ -142,6 +142,8 @@ typedef struct _MMU_PxE_CONFIG_
 	IMG_UINT64	uiPendingEnMask; /*! Entry pending bit mask */
 	IMG_UINT64	uiValidEnMask;   /*! Entry valid bit mask */
 	IMG_UINT8	uiValidEnShift;  /*! Entry valid bit shift */
+	IMG_UINT64	uiParityBitMask;   /*! Entry parity bit mask */
+	IMG_UINT8	uiParityBitShift;  /*! Entry parity bit shift */
 } MMU_PxE_CONFIG;
 
 /*!
@@ -201,12 +203,12 @@ typedef struct _MMU_DEVICEATTRIBS_
 	/*! Address split for the base object */
 	const struct _MMU_DEVVADDR_CONFIG_ *psTopLevelDevVAddrConfig;
 
-	/* Optional, test feature used to generate the pre-mapped page tables in a stand alone MMU driver.*/
-	PVRSRV_ERROR (*pfnTestPremapConfigureMMU)(struct _PVRSRV_DEVICE_NODE_ *psDevNode,
-			MMU_CONTEXT *psMMUContext,
-			IMG_DEV_VIRTADDR sDevVAddrStart,
-			IMG_DEV_VIRTADDR sDevVAddrEnd,
-			IMG_UINT32 ui32Log2PageSize);
+	/*! Supported page sizes validation mask */
+	IMG_UINT32 ui32ValidPageSizeMask;
+
+#if defined(PVRSRV_MMU_PARITY_ON_PTALLOC_AND_PTEUNMAP)
+	IMG_UINT64* pui64PrecomputedAllocParity[2];
+#endif
 
 	/*! Callback for creating protection bits for the page catalogue entry with 8 byte entry */
 	IMG_UINT64 (*pfnDerivePCEProt8)(IMG_UINT32 uiProtFlags, IMG_UINT32 uiLog2DataPageSize);
@@ -349,8 +351,6 @@ MMU_ContextDestroy(MMU_CONTEXT *psMMUContext);
 
 @Input          uSize                   The size of the allocation
 
-@Output         puActualSize            Actual size of allocation
-
 @Input          uiProtFlags             Generic MMU protection flags
 
 @Input          uDevVAddrAlignment      Alignment requirement of the virtual
@@ -365,7 +365,6 @@ MMU_ContextDestroy(MMU_CONTEXT *psMMUContext);
 PVRSRV_ERROR
 MMU_Alloc(MMU_CONTEXT *psMMUContext,
           IMG_DEVMEM_SIZE_T uSize,
-          IMG_DEVMEM_SIZE_T *puActualSize,
           IMG_UINT32 uiProtFlags,
           IMG_DEVMEM_SIZE_T uDevVAddrAlignment,
           IMG_DEV_VIRTADDR *psDevVAddr,
@@ -453,10 +452,10 @@ MMU_MapPages(MMU_CONTEXT *psMMUContext,
 @Input          uiMemAllocFlags         Indicates if the unmapped regions need
                                         to be backed by dummy or zero page
 
-@Return         None
+@Return         PVRSRV_OK if the unmap operation was successful
 */
 /*****************************************************************************/
-void
+PVRSRV_ERROR
 MMU_UnmapPages(MMU_CONTEXT *psMMUContext,
                PVRSRV_MEMALLOCFLAGS_T uiMappingFlags,
                IMG_DEV_VIRTADDR sDevVAddr,
@@ -531,10 +530,10 @@ MMU_MapPMRFast(MMU_CONTEXT *psMMUContext,
 
 @Input          uiLog2PageSize          log2 size of the page
 
-@Return         None
+@Return         PVRSRV_OK if the PMR was successfully unmapped
 */
 /*****************************************************************************/
-void
+PVRSRV_ERROR
 MMU_UnmapPMRFast(MMU_CONTEXT *psMMUContext,
                  IMG_DEV_VIRTADDR sDevVAddrBase,
                  IMG_UINT32 ui32PageCount,

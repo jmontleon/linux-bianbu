@@ -65,7 +65,7 @@ static IMG_UINT32 PhysHeapOSGetPageShift(void)
 static PHEAP_IMPL_FUNCS _sPHEAPImplFuncs =
 {
 	.pfnDestroyData = NULL,
-	.pfnGetPMRFactoryMemStats = PhysmemGetOSRamMemStats,
+	.pfnGetFactoryMemStats = PhysmemGetOSRamMemStats,
 	.pfnCreatePMR = PhysmemNewOSRamBackedPMR,
 	.pfnPagesAlloc = &OSPhyContigPagesAlloc,
 	.pfnPagesFree = &OSPhyContigPagesFree,

@@ -108,19 +108,9 @@ typedef struct _DRIVER_INFO_
 	IMG_BOOL	bIsNoMatch;
 }DRIVER_INFO;
 
-#if defined(SUPPORT_VALIDATION) && defined(__linux__)
-typedef struct MEM_LEAK_INTERVALS_TAG
-{
-	IMG_UINT32 ui32OSAlloc;
-	IMG_UINT32 ui32GPU;
-	IMG_UINT32 ui32MMU;
-} MEM_LEAK_INTERVALS;
-#endif
 
 typedef struct PVRSRV_DATA_TAG
 {
-	PVRSRV_DRIVER_MODE    eDriverMode;                    /*!< Driver mode (i.e. native, host or guest) */
-	IMG_BOOL              bForceApphintDriverMode;        /*!< Indicate if driver mode is forced via apphint */
 	DRIVER_INFO           sDriverInfo;
 	IMG_UINT32            ui32DPFErrorCount;                 /*!< Number of Fatal/Error DPFs */
 
@@ -151,9 +141,6 @@ typedef struct PVRSRV_DATA_TAG
 #if !defined(PVRSRV_SERVER_THREADS_INDEFINITE_SLEEP)
 	volatile IMG_UINT32   ui32DevicesWatchdogTimeout;     /*! Timeout for the Devices watchdog Thread */
 #endif
-#ifdef PVR_TESTING_UTILS
-	volatile IMG_UINT32   ui32DevicesWdWakeupCounter;     /* Need this for the unit tests. */
-#endif
 
 #if defined(SUPPORT_AUTOVZ)
 	IMG_HANDLE            hAutoVzWatchdogThread;          /*!< Devices watchdog thread */
@@ -182,13 +169,12 @@ typedef struct PVRSRV_DATA_TAG
 	DEVMEM_MEMDESC        *psInfoPageMemDesc;             /*! Memory descriptor of the information page. */
 	POS_LOCK              hInfoPageLock;                  /*! Lock guarding access to information page. */
 
-#if defined(SUPPORT_VALIDATION) && defined(__linux__)
-	MEM_LEAK_INTERVALS    sMemLeakIntervals;              /*!< How often certain memory leak types will trigger */
-#endif
 	IMG_HANDLE            hThreadsDbgReqNotify;
+
 
 	IMG_UINT32            ui32PDumpBoundDevice;           /*!< PDump is bound to the device first connected to */
 	ATOMIC_T              iNumDriverTasksActive;          /*!< Number of device-agnostic tasks active in the server */
+	PVRSRV_DRIVER_MODE    aeModuleParamDriverMode[PVRSRV_MAX_DEVICES]; /*!< Driver Mode for each device requested at launch */
 } PVRSRV_DATA;
 
 /* Function pointer used to invalidate cache between loops in wait/poll for value functions */
@@ -203,34 +189,23 @@ typedef PVRSRV_ERROR (*PFN_INVALIDATE_CACHEFUNC)(const volatile void*, IMG_UINT6
  @Return   PVRSRV_DATA *
 ******************************************************************************/
 PVRSRV_DATA *PVRSRVGetPVRSRVData(void);
+PVRSRV_DRIVER_MODE PVRSRVGetVzModeByDevNum(IMG_UINT32 ui32DevNum);
 
 #define PVRSRV_KM_ERRORS                     ( PVRSRVGetPVRSRVData() ? PVRSRVGetPVRSRVData()->ui32DPFErrorCount : IMG_UINT32_MAX)
 #define PVRSRV_ERROR_LIMIT_REACHED                (PVRSRV_KM_ERRORS == IMG_UINT32_MAX)
 #define PVRSRV_REPORT_ERROR()                do { if (!(PVRSRV_ERROR_LIMIT_REACHED)) { PVRSRVGetPVRSRVData()->ui32DPFErrorCount++; } } while (0)
 
-#define PVRSRV_VZ_MODE_IS(_expr)              (DRIVER_MODE_##_expr == PVRSRVGetPVRSRVData()->eDriverMode)
-#define PVRSRV_VZ_RETN_IF_MODE(_expr)         do { if (  PVRSRV_VZ_MODE_IS(_expr)) { return; } } while (0)
-#define PVRSRV_VZ_RETN_IF_NOT_MODE(_expr)     do { if (! PVRSRV_VZ_MODE_IS(_expr)) { return; } } while (0)
-#define PVRSRV_VZ_RET_IF_MODE(_expr, _rc)     do { if (  PVRSRV_VZ_MODE_IS(_expr)) { return (_rc); } } while (0)
-#define PVRSRV_VZ_RET_IF_NOT_MODE(_expr, _rc) do { if (! PVRSRV_VZ_MODE_IS(_expr)) { return (_rc); } } while (0)
+#define PVRSRV_VZ_MODE_FROM_DEVNODE(pnode)     (pnode->psDevConfig->eDriverMode)
+#define PVRSRV_VZ_MODE_FROM_DEVINFO(pdevinfo)  (pdevinfo->psDeviceNode->psDevConfig->eDriverMode)
+#define PVRSRV_VZ_MODE_FROM_DEVCFG(pdevcfg)    (pdevcfg->eDriverMode)
+#define PVRSRV_VZ_MODE_FROM_DEVID(devid)       (PVRSRVGetVzModeByDevNum(devid))
 
-/*!
-******************************************************************************
-@Note	The driver execution mode AppHint (i.e. PVRSRV_APPHINT_DRIVERMODE)
-		can be an override or non-override 32-bit value. An override value
-		has the MSB bit set & a non-override value has this MSB bit cleared.
-		Excluding this MSB bit & interpreting the remaining 31-bit as a
-		signed 31-bit integer, the mode values are:
-		  [-1 native <default>: 0 host : +1 guest ].
-******************************************************************************/
-#define PVRSRV_VZ_APPHINT_MODE_IS_OVERRIDE(_expr)   ((IMG_UINT32)(_expr)&(IMG_UINT32)(1<<31))
-#define PVRSRV_VZ_APPHINT_MODE(_expr)				\
-	((((IMG_UINT32)(_expr)&(IMG_UINT32)0x7FFFFFFF) == (IMG_UINT32)0x7FFFFFFF) ? DRIVER_MODE_NATIVE : \
-		!((IMG_UINT32)(_expr)&(IMG_UINT32)0x7FFFFFFF) ? DRIVER_MODE_HOST : \
-			((IMG_UINT32)((IMG_UINT32)(_expr)&(IMG_UINT)0x7FFFFFFF)==(IMG_UINT32)0x1) ? DRIVER_MODE_GUEST : \
-				((IMG_UINT32)(_expr)&(IMG_UINT32)0x7FFFFFFF))
+#define PVRSRV_VZ_MODE_IS(_expr, _struct, dev) (DRIVER_MODE_##_expr == PVRSRV_VZ_MODE_FROM_##_struct(dev))
 
-#define PVRSRV_VZ_TIME_SLICE_MAX	(100ULL)
+#define PVRSRV_VZ_RETN_IF_MODE(_expr, _struct, dev)         do { if (  PVRSRV_VZ_MODE_IS(_expr, _struct, dev)) { return; } } while (0)
+#define PVRSRV_VZ_RET_IF_MODE(_expr, _struct, dev, _rc)     do { if (  PVRSRV_VZ_MODE_IS(_expr, _struct, dev)) { return (_rc); } } while (0)
+
+#define PVRSRV_VZ_TIME_SLICE_MAX	(100UL)
 
 typedef struct _PHYS_HEAP_ITERATOR_ PHYS_HEAP_ITERATOR;
 
@@ -394,16 +369,6 @@ IMG_BOOL PVRSRVSystemSnoopingOfCPUCache(PVRSRV_DEVICE_CONFIG *psDevConfig);
 
 /*!
 ******************************************************************************
- @Function	: PVRSRVSystemSnoopingOfDeviceCache
-
- @Description	: Returns whether the system supports snooping of the device cache
-
- @Return : IMG_TRUE if the system has device cache snooping
-******************************************************************************/
-IMG_BOOL PVRSRVSystemSnoopingOfDeviceCache(PVRSRV_DEVICE_CONFIG *psDevConfig);
-
-/*!
-******************************************************************************
  @Function	: PVRSRVSystemHasNonMappableLocalMemory
 
  @Description	: Returns whether the device has non-mappable part of local memory
@@ -521,12 +486,12 @@ PVRSRV_DEVICE_NODE* PVRSRVGetDeviceInstance(IMG_UINT32 ui32Instance);
 PVRSRV_DEVICE_NODE *PVRSRVGetDeviceInstanceByKernelDevID(IMG_INT32 i32OSInstance);
 
 /*************************************************************************/ /*!
-@Function       PVRSRVDefaultDomainPower
-@Description    Returns psDevNode->eCurrentSysPowerState
-@Input          PVRSRV_DEVICE_NODE*     Device node
-@Return         PVRSRV_SYS_POWER_STATE  System power state tracked internally
+@Function       PVRSRVAcquireInternalID
+@Description    Returns the lowest free device ID.
+@Output         pui32InternalID  The device ID
+@Return         PVRSRV_ERROR     PVRSRV_OK or an error code
 */ /**************************************************************************/
-PVRSRV_SYS_POWER_STATE PVRSRVDefaultDomainPower(PVRSRV_DEVICE_NODE *psDevNode);
+PVRSRV_ERROR PVRSRVAcquireInternalID(IMG_UINT32 *pui32InternalID);
 
 /*************************************************************************/ /*!
 @Function       PVRSRVDeviceFreeze

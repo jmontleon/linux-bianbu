@@ -372,8 +372,10 @@ PVRSRV_ERROR LinuxEventObjectWait(IMG_HANDLE hOSEventObject,
 
 	DEFINE_WAIT(sWait);
 
-	PVRSRV_LINUX_EVENT_OBJECT *psLinuxEventObject = (PVRSRV_LINUX_EVENT_OBJECT *) hOSEventObject;
+	PVRSRV_LINUX_EVENT_OBJECT *psLinuxEventObject = (PVRSRV_LINUX_EVENT_OBJECT*)hOSEventObject;
 	PVRSRV_LINUX_EVENT_OBJECT_LIST *psLinuxEventObjectList = psLinuxEventObject->psLinuxEventObjectList;
+
+	PVR_ASSERT(psLinuxEventObjectList != NULL);
 
 	/* Check if the driver is good shape */
 	if (psPVRSRVData->eServicesState != PVRSRV_SERVICES_STATE_OK)
