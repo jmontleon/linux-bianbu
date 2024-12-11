@@ -25,7 +25,10 @@
 #include <linux/delay.h>
 #include <linux/syscore_ops.h>
 #include <linux/pm_domain.h>
+#include <linux/dma-map-ops.h>
+#include <linux/dma-direction.h>
 #include <linux/spacemit/platform_pm_ops.h>
+#include <linux/suspend.h>
 #include "remoteproc_internal.h"
 
 #define MAX_MEM_BASE	2
@@ -53,6 +56,13 @@
 
 struct dev_pm_qos_request greq;
 
+#ifdef CONFIG_HIBERNATION
+void *hibernate_rcpu_snapshot;
+void *hibernate_rcpu_runtime_vbase;
+void *hibernate_rcpu_runtime_pbase;
+unsigned int hibernal_snapshot_size;
+#endif
+
 struct spacemit_mbox {
 	const char name[10];
 	struct mbox_chan *chan;
@@ -72,6 +82,11 @@ struct spacemit_rproc {
 	struct spacemit_mbox *mb;
 #ifdef CONFIG_PM_SLEEP
 	struct rpmsg_device *rpdev;
+#ifdef CONFIG_HIBERNATION
+	struct notifier_block pm_notifier;
+	int hinernate_restore;
+	int hibernate_freeze;
+#endif
 #endif
 };
 
@@ -279,8 +294,10 @@ static int __process_theread(void *arg)
 
 	mb->kthread_running = true;
 	ret = sched_setscheduler(current, SCHED_FIFO, &param);
+	set_freezable();
 
 	do {
+		try_to_freeze();
 		wait_for_completion_timeout(&mb->mb_comp, 10);
 		if (rproc_vq_interrupt(rproc, mb->vq_id) == IRQ_NONE)
 			dev_dbg(&rproc->dev, "no message found in vq%d\n", mb->vq_id);
@@ -426,6 +443,22 @@ static int rproc_platform_late(void)
 	/* close the clk & power-switch */
 	genpd->domain.ops.suspend_noirq(&pdev->dev);
 
+#ifdef CONFIG_HIBERNATION
+	if (srproc->hinernate_restore)
+		return 0;
+
+	if (srproc->hibernate_freeze) {
+		/* store the runtime memory */
+		memcpy((void *)hibernate_rcpu_snapshot,
+				(void *)hibernate_rcpu_runtime_vbase,
+				hibernal_snapshot_size);
+
+		arch_sync_dma_for_device(virt_to_phys(hibernate_rcpu_snapshot),
+				hibernal_snapshot_size,
+				DMA_TO_DEVICE);
+	}
+#endif
+
 	return 0;
 }
 
@@ -463,6 +496,19 @@ static void rproc_platfrom_wake(void)
 		return;
 	}
 
+#ifdef CONFIG_HIBERNATION
+	if (srproc->hinernate_restore || srproc->hibernate_freeze) {
+		arch_sync_dma_for_device(virt_to_phys(hibernate_rcpu_snapshot),
+				hibernal_snapshot_size,
+				DMA_FROM_DEVICE);
+
+		/* copy the runtime memory */
+		memcpy((void *)hibernate_rcpu_runtime_vbase,
+				(void *)hibernate_rcpu_snapshot,
+				hibernal_snapshot_size);
+	}
+#endif
+
 	rcpu_snapshots_mem = rproc_find_carveout_by_name(rproc, "rcpu_mem_snapshots");
 	if (!rcpu_snapshots_mem) {
 		pr_err("Failed to find the rcpu_mem_snapshots\n");
@@ -487,10 +533,55 @@ static void rproc_platfrom_wake(void)
 	memset((void *)rcpu_snapshots_mem->va, 0, rcpu_snapshots_mem->len);
 }
 
+#ifdef CONFIG_HIBERNATION
+static int rproc_platform_hibernate_pre_snapshot(void)
+{
+	return rproc_platform_late();
+}
+
+static void rproc_platform_hibernate_finish(void)
+{
+	rproc_platfrom_wake();
+}
+#endif
+
 static struct platfrom_pm_ops rproc_platform_pm_ops = {
 	.prepare_late = rproc_platform_late,
 	.wake = rproc_platfrom_wake,
 };
+
+#ifdef CONFIG_HIBERNATION
+static struct platfrom_pm_ops rproc_platform_hibernate_ops = {
+	.pre_snapshot = rproc_platform_hibernate_pre_snapshot,
+	.finish = rproc_platform_hibernate_finish,
+};
+
+static int hibernate_pm_notify(struct notifier_block *nb,
+			     unsigned long mode, void *_unused)
+{
+	struct spacemit_rproc *priv = 
+		container_of(nb, struct spacemit_rproc,
+				pm_notifier);
+
+	switch (mode) {
+	case PM_RESTORE_PREPARE:
+		priv->hinernate_restore = 1;
+		break;
+	case PM_POST_RESTORE:
+		priv->hinernate_restore = 0;
+		break;
+	case PM_HIBERNATION_PREPARE:
+		priv->hibernate_freeze = 1;
+		break;
+	case PM_POST_HIBERNATION:
+		priv->hibernate_freeze = 0;
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+#endif
 
 static int spacemit_rproc_suspend(struct device *dev)
 {
@@ -508,8 +599,8 @@ static int spacemit_rproc_resume(struct device *dev)
 }
 
 static const struct dev_pm_ops spacemit_rproc_pm_ops = {
-	.suspend = spacemit_rproc_suspend,
-	.resume = spacemit_rproc_resume,
+	SET_SYSTEM_SLEEP_PM_OPS(spacemit_rproc_suspend,
+				spacemit_rproc_resume)
 };
 #endif
 
@@ -523,6 +614,10 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	struct spacemit_rproc *priv;
 	struct mbox_client *cl;
 	struct rproc *rproc;
+#ifdef CONFIG_HIBERNATION
+	struct of_phandle_iterator it;
+	struct reserved_mem *rmem;
+#endif
 
 	ret = rproc_of_parse_firmware(dev, 0, &fw_name);
 	if (ret < 0 && ret != -EINVAL)
@@ -540,28 +635,32 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->base[BOOTC_MEM_BASE_OFFSET])) {
 		ret = PTR_ERR(priv->base[BOOTC_MEM_BASE_OFFSET]);
 		dev_err(dev, "failed to get reg base\n");
-		return ret;
+		ret = -EINVAL;
+		goto err_0;
 	}
 
 	priv->base[SYSCTRL_MEM_BASE_OFFSET] = devm_platform_ioremap_resource(pdev, SYSCTRL_MEM_BASE_OFFSET);
 	if (IS_ERR(priv->base[SYSCTRL_MEM_BASE_OFFSET])) {
 		ret = PTR_ERR(priv->base[SYSCTRL_MEM_BASE_OFFSET]);
 		dev_err(dev, "failed to get reg base\n");
-		return ret;
+		ret = -EINVAL;
+		goto err_0;
 	}
 
 	priv->core_rst = devm_reset_control_get_exclusive(dev, NULL);
 	if (IS_ERR(priv->core_rst)) {
 		ret = PTR_ERR(priv->core_rst);
 		dev_err_probe(dev, ret, "fail to acquire rproc reset\n");
-		return ret;
+		ret = -EINVAL;
+		goto err_0;
 	}
 
 	priv->core_clk = devm_clk_get(dev, "core");
 	if (IS_ERR(priv->core_clk)) {
 		ret = PTR_ERR(priv->core_clk);
 		dev_err(dev, "failed to acquire rpoc core\n");
-		return ret;
+		ret = -EINVAL;
+		goto err_0;
 	}
 
 	/* get the ddr-remap base */
@@ -584,13 +683,16 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 		priv->mb[i].chan = mbox_request_channel_byname(cl, name);
 		if (IS_ERR(priv->mb[i].chan)) {
 			dev_err(dev, "failed to request mbox channel\n");
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_1;
 		}
 
 		if (priv->mb[i].vq_id >= 0) {
 			priv->mb[i].mb_thread = kthread_run(__process_theread, (void *)cl, name);
-			if (IS_ERR(priv->mb[i].mb_thread))
-				return PTR_ERR(priv->mb[i].mb_thread);
+			if (IS_ERR(priv->mb[i].mb_thread)) {
+				ret = PTR_ERR(priv->mb[i].mb_thread);
+				goto err_1;
+			}
 		}
 	}
 
@@ -598,17 +700,87 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 	rpmsg_rcpu_pwr_management_id_table[0].driver_data = (unsigned long long)pdev;
 
 	register_platform_pm_ops(&rproc_platform_pm_ops);
+#ifdef CONFIG_HIBERNATION
+	register_platform_hibernate_pm_ops(&rproc_platform_hibernate_ops);
+
+	priv->pm_notifier.notifier_call = hibernate_pm_notify; 
+	ret = register_pm_notifier(&priv->pm_notifier);
+#endif
 #endif
 
 	ret = devm_rproc_add(dev, rproc);
 	if (ret) {
 		dev_err(dev, "rproc_add failed\n");
+		ret = -EINVAL;
+		goto err_1;
 	}
 
 	ret = rproc_boot(rproc);
 	if (ret) {
 		dev_err(dev, "rproc_boot failed\n");
+		ret = -EINVAL;
+		goto err_1;
 	}
+
+#ifdef CONFIG_HIBERNATION
+	of_phandle_iterator_init(&it, np, "memory-region", NULL, 0);
+	while (of_phandle_iterator_next(&it) == 0) {
+		rmem = of_reserved_mem_lookup(it.node);
+		if (!rmem) {
+			dev_err(dev,
+				"unable to acquire memory-region\n");
+			ret = -EINVAL;
+			goto err_2;
+		}
+
+		if (strcmp(it.node->name, "vdev0buffer") == 0 ||
+				strcmp(it.node->name, "vdev0vring1") == 0 ||
+				strcmp(it.node->name, "vdev0vring0") == 0 ||
+				strcmp(it.node->name, "rcpu_mem_heap") == 0 ||
+				strcmp(it.node->name, "rsc_table") == 0 ||
+				strcmp(it.node->name, "rcpu_mem_snapshots") == 0) {
+
+			hibernal_snapshot_size += rmem->size;
+			if (strcmp(it.node->name, "rcpu_mem_heap") == 0)
+				hibernate_rcpu_runtime_pbase = (void *)rmem->base;
+
+		}
+	}
+
+	if (hibernal_snapshot_size != 0) {
+		/* this is used for store the memory snapshot for rcpu runtime */
+		hibernate_rcpu_snapshot = kmalloc(hibernal_snapshot_size, GFP_KERNEL);
+		if (!hibernate_rcpu_snapshot) {
+			dev_err(dev, "malloc hibernate mem snapshot failed\n");
+			ret = -ENOMEM;
+			goto err_2;
+		}
+
+		/* the rcpu memory runtime */
+		hibernate_rcpu_runtime_vbase = ioremap((phys_addr_t)hibernate_rcpu_runtime_pbase, hibernal_snapshot_size);
+		if (!hibernate_rcpu_runtime_vbase) {
+			dev_err(dev, "map hibernate run time memory error\n");
+			ret = -ENOMEM;
+			goto err_3;
+		}
+	}
+#endif
+	return 0;
+#ifdef CONFIG_HIBERNATION
+err_3:
+	kfree(hibernate_rcpu_snapshot);
+#endif
+err_2:
+	rproc_shutdown(rproc);
+err_1:
+	while (--i >= 0) {
+		if (priv->mb[i].chan)
+			mbox_free_channel(priv->mb[i].chan);
+		if (priv->mb[i].mb_thread)
+			kthread_stop(priv->mb[i].mb_thread);
+	}
+err_0:
+	rproc_free(rproc);
 
 	return ret;
 }
@@ -642,6 +814,12 @@ static int spacemit_rproc_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM_SLEEP
 	unregister_rpmsg_driver(&rpmsg_rcpu_pm_client);
 	unregister_platform_pm_ops(&rproc_platform_pm_ops);
+#ifdef CONFIG_HIBERNATION
+	unregister_pm_notifier(&ddata->pm_notifier);
+	unregister_platform_hibernate_pm_ops(&rproc_platform_hibernate_ops);
+	iounmap(hibernate_rcpu_runtime_vbase);
+	kfree(hibernate_rcpu_snapshot);
+#endif
 #endif
 	return 0;
 }
