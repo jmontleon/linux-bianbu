@@ -1209,7 +1209,7 @@ struct spm_ccic_vnode* spm_cvdev_create_vnode(const char *name,
 	ac_vnode->buf_queue.io_modes = VB2_DMABUF;
 	ac_vnode->buf_queue.ops = &spm_ccic_vb2_ops;
 	ac_vnode->buf_queue.mem_ops = &vb2_dma_contig_memops;
-	ac_vnode->buf_queue.min_buffers_needed = min_buffers_needed;
+	ac_vnode->buf_queue.min_queued_buffers = min_buffers_needed;	//for linux-mainline
 	ac_vnode->buf_queue.dev = alloc_dev;
 	ret = vb2_queue_init(&ac_vnode->buf_queue);
 	if (ret) {

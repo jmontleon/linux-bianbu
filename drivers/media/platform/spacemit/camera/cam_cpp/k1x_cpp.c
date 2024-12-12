@@ -26,6 +26,7 @@
 #include <media/v4l2-event.h>
 #include <media/k1x/k1x_plat_cam.h>
 #include <media/k1x/k1x_cpp_uapi.h>
+#include <linux/vmalloc.h>
 #include "cam_dbg.h"
 //#include "cpp_compat_ioctl32.h"
 #include "cpp_dmabuf.h"
@@ -563,7 +564,7 @@ static int k1x_cpp_process_frame(struct cpp_ctx *ctx, struct cpp_frame_info *inf
 	return ret;
 }
 
-int k1x_cpp_send_event(struct cpp_device *cpp_dev, u32 event_type,
+static int k1x_cpp_send_event(struct cpp_device *cpp_dev, u32 event_type,
 		       struct k1x_cpp_event_data *event_data)
 {
 	struct v4l2_event cpp_event;
@@ -1388,7 +1389,7 @@ static void cpp_remove(struct platform_device *pdev)
 	cpp_dev = platform_get_drvdata(pdev);
 	if (!cpp_dev) {
 		dev_err(&pdev->dev, "cpp device is NULL");
-		return 0;
+		return;
 	}
 	device_init_wakeup(&pdev->dev, false);
 	pm_runtime_disable(&pdev->dev);

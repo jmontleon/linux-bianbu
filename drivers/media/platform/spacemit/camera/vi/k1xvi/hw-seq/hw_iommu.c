@@ -84,18 +84,18 @@ static void __maybe_unused iommu_set_tbu_qos(struct isp_iommu_device *mmu_dev, i
 {
 	iommu_reg_write_mask(mmu_dev, REG_IOMMU_TCR0(tbu), (qos & 0xf) << 4, 0xf << 4);
 }
-
+#if 0
 /**
  * iommu_update_trans_table - TBU translation table update
  *
  *   this bit will be cleared to 0 after TLB preload.
  *   only work for full frame tbu.
  */
-void iommu_update_trans_table(struct isp_iommu_device *mmu_dev, int tbu)
+static void iommu_update_trans_table(struct isp_iommu_device *mmu_dev, int tbu)
 {
 	iommu_reg_set_bit(mmu_dev, REG_IOMMU_TCR0(tbu), 0x1 << 2);
 }
-
+#endif
 static void iommu_enable_irqs(struct isp_iommu_device *mmu_dev)
 {
 	iommu_reg_write_mask(mmu_dev, REG_IOMMU_GIRQ_ENA, 0xffffffff, 0xffffffff);
