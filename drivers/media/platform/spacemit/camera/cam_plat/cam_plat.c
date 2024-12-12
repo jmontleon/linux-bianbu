@@ -13,6 +13,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/k1x/k1x_plat_cam.h>
+#include <linux/string.h>
 #include "cam_dbg.h"
 #include "cam_plat.h"
 
