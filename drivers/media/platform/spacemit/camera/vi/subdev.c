@@ -111,7 +111,7 @@ int spm_subdev_init(unsigned int grp_id,
 		cam_err("%s register plat cam(%s) failed ret=%d ", __func__, name, ret);
 		return ret;
 	}
-	strscpy(sc_subdev->name, name, V4L2_SUBDEV_NAME_SIZE);
+	strscpy(sc_subdev->name, name, 52);	//for linux-mainline, delete V4L2_SUBDEV_NAME_SIZE
 	sc_subdev->pcsd.sd.grp_id = grp_id;
 	return 0;
 }
