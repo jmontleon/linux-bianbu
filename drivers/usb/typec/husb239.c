@@ -83,6 +83,8 @@
 #define HUSB239_REG_CONTROL1_TCCDEB				GENMASK(2, 0)
 #define HUSB239_REG_CONTROL1_TCCDEB_150			(0x3 << 0)
 
+#define HUSB239_REG_RESET_SW_RST				BIT(0)
+
 #define HUSB239_REG_MASK_ALL					0xFF
 
 #define HUSB239_REG_MASK_FLGIN					BIT(7)
@@ -203,6 +205,7 @@ struct husb239 {
 	int gpio_irq;
 	struct work_struct work;
 	struct workqueue_struct *workqueue;
+	struct mutex lock;
 
 	struct typec_info info;
 
@@ -453,9 +456,10 @@ static int husb239_usbpd_detect(struct husb239 *husb239)
 			return ret;
 
 		dev_dbg(husb239->dev, "husb239 detect pd, contract status0: %x\n", status0);
-		if (((status0 & HUSB239_PD_CONTRACT_MASK) >> HUSB239_PD_CONTRACT_SHIFT) == SNKCAP_5V)
+		if (((status0 & HUSB239_PD_CONTRACT_MASK) >> HUSB239_PD_CONTRACT_SHIFT) == SNKCAP_5V) {
+			husb239_update_operating_status(husb239);
 			break;
-
+		}
 		/* check attach status */
 		ret = regmap_read(husb239->regmap, HUSB239_REG_STATUS, &status);
 		if (ret)
@@ -708,7 +712,7 @@ static int husb239_chip_init(struct husb239 *husb239)
 	}
 
 	if (!IS_ERR_OR_NULL(husb239->vdd_supply)) {
-		ret = regulator_set_voltage(husb239->vdd_supply, 3000000, 3300000);
+		ret = regulator_set_voltage(husb239->vdd_supply, 3300000, 3300000);
 		if (ret)
 			dev_err(husb239->dev, "failed to set voltage: %d\n", ret);
 
@@ -720,7 +724,7 @@ static int husb239_chip_init(struct husb239 *husb239)
 
 	husb239->en_gpiod = devm_gpiod_get_optional(husb239->dev, "en", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->en_gpiod)) {
-		dev_err(husb239->dev, "get enable gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get enable gpio failed\n");
 		return PTR_ERR(husb239->en_gpiod);
 	}
 
@@ -728,6 +732,14 @@ static int husb239_chip_init(struct husb239 *husb239)
 		gpiod_set_value(husb239->en_gpiod, 0);
 		msleep(10);
 	}
+
+	/* Chip soft reset */
+	ret = regmap_update_bits(husb239->regmap, HUSB239_REG_RESET,
+				HUSB239_REG_RESET_SW_RST, HUSB239_REG_RESET_SW_RST);
+	if (ret)
+		return ret;
+
+	msleep(10);
 
 	/* PORTROLE init */
 	ret = regmap_write(husb239->regmap, HUSB239_REG_PORTROLE,
@@ -801,7 +813,9 @@ static int husb239_chip_init(struct husb239 *husb239)
 static void husb239_work_func(struct work_struct *work)
 {
 	struct husb239 *husb239 = container_of(work, struct husb239, work);
-	int ret, int0, int1;
+	int int0, int1;
+
+	mutex_lock(&husb239->lock);
 
 	if (regmap_read(husb239->regmap, HUSB239_REG_INT, &int0) ||
 		regmap_read(husb239->regmap, HUSB239_REG_INT1, &int1))
@@ -811,10 +825,8 @@ static void husb239_work_func(struct work_struct *work)
 	regmap_write(husb239->regmap, HUSB239_REG_INT, int0);
 	regmap_write(husb239->regmap, HUSB239_REG_INT1, int1);
 
-	if (int1 & HUSB239_REG_MASK_ATTACH) {
-		if (husb239_attach(husb239))
-			dev_err(husb239->dev, "husb239_attach error, ret: %x\n", ret);
-	}
+	if (int1 & HUSB239_REG_MASK_ATTACH)
+		husb239_attach(husb239);
 
 	if (int1 & HUSB239_REG_MASK_DETACH)
 		husb239_detach(husb239);
@@ -823,7 +835,7 @@ static void husb239_work_func(struct work_struct *work)
 		husb239_pd_contract(husb239);
 
 err:
-	enable_irq(husb239->gpio_irq);
+	mutex_unlock(&husb239->lock);
 	return;
 }
 
@@ -831,7 +843,6 @@ static irqreturn_t husb239_irq_handler(int irq, void *data)
 {
 	struct husb239 *husb239 = (struct husb239 *)data;
 
-	disable_irq_nosync(husb239->gpio_irq);
 	pm_wakeup_event(husb239->dev, 0);
 	queue_work(husb239->workqueue, &husb239->work);
 
@@ -868,6 +879,11 @@ static int husb239_irq_init(struct husb239 *husb239)
 		dev_err(husb239->dev, "failed to request threaded irq\n");
 		goto free_wq;
 	}
+
+	/* Clear all interruption */
+	regmap_write(husb239->regmap, HUSB239_REG_INT, 0xFF);
+	regmap_write(husb239->regmap, HUSB239_REG_INT1, 0xFF);
+	regmap_write(husb239->regmap, HUSB239_REG_INT2, 0xFF);
 
 	/* Unmask ATTACH and DETACH interruption */
 	ret = regmap_write_bits(husb239->regmap, HUSB239_REG_MASK,
@@ -907,25 +923,25 @@ static int husb239_typec_port_probe(struct husb239 *husb239)
 
 	husb239->vbus_gpiod = devm_gpiod_get_array_optional(dev, "vbus", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->vbus_gpiod)) {
-		dev_err(husb239->dev, "get vbus gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get vbus gpio failed\n");
 		return PTR_ERR(husb239->vbus_gpiod);
 	}
 
 	husb239->chg_gpiod = devm_gpiod_get_optional(dev, "chg", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->chg_gpiod)) {
-		dev_err(husb239->dev, "get charge gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get charge gpio failed\n");
 		return PTR_ERR(husb239->chg_gpiod);
 	}
 
 	husb239->aud_gpiod = devm_gpiod_get_optional(dev, "aud", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->aud_gpiod)) {
-		dev_err(husb239->dev, "get audio gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get audio gpio failed\n");
 		return PTR_ERR(husb239->aud_gpiod);
 	}
 
 	husb239->mic_gpiod = devm_gpiod_get_optional(dev, "mic", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->mic_gpiod)) {
-		dev_err(husb239->dev, "get mic gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get mic gpio failed\n");
 		return PTR_ERR(husb239->mic_gpiod);
 	}
 
@@ -1038,7 +1054,7 @@ static int husb239_typec_switch_probe(struct husb239 *husb239)
 
 	husb239->u2sel_gpiod = devm_gpiod_get_optional(husb239->dev, "usb2-sel", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->u2sel_gpiod)) {
-		dev_err(husb239->dev, "get usb2 sel gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get usb2 sel gpio failed\n");
 		return PTR_ERR(husb239->u2sel_gpiod);
 	}
 
@@ -1048,13 +1064,13 @@ static int husb239_typec_switch_probe(struct husb239 *husb239)
 
 	husb239->oe_gpiod = devm_gpiod_get_optional(husb239->dev, "orient-oe", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->oe_gpiod)) {
-		dev_err(husb239->dev, "get orient-oe gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get orient-oe gpio failed\n");
 		return PTR_ERR(husb239->oe_gpiod);
 	}
 
 	husb239->sel_gpiod = devm_gpiod_get_optional(husb239->dev, "orient-sel", GPIOD_OUT_LOW);
 	if (IS_ERR(husb239->sel_gpiod)) {
-		dev_err(husb239->dev, "get orient-sel gpio failed, ignore it.\n");
+		dev_err(husb239->dev, "get orient-sel gpio failed\n");
 		return PTR_ERR(husb239->sel_gpiod);
 	}
 
@@ -1094,14 +1110,16 @@ static int husb239_psy_set_prop(struct power_supply *psy,
 	struct husb239 *husb239 = power_supply_get_drvdata(psy);
 	int ret = 0;
 
+	mutex_lock(&husb239->lock);
 	if (psp == POWER_SUPPLY_PROP_VOLTAGE_NOW) {
 		husb239->req_voltage = val->intval / 1000; /* mv */
 		ret =  husb239_usbpd_request_voltage(husb239);
 		if (!ret)
 			husb239_update_operating_status(husb239);
+		mutex_unlock(&husb239->lock);
 		return ret;
 	}
-
+	mutex_unlock(&husb239->lock);
 	return -EINVAL;
 }
 
@@ -1113,6 +1131,7 @@ static int husb239_psy_get_prop(struct power_supply *psy,
 	struct typec_info *info = &husb239->info;
 	int ret = 0;
 
+	mutex_lock(&husb239->lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = husb239->psy_online;
@@ -1136,6 +1155,7 @@ static int husb239_psy_get_prop(struct power_supply *psy,
 		ret = -EINVAL;
 		break;
 	}
+	mutex_unlock(&husb239->lock);
 	return ret;
 }
 
@@ -1198,6 +1218,8 @@ static int husb239_probe(struct i2c_client *client)
 
 	husb239->dev = &client->dev;
 	i2c_set_clientdata(client, husb239);
+
+	mutex_init(&husb239->lock);
 
 	husb239->regmap = devm_regmap_init_i2c(client, &config);
 	if (IS_ERR(husb239->regmap)) {
