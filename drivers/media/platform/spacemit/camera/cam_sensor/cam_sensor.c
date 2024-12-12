@@ -1451,7 +1451,7 @@ static void cam_sensor_remove(struct platform_device *pdev)
 	msnr_dev = platform_get_drvdata(pdev);
 	if (!msnr_dev) {
 		dev_err(&pdev->dev, "camera sensor device is NULL");
-		return 0;
+		return;
 	}
 	mutex_destroy(&msnr_dev->lock);
 	cam_snr_dev_destroy(&msnr_dev->cdev, msnr_dev->id);
@@ -1464,7 +1464,7 @@ static int cam_sensor_probe(struct platform_device *pdev)
 	struct cam_sensor_device *msnr_dev;
 	int ret;
 
-	cam_dbg("camera sensor begin to probed");
+	cam_info("camera sensor begin to probed");
 
 	msnr_dev = devm_kzalloc(&pdev->dev, sizeof(struct cam_sensor_device),
 				GFP_KERNEL);
