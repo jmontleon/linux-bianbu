@@ -2057,7 +2057,7 @@ struct spm_camera_vnode *spm_vdev_create_vnode(const char *name,
 	sc_vnode->buf_queue.io_modes = SPACEMIT_VB2_IO_MODE;
 	sc_vnode->buf_queue.ops = &spm_camera_vb2_ops;
 	sc_vnode->buf_queue.mem_ops = spm_vb2_mem_ops;
-	sc_vnode->buf_queue.min_buffers_needed = min_buffers_needed;
+	sc_vnode->buf_queue.min_queued_buffers = min_buffers_needed;	//for linux-mainline
 	sc_vnode->buf_queue.dev = alloc_dev;
 	ret = vb2_queue_init(&sc_vnode->buf_queue);
 	if (ret) {
