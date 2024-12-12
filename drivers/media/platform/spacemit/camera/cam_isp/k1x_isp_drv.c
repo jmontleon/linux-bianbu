@@ -240,7 +240,7 @@ int k1xisp_dev_put_viraddr_to_dma_buf(struct dma_buf *dma_buffer, void *vir_addr
 	return 0;
 }
 
-int _isp_dev_put_phyaddr_to_dma_buf(struct dma_buf *dma_buffer,
+static int _isp_dev_put_phyaddr_to_dma_buf(struct dma_buf *dma_buffer,
 				    struct dma_buf_attachment *attach,
 				    struct sg_table *sgt)
 {
@@ -334,7 +334,7 @@ static int dev_clkoffdet_notifier_handler(struct notifier_block *nb,
 }
 #endif
 
-int k1xisp_dev_context_create(struct platform_device *pdev)
+static int k1xisp_dev_context_create(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct k1xisp_dev *isp_dev = NULL;
@@ -507,7 +507,7 @@ int k1xisp_vi_send_cmd(unsigned int cmd, void *cmd_payload, unsigned int payload
 	return ret;
 }
 
-int k1xisp_dma_irq_handler(void *irq_data)
+static int k1xisp_dma_irq_handler(void *irq_data)
 {
 	struct k1xisp_dev *isp_dev = NULL;
 	struct k1xisp_pipe_dev *pipe_dev = NULL;
@@ -539,7 +539,7 @@ int k1xisp_irq_callback(int irq_num, void *irq_data, unsigned int data_len)
 	return ret;
 }
 
-int k1xisp_cdevs_create(void)
+static int k1xisp_cdevs_create(void)
 {
 	int ret = 0, cdev_count = 0, minor = ISP_PIPE_DEV_ID_0;
 	dev_t devNum;
@@ -629,7 +629,7 @@ ERR_STEP:
 	return ret;
 }
 
-void k1xisp_cdevs_destroy(void)
+static void k1xisp_cdevs_destroy(void)
 {
 	int i = 0;
 
@@ -645,7 +645,7 @@ void k1xisp_cdevs_destroy(void)
 	g_isp_cdevice.cdev_info = NULL;
 }
 
-void k1xisp_cdev_link_devices(void)
+static void k1xisp_cdev_link_devices(void)
 {
 	int i = 0;
 	struct k1xisp_dev *isp_dev = NULL;
@@ -696,7 +696,7 @@ ERR_STEP:
 	return ret;
 }
 
-int k1xisp_dev_context_destroy(struct platform_device *pdev)
+static int k1xisp_dev_context_destroy(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct k1xisp_dev *isp_dev = NULL;
@@ -788,7 +788,7 @@ struct platform_driver k1xisp_dev_driver = {
 
 module_platform_driver(k1xisp_dev_driver);
 
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 MODULE_AUTHOR("SPACEMIT Inc.");
 MODULE_DESCRIPTION("SPACEMIT K1X ISP device driver");
 MODULE_LICENSE("GPL");
