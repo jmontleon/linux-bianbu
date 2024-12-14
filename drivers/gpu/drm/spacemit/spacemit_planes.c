@@ -316,12 +316,22 @@ static void spacemit_plane_atomic_update(struct drm_plane *plane,
 			spacemit_pstate->dst_crop_w = (crtc_w / 4);
 			spacemit_pstate->dst_crop_h = crtc_h;
 			spacemit_pstate->is_crop = true;
-		} else if ((crtc_x > (hdisplay - (crtc_w / 4))) && (crtc_x <= hdisplay)) {
+		} else if ((crtc_x > (hdisplay - (crtc_w / 4))) && (crtc_x < (hdisplay - (crtc_w / 16)))) {
 			spacemit_pstate->src_crop_x = src_x;
 			spacemit_pstate->src_crop_y = src_y;
 			spacemit_pstate->src_crop_w = (src_w / 4);
 			spacemit_pstate->src_crop_h = src_h;
 			spacemit_pstate->dst_crop_x = hdisplay - (crtc_w / 4);
+			spacemit_pstate->dst_crop_y = crtc_y;
+			spacemit_pstate->dst_crop_w = (crtc_w / 4);
+			spacemit_pstate->dst_crop_h = crtc_h;
+			spacemit_pstate->is_crop = true;
+		} else if ((crtc_x >= (hdisplay - (crtc_w / 16))) && (crtc_x <= hdisplay)) {
+			spacemit_pstate->src_crop_x = src_x;
+			spacemit_pstate->src_crop_y = src_y;
+			spacemit_pstate->src_crop_w = (src_w / 4);
+			spacemit_pstate->src_crop_h = src_h;
+			spacemit_pstate->dst_crop_x = -2;
 			spacemit_pstate->dst_crop_y = crtc_y;
 			spacemit_pstate->dst_crop_w = (crtc_w / 4);
 			spacemit_pstate->dst_crop_h = crtc_h;
