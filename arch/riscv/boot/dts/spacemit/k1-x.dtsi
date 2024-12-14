@@ -422,22 +422,10 @@
 		#size-cells = <2>;
 		ranges;
 
-		area_reserved@80000000 {
-			/* dram area is 0~2GB, and 4GB~, the 2GB~4GB is io area */
-			reg = <0x0 0x80000000 0x0 0x40800000>;
-			no-map;
-		};
-
 		/* sram area, used for rcpu code & data & heap space */
 		rcpu_mem_0: mem@c0800000 {
 			reg = <0x0 0xc0800000 0x0 0x40000>;
 			da_base = <0x0>;
-			no-map;
-		};
-
-		area_reserved@c0840000 {
-			/* dram area is 0~2GB, and 4GB~, the 2GB~4GB is io area */
-			reg = <0x0 0xc0840000 0x0 0x3f7c0000>;
 			no-map;
 		};
 
