@@ -130,7 +130,7 @@ boot		:= arch/riscv/boot
 ifeq ($(CONFIG_XIP_KERNEL),y)
 KBUILD_IMAGE := $(boot)/xipImage
 else
-KBUILD_IMAGE	:= $(boot)/Image.gz
+KBUILD_IMAGE	:= $(boot)/Image
 endif
 
 libs-y += arch/riscv/lib/
@@ -155,7 +155,7 @@ ifeq ($(CONFIG_RISCV_M_MODE)$(CONFIG_ARCH_CANAAN),yy)
 KBUILD_IMAGE := $(boot)/loader.bin
 else
 ifeq ($(CONFIG_EFI_ZBOOT),)
-KBUILD_IMAGE := $(boot)/Image.gz
+KBUILD_IMAGE := $(boot)/Image
 else
 KBUILD_IMAGE := $(boot)/vmlinuz.efi
 endif
