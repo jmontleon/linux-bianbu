@@ -150,11 +150,8 @@
 
 		wlan_pwrseq: wlan-pwrseq {
 			compatible = "spacemit,wlan-pwrseq";
-			regon-gpios = <&gpio 67 0>;
-			interrupt-parent = <&pinctrl>;
-			interrupts = <268>;
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_wlan_wakeup>;
+			regon-gpios = <&gpio 67 GPIO_ACTIVE_HIGH>;
+			hostwake-gpios = <&gpio 66 GPIO_ACTIVE_HIGH>;
 		};
 
 		bt_pwrseq: bt-pwrseq {
@@ -186,6 +183,11 @@
 	/* 	regulator-max-microvolt = <3300000>; */
 	/* 	vin-supply = <&dc_12v>; */
         /* }; */
+
+	ap6256_wifi: ap6256_wifi {
+		compatible = "android,bcmdhd_wlan";
+		gpio_wl_reg_on = <&gpio 67 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &uart0 {
@@ -219,7 +221,7 @@
 	status = "disabled";
 
 	panel2: panel2@0 {
-		status = "ok";
+		status = "okay";
 		compatible = "spacemit,mipi-panel2";
 		reg = <0>;
 
@@ -263,6 +265,7 @@
 &i2c2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2_0>;
+	spacemit,i2c-fast-mode;
 	status = "okay";
 
 	eeprom@50{
@@ -283,6 +286,14 @@
 		};
 	};
 
+	es8323: es8323@11 {
+		status = "okay";
+		#sound-dai-cells = <0>;
+		compatible = "everest,es8323";
+		reg = <0x11>;
+		earphone-sw-gpio = <&gpio 79 0>;
+        };
+
 	touchscreen@14 {
 		compatible = "goodix,gt9271";
 		reg = <0x14>;
@@ -298,23 +309,11 @@
 		touchscreen-size-x = <1280>;
 		touchscreen-size-y = <800>;
 	};
-
-	es8326: es8326@19{
-		compatible = "everest,es8326";
-		reg = <0x19>;
-		#sound-dai-cells = <0>;
-		interrupt-parent = <&gpio>;
-		interrupts = <126 1>;
-		spk-ctl-gpio = <&gpio 127 0>;
-		everest,mic1-src = [44];
-		everest,mic2-src = [66];
-		status = "okay";
-	};
 };
 
 &i2c3 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c3_2>;
+	pinctrl-0 = <&pinctrl_i2c3_1>;
 	status = "disabled";
 };
 
@@ -541,7 +540,12 @@
 			};
 
 			sw_1: SWITCH_REG1 {
+				regulator-boot-on;
+				regulator-always-on;
 				regulator-name = "switch1";
+				regulator-state-mem {
+					regulator-off-in-suspend;
+				};
 			};
 		};
 
@@ -585,7 +589,7 @@
 		&range PRI_TDI  2 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range PRI_TCK  1 (MUX_MODE1 | EDGE_NONE | PULL_DOWN | PAD_1V8_DS2)
 		&range PRI_TDO  1 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
-		&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		/*&range GPIO_74  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2) */
 		&range GPIO_79  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_80  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_81  3 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
@@ -664,6 +668,13 @@
 			K1X_PADCONF(GPIO_66, MUX_MODE0, (EDGE_FALL | PULL_DOWN | PAD_3V_DS2))   /* wifi edge detect */
 		>;
 	};
+
+	pinctrl_uart5_4: uart5_4_grp {
+		pinctrl-single,pins =<
+			K1X_PADCONF(PRI_TDI, MUX_MODE4, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* uart5_txd */
+			K1X_PADCONF(PRI_TMS, MUX_MODE4, (EDGE_NONE | PULL_UP | PAD_1V8_DS2))	/* uart5_rxd */
+		>;
+	};
 };
 
 &gpio{
@@ -671,10 +682,10 @@
 		&pinctrl 49  GPIO_49  2
 		&pinctrl 58  GPIO_58  1
 		&pinctrl 63  GPIO_63  1
-		//&pinctrl 65  GPIO_65  1
+		/*&pinctrl 65  GPIO_65  1 */
 		&pinctrl 67  GPIO_67  1
 		&pinctrl 70  PRI_TDI  4
-		&pinctrl 74  GPIO_74  1
+		/*&pinctrl 74  GPIO_74  1*/
 		&pinctrl 79  GPIO_79  1
 		&pinctrl 80  GPIO_80  4
 		&pinctrl 90  GPIO_90  3
@@ -809,7 +820,6 @@
 		#size-cells = <0x0>;
 		rgmii0: phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			//compatible = "ethernet-phy-id4f51.e91b";
 			device_type = "ethernet-phy";
 			reg = <0x1>;
 			phy-mode = "rgmii";
@@ -850,7 +860,6 @@
 		#size-cells = <0x0>;
 		rgmii1: phy@1 {
 			compatible = "ethernet-phy-ieee802.3-c22";
-			//compatible = "ethernet-phy-id4f51.e91b";
 			device_type = "ethernet-phy";
 			reg = <0x1>;
 			phy-mode = "rgmii";
@@ -967,6 +976,12 @@
 		broken-flash-reset;
 		status = "okay";
 	};
+};
+
+&spi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ssp3_0>;
+	status = "disabled";
 };
 
 &pwm_bl {
@@ -1109,15 +1124,45 @@
 
 &sound_codec {
 	status = "okay";
-	simple-audio-card,name = "snd-es8326";
-	spacemit,mclk-fs = <64>;
+	simple-audio-card,name = "snd-es8323";
+	spacemit,mclk-fs = <256>;
 	simple-audio-card,codec {
-		sound-dai = <&es8326>;
+		sound-dai = <&es8323>;
 	};
+};
+
+&spi3 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ssp3_0>;
+
+	spi_dev0: spi@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
+};
+
+&uart5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart5_4>;
+	status = "disabled";
+};
+
+&uart9 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart9_2>;
+	status = "disabled";
 };
 
 &rpwm9 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_rpwm9_0>;
-	status = "okay";
+	status = "disabled";
+};
+
+&pwm7 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm7_0>;
+	status = "disabled";
 };
