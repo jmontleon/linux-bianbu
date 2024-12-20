@@ -1214,7 +1214,7 @@ static SPACEMIT_CCU_GATE_NO_PARENT(rcan_bus_clk, "rcan_bus_clk", NULL,
 	BIT(2), BIT(2), 0x0, 0);
 //rcpu2
 static const char *rpwm_parent_names[] = {
-	"pll1_aud_24p5", "pll1_aud_245p7"
+	"pll1_aud_245p7", "pll1_aud_24p5"
 };
 static SPACEMIT_CCU_DIV_MUX_GATE(rpwm0_clk, "rpwm0_clk", rpwm_parent_names,
 	BASE_TYPE_RCPU2, RCPU2_PWM0_CLK_RST,
