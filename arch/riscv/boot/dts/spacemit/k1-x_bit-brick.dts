@@ -7,14 +7,11 @@
 #include "k1-x-efuse.dtsi"
 #include "k1-x_pinctrl.dtsi"
 #include "lcd/lcd_jd9365aainx101_mipi.dtsi"
-#include "k1-x-lcd.dtsi"
 #include "k1-x-hdmi.dtsi"
+#include "k1-x-lcd.dtsi"
+#include "k1-x-camera-sdk.dtsi"
 #include "k1-x_opp_table.dtsi"
 #include "k1-x_thermal_cooling.dtsi"
-#include "k1-x-camera-sdk.dtsi"
-#include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/input/input.h>
-#include <dt-bindings/usb/pd.h>
 
 / {
 	model = "spacemit k1-x bit-brick board";
@@ -196,17 +193,16 @@
 	pinctrl-0 = <&pinctrl_pwm14_1>;
 	status = "okay";
 };
-
 &dpu_online2_dsi {
 	memory-region = <&dpu_resv>;
 	spacemit-dpu-bitclk = <500000000>;
 	dsi_1v2-supply = <&ldo_5>;
 	vin-supply-names = "dsi_1v2";
-	status = "okay";
+	status = "disabled";
 };
 
 &dsi2 {
-	status = "okay";
+	status = "disabled";
 
 	panel2: panel2@0 {
 		status = "okay";
@@ -222,40 +218,24 @@
 };
 
 &lcds {
+	status = "disabled";
+};
+&dpu_online2_hdmi {
+	memory-region = <&dpu_resv>;
 	status = "okay";
 };
 
-/* &dpu_online2_hdmi { */
-/* 	memory-region = <&dpu_resv>; */
-/* 	status = "okay"; */
-/* }; */
-
-/* &hdmi{ */
-/* 	pinctrl-names = "default"; */
-/* 	pinctrl-0 = <&pinctrl_hdmi_0>; */
-/* 	status = "okay"; */
-/* }; */
+&hdmi{
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hdmi_0>;
+	status = "okay";
+};
 
 &i2c0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c0>;
 	spacemit,i2c-fast-mode;
 	status = "okay";
-};
-
-&i2c1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_i2c1>;
-	spacemit,i2c-fast-mode;
-	status = "okay";
-
-	smtouch@2e {
-		compatible = "chipsemi,chsc_cap_touch";
-		reg = <0x2e>;
-		chipsemi,int-gpio = <&gpio 29 0>;
-		chipsemi,rst-gpio = <&gpio 32 0>;
-		pwr-gpios  = <&gpio 33 0>;
-	};
 };
 
 &i2c2 {
@@ -288,9 +268,9 @@
 		#sound-dai-cells = <0>;
 		interrupt-parent = <&gpio>;
 		interrupts = <126 1>;
-		spk-ctl-gpio = <&gpio 127 0>;
-		everest,jack-detect-inverted;
-		everest,mic1-src = [66];
+		/* spk-ctl-gpio = <&gpio 127 0>; */
+		/* everest,jack-detect-inverted; */
+		everest,mic1-src = [44];
 		everest,mic2-src = [66];
 		status = "okay";
 	};
