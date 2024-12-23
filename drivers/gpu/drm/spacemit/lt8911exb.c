@@ -766,7 +766,7 @@ void lt8911exb_video_check(struct lt8911exb *lt8911exb)
 	regmap_write(lt8911exb->regmap, 0x09, 0x7d);
 	regmap_write(lt8911exb->regmap, 0x09, 0xfd);
 	regmap_write(lt8911exb->regmap, 0xff, 0x85);
-	mdelay(30);
+	mdelay(40);
 
 	regmap_read(lt8911exb->regmap, 0x50, &temp2);
 	if (temp2 == 0x03) {
@@ -1262,7 +1262,7 @@ static void init_work_func(struct work_struct *work)
 	lt8911exb_video_check(lt8911exb); //just for Check MIPI Input
 
 	DRM_DEBUG("\r\nDpcdRead(0x0202) = 0x%x\r\n",DpcdRead(lt8911exb, 0x0202));
-	mdelay(50);
+	mdelay(80);
 	PCR_Status(lt8911exb);
 
 	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
