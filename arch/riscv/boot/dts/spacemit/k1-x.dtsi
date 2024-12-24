@@ -2527,6 +2527,14 @@
 			status = "okay";
 		};
 
+		crng: crng@f0703800 {
+			compatible = "spacemit,hw_crng";
+			reg = <0x0 0xf0703800 0x0 0x100>;
+			clocks = <&ccu CLK_AES>;
+			resets = <&reset RESET_AES>;
+			status = "okay";
+		};
+
 		efuse: fuse@f0702800 {
 			compatible = "simple-mfd";
 			#address-cells = <1>;
