@@ -813,17 +813,19 @@ static int husb239_chip_init(struct husb239 *husb239)
 static void husb239_work_func(struct work_struct *work)
 {
 	struct husb239 *husb239 = container_of(work, struct husb239, work);
-	int int0, int1;
+	int int0, int1, int2;
 
 	mutex_lock(&husb239->lock);
 
 	if (regmap_read(husb239->regmap, HUSB239_REG_INT, &int0) ||
-		regmap_read(husb239->regmap, HUSB239_REG_INT1, &int1))
+		regmap_read(husb239->regmap, HUSB239_REG_INT1, &int1) ||
+		regmap_read(husb239->regmap, HUSB239_REG_INT2, &int2))
 		goto err;
 
 	dev_dbg(husb239->dev, "int0: 0x%x int1: 0x%x\n", int0, int1);
 	regmap_write(husb239->regmap, HUSB239_REG_INT, int0);
 	regmap_write(husb239->regmap, HUSB239_REG_INT1, int1);
+	regmap_write(husb239->regmap, HUSB239_REG_INT2, int2);
 
 	if (int1 & HUSB239_REG_MASK_ATTACH)
 		husb239_attach(husb239);
@@ -1297,6 +1299,27 @@ static void husb239_remove(struct i2c_client *client)
 		regulator_disable(husb239->vdd_supply);
 }
 
+static int __maybe_unused husb239_suspend(struct device *dev)
+{
+	struct husb239 *husb239 = dev_get_drvdata(dev);
+
+	/* Clear all interruption */
+	regmap_write(husb239->regmap, HUSB239_REG_INT, 0xFF);
+	regmap_write(husb239->regmap, HUSB239_REG_INT1, 0xFF);
+	regmap_write(husb239->regmap, HUSB239_REG_INT2, 0xFF);
+
+	return 0;
+}
+
+static int __maybe_unused husb239_resume(struct device *dev)
+{
+	return 0;
+}
+
+static const struct dev_pm_ops husb239_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(husb239_suspend, husb239_resume)
+};
+
 static const struct of_device_id dev_ids[] = {
 	{ .compatible = "hynetek,husb239"},
 	{}
@@ -1306,6 +1329,7 @@ MODULE_DEVICE_TABLE(of, dev_ids);
 static struct i2c_driver husb239_driver = {
 	.driver = {
 		.name = "husb239",
+		.pm = &husb239_pm_ops,
 		.of_match_table = of_match_ptr(dev_ids),
 	},
 	.probe = husb239_probe,
