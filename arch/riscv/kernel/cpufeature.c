@@ -72,15 +72,15 @@ bool __riscv_isa_extension_available(const unsigned long *isa_bitmap, unsigned i
 }
 EXPORT_SYMBOL_GPL(__riscv_isa_extension_available);
 
-struct cpumask ai_core_mask_get(void)
+struct cpumask	ai_cpu_mask;
+void ai_core_mask_get(void)
 {
 	struct device_node *node;
 	const char *cpu_ai;
-	struct cpumask	cpu_mask;
 	unsigned long hartid;
 	int rc;
 
-	cpumask_clear(&cpu_mask);
+	cpumask_clear(&ai_cpu_mask);
 
 	for_each_of_cpu_node(node) {
 		rc = riscv_of_processor_hartid(node, &hartid);
@@ -92,11 +92,10 @@ struct cpumask ai_core_mask_get(void)
 		}
 
 		if(!strcmp(cpu_ai, "true")) {
-			cpumask_set_cpu(hartid, &cpu_mask);
+			cpumask_set_cpu(hartid, &ai_cpu_mask);
 		}
 	}
 
-	return cpu_mask;
 }
 
 static int riscv_ext_zicbom_validate(const struct riscv_isa_ext_data *data,

@@ -174,10 +174,8 @@ asmlinkage __visible __trap_section void do_trap_insn_illegal(struct pt_regs *re
 		__get_user(epc, (u32 __user *)regs->epc);
 		if ((epc & AI_OPCODE_MASK0) == AI_OPCODE_MATCH0 ||
 			(epc & AI_OPCODE_MASK1) == AI_OPCODE_MATCH1) {
-			struct cpumask mask;
-			mask = ai_core_mask_get();
 			local_irq_enable();
-			sched_setaffinity(current->pid, &mask);
+			sched_setaffinity(current->pid, &ai_cpu_mask);
 			local_irq_disable();
 			irqentry_exit_to_user_mode(regs);
 			return;
