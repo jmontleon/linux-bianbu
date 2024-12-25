@@ -790,8 +790,8 @@ static int spacemit_rproc_probe(struct platform_device *pdev)
 #ifdef CONFIG_HIBERNATION
 err_3:
 	kfree(hibernate_rcpu_snapshot);
-#endif
 err_2:
+#endif
 	rproc_shutdown(rproc);
 err_1:
 	while (--i >= 0) {
