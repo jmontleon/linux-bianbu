@@ -292,7 +292,7 @@ static void raid6_exit(void)
 	do { } while (0);
 }
 
-static void raid6_select_algo_wrapper(void *data, long long unsigned int arg)
+static void __init raid6_select_algo_wrapper(void *data, long long unsigned int arg)
 {
 	raid6_select_algo();
 }
