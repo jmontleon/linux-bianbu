@@ -1563,7 +1563,7 @@ static int k1x_power_on(struct k1x_pcie *k1x, int on)
 	return 0;
 }
 
-static int __init k1x_pcie_probe(struct platform_device *pdev)
+static int k1x_pcie_probe(struct platform_device *pdev)
 {
 	u32 reg;
 	int ret;
