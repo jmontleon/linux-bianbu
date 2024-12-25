@@ -122,8 +122,7 @@ static void _hw_rng_reset_status(struct spacemit_crng *priv)
 
 static int hw_rng_dma_setup(struct spacemit_crng *priv, uint32_t pa, size_t size)
 {
-	uint32_t val, val_size;
-	int ret;
+	uint32_t val;
 
 	/* dma setup */
 	val = readl(priv->base + RNG_INT_MASK);
@@ -150,8 +149,8 @@ static int hw_rng_dma_setup(struct spacemit_crng *priv, uint32_t pa, size_t size
 	val = readl(priv->base + RNG_SQU_CTRL);
 	val = SQU_CTRL_ENABLE_DMA;
 	writel(val, priv->base + RNG_SQU_CTRL);
-	ret = RNG_SUCCESS;
-	return ret;
+
+	return RNG_SUCCESS;
 }
 
 static int get_rng_seed(struct spacemit_crng *priv)
@@ -198,7 +197,7 @@ retry:
 	return RNG_SUCCESS;
 }
 
-static int hw_get_random_dma(struct spacemit_crng *priv, uint64_t pa, size_t size, void *buf)
+__maybe_unused static int hw_get_random_dma(struct spacemit_crng *priv, uint64_t pa, size_t size, void *buf)
 {
 	uint32_t val;
 	int ret = 0;
@@ -374,13 +373,8 @@ static int spacemit_crng_init(struct hwrng *rng)
 static int spacemit_crng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 {
 	struct spacemit_crng *priv = to_spacemit_crng(rng);
-	struct device *dev = (struct device *)priv->rng.priv;
-	uint64_t data_addr, align_addr;
 	int ret = 0;
-	size_t header_sz = 0, aligned_sz = 0, tail_sz = 0;
 	size_t left_bytes = 0, process_sz;
-	size_t pos = 0;
-	void *data_buf;
 
 	/* use cpu mode */
 	left_bytes = max;
@@ -393,44 +387,6 @@ static int spacemit_crng_read(struct hwrng *rng, void *buf, size_t max, bool wai
 		ret += process_sz;
 	}
 
-/*
-	if (max < 16) {
-		hw_get_random_cpu(priv, buf, max);
-		return ret;
-	}
-
-	data_buf = dma_alloc_coherent(dev, max, &data_addr, GFP_KERNEL);
-	if(!data_buf)
-		return -ENOMEM;
-	align_addr = (data_addr + 15) & ~0xf;
-	header_sz = align_addr - data_addr;
-	aligned_sz = (max - header_sz) & ~0xF;
-	tail_sz = max - header_sz - aligned_sz;
-
-	if (header_sz) {
-		ret = hw_get_random_cpu(priv, buf, header_sz);
-		if (ret != RNG_SUCCESS)
-			return -1;
-	}
-
-	left_bytes = aligned_sz;
-	while (left_bytes > 0) {
-		process_sz = left_bytes > DMA_MAX_SIZE ? DMA_MAX_SIZE : left_bytes;
-		ret = hw_get_random_dma(priv, align_addr + pos, process_sz, data_buf);
-		if(ret != RNG_SUCCESS)
-			return -1;
-		left_bytes -= process_sz;
-		pos += process_sz;
-	}
-
-	if (tail_sz) {
-		ret = hw_get_random_cpu(priv, (void *)((unsigned long)buf + header_sz + aligned_sz), tail_sz);
-		if (ret != RNG_SUCCESS)
-			return -1;
-	}
-	memcpy(buf, data_buf, max);
-	dma_free_coherent(dev, max, data_buf, GFP_KERNEL);
-*/
 	return ret;
 }
 
