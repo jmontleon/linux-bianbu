@@ -2626,8 +2626,8 @@ wl_ext_get_country(struct net_device *dev, char *data, char *command,
 		char *country_code = data;
 		char *rev_info_delim = country_code + 2; /* 2 bytes of country code */
 		int revinfo = 0;
-		if ((rev_info_delim) &&
-			(strnicmp(rev_info_delim, "/", strlen("/")) == 0) && (rev_info_delim + 1)) {
+		if ((*rev_info_delim) &&
+			(strnicmp(rev_info_delim, "/", strlen("/")) == 0) && *(rev_info_delim + 1)) {
 			revinfo  = bcm_atoi(rev_info_delim + 1);
 		}
 #ifdef WL_CFG80211

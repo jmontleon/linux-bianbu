@@ -276,6 +276,8 @@ dhd_wlan_init_gpio(wifi_adapter_info_t *adapter)
 	int gpio_wl_host_wake = -1;
 	int host_oob_irq = -1;
 	uint host_oob_irq_flags = 0;
+#endif
+#ifdef CUSTOMER_HW_ALLWINNER
 	int wakeup_enable = 0;
 #endif
 
