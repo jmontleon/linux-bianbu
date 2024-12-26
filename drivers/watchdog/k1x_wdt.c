@@ -845,6 +845,6 @@ static struct platform_driver spa_wdt_driver = {
 module_platform_driver(spa_wdt_driver);
 
 MODULE_DESCRIPTION("Spacemit k1x-plat Watchdog Device Driver");
-MODULE_LICENSE("GPL-v2");
+MODULE_LICENSE("GPL v2");
 MODULE_ALIAS_MISCDEV(WATCHDOG_MINOR);
 MODULE_ALIAS("platform:soc-wdt");
