@@ -937,7 +937,8 @@ static void ccic_dma_bh_handler(struct ccic_dma_work_struct *ccic_dma_work)
 	LIST_HEAD(export_list);
 	unsigned long flags = 0;
 
-	spin_lock(&ac_vnode->waitq_head.lock);
+	//spin_lock(&ac_vnode->waitq_head.lock);
+	spin_lock_irqsave(&ac_vnode->waitq_head.lock, flags);
 	ac_vnode->in_tasklet = 1;
 	if (ac_vnode->in_streamoff || !ac_vnode->is_streaming) {
 		wake_up_locked(&ac_vnode->waitq_head);
@@ -945,7 +946,9 @@ static void ccic_dma_bh_handler(struct ccic_dma_work_struct *ccic_dma_work)
 		goto dma_tasklet_finish;
 	}
 	wake_up_locked(&ac_vnode->waitq_head);
-	spin_unlock(&ac_vnode->waitq_head.lock);
+//	spin_unlock(&ac_vnode->waitq_head.lock);
+	spin_unlock_irqrestore(&ac_vnode->waitq_head.lock, flags);
+
 	spin_lock_irqsave(&ac_vnode->slock, flags);
 	list_for_each_entry_safe(pos, n, &ac_vnode->busy_list, list_entry) {
 		if (pos->flags & (AC_BUF_FLAG_HW_ERR | AC_BUF_FLAG_SW_ERR | AC_BUF_FLAG_DONE_TOUCH)) {
@@ -976,10 +979,12 @@ static void ccic_dma_bh_handler(struct ccic_dma_work_struct *ccic_dma_work)
 	}
 dma_tasklet_finish:
 	if (ac_vnode) {
-		spin_lock(&ac_vnode->waitq_head.lock);
+		spin_lock_irqsave(&ac_vnode->waitq_head.lock, flags);
+		//spin_lock(&ac_vnode->waitq_head.lock);
 		ac_vnode->in_tasklet = 0;
 		wake_up_locked(&ac_vnode->waitq_head);
-		spin_unlock(&ac_vnode->waitq_head.lock);
+		//spin_unlock(&ac_vnode->waitq_head.lock);
+		spin_unlock_irqrestore(&ac_vnode->waitq_head.lock, flags);
 	}
 	ccic_put_dma_work(dma_ctx, ccic_dma_work);
 }
