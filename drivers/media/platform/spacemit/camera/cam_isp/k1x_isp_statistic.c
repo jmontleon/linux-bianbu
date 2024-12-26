@@ -6,6 +6,7 @@
  */
 #include "k1x_isp_drv.h"
 #include "k1x_isp_reg.h"
+#include "k1x_isp_statistic.h"
 #include <cam_plat.h>
 
 #include <linux/dma-buf.h>
@@ -36,7 +37,7 @@ static int g_mem_stat_ids[ISP_STAT_THROUGH_MEM_COUNT] = {
 int isp_stat_dma_sof_handler(struct k1xisp_stats_node *stats_node, u32 stat_id,
 			     u32 dma_ch_id, u32 frame_id);
 
-void k1xisp_stat_bufqueue_init(struct k1xisp_stats_node *isp_stats_node)
+static void k1xisp_stat_bufqueue_init(struct k1xisp_stats_node *isp_stats_node)
 {
 	int i = 0;
 	struct isp_stat_buffer_queue *stat_bufqueue = NULL;
@@ -167,7 +168,7 @@ int k1xisp_stat_node_streamon_dma_port(struct k1xisp_stats_node *stats_node)
 	return ret;
 }
 
-int isp_stat_node_clear_dma_ready(u32 dma_ch_id)
+static int isp_stat_node_clear_dma_ready(u32 dma_ch_id)
 {
 	int ret = 0, i, array_index = 0;
 	u32 reg_base_addr = 0, plane_count = 0;
@@ -352,7 +353,7 @@ int k1xisp_stat_dma_dynamic_enable(struct k1xisp_stats_node *stats_node, u32 sta
 	return ret;
 }
 
-int k1xisp_stat_put_idlebuffer(struct isp_stat_buffer_queue *stat_bufqueue,
+static int k1xisp_stat_put_idlebuffer(struct isp_stat_buffer_queue *stat_bufqueue,
 			       struct isp_kbuffer_info *kbuf_info)
 {
 	int ret = 0;
@@ -401,7 +402,7 @@ int k1xisp_stat_reqbuffer(struct k1xisp_stats_node *stats_node,
 	return 0;
 }
 
-int isp_stat_buffer_verfied(struct isp_kbuffer_info *kbuf_info, struct isp_ubuf_uint *ubuf_uint, u8 fd_memory)
+static int isp_stat_buffer_verfied(struct isp_kbuffer_info *kbuf_info, struct isp_ubuf_uint *ubuf_uint, u8 fd_memory)
 {
 	int verified = 1, i = 0;
 
@@ -429,7 +430,7 @@ int isp_stat_buffer_verfied(struct isp_kbuffer_info *kbuf_info, struct isp_ubuf_
 	return verified;
 }
 
-void _isp_stat_put_kvir_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
+static void _isp_stat_put_kvir_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
 {
 	if (kbuf_info->kvir_addr) {
 		if (fd_memory) {
@@ -442,7 +443,7 @@ void _isp_stat_put_kvir_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
 	}
 }
 
-int _isp_stat_get_kvir_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
+static int _isp_stat_get_kvir_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
 {
 	int ret = 0;
 	void *vir_addr = NULL;
@@ -472,7 +473,7 @@ int _isp_stat_get_kvir_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
 	return ret;
 }
 
-int _isp_stat_get_phy_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
+static int _isp_stat_get_phy_addr(u8 fd_memory, struct isp_kbuffer_info *kbuf_info)
 {
 	int ret = 0;
 	u64 phy_addr = 0;
@@ -638,7 +639,7 @@ int k1xisp_stat_try_flush_buffer(struct k1xisp_stats_node *stats_node)
 }
 
 /*get idle buffer and put into busy queue.*/
-struct isp_kbuffer_info *k1xisp_stat_get_idlebuffer(struct isp_stat_buffer_queue
+static struct isp_kbuffer_info *k1xisp_stat_get_idlebuffer(struct isp_stat_buffer_queue
 						    *buffer_queue, u32 hw_pipe_id)
 {
 	struct isp_kbuffer_info *kbuf_info = NULL;
@@ -670,7 +671,7 @@ struct isp_kbuffer_info *k1xisp_stat_get_idlebuffer(struct isp_stat_buffer_queue
 	return kbuf_info;
 }
 
-int k1xisp_stat_put_busybuffer(struct isp_stat_buffer_queue *stat_bufqueue,
+static int k1xisp_stat_put_busybuffer(struct isp_stat_buffer_queue *stat_bufqueue,
 			       struct isp_kbuffer_info *kbuf_info)
 {
 	int ret = 0;
@@ -688,7 +689,7 @@ int k1xisp_stat_put_busybuffer(struct isp_stat_buffer_queue *stat_bufqueue,
 	return ret;
 }
 
-struct isp_kbuffer_info* k1xisp_stat_get_busybuffer(struct isp_stat_buffer_queue *stat_bufqueue, u32 wr_err, u32 hw_pipe_id)
+static struct isp_kbuffer_info* k1xisp_stat_get_busybuffer(struct isp_stat_buffer_queue *stat_bufqueue, u32 wr_err, u32 hw_pipe_id)
 {
 	struct isp_kbuffer_info *kbuf_info = NULL;
 
@@ -724,7 +725,7 @@ struct isp_kbuffer_info* k1xisp_stat_get_busybuffer(struct isp_stat_buffer_queue
 	return kbuf_info;
 }
 
-int k1xisp_stat_put_donebuffer(u32 stat_id, struct isp_stat_done_info *stat_done_info,
+static int k1xisp_stat_put_donebuffer(u32 stat_id, struct isp_stat_done_info *stat_done_info,
 			       struct isp_kbuffer_info *kbuf_info)
 {
 	int ret = 0;
@@ -865,7 +866,7 @@ int k1xisp_stat_dma_irq_handler(struct k1xisp_stats_node *stats_node, void *irq_
 }
 
 //tasklet context
-int isp_stat_dma_err_handler(struct k1xisp_stats_node *stats_node, u32 stat_id)
+static int isp_stat_dma_err_handler(struct k1xisp_stats_node *stats_node, u32 stat_id)
 {
 	int ret = 0;
 	struct isp_stat_buffer_queue *buffer_queue = NULL;
@@ -877,7 +878,7 @@ int isp_stat_dma_err_handler(struct k1xisp_stats_node *stats_node, u32 stat_id)
 }
 
 /*the actiual dma write size of pdc is changing by hardware*/
-int isp_stat_get_pdc_real_ch_size(u32 hw_pipe_id, struct isp_kbuffer_info *kbuf_info)
+static int isp_stat_get_pdc_real_ch_size(u32 hw_pipe_id, struct isp_kbuffer_info *kbuf_info)
 {
 	int ret = 0, i;
 	ulong reg_addr = 0;
@@ -902,7 +903,7 @@ int isp_stat_get_pdc_real_ch_size(u32 hw_pipe_id, struct isp_kbuffer_info *kbuf_
 }
 
 //tasklet context:dma eof.
-int isp_stat_dma_eof_handler(struct k1xisp_stats_node *stats_node, u32 stat_id)
+static int isp_stat_dma_eof_handler(struct k1xisp_stats_node *stats_node, u32 stat_id)
 {
 	int ret = 0, return_idle = 0;
 	struct isp_kbuffer_info *kbuf_info = NULL;
@@ -1026,7 +1027,7 @@ int isp_stat_dma_sof_handler(struct k1xisp_stats_node *stats_node, u32 stat_id,
 	return ret;
 }
 
-int isp_stat_get_dma_ch_id(struct k1xisp_stats_node *stats_node, u32 stat_id)
+static int isp_stat_get_dma_ch_id(struct k1xisp_stats_node *stats_node, u32 stat_id)
 {
 	int ch_id = -1, i = 0;
 	struct stat_dma_irq_bits *dma_irq_bitmap = NULL;
@@ -1042,7 +1043,7 @@ int isp_stat_get_dma_ch_id(struct k1xisp_stats_node *stats_node, u32 stat_id)
 	return ch_id;
 }
 
-int isp_stat_dma_trigger_dynamic_condition(struct k1xisp_stats_node *stats_node,
+static int isp_stat_dma_trigger_dynamic_condition(struct k1xisp_stats_node *stats_node,
 					   u32 irq_info_index)
 {
 	int ret = 0;
