@@ -574,7 +574,7 @@ static int cpp_iommu_config_channel(struct cpp_iommu_device *mmu_dev,
 	return 0;
 }
 
-const static uint64_t IOMMU_VADDR_BASE = 0x80000000;
+static const uint64_t IOMMU_VADDR_BASE = 0x80000000;
 static uint64_t cpp_iommu_get_iova(struct cpp_iommu_device *mmu_dev,
 				   uint32_t tid, uint32_t offset)
 {
