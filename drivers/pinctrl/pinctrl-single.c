@@ -705,8 +705,8 @@ static int pcs_pinconf_set(struct pinctrl_dev *pctldev,
 					data |= func->conf[i].enable;
 				else
 					data |= func->conf[i].disable;
-				break;
 				pcs->write(data, pcs->base + offset);
+				break;
 			default:
 				return -ENOTSUPP;
 			}
