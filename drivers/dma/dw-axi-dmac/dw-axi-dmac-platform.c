@@ -1690,7 +1690,7 @@ static const struct of_device_id dw_dma_of_id_table[] = {
 		.data = (void *)AXI_DMA_FLAG_HAS_RESETS,
 	}, {
 		.compatible = "spacemit,k1pro-axi-dma",
-		.data = (void *)AXI_DMA_FLAG_HAS_RE
+		.data = (void *)AXI_DMA_FLAG_HAS_RESETS,
 	},
 	{}
 };
