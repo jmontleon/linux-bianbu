@@ -543,7 +543,6 @@ config SERIAL_8250_PERICOM
 config SERIAL_8250_PXA
 	tristate "PXA serial port support"
 	depends on SERIAL_8250
-	depends on ARCH_PXA || ARCH_MMP || COMPILE_TEST
 	help
 	  If you have a machine based on an Intel XScale PXA2xx CPU you can
 	  enable its onboard serial ports by enabling this option. The option is
