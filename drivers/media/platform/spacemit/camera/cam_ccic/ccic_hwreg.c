@@ -227,7 +227,7 @@ int ccic_dma_set_burst(struct ccic_dev *ccic_dev)
 	return 0;
 }
 
-void ccic_dma_enable(struct ccic_dev *ccic_dev, int en)
+__maybe_unused static void ccic_dma_enable(struct ccic_dev *ccic_dev, int en)
 {
 	if (en) {
 		ccic_reg_set_bit(ccic_dev, REG_IRQMASK, FRAMEIRQS);
