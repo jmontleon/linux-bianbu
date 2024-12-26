@@ -7,6 +7,7 @@
 
 #include "k1x_isp_drv.h"
 #include "k1x_isp_statistic.h"
+#include "k1x_isp_pipe.h"
 #include <cam_plat.h>
 
 #include <linux/fs.h>
@@ -66,7 +67,7 @@ static struct isp_task_stat_map_info g_task_stat_map_infos[ISP_PIPE_TASK_TYPE_MA
 	{ 1, { ISP_STAT_ID_AF, -1, -1} },	// af
 };
 
-int isp_pipe_get_task_type_by_stat_id(u32 stat_id)
+__maybe_unused static int isp_pipe_get_task_type_by_stat_id(u32 stat_id)
 {
 	int task_type = -1;
 
@@ -84,7 +85,7 @@ int isp_pipe_get_task_type_by_stat_id(u32 stat_id)
  * the functions prefixed with k1xisp are all exposured to external.
  */
 
-int isp_pipe_config_irqmask(struct k1xisp_pipe_dev *pipe_dev)
+static int isp_pipe_config_irqmask(struct k1xisp_pipe_dev *pipe_dev)
 {
 	int ret = 0;
 	u32 reg_addr = 0, reg_value = 0, reg_mask = 0;
@@ -125,7 +126,7 @@ int isp_pipe_config_irqmask(struct k1xisp_pipe_dev *pipe_dev)
 	return ret;
 }
 
-int isp_pipe_clear_irqmask(struct k1xisp_pipe_dev *pipe_dev)
+static int isp_pipe_clear_irqmask(struct k1xisp_pipe_dev *pipe_dev)
 {
 	u32 reg_addr = 0, reg_value = 0, reg_mask = 0;
 	u32 hw_pipe_id;
@@ -145,7 +146,7 @@ int isp_pipe_clear_irqmask(struct k1xisp_pipe_dev *pipe_dev)
 	return 0;
 }
 
-int _isp_pipe_prepare_capture_memory(struct k1xisp_pipe_dev *pipe_dev)
+static int _isp_pipe_prepare_capture_memory(struct k1xisp_pipe_dev *pipe_dev)
 {
 	pipe_dev->slice_reg_mem =
 	    kzalloc(K1XISP_SLICE_REG_MAX_NUM * sizeof(struct isp_reg_unit), GFP_KERNEL);
@@ -157,7 +158,7 @@ int _isp_pipe_prepare_capture_memory(struct k1xisp_pipe_dev *pipe_dev)
 	return 0;
 }
 
-int _isp_pipe_free_capture_memory(struct k1xisp_pipe_dev *pipe_dev)
+static int _isp_pipe_free_capture_memory(struct k1xisp_pipe_dev *pipe_dev)
 {
 	if (pipe_dev->slice_reg_mem) {
 		kfree(pipe_dev->slice_reg_mem);
@@ -202,7 +203,7 @@ fail_close_dev:
 	return ret;
 }
 
-int _isp_pipe_undeploy_driver(struct k1xisp_pipe_dev *pipe_dev)
+static int _isp_pipe_undeploy_driver(struct k1xisp_pipe_dev *pipe_dev)
 {
 	int mem_index = 0;
 
@@ -226,7 +227,7 @@ int _isp_pipe_undeploy_driver(struct k1xisp_pipe_dev *pipe_dev)
 	return 0;
 }
 
-int _isp_pipe_close_with_exception(struct k1xisp_pipe_dev *pipe_dev)
+static int _isp_pipe_close_with_exception(struct k1xisp_pipe_dev *pipe_dev)
 {
 	int i, cur_work_type = 0;
 
@@ -273,7 +274,7 @@ static int k1xisp_pipe_release(struct inode *inode, struct file *filp)
 	return ret;
 }
 
-void isp_pipe_fill_user_task_stat_result(struct isp_ubuf_uint *ubuf_uint,
+static void isp_pipe_fill_user_task_stat_result(struct isp_ubuf_uint *ubuf_uint,
 					 struct isp_kbuffer_info *kbuf_info)
 {
 	int plane_size = 0;
@@ -290,7 +291,7 @@ void isp_pipe_fill_user_task_stat_result(struct isp_ubuf_uint *ubuf_uint,
 	}
 }
 
-void isp_pipe_fill_user_task_data(struct isp_user_task_info *user_task, struct isp_kbuffer_info *kbuf_info, u32 stat_id)
+static void isp_pipe_fill_user_task_data(struct isp_user_task_info *user_task, struct isp_kbuffer_info *kbuf_info, u32 stat_id)
 {
 	if (ISP_PIPE_TASK_TYPE_AF == user_task->task_type) {
 		if (ISP_STAT_ID_AF == stat_id)
@@ -311,7 +312,7 @@ void isp_pipe_fill_user_task_data(struct isp_user_task_info *user_task, struct i
 	}
 }
 
-void isp_pipe_task_get_stats_result(struct k1xisp_pipe_dev *pipe_dev,
+static void isp_pipe_task_get_stats_result(struct k1xisp_pipe_dev *pipe_dev,
 				    struct isp_pipe_task *pipe_task,
 				    struct isp_user_task_info *user_task, u32 frame_num,
 				    u32 discard)
@@ -370,7 +371,7 @@ int isp_pipe_task_job_init(struct isp_pipe_task *pipe_task)
 	return 0;
 }
 
-int k1xisp_pipe_wait_interrupts(struct k1xisp_pipe_dev *pipe_dev,
+static int k1xisp_pipe_wait_interrupts(struct k1xisp_pipe_dev *pipe_dev,
 				struct isp_user_task_info *user_task)
 {
 	int ret = 0, hw_pipe_id = 0, task_type = -1, work_cnt = 0;
@@ -433,7 +434,7 @@ int k1xisp_pipe_wait_interrupts(struct k1xisp_pipe_dev *pipe_dev,
 	return ret;
 }
 
-int isp_pipe_start_task_vote(struct k1xisp_pipe_dev *pipe_dev, unsigned int enable)
+static int isp_pipe_start_task_vote(struct k1xisp_pipe_dev *pipe_dev, unsigned int enable)
 {
 	int ret = 0;
 	struct isp_pipe_task *af_task = NULL;
@@ -456,7 +457,7 @@ int isp_pipe_start_task_vote(struct k1xisp_pipe_dev *pipe_dev, unsigned int enab
 }
 
 //tasklet context
-int k1xisp_pipe_notify_event(void *pdev, u32 event, void *payload, u32 load_len)
+static int k1xisp_pipe_notify_event(void *pdev, u32 event, void *payload, u32 load_len)
 {
 	int ret = 0;
 	struct k1xisp_pipe_dev *pipe_dev = (struct k1xisp_pipe_dev *)pdev;
@@ -488,7 +489,7 @@ int k1xisp_pipe_notify_event(void *pdev, u32 event, void *payload, u32 load_len)
 	return ret;
 }
 
-int k1xisp_pipe_enable_pdc_af(struct k1xisp_pipe_dev *pipe_dev, u32 *enable)
+static int k1xisp_pipe_enable_pdc_af(struct k1xisp_pipe_dev *pipe_dev, u32 *enable)
 {
 	int ret = 0, i;
 	u32 pdc_enable = *enable;
@@ -501,7 +502,7 @@ int k1xisp_pipe_enable_pdc_af(struct k1xisp_pipe_dev *pipe_dev, u32 *enable)
 	return ret;
 }
 
-int __isp_pipe_start_preview_job(struct k1xisp_pipe_dev *pipe_dev, u32 switch_stream)
+static int __isp_pipe_start_preview_job(struct k1xisp_pipe_dev *pipe_dev, u32 switch_stream)
 {
 	int i, ret = 0;
 
@@ -521,7 +522,7 @@ int __isp_pipe_start_preview_job(struct k1xisp_pipe_dev *pipe_dev, u32 switch_st
 	return 0;
 }
 
-int isp_pipe_start_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
+static int isp_pipe_start_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
 {
 	int ret = 0;
 
@@ -548,7 +549,7 @@ Safe_Exit:
 	return ret;
 }
 
-int __isp_pipe_clear_preview_job(struct k1xisp_pipe_dev *pipe_dev, u32 switch_stream)
+static int __isp_pipe_clear_preview_job(struct k1xisp_pipe_dev *pipe_dev, u32 switch_stream)
 {
 	int i = 0;
 
@@ -586,7 +587,7 @@ int _isp_pipe_job_clear(struct k1xisp_pipe_dev *pipe_dev)
 	return 0;
 }
 
-int isp_pipe_switch_stream_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
+static int isp_pipe_switch_stream_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
 {
 	int ret = 0;
 
@@ -619,7 +620,7 @@ int isp_pipe_switch_stream_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
 	return ret;
 }
 
-int isp_pipe_stop_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
+static int isp_pipe_stop_job(struct k1xisp_pipe_dev *pipe_dev, u32 work_type)
 {
 	int ret = 0, i;
 	struct isp_pipe_task *pipe_task = NULL;
@@ -656,7 +657,7 @@ Safe_Exit:
 	return ret;
 }
 
-int k1xisp_pipe_notify_jobs(struct k1xisp_pipe_dev *pipe_dev,
+static int k1xisp_pipe_notify_jobs(struct k1xisp_pipe_dev *pipe_dev,
 			    struct isp_job_describer *job_action)
 {
 	int ret = 0;
@@ -678,7 +679,7 @@ int k1xisp_pipe_notify_jobs(struct k1xisp_pipe_dev *pipe_dev,
 	return ret;
 }
 
-int k1xisp_pipe_deploy_driver(struct k1xisp_pipe_dev *pipe_dev, struct isp_drv_deployment *drv_deploy)
+static int k1xisp_pipe_deploy_driver(struct k1xisp_pipe_dev *pipe_dev, struct isp_drv_deployment *drv_deploy)
 {
 	int ret = 0, mem_index = 0;
 	struct dma_buf *dma_buffer = NULL;
@@ -736,7 +737,7 @@ Safe_Exit:
 	return ret;
 }
 
-int k1xisp_pipe_undeploy_driver(struct k1xisp_pipe_dev *pipe_dev, u32 mem_index)
+static int k1xisp_pipe_undeploy_driver(struct k1xisp_pipe_dev *pipe_dev, u32 mem_index)
 {
 	ISP_DRV_CHECK_MAX_PARAMETERS(mem_index, ISP_PIPE_WORK_TYPE_CAPTURE, "pipe mem index");
 	if (pipe_dev->isp_reg_mem[mem_index].config) {
@@ -757,7 +758,7 @@ int k1xisp_pipe_undeploy_driver(struct k1xisp_pipe_dev *pipe_dev, u32 mem_index)
 	return 0;
 }
 
-int k1xisp_pipe_request_stats_buffer(struct k1xisp_pipe_dev *pipe_dev,
+static int k1xisp_pipe_request_stats_buffer(struct k1xisp_pipe_dev *pipe_dev,
 				     struct isp_buffer_request_info *request_info)
 {
 	int ret = 0, i;
@@ -768,7 +769,7 @@ int k1xisp_pipe_request_stats_buffer(struct k1xisp_pipe_dev *pipe_dev,
 	return ret;
 }
 
-int k1xisp_pipe_enqueue_stats_buffer(struct k1xisp_pipe_dev *pipe_dev,
+static int k1xisp_pipe_enqueue_stats_buffer(struct k1xisp_pipe_dev *pipe_dev,
 				     struct isp_buffer_enqueue_info *enqueue_info)
 {
 	int ret = 0, i;
@@ -779,7 +780,7 @@ int k1xisp_pipe_enqueue_stats_buffer(struct k1xisp_pipe_dev *pipe_dev,
 	return ret;
 }
 
-int k1xisp_pipe_flush_stats_buffer(struct k1xisp_pipe_dev *pipe_dev)
+static int k1xisp_pipe_flush_stats_buffer(struct k1xisp_pipe_dev *pipe_dev)
 {
 	int ret = 0, i;
 
@@ -789,7 +790,7 @@ int k1xisp_pipe_flush_stats_buffer(struct k1xisp_pipe_dev *pipe_dev)
 	return ret;
 }
 
-int _isp_pipe_set_slice_regs(void *kreg_mem, struct isp_slice_regs *slice_reg,
+static int _isp_pipe_set_slice_regs(void *kreg_mem, struct isp_slice_regs *slice_reg,
 			     int slice_index)
 {
 	int ret = 0, reg_count;
@@ -813,7 +814,7 @@ int _isp_pipe_set_slice_regs(void *kreg_mem, struct isp_slice_regs *slice_reg,
 	return ret;
 }
 
-int k1xisp_pipe_trigger_capture(struct k1xisp_pipe_dev *pipe_dev,
+static int k1xisp_pipe_trigger_capture(struct k1xisp_pipe_dev *pipe_dev,
 				struct isp_capture_package *capture_package)
 {
 	int ret = 0, slice_count, i, stop_job = 0, switch_job = 0;
@@ -915,7 +916,7 @@ job_exit:
 	return ret;
 }
 
-int k1xisp_pipe_set_endframe_work(struct k1xisp_pipe_dev *pipe_dev,
+static int k1xisp_pipe_set_endframe_work(struct k1xisp_pipe_dev *pipe_dev,
 				  struct isp_endframe_work_info *end_info)
 {
 	int ret = 0;
@@ -925,7 +926,7 @@ int k1xisp_pipe_set_endframe_work(struct k1xisp_pipe_dev *pipe_dev,
 	return ret;
 }
 
-long k1xisp_pipe_ioctl_core(struct file *file, unsigned int cmd, unsigned long arg)
+static long k1xisp_pipe_ioctl_core(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
 	struct k1xisp_pipe_dev *pipe_dev = file->private_data;
@@ -1225,7 +1226,7 @@ struct file_operations *k1xisp_pipe_get_fops(void)
 	return &g_isp_pipe_fops;
 }
 
-int isp_pipe_task_wakeup_user(struct k1xisp_pipe_dev *pipe_dev,
+static int isp_pipe_task_wakeup_user(struct k1xisp_pipe_dev *pipe_dev,
 			      struct isp_pipe_task *pipe_task, u32 frame_num)
 {
 	static DEFINE_RATELIMIT_STATE(rs, 5 * HZ, 6);
@@ -1254,7 +1255,7 @@ int isp_pipe_task_wakeup_user(struct k1xisp_pipe_dev *pipe_dev,
 	return 0;
 }
 
-void isp_pipe_task_ignore_a_vote(struct k1xisp_stats_node *stats_node, u32 voter_type,
+static void isp_pipe_task_ignore_a_vote(struct k1xisp_stats_node *stats_node, u32 voter_type,
 				 u32 frame_num)
 {
 	u32 stat_id = 0;
@@ -1366,7 +1367,7 @@ int isp_pipe_task_vote_handler(struct k1xisp_pipe_dev *pipe_dev,
 }
 
 //tasklet context
-int isp_pipe_task_mem_stat_handler(struct k1xisp_pipe_dev *pipe_dev, u32 task_type, u32 frame_num)
+static int isp_pipe_task_mem_stat_handler(struct k1xisp_pipe_dev *pipe_dev, u32 task_type, u32 frame_num)
 {
 	int i = 0, ret = 0;
 
@@ -1441,7 +1442,7 @@ static void isp_pipe_tasklet_handler(unsigned long data)
 }
 
 //the upper half irq context
-void isp_pipe_dev_call_each_irqbit_handler(u32 irq_status, u32 hw_pipe_id, u32 frame_id)
+static void isp_pipe_dev_call_each_irqbit_handler(u32 irq_status, u32 hw_pipe_id, u32 frame_id)
 {
 	struct k1xisp_pipe_dev *pipe_dev = NULL;
 	struct k1xisp_irq_context *isp_irq_ctx = NULL;
@@ -1668,7 +1669,7 @@ int isp_pipe_afc_eof_irq_handler(struct isp_irq_func_params *param)
 	return schedule_lower_irq;
 }
 
-int isp_pipe_irq_ctx_constructed(struct k1xisp_pipe_dev *pipe_dev, u32 pipedev_id)
+static int isp_pipe_irq_ctx_constructed(struct k1xisp_pipe_dev *pipe_dev, u32 pipedev_id)
 {
 	int ret = 0, i = 0, irq_bit = 0;
 	u32 hw_pipe_id = 0;
@@ -1700,7 +1701,7 @@ int isp_pipe_irq_ctx_constructed(struct k1xisp_pipe_dev *pipe_dev, u32 pipedev_i
 	return ret;
 }
 
-int isp_pipe_dev_stats_node_create(struct k1xisp_pipe_dev *pipe_dev)
+static int isp_pipe_dev_stats_node_create(struct k1xisp_pipe_dev *pipe_dev)
 {
 	int ret = -1, count = 1;
 
@@ -1725,7 +1726,7 @@ int isp_pipe_dev_stats_node_create(struct k1xisp_pipe_dev *pipe_dev)
 	return ret;
 }
 
-int isp_pipe_task_constructed(struct isp_pipe_task *pipe_tasks)
+static int isp_pipe_task_constructed(struct isp_pipe_task *pipe_tasks)
 {
 	int ret = 0, task_type, i = 0;
 
@@ -1760,7 +1761,7 @@ int isp_pipe_task_constructed(struct isp_pipe_task *pipe_tasks)
 	return ret;
 }
 
-void isp_pipe_task_exit(struct isp_pipe_task *pipe_tasks)
+static void isp_pipe_task_exit(struct isp_pipe_task *pipe_tasks)
 {
 	if (pipe_tasks)
 		memset(pipe_tasks, 0, sizeof(struct isp_pipe_task) * ISP_PIPE_TASK_TYPE_MAX);
@@ -1810,7 +1811,7 @@ int k1xisp_pipe_dev_init(struct platform_device *pdev,
 	return ret;
 }
 
-int isp_pipe_irq_ctx_exit(struct k1xisp_irq_context *isp_irq_ctx)
+static int isp_pipe_irq_ctx_exit(struct k1xisp_irq_context *isp_irq_ctx)
 {
 	int ret = 0;
 
