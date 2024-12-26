@@ -562,7 +562,7 @@ static int ccic_clk_set_rate(struct ccic_ctrl *ctrl_dev, int mode)
 	return 0;
 }
 
-int ccic_clk_enable(struct ccic_ctrl *ctrl, int en)
+static int ccic_clk_enable(struct ccic_ctrl *ctrl, int en)
 {
 	int ret = 0;
 	struct ccic_dev *ccic_dev = ctrl->ccic_dev;
@@ -612,7 +612,7 @@ int ccic_clk_enable(struct ccic_ctrl *ctrl, int en)
 	return ret;
 }
 
-int ccic_config_csi2_mbus(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, u8 dt0, u8 dt1,
+static int ccic_config_csi2_mbus(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, u8 dt0, u8 dt1,
 			  int lanes)
 {
 	int ret;
@@ -639,7 +639,7 @@ int ccic_config_csi2_mbus(struct ccic_ctrl *ctrl, int md, u8 vc0, u8 vc1, u8 dt0
 	return ret;
 }
 
-int ccic_config_csi2idi_mux(struct ccic_ctrl *ctrl, int chnl, int idi, int en)
+static int ccic_config_csi2idi_mux(struct ccic_ctrl *ctrl, int chnl, int idi, int en)
 {
 	struct ccic_dev *csi2idi = NULL;
 	struct ccic_dev *tmp;
@@ -687,7 +687,7 @@ int ccic_config_csi2idi_mux(struct ccic_ctrl *ctrl, int chnl, int idi, int en)
 	return 0;
 }
 
-int ccic_reset_csi2idi(struct ccic_ctrl *ctrl, int idi, int rst)
+static int ccic_reset_csi2idi(struct ccic_ctrl *ctrl, int idi, int rst)
 {
 	struct ccic_dev *csi2idi = NULL;
 	struct ccic_dev *tmp;
@@ -857,14 +857,6 @@ int ccic_ctrl_get(struct ccic_ctrl **ctrl_host, int id,
 }
 
 EXPORT_SYMBOL(ccic_ctrl_get);
-
-void ccic_ctrl_put(struct ccic_ctrl *ctrl)
-{
-	// TODO
-}
-
-EXPORT_SYMBOL(ccic_ctrl_put);
-
 
 int ccic_dma_get(struct ccic_dma **ccic_dma, int id)
 {
@@ -1258,7 +1250,7 @@ static const struct of_device_id k1x_ccic_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, k1x_ccic_dt_match);
 
-struct platform_driver k1x_ccic_driver = {
+static struct platform_driver k1x_ccic_driver = {
 	.driver = {
 		.name = K1X_CCIC_DRV_NAME,
 		.of_match_table = of_match_ptr(k1x_ccic_dt_match),
@@ -1267,7 +1259,7 @@ struct platform_driver k1x_ccic_driver = {
 	.remove = k1x_ccic_remove,
 };
 
-int __init k1x_ccic_driver_init(void)
+static int __init k1x_ccic_driver_init(void)
 {
 	int ret;
 
@@ -1282,7 +1274,7 @@ int __init k1x_ccic_driver_init(void)
 	return ret;
 }
 
-void __exit k1x_ccic_driver_exit(void)
+static void __exit k1x_ccic_driver_exit(void)
 {
 	platform_driver_unregister(&k1x_ccic_driver);
 	ccic_csiphy_unregister();
