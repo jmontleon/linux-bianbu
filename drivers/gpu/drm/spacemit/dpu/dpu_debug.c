@@ -300,13 +300,12 @@ void dpu_dump_reg(struct spacemit_dpu *dpu)
 
 void dpu_dump_fps(struct spacemit_dpu *dpu)
 {
-	struct timespec64 cur_tm, tmp_tm;
+	struct timespec64 cur_tm;
 
 	if (!dpu->enable_dump_fps)
 		return;
 
 	ktime_get_real_ts64(&cur_tm);
-	tmp_tm = timespec64_sub(cur_tm, dpu->last_tm);
 	dpu->last_tm.tv_sec = cur_tm.tv_sec;
 	dpu->last_tm.tv_nsec = cur_tm.tv_nsec;
 }
