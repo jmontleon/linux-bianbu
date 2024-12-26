@@ -342,7 +342,7 @@ static const struct of_device_id of_k1x_thermal_match[] = {
 	{ /* end */ }
 };
 
-MODULE_DEVICE_TABLE(of, of_hisi_thermal_match);
+MODULE_DEVICE_TABLE(of, of_k1x_thermal_match);
 
 static struct platform_driver k1x_thermal_driver = {
 	.driver = {
