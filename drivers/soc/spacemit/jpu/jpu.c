@@ -1798,7 +1798,7 @@ static void __exit jpu_exit(void)
 
 MODULE_AUTHOR("SPACEMIT Limited, Inc.");
 MODULE_DESCRIPTION("JPU linux driver");
-MODULE_LICENSE("Proprietary");
+MODULE_LICENSE("GPL v2");
 
 module_init(jpu_init);
 module_exit(jpu_exit);
