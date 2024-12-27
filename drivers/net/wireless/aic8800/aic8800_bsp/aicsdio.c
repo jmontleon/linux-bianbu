@@ -53,6 +53,10 @@ static struct priv_dev *sdiodev;
 static struct semaphore *aicbsp_notify_semaphore;
 static const struct sdio_device_id aicbsp_sdmmc_ids[];
 
+#ifdef CONFIG_SDIO_F1_FLAG
+extern bool sdio_f1_flag;
+#endif
+
 int aicbsp_device_init(void)
 {
 	return 0;
@@ -1244,6 +1248,7 @@ static void aicwf_sdio_hal_irqhandler(struct sdio_func *func)
 	u8 byte_len = 0;
 	struct sk_buff *pkt = NULL;
 	int ret;
+	int retry = 10;
 
 	if (!bus_if || bus_if->state == BUS_DOWN_ST) {
 		bsp_err("bus err\n");
@@ -1255,6 +1260,8 @@ static void aicwf_sdio_hal_irqhandler(struct sdio_func *func)
 		while (ret || (intstatus & SDIO_OTHER_INTERRUPT)) {
 			bsp_err("ret=%d, intstatus=%x\r\n", ret, intstatus);
 			ret = aicwf_sdio_readb(aicdev->func[0], aicdev->sdio_reg.block_cnt_reg, &intstatus);
+			if (retry-- <= 0)
+				break;
 		}
 		aicdev->rx_priv->data_len = intstatus * SDIOWIFI_FUNC_BLOCKSIZE;
 
@@ -1279,6 +1286,11 @@ static void aicwf_sdio_hal_irqhandler(struct sdio_func *func)
 				break;
 			}
 			bsp_err("ret=%d, intstatus=%x\r\n", ret, intstatus);
+			#ifdef CONFIG_SDIO_F1_FLAG
+			sdio_f1_flag = true;
+			#endif
+			if (retry-- <= 0)
+				break;
 		} while (1);
 		if (intstatus & SDIO_OTHER_INTERRUPT) {
 			u8 int_pending;
@@ -1595,12 +1607,19 @@ static int aicwf_sdiov3_func_init(struct priv_dev *aicdev)
 		sdio_release_host(aicdev->func[0]);
 		return ret;
 	}
-	sdio_f0_writeb(aicdev->func[0], 0x80, 0xF1, &ret);
-	if (ret) {
-		bsp_err("set iopad delay1 fail %d\n", ret);
-		sdio_release_host(aicdev->func[0]);
-		return ret;
+	#ifdef CONFIG_SDIO_F1_FLAG
+	if (sdio_f1_flag) {
+		bsp_err("func_init sdio_f1\n");
+	#endif
+		sdio_f0_writeb(aicdev->func[0], 0x80, 0xF1, &ret);
+		if (ret) {
+			bsp_err("set iopad delay1 fail %d\n", ret);
+			sdio_release_host(aicdev->func[0]);
+			return ret;
+		}
+	#ifdef CONFIG_SDIO_F1_FLAG
 	}
+	#endif
 	msleep(1);
 #if 1 // SDIO CLOCK SETTING
 	if ((feature.sdio_clock > 0) && (host->ios.timing != MMC_TIMING_UHS_DDR50)) {

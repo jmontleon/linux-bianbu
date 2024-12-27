@@ -26,6 +26,10 @@
 #define AIC_PATCH_MAGIG_NUM_2               0x50544348 // "HCTP"
 #define AIC_PATCH_BLOCK_MAX                 4
 
+#ifdef CONFIG_SDIO_F1_FLAG
+bool sdio_f1_flag = false;
+#endif
+
 typedef struct {
 	uint32_t magic_num;
 	uint32_t pair_start;
@@ -557,15 +561,22 @@ int aicbsp_8800d80_fw_init(struct priv_dev *aicdev)
 	int ret = 0;
 	if (rwnx_send_dbg_mem_write_req(aicdev, 0x40500058, 0x40))
 		return -1;
-	sdio_claim_host(aicdev->func[0]);
-	sdio_f0_writeb(aicdev->func[0], 0x0, 0xF1, &ret);
-	if (ret) {
-		bsp_err("set iopad delay1 fail %d\n", ret);
+#ifdef CONFIG_SDIO_F1_FLAG
+	printk("aicbsp:sdio_f1_flag %d\n",sdio_f1_flag);
+	if (sdio_f1_flag) {
+#endif
+		sdio_claim_host(aicdev->func[0]);
+		sdio_f0_writeb(aicdev->func[0], 0x0, 0xF1, &ret);
+		if (ret) {
+			bsp_err("set iopad delay1 fail %d\n", ret);
+			sdio_release_host(aicdev->func[0]);
+			return ret;
+		}
+		msleep(1);
 		sdio_release_host(aicdev->func[0]);
-		return ret;
+#ifdef CONFIG_SDIO_F1_FLAG
 	}
-	msleep(1);
-	sdio_release_host(aicdev->func[0]);
+#endif
 #endif
 
 	if (rwnx_send_dbg_mem_read_req(aicdev, mem_addr, &rd_mem_addr_cfm))
