@@ -12,7 +12,7 @@
 		/*mipi info*/
 		height = <1920>;
 		width = <1200>;
-		hfp = <80>;
+		hfp = <50>;
 		hbp = <40>;
 		hsync = <10>;
 		vfp = <20>;
@@ -140,9 +140,9 @@
 
 		display-timings {
 			timing0 {
-				clock-frequency = <143000000>;
+				clock-frequency = <153000000>;
 				hactive = <1200>;
-				hfront-porch = <80>;
+				hfront-porch = <50>;
 				hback-porch = <40>;
 				hsync-len = <10>;
 				vactive = <1920>;
