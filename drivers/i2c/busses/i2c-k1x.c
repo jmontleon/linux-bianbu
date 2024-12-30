@@ -1781,14 +1781,13 @@ spacemit_i2c_parse_dt(struct platform_device *pdev, struct spacemit_i2c_dev *spa
 			dev_warn(spacemit_i2c->dev,
 			"failed to get i2c master code, use default: 0x0e\n");
 		}
-
-		ret = of_property_read_u32(dnode, "spacemit,i2c-clk-rate",
-				&spacemit_i2c->clk_rate);
-		if (ret) {
-			dev_err(spacemit_i2c->dev,
-				"failed to get i2c high mode clock rate\n");
-			return ret;
-		}
+	}
+	ret = of_property_read_u32(dnode, "spacemit,i2c-clk-rate",
+			&spacemit_i2c->clk_rate);
+	if (ret) {
+		dev_err(spacemit_i2c->dev,
+			"failed to get i2c clock rate\n");
+		return ret;
 	}
 
 	ret = of_property_read_u32(dnode, "spacemit,i2c-lcr", &spacemit_i2c->i2c_lcr);
@@ -1846,6 +1845,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 	struct rpmsg_device *rpdev;
 	struct instance_data *idata;
 	const struct of_device_id *of_id;
+	bool rcpu_i2c = false;
 #endif
 	int ret = 0;
 
@@ -1892,7 +1892,7 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 	if (of_get_property(pdev->dev.of_node, "rcpu-i2c", NULL)) {
-
+		rcpu_i2c = true;
 		of_id = of_match_device(r_spacemit_i2c_dt_match, &pdev->dev);
 		if (!of_id) {
 			pr_err("Unable to match OF ID\n");
@@ -1939,6 +1939,11 @@ static int spacemit_i2c_probe(struct platform_device *pdev)
 		ret = PTR_ERR(spacemit_i2c->clk);
 		goto err_dma;
 	}
+#ifdef CONFIG_SOC_SPACEMIT_K1X
+	if (rcpu_i2c) {
+		clk_set_rate(spacemit_i2c->clk, spacemit_i2c->clk_rate);
+	}
+#endif
 	clk_prepare_enable(spacemit_i2c->clk);
 
 	i2c_set_adapdata(&spacemit_i2c->adapt, spacemit_i2c);
