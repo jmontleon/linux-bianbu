@@ -359,12 +359,12 @@ static void hdmi_i2c_timing(struct spacemit_hdmi *hdmi)
 	DRM_DEBUG("%s() hdmi 0x18 #2 0x%x\n", __func__, reg);
 }
 
-static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* message, uint32_t length)
+static int hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* message, uint32_t length)
 {
 	int i, count = 0, left = length;
 	uint8_t *pvalue = message;
 	uint32_t value;
-	uint32_t reg, num;
+	uint32_t reg, num, status;
 	int timeout = 1000;
 
 	DRM_DEBUG("hdmi_i2c_read ++%u\r\n", length);
@@ -384,6 +384,11 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 
 		while(num < count){
 			reg = hdmi_readb(hdmi, 0xC);
+			status = reg & SPACEMIT_HDMI_HPD_STATUS;
+			if(!status){
+				DRM_INFO("hdmi disconnected while read edid\n");
+				return -1;
+			}
 			num = (reg & 0x1f0) >> 4;
 		}
 
@@ -413,7 +418,7 @@ static void hdmi_i2c_read(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* mes
 
 	DRM_DEBUG("hdmi_i2c_read --%u\r\n", length);
 
-	return;
+	return 0;
 }
 
 static int hdmi_i2c_write(struct spacemit_hdmi *hdmi, uint8_t addr, uint8_t* message, uint32_t length)
@@ -480,7 +485,9 @@ int edid_read (struct spacemit_hdmi *hdmi){
 		result = hdmi_i2c_write(hdmi, 0x50, &offset, 1);
 		if (result < 0)
 			break;
-		hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid + offset, 16);
+		result = hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid + offset, 16);
+		if (result < 0)
+			break;
 	}
 
 	if (result < 0) {
@@ -496,8 +503,16 @@ int edid_read (struct spacemit_hdmi *hdmi){
 			result = hdmi_i2c_write(hdmi, 0x50, &offset, 1);
 			if (result < 0)
 				break;
-			hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid + offset, 16);
+			result = hdmi_i2c_read(hdmi, 0x50, hdmi_data->edid + offset, 16);
+			if (result < 0)
+				break;
 		}
+	}
+
+	if (result < 0) {
+		// memset(hdmi_data->edid, 0x00, EDID_LENGTH);
+		memset(hdmi_data->edid, 0x00, 256);
+		return result;
 	}
 
 	for(i = 0; i < 256; i += 8){
