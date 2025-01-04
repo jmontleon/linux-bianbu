@@ -221,6 +221,9 @@ static void spacemit_i2c_unit_init(struct spacemit_i2c_dev *spacemit_i2c)
 	/* enable master stop detected */
 	cr_val |= CR_MSDE | CR_MSDIE;
 
+	/* disable int to use pio xfer mode*/
+	if (unlikely(spacemit_i2c->xfer_mode == SPACEMIT_I2C_MODE_PIO))
+		cr_val &= ~(CR_ALDIE | CR_BEIE | CR_MSDIE | CR_DTEIE);
 	spacemit_i2c_write_reg(spacemit_i2c, REG_CR, cr_val);
 }
 
@@ -230,7 +233,10 @@ static void spacemit_i2c_trigger_byte_xfer(struct spacemit_i2c_dev *spacemit_i2c
 
 	/* send start pulse */
 	cr_val &= ~CR_STOP;
-	cr_val |= CR_START | CR_TB | CR_DTEIE;
+	if (spacemit_i2c->xfer_mode == SPACEMIT_I2C_MODE_PIO)
+		cr_val |= CR_START | CR_TB;
+	else
+		cr_val |= CR_START | CR_TB | CR_DTEIE;
 	spacemit_i2c_write_reg(spacemit_i2c, REG_CR, cr_val);
 }
 
@@ -1131,7 +1137,6 @@ xfer_retry:
 
 	if (!spacemit_i2c->clk_always_on)
 		clk_enable(spacemit_i2c->clk);
-
 	spacemit_i2c_controller_reset(spacemit_i2c);
 	udelay(2);
 
