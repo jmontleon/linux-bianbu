@@ -190,10 +190,18 @@
 	status = "okay";
 };
 
+/* Bluetooth */
 &uart2 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart2>;
 	status = "okay";
+	pinctrl-0 = <&pinctrl_uart2>;
+	pinctrl-names = "default";
+	uart-has-rtscts;
+
+	bluetooth {
+		compatible = "realtek,rtl8723ds-bt";
+		device-wake-gpios = <&gpio 64 GPIO_ACTIVE_HIGH>;
+		host-wake-gpios = <&gpio 65 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &pwm14 {
@@ -544,6 +552,7 @@
 		&range GPIO_49  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range GPIO_58  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_63  2 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
+		&range GPIO_64  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_65  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
 		&range GPIO_67  1 (MUX_MODE0 | EDGE_NONE | PULL_UP   | PAD_3V_DS4)
 		&range PRI_TDI  2 (MUX_MODE1 | EDGE_NONE | PULL_UP   | PAD_1V8_DS2)
