@@ -487,7 +487,7 @@ static int husb239_usbpd_request_voltage(struct husb239 *husb239)
 	if (!husb239->psy_online || !info->pd_supported)
 		return -EINVAL;
 
-	if (husb239->voltage == husb239->req_voltage)
+	if (husb239->voltage == husb239->req_voltage * 1000)
 		return 0;
 
 	switch (husb239->req_voltage) {
