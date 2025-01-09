@@ -571,8 +571,8 @@ config SPACEMIT_TCM
 
 config OCP2138
 	tristate "Driver for ocp2138"
+	depends on I2C
 	default y
-
 	help
 	  Support for ocp2138.
 
