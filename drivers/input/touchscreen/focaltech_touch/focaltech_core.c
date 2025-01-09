@@ -2293,15 +2293,8 @@ static int fts_notifier_callback_init(struct fts_ts_data *ts_data)
     ret = drm_check_dt(ts_data);
     if (ret) FTS_ERROR("parse drm-panel fail");
     FTS_INFO("init notifier with drm_panel_notifier_register");
-#ifdef CONFIG_SOC_SPACEMIT_K1
+#ifdef CONFIG_DRM_SPACEMIT
     spacemit_drm_register_client(&ts_data->fb_notif);
-    FTS_FUNC_EXIT();
-    return 0;
-#else
-    if (active_panel) {
-        ret = drm_panel_notifier_register(active_panel, &ts_data->fb_notif);
-        if (ret) FTS_ERROR("[DRM]drm_panel_notifier_register fail: %d", ret);
-    }
 #endif
 #else
     FTS_INFO("init notifier with msm_drm_register_client");
@@ -2327,11 +2320,8 @@ static int fts_notifier_callback_exit(struct fts_ts_data *ts_data)
     FTS_FUNC_ENTER();
 #if IS_ENABLED(CONFIG_DRM)
 #if IS_ENABLED(CONFIG_DRM_PANEL)
-#ifdef CONFIG_SOC_SPACEMIT_K1X
+#ifdef CONFIG_DRM_SPACEMIT
     spacemit_drm_unregister_client(&ts_data->fb_notif);
-#else
-    if (active_panel)
-        drm_panel_notifier_unregister(active_panel, &ts_data->fb_notif);
 #endif
 #else
     if (msm_drm_unregister_client(&ts_data->fb_notif))
