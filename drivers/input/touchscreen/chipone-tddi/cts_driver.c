@@ -290,8 +290,8 @@ err_free_resource:
     return ret;
 }
 
-static int callback_times = 0;
-static int fb_notifier_callback(struct notifier_block *nb,
+__maybe_unused static int callback_times = 0;
+__maybe_unused static int fb_notifier_callback(struct notifier_block *nb,
 	unsigned long action, void *data)
 {
     const struct cts_platform_data *pdata =
@@ -697,9 +697,11 @@ static int cts_driver_probe(struct spi_device *client)
         goto err_destroy_heart_workqueue;
     }
 
+#ifdef CONFIG_DRM_SPACEMIT
     cts_data->pdata->fb_notifier.notifier_call = fb_notifier_callback;
     spacemit_drm_register_client(&cts_data->pdata->fb_notifier);
-    
+#endif
+
     return 0;
 
 err_destroy_heart_workqueue:
