@@ -991,11 +991,11 @@ void lt8911exb_reset(struct lt8911exb *lt8911exb)
 	}
 
 	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-	usleep_range(5*1000, 10*1000); //10ms
+	usleep_range(5*1000, 10*1000);
 	gpiod_direction_output(lt8911exb->reset_gpio, 0);
-	usleep_range(5*1000, 10*1000); //10ms
+	usleep_range(40*1000, 50*1000);
 	gpiod_direction_output(lt8911exb->reset_gpio, 1);
-	usleep_range(5*1000, 10*1000); //10ms
+	usleep_range(40*1000, 50*1000);
 }
 
 void LT8911EX_TxSwingPreSet(struct lt8911exb *lt8911exb)
@@ -1057,7 +1057,7 @@ void LT8911EXB_LinkTrainResultCheck( struct lt8911exb *lt8911exb)
 			mdelay(10); // return;
 		} else {
 			//DRM_DEBUG_ATOMIC("\r\nLT8911_LinkTrainResultCheck: link trian on going...");
-			mdelay(10);
+			mdelay(20);
 		}
 	}
 #endif
@@ -1152,7 +1152,9 @@ static int lt8911exb_panel_enable(struct drm_panel *panel)
 	struct lt8911exb *lt8911exb = panel_to_lt8911exb(panel);
 
 	DRM_INFO("%s()\n", __func__);
-
+	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
+		gpiod_direction_output(lt8911exb->enable_gpio, 1);
+	}
 	schedule_delayed_work(&lt8911exb->init_work,
 				msecs_to_jiffies(100));
 	lt8911exb->init_work_pending = true;
@@ -1265,9 +1267,6 @@ static void init_work_func(struct work_struct *work)
 	mdelay(80);
 	PCR_Status(lt8911exb);
 
-	if (!IS_ERR_OR_NULL(lt8911exb->enable_gpio)) {
-		gpiod_direction_output(lt8911exb->enable_gpio, 1);
-	}
 	gpiod_direction_output(lt8911exb->bl_gpio, 1);
 }
 static int lt8911exb_probe(struct i2c_client *client)
