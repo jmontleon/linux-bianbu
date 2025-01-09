@@ -25,7 +25,7 @@ config SPACEMIT_I2S
 
 config SPACEMIT_HDMIAUDIO
         tristate "Audio Cpudai HDMI Audio"
-        depends on SND_SOC_SPACEMIT
+        depends on SND_SOC_SPACEMIT && SPACEMIT_HDMI
         help
           Say Y or M here if you want to enable audio data dump function
 
