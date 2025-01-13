@@ -838,12 +838,12 @@ static int gmc_v6_0_sw_init(struct amdgpu_ip_block *ip_block)
 
 	adev->gmc.mc_mask = 0xffffffffffULL;
 
-	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(40));
+	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(32));
 	if (r) {
 		dev_warn(adev->dev, "No suitable DMA available.\n");
 		return r;
 	}
-	adev->need_swiotlb = drm_need_swiotlb(40);
+	adev->need_swiotlb = drm_need_swiotlb(32);
 
 	r = gmc_v6_0_init_microcode(adev);
 	if (r) {

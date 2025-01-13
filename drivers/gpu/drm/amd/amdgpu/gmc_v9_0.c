@@ -2206,12 +2206,12 @@ static int gmc_v9_0_sw_init(struct amdgpu_ip_block *ip_block)
 					IP_VERSION(9, 4, 2) ?
 				48 :
 				44;
-	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(dma_addr_bits));
+	r = dma_set_mask_and_coherent(adev->dev, DMA_BIT_MASK(32));
 	if (r) {
 		dev_warn(adev->dev, "amdgpu: No suitable DMA available.\n");
 		return r;
 	}
-	adev->need_swiotlb = drm_need_swiotlb(dma_addr_bits);
+	adev->need_swiotlb = drm_need_swiotlb(32);
 
 	r = gmc_v9_0_mc_init(adev);
 	if (r)
