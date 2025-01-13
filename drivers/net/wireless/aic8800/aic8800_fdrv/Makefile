@@ -63,8 +63,11 @@ CONFIG_FILTER_TCP_ACK = y
 # CONFIG_MCC = n for sta and p2p concurrent in same channel.
 CONFIG_MCC = y
 
+#CONFIG FOR LOW POWER MODE
+CONFIG_AUTO_POWERSAVE = y
+
 # Enable wifi-hal Latency Mode
-CONFIG_AICWF_LATENCY_MODE = y
+CONFIG_AICWF_LATENCY_MODE = n
 
 # Support of MU-MIMO transmission (need FW support)
 ifeq ($(CONFIG_RWNX_BFMER), y)

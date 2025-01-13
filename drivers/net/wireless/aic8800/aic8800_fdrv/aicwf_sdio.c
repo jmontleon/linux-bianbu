@@ -429,21 +429,52 @@ static int aicwf_sdio_suspend(struct device *dev)
 		return ret;
 	}
 
-	if (aicwf_wakeup_lock_status(sdiodev->rwnx_hw)) {
-		sdio_dbg("%s ws active dont suspend\n", __func__);
-		return -EBUSY;
-	}
+#if (defined(CONFIG_AUTO_POWERSAVE) && defined(CONFIG_SDIO_PWRCTRL))
+        aicwf_sdio_pwr_stctl(sdiodev, SDIO_ACTIVE_ST);
 
+        if((aicwf_chipid == PRODUCT_ID_AIC8800D80) || (aicwf_chipid == PRODUCT_ID_AIC8800D80X2)) {
+            sdio_dbg("autops set\n");
+            ret = aicwf_sdio_writeb(sdiodev, sdiodev->sdio_reg.wakeup_reg, 0x8);
+            if(ret) {
+                sdio_err("sdio set autops fail\n");
+            }
+        }
+#endif
+
+    #if (!defined(CONFIG_AUTO_POWERSAVE))
 	while (sdiodev->state == SDIO_ACTIVE_ST) {
 		if (down_interruptible(&sdiodev->tx_priv->txctl_sema))
 			continue;
-#if defined(CONFIG_SDIO_PWRCTRL)
+        #if defined(CONFIG_SDIO_PWRCTRL)
 		aicwf_sdio_pwr_stctl(sdiodev, SDIO_SLEEP_ST);
-#endif
+        #endif
 		up(&sdiodev->tx_priv->txctl_sema);
 		break;
 	}
+    #else
+    #if defined(CONFIG_SDIO_PWRCTRL)
+    aicwf_sdio_pwr_stctl(sdiodev, SDIO_SLEEP_ST);
+    #endif
+    #endif
 	atomic_set(&sdiodev->is_bus_suspend, 1);
+
+#if defined(CONFIG_AUTO_POWERSAVE)
+    if(aicwf_wakeup_lock_status(sdiodev->rwnx_hw)) {
+        printk("%s ws active dont suspend", __func__);
+        aicwf_sdio_pwr_stctl(sdiodev, SDIO_ACTIVE_ST);
+
+        if((aicwf_chipid == PRODUCT_ID_AIC8800D80) || (aicwf_chipid == PRODUCT_ID_AIC8800D80X2)) {
+            sdio_dbg("autops clear\n");
+            ret = aicwf_sdio_writeb(sdiodev, sdiodev->sdio_reg.wakeup_reg, 0x8);
+            if(ret) {
+                sdio_err("sdio clear autops fail\n");
+            }
+        }
+
+        return -EBUSY;
+    }
+#endif
+
 	sdio_dbg("%s Exit\n", __func__);
 	return 0;
 }
@@ -453,14 +484,28 @@ static int aicwf_sdio_resume(struct device *dev)
 	struct aicwf_bus *bus_if = dev_get_drvdata(dev);
 	struct aic_sdio_dev *sdiodev = bus_if->bus_priv.sdio;
 	struct rwnx_vif *rwnx_vif, *tmp;
+#if defined(CONFIG_AUTO_POWERSAVE)
+	int ret;
+#endif
 
 	sdio_dbg("%s Enter\n", __func__);
 	list_for_each_entry_safe(rwnx_vif, tmp, &sdiodev->rwnx_hw->vifs, list) {
 		if (rwnx_vif->ndev)
 			netif_device_attach(rwnx_vif->ndev);
 	}
-#if defined(CONFIG_SDIO_PWRCTRL)
+
+	#if defined(CONFIG_SDIO_PWRCTRL)
 	aicwf_sdio_pwr_stctl(sdiodev, SDIO_ACTIVE_ST);
+	#endif
+
+#if defined(CONFIG_AUTO_POWERSAVE) && defined(CONFIG_SDIO_PWRCTRL)
+    if(aicwf_chipid == PRODUCT_ID_AIC8800D80 || aicwf_chipid == PRODUCT_ID_AIC8800D80X2) {
+        sdio_dbg("autops clear\n");
+        ret = aicwf_sdio_writeb(sdiodev, sdiodev->sdio_reg.wakeup_reg, 0x8);
+        if(ret) {
+            sdio_err("sdio clear autops fail\n");
+        }
+    }
 #endif
 	atomic_set(&sdiodev->is_bus_suspend, 0);
 	sdio_dbg("%s Exit\n", __func__);
