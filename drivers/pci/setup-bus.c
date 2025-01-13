@@ -1141,6 +1141,8 @@ static int pbus_size_mem(struct pci_bus *bus, unsigned long mask,
 	min_align = calculate_mem_align(aligns, max_order);
 	min_align = max(min_align, win_align);
 	size0 = calculate_memsize(size, min_size, 0, 0, resource_size(b_res), min_align);
+	if (size0 == 0x18000000U)
+		size0 = 0x12000000U; //should be enought for rx560
 	add_align = max(min_align, add_align);
 
 	if (bus->self && size0 &&
