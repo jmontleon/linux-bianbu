@@ -13,7 +13,7 @@
 #include <drm/drm_fbdev_dma.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_of.h>
-#include <drm/drm_client_setup.h>
+#include <drm/clients/drm_client_setup.h>
 #include <linux/component.h>
 #include <linux/mutex.h>
 #include <linux/of_graph.h>
@@ -26,7 +26,6 @@
 
 #define DRIVER_NAME	"spacemit"
 #define DRIVER_DESC	"Spacemit SoCs' DRM Driver"
-#define DRIVER_DATE	"20231115"
 #define DRIVER_MAJOR	1
 #define DRIVER_MINOR	0
 
@@ -209,7 +208,6 @@ static struct drm_driver spacemit_drm_drv = {
 
 	.name		= DRIVER_NAME,
 	.desc			= DRIVER_DESC,
-	.date			= DRIVER_DATE,
 	.major		= DRIVER_MAJOR,
 	.minor		= DRIVER_MINOR,
 };
