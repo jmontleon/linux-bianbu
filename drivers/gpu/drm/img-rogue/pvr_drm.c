@@ -78,7 +78,6 @@
 
 #define PVR_DRM_DRIVER_NAME PVR_DRM_NAME
 #define PVR_DRM_DRIVER_DESC "Imagination Technologies PVR DRM"
-#define	PVR_DRM_DRIVER_DATE "20170530"
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 #define	PVR_DRM_DRIVER_PRIME 0
@@ -548,7 +547,6 @@ const struct drm_driver pvr_drm_generic_driver = {
 
 	.name			= PVR_DRM_DRIVER_NAME,
 	.desc			= PVR_DRM_DRIVER_DESC,
-	.date			= PVR_DRM_DRIVER_DATE,
 	.major			= PVRVERSION_MAJ,
 	.minor			= PVRVERSION_MIN,
 	.patchlevel		= PVRVERSION_BUILD,
