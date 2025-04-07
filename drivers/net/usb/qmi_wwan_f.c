@@ -1197,8 +1197,7 @@ static int qmap_register_device(sQmiWwanQmap * pDev, u8 offset_id)
 
     priv->agg_skb = NULL;
     priv->agg_count = 0;
-    hrtimer_init(&priv->agg_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-    priv->agg_hrtimer.function = rmnet_usb_tx_agg_timer_cb;
+    hrtimer_setup(&priv->agg_hrtimer, rmnet_usb_tx_agg_timer_cb, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     INIT_WORK(&priv->agg_wq, rmnet_usb_tx_agg_work);
     ktime_get_ts64(&priv->agg_time);
     spin_lock_init(&priv->agg_lock);

@@ -907,10 +907,6 @@ static unsigned int spacemit_crypto_ctxsize(struct crypto_alg *alg, u32 type, u3
 	case CRYPTO_ALG_TYPE_CIPHER:
 		len += alg->cra_ctxsize;
 		break;
-
-	case CRYPTO_ALG_TYPE_COMPRESS:
-		len += alg->cra_ctxsize;
-		break;
 	}
 
 	return len;

@@ -95,7 +95,7 @@ static void watchdog_stop(struct mvx_session *session)
 {
 	int ret;
 
-	ret = del_timer_sync(&session->watchdog_timer);
+	ret = timer_delete_sync(&session->watchdog_timer);
 
 	/* ret: 0=watchdog expired, 1=watchdog still running */
 	MVX_SESSION_DEBUG(session, "Watchdog stop. ret=%d", ret);
