@@ -827,7 +827,7 @@ static int apollo_enable_irq(struct tc_device *tc)
 static void apollo_disable_irq(struct tc_device *tc)
 {
 #if defined(TC_FAKE_INTERRUPTS)
-	del_timer_sync(&tc->timer);
+	timer_delete_sync(&tc->timer);
 #else
 	iowrite32(0, tc->tcf.registers +
 		TCF_CLK_CTRL_INTERRUPT_ENABLE);
