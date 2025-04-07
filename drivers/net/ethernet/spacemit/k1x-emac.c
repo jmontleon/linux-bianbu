@@ -2764,7 +2764,7 @@ ptp_clk_disable:
 phy_clk_disable:
 	if (priv->ref_clk_frm_soc)
 		clk_disable_unprepare(priv->phy_clk);
-	del_timer_sync(&priv->txtimer);
+	timer_delete_sync(&priv->txtimer);
 mac_clk_disable:
 	clk_disable_unprepare(priv->mac_clk);
 err_netdev:

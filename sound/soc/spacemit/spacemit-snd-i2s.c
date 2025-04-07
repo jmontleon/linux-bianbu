@@ -103,7 +103,7 @@ static int i2s_sspa_startup(struct snd_pcm_substream *substream,
 {
 	struct sspa_priv *priv = snd_soc_dai_get_drvdata(dai);
 	pm_runtime_get_sync(&priv->i2splatdev->dev);
-	i2s_sspa_set_dai_fmt(dai, SND_SOC_DAIFMT_CBS_CFS | SND_SOC_DAIFMT_I2S);
+	i2s_sspa_set_dai_fmt(dai, SND_SOC_DAIFMT_CBC_CFC | SND_SOC_DAIFMT_I2S);
 
 	return 0;
 }
@@ -164,11 +164,11 @@ static int i2s_sspa_set_dai_fmt(struct snd_soc_dai *cpu_dai,
 	}
 
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBS_CFS:
+	case SND_SOC_DAIFMT_CBC_CFC:
 		ssp_top_cfg |= TOP_SFRMDIR_M;
 		ssp_top_cfg |= TOP_SCLKDIR_M;
 		break;
-	case SND_SOC_DAIFMT_CBM_CFM:
+	case SND_SOC_DAIFMT_CBP_CFP:
 		break;
 	default:
 		return -EINVAL;

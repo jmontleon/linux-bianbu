@@ -1860,7 +1860,7 @@ static int serial_pxa_suspend(struct device *dev)
 
 #ifdef CONFIG_PM
 	/* Remove uart rx constraint which will block system entering low power state. */
-	if (del_timer_sync(&sport->pxa_timer)) {
+	if (timer_delete_sync(&sport->pxa_timer)) {
 		_pxa_timer_handler(sport);
 	}
 #endif
