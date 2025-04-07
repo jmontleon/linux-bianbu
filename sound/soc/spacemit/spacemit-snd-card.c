@@ -258,7 +258,7 @@ static int asoc_simple_card_dai_link_of(struct device_node *node,
 	if (ret < 0)
 		goto dai_link_of_err;
 
-	ret = simple_util_set_dailink_name(dev, dai_link,
+	ret = simple_util_set_dailink_name(priv, dai_link,
 					   "%s-%s",
 					   dai_link->cpus->dai_name,
 					   dai_link->codecs->dai_name);
@@ -331,7 +331,7 @@ static int asoc_simple_card_parse_of(struct device_node *node,
 			goto card_parse_end;
 	}
 
-	ret = simple_util_parse_card_name(&priv->snd_card, PREFIX);
+	ret = simple_util_parse_card_name(priv, PREFIX);
 
 card_parse_end:
 	of_node_put(dai_link);
