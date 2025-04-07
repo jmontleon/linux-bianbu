@@ -255,7 +255,7 @@ static void giveback(struct spi_driver_data *drv_data)
 	spi_finalize_current_message(drv_data->controller);
 
 	if (drv_data->slave_mode)
-		del_timer(&drv_data->slave_rx_timer);
+		timer_delete(&drv_data->slave_rx_timer);
 	complete(&drv_data->cur_msg_completion);
 }
 

@@ -1509,9 +1509,8 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 		}
 	} else { /* use hrtimer */
 		dev_info(&ts->client->dev, "No hardware irq, use hrtimer\n");
-		hrtimer_init(&ts->timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-		ts->timer.function = gtp_timer_handler;
-		hrtimer_start(&ts->timer,
+    hrtimer_setup(&ts->timer, gtp_timer_handler, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+    hrtimer_start(&ts->timer,
 			      ktime_set(0, (GTP_POLL_TIME + 6) * 1000000),
 			      HRTIMER_MODE_REL);
 		set_bit(HRTIMER_USED, &ts->flags);
