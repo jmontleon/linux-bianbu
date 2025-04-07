@@ -2882,10 +2882,14 @@ void remove_boost_sysfs_file(void)
 
 void remove_policy_boost_sysfs_file(struct cpufreq_policy *policy)
 {
+  /*
+   * FIX ME: Does anything need to happen here anymore?
+   *
 	if (cpufreq_driver->attr[CPUFREQ_BOOST_FREQ]) {
 		sysfs_remove_file(&policy->kobj,
 				&((cpufreq_driver->attr[CPUFREQ_BOOST_FREQ])->attr));
 	}
+  */
 
 	if (cpufreq_boost_supported()) {
 		sysfs_remove_file(&policy->kobj, &local_boost.attr);

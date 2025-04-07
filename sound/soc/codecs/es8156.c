@@ -336,10 +336,10 @@ static int es8156_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	struct snd_soc_component *codec = codec_dai->component;
 	/* set master/slave audio interface */
 	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM://es8156 master
+	case SND_SOC_DAIFMT_CBP_CFP://es8156 master
 		snd_soc_component_update_bits(codec, ES8156_SCLK_MODE_REG02, 0x01,0x01);
 		break;
-	case SND_SOC_DAIFMT_CBS_CFS://es8156 slave
+	case SND_SOC_DAIFMT_CBC_CFC://es8156 slave
 		snd_soc_component_update_bits(codec, ES8156_SCLK_MODE_REG02, 0x01,0x00);
 		break;
 	default:
