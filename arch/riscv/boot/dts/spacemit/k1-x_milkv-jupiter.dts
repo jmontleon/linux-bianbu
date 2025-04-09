@@ -14,6 +14,7 @@
 #include "k1-x_thermal_cooling.dtsi"
 
 / {
+	compatible = "milkv,jupiter", "spacemit,k1-x";
 	model = "Milk-V Jupiter";
 	modules_usrload = "8852bs";
 
