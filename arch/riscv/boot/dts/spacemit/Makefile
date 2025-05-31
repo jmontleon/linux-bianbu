@@ -10,5 +10,5 @@ dtb-$(CONFIG_SOC_SPACEMIT_K1X) += k1-x_fpga.dtb k1-x_fpga_1x4.dtb k1-x_fpga_2x2.
 				  k1-x_MUSE-Paper.dtb k1-x_MUSE-Paper-mini-4g.dtb \
 				  k1-x_baton-camera.dtb k1-x_FusionOne.dtb k1-x_orangepi-rv2.dtb \
 				  k1-x_ZT001H.dtb k1-x_uav.dtb k1-x_bit-brick.dtb x1_orangepi-rv2.dtb \
-				  k1-x_orangepi-r2s.dtb x1_orangepi-r2s.dtb
+				  k1-x_orangepi-r2s.dtb x1_orangepi-r2s.dtb k1-x_cm6.dtb
 obj-$(CONFIG_BUILTIN_DTB) += $(addsuffix .o, $(dtb-y))
