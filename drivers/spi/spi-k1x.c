@@ -423,7 +423,7 @@ static irqreturn_t ssp_int(int irq, void *dev_id)
 }
 
 static void slave_rx_timer_expired(struct timer_list *t) {
-	struct spi_driver_data *drv_data = from_timer(drv_data, t, slave_rx_timer);
+	struct spi_driver_data *drv_data = timer_container_of(drv_data, t, slave_rx_timer);
 #ifdef CONFIG_K1X_SSP_DEBUG
 	pr_err("%s\n", __func__);
 	pr_err("spi top = 0x%x\n", k1x_spi_read(drv_data, TOP_CTRL));
