@@ -335,7 +335,7 @@ int setup_io_region(struct pci_dev *pdev,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
 void tc_irq_fake_wrapper(struct timer_list *t)
 {
-	struct tc_device *tc = from_timer(tc, t, timer);
+	struct tc_device *tc = timer_container_of(tc, t, timer);
 #else
 void tc_irq_fake_wrapper(unsigned long data)
 {

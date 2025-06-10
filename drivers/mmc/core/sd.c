@@ -1531,7 +1531,7 @@ retry:
 		card->sw_caps.sd3_bus_mode &= ~SD_MODE_UHS_SDR104;
 #endif
  	/* Initialization sequence for UHS-I cards */
- 	if (rocr & SD_ROCR_S18A && mmc_host_uhs(host)) {
+ 	if (rocr & SD_ROCR_S18A && mmc_host_can_uhs(host)) {
  		err = mmc_sd_init_uhs_card(card);
 #ifdef CONFIG_SOC_SPACEMIT_K1X
 		if (err && err == -EIO) {
