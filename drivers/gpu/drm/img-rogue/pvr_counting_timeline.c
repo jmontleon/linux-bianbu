@@ -121,8 +121,6 @@ pvr_counting_fence_timeline_debug_request(void *data, u32 verbosity,
 				  value, timeline->current_value);
 		list_for_each_entry(obj, &timeline->active_fences,
 				    active_list_entry) {
-			obj->fence->ops->fence_value_str(obj->fence,
-							 value, sizeof(value));
 			PVR_DUMPDEBUG_LOG(pfnDumpDebugPrintf, pvDumpDebugFile,
 					  " @%s: val=%llu", value, obj->value);
 		}
