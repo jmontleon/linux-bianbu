@@ -720,7 +720,7 @@ struct rtw_timer_list {
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0))
 static inline void timer_hdl(struct timer_list *in_timer)
 {
-	_timer *ptimer = from_timer(ptimer, in_timer, timer);
+	_timer *ptimer = timer_container_of(ptimer, in_timer, timer);
 
 	ptimer->function(ptimer->arg);
 }

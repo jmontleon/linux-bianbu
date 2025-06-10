@@ -1427,7 +1427,7 @@ static void OSTimerCallbackBody(TIMER_CALLBACK_DATA *psTimerCBData)
 */ /**************************************************************************/
 static void OSTimerCallbackWrapper(struct timer_list *psTimer)
 {
-	TIMER_CALLBACK_DATA *psTimerCBData = from_timer(psTimerCBData, psTimer, sTimer);
+	TIMER_CALLBACK_DATA *psTimerCBData = timer_container_of(psTimerCBData, psTimer, sTimer);
 #else
 /*************************************************************************/ /*!
 @Function       OSTimerCallbackWrapper

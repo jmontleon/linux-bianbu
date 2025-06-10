@@ -1915,7 +1915,7 @@ static void _pxa_timer_handler(struct uart_pxa_port *up)
 
 static void pxa_timer_handler(struct timer_list *t)
 {
-	struct uart_pxa_port *up = from_timer(up, t, pxa_timer);
+	struct uart_pxa_port *up = timer_container_of(up, t, pxa_timer);
 
 	_pxa_timer_handler(up);
 }

@@ -392,7 +392,7 @@ static void emac_tx_coal_timer_resched(struct emac_priv *priv)
 
 static void emac_tx_coal_timer(struct timer_list *t)
 {
-	struct emac_priv *priv = from_timer(priv, t, txtimer);
+	struct emac_priv *priv = timer_container_of(priv, t, txtimer);
 
 	if (likely(napi_schedule_prep(&priv->napi)))
 		__napi_schedule(&priv->napi);
