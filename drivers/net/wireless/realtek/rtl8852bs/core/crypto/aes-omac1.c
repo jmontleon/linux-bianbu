@@ -81,12 +81,12 @@ int omac1_aes_vector(const u8 *key, size_t key_len, size_t num_elem,
 			}
 		}
 		if (left > AES_BLOCK_SIZE)
-			aes_encrypt(ctx, cbc, cbc);
+			aes_encrypt_rtl8852bs_internal(ctx, cbc, cbc);
 		left -= AES_BLOCK_SIZE;
 	}
 
 	os_memset(pad, 0, AES_BLOCK_SIZE);
-	aes_encrypt(ctx, pad, pad);
+	aes_encrypt_rtl8852bs_internal(ctx, pad, pad);
 	gf_mulx(pad);
 
 	if (left || total_len == 0) {
@@ -110,7 +110,7 @@ int omac1_aes_vector(const u8 *key, size_t key_len, size_t num_elem,
 
 	for (i = 0; i < AES_BLOCK_SIZE; i++)
 		pad[i] ^= cbc[i];
-	aes_encrypt(ctx, pad, mac);
+	aes_encrypt_rtl8852bs_internal(ctx, pad, mac);
 	aes_encrypt_deinit(ctx);
 	return 0;
 }
