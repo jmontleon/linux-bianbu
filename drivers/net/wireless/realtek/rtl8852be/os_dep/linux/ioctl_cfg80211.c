@@ -247,8 +247,10 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter,
 
 	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 	if (started) {
+		#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 		mutex_lock(&ndev->ieee80211_ptr->mtx);
-		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)) || defined(CONFIG_MLD_KERNEL_PATCH)
+		#endif
+		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)) || defined(CONFIG_MLD_KERNEL_PATCH)
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, link_id, 0, false, punct_bitmap);
 		#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, link_id, 0, false);
@@ -264,7 +266,9 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter,
 		#else
 		cfg80211_ch_switch_started_notify(adapter->pnetdev, &chdef, 0);
 		#endif
+		#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 		mutex_unlock(&ndev->ieee80211_ptr->mtx);
+		#endif
 		goto exit;
 	}
 	#endif
@@ -272,8 +276,10 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter,
 	if (!rtw_cfg80211_allow_ch_switch_notify(adapter))
 		goto exit;
 
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 	mutex_lock(&ndev->ieee80211_ptr->mtx);
-	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)) || defined(CONFIG_MLD_KERNEL_PATCH)
+	#endif
+	#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)) && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)) || defined(CONFIG_MLD_KERNEL_PATCH)
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef, link_id, punct_bitmap);
 	#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 2))
 	/* ToDo CONFIG_RTW_MLD */
@@ -281,7 +287,9 @@ u8 rtw_cfg80211_ch_switch_notify(_adapter *adapter,
 	#else
 	cfg80211_ch_switch_notify(adapter->pnetdev, &chdef);
 	#endif
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 	mutex_unlock(&ndev->ieee80211_ptr->mtx);
+	#endif
 
 #else
 	int freq = rtw_bch2freq(rtw_chdef->band, rtw_chdef->chan);
@@ -4648,6 +4656,9 @@ static int cfg80211_rtw_get_txpower(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
 	struct wireless_dev *wdev,
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 14, 0))
+	unsigned int link_id,
+#endif
 	int *dbm)
 {
 	RTW_INFO("%s\n", __func__);
@@ -5694,8 +5705,14 @@ static int rtw_cfg80211_set_beacon_ies(struct net_device *net, const u8 *head,
 }
 
 static int cfg80211_rtw_change_beacon(struct wiphy *wiphy, struct net_device *ndev,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0))
+		struct cfg80211_ap_update *params)
+{
+	struct cfg80211_beacon_data *info = &params->beacon;
+#else
 		struct cfg80211_beacon_data *info)
 {
+#endif
 	int ret = 0;
 	_adapter *adapter = (_adapter *)rtw_netdev_priv(ndev);
 
@@ -6678,7 +6695,10 @@ static void rtw_get_chbwoff_from_cfg80211_chan_def(
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)) */
 
 static int cfg80211_rtw_set_monitor_channel(struct wiphy *wiphy
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0))
+	, struct net_device *dev
+	, struct cfg80211_chan_def *chandef
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
 	, struct cfg80211_chan_def *chandef
 #else
 	, struct ieee80211_channel *chan
