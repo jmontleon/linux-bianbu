@@ -1,9 +1,9 @@
 
 include $(srctree)/drivers/gpu/drm/img-rogue/config_kernel.mk
-ccflags-y += -include $(srctree)/drivers/gpu/drm/img-rogue/config_kernel.h \
- -I$(srctree)/$(src)/km \
- -I$(srctree)/$(src)/spacemit \
- -I$(srctree)/$(src)
+subdir-ccflags-y += -include $(srctree)/drivers/gpu/drm/img-rogue/config_kernel.h \
+ -I$(src)/km \
+ -I$(src)/spacemit \
+ -I$(src)
 
 obj-$(CONFIG_POWERVR_ROGUE) += pvrsrvkm.o
 pvrsrvkm-y += \

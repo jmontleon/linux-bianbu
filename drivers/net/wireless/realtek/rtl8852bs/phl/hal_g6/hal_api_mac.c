@@ -1125,74 +1125,71 @@ void hal_mac_msg_print(void *p, u8 dbg_level, s8 *fmt, ...)
 #endif
 }
 
-struct mac_ax_pltfm_cb rtw_plt_cb = {0};
-void rtw_plt_cb_init(void)
-{
+static const struct mac_ax_pltfm_cb rtw_plt_cb = {
 	/* R/W register */
 #ifdef CONFIG_SDIO_HCI
-	rtw_plt_cb.sdio_cmd52_r8 = hal_mac_sdio_cmd52_r8;
-	rtw_plt_cb.sdio_cmd53_r8 = hal_mac_sdio_cmd53_r8;
-	rtw_plt_cb.sdio_cmd53_r16 = hal_mac_sdio_cmd53_r16;
-	rtw_plt_cb.sdio_cmd53_r32 = hal_mac_sdio_cmd53_r32;
-	rtw_plt_cb.sdio_cmd53_rn = hal_mac_sdio_cmd53_rn;
-	rtw_plt_cb.sdio_cmd52_w8 = hal_mac_sdio_cmd52_w8;
-	rtw_plt_cb.sdio_cmd53_w8 = hal_mac_sdio_cmd53_w8;
-	rtw_plt_cb.sdio_cmd53_w16 = hal_mac_sdio_cmd53_w16;
-	rtw_plt_cb.sdio_cmd53_w32 = hal_mac_sdio_cmd53_w32;
-	rtw_plt_cb.sdio_cmd53_wn = hal_mac_sdio_cmd53_wn;
-	rtw_plt_cb.sdio_cmd52_cia_r8 = hal_mac_sdio_cmd52_cia_r8;
+	.sdio_cmd52_r8 = hal_mac_sdio_cmd52_r8,
+	.sdio_cmd53_r8 = hal_mac_sdio_cmd53_r8,
+	.sdio_cmd53_r16 = hal_mac_sdio_cmd53_r16,
+	.sdio_cmd53_r32 = hal_mac_sdio_cmd53_r32,
+	.sdio_cmd53_rn = hal_mac_sdio_cmd53_rn,
+	.sdio_cmd52_w8 = hal_mac_sdio_cmd52_w8,
+	.sdio_cmd53_w8 = hal_mac_sdio_cmd53_w8,
+	.sdio_cmd53_w16 = hal_mac_sdio_cmd53_w16,
+	.sdio_cmd53_w32 = hal_mac_sdio_cmd53_w32,
+	.sdio_cmd53_wn = hal_mac_sdio_cmd53_wn,
+	.sdio_cmd52_cia_r8 = hal_mac_sdio_cmd52_cia_r8,
 #endif /* CONFIG_SDIO_HCI */
 
 #if defined(CONFIG_USB_HCI) || defined(CONFIG_PCI_HCI)
-	rtw_plt_cb.reg_r8 = hal_mac_reg_r8;
-	rtw_plt_cb.reg_r16 = hal_mac_reg_r16;
-	rtw_plt_cb.reg_r32 = hal_mac_reg_r32;
-	rtw_plt_cb.reg_w8 = hal_mac_reg_w8;
-	rtw_plt_cb.reg_w16 = hal_mac_reg_w16;
-	rtw_plt_cb.reg_w32 = hal_mac_reg_w32;
+	.reg_r8 = hal_mac_reg_r8,
+	.reg_r16 = hal_mac_reg_r16,
+	.reg_r32 = hal_mac_reg_r32,
+	.reg_w8 = hal_mac_reg_w8,
+	.reg_w16 = hal_mac_reg_w16,
+	.reg_w32 = hal_mac_reg_w32,
 #endif /* CONFIG_USB_HCI || CONFIG_PCI_HCI */
 
 	/* Memory allocate */
-	rtw_plt_cb.rtl_free = hal_mac_mem_free;
-	rtw_plt_cb.rtl_malloc = hal_mac_mem_alloc;
-	rtw_plt_cb.rtl_memcpy = hal_mac_mem_cpy;
-	rtw_plt_cb.rtl_memset = hal_mac_mem_set;
-	rtw_plt_cb.rtl_memcmp = hal_mac_mem_cmp;
+	.rtl_free = hal_mac_mem_free,
+	.rtl_malloc = hal_mac_mem_alloc,
+	.rtl_memcpy = hal_mac_mem_cpy,
+	.rtl_memset = hal_mac_mem_set,
+	.rtl_memcmp = hal_mac_mem_cmp,
 	/* Delay */
-	rtw_plt_cb.rtl_delay_us = hal_mac_udelay;
-	rtw_plt_cb.rtl_delay_ms = hal_mac_mdelay;
+	.rtl_delay_us = hal_mac_udelay,
+	.rtl_delay_ms = hal_mac_mdelay,
 	/* Sleep */
-	rtw_plt_cb.rtl_sleep_us = hal_mac_usleep;
-	rtw_plt_cb.rtl_sleep_ms = hal_mac_msleep;
+	.rtl_sleep_us = hal_mac_usleep,
+	.rtl_sleep_ms = hal_mac_msleep,
 
 	/* Process Synchronization */
-	rtw_plt_cb.rtl_mutex_init = hal_mac_mutex_init;
-	rtw_plt_cb.rtl_mutex_deinit = hal_mac_mutex_deinit;
-	rtw_plt_cb.rtl_mutex_lock = hal_mac_mutex_lock;
-	rtw_plt_cb.rtl_mutex_unlock = hal_mac_mutex_unlock;
+	.rtl_mutex_init = hal_mac_mutex_init,
+	.rtl_mutex_deinit = hal_mac_mutex_deinit,
+	.rtl_mutex_lock = hal_mac_mutex_lock,
+	.rtl_mutex_unlock = hal_mac_mutex_unlock,
 
-	rtw_plt_cb.msg_print = hal_mac_msg_print;
-	rtw_plt_cb.event_notify = hal_mac_event_notify;
-	rtw_plt_cb.ser_l2_notify = hal_ser_l2_notify;
-	rtw_plt_cb.ld_fw_symbol = hal_mac_ld_fw_symbol;
-	rtw_plt_cb.get_chip_id = hal_mac_get_chip_id;
+	.msg_print = hal_mac_msg_print,
+	.event_notify = hal_mac_event_notify,
+	.ser_l2_notify = hal_ser_l2_notify,
+	.ld_fw_symbol = hal_mac_ld_fw_symbol,
+	.get_chip_id = hal_mac_get_chip_id,
 
-	/*.tx = ;	*/
+	/*.tx = ,	*/
 #if MAC_AX_PHL_H2C
-	rtw_plt_cb.tx = hal_pltfm_tx;
-	rtw_plt_cb.rtl_query_h2c = hal_query_h2c_pkt;
+	.tx = hal_pltfm_tx,
+	.rtl_query_h2c = hal_query_h2c_pkt,
 #endif
 #if MAC_AX_FEATURE_DBGCMD
-	rtw_plt_cb.rtl_sprintf = hal_mac_sprintf;
-	rtw_plt_cb.rtl_strcmp = hal_mac_strcmp;
-	rtw_plt_cb.rtl_strsep = hal_mac_strsep;
-	rtw_plt_cb.rtl_strlen = hal_mac_strlen;
-	rtw_plt_cb.rtl_strcpy = hal_mac_strcpy;
-	rtw_plt_cb.rtl_strpbrk = hal_mac_strpbrk;
-	rtw_plt_cb.rtl_strtoul = hal_mac_strtoul;
+	.rtl_sprintf = hal_mac_sprintf,
+	.rtl_strcmp = hal_mac_strcmp,
+	.rtl_strsep = hal_mac_strsep,
+	.rtl_strlen = hal_mac_strlen,
+	.rtl_strcpy = hal_mac_strcpy,
+	.rtl_strpbrk = hal_mac_strpbrk,
+	.rtl_strtoul = hal_mac_strtoul,
 #endif
-}
-
+};
 
 #endif /*CONFIG_NEW_HALMAC_INTERFACE*/
 
@@ -1311,7 +1308,6 @@ u32 rtw_hal_mac_init(struct rtw_phl_com_t *phl_com,
 			(phl_com->hci_type ==  RTW_HCI_GSPI))
 			intf = MAC_AX_INTF_SDIO;
 
-		rtw_plt_cb_init();
 		status = mac_ax_ops_init(hal_com,
 				&rtw_plt_cb, intf, &mac, &mac_ops);
 		#if MAC_AX_PHL_H2C

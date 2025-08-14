@@ -2428,18 +2428,18 @@ enum rtw_phl_status phl_register_ps_module(struct phl_info_t *phl_info)
 {
 	enum rtw_phl_status phl_status = RTW_PHL_STATUS_FAILURE;
 	struct phl_cmd_dispatch_engine *disp_eng = &(phl_info->disp_eng);
-	struct phl_bk_module_ops bk_ops = {0};
+	static const struct phl_bk_module_ops bk_ops = {
+		.init = _ps_mdl_init,
+		.deinit = _ps_mdl_deinit,
+		.start = _ps_mdl_start,
+		.stop = _ps_mdl_stop,
+		.msg_hdlr = _ps_mdl_msg_hdlr,
+		.set_info = _ps_mdl_set_info,
+		.query_info = _ps_mdl_query_info,
+	};
 	u8 i = 0;
 
 	PHL_INFO("[PS_CMD], %s(): \n", __func__);
-
-	bk_ops.init = _ps_mdl_init;
-	bk_ops.deinit = _ps_mdl_deinit;
-	bk_ops.start = _ps_mdl_start;
-	bk_ops.stop = _ps_mdl_stop;
-	bk_ops.msg_hdlr = _ps_mdl_msg_hdlr;
-	bk_ops.set_info = _ps_mdl_set_info;
-	bk_ops.query_info = _ps_mdl_query_info;
 
 	for (i = 0; i < disp_eng->phy_num; i++) {
 		phl_status = phl_disp_eng_register_module(phl_info, i,

@@ -265,30 +265,18 @@ static int cw_init(struct cw_battery *cw_bat)
 }
 
 /*Functions:< check_chrg_usb_psy check_chrg_ac_psy get_chrg_psy get_charge_state > for Get Charger Status from outside*/
-static int check_chrg_usb_psy(struct device *dev, void *data)
+static int check_chrg_usb_psy(struct power_supply *psy, void *data)
 {
-    struct power_supply *psy = dev_get_drvdata(dev);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
-	if (psy->type == POWER_SUPPLY_TYPE_USB) {
-#else
 	if (psy->desc->type == POWER_SUPPLY_TYPE_USB) {
-#endif
 		chrg_usb_psy = psy;
 		return 1;
 	}
 	return 0;
 }
 
-static int check_chrg_ac_psy(struct device *dev, void *data)
+static int check_chrg_ac_psy(struct power_supply *psy, void *data)
 {
-	struct power_supply *psy = dev_get_drvdata(dev);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
-	if (psy->type == POWER_SUPPLY_TYPE_MAINS) {
-#else
 	if (psy->desc->type == POWER_SUPPLY_TYPE_MAINS) {
-#endif
 		chrg_ac_psy = psy;
 		return 1;
 	}
@@ -298,9 +286,9 @@ static int check_chrg_ac_psy(struct device *dev, void *data)
 static void get_chrg_psy(void)
 {
 	if(!chrg_usb_psy)
-		class_for_each_device(power_supply_class, NULL, NULL, check_chrg_usb_psy);
+		power_supply_for_each_psy(NULL, check_chrg_usb_psy);
 	if(!chrg_ac_psy)
-		class_for_each_device(power_supply_class, NULL, NULL, check_chrg_ac_psy);
+		power_supply_for_each_psy(NULL, check_chrg_ac_psy);
 }
 
 static int get_charge_state(void)
