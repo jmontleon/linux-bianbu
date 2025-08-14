@@ -33,21 +33,21 @@
 const u32 coex_ver = 0x07080413;
 
 static struct btc_ops _btc_ops = {
-	_send_fw_cmd,
-	_ntfy_power_on,
-	_ntfy_power_off,
-	_ntfy_init_coex,
-	_ntfy_scan_start,
-	_ntfy_scan_finish,
-	_ntfy_switch_band,
-	_ntfy_specific_packet,
-	_ntfy_role_info,
-	_ntfy_radio_state,
-	_ntfy_customerize,
-	_ntfy_wl_rfk,
-	_ntfy_wl_sta,
-	_ntfy_fwinfo,
-	_ntfy_timer
+	.fw_cmd = _send_fw_cmd,
+	.ntfy_power_on = _ntfy_power_on,
+	.ntfy_power_off = _ntfy_power_off,
+	.ntfy_init_coex = _ntfy_init_coex,
+	.ntfy_scan_start = _ntfy_scan_start,
+	.ntfy_scan_finish = _ntfy_scan_finish,
+	.ntfy_switch_band = _ntfy_switch_band,
+	.ntfy_specific_packet = _ntfy_specific_packet,
+	.ntfy_role_info = _ntfy_role_info,
+	.ntfy_radio_state = _ntfy_radio_state,
+	.ntfy_customerize = _ntfy_customerize,
+	.ntfy_wl_rfk = _ntfy_wl_rfk,
+	.ntfy_wl_sta = _ntfy_wl_sta,
+	.ntfy_fwinfo = _ntfy_fwinfo,
+	.ntfy_timer = _ntfy_timer,
 };
 
 #define _update_dbcc_band(phy_idx) \

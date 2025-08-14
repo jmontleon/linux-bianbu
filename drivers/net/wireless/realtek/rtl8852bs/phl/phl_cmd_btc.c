@@ -872,18 +872,18 @@ enum rtw_phl_status phl_register_btc_module(struct phl_info_t *phl_info)
 {
 	enum rtw_phl_status sts = RTW_PHL_STATUS_FAILURE;
 	struct phl_cmd_dispatch_engine *disp_eng = &(phl_info->disp_eng);
-	struct phl_bk_module_ops bk_ops = {0};
+	static const struct phl_bk_module_ops bk_ops = {
+		.init = _btc_cmd_init,
+		.deinit = _btc_cmd_deinit,
+		.start = _btc_cmd_start,
+		.stop = _btc_cmd_stop,
+		.msg_hdlr = _btc_msg_hdlr,
+		.set_info = _btc_set_info,
+		.query_info = _btc_query_info,
+	};
 	u8 i = 0;
 
 	PHL_INFO("[BTCCMD], %s(): \n", __func__);
-
-	bk_ops.init = _btc_cmd_init;
-	bk_ops.deinit = _btc_cmd_deinit;
-	bk_ops.start = _btc_cmd_start;
-	bk_ops.stop = _btc_cmd_stop;
-	bk_ops.msg_hdlr = _btc_msg_hdlr;
-	bk_ops.set_info = _btc_set_info;
-	bk_ops.query_info = _btc_query_info;
 
 	for (i = 0; i < disp_eng->phy_num; i++) {
 		sts = phl_disp_eng_register_module(phl_info, i, PHL_MDL_BTC,
