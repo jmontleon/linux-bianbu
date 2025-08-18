@@ -111,7 +111,7 @@ static int k1x_gpio_get(struct gpio_chip *chip, unsigned offset)
 	return !!(gplr & bit);
 }
 
-static void k1x_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
+static int  k1x_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
 	struct k1x_gpio_chip *k1x_chip =
 			container_of(chip, struct k1x_gpio_chip, chip);
@@ -124,6 +124,8 @@ static void k1x_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	/* Is it configured as output? */
 	if (gpdr & bit)
 		writel(bit, bank->reg_bank + (value ? GPSR : GPCR));
+
+  return 0;
 }
 
 #ifdef CONFIG_OF_GPIO
