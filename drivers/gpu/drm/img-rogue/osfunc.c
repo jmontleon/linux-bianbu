@@ -69,7 +69,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/utsname.h>
 #include <linux/scatterlist.h>
 #include <linux/interrupt.h>
-#include <linux/pfn_t.h>
 #include <linux/pfn.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0))
 #include <linux/sched/clock.h>

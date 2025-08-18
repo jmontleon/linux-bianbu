@@ -174,7 +174,7 @@ static int spacemit_gpio_get_direction(struct gpio_chip *chip,
 		return -EINVAL;
 }
 
-static void spacemit_gpio_set(struct gpio_chip *chip, unsigned int offset,
+static int  spacemit_gpio_set(struct gpio_chip *chip, unsigned int offset,
 			    int value)
 {
 	int ret;
@@ -186,6 +186,8 @@ static void spacemit_gpio_set(struct gpio_chip *chip, unsigned int offset,
 			value ? pctl->config_desc[offset].output.msk : 0);
 	if (ret)
 		dev_err(pctl->dev, "set PIN%d, val:%d, failed\n", offset, value);
+
+	return ret;
 }
 
 static int spacemit_gpio_input(struct gpio_chip *chip, unsigned int offset)
@@ -376,7 +378,7 @@ static int spacemit_pmic_pinctrl_probe(struct platform_device *pdev)
 	pctl->chip.owner		= THIS_MODULE;
 	pctl->chip.get			= spacemit_gpio_get;
 	pctl->chip.get_direction	= spacemit_gpio_get_direction;
-	pctl->chip.set			= spacemit_gpio_set;
+	pctl->chip.set  		= spacemit_gpio_set;
 	pctl->chip.direction_input	= spacemit_gpio_input;
 	pctl->chip.direction_output	= spacemit_gpio_output;
 
