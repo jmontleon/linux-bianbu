@@ -176,7 +176,7 @@ static int sbs_charger_probe(struct platform_device *pdev)
 	}
 
 	psy_cfg.drv_data = info;
-	psy_cfg.of_node = pdev->dev.of_node;
+	psy_cfg.fwnode = dev_fwnode(&pdev->dev);
 
 	info->charger = devm_power_supply_register(&pdev->dev,
 						   &sbs_charger_desc, &psy_cfg);

@@ -1588,11 +1588,6 @@ static int spacemit_sdhci_probe(struct platform_device *pdev)
 	spacemit->clk_io = devm_clk_get(dev, "sdh-io");
 	if (IS_ERR(spacemit->clk_io))
 		spacemit->clk_io = devm_clk_get(dev, NULL);
-	if (IS_ERR(spacemit->clk_io)) {
-		dev_err(dev, "failed to get io clock\n");
-		ret = PTR_ERR(spacemit->clk_io);
-		goto err_clk_get;
-	}
 	pltfm_host->clk = spacemit->clk_io;
 	clk_prepare_enable(spacemit->clk_io);
 
@@ -1726,8 +1721,6 @@ err_rst_get:
 		clk_disable_unprepare(spacemit->clk_aib);
 	clk_disable_unprepare(spacemit->clk_io);
 	clk_disable_unprepare(spacemit->clk_core);
-err_clk_get:
-	sdhci_pltfm_free(pdev);
 	return ret;
 }
 
@@ -1757,7 +1750,6 @@ static void spacemit_sdhci_remove(struct platform_device *pdev)
 #endif
 	}
 
-	sdhci_pltfm_free(pdev);
 }
 
 #ifdef CONFIG_PM_SLEEP

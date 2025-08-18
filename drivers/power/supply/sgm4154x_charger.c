@@ -749,7 +749,7 @@ static int sgm4154x_power_supply_init(struct sgm4154x_device *sgm,
 							struct device *dev)
 {
 	struct power_supply_config psy_cfg = { .drv_data = sgm,
-						.of_node = dev->of_node, };
+						.fwnode = dev_fwnode(dev), };
 
 	psy_cfg.supplied_to = sgm4154x_charger_supplied_to;
 	psy_cfg.num_supplicants = ARRAY_SIZE(sgm4154x_charger_supplied_to);

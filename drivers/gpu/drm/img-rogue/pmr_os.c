@@ -45,7 +45,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 #include <linux/version.h>
-#include <linux/pfn_t.h>
 #include <linux/pfn.h>
 
 #include "img_defs.h"
@@ -88,6 +87,46 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #if defined(CONFIG_X86) || defined(PVR_MMAP_USE_VM_INSERT)
 #define PMR_OS_USE_VM_INSERT_PAGE 1
 #endif
+
+#define PFN_FLAGS_MASK (((u64) (~PAGE_MASK)) << (BITS_PER_LONG_LONG - PAGE_SHIFT))
+
+typedef struct {
+	u64 val;
+} pfn_t;
+
+static inline pfn_t __pfn_to_pfn_t(unsigned long pfn, u64 flags)
+{
+	pfn_t pfn_t = { .val = pfn | (flags & PFN_FLAGS_MASK), };
+
+	return pfn_t;
+}
+
+static inline pfn_t phys_to_pfn_t(phys_addr_t addr, u64 flags)
+{
+	return __pfn_to_pfn_t(addr >> PAGE_SHIFT, flags);
+}
+
+static inline bool pfn_t_has_page(pfn_t pfn)
+{
+	return true;
+}
+
+static inline unsigned long pfn_t_to_pfn(pfn_t pfn)
+{
+	return pfn.val & ~PFN_FLAGS_MASK;
+}
+
+static inline struct page *pfn_t_to_page(pfn_t pfn)
+{
+	if (pfn_t_has_page(pfn))
+		return pfn_to_page(pfn_t_to_pfn(pfn));
+	return NULL;
+}
+
+static inline int pfn_t_valid(pfn_t pfn)
+{
+	return pfn_valid(pfn_t_to_pfn(pfn));
+}
 
 static void MMapPMROpen(struct vm_area_struct *ps_vma)
 {
@@ -241,7 +280,7 @@ static INLINE int _OSMMapPMR(PVRSRV_DEVICE_NODE *psDevNode,
 
 			vmf = vmf_insert_mixed(ps_vma,
 									ps_vma->vm_start + uiOffset,
-									sPFN);
+									pfn_t_to_pfn(sPFN));
 			if (vmf & VM_FAULT_ERROR)
 			{
 				iStatus = vm_fault_to_errno(vmf, 0);

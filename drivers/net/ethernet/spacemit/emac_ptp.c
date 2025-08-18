@@ -180,7 +180,7 @@ static u64 emac_hw_get_rx_timestamp(struct emac_priv *priv)
  * emac_cyclecounter_read - read raw cycle counter (used by time counter)
  * @cc: cyclecounter structure
  **/
-static u64 emac_cyclecounter_read(const struct cyclecounter *cc)
+static u64 emac_cyclecounter_read(struct cyclecounter *cc)
 {
 	struct emac_priv *priv = container_of(cc, struct emac_priv, cc);
 
