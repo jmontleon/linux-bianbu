@@ -1125,9 +1125,9 @@ err_unsupported:
 static void _GpuTraceProcessPackets(PVRSRV_RGXDEV_INFO *psDevInfo, void *pBuffer,
                                     IMG_UINT32 ui32ReadLen)
 {
-	IMG_UINT32			ui32TlPackets = 0;
-	IMG_UINT32			ui32HWPerfPackets = 0;
-	IMG_UINT32			ui32HWPerfPacketsSent = 0;
+	IMG_UINT32 __maybe_unused	ui32TlPackets = 0;
+	IMG_UINT32 __maybe_unused	ui32HWPerfPackets = 0;
+	IMG_UINT32 __maybe_unused	ui32HWPerfPacketsSent = 0;
 	void				*pBufferEnd;
 	PVRSRVTL_PPACKETHDR psHDRptr;
 	PVRSRVTL_PACKETTYPE ui16TlType;

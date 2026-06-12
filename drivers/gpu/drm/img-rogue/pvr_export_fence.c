@@ -140,8 +140,8 @@ pvr_exp_fence_context_signal_fences(void *data)
 	struct pvr_exp_fence_context *fctx = (struct pvr_exp_fence_context *)data;
 	struct pvr_exp_fence *pvr_exp_fence, *tmp;
 	unsigned long flags1;
-	int chkpt_ct = 0;
-	int chkpt_sig_ct = 0;
+	int chkpt_ct __maybe_unused = 0;
+	int chkpt_sig_ct __maybe_unused = 0;
 
 	LIST_HEAD(signal_list);
 
